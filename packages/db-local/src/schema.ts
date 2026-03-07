@@ -6,13 +6,7 @@
  * definitions, constraints, and indexes.
  */
 
-import {
-  sqliteTable,
-  text,
-  integer,
-  uniqueIndex,
-  index,
-} from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // 001 — Core tables
@@ -85,10 +79,9 @@ export const employees = sqliteTable(
     source_package_id: text('source_package_id'),
     name: text('name').notNull(),
     role_slug: text('role_slug').notNull(),
-    workstation_id: text('workstation_id').references(
-      () => workstations.workstation_id,
-      { onDelete: 'set null' },
-    ),
+    workstation_id: text('workstation_id').references(() => workstations.workstation_id, {
+      onDelete: 'set null',
+    }),
     persona_json: text('persona_json'),
     config_json: text('config_json'),
     enabled: integer('enabled').notNull().default(1),
@@ -121,12 +114,7 @@ export const installTransactions = sqliteTable(
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },
-  (table) => [
-    index('idx_install_transactions_company').on(
-      table.company_id,
-      table.started_at,
-    ),
-  ],
+  (table) => [index('idx_install_transactions_company').on(table.company_id, table.started_at)],
 );
 
 export const installedPackages = sqliteTable(
@@ -177,10 +165,7 @@ export const installedAssets = sqliteTable(
     updated_at: text('updated_at').notNull(),
   },
   (table) => [
-    uniqueIndex('installed_assets_pkg_asset').on(
-      table.installed_package_id,
-      table.asset_id,
-    ),
+    uniqueIndex('installed_assets_pkg_asset').on(table.installed_package_id, table.asset_id),
     index('idx_installed_assets_pkg').on(table.installed_package_id),
   ],
 );
@@ -193,10 +178,9 @@ export const assetBindings = sqliteTable(
       () => installedAssets.installed_asset_id,
       { onDelete: 'cascade' },
     ),
-    install_txn_id: text('install_txn_id').references(
-      () => installTransactions.install_txn_id,
-      { onDelete: 'cascade' },
-    ),
+    install_txn_id: text('install_txn_id').references(() => installTransactions.install_txn_id, {
+      onDelete: 'cascade',
+    }),
     binding_type: text('binding_type').notNull(),
     binding_key: text('binding_key').notNull(),
     binding_value_json: text('binding_value_json'),
@@ -224,9 +208,7 @@ export const graphThreads = sqliteTable(
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
-  (table) => [
-    index('idx_graph_threads_company').on(table.company_id, table.created_at),
-  ],
+  (table) => [index('idx_graph_threads_company').on(table.company_id, table.created_at)],
 );
 
 export const graphCheckpoints = sqliteTable(
@@ -242,14 +224,8 @@ export const graphCheckpoints = sqliteTable(
     created_at: text('created_at').notNull(),
   },
   (table) => [
-    uniqueIndex('graph_checkpoints_thread_seq').on(
-      table.thread_id,
-      table.checkpoint_seq,
-    ),
-    index('idx_graph_checkpoints_thread').on(
-      table.thread_id,
-      table.checkpoint_seq,
-    ),
+    uniqueIndex('graph_checkpoints_thread_seq').on(table.thread_id, table.checkpoint_seq),
+    index('idx_graph_checkpoints_thread').on(table.thread_id, table.checkpoint_seq),
   ],
 );
 
@@ -260,10 +236,9 @@ export const taskRuns = sqliteTable(
     thread_id: text('thread_id')
       .notNull()
       .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
-    employee_id: text('employee_id').references(
-      () => employees.employee_id,
-      { onDelete: 'set null' },
-    ),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'set null',
+    }),
     parent_task_run_id: text('parent_task_run_id'),
     task_type: text('task_type').notNull(),
     status: text('status').notNull(),
@@ -302,14 +277,12 @@ export const handoffEvents = sqliteTable('handoff_events', {
   thread_id: text('thread_id')
     .notNull()
     .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
-  from_employee_id: text('from_employee_id').references(
-    () => employees.employee_id,
-    { onDelete: 'set null' },
-  ),
-  to_employee_id: text('to_employee_id').references(
-    () => employees.employee_id,
-    { onDelete: 'set null' },
-  ),
+  from_employee_id: text('from_employee_id').references(() => employees.employee_id, {
+    onDelete: 'set null',
+  }),
+  to_employee_id: text('to_employee_id').references(() => employees.employee_id, {
+    onDelete: 'set null',
+  }),
   reason: text('reason'),
   payload_json: text('payload_json'),
   created_at: text('created_at').notNull(),
@@ -349,10 +322,5 @@ export const runtimeEvents = sqliteTable(
     payload_json: text('payload_json'),
     created_at: text('created_at').notNull(),
   },
-  (table) => [
-    index('idx_runtime_events_company_time').on(
-      table.company_id,
-      table.created_at,
-    ),
-  ],
+  (table) => [index('idx_runtime_events_company_time').on(table.company_id, table.created_at)],
 );

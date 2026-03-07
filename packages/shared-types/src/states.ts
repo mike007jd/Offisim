@@ -46,24 +46,10 @@ export type InstallState =
   | 'cancelled';
 
 /** Meeting lifecycle states — source: SCENE_STATE_MATRIX §8 */
-export type MeetingState =
-  | 'scheduled'
-  | 'gathering'
-  | 'active'
-  | 'waiting'
-  | 'ended';
+export type MeetingState = 'scheduled' | 'gathering' | 'active' | 'waiting' | 'ended';
 
 /** Report lifecycle states — source: SCENE_STATE_MATRIX §10 */
-export type ReportState =
-  | 'drafting'
-  | 'ready'
-  | 'delivered'
-  | 'rejected';
+export type ReportState = 'drafting' | 'ready' | 'delivered' | 'rejected';
 
 /** Entity types that can emit runtime events */
-export type RuntimeEntityType =
-  | 'employee'
-  | 'task'
-  | 'meeting'
-  | 'install'
-  | 'report';
+export type RuntimeEntityType = 'employee' | 'task' | 'meeting' | 'install' | 'report';

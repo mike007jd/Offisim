@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { validateManifest, parseManifest } from '../validate.js';
+import { describe, expect, it } from 'vitest';
+import { parseManifest, validateManifest } from '../validate.js';
 import validManifest from './fixtures/valid-manifest.json';
 
 describe('validateManifest', () => {
@@ -13,7 +13,7 @@ describe('validateManifest', () => {
     const result = validateManifest({});
     expect(result.valid).toBe(false);
     expect(result.errors).toBeDefined();
-    expect(result.errors!.length).toBeGreaterThan(0);
+    expect(result.errors?.length).toBeGreaterThan(0);
   });
 
   it('rejects invalid network_scope value', () => {

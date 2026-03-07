@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, real, uuid, jsonb } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // ── 001: Auth and Creators ──
 
@@ -15,7 +15,10 @@ export const users = pgTable('users', {
 
 export const creators = pgTable('creators', {
   creator_id: uuid('creator_id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id').notNull().references(() => users.user_id).unique(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.user_id)
+    .unique(),
   handle: text('handle').notNull().unique(),
   display_name: text('display_name').notNull(),
   bio: text('bio'),
@@ -29,7 +32,9 @@ export const creators = pgTable('creators', {
 
 export const listings = pgTable('listings', {
   listing_id: uuid('listing_id').primaryKey().defaultRandom(),
-  creator_id: uuid('creator_id').notNull().references(() => creators.creator_id),
+  creator_id: uuid('creator_id')
+    .notNull()
+    .references(() => creators.creator_id),
   slug: text('slug').notNull().unique(),
   kind: text('kind').notNull(),
   title: text('title').notNull(),
@@ -45,7 +50,9 @@ export const listings = pgTable('listings', {
 
 export const packageVersions = pgTable('package_versions', {
   package_version_id: uuid('package_version_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id').notNull().references(() => listings.listing_id),
+  listing_id: uuid('listing_id')
+    .notNull()
+    .references(() => listings.listing_id),
   package_id: text('package_id').notNull(),
   version: text('version').notNull(),
   manifest_json: jsonb('manifest_json').notNull(),
@@ -62,13 +69,17 @@ export const packageVersions = pgTable('package_versions', {
 });
 
 export const listingTags = pgTable('listing_tags', {
-  listing_id: uuid('listing_id').notNull().references(() => listings.listing_id),
+  listing_id: uuid('listing_id')
+    .notNull()
+    .references(() => listings.listing_id),
   tag: text('tag').notNull(),
 });
 
 export const listingPreviews = pgTable('listing_previews', {
   preview_id: uuid('preview_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id').notNull().references(() => listings.listing_id),
+  listing_id: uuid('listing_id')
+    .notNull()
+    .references(() => listings.listing_id),
   kind: text('kind').notNull(),
   url: text('url').notNull(),
   alt_text: text('alt_text'),
@@ -79,7 +90,9 @@ export const listingPreviews = pgTable('listing_previews', {
 
 export const publishDrafts = pgTable('publish_drafts', {
   draft_id: uuid('draft_id').primaryKey().defaultRandom(),
-  creator_id: uuid('creator_id').notNull().references(() => creators.creator_id),
+  creator_id: uuid('creator_id')
+    .notNull()
+    .references(() => creators.creator_id),
   listing_id: uuid('listing_id').references(() => listings.listing_id),
   kind: text('kind').notNull(),
   title: text('title').notNull(),
@@ -95,7 +108,9 @@ export const publishDrafts = pgTable('publish_drafts', {
 
 export const packageLineage = pgTable('package_lineage', {
   lineage_id: uuid('lineage_id').primaryKey().defaultRandom(),
-  package_version_id: uuid('package_version_id').notNull().references(() => packageVersions.package_version_id),
+  package_version_id: uuid('package_version_id')
+    .notNull()
+    .references(() => packageVersions.package_version_id),
   origin_listing_id: uuid('origin_listing_id').references(() => listings.listing_id),
   origin_package_id: text('origin_package_id'),
   forked_from_version: text('forked_from_version'),
@@ -117,8 +132,12 @@ export const moderationJobs = pgTable('moderation_jobs', {
 
 export const reviews = pgTable('reviews', {
   review_id: uuid('review_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id').notNull().references(() => listings.listing_id),
-  user_id: uuid('user_id').notNull().references(() => users.user_id),
+  listing_id: uuid('listing_id')
+    .notNull()
+    .references(() => listings.listing_id),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.user_id),
   rating: integer('rating').notNull(),
   title: text('title'),
   body: text('body'),
@@ -128,9 +147,15 @@ export const reviews = pgTable('reviews', {
 });
 
 export const userLibrary = pgTable('user_library', {
-  user_id: uuid('user_id').notNull().references(() => users.user_id),
-  listing_id: uuid('listing_id').notNull().references(() => listings.listing_id),
-  package_version_id: uuid('package_version_id').references(() => packageVersions.package_version_id),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.user_id),
+  listing_id: uuid('listing_id')
+    .notNull()
+    .references(() => listings.listing_id),
+  package_version_id: uuid('package_version_id').references(
+    () => packageVersions.package_version_id,
+  ),
   saved_at: timestamp('saved_at').notNull().defaultNow(),
   install_receipt_id: text('install_receipt_id'),
 });
@@ -139,7 +164,9 @@ export const moderationFlags = pgTable('moderation_flags', {
   flag_id: uuid('flag_id').primaryKey().defaultRandom(),
   target_type: text('target_type').notNull(),
   target_id: uuid('target_id').notNull(),
-  reporter_user_id: uuid('reporter_user_id').notNull().references(() => users.user_id),
+  reporter_user_id: uuid('reporter_user_id')
+    .notNull()
+    .references(() => users.user_id),
   reason: text('reason').notNull(),
   details: text('details'),
   status: text('status').notNull().default('open'),
