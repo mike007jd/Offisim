@@ -256,7 +256,7 @@
           "enum": [
             "none",
             "limited",
-            "open"
+            "unrestricted"
           ]
         },
         "notes": {

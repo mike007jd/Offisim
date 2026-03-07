@@ -24,7 +24,7 @@ Primary repo shape:
 - `apps/desktop` — Tauri 2 desktop app (**1.0 reference environment**)
 - `apps/market` — public marketplace website (Next.js App Router, SEO-oriented)
 - `apps/platform` — platform API / workers / registry services
-- `packages/core` — orchestration kernel, runtime domain logic, install logic
+- `packages/core` — orchestration kernel, runtime domain logic, LLM gateway
 - `packages/renderer` — PixiJS office scene runtime
 - `packages/ui-*` — DOM UI packages for office chrome / market UI
 - `packages/asset-schema` — manifest schema, validators, type contracts

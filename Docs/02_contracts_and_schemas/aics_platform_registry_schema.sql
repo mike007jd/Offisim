@@ -112,9 +112,9 @@ CREATE TABLE IF NOT EXISTS reviews (
 
 CREATE TABLE IF NOT EXISTS moderation_jobs (
   job_id TEXT PRIMARY KEY,
-  target_type TEXT NOT NULL, -- listing | package_version | review
+  target_type TEXT NOT NULL CHECK(target_type IN ('listing','package_version','review','publish_draft')),
   target_id TEXT NOT NULL,
-  job_kind TEXT NOT NULL,    -- manifest_scan | policy_review | lineage_check
+  job_kind TEXT NOT NULL CHECK(job_kind IN ('manifest_scan','policy_review','lineage_check','risk_review')),
   status TEXT NOT NULL DEFAULT 'queued',
   findings_json JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

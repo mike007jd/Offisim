@@ -90,13 +90,15 @@ CREATE TABLE IF NOT EXISTS installed_assets (
 
 CREATE TABLE IF NOT EXISTS asset_bindings (
   binding_id TEXT PRIMARY KEY,
-  installed_asset_id TEXT NOT NULL REFERENCES installed_assets(installed_asset_id) ON DELETE CASCADE,
+  installed_asset_id TEXT REFERENCES installed_assets(installed_asset_id) ON DELETE CASCADE,
+  install_txn_id TEXT REFERENCES install_transactions(install_txn_id) ON DELETE SET NULL,
   binding_type TEXT NOT NULL, -- model_profile | secret_slot | workspace_map | mcp_slot
   binding_key TEXT NOT NULL,
   binding_value_json TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  CHECK (installed_asset_id IS NOT NULL OR install_txn_id IS NOT NULL)
 );
 
 CREATE TABLE IF NOT EXISTS install_transactions (

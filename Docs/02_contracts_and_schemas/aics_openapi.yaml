@@ -555,7 +555,7 @@ components:
         declares_secrets: { type: boolean }
         filesystem_scope:
           type: string
-          enum: [none, workspace, project_root, user_selected]
+          enum: [none, workspace, project, custom_path]
         network_scope:
           type: string
           enum: [none, limited, unrestricted]
