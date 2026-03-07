@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateManifest } from '../validate.js';
+import { validateManifest, parseManifest } from '../validate.js';
 import validManifest from './fixtures/valid-manifest.json';
 
 describe('validateManifest', () => {
@@ -32,5 +32,17 @@ describe('validateManifest', () => {
     };
     const result = validateManifest(bad);
     expect(result.valid).toBe(false);
+  });
+});
+
+describe('parseManifest', () => {
+  it('returns typed manifest for valid input', () => {
+    const manifest = parseManifest(validManifest);
+    expect(manifest.spec_version).toBe('1.0.0');
+    expect(manifest.package.kind).toBeDefined();
+  });
+
+  it('throws on invalid input with error details', () => {
+    expect(() => parseManifest({})).toThrow('Invalid manifest');
   });
 });
