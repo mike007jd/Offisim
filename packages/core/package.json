@@ -3,7 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
@@ -11,8 +16,18 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@aics/db-local": "workspace:*",
     "@aics/shared-types": "workspace:*",
-    "@aics/db-local": "workspace:*"
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@langchain/core": "^1.1.31",
+    "@langchain/langgraph": "^1.2.1",
+    "openai": "^6.27.0"
   },
-  "devDependencies": { "typescript": "^5.7.0", "vitest": "^3.0.0" }
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.39.3",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
 }
