@@ -18,6 +18,28 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/desktop:
+    dependencies:
+      '@aics/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aics/install-core':
+        specifier: workspace:*
+        version: link:../../packages/install-core
+      '@aics/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
+      '@aics/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@aics/ui-office':
+        specifier: workspace:*
+        version: link:../../packages/ui-office
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   apps/market:
     dependencies:
       '@aics/registry-client':
