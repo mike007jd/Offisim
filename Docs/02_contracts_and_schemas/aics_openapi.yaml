@@ -1,0 +1,850 @@
+openapi: 3.1.0
+info:
+  title: AI Company Simulator Control APIs
+  version: 0.1.0
+  summary: Marketplace registry APIs plus local runtime install/import APIs.
+  description: >
+    This contract defines the first production-grade API surface for AI Company Simulator 1.0.
+    Public marketplace reads are unauthenticated. Creator publishing, reviews, and library access
+    require authenticated user context. Install and import endpoints are intended for the local
+    desktop or self-host runtime surface and remain declaration-driven: no arbitrary install hooks,
+    no postinstall scripts, no remote code execution during import.
+servers:
+  - url: https://api.aics.market
+    description: Registry and marketplace API
+  - url: http://127.0.0.1:43111
+    description: Local desktop runtime API
+tags:
+  - name: Market Public
+  - name: Creator Publish
+  - name: User Library
+  - name: Install Runtime
+  - name: Reviews
+security: []
+paths:
+  /v1/market/search:
+    get:
+      tags: [Market Public]
+      summary: Search public marketplace listings
+      operationId: searchMarketplace
+      security: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 200 }
+          description: Full-text query over title, summary, creator, and tags.
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [employee, skill, sop, company_template, office_layout, bundle]
+        - in: query
+          name: risk_class
+          schema:
+            type: string
+            enum: [data_asset, logic_asset, privileged_asset]
+        - in: query
+          name: tag
+          schema: { type: string, maxLength: 32 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [relevance, newest, updated, rating, installs]
+            default: relevance
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: per_page
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Search result page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+  /v1/market/listings/{listingId}:
+    get:
+      tags: [Market Public]
+      summary: Get public marketplace listing detail
+      operationId: getListingDetail
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/listings/{listingId}/versions:
+    get:
+      tags: [Market Public]
+      summary: Get visible versions for a listing
+      operationId: listListingVersions
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Versions for a listing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [listing_id, versions]
+                properties:
+                  listing_id: { type: string }
+                  versions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VersionSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/listings/{listingId}/reviews:
+    get:
+      tags: [Market Public, Reviews]
+      summary: List visible reviews for a listing
+      operationId: listListingReviews
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Review list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [listing_id, reviews]
+                properties:
+                  listing_id: { type: string }
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+  /v1/publish/drafts:
+    post:
+      tags: [Creator Publish]
+      summary: Create a publish draft
+      operationId: createPublishDraft
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDraftRequest'
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishDraft'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/publish/drafts/{draftId}/manifest:
+    put:
+      tags: [Creator Publish]
+      summary: Attach or replace draft manifest metadata
+      operationId: putDraftManifest
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutDraftManifestRequest'
+      responses:
+        '200':
+          description: Draft updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishDraft'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/publish/submit:
+    post:
+      tags: [Creator Publish]
+      summary: Submit a validated draft for review and listing publication
+      operationId: submitPublishDraft
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishSubmitRequest'
+      responses:
+        '202':
+          description: Draft accepted for moderation workflow
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [draft_id, moderation_job_id, status]
+                properties:
+                  draft_id: { type: string }
+                  moderation_job_id: { type: string }
+                  status:
+                    type: string
+                    enum: [queued, pending_review]
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/me/library:
+    get:
+      tags: [User Library]
+      summary: Get the authenticated user's library of saved or installed assets
+      operationId: getMyLibrary
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [employee, skill, sop, company_template, office_layout, bundle]
+        - in: query
+          name: installed
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: User library
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LibraryItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/reviews:
+    post:
+      tags: [Reviews]
+      summary: Create or replace a review for a listing
+      operationId: upsertReview
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201':
+          description: Review written
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/install/resolve:
+    post:
+      tags: [Install Runtime]
+      summary: Resolve a registry listing or version into an install plan
+      description: >
+        Runtime-local endpoint. Pulls public metadata from the registry, validates compatibility
+        with the local runtime, and returns a declaration-only install plan. No package materialization
+        occurs at this stage.
+      operationId: resolveInstallPlan
+      x-aics-runtime-scope: local
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallResolveRequest'
+      responses:
+        '200':
+          description: Install plan created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallPlan'
+        '409':
+          description: Compatibility or dependency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallConflictResponse'
+  /v1/install/file-import:
+    post:
+      tags: [Install Runtime]
+      summary: Import a local .aicspkg file into the runtime
+      description: >
+        Runtime-local endpoint. Reads a local package archive, validates manifest and checksums,
+        computes required bindings, and creates an install transaction. No arbitrary scripts may run.
+      operationId: importPackageFile
+      x-aics-runtime-scope: local
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company_id, file_path]
+              properties:
+                company_id: { type: string }
+                file_path: { type: string, minLength: 1 }
+                import_mode:
+                  type: string
+                  enum: [dry_run, install]
+                  default: install
+      responses:
+        '202':
+          description: Import transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallTransaction'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /v1/install/url-import:
+    post:
+      tags: [Install Runtime]
+      summary: Import a package by direct URL into the runtime
+      description: >
+        Runtime-local endpoint. Downloads a remote package artifact from an allowlisted origin or
+        explicit user-provided URL, validates the package, then creates an install transaction.
+      operationId: importPackageUrl
+      x-aics-runtime-scope: local
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company_id, source_url]
+              properties:
+                company_id: { type: string }
+                source_url: { type: string, format: uri }
+                import_mode:
+                  type: string
+                  enum: [dry_run, install]
+                  default: install
+      responses:
+        '202':
+          description: Import transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallTransaction'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /v1/install/{installTxnId}:
+    get:
+      tags: [Install Runtime]
+      summary: Fetch install transaction state
+      operationId: getInstallTransaction
+      x-aics-runtime-scope: local
+      parameters:
+        - $ref: '#/components/parameters/InstallTxnId'
+      responses:
+        '200':
+          description: Install transaction detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallTransaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/install/{installTxnId}/confirm-bindings:
+    post:
+      tags: [Install Runtime]
+      summary: Confirm model, MCP, and workspace bindings required by an install plan
+      operationId: confirmInstallBindings
+      x-aics-runtime-scope: local
+      parameters:
+        - $ref: '#/components/parameters/InstallTxnId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bindings]
+              properties:
+                bindings:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BindingChoice'
+      responses:
+        '200':
+          description: Install transaction updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallTransaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: aics_session
+  parameters:
+    ListingId:
+      name: listingId
+      in: path
+      required: true
+      schema: { type: string }
+    DraftId:
+      name: draftId
+      in: path
+      required: true
+      schema: { type: string }
+    InstallTxnId:
+      name: installTxnId
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    SearchResponse:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ListingSummary' }
+        page: { type: integer, minimum: 1 }
+        per_page: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+    ListingSummary:
+      type: object
+      required:
+        [listing_id, slug, kind, title, summary, creator, status, latest_version, rating, install_count]
+      properties:
+        listing_id: { type: string }
+        slug: { type: string }
+        kind:
+          type: string
+          enum: [employee, skill, sop, company_template, office_layout, bundle]
+        title: { type: string }
+        summary: { type: string }
+        creator:
+          $ref: '#/components/schemas/CreatorSummary'
+        status:
+          type: string
+          enum: [listed, hidden, retired]
+        latest_version: { type: string }
+        rating: { type: number, format: float }
+        install_count: { type: integer, minimum: 0 }
+        tags:
+          type: array
+          items: { type: string }
+        preview:
+          $ref: '#/components/schemas/PreviewRef'
+    ListingDetail:
+      allOf:
+        - $ref: '#/components/schemas/ListingSummary'
+        - type: object
+          required: [description, version, requirements, permissions]
+          properties:
+            description: { type: string }
+            version: { $ref: '#/components/schemas/VersionSummary' }
+            requirements:
+              $ref: '#/components/schemas/RequirementsSummary'
+            permissions:
+              $ref: '#/components/schemas/PermissionSummary'
+            lineage:
+              $ref: '#/components/schemas/LineageSummary'
+            previews:
+              type: array
+              items: { $ref: '#/components/schemas/PreviewRef' }
+    VersionSummary:
+      type: object
+      required: [package_id, version, runtime_range, schema_version, environments, risk_class]
+      properties:
+        package_id: { type: string }
+        version: { type: string }
+        runtime_range: { type: string }
+        schema_version: { type: string }
+        environments:
+          type: array
+          items:
+            type: string
+            enum: [desktop, docker, web_limited]
+        risk_class:
+          type: string
+          enum: [data_asset, logic_asset, privileged_asset]
+        published_at:
+          type: string
+          format: date-time
+        changelog: { type: string }
+    CreatorSummary:
+      type: object
+      required: [creator_id, handle, display_name, verification_state]
+      properties:
+        creator_id: { type: string }
+        handle: { type: string }
+        display_name: { type: string }
+        verification_state:
+          type: string
+          enum: [unverified, verified, trusted]
+    RequirementsSummary:
+      type: object
+      properties:
+        required_capabilities:
+          type: array
+          items: { type: string }
+        required_mcps:
+          type: array
+          items: { type: string }
+        recommended_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendedModel'
+    PermissionSummary:
+      type: object
+      properties:
+        risk_class:
+          type: string
+          enum: [data_asset, logic_asset, privileged_asset]
+        declares_secrets: { type: boolean }
+        filesystem_scope:
+          type: string
+          enum: [none, workspace, project_root, user_selected]
+        network_scope:
+          type: string
+          enum: [none, limited, unrestricted]
+    RecommendedModel:
+      type: object
+      required: [profile]
+      properties:
+        profile: { type: string }
+        reason: { type: string }
+        provider_hints:
+          type: array
+          items: { type: string }
+    LineageSummary:
+      type: object
+      properties:
+        origin_package_id: { type: string }
+        forked_from_version: { type: string }
+        derivative_of:
+          type: array
+          items: { type: string }
+    PreviewRef:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [icon, image, video, readme]
+        url:
+          type: string
+          format: uri
+        alt: { type: string }
+    PublishDraft:
+      type: object
+      required: [draft_id, creator_id, status, created_at, updated_at]
+      properties:
+        draft_id: { type: string }
+        creator_id: { type: string }
+        listing_id: { type: string, nullable: true }
+        artifact_id: { type: string, nullable: true }
+        manifest_json:
+          type: object
+          additionalProperties: true
+        validation_state:
+          type: string
+          enum: [unknown, valid, invalid]
+        validation_report:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [draft, validated, submitted, rejected]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateDraftRequest:
+      type: object
+      required: [kind, title]
+      properties:
+        kind:
+          type: string
+          enum: [employee, skill, sop, company_template, office_layout, bundle]
+        listing_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        summary:
+          type: string
+          maxLength: 500
+        artifact_upload_mode:
+          type: string
+          enum: [registry_object, external_url]
+          default: external_url
+    PutDraftManifestRequest:
+      type: object
+      required: [manifest_json]
+      properties:
+        manifest_json:
+          type: object
+          additionalProperties: true
+        artifact:
+          type: object
+          properties:
+            storage_backend:
+              type: string
+              enum: [registry_object, external_url, github_release, npm]
+            external_url:
+              type: string
+              format: uri
+            sha256:
+              type: string
+            size_bytes:
+              type: integer
+              minimum: 0
+    PublishSubmitRequest:
+      type: object
+      required: [draft_id]
+      properties:
+        draft_id: { type: string }
+        submit_message:
+          type: string
+          maxLength: 1000
+    LibraryItem:
+      type: object
+      required: [listing, version, saved_at]
+      properties:
+        listing:
+          $ref: '#/components/schemas/ListingSummary'
+        version:
+          $ref: '#/components/schemas/VersionSummary'
+        saved_at:
+          type: string
+          format: date-time
+        install_receipt_id:
+          type: string
+          nullable: true
+    CreateReviewRequest:
+      type: object
+      required: [listing_id, rating]
+      properties:
+        listing_id: { type: string }
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 4000
+    Review:
+      type: object
+      required: [review_id, listing_id, rating, moderation_state, created_at, updated_at]
+      properties:
+        review_id: { type: string }
+        listing_id: { type: string }
+        user_id: { type: string }
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title: { type: string }
+        body: { type: string }
+        moderation_state:
+          type: string
+          enum: [visible, hidden, flagged]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    InstallResolveRequest:
+      type: object
+      required: [company_id]
+      properties:
+        company_id: { type: string }
+        listing_id: { type: string, nullable: true }
+        package_id: { type: string, nullable: true }
+        version: { type: string, nullable: true }
+        source_hint:
+          type: string
+          enum: [registry, url]
+          default: registry
+    InstallPlan:
+      type: object
+      required:
+        [install_txn_id, state, package, compatibility, dependencies, bindings, permission_review]
+      properties:
+        install_txn_id: { type: string }
+        state:
+          type: string
+          enum:
+            [resolved, awaiting_confirmation, awaiting_bindings, ready_to_install, conflict]
+        package:
+          type: object
+          required: [package_id, kind, version, title]
+          properties:
+            package_id: { type: string }
+            kind:
+              type: string
+              enum: [employee, skill, sop, company_template, office_layout, bundle]
+            version: { type: string }
+            title: { type: string }
+        compatibility:
+          type: object
+          required: [supported, environment, issues]
+          properties:
+            supported: { type: boolean }
+            environment:
+              type: string
+              enum: [desktop, docker, web_limited]
+            issues:
+              type: array
+              items: { type: string }
+        dependencies:
+          type: array
+          items:
+            type: object
+            properties:
+              package_id: { type: string }
+              constraint: { type: string }
+              status:
+                type: string
+                enum: [present, missing, conflicting, optional]
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/BindingRequirement'
+        permission_review:
+          $ref: '#/components/schemas/PermissionSummary'
+    BindingRequirement:
+      type: object
+      required: [binding_type, binding_key, status]
+      properties:
+        binding_type:
+          type: string
+          enum: [model_profile, mcp_slot, secret_slot, workspace_map]
+        binding_key: { type: string }
+        description: { type: string }
+        status:
+          type: string
+          enum: [required, optional, satisfied, pending]
+    BindingChoice:
+      type: object
+      required: [binding_type, binding_key]
+      properties:
+        binding_type:
+          type: string
+          enum: [model_profile, mcp_slot, secret_slot, workspace_map]
+        binding_key: { type: string }
+        binding_value:
+          type: object
+          additionalProperties: true
+    InstallTransaction:
+      type: object
+      required: [install_txn_id, company_id, state, source_type, started_at]
+      properties:
+        install_txn_id: { type: string }
+        company_id: { type: string }
+        source_type:
+          type: string
+          enum: [registry, url, file]
+        source_ref: { type: string, nullable: true }
+        target_package_id: { type: string, nullable: true }
+        target_version: { type: string, nullable: true }
+        state:
+          type: string
+          enum:
+            [created, manifest_loaded, integrity_checked, compatibility_checked, dependency_planned,
+             awaiting_confirmation, awaiting_bindings, materializing, installed, failed, rolled_back, cancelled]
+        descriptor:
+          type: object
+          additionalProperties: true
+        error_code: { type: string, nullable: true }
+        error_detail: { type: string, nullable: true }
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+    InstallConflictResponse:
+      type: object
+      required: [install_txn_id, state, conflicts]
+      properties:
+        install_txn_id: { type: string }
+        state:
+          type: string
+          enum: [conflict, failed]
+        conflicts:
+          type: array
+          items: { type: string }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: object
+              additionalProperties: true
