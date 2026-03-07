@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "module": "ESNext",
+    "outDir": "dist-node",
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["vite.config.ts"]
+}
