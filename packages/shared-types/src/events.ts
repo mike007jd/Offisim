@@ -1,28 +1,20 @@
-import type { RuntimeEntityType } from './states.js';
+import type { EmployeeState, MeetingState, RuntimeEntityType, TaskState } from './states.js';
 
 /**
- * Minimal cross-package event envelope.
- *
- * Payload typing is intentionally loose here — each consuming package
- * narrows via its own event catalog. shared-types only defines the envelope.
+ * Cross-package event envelope.
+ * Extended in Phase 2.0 with companyId and threadId for multi-company isolation.
  */
-export type RuntimeEvent<T extends string = string> = {
-  /** Dot-delimited event type, e.g. "employee.state.changed" */
-  readonly type: T;
-  /** The entity this event is about */
+export interface RuntimeEvent<P = Readonly<Record<string, unknown>>> {
+  readonly type: string;
   readonly entityId: string;
-  /** Top-level entity kind */
   readonly entityType: RuntimeEntityType;
-  /** Unix ms timestamp */
+  readonly companyId: string;
+  readonly threadId?: string;
   readonly timestamp: number;
-  /** Event-specific data — narrowed by consumers */
-  readonly payload?: Readonly<Record<string, unknown>>;
-};
+  readonly payload: P;
+}
 
-/**
- * Well-known event type prefixes.
- * Consuming packages define the full catalog; these are just the namespaces.
- */
+/** Well-known event type prefixes */
 export type EventFamily =
   | 'employee.state.changed'
   | 'task.state.changed'
@@ -33,3 +25,32 @@ export type EventFamily =
   | 'report.state.changed'
   | 'runtime.performance.tier.changed'
   | 'ui.selection.changed';
+
+// --- Typed event payloads ---
+
+export interface EmployeeStatePayload {
+  readonly employeeId: string;
+  readonly prev: EmployeeState;
+  readonly next: EmployeeState;
+  readonly taskRunId?: string;
+}
+
+export interface TaskStatePayload {
+  readonly taskRunId: string;
+  readonly prev: TaskState;
+  readonly next: TaskState;
+  readonly employeeId?: string;
+}
+
+export interface TaskAssignmentPayload {
+  readonly taskRunId: string;
+  readonly employeeId: string;
+  readonly action: 'assigned' | 'unassigned';
+}
+
+export interface MeetingStatePayload {
+  readonly meetingId: string;
+  readonly prev: MeetingState;
+  readonly next: MeetingState;
+  readonly participantIds: readonly string[];
+}
