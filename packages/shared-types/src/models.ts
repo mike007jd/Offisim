@@ -1,5 +1,5 @@
 /** Supported LLM providers */
-export type LlmProvider = 'anthropic' | 'openai';
+export type LlmProvider = 'anthropic' | 'openai' | 'openai-compat';
 
 /** Abstract model profile — maps to a concrete provider+model */
 export interface ModelProfile {
