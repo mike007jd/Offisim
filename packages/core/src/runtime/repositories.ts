@@ -171,6 +171,18 @@ export interface MeetingRepository {
   updateStatus(meetingId: string, status: string, summaryJson?: string | null): Promise<void>;
 }
 
+/**
+ * @reserved Phase 3+ — Business-level execution snapshots.
+ *
+ * Maps to `graph_checkpoints` table. Stores business milestones
+ * (meeting_turn, task_boundary, install_gate), NOT LangGraph internal state.
+ *
+ * LangGraph checkpoint persistence is handled by SqliteSaver
+ * (via createCheckpointSaver in graph/checkpoint-saver.ts).
+ *
+ * This interface and its implementations (Drizzle + Memory) are retained
+ * for Phase 3 when execution snapshot writing is implemented.
+ */
 export interface CheckpointRepository {
   save(checkpoint: NewGraphCheckpoint): Promise<void>;
   findLatest(threadId: string): Promise<GraphCheckpointRow | null>;
