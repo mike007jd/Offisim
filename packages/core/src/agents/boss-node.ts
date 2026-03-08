@@ -4,6 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import { graphNodeEntered } from '../events/event-factories.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting';
@@ -66,6 +67,11 @@ export async function bossNode(
   if (!runtimeCtx) {
     throw new GraphError('RuntimeContext not found in config.configurable', 'boss');
   }
+
+  // Announce node entry
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss'),
+  );
 
   const { modelResolver } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'boss');

@@ -4,6 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import { GraphError } from '../errors.js';
+import { graphNodeEntered } from '../events/event-factories.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -26,6 +27,13 @@ export async function bossSummaryNode(
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
   const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
+
+  // Announce node entry
+  if (runtimeCtx) {
+    runtimeCtx.eventBus.emit(
+      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss_summary'),
+    );
+  }
 
   // If there's already a direct reply from boss, just mark completed
   if (state.routeDecision === 'direct_reply') {

@@ -2,7 +2,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
-import { taskStateChanged, taskAssignmentChanged } from '../events/event-factories.js';
+import { taskStateChanged, taskAssignmentChanged, graphNodeEntered } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 
 interface LlmAssignment {
@@ -74,6 +74,11 @@ export async function managerNode(
   if (!runtimeCtx) {
     throw new GraphError('RuntimeContext not found in config.configurable', 'manager');
   }
+
+  // Announce node entry
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager'),
+  );
 
   const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'manager');

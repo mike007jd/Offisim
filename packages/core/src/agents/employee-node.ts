@@ -4,7 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { buildEmployeePrompt } from './employee-builder.js';
-import { employeeStateChanged, taskStateChanged } from '../events/event-factories.js';
+import { employeeStateChanged, taskStateChanged, graphNodeEntered } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 
 export async function employeeNode(
@@ -15,6 +15,11 @@ export async function employeeNode(
   if (!runtimeCtx) {
     throw new GraphError('RuntimeContext not found in config.configurable', 'employee');
   }
+
+  // Announce node entry
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'),
+  );
 
   const { modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
 
