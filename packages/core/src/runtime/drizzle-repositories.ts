@@ -37,6 +37,21 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       const rows = db.select().from(schema.graphThreads).where(eq(schema.graphThreads.thread_id, id)).all();
       return (rows[0] as GraphThreadRow | undefined) ?? null;
     },
+    async findByCompany(companyId, opts) {
+      let query = db.select().from(schema.graphThreads)
+        .where(
+          opts?.status
+            ? and(eq(schema.graphThreads.company_id, companyId), eq(schema.graphThreads.status, opts.status))
+            : eq(schema.graphThreads.company_id, companyId),
+        )
+        .orderBy(desc(schema.graphThreads.created_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return query.all() as GraphThreadRow[];
+    },
     async updateStatus(id, status) {
       db.update(schema.graphThreads)
         .set({ status, updated_at: now() })

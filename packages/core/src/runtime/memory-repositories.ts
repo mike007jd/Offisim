@@ -46,6 +46,13 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     async findById(id) {
       return threadsMap.get(id) ?? null;
     },
+    async findByCompany(companyId, opts) {
+      let results = [...threadsMap.values()].filter((t) => t.company_id === companyId);
+      if (opts?.status) results = results.filter((t) => t.status === opts.status);
+      results.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      if (opts?.limit) results = results.slice(0, opts.limit);
+      return results;
+    },
     async updateStatus(id, status) {
       const row = threadsMap.get(id);
       if (row) {

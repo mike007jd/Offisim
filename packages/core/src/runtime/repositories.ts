@@ -138,6 +138,7 @@ export interface CompanyRepository {
 export interface ThreadRepository {
   create(thread: NewGraphThread): Promise<GraphThreadRow>;
   findById(threadId: string): Promise<GraphThreadRow | null>;
+  findByCompany(companyId: string, opts?: { limit?: number; status?: string }): Promise<GraphThreadRow[]>;
   updateStatus(threadId: string, status: string): Promise<void>;
 }
 
