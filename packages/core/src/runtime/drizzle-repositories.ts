@@ -154,19 +154,18 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
-  // LlmCallRepository — stub until Task 12 adds the Drizzle schema
   const llmCalls: LlmCallRepository = {
     async create(c: NewLlmCall) {
-      // TODO(Task 12): db.insert(schema.llmCalls).values(c).run();
+      db.insert(schema.llmCalls).values(c).run();
       return c as LlmCallRow;
     },
-    async findByThread(_threadId) {
-      // TODO(Task 12): query schema.llmCalls
-      return [];
+    async findByThread(threadId) {
+      return db.select().from(schema.llmCalls)
+        .where(eq(schema.llmCalls.thread_id, threadId)).all() as LlmCallRow[];
     },
-    async findByTaskRun(_taskRunId) {
-      // TODO(Task 12): query schema.llmCalls
-      return [];
+    async findByTaskRun(taskRunId) {
+      return db.select().from(schema.llmCalls)
+        .where(eq(schema.llmCalls.task_run_id, taskRunId)).all() as LlmCallRow[];
     },
   };
 

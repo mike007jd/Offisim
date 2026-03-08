@@ -6,6 +6,7 @@
  * definitions, constraints, and indexes.
  */
 
+import { sql } from 'drizzle-orm';
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
@@ -323,4 +324,35 @@ export const runtimeEvents = sqliteTable(
     created_at: text('created_at').notNull(),
   },
   (table) => [index('idx_runtime_events_company_time').on(table.company_id, table.created_at)],
+);
+
+// ---------------------------------------------------------------------------
+// 005 — LLM call tracking
+// ---------------------------------------------------------------------------
+
+export const llmCalls = sqliteTable(
+  'llm_calls',
+  {
+    llm_call_id: text('llm_call_id').primaryKey(),
+    thread_id: text('thread_id').references(() => graphThreads.thread_id, {
+      onDelete: 'set null',
+    }),
+    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
+      onDelete: 'set null',
+    }),
+    node_name: text('node_name').notNull(),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    input_tokens: integer('input_tokens').notNull(),
+    output_tokens: integer('output_tokens').notNull(),
+    usage_raw_json: text('usage_raw_json'),
+    response_json: text('response_json'),
+    latency_ms: integer('latency_ms'),
+    error_code: text('error_code'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_llm_calls_thread').on(table.thread_id),
+    index('idx_llm_calls_task_run').on(table.task_run_id),
+  ],
 );
