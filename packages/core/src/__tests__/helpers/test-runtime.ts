@@ -5,6 +5,7 @@ import { ModelResolver } from '../../llm/model-resolver.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { buildAicsGraph } from '../../graph/main-graph.js';
+import { OrchestrationService } from '../../services/orchestration-service.js';
 import { MockLlmGateway } from './mock-gateway.js';
 import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from './fixtures.js';
 
@@ -30,12 +31,13 @@ export function createTestRuntime() {
   });
 
   const graph = buildAicsGraph();
+  const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, repos, eventBus, gateway, events, runtimeCtx };
+  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx };
 }
 
 export function createTestRuntimeWithExtraEmployee() {
@@ -68,10 +70,11 @@ export function createTestRuntimeWithExtraEmployee() {
   });
 
   const graph = buildAicsGraph();
+  const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, repos, eventBus, gateway, events, runtimeCtx };
+  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx };
 }
