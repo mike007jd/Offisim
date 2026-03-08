@@ -1,7 +1,7 @@
 import { StateGraph, END } from '@langchain/langgraph';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { AicsGraphAnnotation, type AicsGraphState } from './state.js';
-import { createCheckpointSaver } from './checkpoint-saver.js';
+import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import { bossNode } from '../agents/boss-node.js';
 import { managerNode } from '../agents/manager-node.js';
 import { employeeNode } from '../agents/employee-node.js';
@@ -42,7 +42,7 @@ export interface BuildGraphOptions {
  * compiled graph can serve multiple threads/companies.
  */
 export function buildAicsGraph(options?: BuildGraphOptions) {
-  const checkpointer = options?.checkpointer ?? createCheckpointSaver();
+  const checkpointer = options?.checkpointer ?? createMemoryCheckpointSaver();
 
   const graph = new StateGraph(AicsGraphAnnotation)
     .addNode('boss', (state, config) => bossNode(state, config))
