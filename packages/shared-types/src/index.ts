@@ -13,6 +13,7 @@ export type {
   RuntimeEvent, EventFamily,
   EmployeeStatePayload, TaskStatePayload,
   TaskAssignmentPayload, MeetingStatePayload,
+  LlmCallStartedPayload, LlmCallCompletedPayload, LlmUsageRecordedPayload,
 } from './events.js';
 
 export type {

@@ -52,4 +52,4 @@ export type MeetingState = 'scheduled' | 'gathering' | 'active' | 'waiting' | 'e
 export type ReportState = 'drafting' | 'ready' | 'delivered' | 'rejected';
 
 /** Entity types that can emit runtime events */
-export type RuntimeEntityType = 'employee' | 'task' | 'meeting' | 'install' | 'report';
+export type RuntimeEntityType = 'employee' | 'task' | 'meeting' | 'install' | 'report' | 'llm';
