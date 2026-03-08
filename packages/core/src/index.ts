@@ -1,4 +1,4 @@
-// @aics/core — Phase 2.1 Core Runtime
+// @aics/core — Phase 2.3 Graph Streaming Pipeline
 
 // --- Types ---
 export type { RuntimeContext } from './runtime/runtime-context.js';
@@ -59,11 +59,15 @@ export {
   llmCallStarted,
   llmCallCompleted,
   llmUsageRecorded,
+  graphNodeEntered,
+  graphNodeExited,
+  llmStreamChunk,
 } from './events/event-factories.js';
 
 // --- Services ---
 export { ExecutionTraceServiceImpl } from './services/execution-trace-service.js';
 export { ThreadForkServiceStub } from './services/thread-fork-service.js';
+export { OrchestrationService } from './services/orchestration-service.js';
 
 // --- Runtime ---
 export { MockToolExecutor } from './runtime/tool-executor.js';
