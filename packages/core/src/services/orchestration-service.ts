@@ -40,24 +40,42 @@ export class OrchestrationService {
     };
 
     let finalState: Partial<AicsGraphState> = { ...fullInput };
+    let lastNodeName: string | undefined;
 
     const stream = await this.graph.stream(fullInput, {
       ...config,
       streamMode: 'updates' as const,
     });
 
-    for await (const update of stream) {
-      for (const [nodeName, nodeOutput] of Object.entries(update)) {
-        this.runtimeCtx.eventBus.emit(
-          graphNodeExited(
-            this.runtimeCtx.companyId,
-            this.runtimeCtx.threadId,
-            nodeName,
-          ),
-        );
-        // Merge node output into accumulated state
-        finalState = { ...finalState, ...(nodeOutput as Partial<AicsGraphState>) };
+    try {
+      for await (const update of stream) {
+        for (const [nodeName, nodeOutput] of Object.entries(update)) {
+          lastNodeName = nodeName;
+          this.runtimeCtx.eventBus.emit(
+            graphNodeExited(
+              this.runtimeCtx.companyId,
+              this.runtimeCtx.threadId,
+              nodeName,
+            ),
+          );
+          // Merge node output, accumulating messages to match graph.invoke() behavior
+          const delta = nodeOutput as Partial<AicsGraphState>;
+          if (delta.messages) {
+            finalState = {
+              ...finalState,
+              ...delta,
+              messages: [...(finalState.messages ?? []), ...delta.messages],
+            };
+          } else {
+            finalState = { ...finalState, ...delta };
+          }
+        }
       }
+    } catch (err) {
+      const msg = lastNodeName ? `Node '${lastNodeName}' failed` : 'Graph streaming failed';
+      const wrapped = err instanceof Error ? err : new Error(String(err));
+      wrapped.message = `${msg}: ${wrapped.message}`;
+      throw wrapped;
     }
 
     return finalState as AicsGraphState;

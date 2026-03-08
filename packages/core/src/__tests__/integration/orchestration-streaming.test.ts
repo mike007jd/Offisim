@@ -160,10 +160,10 @@ describe('OrchestrationService streaming', () => {
       messages: [new HumanMessage('Write tests')],
     });
 
-    // With streamMode 'updates', each node's output is a delta — messages reflect the last node's output
+    // Messages are now accumulated across nodes (matching graph.invoke() behavior)
     expect(result.completed).toBe(true);
     expect(result.threadId).toBe(TEST_THREAD_ID);
-    expect(result.messages.length).toBeGreaterThanOrEqual(1);
+    expect(result.messages.length).toBeGreaterThanOrEqual(3);
 
     // Verify persistence (side effects still happen regardless of streaming)
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
