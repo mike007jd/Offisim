@@ -119,6 +119,17 @@ Add these when relevant:
 
 Do not claim success if validation is knowingly broken.
 
+## Session handoff rules
+
+When a session completes its assigned work (a plan, a phase, a feature), it must NOT end with just “done”. Instead, it must provide a **handoff block** containing:
+
+1. **What was completed** — list of commits, tags, key files changed
+2. **Current repo health** — build / lint / test status (run and show output)
+3. **What should happen next** — concrete next phase/task with rationale
+4. **Starter prompt for next session** — a copy-pasteable prompt the user can give to a new Claude session to continue the work without re-explaining context
+
+This ensures continuity across sessions. The `docs/plans/` directory is the persistent bridge between sessions — design docs and implementation plans live there.
+
 ## Working style
 
 - Prefer small production-grade changes over broad speculative rewrites.
