@@ -1,0 +1,107 @@
+import { describe, it, expect } from 'vitest';
+import { HumanMessage } from '@langchain/core/messages';
+import { createTestRuntime } from '../helpers/test-runtime.js';
+import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+
+describe('boss-chat full flow', () => {
+  it('routes user message through boss → manager → employee → summary', async () => {
+    const { graph, gateway, events, runtimeCtx } = createTestRuntime();
+
+    // Boss decides to delegate
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'delegate', reason: 'needs development work' }),
+    });
+
+    // Manager assigns to developer
+    gateway.pushResponse({
+      content: JSON.stringify({
+        assignments: [
+          { taskType: 'code', employeeId: 'e-dev-1', description: 'Build the feature' },
+        ],
+      }),
+    });
+
+    // Employee produces result
+    gateway.pushResponse({
+      content: 'Here is the implementation code.',
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'boss_chat',
+        messages: [new HumanMessage('Build me a website')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    // Should have completed
+    expect(result.completed).toBe(true);
+
+    // Should have messages from boss, employee, and summary
+    expect(result.messages.length).toBeGreaterThanOrEqual(3);
+
+    // Events should include task state changes and employee state changes
+    const taskEvents = events.filter((e) => e.type === 'task.state.changed');
+    expect(taskEvents.length).toBeGreaterThanOrEqual(1);
+
+    const employeeEvents = events.filter((e) => e.type === 'employee.state.changed');
+    expect(employeeEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles direct reply without delegation', async () => {
+    const { graph, gateway, runtimeCtx } = createTestRuntime();
+
+    // Boss decides to reply directly
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'direct_reply', reason: 'simple greeting', reply: 'Hello! How can I help?' }),
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'boss_chat',
+        messages: [new HumanMessage('Hello!')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    expect(result.completed).toBe(true);
+    // Direct reply should NOT go through manager/employee
+    expect(result.routeDecision).toBe('direct_reply');
+  });
+
+  it('persists task runs in repository', async () => {
+    const { graph, gateway, runtimeCtx, repos } = createTestRuntime();
+
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'delegate', reason: 'coding task' }),
+    });
+    gateway.pushResponse({
+      content: JSON.stringify({
+        assignments: [
+          { taskType: 'code', employeeId: 'e-dev-1', description: 'Write tests' },
+        ],
+      }),
+    });
+    gateway.pushResponse({
+      content: 'Tests written successfully.',
+    });
+
+    await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'boss_chat',
+        messages: [new HumanMessage('Write tests for the auth module')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
+    expect(taskRuns.length).toBeGreaterThanOrEqual(1);
+    expect(taskRuns[0]!.status).toBe('completed');
+  });
+});
