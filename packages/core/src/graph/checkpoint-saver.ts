@@ -150,4 +150,8 @@ export class DrizzleCheckpointSaver extends BaseCheckpointSaver {
       }
     }
   }
+
+  async deleteThread(threadId: string): Promise<void> {
+    this.storage.delete(threadId);
+  }
 }
