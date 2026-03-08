@@ -2,9 +2,10 @@ import type {
   CheckpointRepository, CompanyRepository, CompanyRow,
   EmployeeRepository, EmployeeRow, EventRepository,
   GraphCheckpointRow, GraphThreadRow, HandoffEventRow,
-  HandoffRepository, MeetingRepository, MeetingSessionRow,
+  HandoffRepository, LlmCallRepository, LlmCallRow,
+  MeetingRepository, MeetingSessionRow,
   NewGraphCheckpoint, NewGraphThread, NewHandoffEvent,
-  NewMeetingSession, NewRuntimeEvent, NewTaskRun, NewToolCall,
+  NewLlmCall, NewMeetingSession, NewRuntimeEvent, NewTaskRun, NewToolCall,
   RuntimeRepositories, TaskRunRepository, TaskRunRow,
   ThreadRepository, ToolCallRepository, ToolCallRow,
 } from './repositories.js';
@@ -28,6 +29,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const meetingsMap = new Map<string, MeetingSessionRow>();
   const checkpointsMap = new Map<string, GraphCheckpointRow>();
   const eventsStore: NewRuntimeEvent[] = [];
+  const llmCallsMap = new Map<string, LlmCallRow>();
 
   const companies: CompanyRepository = {
     async findById(id) {
@@ -161,6 +163,20 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
   };
 
+  const llmCalls: LlmCallRepository = {
+    async create(c: NewLlmCall) {
+      const row: LlmCallRow = { ...c };
+      llmCallsMap.set(row.llm_call_id, row);
+      return row;
+    },
+    async findByThread(threadId) {
+      return [...llmCallsMap.values()].filter((c) => c.thread_id === threadId);
+    },
+    async findByTaskRun(taskRunId) {
+      return [...llmCallsMap.values()].filter((c) => c.task_run_id === taskRunId);
+    },
+  };
+
   const seed: MemoryRepositorySeed = {
     employees(rows) {
       for (const row of rows) employeesMap.set(row.employee_id, row);
@@ -170,5 +186,5 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, seed };
+  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls, seed };
 }

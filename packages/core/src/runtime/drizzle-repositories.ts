@@ -4,9 +4,10 @@ import * as schema from '@aics/db-local';
 import type {
   CheckpointRepository, CompanyRepository, EmployeeRepository,
   EventRepository, GraphCheckpointRow, GraphThreadRow,
-  HandoffEventRow, HandoffRepository, MeetingRepository,
+  HandoffEventRow, HandoffRepository, LlmCallRepository,
+  LlmCallRow, MeetingRepository,
   MeetingSessionRow, NewGraphCheckpoint, NewGraphThread,
-  NewHandoffEvent, NewMeetingSession, NewRuntimeEvent,
+  NewHandoffEvent, NewLlmCall, NewMeetingSession, NewRuntimeEvent,
   NewTaskRun, NewToolCall, RuntimeRepositories,
   TaskRunRepository, TaskRunRow, ThreadRepository,
   ToolCallRepository, ToolCallRow,
@@ -153,5 +154,21 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events };
+  // LlmCallRepository — stub until Task 12 adds the Drizzle schema
+  const llmCalls: LlmCallRepository = {
+    async create(c: NewLlmCall) {
+      // TODO(Task 12): db.insert(schema.llmCalls).values(c).run();
+      return c as LlmCallRow;
+    },
+    async findByThread(_threadId) {
+      // TODO(Task 12): query schema.llmCalls
+      return [];
+    },
+    async findByTaskRun(_taskRunId) {
+      // TODO(Task 12): query schema.llmCalls
+      return [];
+    },
+  };
+
+  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls };
 }

@@ -102,6 +102,24 @@ export interface RuntimeEventRow {
   created_at: string;
 }
 
+export interface LlmCallRow {
+  llm_call_id: string;
+  thread_id: string | null;
+  task_run_id: string | null;
+  node_name: string;
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  usage_raw_json: string | null;
+  response_json: string | null;
+  latency_ms: number | null;
+  error_code: string | null;
+  created_at: string;
+}
+
+export type NewLlmCall = Omit<LlmCallRow, never>;
+
 /** New-row types (omit auto-generated fields) */
 export type NewGraphThread = Omit<GraphThreadRow, 'created_at' | 'updated_at'>;
 export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
@@ -162,6 +180,12 @@ export interface EventRepository {
   insert(event: NewRuntimeEvent): Promise<void>;
 }
 
+export interface LlmCallRepository {
+  create(call: NewLlmCall): Promise<LlmCallRow>;
+  findByThread(threadId: string): Promise<LlmCallRow[]>;
+  findByTaskRun(taskRunId: string): Promise<LlmCallRow[]>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -173,4 +197,5 @@ export interface RuntimeRepositories {
   meetings: MeetingRepository;
   checkpoints: CheckpointRepository;
   events: EventRepository;
+  llmCalls: LlmCallRepository;
 }
