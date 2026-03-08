@@ -1,18 +1,28 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmError } from '../errors.js';
 import type { LlmGateway, LlmRequest, LlmResponse, ToolCallResult } from './gateway.js';
+import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from './retry.js';
 
 export class AnthropicAdapter implements LlmGateway {
   private client: Anthropic;
+  private retryConfig: RetryConfig;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, retryConfig?: RetryConfig) {
     this.client = new Anthropic({ apiKey });
+    this.retryConfig = retryConfig ?? DEFAULT_RETRY_CONFIG;
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
+    return withRetry(
+      () => this.doChat(request),
+      this.retryConfig,
+      (error) => error instanceof LlmError && error.recoverable,
+    );
+  }
+
+  private async doChat(request: LlmRequest): Promise<LlmResponse> {
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const nonSystemMessages = request.messages.filter((m) => m.role !== 'system');
-
     const systemText = systemMessages.map((m) => m.content).join('\n');
 
     try {
