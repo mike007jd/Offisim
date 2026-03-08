@@ -44,6 +44,17 @@ export class AnthropicAdapter implements LlmGateway {
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
+    // Retry wraps the entire stream creation. Once tokens start flowing,
+    // a mid-stream failure is non-retryable (throw immediately).
+    const self = this;
+    yield* await withRetry(
+      () => self.doChatStream(request),
+      this.retryConfig,
+      (error) => error instanceof LlmError && error.recoverable,
+    );
+  }
+
+  private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const nonSystemMessages = request.messages.filter((m) => m.role !== 'system');
     const systemText = systemMessages.map((m) => m.content).join('\n');
@@ -60,21 +71,32 @@ export class AnthropicAdapter implements LlmGateway {
         })),
       });
 
-      for await (const event of stream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          yield { content: event.delta.text, done: false };
+      const self = this;
+      async function* generate(): AsyncGenerator<LlmStreamChunk> {
+        try {
+          for await (const event of stream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              yield { content: event.delta.text, done: false };
+            }
+          }
+
+          const finalMessage = await stream.finalMessage();
+          yield {
+            done: true,
+            usage: {
+              inputTokens: finalMessage.usage.input_tokens,
+              outputTokens: finalMessage.usage.output_tokens,
+            },
+          };
+        } catch (error: unknown) {
+          // Mid-stream failure is non-retryable
+          throw self.mapError(error);
         }
       }
 
-      const finalMessage = await stream.finalMessage();
-      yield {
-        done: true,
-        usage: {
-          inputTokens: finalMessage.usage.input_tokens,
-          outputTokens: finalMessage.usage.output_tokens,
-        },
-      };
+      return generate();
     } catch (error: unknown) {
+      // Connection-level failure before stream starts — retryable via withRetry
       throw this.mapError(error);
     }
   }

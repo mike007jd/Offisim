@@ -2,10 +2,24 @@ import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { recordedLlmStream } from '../llm/recorded-call.js';
+import { GraphError } from '../errors.js';
+
+const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
+
+Given the employee results below, produce a clear, concise summary for the user.
+Focus on what was accomplished and any key outcomes.
+
+Employee results:
+`;
 
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
+ *
+ * This is the ONLY node that uses streaming (chatStream via recordedLlmStream).
+ * The tee pattern forwards chunks for UI real-time display while accumulating
+ * the full content for graph state.
  */
 export async function bossSummaryNode(
   state: AicsGraphState,
@@ -25,24 +39,54 @@ export async function bossSummaryNode(
     .filter((c) => c.startsWith('['));
 
   if (employeeResults.length === 0) {
+    if (runtimeCtx) {
+      await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+    }
     return {
       completed: true,
       messages: [new AIMessage({ content: 'Task processing complete.' })],
     };
   }
 
-  // For Phase 2.0, produce a simple summary without extra LLM call
-  const summary = employeeResults.length === 1
-    ? employeeResults[0]!
-    : `Team completed ${employeeResults.length} tasks:\n${employeeResults.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
-
-  // Update thread status
-  if (runtimeCtx) {
-    await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+  // Single employee result — no need for LLM summary
+  if (employeeResults.length === 1) {
+    if (runtimeCtx) {
+      await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+    }
+    return {
+      completed: true,
+      messages: [new AIMessage({ content: employeeResults[0]! })],
+    };
   }
+
+  // Multiple employee results — use streaming LLM to produce summary
+  if (!runtimeCtx) {
+    throw new GraphError('RuntimeContext not found in config.configurable', 'boss_summary');
+  }
+
+  const resolved = runtimeCtx.modelResolver.resolve(null, 'boss');
+  const resultsText = employeeResults.map((r, i) => `${i + 1}. ${r}`).join('\n');
+
+  // recordedLlmStream: streams via teeStream, records llm_call, emits events
+  const streamResult = await recordedLlmStream(
+    runtimeCtx,
+    {
+      messages: [
+        { role: 'system', content: BOSS_SUMMARY_PROMPT + resultsText },
+        { role: 'user', content: 'Summarize the team results above.' },
+      ],
+      model: resolved.model,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+    },
+    { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
+    () => {}, // onChunk: graph.stream() consumers receive chunks via LangGraph's streaming mechanism
+  );
+
+  await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
 
   return {
     completed: true,
-    messages: [new AIMessage({ content: summary })],
+    messages: [new AIMessage({ content: streamResult.fullContent })],
   };
 }

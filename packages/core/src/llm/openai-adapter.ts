@@ -39,6 +39,17 @@ export class OpenAiAdapter implements LlmGateway {
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
+    // Retry wraps the entire stream creation. Once tokens start flowing,
+    // a mid-stream failure is non-retryable (throw immediately).
+    const self = this;
+    yield* await withRetry(
+      () => self.doChatStream(request),
+      this.retryConfig,
+      (error) => error instanceof LlmError && error.recoverable,
+    );
+  }
+
+  private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
     try {
       const stream = await this.client.chat.completions.create({
         model: request.model,
@@ -52,24 +63,35 @@ export class OpenAiAdapter implements LlmGateway {
         stream_options: { include_usage: true },
       });
 
-      let finalUsage: LlmUsage | undefined;
+      const self = this;
+      async function* generate(): AsyncGenerator<LlmStreamChunk> {
+        try {
+          let finalUsage: LlmUsage | undefined;
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta;
-        if (delta?.content) {
-          yield { content: delta.content, done: false };
-        }
-        // OpenAI sends usage in the LAST chunk when stream_options.include_usage is true
-        if (chunk.usage) {
-          finalUsage = {
-            inputTokens: chunk.usage.prompt_tokens ?? 0,
-            outputTokens: chunk.usage.completion_tokens ?? 0,
-          };
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta;
+            if (delta?.content) {
+              yield { content: delta.content, done: false };
+            }
+            // OpenAI sends usage in the LAST chunk when stream_options.include_usage is true
+            if (chunk.usage) {
+              finalUsage = {
+                inputTokens: chunk.usage.prompt_tokens ?? 0,
+                outputTokens: chunk.usage.completion_tokens ?? 0,
+              };
+            }
+          }
+
+          yield { done: true, usage: finalUsage };
+        } catch (error: unknown) {
+          // Mid-stream failure is non-retryable
+          throw self.mapError(error);
         }
       }
 
-      yield { done: true, usage: finalUsage };
+      return generate();
     } catch (error: unknown) {
+      // Connection-level failure before stream starts — retryable via withRetry
       throw this.mapError(error);
     }
   }

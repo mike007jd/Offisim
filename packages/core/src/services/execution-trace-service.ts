@@ -14,6 +14,7 @@ export interface ExecutionTrace {
 
 export interface ExecutionTraceService {
   getTrace(threadId: string): Promise<ExecutionTrace | null>;
+  getStateAt(threadId: string, checkpointSeq: number): Promise<Record<string, unknown> | null>;
   listThreads(companyId: string, opts?: { limit?: number; status?: string }): Promise<GraphThreadRow[]>;
 }
 
@@ -43,6 +44,17 @@ export class ExecutionTraceServiceImpl implements ExecutionTraceService {
       checkpoints,
       events,
     };
+  }
+
+  async getStateAt(threadId: string, checkpointSeq: number): Promise<Record<string, unknown> | null> {
+    const checkpoint = await this.repos.checkpoints.findBySeq(threadId, checkpointSeq);
+    if (!checkpoint) return null;
+
+    try {
+      return JSON.parse(checkpoint.payload_json) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 
   async listThreads(companyId: string, opts?: { limit?: number; status?: string }): Promise<GraphThreadRow[]> {

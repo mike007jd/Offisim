@@ -37,3 +37,41 @@ export function createTestRuntime() {
 
   return { graph, repos, eventBus, gateway, events, runtimeCtx };
 }
+
+export function createTestRuntimeWithExtraEmployee() {
+  const repos = createMemoryRepositories();
+  const eventBus = new InMemoryEventBus();
+  const gateway = new MockLlmGateway();
+  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const toolExecutor = new MockToolExecutor();
+
+  repos.seed.companies([TEST_COMPANY]);
+  repos.seed.employees([
+    makeManager(),
+    makeEmployee(),
+    makeEmployee({
+      employee_id: 'e-design-1',
+      name: 'Design Bot',
+      role_slug: 'designer',
+      persona_json: JSON.stringify({ expertise: 'UI/UX design' }),
+    }),
+  ]);
+
+  const runtimeCtx = createRuntimeContext({
+    repos,
+    eventBus,
+    llmGateway: gateway,
+    modelResolver: resolver,
+    toolExecutor,
+    companyId: TEST_COMPANY_ID,
+    threadId: TEST_THREAD_ID,
+  });
+
+  const graph = buildAicsGraph();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const events: RuntimeEvent<any>[] = [];
+  eventBus.on('', (e) => events.push(e));
+
+  return { graph, repos, eventBus, gateway, events, runtimeCtx };
+}
