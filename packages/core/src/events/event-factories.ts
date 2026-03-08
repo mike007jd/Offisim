@@ -1,8 +1,11 @@
 import type {
   EmployeeState,
   EmployeeStatePayload,
+  GraphNodeEnteredPayload,
+  GraphNodeExitedPayload,
   LlmCallCompletedPayload,
   LlmCallStartedPayload,
+  LlmStreamChunkPayload,
   LlmUsageRecordedPayload,
   MeetingState,
   MeetingStatePayload,
@@ -142,5 +145,56 @@ export function llmUsageRecorded(
     threadId,
     timestamp: Date.now(),
     payload: { llmCallId, threadId, taskRunId, provider, model, inputTokens, outputTokens },
+  };
+}
+
+// --- Phase 2.3: Graph Streaming Pipeline ---
+
+export function graphNodeEntered(
+  companyId: string,
+  threadId: string,
+  nodeName: string,
+): RuntimeEvent<GraphNodeEnteredPayload> {
+  return {
+    type: 'graph.node.entered',
+    entityId: nodeName,
+    entityType: 'graph',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { nodeName },
+  };
+}
+
+export function graphNodeExited(
+  companyId: string,
+  threadId: string,
+  nodeName: string,
+): RuntimeEvent<GraphNodeExitedPayload> {
+  return {
+    type: 'graph.node.exited',
+    entityId: nodeName,
+    entityType: 'graph',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { nodeName },
+  };
+}
+
+export function llmStreamChunk(
+  companyId: string,
+  threadId: string,
+  nodeName: string,
+  content: string,
+): RuntimeEvent<LlmStreamChunkPayload> {
+  return {
+    type: 'llm.stream.chunk',
+    entityId: nodeName,
+    entityType: 'llm',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { nodeName, content },
   };
 }
