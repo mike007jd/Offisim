@@ -107,7 +107,7 @@ describe('ExecutionTraceService', () => {
       versions_seen: {},
       pending_sends: [],
     };
-    const metadata = { source: 'input' as const, step: 0, writes: null, parents: {} };
+    const metadata = { source: 'input' as const, step: 0, parents: {} };
 
     await checkpointSaver.put(config, checkpoint, metadata, {});
 

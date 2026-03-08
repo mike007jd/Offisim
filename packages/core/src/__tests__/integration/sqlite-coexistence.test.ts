@@ -61,7 +61,7 @@ describe('SqliteSaver coexistence with app tables', () => {
       versions_seen: {},
       pending_sends: [],
     };
-    await checkpointer.put(config, checkpoint, { source: 'input', step: 0, writes: null, parents: {} }, {});
+    await checkpointer.put(config, checkpoint, { source: 'input', step: 0, parents: {} }, {});
 
     // App data still readable
     const company = db.prepare('SELECT * FROM companies WHERE company_id = ?').get('c-1') as { name: string };
@@ -95,7 +95,7 @@ describe('SqliteSaver coexistence with app tables', () => {
       versions_seen: {},
       pending_sends: [],
     };
-    await checkpointer.put(config, checkpoint, { source: 'input', step: 0, writes: null, parents: {} }, {});
+    await checkpointer.put(config, checkpoint, { source: 'input', step: 0, parents: {} }, {});
     db.close();
 
     // Reopen the same file

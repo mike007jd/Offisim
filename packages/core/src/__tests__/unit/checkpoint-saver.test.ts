@@ -40,7 +40,7 @@ describe('SqliteSaver basic persistence', () => {
       pending_sends: [],
     };
 
-    const metadata = { source: 'input' as const, step: 0, writes: null, parents: {} };
+    const metadata = { source: 'input' as const, step: 0, parents: {} };
 
     const savedConfig = await saver.put(config, checkpoint, metadata, {});
     expect(savedConfig.configurable?.checkpoint_id).toBe('cp-001');
