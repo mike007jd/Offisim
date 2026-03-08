@@ -1,8 +1,12 @@
 import type { ModelPolicyConfig, ModelProfile, ResolvedModel } from '@aics/shared-types';
 
-const HARDCODED_DEFAULT: ResolvedModel = {
-  provider: 'anthropic',
-  model: 'claude-sonnet-4-20250514',
+/**
+ * System-level fallback when no policy and no explicit fallback is provided.
+ * Intentionally generic — forces callers to supply a policy or fallback.
+ */
+const SYSTEM_FALLBACK: ResolvedModel = {
+  provider: 'openai-compat',
+  model: 'default',
   temperature: 0.7,
   maxTokens: 4096,
 };
@@ -12,14 +16,19 @@ const DEFAULT_MAX_TOKENS = 4096;
 
 export class ModelResolver {
   private readonly policy: ModelPolicyConfig | null;
+  private readonly fallback: ResolvedModel;
 
-  constructor(policy: ModelPolicyConfig | null | undefined) {
+  constructor(
+    policy: ModelPolicyConfig | null | undefined,
+    fallback?: ResolvedModel,
+  ) {
     this.policy = policy ?? null;
+    this.fallback = fallback ?? SYSTEM_FALLBACK;
   }
 
   /**
    * Resolve a model configuration.
-   * Priority: employeeProfile > roleSlug override > company default > hardcoded.
+   * Priority: employeeProfile > roleSlug override > company default > fallback.
    */
   resolve(employeeProfile?: ModelProfile | null, roleSlug?: string): ResolvedModel {
     if (employeeProfile) {
@@ -34,7 +43,7 @@ export class ModelResolver {
       return this.toResolved(this.policy.default);
     }
 
-    return HARDCODED_DEFAULT;
+    return this.fallback;
   }
 
   private toResolved(profile: ModelProfile): ResolvedModel {

@@ -55,13 +55,27 @@ describe('ModelResolver', () => {
     expect(result.maxTokens).toBe(4096);
   });
 
-  it('falls back to hardcoded default when policy is null', () => {
+  it('falls back to system fallback when policy is null and no explicit fallback', () => {
     const resolver = new ModelResolver(null);
     const result = resolver.resolve();
-    expect(result.provider).toBe('anthropic');
-    expect(result.model).toBeDefined();
-    expect(result.temperature).toBeGreaterThan(0);
-    expect(result.maxTokens).toBeGreaterThan(0);
+    expect(result.provider).toBe('openai-compat');
+    expect(result.model).toBe('default');
+    expect(result.temperature).toBe(0.7);
+    expect(result.maxTokens).toBe(4096);
+  });
+
+  it('uses explicit fallback when policy is null', () => {
+    const resolver = new ModelResolver(null, {
+      provider: 'openai-compat',
+      model: 'stepfun/step-3.5-flash:free',
+      temperature: 0.5,
+      maxTokens: 8192,
+    });
+    const result = resolver.resolve();
+    expect(result.provider).toBe('openai-compat');
+    expect(result.model).toBe('stepfun/step-3.5-flash:free');
+    expect(result.temperature).toBe(0.5);
+    expect(result.maxTokens).toBe(8192);
   });
 
   it('uses defaults for missing temperature/maxTokens in profile', () => {
