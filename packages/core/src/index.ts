@@ -1,4 +1,4 @@
-// @aics/core — Phase 2.3 Graph Streaming Pipeline
+// @aics/core — Phase 2.4 Production Hardening
 
 // --- Types ---
 export type { RuntimeContext } from './runtime/runtime-context.js';
@@ -44,6 +44,9 @@ export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
 // --- LLM ---
 export { AnthropicAdapter } from './llm/anthropic-adapter.js';
 export { OpenAiAdapter } from './llm/openai-adapter.js';
+export type { OpenAiAdapterOptions } from './llm/openai-adapter.js';
+export { createGateway } from './llm/gateway-factory.js';
+export type { GatewayConfig } from './llm/gateway-factory.js';
 export { ModelResolver } from './llm/model-resolver.js';
 export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
 export { teeStream } from './llm/stream-tee.js';
