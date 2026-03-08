@@ -1,9 +1,11 @@
 import type { RuntimeEvent } from '@aics/shared-types';
 
-export type EventHandler = (event: RuntimeEvent) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type EventHandler = (event: RuntimeEvent<any>) => void;
 
 export interface EventBus {
-  emit(event: RuntimeEvent): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: RuntimeEvent<any>): void;
   on(prefix: string, handler: EventHandler): () => void;
   once(prefix: string, handler: EventHandler): () => void;
   removeAll(): void;
@@ -18,7 +20,8 @@ interface Subscription {
 export class InMemoryEventBus implements EventBus {
   private subscriptions: Subscription[] = [];
 
-  emit(event: RuntimeEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: RuntimeEvent<any>): void {
     const toRemove: Subscription[] = [];
 
     for (const sub of this.subscriptions) {
