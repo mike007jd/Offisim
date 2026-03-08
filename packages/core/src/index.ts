@@ -37,7 +37,7 @@ export type { ThreadForkService } from './services/thread-fork-service.js';
 // --- Factories ---
 export { buildAicsGraph } from './graph/main-graph.js';
 export { createRuntimeContext } from './runtime/runtime-context.js';
-export { createCheckpointSaver, DrizzleCheckpointSaver } from './graph/checkpoint-saver.js';
+export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export { createMemoryRepositories } from './runtime/memory-repositories.js';
 export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
 
