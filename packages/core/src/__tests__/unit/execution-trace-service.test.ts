@@ -1,16 +1,20 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { ExecutionTraceServiceImpl } from '../../services/execution-trace-service.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createMemoryCheckpointSaver } from '../../graph/checkpoint-saver.js';
 import { TEST_COMPANY, TEST_COMPANY_ID } from '../helpers/fixtures.js';
 
 describe('ExecutionTraceService', () => {
   let repos: ReturnType<typeof createMemoryRepositories>;
+  let checkpointSaver: BaseCheckpointSaver;
   let service: ExecutionTraceServiceImpl;
 
   beforeEach(() => {
     repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
-    service = new ExecutionTraceServiceImpl(repos);
+    checkpointSaver = createMemoryCheckpointSaver();
+    service = new ExecutionTraceServiceImpl(repos, checkpointSaver);
   });
 
   it('returns null for non-existent thread', async () => {
@@ -85,5 +89,31 @@ describe('ExecutionTraceService', () => {
 
     const threads = await service.listThreads(TEST_COMPANY_ID);
     expect(threads).toHaveLength(2);
+  });
+
+  it('getStateAt returns null for unknown checkpoint', async () => {
+    const state = await service.getStateAt('nonexistent-thread', 'nonexistent-cp');
+    expect(state).toBeNull();
+  });
+
+  it('getStateAt retrieves channel values from checkpointSaver', async () => {
+    const config = { configurable: { thread_id: 'svc-thread-1' } };
+    const checkpoint = {
+      v: 1,
+      id: 'svc-cp-1',
+      ts: new Date().toISOString(),
+      channel_values: { messages: [], completed: true, foo: 'bar' },
+      channel_versions: {},
+      versions_seen: {},
+      pending_sends: [],
+    };
+    const metadata = { source: 'input' as const, step: 0, writes: null, parents: {} };
+
+    await checkpointSaver.put(config, checkpoint, metadata, {});
+
+    const state = await service.getStateAt('svc-thread-1', 'svc-cp-1');
+    expect(state).not.toBeNull();
+    expect(state!.completed).toBe(true);
+    expect(state!.foo).toBe('bar');
   });
 });
