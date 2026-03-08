@@ -18,7 +18,7 @@ import { graphNodeExited } from '../events/event-factories.js';
 export class OrchestrationService {
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private graph: { stream: (input: any, config: any) => AsyncIterable<Record<string, any>> },
+    private graph: { stream: (input: any, config: any) => Promise<AsyncIterable<Record<string, any>>> },
     private runtimeCtx: RuntimeContext,
   ) {}
 
@@ -41,10 +41,12 @@ export class OrchestrationService {
 
     let finalState: Partial<AicsGraphState> = { ...fullInput };
 
-    for await (const update of this.graph.stream(fullInput, {
+    const stream = await this.graph.stream(fullInput, {
       ...config,
       streamMode: 'updates' as const,
-    })) {
+    });
+
+    for await (const update of stream) {
       for (const [nodeName, nodeOutput] of Object.entries(update)) {
         this.runtimeCtx.eventBus.emit(
           graphNodeExited(
