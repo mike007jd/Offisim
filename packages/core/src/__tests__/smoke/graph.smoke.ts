@@ -20,18 +20,7 @@ interface SmokeProvider {
 }
 
 function detectProvider(): SmokeProvider | null {
-  if (process.env.OPENROUTER_API_KEY) {
-    return {
-      name: 'OpenRouter',
-      gateway: createGateway({
-        provider: 'openai-compat',
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
-      }),
-      provider: 'openai-compat',
-      model: process.env.OPENROUTER_MODEL ?? 'stepfun/step-3.5-flash:free',
-    };
-  }
+  // Gemini first — more capable for structured graph output than free-tier models
   if (process.env.GEMINI_API_KEY) {
     return {
       name: 'Gemini',
@@ -41,7 +30,19 @@ function detectProvider(): SmokeProvider | null {
         baseURL: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
       }),
       provider: 'openai-compat',
-      model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+      model: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+    };
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      name: 'OpenRouter',
+      gateway: createGateway({
+        provider: 'openai-compat',
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
+      }),
+      provider: 'openai-compat',
+      model: process.env.OPENROUTER_MODEL ?? 'google/gemma-3-4b-it:free',
     };
   }
   if (process.env.KIMI_API_KEY) {
@@ -51,6 +52,7 @@ function detectProvider(): SmokeProvider | null {
         provider: 'openai-compat',
         apiKey: process.env.KIMI_API_KEY,
         baseURL: process.env.KIMI_BASE_URL ?? 'https://api.kimi.com/coding/v1',
+        defaultHeaders: { 'User-Agent': 'claude-code/1.0.0' },
       }),
       provider: 'openai-compat',
       model: process.env.KIMI_MODEL ?? 'kimi-for-coding',
