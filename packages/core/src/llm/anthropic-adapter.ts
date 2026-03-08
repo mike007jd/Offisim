@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmError } from '../errors.js';
-import type { LlmGateway, LlmRequest, LlmResponse, ToolCallResult } from './gateway.js';
+import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk, ToolCallResult } from './gateway.js';
 import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from './retry.js';
 
 export class AnthropicAdapter implements LlmGateway {
@@ -38,6 +38,42 @@ export class AnthropicAdapter implements LlmGateway {
       });
 
       return this.mapResponse(response);
+    } catch (error: unknown) {
+      throw this.mapError(error);
+    }
+  }
+
+  async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
+    const systemMessages = request.messages.filter((m) => m.role === 'system');
+    const nonSystemMessages = request.messages.filter((m) => m.role !== 'system');
+    const systemText = systemMessages.map((m) => m.content).join('\n');
+
+    try {
+      const stream = this.client.messages.stream({
+        model: request.model,
+        max_tokens: request.maxTokens ?? 4096,
+        temperature: request.temperature,
+        system: systemText || undefined,
+        messages: nonSystemMessages.map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      });
+
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          yield { content: event.delta.text, done: false };
+        }
+      }
+
+      const finalMessage = await stream.finalMessage();
+      yield {
+        done: true,
+        usage: {
+          inputTokens: finalMessage.usage.input_tokens,
+          outputTokens: finalMessage.usage.output_tokens,
+        },
+      };
     } catch (error: unknown) {
       throw this.mapError(error);
     }

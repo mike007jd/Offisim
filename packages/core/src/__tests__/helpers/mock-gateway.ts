@@ -1,8 +1,9 @@
-import type { LlmGateway, LlmRequest, LlmResponse } from '../../llm/gateway.js';
+import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk } from '../../llm/gateway.js';
 
 export class MockLlmGateway implements LlmGateway {
   private keywordResponses = new Map<string, LlmResponse>();
   private sequentialResponses: LlmResponse[] = [];
+  private streamResponses: LlmResponse[] = [];
   private callCount = 0;
 
   whenSystemContains(keyword: string, response: Partial<LlmResponse>): void {
@@ -17,6 +18,17 @@ export class MockLlmGateway implements LlmGateway {
   pushResponse(...responses: Array<Partial<LlmResponse>>): void {
     for (const r of responses) {
       this.sequentialResponses.push({
+        content: '',
+        toolCalls: [],
+        usage: { inputTokens: 10, outputTokens: 5 },
+        ...r,
+      });
+    }
+  }
+
+  pushStreamResponse(...responses: Array<Partial<LlmResponse>>): void {
+    for (const r of responses) {
+      this.streamResponses.push({
         content: '',
         toolCalls: [],
         usage: { inputTokens: 10, outputTokens: 5 },
@@ -51,5 +63,21 @@ export class MockLlmGateway implements LlmGateway {
       toolCalls: [],
       usage: { inputTokens: 10, outputTokens: 5 },
     };
+  }
+
+  async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
+    // Use stream-specific responses first, then fall back to chat()
+    const response = this.streamResponses.length > 0
+      ? this.streamResponses.shift()!
+      : await this.chat(request);
+
+    // Simulate streaming by yielding content word by word
+    const words = response.content.split(' ');
+    for (const word of words) {
+      if (word) {
+        yield { content: word + ' ', done: false };
+      }
+    }
+    yield { usage: response.usage, done: true };
   }
 }
