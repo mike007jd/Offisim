@@ -166,6 +166,9 @@ importers:
       '@langchain/langgraph':
         specifier: ^1.2.1
         version: 1.2.1(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      '@langchain/langgraph-checkpoint-sqlite':
+        specifier: ^1.0.1
+        version: 1.0.1(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6))))
       openai:
         specifier: ^6.27.0
         version: 6.27.0(zod@4.3.6)
@@ -920,6 +923,13 @@ packages:
   '@langchain/core@1.1.31':
     resolution: {integrity: sha512-FxsgIUONjKaRpjx59sISgmb0OMCbAetPGyhzjGa2kX0y1f8LZ5xm9VB2db7W9HYWyLvzRWcMA51Uu4OSTJmtZQ==}
     engines: {node: '>=20'}
+
+  '@langchain/langgraph-checkpoint-sqlite@1.0.1':
+    resolution: {integrity: sha512-zGKqa4QpKMi2ntffoGVrkpDg5cnYtXYoFphyhTquZv+ys+sFxwfQTzf4dQu21TwCC1IpVDmYsPifJueKb1ARdQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': ^1.0.1
+      '@langchain/langgraph-checkpoint': ^1.0.0
 
   '@langchain/langgraph-checkpoint@1.0.0':
     resolution: {integrity: sha512-xrclBGvNCXDmi0Nz28t3vjpxSH6UYx6w5XAXSiiB1WEdc2xD2iY/a913I3x3a31XpInUW/GGfXXfePfaghV54A==}
@@ -2419,6 +2429,12 @@ snapshots:
       - '@opentelemetry/exporter-trace-otlp-proto'
       - '@opentelemetry/sdk-trace-base'
       - openai
+
+  '@langchain/langgraph-checkpoint-sqlite@1.0.1(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6))))':
+    dependencies:
+      '@langchain/core': 1.1.31(openai@6.27.0(zod@4.3.6))
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))
+      better-sqlite3: 12.6.2
 
   '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))':
     dependencies:
