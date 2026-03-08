@@ -1,51 +1,148 @@
 import { describe, it, expect } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { AnthropicAdapter } from '../../llm/anthropic-adapter.js';
+import type { LlmProvider, ModelPolicyConfig } from '@aics/shared-types';
+import type { LlmGateway } from '../../llm/gateway.js';
+import { createGateway } from '../../llm/gateway-factory.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { buildAicsGraph } from '../../graph/main-graph.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
+import { makeEmployee, makeManager } from '../helpers/fixtures.js';
 
-const HAS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
+// --- Auto-detect first available provider ---
+interface SmokeProvider {
+  name: string;
+  gateway: LlmGateway;
+  provider: LlmProvider;
+  model: string;
+}
+
+function detectProvider(): SmokeProvider | null {
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      name: 'OpenRouter',
+      gateway: createGateway({
+        provider: 'openai-compat',
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
+      }),
+      provider: 'openai-compat',
+      model: process.env.OPENROUTER_MODEL ?? 'stepfun/step-3.5-flash:free',
+    };
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return {
+      name: 'Gemini',
+      gateway: createGateway({
+        provider: 'openai-compat',
+        apiKey: process.env.GEMINI_API_KEY,
+        baseURL: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      }),
+      provider: 'openai-compat',
+      model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+    };
+  }
+  if (process.env.KIMI_API_KEY) {
+    return {
+      name: 'Kimi',
+      gateway: createGateway({
+        provider: 'openai-compat',
+        apiKey: process.env.KIMI_API_KEY,
+        baseURL: process.env.KIMI_BASE_URL ?? 'https://api.kimi.com/coding/v1',
+      }),
+      provider: 'openai-compat',
+      model: process.env.KIMI_MODEL ?? 'kimi-for-coding',
+    };
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    return {
+      name: 'Anthropic',
+      gateway: createGateway({
+        provider: 'anthropic',
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      }),
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-20250514',
+    };
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      name: 'OpenAI',
+      gateway: createGateway({
+        provider: 'openai',
+        apiKey: process.env.OPENAI_API_KEY,
+      }),
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+    };
+  }
+  return null;
+}
+
+const smokeProvider = detectProvider();
 
 function createSmokeRuntime() {
+  if (!smokeProvider) throw new Error('No provider detected');
+
+  const policy: ModelPolicyConfig = {
+    default: {
+      profileName: 'smoke',
+      provider: smokeProvider.provider,
+      model: smokeProvider.model,
+      temperature: 0.7,
+      maxTokens: 4096,
+    },
+  };
+
   const repos = createMemoryRepositories();
   const eventBus = new InMemoryEventBus();
-  const gateway = new AnthropicAdapter(process.env.ANTHROPIC_API_KEY!);
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(policy);
   const toolExecutor = new MockToolExecutor();
+  const companyId = 'c-smoke-1';
 
-  repos.seed.companies([TEST_COMPANY]);
-  repos.seed.employees([makeManager(), makeEmployee()]);
+  repos.seed.companies([{
+    company_id: companyId,
+    name: 'Smoke Test Corp',
+    status: 'active',
+    workspace_root: null,
+    default_model_policy_json: JSON.stringify(policy),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }]);
+  repos.seed.employees([makeManager({ company_id: companyId }), makeEmployee({ company_id: companyId })]);
 
   const threadId = `t-smoke-${Date.now()}`;
   const runtimeCtx = createRuntimeContext({
-    repos, eventBus, llmGateway: gateway, modelResolver: resolver,
-    toolExecutor, companyId: TEST_COMPANY_ID, threadId,
+    repos,
+    eventBus,
+    llmGateway: smokeProvider.gateway,
+    modelResolver: resolver,
+    toolExecutor,
+    companyId,
+    threadId,
   });
 
   const graph = buildAicsGraph();
-  return { graph, repos, runtimeCtx, threadId };
+  return { graph, repos, runtimeCtx, threadId, companyId };
 }
 
-describe.skipIf(!HAS_API_KEY)('full graph smoke (live API)', () => {
+describe.skipIf(!smokeProvider)(`full graph smoke — ${smokeProvider?.name ?? 'none'}`, () => {
   it('boss_chat completes and persists all expected records', async () => {
     const { graph, repos, runtimeCtx, threadId } = createSmokeRuntime();
 
     const result = await graph.invoke(
       {
         threadId,
-        companyId: TEST_COMPANY_ID,
+        companyId: runtimeCtx.companyId,
         entryMode: 'boss_chat' as const,
         messages: [new HumanMessage('Write a simple project plan for a TODO app')],
       },
       { configurable: { thread_id: threadId, runtimeCtx } },
     );
 
-    // Structural assertions — 100% deterministic
+    // Structural assertions
     expect(result.completed).toBe(true);
 
     const taskRuns = await repos.taskRuns.findByThread(threadId);
@@ -56,7 +153,7 @@ describe.skipIf(!HAS_API_KEY)('full graph smoke (live API)', () => {
 
     const llmCalls = await repos.llmCalls.findByThread(threadId);
     expect(llmCalls.length).toBeGreaterThan(0);
-    expect(llmCalls.every(c => c.input_tokens > 0)).toBe(true);
-    expect(llmCalls.every(c => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
-  }, 120000);
+    // Token count may be 0 for compat providers without stream_options support
+    expect(llmCalls.every((c) => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
+  }, 120_000);
 });
