@@ -24,7 +24,16 @@ export type {
   NewLlmCall,
   LlmCallRepository,
 } from './runtime/repositories.js';
-export type { LlmGateway, LlmRequest, LlmResponse, LlmMessage, ToolDef, ToolCallResult, LlmUsage, LlmStreamChunk } from './llm/gateway.js';
+export type {
+  LlmGateway,
+  LlmRequest,
+  LlmResponse,
+  LlmMessage,
+  ToolDef,
+  ToolCallResult,
+  LlmUsage,
+  LlmStreamChunk,
+} from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export type { AicsGraphState, PendingAssignment } from './graph/state.js';

@@ -18,10 +18,7 @@ export class ModelResolver {
   private readonly policy: ModelPolicyConfig | null;
   private readonly fallback: ResolvedModel;
 
-  constructor(
-    policy: ModelPolicyConfig | null | undefined,
-    fallback?: ResolvedModel,
-  ) {
+  constructor(policy: ModelPolicyConfig | null | undefined, fallback?: ResolvedModel) {
     this.policy = policy ?? null;
     this.fallback = fallback ?? SYSTEM_FALLBACK;
   }

@@ -1,6 +1,6 @@
 import type { LlmProvider } from '@aics/shared-types';
-import type { LlmGateway } from './gateway.js';
 import { AnthropicAdapter } from './anthropic-adapter.js';
+import type { LlmGateway } from './gateway.js';
 import { OpenAiAdapter } from './openai-adapter.js';
 
 export interface GatewayConfig {
