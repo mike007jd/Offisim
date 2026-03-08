@@ -5,7 +5,7 @@ import { TEST_THREAD_ID } from '../helpers/fixtures.js';
 
 describe('boss-chat full flow', () => {
   it('routes user message through boss → manager → employee → summary', async () => {
-    const { graph, gateway, events, runtimeCtx } = createTestRuntime();
+    const { graph, gateway, events, runtimeCtx, repos } = createTestRuntime();
 
     // Boss decides to delegate
     gateway.pushResponse({
@@ -48,6 +48,19 @@ describe('boss-chat full flow', () => {
 
     const employeeEvents = events.filter((e) => e.type === 'employee.state.changed');
     expect(employeeEvents.length).toBeGreaterThanOrEqual(1);
+
+    // LLM calls should be recorded
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    expect(llmCalls.length).toBeGreaterThanOrEqual(3); // boss + manager + employee
+    expect(llmCalls.every(c => c.input_tokens > 0)).toBe(true);
+    expect(llmCalls.every(c => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
+    expect(llmCalls.every(c => c.error_code === null)).toBe(true);
+
+    // LLM events should be emitted
+    const llmStarted = events.filter(e => e.type === 'llm.call.started');
+    const llmCompleted = events.filter(e => e.type === 'llm.call.completed');
+    expect(llmStarted.length).toBeGreaterThanOrEqual(3);
+    expect(llmCompleted.length).toBeGreaterThanOrEqual(3);
   });
 
   it('handles direct reply without delegation', async () => {
