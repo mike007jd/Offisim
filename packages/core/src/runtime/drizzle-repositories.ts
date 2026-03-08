@@ -4,9 +4,10 @@ import * as schema from '@aics/db-local';
 import type {
   CheckpointRepository, CompanyRepository, EmployeeRepository,
   EventRepository, GraphCheckpointRow, GraphThreadRow,
-  HandoffEventRow, HandoffRepository, MeetingRepository,
+  HandoffEventRow, HandoffRepository, LlmCallRepository,
+  LlmCallRow, MeetingRepository,
   MeetingSessionRow, NewGraphCheckpoint, NewGraphThread,
-  NewHandoffEvent, NewMeetingSession, NewRuntimeEvent,
+  NewHandoffEvent, NewLlmCall, NewMeetingSession, NewRuntimeEvent,
   NewTaskRun, NewToolCall, RuntimeRepositories,
   TaskRunRepository, TaskRunRow, ThreadRepository,
   ToolCallRepository, ToolCallRow,
@@ -35,6 +36,21 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     async findById(id) {
       const rows = db.select().from(schema.graphThreads).where(eq(schema.graphThreads.thread_id, id)).all();
       return (rows[0] as GraphThreadRow | undefined) ?? null;
+    },
+    async findByCompany(companyId, opts) {
+      let query = db.select().from(schema.graphThreads)
+        .where(
+          opts?.status
+            ? and(eq(schema.graphThreads.company_id, companyId), eq(schema.graphThreads.status, opts.status))
+            : eq(schema.graphThreads.company_id, companyId),
+        )
+        .orderBy(desc(schema.graphThreads.created_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return query.all() as GraphThreadRow[];
     },
     async updateStatus(id, status) {
       db.update(schema.graphThreads)
@@ -153,5 +169,20 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events };
+  const llmCalls: LlmCallRepository = {
+    async create(c: NewLlmCall) {
+      db.insert(schema.llmCalls).values(c).run();
+      return c as LlmCallRow;
+    },
+    async findByThread(threadId) {
+      return db.select().from(schema.llmCalls)
+        .where(eq(schema.llmCalls.thread_id, threadId)).all() as LlmCallRow[];
+    },
+    async findByTaskRun(taskRunId) {
+      return db.select().from(schema.llmCalls)
+        .where(eq(schema.llmCalls.task_run_id, taskRunId)).all() as LlmCallRow[];
+    },
+  };
+
+  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls };
 }

@@ -3,6 +3,7 @@ import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { taskStateChanged, taskAssignmentChanged } from '../events/event-factories.js';
+import { recordedLlmCall } from '../llm/recorded-call.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -74,7 +75,7 @@ export async function managerNode(
     throw new GraphError('RuntimeContext not found in config.configurable', 'manager');
   }
 
-  const { llmGateway, modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
+  const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'manager');
 
   // Get available employees
@@ -94,7 +95,7 @@ export async function managerNode(
     ? lastUserMessage.content
     : 'No user message found';
 
-  const llmResponse = await llmGateway.chat({
+  const llmResponse = await recordedLlmCall(runtimeCtx, {
     messages: [
       { role: 'system', content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}` },
       { role: 'user', content: userContent },
@@ -102,7 +103,7 @@ export async function managerNode(
     model: resolved.model,
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
-  });
+  }, { nodeName: 'manager', provider: resolved.provider, model: resolved.model });
 
   let decision = parseManagerDecision(llmResponse.content);
 

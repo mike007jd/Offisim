@@ -5,6 +5,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { employeeStateChanged, taskStateChanged } from '../events/event-factories.js';
+import { recordedLlmCall } from '../llm/recorded-call.js';
 
 export async function employeeNode(
   state: AicsGraphState,
@@ -15,7 +16,7 @@ export async function employeeNode(
     throw new GraphError('RuntimeContext not found in config.configurable', 'employee');
   }
 
-  const { llmGateway, modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
+  const { modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
 
   // Pop the first pending assignment
   const remaining = [...state.pendingAssignments];
@@ -51,7 +52,7 @@ export async function employeeNode(
   const systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
 
   // Initial LLM call
-  let llmResponse = await llmGateway.chat({
+  let llmResponse = await recordedLlmCall(runtimeCtx, {
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: taskDescription },
@@ -59,7 +60,7 @@ export async function employeeNode(
     model: resolved.model,
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
-  });
+  }, { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId });
 
   // Handle tool calls (single round for now)
   if (llmResponse.toolCalls.length > 0) {
@@ -72,7 +73,7 @@ export async function employeeNode(
     }
 
     // Follow-up LLM call after tool execution
-    llmResponse = await llmGateway.chat({
+    llmResponse = await recordedLlmCall(runtimeCtx, {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: taskDescription },
@@ -82,7 +83,7 @@ export async function employeeNode(
       model: resolved.model,
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
-    });
+    }, { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId });
   }
 
   // Update task run to completed

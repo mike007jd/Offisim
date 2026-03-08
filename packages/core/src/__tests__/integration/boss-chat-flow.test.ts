@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { createTestRuntime } from '../helpers/test-runtime.js';
+import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
 import { TEST_THREAD_ID } from '../helpers/fixtures.js';
 
 describe('boss-chat full flow', () => {
   it('routes user message through boss → manager → employee → summary', async () => {
-    const { graph, gateway, events, runtimeCtx } = createTestRuntime();
+    const { graph, gateway, events, runtimeCtx, repos } = createTestRuntime();
 
     // Boss decides to delegate
     gateway.pushResponse({
@@ -48,6 +48,19 @@ describe('boss-chat full flow', () => {
 
     const employeeEvents = events.filter((e) => e.type === 'employee.state.changed');
     expect(employeeEvents.length).toBeGreaterThanOrEqual(1);
+
+    // LLM calls should be recorded
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    expect(llmCalls.length).toBeGreaterThanOrEqual(3); // boss + manager + employee
+    expect(llmCalls.every(c => c.input_tokens > 0)).toBe(true);
+    expect(llmCalls.every(c => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
+    expect(llmCalls.every(c => c.error_code === null)).toBe(true);
+
+    // LLM events should be emitted
+    const llmStarted = events.filter(e => e.type === 'llm.call.started');
+    const llmCompleted = events.filter(e => e.type === 'llm.call.completed');
+    expect(llmStarted.length).toBeGreaterThanOrEqual(3);
+    expect(llmCompleted.length).toBeGreaterThanOrEqual(3);
   });
 
   it('handles direct reply without delegation', async () => {
@@ -103,5 +116,60 @@ describe('boss-chat full flow', () => {
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     expect(taskRuns.length).toBeGreaterThanOrEqual(1);
     expect(taskRuns[0]!.status).toBe('completed');
+  });
+
+  it('uses streaming LLM summary when multiple employees produce results', async () => {
+    const { graph, gateway, events, runtimeCtx, repos } = createTestRuntimeWithExtraEmployee();
+
+    // Boss decides to delegate
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'delegate', reason: 'needs multiple skills' }),
+    });
+
+    // Manager assigns to two employees
+    gateway.pushResponse({
+      content: JSON.stringify({
+        assignments: [
+          { taskType: 'code', employeeId: 'e-dev-1', description: 'Write the backend' },
+          { taskType: 'design', employeeId: 'e-design-1', description: 'Design the UI' },
+        ],
+      }),
+    });
+
+    // Employee 1 produces result
+    gateway.pushResponse({ content: '[Dev Bot]: Backend implementation done.' });
+    // Employee 2 produces result
+    gateway.pushResponse({ content: '[Design Bot]: UI mockups ready.' });
+
+    // Boss summary uses streaming LLM (via MockLlmGateway.chatStream)
+    gateway.pushStreamResponse({
+      content: 'Team completed both backend and UI tasks successfully.',
+      usage: { inputTokens: 200, outputTokens: 30 },
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'boss_chat',
+        messages: [new HumanMessage('Build a full-stack feature')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    expect(result.completed).toBe(true);
+
+    // Verify boss_summary LLM call was recorded (the streaming one)
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    const summaryCalls = llmCalls.filter(c => c.node_name === 'boss_summary');
+    expect(summaryCalls).toHaveLength(1);
+    expect(summaryCalls[0]!.input_tokens).toBe(200);
+    expect(summaryCalls[0]!.output_tokens).toBe(30);
+
+    // Verify streaming events were emitted for boss_summary
+    const llmStarted = events.filter(e =>
+      e.type === 'llm.call.started' && e.payload.nodeName === 'boss_summary',
+    );
+    expect(llmStarted).toHaveLength(1);
   });
 });

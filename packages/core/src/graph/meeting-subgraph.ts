@@ -5,6 +5,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { meetingStateChanged } from '../events/event-factories.js';
 import { buildEmployeePrompt } from '../agents/employee-builder.js';
+import { recordedLlmCall } from '../llm/recorded-call.js';
 
 const MAX_TURNS = 10;
 
@@ -101,7 +102,7 @@ export async function participantTurnNode(
     throw new GraphError('RuntimeContext not found in config.configurable', 'participant_turn');
   }
 
-  const { llmGateway, modelResolver, repos, companyId } = runtimeCtx;
+  const { modelResolver, repos, companyId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);
 
   const currentParticipantId = turnState.participantIds[turnState.participantIndex];
@@ -133,7 +134,7 @@ export async function participantTurnNode(
 
   const prompt = buildEmployeePrompt(employee, company, `${context}Meeting topic: ${topic}\n\nShare your perspective concisely.`);
 
-  const llmResponse = await llmGateway.chat({
+  const llmResponse = await recordedLlmCall(runtimeCtx, {
     messages: [
       { role: 'system', content: prompt },
       { role: 'user', content: `It's your turn to speak in the meeting about: ${topic}` },
@@ -141,7 +142,7 @@ export async function participantTurnNode(
     model: resolved.model,
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
-  });
+  }, { nodeName: 'meeting_participant', provider: resolved.provider, model: resolved.model });
 
   // Advance turn state
   const nextIndex = turnState.participantIndex + 1;

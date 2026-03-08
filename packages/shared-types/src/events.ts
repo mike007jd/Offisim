@@ -24,7 +24,10 @@ export type EventFamily =
   | 'binding.state.changed'
   | 'report.state.changed'
   | 'runtime.performance.tier.changed'
-  | 'ui.selection.changed';
+  | 'ui.selection.changed'
+  | 'llm.call.started'
+  | 'llm.call.completed'
+  | 'llm.usage.recorded';
 
 // --- Typed event payloads ---
 
@@ -53,4 +56,30 @@ export interface MeetingStatePayload {
   readonly prev: MeetingState;
   readonly next: MeetingState;
   readonly participantIds: readonly string[];
+}
+
+export interface LlmCallStartedPayload {
+  readonly llmCallId: string;
+  readonly nodeName: string;
+  readonly provider: string;
+  readonly model: string;
+  readonly threadId: string;
+}
+
+export interface LlmCallCompletedPayload {
+  readonly llmCallId: string;
+  readonly nodeName: string;
+  readonly latencyMs: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+}
+
+export interface LlmUsageRecordedPayload {
+  readonly llmCallId: string;
+  readonly threadId: string;
+  readonly taskRunId: string | null;
+  readonly provider: string;
+  readonly model: string;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
 }

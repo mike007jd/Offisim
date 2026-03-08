@@ -34,7 +34,15 @@ export interface LlmResponse {
   readonly usage: LlmUsage;
 }
 
+export interface LlmStreamChunk {
+  readonly content?: string;
+  readonly toolCalls?: readonly ToolCallResult[];
+  readonly usage?: LlmUsage;
+  readonly done: boolean;
+}
+
 /** Provider-agnostic LLM gateway. Adapters implement this. */
 export interface LlmGateway {
   chat(request: LlmRequest): Promise<LlmResponse>;
+  chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk>;
 }

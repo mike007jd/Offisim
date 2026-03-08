@@ -3,6 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
+import { recordedLlmCall } from '../llm/recorded-call.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting';
@@ -66,7 +67,7 @@ export async function bossNode(
     throw new GraphError('RuntimeContext not found in config.configurable', 'boss');
   }
 
-  const { llmGateway, modelResolver } = runtimeCtx;
+  const { modelResolver } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'boss');
 
   // Build messages for LLM
@@ -78,7 +79,7 @@ export async function bossNode(
     ? lastUserMessage.content
     : 'No user message found';
 
-  const llmResponse = await llmGateway.chat({
+  const llmResponse = await recordedLlmCall(runtimeCtx, {
     messages: [
       { role: 'system', content: BOSS_SYSTEM_PROMPT },
       { role: 'user', content: userContent },
@@ -86,7 +87,7 @@ export async function bossNode(
     model: resolved.model,
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
-  });
+  }, { nodeName: 'boss', provider: resolved.provider, model: resolved.model });
 
   const decision = parseBossDecision(llmResponse.content);
 
