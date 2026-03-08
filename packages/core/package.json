@@ -13,6 +13,8 @@
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:smoke:adapter": "vitest run src/__tests__/smoke/adapter.smoke.ts --passWithNoTests",
+    "test:smoke:graph": "vitest run src/__tests__/smoke/graph.smoke.ts --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
