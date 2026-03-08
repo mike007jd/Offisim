@@ -4,7 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import { GraphError } from '../errors.js';
-import { graphNodeEntered } from '../events/event-factories.js';
+import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -88,7 +88,18 @@ export async function bossSummaryNode(
       maxTokens: resolved.maxTokens,
     },
     { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
-    () => {}, // onChunk: graph.stream() consumers receive chunks via LangGraph's streaming mechanism
+    (chunk) => {
+      if (chunk.content) {
+        runtimeCtx.eventBus.emit(
+          llmStreamChunk(
+            runtimeCtx.companyId,
+            state.threadId,
+            'boss_summary',
+            chunk.content,
+          ),
+        );
+      }
+    },
   );
 
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
