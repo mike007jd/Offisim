@@ -3,13 +3,29 @@ import { LlmError } from '../errors.js';
 import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk, LlmUsage, ToolCallResult } from './gateway.js';
 import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from './retry.js';
 
+export interface OpenAiAdapterOptions {
+  /** Custom base URL for OpenAI-compatible endpoints (e.g. OpenRouter, Kimi, Gemini compat) */
+  baseURL?: string;
+  /** Extra headers sent with every request (e.g. HTTP-Referer for OpenRouter) */
+  defaultHeaders?: Record<string, string>;
+  retryConfig?: RetryConfig;
+}
+
 export class OpenAiAdapter implements LlmGateway {
   private client: OpenAI;
   private retryConfig: RetryConfig;
+  private providerLabel: string;
+  private isCompat: boolean;
 
-  constructor(apiKey: string, retryConfig?: RetryConfig) {
-    this.client = new OpenAI({ apiKey });
-    this.retryConfig = retryConfig ?? DEFAULT_RETRY_CONFIG;
+  constructor(apiKey: string, options?: OpenAiAdapterOptions) {
+    this.client = new OpenAI({
+      apiKey,
+      baseURL: options?.baseURL,
+      defaultHeaders: options?.defaultHeaders,
+    });
+    this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+    this.isCompat = !!options?.baseURL;
+    this.providerLabel = this.isCompat ? 'openai-compat' : 'openai';
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
@@ -60,7 +76,9 @@ export class OpenAiAdapter implements LlmGateway {
           content: m.content,
         })),
         stream: true,
-        stream_options: { include_usage: true },
+        // stream_options.include_usage is an OpenAI extension;
+        // not all compat endpoints support it. When omitted, usage will be undefined.
+        ...(this.isCompat ? {} : { stream_options: { include_usage: true } }),
       });
 
       const self = this;
@@ -125,11 +143,11 @@ export class OpenAiAdapter implements LlmGateway {
 
   private mapError(error: unknown): LlmError {
     if (error instanceof OpenAI.APIError) {
-      return new LlmError(error.message, 'openai', error.status);
+      return new LlmError(error.message, this.providerLabel, error.status);
     }
     return new LlmError(
-      error instanceof Error ? error.message : 'Unknown OpenAI error',
-      'openai',
+      error instanceof Error ? error.message : `Unknown ${this.providerLabel} error`,
+      this.providerLabel,
     );
   }
 }
