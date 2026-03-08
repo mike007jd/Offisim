@@ -52,6 +52,7 @@ export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
 
 // --- LLM ---
 export { AnthropicAdapter } from './llm/anthropic-adapter.js';
+export type { AnthropicAdapterOptions } from './llm/anthropic-adapter.js';
 export { OpenAiAdapter } from './llm/openai-adapter.js';
 export type { OpenAiAdapterOptions } from './llm/openai-adapter.js';
 export { createGateway } from './llm/gateway-factory.js';

@@ -3,13 +3,17 @@ import { LlmError } from '../errors.js';
 import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk, ToolCallResult } from './gateway.js';
 import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from './retry.js';
 
+export interface AnthropicAdapterOptions {
+  retryConfig?: RetryConfig;
+}
+
 export class AnthropicAdapter implements LlmGateway {
   private client: Anthropic;
   private retryConfig: RetryConfig;
 
-  constructor(apiKey: string, retryConfig?: RetryConfig) {
+  constructor(apiKey: string, options?: AnthropicAdapterOptions) {
     this.client = new Anthropic({ apiKey });
-    this.retryConfig = retryConfig ?? DEFAULT_RETRY_CONFIG;
+    this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
