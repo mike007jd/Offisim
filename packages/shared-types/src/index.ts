@@ -14,6 +14,7 @@ export type {
   EmployeeStatePayload, TaskStatePayload,
   TaskAssignmentPayload, MeetingStatePayload,
   LlmCallStartedPayload, LlmCallCompletedPayload, LlmUsageRecordedPayload,
+  GraphNodeEnteredPayload, GraphNodeExitedPayload, LlmStreamChunkPayload,
 } from './events.js';
 
 export type {

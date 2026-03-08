@@ -27,7 +27,10 @@ export type EventFamily =
   | 'ui.selection.changed'
   | 'llm.call.started'
   | 'llm.call.completed'
-  | 'llm.usage.recorded';
+  | 'llm.usage.recorded'
+  | 'graph.node.entered'
+  | 'graph.node.exited'
+  | 'llm.stream.chunk';
 
 // --- Typed event payloads ---
 
@@ -82,4 +85,19 @@ export interface LlmUsageRecordedPayload {
   readonly model: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
+}
+
+// --- Phase 2.3: Graph Streaming Pipeline ---
+
+export interface GraphNodeEnteredPayload {
+  readonly nodeName: string;
+}
+
+export interface GraphNodeExitedPayload {
+  readonly nodeName: string;
+}
+
+export interface LlmStreamChunkPayload {
+  readonly nodeName: string;
+  readonly content: string;
 }
