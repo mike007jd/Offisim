@@ -14,6 +14,15 @@ import type {
   NewTaskRun, NewToolCall, RuntimeRepositories,
   TaskRunRepository, TaskRunRow, ThreadRepository,
   ToolCallRepository, ToolCallRow, CheckpointRepository,
+  InstallTransactionRepository, InstalledPackageRepository,
+  InstalledAssetRepository, AssetBindingRepository,
+} from '@aics/core';
+import type { NewEmployee } from '@aics/install-core';
+import {
+  MemoryInstallTransactionRepository,
+  MemoryInstalledPackageRepository,
+  MemoryInstalledAssetRepository,
+  MemoryAssetBindingRepository,
 } from '@aics/core';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
@@ -93,6 +102,26 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
   };
 
   const employees: EmployeeRepository = {
+    async create(emp: NewEmployee) {
+      const employee_id = crypto.randomUUID();
+      const ts = now();
+      const row = {
+        employee_id,
+        company_id: emp.company_id,
+        source_asset_id: emp.source_asset_id,
+        source_package_id: emp.source_package_id,
+        name: emp.name,
+        role_slug: emp.role_slug,
+        workstation_id: null,
+        persona_json: emp.persona_json ?? null,
+        config_json: emp.config_json ?? null,
+        enabled: 1,
+        created_at: ts,
+        updated_at: ts,
+      };
+      await db.insert(schema.employees).values(row);
+      return { employee_id };
+    },
     async findById(id) {
       const rows = await db.select().from(schema.employees)
         .where(eq(schema.employees.employee_id, id));
@@ -191,5 +220,16 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls };
+  // Install repos — memory-backed for now. In Tauri mode, InstallService is null
+  // (tauri-runtime.ts), so these are only used to satisfy the RuntimeRepositories type.
+  // TODO: When Tauri install support is added, replace with Drizzle-backed implementations.
+  const installTransactions: InstallTransactionRepository = new MemoryInstallTransactionRepository();
+  const installedPackages: InstalledPackageRepository = new MemoryInstalledPackageRepository();
+  const installedAssets: InstalledAssetRepository = new MemoryInstalledAssetRepository();
+  const assetBindings: AssetBindingRepository = new MemoryAssetBindingRepository();
+
+  return {
+    companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls,
+    installTransactions, installedPackages, installedAssets, assetBindings,
+  };
 }
