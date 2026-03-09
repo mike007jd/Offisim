@@ -5,14 +5,18 @@ import { StatusBar } from './components/layout/StatusBar';
 import { SettingsDialog } from './components/settings/SettingsDialog';
 import { AgentPanel } from './components/agents/AgentPanel';
 import { ChatPanel } from './components/chat/ChatPanel';
+import { ChatDrawer } from './components/chat/ChatDrawer';
+import { SceneCanvas } from './components/scene/SceneCanvas';
 import { EventLog } from './components/events/EventLog';
 import { useAicsRuntime } from './runtime/aics-runtime-context';
+import { useReducedMotion } from './hooks/use-reduced-motion';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const { reinitRuntime } = useAicsRuntime();
+  const reducedMotion = useReducedMotion();
 
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
@@ -24,7 +28,12 @@ export function App() {
       <AppLayout
         header={<Header providerName={providerConfig?.model} onOpenSettings={() => setSettingsOpen(true)} />}
         agentPanel={<AgentPanel />}
-        chatPanel={<ChatPanel onOpenSettings={() => setSettingsOpen(true)} />}
+        sceneCanvas={<SceneCanvas reducedMotion={reducedMotion} />}
+        chatDrawer={
+          <ChatDrawer>
+            <ChatPanel onOpenSettings={() => setSettingsOpen(true)} />
+          </ChatDrawer>
+        }
         eventLog={<EventLog />}
         statusBar={<StatusBar modelName={providerConfig?.model} />}
       />
