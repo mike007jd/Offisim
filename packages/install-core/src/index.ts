@@ -62,3 +62,25 @@ export { resolveBindings } from './binding-resolver.js';
 // Install planner
 // ---------------------------------------------------------------------------
 export { createInstallPlan } from './install-planner.js';
+
+// ---------------------------------------------------------------------------
+// Install service (D.1)
+// ---------------------------------------------------------------------------
+export { InstallService, InstallServiceError } from './install-service.js';
+export type { InstallServiceDeps, ImportResult } from './install-service.js';
+
+// ---------------------------------------------------------------------------
+// Materializer (D.2)
+// ---------------------------------------------------------------------------
+export { materialize } from './materializer.js';
+export type { MaterializeResult } from './materializer.js';
+
+// ---------------------------------------------------------------------------
+// Rollback (D.3)
+// ---------------------------------------------------------------------------
+export { rollback } from './rollback.js';
+
+// ---------------------------------------------------------------------------
+// File importer (D.4)
+// ---------------------------------------------------------------------------
+export { readPackageFile, FileImportError } from './file-importer.js';
