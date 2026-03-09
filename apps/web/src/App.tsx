@@ -3,6 +3,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { Header } from './components/layout/Header';
 import { StatusBar } from './components/layout/StatusBar';
 import { SettingsDialog } from './components/settings/SettingsDialog';
+import { AgentPanel } from './components/agents/AgentPanel';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
 import { useAicsRuntime } from './runtime/aics-runtime-context';
@@ -23,7 +24,7 @@ export function App() {
     <>
       <AppLayout
         header={<Header providerName={providerConfig?.model} onOpenSettings={() => setSettingsOpen(true)} />}
-        agentPanel={<div className="p-3 text-sm text-text-muted">Agent Panel</div>}
+        agentPanel={<AgentPanel />}
         chatPanel={<ChatPanel />}
         eventLog={<div className="p-3 text-sm text-text-muted">Event Log</div>}
         statusBar={<StatusBar runStatus={runtime.isRunning ? 'running' : runtime.error ? 'error' : 'idle'} modelName={providerConfig?.model} />}
