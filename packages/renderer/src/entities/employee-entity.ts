@@ -5,6 +5,12 @@ import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
 
+// TODO(P1-refactor): Before adding meeting rooms / route lines / handoff visuals,
+// extract animation logic into `animations/state-transitions.ts` (GSAP timeline factory)
+// and task bubble logic into `overlays/task-bubble.ts`.
+// Current 213-line monolith is acceptable for MVP (3 employees, 6 animation types),
+// but will become unmanageable at ~400+ lines.
+// See: Phase 4 plan § Task 6 & Task 7 for the planned separation.
 export class EmployeeEntity {
   readonly container: Container;
   readonly id: string;
