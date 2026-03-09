@@ -7,12 +7,9 @@ import { AgentPanel } from './components/agents/AgentPanel';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { EventLog } from './components/events/EventLog';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
-import { useAicsRuntime } from './runtime/aics-runtime-context';
-
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
-  const runtime = useAicsRuntime();
 
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
@@ -28,7 +25,7 @@ export function App() {
         agentPanel={<AgentPanel />}
         chatPanel={<ChatPanel />}
         eventLog={<EventLog />}
-        statusBar={<StatusBar runStatus={runtime.isRunning ? 'running' : runtime.error ? 'error' : 'idle'} modelName={providerConfig?.model} />}
+        statusBar={<StatusBar modelName={providerConfig?.model} />}
       />
       <SettingsDialog
         open={settingsOpen}
