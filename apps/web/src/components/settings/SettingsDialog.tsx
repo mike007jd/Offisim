@@ -33,12 +33,18 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
         setBaseURL(saved.baseURL ?? '');
         setModel(saved.model);
         setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
-        // Find matching preset
         const match = Object.entries(PROVIDER_PRESETS).find(
           ([, p]) => p.defaults.provider === saved.provider && p.defaults.baseURL === saved.baseURL,
         );
         if (match) setPreset(match[0]);
         else setPreset('custom');
+      } else {
+        // Apply default preset values on first open
+        const defaultPreset = PROVIDER_PRESETS['gemini'];
+        setPreset('gemini');
+        setBaseURL(defaultPreset?.defaults.baseURL ?? '');
+        setModel(defaultPreset?.defaults.model ?? '');
+        setDefaultHeaders('');
       }
     }
   }, [open]);
@@ -55,11 +61,12 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
 
   function handleSave() {
     const p = PROVIDER_PRESETS[preset];
+    const effectiveBaseURL = baseURL || p?.defaults.baseURL;
     const config: ProviderConfig = {
       provider: p?.defaults.provider ?? 'openai-compat',
       apiKey,
       model,
-      ...(baseURL ? { baseURL } : {}),
+      ...(effectiveBaseURL ? { baseURL: effectiveBaseURL } : {}),
       ...(defaultHeaders ? { defaultHeaders: JSON.parse(defaultHeaders) } : p?.defaults.defaultHeaders ? { defaultHeaders: p.defaults.defaultHeaders } : {}),
     };
     saveProviderConfig(config);

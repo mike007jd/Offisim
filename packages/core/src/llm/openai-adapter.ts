@@ -16,6 +16,8 @@ export interface OpenAiAdapterOptions {
   /** Extra headers sent with every request (e.g. HTTP-Referer for OpenRouter) */
   defaultHeaders?: Record<string, string>;
   retryConfig?: RetryConfig;
+  /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
+  dangerouslyAllowBrowser?: boolean;
 }
 
 export class OpenAiAdapter implements LlmGateway {
@@ -29,6 +31,7 @@ export class OpenAiAdapter implements LlmGateway {
       apiKey,
       baseURL: options?.baseURL,
       defaultHeaders: options?.defaultHeaders,
+      dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
     this.isCompat = !!options?.baseURL;

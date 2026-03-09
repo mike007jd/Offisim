@@ -14,7 +14,7 @@ export function App() {
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
     // Trigger runtime reinit with new config
-    const reinit = (window as Record<string, unknown>).__aicsReinitRuntime;
+    const reinit = (window as unknown as Record<string, unknown>).__aicsReinitRuntime;
     if (typeof reinit === 'function') reinit();
   }
 

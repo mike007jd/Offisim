@@ -2,43 +2,104 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import path from 'node:path';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /**
  * Vite config for apps/web — browser SPA.
  *
- * Key concern: packages/core imports Node-only modules (better-sqlite3,
- * @langchain/langgraph-checkpoint-sqlite, drizzle-orm) and LangChain uses
- * node:async_hooks. We polyfill/stub these for browser compatibility.
- *
- * Strategy:
- * 1. Alias node:async_hooks → browser polyfill
- * 2. Alias better-sqlite3 → empty stub
- * 3. Pre-bundle @aics/core so all its CJS transitive deps (camelcase,
- *    decamelize, p-queue, mustache, ansi-styles) get properly converted
+ * Key concerns:
+ * 1. Alias node:async_hooks → browser polyfill (LangChain uses AsyncLocalStorage)
+ * 2. Alias better-sqlite3 → empty stub (Node-only, unused in browser)
+ * 3. Pre-bundle @aics/core so CJS transitive deps get ESM conversion
+ * 4. LLM proxy middleware to avoid CORS during development
  */
 export default defineConfig({
-  plugins: [tailwindcss(), react()],
+  plugins: [
+    tailwindcss(),
+    react(),
+    // Custom LLM proxy middleware for dev server
+    {
+      name: 'llm-proxy',
+      configureServer(server) {
+        server.middlewares.use('/api/llm-proxy', async (req: IncomingMessage, res: ServerResponse) => {
+          const targetBase = req.headers['x-llm-base-url'] as string;
+          if (!targetBase) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Missing X-LLM-Base-URL header');
+            return;
+          }
+
+          // Build target URL
+          const targetURL = targetBase + (req.url ?? '');
+
+          // Forward headers (except host and the custom one)
+          const forwardHeaders: Record<string, string> = {};
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (key === 'host' || key === 'x-llm-base-url' || !value) continue;
+            forwardHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
+          }
+
+          try {
+            // Collect request body
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+              chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+            }
+            const body = Buffer.concat(chunks);
+
+            const response = await fetch(targetURL, {
+              method: req.method ?? 'POST',
+              headers: forwardHeaders,
+              body: body.length > 0 ? body : undefined,
+            });
+
+            // Forward response status and headers
+            const responseHeaders: Record<string, string> = {};
+            response.headers.forEach((value, key) => {
+              // Don't forward problematic headers
+              if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+                responseHeaders[key] = value;
+              }
+            });
+            res.writeHead(response.status, responseHeaders);
+
+            // Stream response body
+            if (response.body) {
+              const reader = response.body.getReader();
+              const pump = async () => {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) { res.end(); return; }
+                  res.write(value);
+                }
+              };
+              await pump();
+            } else {
+              res.end(await response.text());
+            }
+          } catch (err) {
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end(`LLM Proxy Error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        });
+      },
+    },
+  ],
   server: {
     port: 5173,
   },
   resolve: {
     alias: {
-      // Polyfill node:async_hooks with browser-compatible AsyncLocalStorage
       'node:async_hooks': path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
-      // Stub Node-only modules that are exported by @aics/core but unused in browser
       'better-sqlite3': path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
     },
   },
   optimizeDeps: {
-    // Pre-bundle workspace packages so their CJS transitive deps get converted to ESM.
-    // @aics/core re-exports SqliteSaver from @langchain/langgraph-checkpoint-sqlite,
-    // but better-sqlite3 is aliased to an empty stub so it's inert in browser.
     include: ['@aics/core', '@aics/shared-types'],
   },
   build: {
     rollupOptions: {
       external: [
-        // Never bundle Node-only native modules
         'better-sqlite3',
         '@langchain/langgraph-checkpoint-sqlite',
       ],

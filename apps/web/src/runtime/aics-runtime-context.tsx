@@ -6,7 +6,7 @@ export interface AicsRuntimeValue {
   isReady: boolean;
   isRunning: boolean;
   error: string | null;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string) => Promise<string | undefined>;
   clearError: () => void;
 }
 

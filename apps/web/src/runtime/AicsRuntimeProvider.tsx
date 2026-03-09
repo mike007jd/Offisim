@@ -80,16 +80,28 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
   repos.seed.employees(employees);
 }
 
+const IS_DEV = import.meta.env.DEV;
+
 function createRuntime(config: ProviderConfig) {
   const eventBus = new InMemoryEventBus();
   const repos = createMemoryRepositories();
   seedCompany(repos);
 
+  // In dev mode, route LLM calls through Vite proxy to avoid CORS.
+  // The proxy reads the real target from X-LLM-Base-URL header.
+  const proxyBaseURL = IS_DEV && config.baseURL
+    ? `${window.location.origin}/api/llm-proxy`
+    : undefined;
+  const proxyHeaders = IS_DEV && config.baseURL
+    ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
+    : config.defaultHeaders;
+
   const gateway = createGateway({
     provider: config.provider,
     apiKey: config.apiKey,
-    baseURL: config.baseURL,
-    defaultHeaders: config.defaultHeaders,
+    baseURL: proxyBaseURL ?? config.baseURL,
+    defaultHeaders: proxyHeaders,
+    dangerouslyAllowBrowser: true,
   });
 
   const modelResolver = new ModelResolver(null, {
@@ -122,6 +134,7 @@ interface Props {
 export function AicsRuntimeProvider({ children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
   // Lazy-init runtime from localStorage config
   const runtimeRef = useRef<ReturnType<typeof createRuntime> | null>(null);
@@ -138,13 +151,14 @@ export function AicsRuntimeProvider({ children }: Props) {
   // Force re-init when config changes
   const reinitRuntime = useCallback(() => {
     runtimeRef.current = null;
+    setVersion((v) => v + 1);
   }, []);
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string): Promise<string | undefined> => {
     const runtime = getOrCreateRuntime();
     if (!runtime) {
       setError('No provider configured. Open Settings to configure.');
-      return;
+      return undefined;
     }
 
     setIsRunning(true);
@@ -152,17 +166,28 @@ export function AicsRuntimeProvider({ children }: Props) {
 
     try {
       const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
-      await orch.execute({
+      const result = await orch.execute({
         entryMode: 'boss_chat',
         messages: [new HumanMessage(text)],
       });
+      // Extract last AI message content from graph result
+      const msgs = result.messages ?? [];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i]!;
+        if (m._getType() === 'ai' && typeof m.content === 'string' && m.content) {
+          return m.content;
+        }
+      }
+      return undefined;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
+      return undefined;
     } finally {
       setIsRunning(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- version ensures fresh runtime
+  }, [version]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -177,10 +202,11 @@ export function AicsRuntimeProvider({ children }: Props) {
       sendMessage,
       clearError,
     };
-  }, [isRunning, error, sendMessage, clearError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
+  }, [isRunning, error, sendMessage, clearError, version]);
 
   // Expose reinit via a custom event so settings dialog can trigger it
-  (window as Record<string, unknown>).__aicsReinitRuntime = reinitRuntime;
+  (window as unknown as Record<string, unknown>).__aicsReinitRuntime = reinitRuntime;
 
   return (
     <AicsRuntimeContext.Provider value={value}>

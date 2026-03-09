@@ -46,12 +46,19 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
     }
   }, [messages, streamContent]);
 
-  function handleSend(text: string) {
+  async function handleSend(text: string) {
     setMessages((prev) => [
       ...prev,
       { id: `msg-${Date.now()}`, role: 'user', content: text },
     ]);
-    sendMessage(text);
+    const response = await sendMessage(text);
+    // If no streaming content was captured, use the returned graph result
+    if (response && !lastStreamRef.current) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `msg-${Date.now()}`, role: 'assistant', content: response },
+      ]);
+    }
   }
 
   const showEmpty = messages.length === 0 && !isStreaming;
