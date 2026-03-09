@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HumanMessage } from '@langchain/core/messages';
 import {
   buildAicsGraph,
@@ -14,9 +14,16 @@ import {
 import type { CompanyRow, EmployeeRow } from '@aics/core';
 import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
+import { isTauri } from '../lib/env';
 
 const COMPANY_ID = 'company-001';
 const THREAD_ID = 'thread-001';
+
+type RuntimeBundle = {
+  eventBus: InMemoryEventBus;
+  graph: ReturnType<typeof buildAicsGraph>;
+  runtimeCtx: ReturnType<typeof createRuntimeContext>;
+};
 
 function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
   const now = new Date().toISOString();
@@ -82,7 +89,7 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
 
 const IS_DEV = import.meta.env.DEV;
 
-function createRuntime(config: ProviderConfig) {
+function createBrowserRuntime(config: ProviderConfig): RuntimeBundle {
   const eventBus = new InMemoryEventBus();
   const repos = createMemoryRepositories();
   seedCompany(repos);
@@ -135,30 +142,83 @@ export function AicsRuntimeProvider({ children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(false);
 
-  // Lazy-init runtime from localStorage config
-  const runtimeRef = useRef<ReturnType<typeof createRuntime> | null>(null);
+  const runtimeRef = useRef<RuntimeBundle | null>(null);
+  const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
 
-  function getOrCreateRuntime() {
-    if (!runtimeRef.current) {
-      const config = loadProviderConfig();
-      if (!config) return null;
-      runtimeRef.current = createRuntime(config);
+  // Async runtime init (for Tauri mode)
+  const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
+    const config = loadProviderConfig();
+    if (!config) return null;
+
+    if (isTauri()) {
+      setIsInitializing(true);
+      try {
+        const { createTauriRuntime } = await import('../lib/tauri-runtime');
+        const runtime = await createTauriRuntime(config);
+        runtimeRef.current = runtime;
+        return runtime;
+      } finally {
+        setIsInitializing(false);
+      }
     }
+
+    // Browser mode — synchronous
+    const runtime = createBrowserRuntime(config);
+    runtimeRef.current = runtime;
+    return runtime;
+  }, []);
+
+  function getOrCreateRuntime(): RuntimeBundle | null {
+    if (runtimeRef.current) return runtimeRef.current;
+
+    if (isTauri()) {
+      // Tauri: async init handled by useEffect / sendMessage
+      return null;
+    }
+
+    // Browser: sync init
+    const config = loadProviderConfig();
+    if (!config) return null;
+    runtimeRef.current = createBrowserRuntime(config);
     return runtimeRef.current;
   }
 
-  // Force re-init when config changes.
-  // The old EventBus is discarded here; hook cleanup (useEffect return) in
-  // consuming components handles unsubscription when the version bump causes
-  // a new eventBus reference to propagate through context.
+  // Initialize Tauri runtime on mount / reinit
+  useEffect(() => {
+    if (isTauri() && !runtimeRef.current) {
+      initPromiseRef.current = initRuntime().catch((err) => {
+        console.error('[TauriRuntime] init failed:', err);
+        setError(err instanceof Error ? err.message : String(err));
+        return null;
+      });
+    }
+  }, [initRuntime, version]);
+
   const reinitRuntime = useCallback(() => {
     runtimeRef.current = null;
+    initPromiseRef.current = null;
     setVersion((v) => v + 1);
   }, []);
 
   const sendMessage = useCallback(async (text: string): Promise<string | undefined> => {
-    const runtime = getOrCreateRuntime();
+    let runtime = runtimeRef.current;
+
+    // For Tauri: wait for async init if in progress
+    if (!runtime && isTauri()) {
+      if (initPromiseRef.current) {
+        runtime = await initPromiseRef.current;
+      } else {
+        runtime = await initRuntime();
+      }
+    }
+
+    // For Browser: sync init
+    if (!runtime) {
+      runtime = getOrCreateRuntime();
+    }
+
     if (!runtime) {
       setError('No provider configured. Open Settings to configure.');
       return undefined;
@@ -190,7 +250,7 @@ export function AicsRuntimeProvider({ children }: Props) {
       setIsRunning(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version ensures fresh runtime
-  }, [version]);
+  }, [version, initRuntime]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -199,7 +259,7 @@ export function AicsRuntimeProvider({ children }: Props) {
     const eventBus = runtime?.eventBus ?? new InMemoryEventBus();
     return {
       eventBus,
-      isReady: runtime !== null,
+      isReady: runtime !== null && !isInitializing,
       isRunning,
       error,
       sendMessage,
@@ -207,7 +267,7 @@ export function AicsRuntimeProvider({ children }: Props) {
       reinitRuntime,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
-  }, [isRunning, error, sendMessage, clearError, reinitRuntime, version]);
+  }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version]);
 
   return (
     <AicsRuntimeContext.Provider value={value}>
