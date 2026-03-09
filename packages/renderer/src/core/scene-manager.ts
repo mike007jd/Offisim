@@ -1,5 +1,9 @@
 import { Application, Container } from 'pixi.js';
-import type { RuntimeEvent } from '@aics/shared-types';
+import type {
+  EmployeeStatePayload,
+  TaskAssignmentPayload,
+  GraphNodeEnteredPayload,
+} from '@aics/shared-types';
 import type { SceneEventBus, SceneManagerOptions, EmployeeSeed } from './types.js';
 import { DEFAULT_EMPLOYEES } from './types.js';
 import { LAYOUT } from '../tokens/layout.js';
@@ -13,7 +17,7 @@ export class SceneManager {
   private readonly container: HTMLElement;
   private readonly eventBus: SceneEventBus;
   private readonly employees: EmployeeSeed[];
-  private readonly reducedMotion: boolean;
+  private _reducedMotion: boolean;
 
   private floorLayer: FloorLayer | null = null;
   private employeeEntities: Map<string, EmployeeEntity> = new Map();
@@ -23,12 +27,17 @@ export class SceneManager {
     this.container = options.container;
     this.eventBus = options.eventBus;
     this.employees = options.employees ?? DEFAULT_EMPLOYEES;
-    this.reducedMotion = options.reducedMotion ?? false;
+    this._reducedMotion = options.reducedMotion ?? false;
   }
 
   /** Get the active motion tokens (respects reduced-motion) */
   get motion(): Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket> {
-    return this.reducedMotion ? MOTION_REDUCED : MOTION;
+    return this._reducedMotion ? MOTION_REDUCED : MOTION;
+  }
+
+  /** Update reduced-motion preference without rebuilding the scene (I3). */
+  set reducedMotion(value: boolean) {
+    this._reducedMotion = value;
   }
 
   /** Mount the PixiJS application into the container */
@@ -74,13 +83,16 @@ export class SceneManager {
 
   /** Destroy the PixiJS application and clean up */
   destroy(): void {
-    // Unsubscribe all event listeners
+    // Unsubscribe all event listeners (EventBus + renderer resize)
     for (const unsub of this.unsubscribers) {
       unsub();
     }
     this.unsubscribers = [];
 
-    // Clean up entities
+    // Clean up entities — kill GSAP tweens before clearing (C2)
+    for (const entity of this.employeeEntities.values()) {
+      entity.destroy();
+    }
     this.employeeEntities.clear();
     this.floorLayer = null;
 
@@ -106,25 +118,21 @@ export class SceneManager {
 
   /** Subscribe to runtime events */
   private subscribeEvents(): void {
-    // Employee state changes
+    // Employee state changes (I6: use typed payload from shared-types)
     this.unsubscribers.push(
-      this.eventBus.on('employee.state.changed', (event: RuntimeEvent) => {
-        const { employeeId, next } = event.payload as { employeeId: string; next: string };
+      this.eventBus.on('employee.state.changed', (event) => {
+        const { employeeId, next } = event.payload as EmployeeStatePayload;
         const entity = this.employeeEntities.get(employeeId);
         if (entity) {
-          entity.setState(next as import('@aics/shared-types').EmployeeState);
+          entity.setState(next);
         }
       }),
     );
 
-    // Task assignment changes
+    // Task assignment changes (I6: use typed payload)
     this.unsubscribers.push(
-      this.eventBus.on('task.assignment.changed', (event: RuntimeEvent) => {
-        const { employeeId, action, taskRunId } = event.payload as {
-          employeeId: string;
-          action: 'assigned' | 'unassigned';
-          taskRunId: string;
-        };
+      this.eventBus.on('task.assignment.changed', (event) => {
+        const { employeeId, action, taskRunId } = event.payload as TaskAssignmentPayload;
         const entity = this.employeeEntities.get(employeeId);
         if (entity) {
           entity.setTask(action === 'assigned' ? taskRunId : null);
@@ -132,15 +140,13 @@ export class SceneManager {
       }),
     );
 
-    // Graph node entered — highlight active employee
+    // Graph node entered — highlight active employee (I6: use typed payload)
     this.unsubscribers.push(
-      this.eventBus.on('graph.node.entered', (event: RuntimeEvent) => {
-        const { nodeName } = event.payload as { nodeName: string };
-        // Map node names to employee IDs (convention: node name contains employee ref)
+      this.eventBus.on('graph.node.entered', (event) => {
+        const { nodeName } = event.payload as GraphNodeEnteredPayload;
         for (const entity of this.employeeEntities.values()) {
           entity.setHighlight(false);
         }
-        // Highlight employee matching node name pattern
         const match = this.findEmployeeForNode(nodeName);
         if (match) match.setHighlight(true);
       }),
@@ -148,26 +154,34 @@ export class SceneManager {
 
     // Graph node exited — remove highlight
     this.unsubscribers.push(
-      this.eventBus.on('graph.node.exited', (_event: RuntimeEvent) => {
+      this.eventBus.on('graph.node.exited', () => {
         for (const entity of this.employeeEntities.values()) {
           entity.setHighlight(false);
         }
       }),
     );
 
-    // Re-center on resize
+    // Re-center on resize — store handler ref for cleanup (C1)
     if (this.app) {
-      this.app.renderer.on('resize', () => this.centerWorld());
+      const handleResize = () => this.centerWorld();
+      this.app.renderer.on('resize', handleResize);
+      const renderer = this.app.renderer;
+      this.unsubscribers.push(() => renderer.off('resize', handleResize));
     }
   }
 
-  /** Map a graph node name to an employee entity */
+  /**
+   * Map a graph node name to an employee entity.
+   * Uses word-boundary matching to avoid substring collisions (I5).
+   * E.g. "alice_work" matches "emp-alice" but "alice2_work" does not match "emp-alice".
+   */
   private findEmployeeForNode(nodeName: string): EmployeeEntity | undefined {
     const lower = nodeName.toLowerCase();
     for (const [id, entity] of this.employeeEntities) {
-      // Match by employee name in node name (e.g., "alice_work" → emp-alice)
       const name = id.replace('emp-', '');
-      if (lower.includes(name)) return entity;
+      // Word-boundary match: name must be delimited by start/end or non-alpha chars
+      const pattern = new RegExp(`(?:^|[^a-z])${name}(?:$|[^a-z])`);
+      if (pattern.test(lower)) return entity;
     }
     return undefined;
   }

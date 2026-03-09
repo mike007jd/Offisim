@@ -4,9 +4,13 @@ import type { RuntimeEvent } from '@aics/shared-types';
  * Lightweight event bus interface for the renderer.
  * Renderer depends on @aics/shared-types only — the bridge from @aics/core EventBus
  * is provided by the React integration layer.
+ *
+ * Handler uses `RuntimeEvent<any>` to stay structurally compatible with core's
+ * EventHandler type, avoiding the need for `as` casts at the call site (I2).
  */
 export interface SceneEventBus {
-  on(prefix: string, handler: (event: RuntimeEvent) => void): () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(prefix: string, handler: (event: RuntimeEvent<any>) => void): () => void;
 }
 
 /** Seed employee definition */

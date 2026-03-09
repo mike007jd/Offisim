@@ -38,6 +38,7 @@ vi.mock('pixi.js', () => {
 
   const mockRenderer = {
     on: vi.fn(),
+    off: vi.fn(),
   };
 
   class MockApplication {
@@ -57,13 +58,15 @@ vi.mock('pixi.js', () => {
   };
 });
 
-// Mock gsap
+// Mock gsap — return unique tween objects with vars for trackTween compatibility
 vi.mock('gsap', () => {
-  const tween = { kill: vi.fn() };
+  function makeTween() {
+    return { kill: vi.fn(), vars: {} };
+  }
   return {
     default: {
-      to: vi.fn(() => tween),
-      fromTo: vi.fn(() => tween),
+      to: vi.fn(() => makeTween()),
+      fromTo: vi.fn(() => makeTween()),
     },
   };
 });
@@ -71,11 +74,14 @@ vi.mock('gsap', () => {
 // Now import after mocks
 const { SceneManager } = await import('../core/scene-manager.js');
 
-function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent) => void } {
-  const handlers: Array<{ prefix: string; handler: (event: RuntimeEvent) => void }> = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent<any>) => void } {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlers: Array<{ prefix: string; handler: (event: RuntimeEvent<any>) => void }> = [];
 
   return {
-    on(prefix: string, handler: (event: RuntimeEvent) => void) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    on(prefix: string, handler: (event: RuntimeEvent<any>) => void) {
       const entry = { prefix, handler };
       handlers.push(entry);
       return () => {
@@ -83,7 +89,8 @@ function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent) => 
         if (idx >= 0) handlers.splice(idx, 1);
       };
     },
-    fire(event: RuntimeEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fire(event: RuntimeEvent<any>) {
       for (const { prefix, handler } of handlers) {
         if (event.type.startsWith(prefix)) {
           handler(event);
@@ -217,6 +224,17 @@ describe('SceneManager', () => {
   it('motion getter returns standard tokens by default', () => {
     const sm = new SceneManager({ container, eventBus });
     expect(sm.motion.M1.duration).toBe(0.6);
+    expect(sm.motion.M2.duration).toBe(0.4);
+  });
+
+  it('reducedMotion setter updates motion without rebuild', async () => {
+    const sm = new SceneManager({ container, eventBus, reducedMotion: false });
+    await sm.mount();
+
+    expect(sm.motion.M2.duration).toBe(0.4);
+    sm.reducedMotion = true;
+    expect(sm.motion.M2.duration).toBe(0);
+    sm.reducedMotion = false;
     expect(sm.motion.M2.duration).toBe(0.4);
   });
 });

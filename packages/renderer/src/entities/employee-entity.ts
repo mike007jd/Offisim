@@ -12,6 +12,8 @@ export class EmployeeEntity {
   private state: EmployeeState = 'idle';
   private highlighted = false;
   private pulseTween: gsap.core.Tween | null = null;
+  /** Track all active one-shot tweens for cleanup (C2). */
+  private activeTweens: gsap.core.Tween[] = [];
 
   private readonly avatar: Graphics;
   private readonly ring: Graphics;
@@ -75,31 +77,31 @@ export class EmployeeEntity {
     if (duration > 0) {
       if (next === 'blocked' || next === 'failed') {
         // Shake animation for error states
-        gsap.fromTo(this.container, { x: this.container.x - 3 }, {
+        this.trackTween(gsap.fromTo(this.container, { x: this.container.x - 3 }, {
           x: this.container.x + 3,
           duration: 0.08,
           ease: 'none',
           yoyo: true,
           repeat: 5,
-        });
+        }));
       } else if (next === 'success') {
         // Pop animation for success
-        gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
+        this.trackTween(gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
           x: 1.25, y: 1.25,
           duration: duration / 2,
           ease: 'back.out(2)',
           yoyo: true,
           repeat: 1,
-        });
+        }));
       } else {
         // Standard scale bounce for other transitions
-        gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
+        this.trackTween(gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
           x: 1.15, y: 1.15,
           duration: duration / 2,
           ease,
           yoyo: true,
           repeat: 1,
-        });
+        }));
       }
     }
 
@@ -123,6 +125,17 @@ export class EmployeeEntity {
     }
   }
 
+  /** Track a one-shot tween and auto-remove when it completes. */
+  private trackTween(tw: gsap.core.Tween): void {
+    this.activeTweens.push(tw);
+    const origOnComplete = tw.vars.onComplete;
+    tw.vars.onComplete = () => {
+      const idx = this.activeTweens.indexOf(tw);
+      if (idx >= 0) this.activeTweens.splice(idx, 1);
+      if (origOnComplete) origOnComplete();
+    };
+  }
+
   /** Set or clear the current task */
   setTask(taskId: string | null): void {
     if (taskId) {
@@ -132,7 +145,7 @@ export class EmployeeEntity {
       const { duration, ease } = this.motion.M3;
       if (duration > 0) {
         this.taskBubble.alpha = 0;
-        gsap.to(this.taskBubble, { alpha: 1, duration, ease });
+        this.trackTween(gsap.to(this.taskBubble, { alpha: 1, duration, ease }));
       }
     } else {
       this.taskBubble.visible = false;
@@ -146,10 +159,19 @@ export class EmployeeEntity {
     const { duration, ease } = this.motion.M3;
     const targetScale = on ? 1.1 : 1.0;
     if (duration > 0) {
-      gsap.to(this.container.scale, { x: targetScale, y: targetScale, duration, ease });
+      this.trackTween(gsap.to(this.container.scale, { x: targetScale, y: targetScale, duration, ease }));
     } else {
       this.container.scale.set(targetScale);
     }
+  }
+
+  /** Kill all running GSAP tweens and reset state (C2). */
+  destroy(): void {
+    this.stopPulse();
+    for (const tw of this.activeTweens) {
+      tw.kill();
+    }
+    this.activeTweens = [];
   }
 
   private drawRing(color: number): void {
