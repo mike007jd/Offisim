@@ -18,6 +18,8 @@ export class SceneManager {
   private readonly eventBus: SceneEventBus;
   private readonly employees: EmployeeSeed[];
   private _reducedMotion: boolean;
+  /** Guard against async mount completing after destroy (React StrictMode). */
+  private _destroyed = false;
 
   private floorLayer: FloorLayer | null = null;
   private employeeEntities: Map<string, EmployeeEntity> = new Map();
@@ -42,7 +44,7 @@ export class SceneManager {
 
   /** Mount the PixiJS application into the container */
   async mount(): Promise<void> {
-    if (this.app) return;
+    if (this.app || this._destroyed) return;
 
     const app = new Application();
     await app.init({
@@ -52,6 +54,13 @@ export class SceneManager {
       resolution: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) ?? 1,
       autoDensity: true,
     });
+
+    // If destroy() was called while init was in-flight (React StrictMode),
+    // discard the freshly-created app and bail out.
+    if (this._destroyed) {
+      app.destroy(true);
+      return;
+    }
 
     this.container.appendChild(app.canvas as HTMLCanvasElement);
     this.app = app;
@@ -83,6 +92,8 @@ export class SceneManager {
 
   /** Destroy the PixiJS application and clean up */
   destroy(): void {
+    this._destroyed = true;
+
     // Unsubscribe all event listeners (EventBus + renderer resize)
     for (const unsub of this.unsubscribers) {
       unsub();

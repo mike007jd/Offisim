@@ -15,7 +15,7 @@ export function AppLayout({ header, agentPanel, sceneCanvas, chatDrawer, eventLo
       {header}
       <div className="grid min-h-0 grid-cols-[240px_1fr_280px]">
         <aside className="border-r border-border overflow-y-auto">{agentPanel}</aside>
-        <main className="min-h-0">{sceneCanvas}</main>
+        <main className="min-h-0 min-w-0 overflow-hidden">{sceneCanvas}</main>
         <aside className="border-l border-border overflow-y-auto">{eventLog}</aside>
       </div>
       {chatDrawer}
