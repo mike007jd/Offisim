@@ -1,4 +1,5 @@
 import { Application, Container } from 'pixi.js';
+import gsap from 'gsap';
 import type {
   EmployeeStatePayload,
   TaskAssignmentPayload,
@@ -93,6 +94,61 @@ export class SceneManager {
 
     // Subscribe to events
     this.subscribeEvents();
+  }
+
+  /**
+   * Add a new employee to the scene at the next available desk position.
+   * Plays a scale-from-zero + fade-in entrance animation.
+   * Called after package materialization creates a new employee.
+   *
+   * @returns true if the employee was added, false if the scene is not mounted
+   *          or an employee with the same id already exists.
+   */
+  addEmployee(id: string, name: string): boolean {
+    // Guard: scene must be mounted
+    if (!this.app || !this.floorLayer) return false;
+    // Guard: no duplicate ids
+    if (this.employeeEntities.has(id)) return false;
+
+    const deskPositions = this.floorLayer.getDeskPositions();
+    const posIndex = this.employeeEntities.size % deskPositions.length;
+    const pos = deskPositions[posIndex]!;
+
+    const entity = new EmployeeEntity(id, name, this.motion);
+    entity.container.position.set(pos.x, pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8);
+
+    // Start invisible and scaled to zero for entrance animation
+    entity.container.scale.set(0);
+    entity.container.alpha = 0;
+
+    // Add to world container (first child of stage)
+    const world = this.app.stage.children[0] as Container;
+    world.addChild(entity.container);
+
+    // Register in entity map
+    this.employeeEntities.set(id, entity);
+
+    // Entrance animation: scale-from-zero + fade-in using M1 (slow entrance)
+    const { duration, ease } = this.motion.M1;
+    if (duration > 0) {
+      gsap.to(entity.container.scale, {
+        x: 1,
+        y: 1,
+        duration,
+        ease,
+      });
+      gsap.to(entity.container, {
+        alpha: 1,
+        duration,
+        ease,
+      });
+    } else {
+      // Reduced-motion: snap to final state
+      entity.container.scale.set(1);
+      entity.container.alpha = 1;
+    }
+
+    return true;
   }
 
   /** Destroy the PixiJS application and clean up */

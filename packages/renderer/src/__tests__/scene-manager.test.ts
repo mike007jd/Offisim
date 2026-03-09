@@ -73,6 +73,8 @@ vi.mock('gsap', () => {
 
 // Now import after mocks
 const { SceneManager } = await import('../core/scene-manager.js');
+const gsapModule = await import('gsap');
+const gsap = gsapModule.default;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent<any>) => void } {
@@ -236,5 +238,95 @@ describe('SceneManager', () => {
     expect(sm.motion.M2.duration).toBe(0);
     sm.reducedMotion = false;
     expect(sm.motion.M2.duration).toBe(0.4);
+  });
+
+  describe('addEmployee', () => {
+    it('returns false before mount', () => {
+      const sm = new SceneManager({ container, eventBus });
+      expect(sm.addEmployee('emp-new', 'NewGuy')).toBe(false);
+    });
+
+    it('adds an employee entity after mount', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      const result = sm.addEmployee('emp-dave', 'Dave');
+      expect(result).toBe(true);
+
+      // The new employee should respond to state events
+      eventBus.fire(makeEvent('employee.state.changed', {
+        employeeId: 'emp-dave',
+        prev: 'idle',
+        next: 'thinking',
+      }));
+      // No throw = entity was registered correctly
+    });
+
+    it('returns false for duplicate employee id', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      // emp-alice already exists from DEFAULT_EMPLOYEES
+      expect(sm.addEmployee('emp-alice', 'Alice2')).toBe(false);
+    });
+
+    it('plays entrance animation with gsap.to when motion is enabled', async () => {
+      const sm = new SceneManager({ container, eventBus, reducedMotion: false });
+      await sm.mount();
+
+      // Clear previous gsap calls from mount
+      vi.mocked(gsap.to).mockClear();
+
+      const result = sm.addEmployee('emp-dave', 'Dave');
+      expect(result).toBe(true);
+
+      // gsap.to should have been called twice: once for scale, once for alpha
+      expect(gsap.to).toHaveBeenCalledTimes(2);
+    });
+
+    it('snaps to final state with reduced motion', async () => {
+      const sm = new SceneManager({ container, eventBus, reducedMotion: true });
+      await sm.mount();
+
+      vi.mocked(gsap.to).mockClear();
+
+      const result = sm.addEmployee('emp-dave', 'Dave');
+      expect(result).toBe(true);
+
+      // No gsap.to calls — reduced motion snaps immediately
+      expect(gsap.to).not.toHaveBeenCalled();
+    });
+
+    it('cycles desk positions when more employees than desks', async () => {
+      const sm = new SceneManager({
+        container,
+        eventBus,
+        employees: [], // start with no employees
+      });
+      await sm.mount();
+
+      // Add 5 employees (more than 4 desk positions)
+      for (let i = 0; i < 5; i++) {
+        expect(sm.addEmployee(`emp-extra-${i}`, `Extra${i}`)).toBe(true);
+      }
+
+      // All 5 should respond to events without errors
+      for (let i = 0; i < 5; i++) {
+        eventBus.fire(makeEvent('employee.state.changed', {
+          employeeId: `emp-extra-${i}`,
+          prev: 'idle',
+          next: 'assigned',
+        }));
+      }
+    });
+
+    it('newly added employee is cleaned up by destroy', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      sm.addEmployee('emp-dave', 'Dave');
+      // destroy should not throw even with dynamically added employees
+      sm.destroy();
+    });
   });
 });
