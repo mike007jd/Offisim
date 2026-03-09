@@ -1,6 +1,12 @@
 import { eq, and, desc } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '@aics/db-local';
+import type { AssetBindingRow, InstallTransactionRow, InstalledAssetRow, InstalledPackageRow, NewEmployee } from '@aics/install-core';
+import type { BindingStatus, InstallState } from '@aics/shared-types';
+import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
+import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
+import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
+import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type {
   CheckpointRepository, CompanyRepository, EmployeeRepository,
   EventRepository, GraphCheckpointRow, GraphThreadRow,
@@ -83,6 +89,17 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const employees: EmployeeRepository = {
+    async create(emp: NewEmployee) {
+      const employee_id = crypto.randomUUID();
+      const ts = now();
+      db.insert(schema.employees).values({
+        employee_id,
+        ...emp,
+        created_at: ts,
+        updated_at: ts,
+      }).run();
+      return { employee_id };
+    },
     async findById(id) {
       const rows = db.select().from(schema.employees).where(eq(schema.employees.employee_id, id)).all();
       return (rows[0] as unknown as ReturnType<EmployeeRepository['findById']> extends Promise<infer T> ? T : never) ?? null;
@@ -184,5 +201,82 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls };
+  const installTransactions: InstallTransactionRepository = {
+    async create(txn) {
+      const row: InstallTransactionRow = { ...txn, finished_at: null };
+      db.insert(schema.installTransactions).values(row).run();
+      return row;
+    },
+    async findById(id) {
+      const rows = db.select().from(schema.installTransactions)
+        .where(eq(schema.installTransactions.install_txn_id, id)).all();
+      return (rows[0] as InstallTransactionRow | undefined) ?? null;
+    },
+    async updateState(id, state: InstallState, errorCode?: string, errorDetail?: string) {
+      db.update(schema.installTransactions)
+        .set({
+          state,
+          error_code: errorCode ?? undefined,
+          error_detail: errorDetail ?? undefined,
+        })
+        .where(eq(schema.installTransactions.install_txn_id, id))
+        .run();
+    },
+    async finish(id, state: InstallState) {
+      db.update(schema.installTransactions)
+        .set({ state, finished_at: now() })
+        .where(eq(schema.installTransactions.install_txn_id, id))
+        .run();
+    },
+  };
+
+  const installedPackages: InstalledPackageRepository = {
+    async create(pkg) {
+      db.insert(schema.installedPackages).values(pkg).run();
+      return pkg as InstalledPackageRow;
+    },
+    async findByPackageId(companyId, packageId) {
+      return db.select().from(schema.installedPackages)
+        .where(and(
+          eq(schema.installedPackages.company_id, companyId),
+          eq(schema.installedPackages.package_id, packageId),
+        ))
+        .all() as InstalledPackageRow[];
+    },
+  };
+
+  const installedAssets: InstalledAssetRepository = {
+    async create(asset) {
+      db.insert(schema.installedAssets).values(asset).run();
+      return asset as InstalledAssetRow;
+    },
+  };
+
+  const assetBindings: AssetBindingRepository = {
+    async create(binding) {
+      db.insert(schema.assetBindings).values(binding).run();
+      return binding as AssetBindingRow;
+    },
+    async findByTransaction(txnId) {
+      return db.select().from(schema.assetBindings)
+        .where(eq(schema.assetBindings.install_txn_id, txnId))
+        .all() as AssetBindingRow[];
+    },
+    async updateStatus(id, status: BindingStatus, valueJson?: string) {
+      db.update(schema.assetBindings)
+        .set({
+          status,
+          binding_value_json: valueJson ?? undefined,
+          updated_at: now(),
+        })
+        .where(eq(schema.assetBindings.binding_id, id))
+        .run();
+    },
+  };
+
+  return {
+    companies, threads, taskRuns, employees, toolCalls, handoffs,
+    meetings, checkpoints, events, llmCalls,
+    installTransactions, installedPackages, installedAssets, assetBindings,
+  };
 }

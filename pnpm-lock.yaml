@@ -192,6 +192,9 @@ importers:
       '@aics/db-local':
         specifier: workspace:*
         version: link:../db-local
+      '@aics/install-core':
+        specifier: workspace:*
+        version: link:../install-core
       '@aics/shared-types':
         specifier: workspace:*
         version: link:../shared-types

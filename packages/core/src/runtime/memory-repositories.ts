@@ -1,3 +1,4 @@
+import type { NewEmployee } from '@aics/install-core';
 import type {
   CheckpointRepository, CompanyRepository, CompanyRow,
   EmployeeRepository, EmployeeRow, EventRepository,
@@ -9,6 +10,7 @@ import type {
   RuntimeRepositories, TaskRunRepository, TaskRunRow,
   ThreadRepository, ToolCallRepository, ToolCallRow,
 } from './repositories.js';
+import { createMemoryInstallRepositories } from './memory-install-repos.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -87,6 +89,26 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   };
 
   const employees: EmployeeRepository = {
+    async create(emp: NewEmployee) {
+      const employee_id = crypto.randomUUID();
+      const ts = now();
+      const row: EmployeeRow = {
+        employee_id,
+        company_id: emp.company_id,
+        source_asset_id: emp.source_asset_id,
+        source_package_id: emp.source_package_id,
+        name: emp.name,
+        role_slug: emp.role_slug,
+        workstation_id: null,
+        persona_json: emp.persona_json ?? null,
+        config_json: emp.config_json ?? null,
+        enabled: 1,
+        created_at: ts,
+        updated_at: ts,
+      };
+      employeesMap.set(employee_id, row);
+      return { employee_id };
+    },
     async findById(id) {
       return employeesMap.get(id) ?? null;
     },
@@ -193,5 +215,12 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
   };
 
-  return { companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls, seed };
+  const installRepos = createMemoryInstallRepositories();
+
+  return {
+    companies, threads, taskRuns, employees, toolCalls, handoffs,
+    meetings, checkpoints, events, llmCalls,
+    ...installRepos,
+    seed,
+  };
 }

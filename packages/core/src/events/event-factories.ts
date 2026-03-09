@@ -1,8 +1,13 @@
 import type {
+  BindingStatus,
+  BindingStatePayload,
+  BindingType,
   EmployeeState,
   EmployeeStatePayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  InstallState,
+  InstallStatePayload,
   LlmCallCompletedPayload,
   LlmCallStartedPayload,
   LlmStreamChunkPayload,
@@ -196,5 +201,48 @@ export function llmStreamChunk(
     threadId,
     timestamp: Date.now(),
     payload: { nodeName, content },
+  };
+}
+
+// --- Phase 6: Install Pipeline ---
+
+export function installStateChanged(
+  companyId: string,
+  installTxnId: string,
+  prev: InstallState,
+  next: InstallState,
+  threadId?: string,
+  packageId?: string,
+  errorCode?: string,
+): RuntimeEvent<InstallStatePayload> {
+  return {
+    type: 'install.state.changed',
+    entityId: installTxnId,
+    entityType: 'install',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { installTxnId, prev, next, packageId, errorCode },
+  };
+}
+
+export function bindingStateChanged(
+  companyId: string,
+  bindingId: string,
+  installTxnId: string,
+  bindingType: BindingType,
+  bindingKey: string,
+  prev: BindingStatus,
+  next: BindingStatus,
+  threadId?: string,
+): RuntimeEvent<BindingStatePayload> {
+  return {
+    type: 'binding.state.changed',
+    entityId: bindingId,
+    entityType: 'install',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { bindingId, installTxnId, bindingType, bindingKey, prev, next },
   };
 }

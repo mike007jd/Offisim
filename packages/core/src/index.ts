@@ -1,4 +1,4 @@
-// @aics/core — Phase 2.4 Production Hardening
+// @aics/core — Phase 6 Install Pipeline
 
 // --- Types ---
 export type { RuntimeContext } from './runtime/runtime-context.js';
@@ -33,6 +33,10 @@ export type {
   MeetingRepository,
   EventRepository,
 } from './runtime/repositories.js';
+export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
+export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
+export type { InstalledAssetRepository } from './repos/installed-asset-repository.js';
+export type { AssetBindingRepository } from './repos/asset-binding-repository.js';
 export type {
   LlmGateway,
   LlmRequest,
@@ -58,6 +62,13 @@ export { createRuntimeContext } from './runtime/runtime-context.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export { createMemoryRepositories } from './runtime/memory-repositories.js';
 export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
+export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
+export {
+  MemoryInstallTransactionRepository,
+  MemoryInstalledPackageRepository,
+  MemoryInstalledAssetRepository,
+  MemoryAssetBindingRepository,
+} from './runtime/memory-install-repos.js';
 
 // --- LLM ---
 export { AnthropicAdapter } from './llm/anthropic-adapter.js';
@@ -84,6 +95,8 @@ export {
   graphNodeEntered,
   graphNodeExited,
   llmStreamChunk,
+  installStateChanged,
+  bindingStateChanged,
 } from './events/event-factories.js';
 
 // --- Services ---

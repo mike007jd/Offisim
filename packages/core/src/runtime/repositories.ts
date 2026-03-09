@@ -1,3 +1,9 @@
+import type { NewEmployee } from '@aics/install-core';
+import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
+import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
+import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
+import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
+
 /** Row types — mirror db-local schema shapes */
 
 export interface GraphThreadRow {
@@ -150,6 +156,7 @@ export interface TaskRunRepository {
 }
 
 export interface EmployeeRepository {
+  create(employee: NewEmployee): Promise<{ employee_id: string }>;
   findById(employeeId: string): Promise<EmployeeRow | null>;
   findByCompany(companyId: string): Promise<EmployeeRow[]>;
   findByRole(companyId: string, roleSlug: string): Promise<EmployeeRow[]>;
@@ -211,4 +218,8 @@ export interface RuntimeRepositories {
   checkpoints: CheckpointRepository;
   events: EventRepository;
   llmCalls: LlmCallRepository;
+  installTransactions: InstallTransactionRepository;
+  installedPackages: InstalledPackageRepository;
+  installedAssets: InstalledAssetRepository;
+  assetBindings: AssetBindingRepository;
 }

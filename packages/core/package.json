@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aics/db-local": "workspace:*",
+    "@aics/install-core": "workspace:*",
     "@aics/shared-types": "workspace:*",
     "@anthropic-ai/sdk": "^0.78.0",
     "@langchain/core": "^1.1.31",
