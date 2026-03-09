@@ -4,7 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { buildEmployeePrompt } from './employee-builder.js';
-import { employeeStateChanged, taskStateChanged, graphNodeEntered } from '../events/event-factories.js';
+import { employeeStateChanged, taskStateChanged, taskAssignmentChanged, graphNodeEntered } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 
 export async function employeeNode(
@@ -95,6 +95,7 @@ export async function employeeNode(
   if (taskRunId) {
     await repos.taskRuns.updateStatus(taskRunId, 'completed', JSON.stringify({ content: llmResponse.content }));
     eventBus.emit(taskStateChanged(companyId, taskRunId, 'active', 'completed', threadId, employee.employee_id));
+    eventBus.emit(taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId));
   }
 
   // Emit employee idle state
