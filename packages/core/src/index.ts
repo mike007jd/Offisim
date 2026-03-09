@@ -23,6 +23,15 @@ export type {
   NewRuntimeEvent,
   NewLlmCall,
   LlmCallRepository,
+  CheckpointRepository,
+  CompanyRepository,
+  EmployeeRepository,
+  ThreadRepository,
+  TaskRunRepository,
+  ToolCallRepository,
+  HandoffRepository,
+  MeetingRepository,
+  EventRepository,
 } from './runtime/repositories.js';
 export type {
   LlmGateway,
