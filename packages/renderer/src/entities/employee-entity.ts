@@ -11,6 +11,7 @@ export class EmployeeEntity {
 
   private state: EmployeeState = 'idle';
   private highlighted = false;
+  private pulseTween: gsap.core.Tween | null = null;
 
   private readonly avatar: Graphics;
   private readonly ring: Graphics;
@@ -18,6 +19,7 @@ export class EmployeeEntity {
   private readonly taskBubble: Container;
   private readonly taskText: Text;
   private readonly motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
+  private taskBubbleBg: Graphics | null = null;
 
   constructor(id: string, name: string, motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>) {
     this.id = id;
@@ -64,19 +66,60 @@ export class EmployeeEntity {
     this.state = next;
     const color = STATE_COLORS[next];
 
+    // Stop any existing pulse
+    this.stopPulse();
+
+    this.drawRing(color);
+
     const { duration, ease } = this.motion.M2;
     if (duration > 0) {
-      // Animate ring color via scale bounce
-      gsap.to(this.ring, {
-        pixi: { scale: 1.15 },
-        duration: duration / 2,
-        ease,
+      if (next === 'blocked' || next === 'failed') {
+        // Shake animation for error states
+        gsap.fromTo(this.container, { x: this.container.x - 3 }, {
+          x: this.container.x + 3,
+          duration: 0.08,
+          ease: 'none',
+          yoyo: true,
+          repeat: 5,
+        });
+      } else if (next === 'success') {
+        // Pop animation for success
+        gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
+          x: 1.25, y: 1.25,
+          duration: duration / 2,
+          ease: 'back.out(2)',
+          yoyo: true,
+          repeat: 1,
+        });
+      } else {
+        // Standard scale bounce for other transitions
+        gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
+          x: 1.15, y: 1.15,
+          duration: duration / 2,
+          ease,
+          yoyo: true,
+          repeat: 1,
+        });
+      }
+    }
+
+    // Start continuous pulse for active work states
+    if (isActiveState(next) && this.motion.M1.duration > 0) {
+      this.pulseTween = gsap.to(this.ring.scale, {
+        x: 1.08, y: 1.08,
+        duration: this.motion.M1.duration,
+        ease: 'sine.inOut',
         yoyo: true,
-        repeat: 1,
-        onStart: () => this.drawRing(color),
+        repeat: -1,
       });
-    } else {
-      this.drawRing(color);
+    }
+  }
+
+  private stopPulse(): void {
+    if (this.pulseTween) {
+      this.pulseTween.kill();
+      this.pulseTween = null;
+      this.ring.scale.set(1);
     }
   }
 
@@ -103,7 +146,7 @@ export class EmployeeEntity {
     const { duration, ease } = this.motion.M3;
     const targetScale = on ? 1.1 : 1.0;
     if (duration > 0) {
-      gsap.to(this.container, { pixi: { scale: targetScale }, duration, ease });
+      gsap.to(this.container.scale, { x: targetScale, y: targetScale, duration, ease });
     } else {
       this.container.scale.set(targetScale);
     }
@@ -124,15 +167,24 @@ export class EmployeeEntity {
     const width = this.taskText.width + padding * 2;
     const height = this.taskText.height + padding * 2;
 
-    // Remove old bg if any
-    const existingBg = this.taskBubble.getChildAt(0);
-    if (existingBg instanceof Graphics) {
-      this.taskBubble.removeChild(existingBg);
+    // Remove old bg
+    if (this.taskBubbleBg) {
+      this.taskBubble.removeChild(this.taskBubbleBg);
+      this.taskBubbleBg.destroy();
     }
 
     const bg = new Graphics();
     bg.roundRect(-width / 2, -height / 2, width, height, cornerRadius);
     bg.fill({ color: 0x334155, alpha: 0.9 });
     this.taskBubble.addChildAt(bg, 0);
+    this.taskBubbleBg = bg;
   }
+}
+
+const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set([
+  'thinking', 'searching', 'executing',
+]);
+
+function isActiveState(state: EmployeeState): boolean {
+  return ACTIVE_STATES.has(state);
 }
