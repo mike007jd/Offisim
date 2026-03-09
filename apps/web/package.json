@@ -11,13 +11,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@aics/core": "workspace:*",
+    "@aics/install-core": "workspace:*",
+    "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
     "@aics/ui-office": "workspace:*",
-    "@aics/renderer": "workspace:*",
-    "@aics/core": "workspace:*",
-    "@aics/install-core": "workspace:*"
+    "@tailwindcss/vite": "^4.2.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
