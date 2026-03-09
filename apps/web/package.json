@@ -16,6 +16,7 @@
     "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
     "@aics/ui-office": "workspace:*",
+    "@langchain/core": "^1.1.31",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",

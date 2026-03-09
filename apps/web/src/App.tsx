@@ -4,37 +4,34 @@ import { Header } from './components/layout/Header';
 import { StatusBar } from './components/layout/StatusBar';
 import { SettingsDialog } from './components/settings/SettingsDialog';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
+import { useAicsRuntime } from './runtime/aics-runtime-context';
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
+  const runtime = useAicsRuntime();
 
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
+    // Trigger runtime reinit with new config
+    const reinit = (window as Record<string, unknown>).__aicsReinitRuntime;
+    if (typeof reinit === 'function') reinit();
   }
-
-  const providerLabel = providerConfig
-    ? `${providerConfig.model}`
-    : undefined;
 
   return (
     <>
       <AppLayout
-        header={<Header providerName={providerLabel} onOpenSettings={() => setSettingsOpen(true)} />}
-        agentPanel={
-          <div className="p-3 text-sm text-text-muted">Agent Panel</div>
-        }
+        header={<Header providerName={providerConfig?.model} onOpenSettings={() => setSettingsOpen(true)} />}
+        agentPanel={<div className="p-3 text-sm text-text-muted">Agent Panel</div>}
         chatPanel={
           <div className="flex flex-1 items-center justify-center text-text-muted">
-            {providerConfig
+            {runtime.isReady
               ? 'Send a message to your AI company'
               : 'Configure your LLM provider to get started'}
           </div>
         }
-        eventLog={
-          <div className="p-3 text-sm text-text-muted">Event Log</div>
-        }
-        statusBar={<StatusBar runStatus="idle" modelName={providerConfig?.model} />}
+        eventLog={<div className="p-3 text-sm text-text-muted">Event Log</div>}
+        statusBar={<StatusBar runStatus={runtime.isRunning ? 'running' : runtime.error ? 'error' : 'idle'} modelName={providerConfig?.model} />}
       />
       <SettingsDialog
         open={settingsOpen}
