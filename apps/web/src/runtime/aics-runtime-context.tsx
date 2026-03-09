@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { EventBus } from '@aics/core';
+import type { InstallService } from '@aics/install-core';
 
 export interface AicsRuntimeValue {
   eventBus: EventBus;
@@ -10,6 +11,8 @@ export interface AicsRuntimeValue {
   clearError: () => void;
   /** Re-create runtime from current localStorage config. */
   reinitRuntime: () => void;
+  /** Install service — null in Tauri mode or when runtime is not yet ready. */
+  installService: InstallService | null;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);

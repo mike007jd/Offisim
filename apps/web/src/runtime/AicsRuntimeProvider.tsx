@@ -10,8 +10,12 @@ import {
   ModelResolver,
   MockToolExecutor,
   OrchestrationService,
+  installStateChanged,
+  bindingStateChanged,
 } from '@aics/core';
-import type { CompanyRow, EmployeeRow } from '@aics/core';
+import type { CompanyRow, EmployeeRow, RuntimeRepositories, EventBus } from '@aics/core';
+import { InstallService } from '@aics/install-core';
+import type { InstallRepositories, InstallEventEmitter } from '@aics/install-core';
 import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
 import { isTauri } from '../lib/env';
@@ -23,7 +27,42 @@ type RuntimeBundle = {
   eventBus: InMemoryEventBus;
   graph: ReturnType<typeof buildAicsGraph>;
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
+  installService: InstallService | null;
 };
+
+// ---------------------------------------------------------------------------
+// Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
+// ---------------------------------------------------------------------------
+
+/**
+ * Adapts RuntimeRepositories (from @aics/core) to InstallRepositories
+ * (from @aics/install-core). The interface shapes are structurally identical,
+ * so this is a simple projection.
+ */
+function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositories {
+  return {
+    installTransactions: repos.installTransactions,
+    installedPackages: repos.installedPackages,
+    installedAssets: repos.installedAssets,
+    assetBindings: repos.assetBindings,
+    employees: repos.employees,
+  };
+}
+
+/**
+ * Adapts the core EventBus to InstallEventEmitter. Each method constructs
+ * the appropriate RuntimeEvent via event-factory helpers and emits it.
+ */
+function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
+  return {
+    emitInstallState(companyId, txnId, prev, next, packageId, errorCode) {
+      eventBus.emit(installStateChanged(companyId, txnId, prev, next, undefined, packageId, errorCode));
+    },
+    emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
+      eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
+    },
+  };
+}
 
 function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
   const now = new Date().toISOString();
@@ -131,7 +170,19 @@ function createBrowserRuntime(config: ProviderConfig): RuntimeBundle {
     threadId: THREAD_ID,
   });
 
-  return { eventBus, graph, runtimeCtx };
+  // --- Install Service ---
+  const installService = new InstallService({
+    repos: createInstallReposAdapter(repos),
+    events: createEventEmitterAdapter(eventBus),
+    companyId: COMPANY_ID,
+    environment: {
+      runtimeVersion: '0.1.0',
+      environment: 'desktop',
+      schemaVersion: '2026-03',
+    },
+  });
+
+  return { eventBus, graph, runtimeCtx, installService };
 }
 
 interface Props {
@@ -274,6 +325,7 @@ export function AicsRuntimeProvider({ children }: Props) {
       sendMessage,
       clearError,
       reinitRuntime,
+      installService: runtime?.installService ?? null,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version]);

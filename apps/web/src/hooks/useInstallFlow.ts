@@ -1,11 +1,13 @@
 /**
  * useInstallFlow — manages install dialog state machine.
- * MVP uses mock data; Track D will replace with real InstallService calls.
+ * Wired to real InstallService when available; falls back to mock data otherwise.
  */
 
 import { useState, useCallback, useRef } from 'react';
-import type { InstallPlan } from '@aics/install-core';
+import type { InstallPlan, BindingConfirmation } from '@aics/install-core';
+import { readPackageFile } from '@aics/install-core';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
+import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export type InstallStep = 'idle' | 'loading' | 'review' | 'bindings' | 'installing' | 'done' | 'error';
 
@@ -29,13 +31,18 @@ export interface InstallFlowActions {
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
+  const { installService } = useAicsRuntime();
+
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
   const [plan, setPlan] = useState<InstallPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bindingValues, setBindingValues] = useState<Map<string, string>>(new Map());
 
-  // Track pending timers so we can clean them up on cancel
+  // Track the active transaction ID for cancel / confirm operations
+  const txnIdRef = useRef<string | null>(null);
+
+  // Track pending timers so we can clean them up on cancel (mock fallback)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -46,7 +53,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   }, []);
 
   const startFileImport = useCallback((file: File) => {
-    // Validate file size
+    // Validate file size (applies to both real and mock paths)
     if (file.size > MAX_FILE_SIZE) {
       setIsOpen(true);
       setStep('error');
@@ -68,36 +75,103 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
+    txnIdRef.current = null;
 
-    // Simulate loading delay — Track D replaces with real InstallService
-    timerRef.current = setTimeout(() => {
-      setPlan(MOCK_INSTALL_PLAN);
-      setStep('review');
-      timerRef.current = null;
-    }, 500);
-  }, []);
+    if (!installService) {
+      // Mock fallback — no real service available
+      timerRef.current = setTimeout(() => {
+        setPlan(MOCK_INSTALL_PLAN);
+        setStep('review');
+        timerRef.current = null;
+      }, 500);
+      return;
+    }
+
+    // Real path: read file bytes and call InstallService.importFile
+    (async () => {
+      try {
+        const bytes = await readPackageFile(file);
+        const result = await installService.importFile(bytes);
+
+        if (result.error || !result.plan) {
+          setStep('error');
+          setError(result.error ?? 'Import failed: no plan returned');
+          return;
+        }
+
+        txnIdRef.current = result.installTxnId;
+        setPlan(result.plan);
+        setStep('review');
+      } catch (err) {
+        setStep('error');
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, [installService]);
 
   const confirmInstall = useCallback(() => {
     if (!plan) return;
 
     if (plan.bindings.length > 0) {
       setStep('bindings');
-    } else {
+      return;
+    }
+
+    // No bindings needed — proceed to install directly
+    if (!installService || !txnIdRef.current) {
+      // Mock fallback
       setStep('installing');
       timerRef.current = setTimeout(() => {
         setStep('done');
         timerRef.current = null;
       }, 1000);
+      return;
     }
-  }, [plan]);
+
+    // Real path: confirm with empty bindings
+    setStep('installing');
+    (async () => {
+      try {
+        await installService.confirmBindings(txnIdRef.current!, []);
+        setStep('done');
+      } catch (err) {
+        setStep('error');
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, [plan, installService]);
 
   const submitBindings = useCallback(() => {
+    if (!installService || !txnIdRef.current || !plan) {
+      // Mock fallback
+      setStep('installing');
+      timerRef.current = setTimeout(() => {
+        setStep('done');
+        timerRef.current = null;
+      }, 1000);
+      return;
+    }
+
+    // Build BindingConfirmation[] from the plan's binding requirements + user values
+    const confirmations: BindingConfirmation[] = plan.bindings
+      .filter((req) => bindingValues.has(req.bindingKey))
+      .map((req) => ({
+        bindingKey: req.bindingKey,
+        bindingType: req.bindingType,
+        valueJson: JSON.stringify(bindingValues.get(req.bindingKey)),
+      }));
+
     setStep('installing');
-    timerRef.current = setTimeout(() => {
-      setStep('done');
-      timerRef.current = null;
-    }, 1000);
-  }, []);
+    (async () => {
+      try {
+        await installService.confirmBindings(txnIdRef.current!, confirmations);
+        setStep('done');
+      } catch (err) {
+        setStep('error');
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, [installService, plan, bindingValues]);
 
   const setBindingValue = useCallback((key: string, value: string) => {
     setBindingValues((prev) => {
@@ -113,15 +187,26 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   const cancel = useCallback(() => {
     clearTimer();
+
+    // If there's an active transaction and a real service, cancel it
+    if (installService && txnIdRef.current) {
+      const txnId = txnIdRef.current;
+      installService.cancel(txnId).catch((err) => {
+        console.warn('[useInstallFlow] cancel failed:', err);
+      });
+    }
+
+    txnIdRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
-  }, [clearTimer]);
+  }, [clearTimer, installService]);
 
   const close = useCallback(() => {
     clearTimer();
+    txnIdRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);

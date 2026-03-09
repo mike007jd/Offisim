@@ -61,5 +61,7 @@ export async function createTauriRuntime(config: ProviderConfig) {
     threadId: THREAD_ID,
   });
 
-  return { eventBus, graph, runtimeCtx };
+  // TODO: Wire InstallService for Tauri mode once Drizzle install repos are ready.
+  // For now, install is browser-only (memory repos).
+  return { eventBus, graph, runtimeCtx, installService: null };
 }
