@@ -8,8 +8,10 @@ import { ChatPanel } from './components/chat/ChatPanel';
 import { ChatDrawer } from './components/chat/ChatDrawer';
 import { SceneCanvas } from './components/scene/SceneCanvas';
 import { EventLog } from './components/events/EventLog';
+import { InstallDialog } from './components/install/InstallDialog';
 import { useAicsRuntime } from './runtime/aics-runtime-context';
 import { useReducedMotion } from './hooks/use-reduced-motion';
+import { useInstallFlow } from './hooks/useInstallFlow';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
 
 export function App() {
@@ -17,6 +19,7 @@ export function App() {
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const { reinitRuntime } = useAicsRuntime();
   const reducedMotion = useReducedMotion();
+  const installFlow = useInstallFlow();
 
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
@@ -26,7 +29,13 @@ export function App() {
   return (
     <>
       <AppLayout
-        header={<Header providerName={providerConfig?.model} onOpenSettings={() => setSettingsOpen(true)} />}
+        header={
+          <Header
+            providerName={providerConfig?.model}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onFileImport={installFlow.startFileImport}
+          />
+        }
         agentPanel={<AgentPanel />}
         sceneCanvas={<SceneCanvas reducedMotion={reducedMotion} />}
         chatDrawer={
@@ -42,6 +51,7 @@ export function App() {
         onOpenChange={setSettingsOpen}
         onSave={handleSaveConfig}
       />
+      <InstallDialog {...installFlow} />
     </>
   );
 }
