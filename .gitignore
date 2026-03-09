@@ -14,3 +14,7 @@ src-tauri/target/
 *.swo
 tmp/
 .worktrees/
+
+# Tool-generated local state (per-machine, not shared)
+.playwright-mcp/
+.claude/settings.local.json
