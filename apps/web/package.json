@@ -12,6 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@aics/asset-schema": "workspace:*",
     "@aics/core": "workspace:*",
     "@aics/db-local": "workspace:*",
     "@aics/install-core": "workspace:*",

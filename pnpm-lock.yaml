@@ -82,6 +82,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aics/asset-schema':
+        specifier: workspace:*
+        version: link:../../packages/asset-schema
       '@aics/core':
         specifier: workspace:*
         version: link:../../packages/core
