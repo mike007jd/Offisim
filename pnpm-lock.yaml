@@ -85,6 +85,9 @@ importers:
       '@aics/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@aics/db-local':
+        specifier: workspace:*
+        version: link:../../packages/db-local
       '@aics/install-core':
         specifier: workspace:*
         version: link:../../packages/install-core

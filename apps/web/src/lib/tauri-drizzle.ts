@@ -47,7 +47,7 @@ export function createTauriDrizzleDb() {
     }
 
     // SELECT — return rows as array of objects
-    const rows = await db.select<Record<string, unknown>[]>(convertedSql, params);
+    const rows = await db.select(convertedSql, params);
     return { rows };
   }, { schema });
 }

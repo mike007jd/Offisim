@@ -71,7 +71,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       sql += ' ORDER BY checkpoint_id DESC LIMIT 1';
     }
 
-    const rows = await db.select<any[]>(sql, params);
+    const rows = await db.select(sql, params);
     const row = rows[0];
     if (!row) return undefined;
 
@@ -170,7 +170,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     sql += ' ORDER BY checkpoint_id DESC';
     if (limit) sql += ` LIMIT ${Number(limit)}`;
 
-    const rows = await db.select<any[]>(sql, params);
+    const rows = await db.select(sql, params);
 
     for (const row of rows) {
       const pendingWrites: CheckpointPendingWrite[] = await Promise.all(

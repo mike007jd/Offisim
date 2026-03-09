@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@aics/core": "workspace:*",
+    "@aics/db-local": "workspace:*",
     "@aics/install-core": "workspace:*",
     "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
