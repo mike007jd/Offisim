@@ -23,7 +23,7 @@ export function App() {
       <AppLayout
         header={<Header providerName={providerConfig?.model} onOpenSettings={() => setSettingsOpen(true)} />}
         agentPanel={<AgentPanel />}
-        chatPanel={<ChatPanel />}
+        chatPanel={<ChatPanel onOpenSettings={() => setSettingsOpen(true)} />}
         eventLog={<EventLog />}
         statusBar={<StatusBar modelName={providerConfig?.model} />}
       />
