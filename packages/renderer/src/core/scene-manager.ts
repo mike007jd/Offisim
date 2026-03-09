@@ -40,7 +40,7 @@ export class SceneManager {
       resizeTo: this.container,
       background: SCENE_COLORS.floor,
       antialias: true,
-      resolution: window.devicePixelRatio ?? 1,
+      resolution: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) ?? 1,
       autoDensity: true,
     });
 
