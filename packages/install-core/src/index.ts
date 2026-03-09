@@ -1,2 +1,21 @@
-// @aics/install-core — stub, Phase 2 implements
-export {};
+// @aics/install-core — Phase 6 install system
+export type {
+  TransitionMap,
+  TransitionResult,
+  ExtractedPackage,
+  IntegrityResult,
+  RuntimeEnvironment,
+  CompatibilityError,
+  CompatibilityResult,
+  BindingRequirement,
+  InstallPlan,
+  PlanResult,
+  BindingConfirmation,
+  InstallTransactionRow,
+  InstalledPackageRow,
+  InstalledAssetRow,
+  AssetBindingRow,
+  NewEmployee,
+  InstallRepositories,
+  InstallEventEmitter,
+} from './types.js';

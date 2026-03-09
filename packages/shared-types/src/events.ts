@@ -1,4 +1,5 @@
-import type { EmployeeState, MeetingState, RuntimeEntityType, TaskState } from './states.js';
+import type { EmployeeState, InstallState, MeetingState, RuntimeEntityType, TaskState } from './states.js';
+import type { BindingStatus, BindingType } from './install.js';
 
 /**
  * Cross-package event envelope.
@@ -100,4 +101,23 @@ export interface GraphNodeExitedPayload {
 export interface LlmStreamChunkPayload {
   readonly nodeName: string;
   readonly content: string;
+}
+
+// --- Phase 6: Install System ---
+
+export interface InstallStatePayload {
+  readonly installTxnId: string;
+  readonly prev: InstallState;
+  readonly next: InstallState;
+  readonly packageId?: string;
+  readonly errorCode?: string;
+}
+
+export interface BindingStatePayload {
+  readonly bindingId: string;
+  readonly installTxnId: string;
+  readonly bindingType: BindingType;
+  readonly bindingKey: string;
+  readonly prev: BindingStatus;
+  readonly next: BindingStatus;
 }

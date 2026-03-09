@@ -15,7 +15,12 @@ export type {
   TaskAssignmentPayload, MeetingStatePayload,
   LlmCallStartedPayload, LlmCallCompletedPayload, LlmUsageRecordedPayload,
   GraphNodeEnteredPayload, GraphNodeExitedPayload, LlmStreamChunkPayload,
+  InstallStatePayload, BindingStatePayload,
 } from './events.js';
+
+export type {
+  BindingType, BindingStatus, InstallSourceType,
+} from './install.js';
 
 export type {
   LlmProvider, ModelProfile, ModelPolicyConfig, ResolvedModel,
