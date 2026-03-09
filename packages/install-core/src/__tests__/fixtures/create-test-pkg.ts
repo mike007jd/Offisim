@@ -131,7 +131,7 @@ export function createTestPkg(options: {
  * Compute SHA-256 hex of Uint8Array (for test assertions).
  */
 export async function computeSha256(data: Uint8Array): Promise<string> {
-  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data as Uint8Array<ArrayBuffer>);
   const hashArray = new Uint8Array(hashBuffer);
   return Array.from(hashArray)
     .map((b) => b.toString(16).padStart(2, '0'))

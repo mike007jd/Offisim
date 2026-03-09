@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { checkIntegrity } from '../integrity-checker.js';
 import { extractPackage } from '../manifest-loader.js';
-import { createTestPkg, computeSha256, TEST_ASSET_CONTENT } from './fixtures/create-test-pkg.js';
+import { createTestPkg, computeSha256 } from './fixtures/create-test-pkg.js';
 
 describe('integrity-checker / checkIntegrity', () => {
   // -----------------------------------------------------------------------
@@ -45,8 +45,6 @@ describe('integrity-checker / checkIntegrity', () => {
   });
 
   it('valid package with correct expectedHash passes', async () => {
-    const archive = createTestPkg();
-    const extracted = await extractPackage(archive);
     // Remove file hash checking by using empty files array
     const archiveNoFileCheck = createTestPkg({
       manifestOverride: {
