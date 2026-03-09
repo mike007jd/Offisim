@@ -126,6 +126,8 @@ export default defineConfig({
       external: [
         'better-sqlite3',
         '@langchain/langgraph-checkpoint-sqlite',
+        // Tauri packages — only available in Tauri webview, not browser
+        /^@tauri-apps\//,
       ],
     },
   },

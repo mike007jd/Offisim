@@ -4,18 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "@aics/shared-types": "workspace:*",
-    "@aics/core": "workspace:*",
-    "@aics/install-core": "workspace:*",
-    "@aics/renderer": "workspace:*",
-    "@aics/ui-office": "workspace:*"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "typecheck": "echo 'no TS in desktop — Rust only'"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@tauri-apps/cli": "^2"
   }
 }
