@@ -3,9 +3,10 @@ import type {
   EmployeeStatePayload,
   TaskAssignmentPayload,
   GraphNodeEnteredPayload,
+  GraphNodeExitedPayload,
 } from '@aics/shared-types';
-import type { SceneEventBus, SceneManagerOptions, EmployeeSeed } from './types.js';
-import { DEFAULT_EMPLOYEES } from './types.js';
+import type { SceneEventBus, SceneManagerOptions, EmployeeSeed, NodeVisualMapping } from './types.js';
+import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP } from './types.js';
 import { LAYOUT } from '../tokens/layout.js';
 import { SCENE_COLORS } from '../tokens/colors.js';
 import { FloorLayer } from '../layers/floor-layer.js';
@@ -17,6 +18,7 @@ export class SceneManager {
   private readonly container: HTMLElement;
   private readonly eventBus: SceneEventBus;
   private readonly employees: EmployeeSeed[];
+  private readonly nodeVisualMap: Record<string, NodeVisualMapping>;
   private _reducedMotion: boolean;
   /** Guard against async mount completing after destroy (React StrictMode). */
   private _destroyed = false;
@@ -24,12 +26,15 @@ export class SceneManager {
   private floorLayer: FloorLayer | null = null;
   private employeeEntities: Map<string, EmployeeEntity> = new Map();
   private unsubscribers: (() => void)[] = [];
+  /** Track which employees were activated by graph node events (for revert on exit). */
+  private nodeActiveEmployees: Map<string, string> = new Map();
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
     this.eventBus = options.eventBus;
     this.employees = options.employees ?? DEFAULT_EMPLOYEES;
     this._reducedMotion = options.reducedMotion ?? false;
+    this.nodeVisualMap = options.nodeVisualMap ?? DEFAULT_NODE_VISUAL_MAP;
   }
 
   /** Get the active motion tokens (respects reduced-motion) */
@@ -105,6 +110,7 @@ export class SceneManager {
       entity.destroy();
     }
     this.employeeEntities.clear();
+    this.nodeActiveEmployees.clear();
     this.floorLayer = null;
 
     // Destroy PixiJS app
@@ -129,13 +135,14 @@ export class SceneManager {
 
   /** Subscribe to runtime events */
   private subscribeEvents(): void {
-    // Employee state changes (I6: use typed payload from shared-types)
+    // Employee state changes — also drive highlight from state (I6)
     this.unsubscribers.push(
       this.eventBus.on('employee.state.changed', (event) => {
         const { employeeId, next } = event.payload as EmployeeStatePayload;
         const entity = this.employeeEntities.get(employeeId);
         if (entity) {
           entity.setState(next);
+          entity.setHighlight(next !== 'idle');
         }
       }),
     );
@@ -151,23 +158,47 @@ export class SceneManager {
       }),
     );
 
-    // Graph node entered — highlight active employee (I6: use typed payload)
+    // Graph node entered — map node to employee, set visual state + highlight
     this.unsubscribers.push(
       this.eventBus.on('graph.node.entered', (event) => {
         const { nodeName } = event.payload as GraphNodeEnteredPayload;
-        for (const entity of this.employeeEntities.values()) {
-          entity.setHighlight(false);
+
+        // Try static node → employee mapping first
+        const mapping = this.nodeVisualMap[nodeName];
+        if (mapping) {
+          const entity = this.employeeEntities.get(mapping.employeeId);
+          if (entity) {
+            entity.setState(mapping.enterState);
+            entity.setHighlight(true);
+            this.nodeActiveEmployees.set(nodeName, mapping.employeeId);
+          }
+        } else {
+          // Fallback: word-boundary match for future per-employee nodes (e.g. "alice_work")
+          const match = this.findEmployeeForNode(nodeName);
+          if (match) match.setHighlight(true);
         }
-        const match = this.findEmployeeForNode(nodeName);
-        if (match) match.setHighlight(true);
       }),
     );
 
-    // Graph node exited — remove highlight
+    // Graph node exited — revert mapped employee to idle, clear highlight
     this.unsubscribers.push(
-      this.eventBus.on('graph.node.exited', () => {
-        for (const entity of this.employeeEntities.values()) {
-          entity.setHighlight(false);
+      this.eventBus.on('graph.node.exited', (event) => {
+        const { nodeName } = event.payload as GraphNodeExitedPayload;
+
+        // Revert node-mapped employee to idle
+        const employeeId = this.nodeActiveEmployees.get(nodeName);
+        if (employeeId) {
+          const entity = this.employeeEntities.get(employeeId);
+          if (entity) {
+            entity.setState('idle');
+            entity.setHighlight(false);
+          }
+          this.nodeActiveEmployees.delete(nodeName);
+        } else {
+          // Fallback: clear all highlights (for non-mapped nodes)
+          for (const entity of this.employeeEntities.values()) {
+            entity.setHighlight(false);
+          }
         }
       }),
     );
