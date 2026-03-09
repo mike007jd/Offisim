@@ -59,15 +59,29 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
     }
   }
 
+  const [saveError, setSaveError] = useState('');
+
   function handleSave() {
+    setSaveError('');
     const p = PROVIDER_PRESETS[preset];
     const effectiveBaseURL = baseURL || p?.defaults.baseURL;
+
+    let parsedHeaders: Record<string, string> | undefined;
+    if (defaultHeaders) {
+      try {
+        parsedHeaders = JSON.parse(defaultHeaders);
+      } catch {
+        setSaveError('Invalid JSON in Default Headers field.');
+        return;
+      }
+    }
+
     const config: ProviderConfig = {
       provider: p?.defaults.provider ?? 'openai-compat',
       apiKey,
       model,
       ...(effectiveBaseURL ? { baseURL: effectiveBaseURL } : {}),
-      ...(defaultHeaders ? { defaultHeaders: JSON.parse(defaultHeaders) } : p?.defaults.defaultHeaders ? { defaultHeaders: p.defaults.defaultHeaders } : {}),
+      ...(parsedHeaders ? { defaultHeaders: parsedHeaders } : p?.defaults.defaultHeaders ? { defaultHeaders: p.defaults.defaultHeaders } : {}),
     };
     saveProviderConfig(config);
     onSave(config);
@@ -128,6 +142,9 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
             />
           </div>
 
+          {saveError && (
+            <p className="text-sm text-red-500">{saveError}</p>
+          )}
           <Button onClick={handleSave} disabled={!apiKey || !model}>
             Save Configuration
           </Button>

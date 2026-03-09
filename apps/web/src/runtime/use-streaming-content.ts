@@ -19,6 +19,17 @@ export function useStreamingContent(): { content: string; isStreaming: boolean }
     }
   }, [isRunning]);
 
+  // Reset accumulator on each new node entry so only the last streaming
+  // node's content is shown (typically boss-summary). Without this,
+  // intermediate node outputs (boss, manager, employee) would get mixed in.
+  useEffect(() => {
+    const unsub = eventBus.on('graph.node.entered', () => {
+      accRef.current = '';
+      setContent('');
+    });
+    return unsub;
+  }, [eventBus]);
+
   useEffect(() => {
     const unsub = eventBus.on('llm.stream.chunk', (event: RuntimeEvent<LlmStreamChunkPayload>) => {
       accRef.current += event.payload.content;

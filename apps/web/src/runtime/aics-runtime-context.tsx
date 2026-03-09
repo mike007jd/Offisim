@@ -8,6 +8,8 @@ export interface AicsRuntimeValue {
   error: string | null;
   sendMessage: (text: string) => Promise<string | undefined>;
   clearError: () => void;
+  /** Re-create runtime from current localStorage config. */
+  reinitRuntime: () => void;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);

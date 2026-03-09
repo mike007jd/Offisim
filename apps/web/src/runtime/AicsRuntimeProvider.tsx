@@ -148,7 +148,10 @@ export function AicsRuntimeProvider({ children }: Props) {
     return runtimeRef.current;
   }
 
-  // Force re-init when config changes
+  // Force re-init when config changes.
+  // The old EventBus is discarded here; hook cleanup (useEffect return) in
+  // consuming components handles unsubscription when the version bump causes
+  // a new eventBus reference to propagate through context.
   const reinitRuntime = useCallback(() => {
     runtimeRef.current = null;
     setVersion((v) => v + 1);
@@ -201,12 +204,10 @@ export function AicsRuntimeProvider({ children }: Props) {
       error,
       sendMessage,
       clearError,
+      reinitRuntime,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
-  }, [isRunning, error, sendMessage, clearError, version]);
-
-  // Expose reinit via a custom event so settings dialog can trigger it
-  (window as unknown as Record<string, unknown>).__aicsReinitRuntime = reinitRuntime;
+  }, [isRunning, error, sendMessage, clearError, reinitRuntime, version]);
 
   return (
     <AicsRuntimeContext.Provider value={value}>

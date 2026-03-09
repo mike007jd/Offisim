@@ -18,22 +18,23 @@ interface ChatPanelProps {
   onOpenSettings: () => void;
 }
 
+let nextMsgId = 0;
+function genMsgId(): string {
+  return `msg-${nextMsgId++}`;
+}
+
 export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
   const { sendMessage, isRunning, isReady, error, clearError } = useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Track latest stream content in a ref so handleSend can read it after
+  // sendMessage resolves. This is the ONLY place assistant messages are
+  // added — no competing useEffect path.
   const lastStreamRef = useRef('');
 
-  // When streaming ends and there's content, add as assistant message
   useEffect(() => {
-    if (!isStreaming && lastStreamRef.current) {
-      setMessages((prev) => [
-        ...prev,
-        { id: `msg-${Date.now()}`, role: 'assistant', content: lastStreamRef.current },
-      ]);
-      lastStreamRef.current = '';
-    }
     if (isStreaming && streamContent) {
       lastStreamRef.current = streamContent;
     }
@@ -47,18 +48,26 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
   }, [messages, streamContent]);
 
   async function handleSend(text: string) {
+    lastStreamRef.current = '';
+
     setMessages((prev) => [
       ...prev,
-      { id: `msg-${Date.now()}`, role: 'user', content: text },
+      { id: genMsgId(), role: 'user', content: text },
     ]);
+
     const response = await sendMessage(text);
-    // If no streaming content was captured, use the returned graph result
-    if (response && !lastStreamRef.current) {
+
+    // After sendMessage resolves, pick the best source for the assistant reply:
+    // 1. Streaming content (from boss-summary's llm.stream.chunk events)
+    // 2. Direct graph return value (for non-streaming / direct_reply paths)
+    const finalContent = lastStreamRef.current || response;
+    if (finalContent) {
       setMessages((prev) => [
         ...prev,
-        { id: `msg-${Date.now()}`, role: 'assistant', content: response },
+        { id: genMsgId(), role: 'assistant', content: finalContent },
       ]);
     }
+    lastStreamRef.current = '';
   }
 
   const showEmpty = messages.length === 0 && !isStreaming;

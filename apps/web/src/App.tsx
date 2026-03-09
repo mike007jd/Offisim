@@ -6,16 +6,17 @@ import { SettingsDialog } from './components/settings/SettingsDialog';
 import { AgentPanel } from './components/agents/AgentPanel';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { EventLog } from './components/events/EventLog';
+import { useAicsRuntime } from './runtime/aics-runtime-context';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
+
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
+  const { reinitRuntime } = useAicsRuntime();
 
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
-    // Trigger runtime reinit with new config
-    const reinit = (window as unknown as Record<string, unknown>).__aicsReinitRuntime;
-    if (typeof reinit === 'function') reinit();
+    reinitRuntime();
   }
 
   return (

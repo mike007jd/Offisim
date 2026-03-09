@@ -21,11 +21,35 @@ export default defineConfig({
     {
       name: 'llm-proxy',
       configureServer(server) {
+        // Allowlist of known LLM provider hostnames to prevent SSRF
+        const ALLOWED_HOSTS = new Set([
+          'generativelanguage.googleapis.com',
+          'openrouter.ai',
+          'api.kimi.com',
+          'api.moonshot.cn',
+          'api.openai.com',
+          'api.anthropic.com',
+        ]);
+
         server.middlewares.use('/api/llm-proxy', async (req: IncomingMessage, res: ServerResponse) => {
           const targetBase = req.headers['x-llm-base-url'] as string;
           if (!targetBase) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
             res.end('Missing X-LLM-Base-URL header');
+            return;
+          }
+
+          // Validate target against allowlist to prevent SSRF
+          try {
+            const targetHost = new URL(targetBase).hostname;
+            if (!ALLOWED_HOSTS.has(targetHost)) {
+              res.writeHead(403, { 'Content-Type': 'text/plain' });
+              res.end(`Proxy target not allowed: ${targetHost}. Add it to ALLOWED_HOSTS in vite.config.ts`);
+              return;
+            }
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid X-LLM-Base-URL header');
             return;
           }
 
