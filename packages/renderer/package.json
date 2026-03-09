@@ -3,7 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
@@ -11,7 +16,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/shared-types": "workspace:*"
+    "@aics/shared-types": "workspace:*",
+    "gsap": "^3.14.2",
+    "pixi.js": "^8.16.0"
   },
-  "devDependencies": { "typescript": "^5.7.0", "vitest": "^3.0.0" }
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
 }
