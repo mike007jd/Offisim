@@ -197,6 +197,10 @@ export function AicsRuntimeProvider({ children }: Props) {
   }, [initRuntime, version]);
 
   const reinitRuntime = useCallback(() => {
+    // TODO: In Tauri mode, the old TauriCheckpointSaver and TauriDrizzleDb hold
+    // references to the shared DB connection. Since getTauriDb() is a module-level
+    // singleton, the connection survives reinit. Old eventBus subscriptions are
+    // cleaned up by consuming components' useEffect return functions.
     runtimeRef.current = null;
     initPromiseRef.current = null;
     setVersion((v) => v + 1);
@@ -255,6 +259,11 @@ export function AicsRuntimeProvider({ children }: Props) {
   const clearError = useCallback(() => setError(null), []);
 
   const value = useMemo<AicsRuntimeValue>(() => {
+    // NOTE: getOrCreateRuntime() lazily initializes the browser runtime and
+    // assigns to runtimeRef. This is intentional — scene/event hooks need
+    // the EventBus from the first render. The runtimeRef guard makes this
+    // idempotent (safe under StrictMode). In Tauri mode it returns null
+    // (async init handled by useEffect above).
     const runtime = getOrCreateRuntime();
     const eventBus = runtime?.eventBus ?? new InMemoryEventBus();
     return {

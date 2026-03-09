@@ -1,3 +1,7 @@
+// SYNC: This file mirrors packages/core/src/runtime/drizzle-repositories.ts
+// but uses `await` on all Drizzle calls (sqlite-proxy returns Promises).
+// If you change repository logic in core, update this file too.
+
 import { eq, and, desc } from 'drizzle-orm';
 import * as schema from '@aics/db-local';
 import type {

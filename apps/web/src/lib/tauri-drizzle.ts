@@ -1,27 +1,16 @@
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import * as schema from '@aics/db-local';
-
-/**
- * Lazily-loaded tauri-plugin-sql Database connection.
- * Dynamic import ensures this module is never loaded in browser mode.
- */
-let dbPromise: Promise<any> | null = null;
-
-async function getPluginDb() {
-  if (!dbPromise) {
-    dbPromise = (async () => {
-      const { default: Database } = await import('@tauri-apps/plugin-sql');
-      return Database.load('sqlite:aics.db');
-    })();
-  }
-  return dbPromise;
-}
+import { getTauriDb } from './tauri-db';
 
 /**
  * Convert Drizzle's `?` placeholders to tauri-plugin-sql's `$1, $2, ...` format.
  *
  * Drizzle sqlite dialect uses `?` (standard SQLite), but tauri-plugin-sql
  * (backed by sqlx) uses `$N` positional parameters for SQLite.
+ *
+ * ASSUMPTION: Only used for Drizzle-generated SQL. Drizzle never places `?`
+ * inside string literals — all values are parameterized. If used with raw SQL
+ * containing `?` in string literals, this function will produce incorrect output.
  */
 function convertPlaceholders(sql: string): string {
   let idx = 0;
@@ -38,7 +27,7 @@ function convertPlaceholders(sql: string): string {
  */
 export function createTauriDrizzleDb() {
   return drizzle(async (sql, params, method) => {
-    const db = await getPluginDb();
+    const db = await getTauriDb();
     const convertedSql = convertPlaceholders(sql);
 
     if (method === 'run') {

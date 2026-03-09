@@ -9,6 +9,13 @@ import {
 } from '@langchain/langgraph-checkpoint';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { PendingWrite, CheckpointPendingWrite } from '@langchain/langgraph-checkpoint';
+import { getTauriDb } from './tauri-db';
+
+// TASKS is an internal LangGraph constant ('__pregel_tasks').
+// Validate at import time to prevent SQL injection if the constant ever changes.
+if (!/^[a-z_]+$/i.test(TASKS)) {
+  throw new Error(`Unexpected TASKS channel name: ${TASKS}`);
+}
 
 /**
  * LangGraph checkpoint saver backed by tauri-plugin-sql (SQLite).
@@ -19,18 +26,9 @@ import type { PendingWrite, CheckpointPendingWrite } from '@langchain/langgraph-
  * Tables used (`checkpoints` + `writes`) are created by Rust migration 6.
  */
 export class TauriCheckpointSaver extends BaseCheckpointSaver {
-  private db: any = null;
-
-  private async getDb() {
-    if (!this.db) {
-      const { default: Database } = await import('@tauri-apps/plugin-sql');
-      this.db = await Database.load('sqlite:aics.db');
-    }
-    return this.db;
-  }
 
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    const db = await this.getDb();
+    const db = await getTauriDb();
     const { thread_id, checkpoint_ns = '', checkpoint_id } = config.configurable ?? {};
 
     let sql = `
@@ -123,7 +121,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     config: RunnableConfig,
     options?: CheckpointListOptions,
   ): AsyncGenerator<CheckpointTuple> {
-    const db = await this.getDb();
+    const db = await getTauriDb();
     const { limit, before } = options ?? {};
     const thread_id = config.configurable?.thread_id;
     const checkpoint_ns = config.configurable?.checkpoint_ns;
@@ -168,7 +166,10 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     }
 
     sql += ' ORDER BY checkpoint_id DESC';
-    if (limit) sql += ` LIMIT ${Number(limit)}`;
+    const parsedLimit = Number(limit);
+    if (Number.isInteger(parsedLimit) && parsedLimit > 0) {
+      sql += ` LIMIT ${parsedLimit}`;
+    }
 
     const rows = await db.select(sql, params);
 
@@ -218,7 +219,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     checkpoint: Checkpoint,
     metadata: CheckpointMetadata,
   ): Promise<RunnableConfig> {
-    const db = await this.getDb();
+    const db = await getTauriDb();
     if (!config.configurable) throw new Error('Empty configuration supplied.');
 
     const thread_id = config.configurable.thread_id;
@@ -261,7 +262,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     writes: PendingWrite[],
     taskId: string,
   ): Promise<void> {
-    const db = await this.getDb();
+    const db = await getTauriDb();
     if (!config.configurable?.thread_id || !config.configurable?.checkpoint_id) {
       throw new Error('Missing thread_id or checkpoint_id in config.configurable.');
     }
@@ -295,7 +296,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
   }
 
   async deleteThread(threadId: string): Promise<void> {
-    const db = await this.getDb();
+    const db = await getTauriDb();
     await db.execute('BEGIN');
     try {
       await db.execute('DELETE FROM checkpoints WHERE thread_id = $1', [threadId]);
