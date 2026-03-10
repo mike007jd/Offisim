@@ -11,7 +11,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env.local'), quiet: true }
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000,
+  // Free-tier LLM models may be slow / rate-limited; chat tests need extra time.
+  timeout: 90_000,
   retries: 1,
   reporter: 'list',
   use: {

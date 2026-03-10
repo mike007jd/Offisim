@@ -11,17 +11,17 @@ test.describe('Smoke: Chat Flow', () => {
     await openChat(page);
     await sendChat(page, 'Say hello in one sentence.');
 
-    // Wait for AI response (real API call — up to 45s)
-    const response = await waitForResponse(page, 45_000);
+    // Wait for AI response (real API call — free-tier models can be slow)
+    const response = await waitForResponse(page, 55_000);
     expect(response.length).toBeGreaterThan(0);
   });
 
   test('EventLog shows graph node events after chat', async ({ page }) => {
     await openChat(page);
     await sendChat(page, 'Say hello in one sentence.');
-    await waitForResponse(page, 45_000);
 
-    // EventLog should have moved past "No events yet"
-    await expect(page.getByText('No events yet')).not.toBeVisible({ timeout: 5_000 });
+    // EventLog should show events even before the full response finishes.
+    // graph.node.entered is emitted as soon as the first node starts.
+    await expect(page.getByText('No events yet')).not.toBeVisible({ timeout: 55_000 });
   });
 });

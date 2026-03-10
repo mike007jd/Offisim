@@ -22,11 +22,17 @@ export async function injectProvider(page: Page): Promise<void> {
     );
   }
 
+  // Model from env (OPENROUTER_MODEL in .env.local) or fallback.
+  // google/gemma-3-4b-it:free does NOT support system messages via Google AI Studio,
+  // so we default to Llama 3.3 which reliably supports them.
+  const model =
+    process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+
   const config: TestProviderConfig = {
     provider: 'openai-compat',
     apiKey,
     baseURL: 'https://openrouter.ai/api/v1',
-    model: 'google/gemma-3-4b-it:free',
+    model,
   };
 
   await page.goto('/');

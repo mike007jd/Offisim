@@ -43,7 +43,7 @@ test.describe('Smoke: Settings Dialog', () => {
     // Change model name
     const modelInput = page.getByPlaceholder('model-name');
     await modelInput.clear();
-    await modelInput.fill('google/gemma-3-1b-it:free');
+    await modelInput.fill('test-model-name');
 
     // Click save
     await page.getByRole('button', { name: /Save Configuration/i }).click();
@@ -55,6 +55,6 @@ test.describe('Smoke: Settings Dialog', () => {
     const stored = await page.evaluate(() => localStorage.getItem('aics-provider-config'));
     expect(stored).toBeTruthy();
     const parsed = JSON.parse(stored!);
-    expect(parsed.model).toBe('google/gemma-3-1b-it:free');
+    expect(parsed.model).toBe('test-model-name');
   });
 });

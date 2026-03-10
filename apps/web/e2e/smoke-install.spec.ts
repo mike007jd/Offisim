@@ -41,9 +41,11 @@ test.describe('Smoke: Install Flow', () => {
       }
     });
 
-    // Should eventually show error (either immediately or after loading)
+    // Should eventually show the "Installation Failed" heading inside the error content.
+    // Use getByRole to avoid strict mode violation — both DialogTitle "Error"
+    // and ErrorContent <h3> "Installation Failed" would match getByText.
     await expect(
-      page.getByText(/Installation Failed|Error/i),
+      page.getByRole('heading', { name: 'Installation Failed' }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
