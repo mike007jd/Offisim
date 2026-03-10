@@ -3,14 +3,14 @@ import { type HTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 const alertVariants = cva(
-  'relative w-full rounded-lg border px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-current [&>svg~*]:pl-7',
+  'relative w-full border-2 px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-current [&>svg~*]:pl-7',
   {
     variants: {
       variant: {
-        default: 'border-border bg-surface text-text-primary',
-        destructive: 'border-error/50 bg-error/10 text-error [&>svg]:text-error',
-        warning: 'border-warning/50 bg-warning/10 text-warning [&>svg]:text-warning',
-        success: 'border-success/50 bg-success/10 text-success [&>svg]:text-success',
+        default: 'border-ocean-light bg-ocean-mid text-sand',
+        destructive: 'border-lobster-red bg-lobster-red/10 text-lobster-red [&>svg]:text-lobster-red',
+        warning: 'border-coral-orange bg-coral-orange/10 text-coral-orange [&>svg]:text-coral-orange',
+        success: 'border-kelp-green bg-kelp-green/10 text-kelp-green [&>svg]:text-kelp-green',
       },
     },
     defaultVariants: {

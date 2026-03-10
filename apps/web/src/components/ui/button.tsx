@@ -4,21 +4,27 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors pixel-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-accent text-white hover:bg-accent-hover',
-        destructive: 'bg-error text-white hover:bg-error/90',
-        outline: 'border border-border bg-transparent hover:bg-surface-light',
-        secondary: 'bg-surface-light text-text-primary hover:bg-surface-lighter',
-        ghost: 'hover:bg-surface-light',
-        link: 'text-accent underline-offset-4 hover:underline',
+        default:
+          'border-2 border-lobster-red bg-lobster-red text-pearl shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-coral-orange hover:border-coral-orange',
+        destructive:
+          'border-2 border-error bg-error text-pearl shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-error/80',
+        outline:
+          'border-2 border-ocean-light bg-transparent text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-mid',
+        secondary:
+          'border-2 border-ocean-light bg-ocean-mid text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-surface-lighter',
+        ghost:
+          'border-2 border-transparent hover:bg-ocean-mid hover:border-ocean-light',
+        link:
+          'text-sea-blue underline-offset-4 hover:underline border-0',
       },
       size: {
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8',
+        sm: 'h-8 px-3 text-xs',
+        lg: 'h-10 px-8',
         icon: 'h-9 w-9',
       },
     },

@@ -3,17 +3,17 @@ import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+  'inline-flex items-center border-2 px-2 py-0.5 text-xs font-semibold font-pixel-mono transition-colors',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-accent text-white',
-        secondary: 'border-transparent bg-surface-lighter text-text-secondary',
-        success: 'border-transparent bg-success/20 text-success',
-        warning: 'border-transparent bg-warning/20 text-warning',
-        error: 'border-transparent bg-error/20 text-error',
-        info: 'border-transparent bg-info/20 text-info',
-        outline: 'border-border text-text-secondary',
+        default: 'border-lobster-red bg-lobster-red/20 text-lobster-red',
+        secondary: 'border-ocean-light bg-ocean-mid text-shell',
+        success: 'border-kelp-green bg-kelp-green/20 text-kelp-green',
+        warning: 'border-coral-orange bg-coral-orange/20 text-coral-orange',
+        error: 'border-lobster-red bg-lobster-red/20 text-lobster-red',
+        info: 'border-sea-blue bg-sea-blue/20 text-sea-blue',
+        outline: 'border-ocean-light text-shell',
       },
     },
     defaultVariants: {

@@ -21,13 +21,13 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuemax={max}
         tabIndex={0}
         className={cn(
-          'relative h-2 w-full overflow-hidden rounded-full bg-surface-lighter',
+          'relative h-2 w-full overflow-hidden bg-ocean-mid border border-ocean-light',
           className,
         )}
         {...props}
       >
         <div
-          className="h-full rounded-full bg-accent transition-all duration-300 ease-in-out"
+          className="h-full bg-lobster-red transition-all duration-300 ease-in-out"
           style={{ width: `${pct}%` }}
         />
       </div>
