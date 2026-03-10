@@ -8,6 +8,7 @@ import { ChatPanel } from './components/chat/ChatPanel';
 import { ChatDrawer } from './components/chat/ChatDrawer';
 import { SceneCanvas } from './components/scene/SceneCanvas';
 import { EventLog } from './components/events/EventLog';
+import { PlanProgressPanel } from './components/plan/PlanProgressPanel';
 import { InstallDialog } from './components/install/InstallDialog';
 import { useAicsRuntime } from './runtime/aics-runtime-context';
 import { useReducedMotion } from './hooks/use-reduced-motion';
@@ -43,7 +44,12 @@ export function App() {
             <ChatPanel onOpenSettings={() => setSettingsOpen(true)} />
           </ChatDrawer>
         }
-        eventLog={<EventLog />}
+        eventLog={
+          <>
+            <PlanProgressPanel />
+            <EventLog />
+          </>
+        }
         statusBar={<StatusBar modelName={providerConfig?.model} />}
       />
       <SettingsDialog
