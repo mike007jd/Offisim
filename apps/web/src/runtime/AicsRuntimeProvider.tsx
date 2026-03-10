@@ -317,6 +317,21 @@ export function AicsRuntimeProvider({ children }: Props) {
     // (async init handled by useEffect above).
     const runtime = getOrCreateRuntime();
     const eventBus = runtime?.eventBus ?? new InMemoryEventBus();
+
+    // Expose debug bridge in dev mode (E2E smoke tests).
+    // getSceneState starts with dummy values — SceneCanvas/useScene will
+    // override it once the SceneManager is mounted.
+    if (import.meta.env.DEV && runtime) {
+      window.__AICS_DEBUG__ = {
+        eventBus: runtime.eventBus,
+        installService: runtime.installService,
+        getSceneState: () => ({
+          employeeCount: 0,
+          employeeIds: [] as string[],
+        }),
+      };
+    }
+
     return {
       eventBus,
       isReady: runtime !== null && !isInitializing,

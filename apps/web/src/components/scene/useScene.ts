@@ -26,7 +26,17 @@ export function useScene(reducedMotion = false) {
     managerRef.current = manager;
 
     // Await mount — handle errors and guard against unmount-before-init (I1)
-    manager.mount().catch((err) => {
+    manager.mount().then(() => {
+      if (!cancelled) {
+        // Wire SceneManager into debug bridge (dev mode only, for E2E smoke tests)
+        if (import.meta.env.DEV && window.__AICS_DEBUG__) {
+          window.__AICS_DEBUG__.getSceneState = () => ({
+            employeeCount: manager.employeeCount,
+            employeeIds: manager.employeeIds,
+          });
+        }
+      }
+    }).catch((err) => {
       if (!cancelled) {
         console.error('[SceneManager] mount failed:', err);
       }
@@ -36,6 +46,13 @@ export function useScene(reducedMotion = false) {
       cancelled = true;
       manager.destroy();
       managerRef.current = null;
+      // Reset debug bridge scene accessor to dummy (scene is unmounted)
+      if (import.meta.env.DEV && window.__AICS_DEBUG__) {
+        window.__AICS_DEBUG__.getSceneState = () => ({
+          employeeCount: 0,
+          employeeIds: [],
+        });
+      }
     };
   }, [eventBus]); // eslint-disable-line react-hooks/exhaustive-deps
 

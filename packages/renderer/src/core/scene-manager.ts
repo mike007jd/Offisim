@@ -166,6 +166,16 @@ export class SceneManager {
     return true;
   }
 
+  /** Number of employee entities currently in the scene (for debug bridge). */
+  get employeeCount(): number {
+    return this.employeeEntities.size;
+  }
+
+  /** IDs of all employee entities in the scene (for debug bridge). */
+  get employeeIds(): string[] {
+    return [...this.employeeEntities.keys()];
+  }
+
   /** Destroy the PixiJS application and clean up */
   destroy(): void {
     this._destroyed = true;
