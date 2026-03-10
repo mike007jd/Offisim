@@ -10,7 +10,7 @@ import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
 import { employeeNode } from '../agents/employee-node.js';
 import { errorHandlerNode } from '../agents/error-handler-node.js';
 import { bossSummaryNode } from '../agents/boss-summary-node.js';
-import { graphNodeEntered, planStepCompleted, planCompleted } from '../events/event-factories.js';
+import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 function routeFromBoss(state: AicsGraphState): string {

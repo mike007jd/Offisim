@@ -10,7 +10,7 @@ import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import type { AicsGraphState } from '../../graph/state.js';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { PlanCreatedPayload, RuntimeEvent } from '@aics/shared-types';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -177,8 +177,9 @@ describe('pmPlannerNode', () => {
 
     const planEvents = events.filter((e) => e.type === 'plan.created');
     expect(planEvents).toHaveLength(1);
-    expect(planEvents[0]!.payload.steps).toHaveLength(1);
-    expect(planEvents[0]!.payload.steps[0].taskCount).toBe(1);
+    const payload = planEvents[0]!.payload as unknown as PlanCreatedPayload;
+    expect(payload.steps).toHaveLength(1);
+    expect(payload.steps[0]!.taskCount).toBe(1);
   });
 
   it('falls back to single-step plan when LLM response is unparseable', async () => {
