@@ -128,8 +128,15 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
 
 const IS_DEV = import.meta.env.DEV;
 
-function createBrowserRuntime(config: ProviderConfig): RuntimeBundle {
-  const eventBus = new InMemoryEventBus();
+/**
+ * Create the browser-mode runtime stack.
+ *
+ * @param config - Provider configuration
+ * @param eventBus - Shared EventBus instance from the Provider. Using a shared
+ *   bus ensures UI hooks always subscribe to the same instance, avoiding the
+ *   "EventBus churn" problem during initialization.
+ */
+function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus): RuntimeBundle {
   const repos = createMemoryRepositories();
   seedCompany(repos);
 
@@ -198,16 +205,32 @@ export function AicsRuntimeProvider({ children }: Props) {
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
 
+  // ---------------------------------------------------------------------------
+  // Stable EventBus — created once, shared across runtime reinitializations.
+  //
+  // KEY DESIGN DECISION: The EventBus is the pub/sub backbone that connects
+  // core graph execution → UI hooks (useEventStream, useScene, useAgentStates).
+  // By sharing ONE instance across the Provider's lifetime:
+  //   1. No "EventBus churn" — hooks subscribe once, never re-subscribe
+  //   2. No SceneManager mount/destroy cycles during Tauri async init
+  //   3. Debug bridge always has the correct bus reference
+  //   4. Runtime reinit (e.g. user changes provider) reuses the same bus
+  //      — old subscriptions automatically receive events from the new runtime
+  // ---------------------------------------------------------------------------
+  const eventBusRef = useRef(new InMemoryEventBus());
+
   // Async runtime init (for Tauri mode)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
     if (!config) return null;
 
+    const eventBus = eventBusRef.current;
+
     if (isTauri()) {
       setIsInitializing(true);
       try {
         const { createTauriRuntime } = await import('../lib/tauri-runtime');
-        const runtime = await createTauriRuntime(config);
+        const runtime = await createTauriRuntime(config, eventBus);
         runtimeRef.current = runtime;
         return runtime;
       } finally {
@@ -216,7 +239,7 @@ export function AicsRuntimeProvider({ children }: Props) {
     }
 
     // Browser mode — synchronous
-    const runtime = createBrowserRuntime(config);
+    const runtime = createBrowserRuntime(config, eventBus);
     runtimeRef.current = runtime;
     return runtime;
   }, []);
@@ -232,7 +255,7 @@ export function AicsRuntimeProvider({ children }: Props) {
     // Browser: sync init
     const config = loadProviderConfig();
     if (!config) return null;
-    runtimeRef.current = createBrowserRuntime(config);
+    runtimeRef.current = createBrowserRuntime(config, eventBusRef.current);
     return runtimeRef.current;
   }
 
@@ -316,15 +339,21 @@ export function AicsRuntimeProvider({ children }: Props) {
     // idempotent (safe under StrictMode). In Tauri mode it returns null
     // (async init handled by useEffect above).
     const runtime = getOrCreateRuntime();
-    const eventBus = runtime?.eventBus ?? new InMemoryEventBus();
+
+    // Always use the stable shared EventBus — never create a temporary one.
+    // This is the same instance passed to createBrowserRuntime / createTauriRuntime,
+    // so hooks subscribed to it will receive events from any runtime incarnation.
+    const eventBus = eventBusRef.current;
 
     // Expose debug bridge in dev mode (E2E smoke tests).
+    // Always set — even before runtime is ready — so tests can access the
+    // EventBus for subscription-based assertions during async init.
     // getSceneState starts with dummy values — SceneCanvas/useScene will
     // override it once the SceneManager is mounted.
-    if (import.meta.env.DEV && runtime) {
+    if (import.meta.env.DEV) {
       window.__AICS_DEBUG__ = {
-        eventBus: runtime.eventBus,
-        installService: runtime.installService,
+        eventBus,
+        installService: runtime?.installService ?? null,
         getSceneState: () => ({
           employeeCount: 0,
           employeeIds: [] as string[],

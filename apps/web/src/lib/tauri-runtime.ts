@@ -23,11 +23,14 @@ const THREAD_ID = 'thread-001';
  * 2. Checkpointer: TauriCheckpointSaver → persistent (not MemorySaver)
  * 3. Gateway: Direct API calls, no Vite proxy (tauri-plugin-cors-fetch handles CORS)
  * 4. DB seed: Run once on first launch
+ *
+ * @param config - Provider configuration (API key, model, etc.)
+ * @param eventBus - Shared EventBus instance from the Provider. Using a shared
+ *   bus avoids the "EventBus churn" problem where async init would create a
+ *   different bus than what UI hooks subscribe to.
  */
-export async function createTauriRuntime(config: ProviderConfig) {
+export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus) {
   await seedTauriDb();
-
-  const eventBus = new InMemoryEventBus();
 
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
