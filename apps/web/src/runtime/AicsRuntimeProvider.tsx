@@ -1,6 +1,6 @@
 import {
   InMemoryEventBus,
-  MockToolExecutor,
+  McpToolExecutor,
   ModelResolver,
   OrchestrationService,
   bindingStateChanged,
@@ -11,11 +11,12 @@ import {
   createRuntimeContext,
   installStateChanged,
 } from '@aics/core';
-import type { CompanyRow, EmployeeRow, EventBus, RuntimeRepositories } from '@aics/core';
+import type { CompanyRow, EmployeeRow, EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { HumanMessage } from '@langchain/core/messages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
 import { isTauri } from '../lib/env';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
 import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
@@ -28,6 +29,7 @@ type RuntimeBundle = {
   graph: ReturnType<typeof buildAicsGraph>;
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
   installService: InstallService | null;
+  mcpToolExecutor: McpToolExecutor | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -172,12 +174,19 @@ function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus
   const checkpointer = createMemoryCheckpointSaver();
   const graph = buildAicsGraph({ checkpointer });
 
+  // --- MCP Tool Executor (real, SSE-only in browser) ---
+  const mcpToolExecutor = new McpToolExecutor({
+    eventBus,
+    companyId: COMPANY_ID,
+    clientFactory: new BrowserMcpClientFactory(),
+  });
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
     modelResolver,
-    toolExecutor: new MockToolExecutor(),
+    toolExecutor: mcpToolExecutor,
     companyId: COMPANY_ID,
     threadId: THREAD_ID,
   });
@@ -194,7 +203,7 @@ function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus
     },
   });
 
-  return { eventBus, graph, runtimeCtx, installService };
+  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor };
 }
 
 interface Props {
@@ -206,6 +215,7 @@ export function AicsRuntimeProvider({ children }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [connectedMcpServers, setConnectedMcpServers] = useState<ReadonlySet<string>>(new Set());
 
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
@@ -342,6 +352,71 @@ export function AicsRuntimeProvider({ children }: Props) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // --- MCP server management ---
+  const connectMcpServer = useCallback(
+    async (config: McpServerConfig): Promise<number> => {
+      const runtime = runtimeRef.current;
+      if (!runtime?.mcpToolExecutor) {
+        throw new Error('Runtime not ready — cannot connect MCP server.');
+      }
+      await runtime.mcpToolExecutor.addServer(config);
+      setConnectedMcpServers((prev) => new Set([...prev, config.name]));
+      // Return tool count — serverCount is available but we want tool count
+      // Approximation: return serverCount as a signal that connection succeeded
+      return runtime.mcpToolExecutor.serverCount;
+    },
+    [],
+  );
+
+  const disconnectMcpServer = useCallback(async (name: string): Promise<void> => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.mcpToolExecutor) return;
+    await runtime.mcpToolExecutor.removeServer(name);
+    setConnectedMcpServers((prev) => {
+      const next = new Set(prev);
+      next.delete(name);
+      return next;
+    });
+  }, []);
+
+  // Auto-connect saved MCP servers on runtime init
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version triggers reconnect on reinit
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.mcpToolExecutor) return;
+
+    // Read saved configs from localStorage (same key as McpConfigPanel)
+    try {
+      const raw = localStorage.getItem('aics:mcp-servers');
+      if (!raw) return;
+      const configs = JSON.parse(raw) as Array<{
+        name: string;
+        transport: string;
+        commandOrUrl: string;
+      }>;
+      if (!Array.isArray(configs)) return;
+
+      for (const cfg of configs) {
+        const serverConfig: McpServerConfig = {
+          name: cfg.name,
+          transport: cfg.transport as 'stdio' | 'sse',
+          url: cfg.transport === 'sse' ? cfg.commandOrUrl : undefined,
+          command: cfg.transport === 'stdio' ? cfg.commandOrUrl : undefined,
+        };
+        runtime.mcpToolExecutor
+          .addServer(serverConfig)
+          .then(() => {
+            setConnectedMcpServers((prev) => new Set([...prev, cfg.name]));
+          })
+          .catch((err) => {
+            console.warn(`[MCP] Failed to auto-connect server '${cfg.name}':`, err);
+          });
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [version]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getOrCreateRuntime is a render-scoped function
   const value = useMemo<AicsRuntimeValue>(() => {
     // NOTE: getOrCreateRuntime() lazily initializes the browser runtime and
@@ -381,9 +456,12 @@ export function AicsRuntimeProvider({ children }: Props) {
       clearError,
       reinitRuntime,
       installService: runtime?.installService ?? null,
+      connectMcpServer,
+      disconnectMcpServer,
+      connectedMcpServers,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
-  }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version]);
+  }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version, connectMcpServer, disconnectMcpServer, connectedMcpServers]);
 
   return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;
 }

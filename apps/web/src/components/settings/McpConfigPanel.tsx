@@ -1,4 +1,6 @@
+import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core';
 import { useCallback, useEffect, useState } from 'react';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -45,21 +47,28 @@ function saveMcpServers(servers: McpServerConfig[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
 }
 
+/** Convert UI config to core McpServerConfig for the executor. */
+function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
+  return {
+    name: cfg.name,
+    transport: cfg.transport,
+    url: cfg.transport === 'sse' ? cfg.commandOrUrl : undefined,
+    command: cfg.transport === 'stdio' ? cfg.commandOrUrl : undefined,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-interface McpConfigPanelProps {
-  /** Set of server names currently connected (populated by parent / MCP runtime). */
-  connectedServers?: ReadonlySet<string>;
-}
-
-export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
+export function McpConfigPanel() {
+  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } = useAicsRuntime();
   const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
+  const [connecting, setConnecting] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState('');
-  const [transport, setTransport] = useState<McpTransport>('stdio');
+  const [transport, setTransport] = useState<McpTransport>('sse');
   const [commandOrUrl, setCommandOrUrl] = useState('');
   const [formError, setFormError] = useState('');
 
@@ -68,7 +77,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
     saveMcpServers(servers);
   }, [servers]);
 
-  const handleAdd = useCallback(() => {
+  const handleAdd = useCallback(async () => {
     setFormError('');
     const trimmedName = name.trim();
     const trimmedCmd = commandOrUrl.trim();
@@ -86,17 +95,60 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
       return;
     }
 
-    setServers((prev) => [...prev, { name: trimmedName, transport, commandOrUrl: trimmedCmd }]);
+    const newConfig: McpServerConfig = { name: trimmedName, transport, commandOrUrl: trimmedCmd };
+
+    // Save to list first
+    setServers((prev) => [...prev, newConfig]);
+
+    // Try to connect immediately
+    if (isReady) {
+      setConnecting(trimmedName);
+      try {
+        await connectMcpServer(toCoreConfig(newConfig));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setFormError(`Saved, but connection failed: ${msg}`);
+      } finally {
+        setConnecting(null);
+      }
+    }
+
     // Reset form
     setName('');
     setCommandOrUrl('');
-  }, [name, transport, commandOrUrl, servers]);
+  }, [name, transport, commandOrUrl, servers, isReady, connectMcpServer]);
 
-  const handleRemove = useCallback((serverName: string) => {
-    setServers((prev) => prev.filter((s) => s.name !== serverName));
-  }, []);
+  const handleRemove = useCallback(
+    async (serverName: string) => {
+      setServers((prev) => prev.filter((s) => s.name !== serverName));
+      // Disconnect from runtime
+      try {
+        await disconnectMcpServer(serverName);
+      } catch {
+        // Ignore — server might not be connected
+      }
+    },
+    [disconnectMcpServer],
+  );
 
-  const isConnected = (serverName: string): boolean => connectedServers?.has(serverName) ?? false;
+  const handleReconnect = useCallback(
+    async (server: McpServerConfig) => {
+      if (!isReady) return;
+      setConnecting(server.name);
+      setFormError('');
+      try {
+        await connectMcpServer(toCoreConfig(server));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setFormError(`Failed to connect '${server.name}': ${msg}`);
+      } finally {
+        setConnecting(null);
+      }
+    },
+    [isReady, connectMcpServer],
+  );
+
+  const isConnected = (serverName: string): boolean => connectedMcpServers.has(serverName);
 
   return (
     <div className="flex flex-col gap-4">
@@ -128,8 +180,8 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="stdio">stdio</SelectItem>
-                <SelectItem value="sse">SSE</SelectItem>
+                <SelectItem value="sse">SSE (browser-compatible)</SelectItem>
+                <SelectItem value="stdio">stdio (desktop only)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -156,10 +208,10 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
           <Button
             onClick={handleAdd}
             size="sm"
-            disabled={!name.trim() || !commandOrUrl.trim()}
+            disabled={!name.trim() || !commandOrUrl.trim() || connecting !== null}
             className="self-end"
           >
-            Add Server
+            {connecting ? 'Connecting…' : 'Add & Connect'}
           </Button>
         </CardContent>
       </Card>
@@ -186,7 +238,11 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                         variant={isConnected(server.name) ? 'success' : 'secondary'}
                         className="text-[10px] px-1.5 py-0 shrink-0"
                       >
-                        {isConnected(server.name) ? 'Connected' : 'Disconnected'}
+                        {connecting === server.name
+                          ? 'Connecting…'
+                          : isConnected(server.name)
+                            ? 'Connected'
+                            : 'Disconnected'}
                       </Badge>
                     </div>
                     <p className="text-[11px] text-ocean-light truncate mt-0.5">
@@ -195,26 +251,33 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                       {server.commandOrUrl}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemove(server.name)}
-                    className="shrink-0 text-ocean-light hover:text-error h-7 px-2"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
-                      className="h-3.5 w-3.5"
+                  <div className="flex gap-1 shrink-0">
+                    {!isConnected(server.name) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleReconnect(server)}
+                        disabled={!isReady || connecting !== null}
+                        className="text-ocean-light hover:text-sand h-7 px-2 text-[11px]"
+                      >
+                        Connect
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemove(server.name)}
+                      className="text-ocean-light hover:text-error h-7 px-2"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z"
-                        clipRule="evenodd"
+                      <svg
+                        aria-hidden="true"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
                       />
-                    </svg>
-                  </Button>
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -1,11 +1,12 @@
 import {
   type InMemoryEventBus,
-  MockToolExecutor,
+  McpToolExecutor,
   ModelResolver,
   buildAicsGraph,
   createGateway,
   createRuntimeContext,
 } from '@aics/core';
+import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { ProviderConfig } from './provider-config';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -54,17 +55,24 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   const checkpointer = new TauriCheckpointSaver();
   const graph = buildAicsGraph({ checkpointer });
 
+  // MCP tool executor — SSE-only for now (stdio needs Tauri shell plugin bridge)
+  const mcpToolExecutor = new McpToolExecutor({
+    eventBus,
+    companyId: COMPANY_ID,
+    clientFactory: new BrowserMcpClientFactory(),
+  });
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
     modelResolver,
-    toolExecutor: new MockToolExecutor(),
+    toolExecutor: mcpToolExecutor,
     companyId: COMPANY_ID,
     threadId: THREAD_ID,
   });
 
   // TODO: Wire InstallService for Tauri mode once Drizzle install repos are ready.
   // For now, install is browser-only (memory repos).
-  return { eventBus, graph, runtimeCtx, installService: null };
+  return { eventBus, graph, runtimeCtx, installService: null, mcpToolExecutor };
 }
