@@ -67,23 +67,29 @@ export async function employeeNode(
     maxTokens: resolved.maxTokens,
   }, { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId });
 
-  // Handle tool calls (single round for now)
-  if (llmResponse.toolCalls.length > 0) {
+  // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
+  const MAX_TOOL_ROUNDS = 5;
+  let round = 0;
+
+  while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
+    round++;
+    const toolResults = [];
     for (const toolCall of llmResponse.toolCalls) {
-      await toolExecutor.execute({
+      const result = await toolExecutor.execute({
         toolCallId: toolCall.id,
         name: toolCall.name,
         arguments: toolCall.arguments,
       });
+      toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
     }
 
-    // Follow-up LLM call after tool execution
+    // Follow-up LLM call with tool results
     llmResponse = await recordedLlmCall(runtimeCtx, {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: taskDescription },
-        { role: 'assistant', content: 'I used tools to gather information.' },
-        { role: 'user', content: 'Tools executed successfully. Please provide your final response.' },
+        { role: 'assistant', content: `I called tools: ${toolResults.map(t => t.name).join(', ')}` },
+        { role: 'user', content: `Tool results:\n${JSON.stringify(toolResults.map(t => ({ tool: t.name, result: t.result })))}` },
       ],
       model: resolved.model,
       temperature: resolved.temperature,
