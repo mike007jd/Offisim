@@ -67,7 +67,7 @@ export { createInstallPlan } from './install-planner.js';
 // Install service (D.1)
 // ---------------------------------------------------------------------------
 export { InstallService, InstallServiceError } from './install-service.js';
-export type { InstallServiceDeps, ImportResult } from './install-service.js';
+export type { InstallServiceDeps, ImportResult, SkillImportResult } from './install-service.js';
 
 // ---------------------------------------------------------------------------
 // Materializer (D.2)
