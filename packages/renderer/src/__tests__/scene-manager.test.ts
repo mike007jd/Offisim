@@ -35,6 +35,9 @@ vi.mock('pixi.js', () => {
     roundRect() {
       return this;
     }
+    rect() {
+      return this;
+    }
     fill() {
       return this;
     }

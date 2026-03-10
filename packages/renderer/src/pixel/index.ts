@@ -12,3 +12,5 @@ export {
   ACCESSORY_TIE,
   ACCESSORY_BERET,
 } from './lobster-shapes.js';
+export { FLOOR_TILE_A, FLOOR_TILE_B } from './floor-tiles.js';
+export { PIXEL_DESK, PIXEL_MONITOR, PIXEL_CHAIR } from './furniture-shapes.js';
