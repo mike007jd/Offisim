@@ -5,6 +5,8 @@ import type {
   TaskAssignmentPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  MeetingStatePayload,
+  McpToolCalledPayload,
 } from '@aics/shared-types';
 import type { SceneEventBus, SceneManagerOptions, EmployeeSeed, NodeVisualMapping } from './types.js';
 import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP } from './types.js';
@@ -12,6 +14,7 @@ import { LAYOUT } from '../tokens/layout.js';
 import { SCENE_COLORS } from '../tokens/colors.js';
 import { FloorLayer } from '../layers/floor-layer.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
+import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { MOTION, MOTION_REDUCED, type MotionBucket } from '../tokens/motion.js';
 
 export class SceneManager {
@@ -25,6 +28,7 @@ export class SceneManager {
   private _destroyed = false;
 
   private floorLayer: FloorLayer | null = null;
+  private meetingRoom: MeetingRoomEntity | null = null;
   private employeeEntities: Map<string, EmployeeEntity> = new Map();
   private unsubscribers: (() => void)[] = [];
   /** Track which employees were activated by graph node events (for revert on exit). */
@@ -78,6 +82,14 @@ export class SceneManager {
     // Floor layer
     this.floorLayer = new FloorLayer();
     worldContainer.addChild(this.floorLayer.container);
+
+    // Meeting room entity (centered below desks)
+    this.meetingRoom = new MeetingRoomEntity(this.motion);
+    this.meetingRoom.container.position.set(
+      LAYOUT.floor.width / 2,
+      LAYOUT.floor.height - LAYOUT.floor.padding - 50,
+    );
+    worldContainer.addChild(this.meetingRoom.container);
 
     // Employee entities
     const deskPositions = this.floorLayer.getDeskPositions();
@@ -167,6 +179,12 @@ export class SceneManager {
     }
     this.employeeEntities.clear();
     this.nodeActiveEmployees.clear();
+
+    // Clean up meeting room
+    if (this.meetingRoom) {
+      this.meetingRoom.destroy();
+      this.meetingRoom = null;
+    }
     this.floorLayer = null;
 
     // Destroy PixiJS app
@@ -255,6 +273,29 @@ export class SceneManager {
           for (const entity of this.employeeEntities.values()) {
             entity.setHighlight(false);
           }
+        }
+      }),
+    );
+
+    // Meeting state changes — show/hide meeting room
+    this.unsubscribers.push(
+      this.eventBus.on('meeting.state.changed', (event) => {
+        const { next } = event.payload as MeetingStatePayload;
+        if (next === 'active') {
+          this.meetingRoom?.show();
+        } else if (next === 'ended') {
+          this.meetingRoom?.hide();
+        }
+      }),
+    );
+
+    // MCP tool call — show tool name in employee bubble
+    this.unsubscribers.push(
+      this.eventBus.on('mcp.tool.called', (event) => {
+        const payload = event.payload as McpToolCalledPayload;
+        const entity = this.employeeEntities.get(payload.employeeId);
+        if (entity) {
+          entity.setTask(`🔧 ${payload.toolName}`);
         }
       }),
     );

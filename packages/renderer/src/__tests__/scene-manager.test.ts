@@ -329,4 +329,81 @@ describe('SceneManager', () => {
       sm.destroy();
     });
   });
+
+  describe('meeting room', () => {
+    it('responds to meeting.state.changed active event without errors', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      eventBus.fire(makeEvent('meeting.state.changed', {
+        meetingId: 'mtg-1',
+        prev: 'scheduled',
+        next: 'active',
+        participantIds: ['emp-alice', 'emp-bob'],
+      }));
+    });
+
+    it('responds to meeting.state.changed ended event without errors', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      // Show first
+      eventBus.fire(makeEvent('meeting.state.changed', {
+        meetingId: 'mtg-1',
+        prev: 'scheduled',
+        next: 'active',
+        participantIds: ['emp-alice'],
+      }));
+
+      // Then hide
+      eventBus.fire(makeEvent('meeting.state.changed', {
+        meetingId: 'mtg-1',
+        prev: 'active',
+        next: 'ended',
+        participantIds: ['emp-alice'],
+      }));
+    });
+
+    it('meeting room is cleaned up by destroy', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      // Show meeting room
+      eventBus.fire(makeEvent('meeting.state.changed', {
+        meetingId: 'mtg-1',
+        prev: 'scheduled',
+        next: 'active',
+        participantIds: [],
+      }));
+
+      // Should not throw
+      sm.destroy();
+    });
+  });
+
+  describe('mcp tool bubble', () => {
+    it('shows tool name in employee bubble on mcp.tool.called', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      // Should not throw — tool name shown in alice's bubble
+      eventBus.fire(makeEvent('mcp.tool.called', {
+        serverName: 'filesystem',
+        toolName: 'read_file',
+        employeeId: 'emp-alice',
+      }));
+    });
+
+    it('ignores mcp.tool.called for unknown employees', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      // Should not throw for unknown employee
+      eventBus.fire(makeEvent('mcp.tool.called', {
+        serverName: 'filesystem',
+        toolName: 'write_file',
+        employeeId: 'emp-unknown',
+      }));
+    });
+  });
 });
