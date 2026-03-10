@@ -7,3 +7,4 @@ export type {
 } from './types.js';
 
 export { parseSkill, SkillParseError } from './skill-parser.js';
+export { validateSkill } from './skill-validator.js';
