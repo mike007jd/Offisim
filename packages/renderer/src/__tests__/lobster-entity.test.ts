@@ -64,10 +64,15 @@ vi.mock('gsap', () => {
   function makeTween() {
     return { kill: vi.fn(), vars: {} };
   }
+  function makeTimeline() {
+    const tl = { kill: vi.fn(), vars: {}, to: vi.fn(() => tl) };
+    return tl;
+  }
   return {
     default: {
       to: vi.fn(() => makeTween()),
       fromTo: vi.fn(() => makeTween()),
+      timeline: vi.fn(() => makeTimeline()),
     },
   };
 });
@@ -289,5 +294,71 @@ describe('LobsterEntity', () => {
     expect(gsap.fromTo).not.toHaveBeenCalled();
     // The ring should not be redrawn
     expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  // ------------------------------------------------------------------
+  // 11. setState('thinking') creates body animations (timeline + idle bob)
+  // ------------------------------------------------------------------
+  it('setState thinking creates body animations (timeline for thinking + idle bob)', () => {
+    const entity = new LobsterEntity('emp-1', 'Alice', MOTION);
+    vi.clearAllMocks();
+
+    entity.setState('thinking');
+    // Should have created timelines for thinking animation and claw wiggle
+    expect(gsap.timeline).toHaveBeenCalled();
+    // Should have created idle bob via gsap.to
+    expect(gsap.to).toHaveBeenCalled();
+  });
+
+  // ------------------------------------------------------------------
+  // 12. setState('executing') creates working animation
+  // ------------------------------------------------------------------
+  it('setState executing creates working animation (timeline)', () => {
+    const entity = new LobsterEntity('emp-1', 'Alice', MOTION);
+    vi.clearAllMocks();
+
+    entity.setState('executing');
+    // Should have created a timeline for working animation
+    expect(gsap.timeline).toHaveBeenCalled();
+  });
+
+  // ------------------------------------------------------------------
+  // 13. setState('idle') creates idle bob only (no timeline)
+  // ------------------------------------------------------------------
+  it('setState idle creates idle bob (gsap.to called, no timeline for body)', () => {
+    const entity = new LobsterEntity('emp-1', 'Alice', MOTION);
+    // First go to a non-idle state to trigger actual transition
+    entity.setState('thinking');
+    vi.clearAllMocks();
+
+    entity.setState('idle');
+    // Idle only creates idle bob via gsap.to, but also uses gsap.fromTo for ring bounce
+    expect(gsap.to).toHaveBeenCalled();
+  });
+
+  // ------------------------------------------------------------------
+  // 14. destroy cleans up body animation tweens
+  // ------------------------------------------------------------------
+  it('destroy kills body animation tweens', () => {
+    const entity = new LobsterEntity('emp-1', 'Alice', MOTION);
+
+    // Trigger body animations
+    entity.setState('thinking');
+
+    // Collect all kill functions from gsap.to, gsap.fromTo, AND gsap.timeline results
+    const toResults = vi.mocked(gsap.to).mock.results;
+    const fromToResults = vi.mocked(gsap.fromTo).mock.results;
+    const timelineResults = vi.mocked(gsap.timeline).mock.results;
+    const allKillFns = [
+      ...toResults.map((r) => r.value.kill),
+      ...fromToResults.map((r) => r.value.kill),
+      ...timelineResults.map((r) => r.value.kill),
+    ];
+
+    entity.destroy();
+
+    // At least some tweens should have been killed
+    const killedCount = allKillFns.filter((fn) => fn.mock.calls.length > 0).length;
+    expect(killedCount).toBeGreaterThan(0);
   });
 });

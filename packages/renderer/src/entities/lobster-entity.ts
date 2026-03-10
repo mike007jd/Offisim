@@ -15,6 +15,7 @@ import {
 import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
+import { createIdleBob, createClawWiggle, createThinkingAnimation, createWorkingAnimation } from './lobster-animations.js';
 
 /**
  * Pixel-art lobster employee entity.
@@ -42,6 +43,18 @@ export class LobsterEntity {
   private readonly taskText: Text;
   private readonly motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
   private taskBubbleBg: Graphics | null = null;
+
+  // Body part Graphics — promoted from local variables for animation access
+  private readonly bodyGfx: Graphics;
+  private readonly clawL: Graphics;
+  private readonly clawR: Graphics;
+  private readonly eyesGfx: Graphics;
+  private readonly legsGfx: Graphics;
+  private readonly antennaL: Graphics;
+  private readonly antennaR: Graphics;
+
+  /** Track body part animation tweens (idle bob, claw wiggle, etc.) */
+  private bodyAnimTweens: (gsap.core.Tween | gsap.core.Timeline)[] = [];
 
   /** Per-employee palette (index 8 replaced with unique hue) */
   readonly palette: number[];
@@ -76,53 +89,53 @@ export class LobsterEntity {
     this.container.addChild(this.ring);
 
     // --- Legs (behind body) ---
-    const legsGfx = new Graphics();
-    drawPixelGrid(legsGfx, LOBSTER_LEGS, 0, 0, this.palette);
-    legsGfx.position.set(-legsW / 2, bodyH / 2);
-    this.container.addChild(legsGfx);
+    this.legsGfx = new Graphics();
+    drawPixelGrid(this.legsGfx, LOBSTER_LEGS, 0, 0, this.palette);
+    this.legsGfx.position.set(-legsW / 2, bodyH / 2);
+    this.container.addChild(this.legsGfx);
 
     // --- Body (centered at origin) ---
-    const bodyGfx = new Graphics();
-    drawPixelGrid(bodyGfx, LOBSTER_BODY, 0, 0, this.palette);
-    bodyGfx.position.set(-bodyW / 2, -bodyH / 2);
-    this.container.addChild(bodyGfx);
+    this.bodyGfx = new Graphics();
+    drawPixelGrid(this.bodyGfx, LOBSTER_BODY, 0, 0, this.palette);
+    this.bodyGfx.position.set(-bodyW / 2, -bodyH / 2);
+    this.container.addChild(this.bodyGfx);
 
     // --- Left claw ---
-    const clawL = new Graphics();
-    drawPixelGrid(clawL, LOBSTER_CLAW_L, 0, 0, this.palette);
-    clawL.position.set(-bodyW / 2 - clawLW, -bodyH / 4);
+    this.clawL = new Graphics();
+    drawPixelGrid(this.clawL, LOBSTER_CLAW_L, 0, 0, this.palette);
+    this.clawL.position.set(-bodyW / 2 - clawLW, -bodyH / 4);
     // Pivot at the base (right edge, vertical center) for rotation
-    clawL.pivot.set(clawLW, clawLH / 2);
-    this.container.addChild(clawL);
+    this.clawL.pivot.set(clawLW, clawLH / 2);
+    this.container.addChild(this.clawL);
 
     // --- Right claw ---
-    const clawR = new Graphics();
-    drawPixelGrid(clawR, LOBSTER_CLAW_R, 0, 0, this.palette);
-    clawR.position.set(bodyW / 2, -bodyH / 4);
+    this.clawR = new Graphics();
+    drawPixelGrid(this.clawR, LOBSTER_CLAW_R, 0, 0, this.palette);
+    this.clawR.position.set(bodyW / 2, -bodyH / 4);
     // Pivot at the base (left edge, vertical center) for rotation
-    clawR.pivot.set(0, clawRH / 2);
-    this.container.addChild(clawR);
+    this.clawR.pivot.set(0, clawRH / 2);
+    this.container.addChild(this.clawR);
 
     // --- Eyes (above body center) ---
-    const eyesGfx = new Graphics();
-    drawPixelGrid(eyesGfx, LOBSTER_EYES, 0, 0, this.palette);
-    eyesGfx.position.set(-eyesW / 2, -bodyH / 2 - eyesH);
-    this.container.addChild(eyesGfx);
+    this.eyesGfx = new Graphics();
+    drawPixelGrid(this.eyesGfx, LOBSTER_EYES, 0, 0, this.palette);
+    this.eyesGfx.position.set(-eyesW / 2, -bodyH / 2 - eyesH);
+    this.container.addChild(this.eyesGfx);
 
     // --- Left antenna (above left eye) ---
-    const antennaL = new Graphics();
-    drawPixelGrid(antennaL, LOBSTER_ANTENNA_L, 0, 0, this.palette);
-    antennaL.position.set(eyesGfx.position.x + PX, eyesGfx.position.y - antennaLH);
-    this.container.addChild(antennaL);
+    this.antennaL = new Graphics();
+    drawPixelGrid(this.antennaL, LOBSTER_ANTENNA_L, 0, 0, this.palette);
+    this.antennaL.position.set(this.eyesGfx.position.x + PX, this.eyesGfx.position.y - antennaLH);
+    this.container.addChild(this.antennaL);
 
     // --- Right antenna (above right eye) ---
-    const antennaR = new Graphics();
-    drawPixelGrid(antennaR, LOBSTER_ANTENNA_R, 0, 0, this.palette);
-    antennaR.position.set(
-      eyesGfx.position.x + eyesW - 2 * PX,
-      eyesGfx.position.y - antennaRH,
+    this.antennaR = new Graphics();
+    drawPixelGrid(this.antennaR, LOBSTER_ANTENNA_R, 0, 0, this.palette);
+    this.antennaR.position.set(
+      this.eyesGfx.position.x + eyesW - 2 * PX,
+      this.eyesGfx.position.y - antennaRH,
     );
-    this.container.addChild(antennaR);
+    this.container.addChild(this.antennaR);
 
     // --- Name label ---
     this.label = new Text({
@@ -228,6 +241,26 @@ export class LobsterEntity {
         repeat: -1,
       });
     }
+
+    // --- Body part animations based on state ---
+    this.stopBodyAnimations();
+
+    if (isActiveState(next)) {
+      // Idle bob for all active states
+      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+
+      if (next === 'thinking' || next === 'searching') {
+        // Thinking: antenna wiggle + eye shift + gentle claw wiggle
+        this.bodyAnimTweens.push(createThinkingAnimation(this.antennaL, this.antennaR, this.eyesGfx, this.motion.M1));
+        this.bodyAnimTweens.push(createClawWiggle(this.clawL, this.clawR, this.motion.M1));
+      } else if (next === 'executing') {
+        // Working: fast claw wiggle
+        this.bodyAnimTweens.push(createWorkingAnimation(this.clawL, this.clawR, this.motion.M1));
+      }
+    } else if (next === 'idle' || next === 'paused') {
+      // Gentle idle bob only
+      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+    }
   }
 
   /** Set or clear the current task */
@@ -264,6 +297,7 @@ export class LobsterEntity {
   /** Kill all running GSAP tweens and reset state. */
   destroy(): void {
     this.stopPulse();
+    this.stopBodyAnimations();
     for (const tw of this.activeTweens) {
       tw.kill();
     }
@@ -278,6 +312,19 @@ export class LobsterEntity {
       this.pulseTween = null;
       this.ring.scale.set(1);
     }
+  }
+
+  /** Kill all body part animation tweens and reset rotations/positions. */
+  private stopBodyAnimations(): void {
+    for (const tw of this.bodyAnimTweens) {
+      tw.kill();
+    }
+    this.bodyAnimTweens = [];
+    // Reset rotations
+    this.clawL.rotation = 0;
+    this.clawR.rotation = 0;
+    this.antennaL.rotation = 0;
+    this.antennaR.rotation = 0;
   }
 
   /** Track a one-shot tween and auto-remove when it completes. */
