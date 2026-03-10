@@ -5,3 +5,5 @@ export type {
   SkillValidationResult,
   SkillValidationWarning,
 } from './types.js';
+
+export { parseSkill, SkillParseError } from './skill-parser.js';
