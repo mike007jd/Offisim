@@ -10,6 +10,7 @@ import {
 } from '../../graph/meeting-subgraph.js';
 import type { AicsGraphState } from '../../graph/state.js';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { buildAicsGraph } from '../../graph/main-graph.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -169,5 +170,56 @@ describe('meeting flow', () => {
     // Check event emitted
     const meetingEvents = events.filter((e) => e.type === 'meeting.state.changed');
     expect(meetingEvents).toHaveLength(1);
+  });
+});
+
+describe('meeting flow — full graph integration', () => {
+  it('boss → meeting_start → participant turns → meeting_end → boss_summary', async () => {
+    const { gateway, events, runtimeCtx } = createTestRuntime();
+
+    const graph = buildAicsGraph();
+
+    // 1. Boss decides to call a meeting
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'meeting', reason: 'team discussion requested' }),
+    });
+
+    // 2. Each participant speaks once (2 participants: e-mgr-1, e-dev-1)
+    gateway.pushResponse({ content: 'We should adopt a modular architecture.' });
+    gateway.pushResponse({ content: 'Agreed, modules make testing easier.' });
+
+    // 3. Boss summary (streaming) for the final summary
+    gateway.pushStreamResponse({
+      content: 'Meeting concluded with consensus on modular architecture.',
+      usage: { inputTokens: 100, outputTokens: 20 },
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'meeting' as const,
+        messages: [new HumanMessage('Let us have a team meeting about architecture')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    // Should have completed
+    expect(result.completed).toBe(true);
+
+    // Route decision should be start_meeting
+    expect(result.routeDecision).toBe('start_meeting');
+
+    // Should have a meetingId
+    expect(result.meetingId).toBeTruthy();
+
+    // Meeting state changed events: active + ended
+    const meetingEvents = events.filter((e) => e.type === 'meeting.state.changed');
+    expect(meetingEvents).toHaveLength(2);
+    expect(meetingEvents[0]!.payload.next).toBe('active');
+    expect(meetingEvents[1]!.payload.next).toBe('ended');
+
+    // Should have messages from the meeting flow
+    expect(result.messages.length).toBeGreaterThanOrEqual(4); // human + meeting start + 2 turns + meeting end + summary
   });
 });

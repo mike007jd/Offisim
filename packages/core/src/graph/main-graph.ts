@@ -12,6 +12,12 @@ import { errorHandlerNode } from '../agents/error-handler-node.js';
 import { bossSummaryNode } from '../agents/boss-summary-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import {
+  meetingStartNode,
+  participantTurnNode,
+  meetingTurnCheck,
+  meetingEndNode,
+} from './meeting-subgraph.js';
 
 function routeFromBoss(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
@@ -21,7 +27,7 @@ function routeFromBoss(state: AicsGraphState): string {
     case 'direct_reply':
       return 'boss_summary';
     case 'start_meeting':
-      return 'boss_summary'; // Will route to meeting subgraph when integrated
+      return 'meeting_start';
     default:
       return 'manager';
   }
@@ -124,13 +130,19 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('step_advance', (state, config) => stepAdvanceNode(state, config))
     .addNode('error_handler', (state, config) => errorHandlerNode(state, config))
     .addNode('boss_summary', (state, config) => bossSummaryNode(state, config))
+    .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
+    .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
+    .addNode('meeting_end', (state, config) => meetingEndNode(state, config))
     .addEdge('__start__', 'boss')
-    .addConditionalEdges('boss', routeFromBoss, ['manager', 'boss_summary', 'error_handler'])
+    .addConditionalEdges('boss', routeFromBoss, ['manager', 'boss_summary', 'error_handler', 'meeting_start'])
     .addEdge('manager', 'pm_planner')
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])
     .addEdge('step_dispatcher', 'employee')
     .addConditionalEdges('employee', routeFromEmployee, ['employee', 'step_advance', 'boss_summary', 'error_handler'])
     .addEdge('step_advance', 'step_dispatcher')
+    .addEdge('meeting_start', 'participant_turn')
+    .addConditionalEdges('participant_turn', meetingTurnCheck, ['participant_turn', 'meeting_end'])
+    .addEdge('meeting_end', 'boss_summary')
     .addEdge('error_handler', 'boss_summary')
     .addEdge('boss_summary', END);
 
