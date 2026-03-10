@@ -7,7 +7,7 @@
  */
 
 import { employeeInstalled } from '@aics/core';
-import type { BindingConfirmation, InstallPlan } from '@aics/install-core';
+import type { BindingConfirmation, InstallPlan, SkillValidationResult } from '@aics/install-core';
 import { readPackageFile } from '@aics/install-core';
 import { useCallback, useRef, useState } from 'react';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
@@ -28,6 +28,10 @@ export interface InstallFlowState {
   plan: InstallPlan | null;
   error: string | null;
   bindingValues: Map<string, string>;
+  /** True when importing a SKILL.md (vs .aicspkg) — affects review UI */
+  isSkillImport: boolean;
+  /** Soft validation warnings from skill validator */
+  skillValidation: SkillValidationResult | null;
 }
 
 export interface InstallFlowActions {
@@ -50,6 +54,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const [plan, setPlan] = useState<InstallPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bindingValues, setBindingValues] = useState<Map<string, string>>(new Map());
+  const [isSkillImport, setIsSkillImport] = useState(false);
+  const [skillValidation, setSkillValidation] = useState<SkillValidationResult | null>(null);
 
   // Track the active transaction ID for cancel / confirm operations
   const txnIdRef = useRef<string | null>(null);
@@ -97,10 +103,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
       // Validate file extension
       const ext = file.name.toLowerCase();
-      if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip')) {
+      if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip') && !ext.endsWith('.md')) {
         setIsOpen(true);
         setStep('error');
-        setError('Invalid file type. Expected .aicspkg or .zip');
+        setError('Invalid file type. Expected .aicspkg, .zip, or .md');
         return;
       }
 
@@ -109,8 +115,48 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       setPlan(null);
       setError(null);
       setBindingValues(new Map());
+      setIsSkillImport(false);
+      setSkillValidation(null);
       txnIdRef.current = null;
 
+      // --- SKILL.md import path ---
+      if (ext.endsWith('.md')) {
+        if (!installService) {
+          // Mock fallback — no real service available
+          timerRef.current = setTimeout(() => {
+            setPlan(MOCK_INSTALL_PLAN);
+            setIsSkillImport(true);
+            setStep('review');
+            timerRef.current = null;
+          }, 500);
+          return;
+        }
+
+        (async () => {
+          try {
+            const text = await file.text();
+            const result = await installService.importSkill(text);
+
+            if (result.error || !result.plan) {
+              setStep('error');
+              setError(result.error ?? 'Skill import failed: no plan returned');
+              return;
+            }
+
+            txnIdRef.current = result.installTxnId;
+            setPlan(result.plan);
+            setIsSkillImport(true);
+            setSkillValidation(result.skillValidation ?? null);
+            setStep('review');
+          } catch (err) {
+            setStep('error');
+            setError(err instanceof Error ? err.message : String(err));
+          }
+        })();
+        return;
+      }
+
+      // --- Package import path (.aicspkg / .zip) ---
       if (!installService) {
         // Mock fallback — no real service available
         timerRef.current = setTimeout(() => {
@@ -244,6 +290,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
+    setIsSkillImport(false);
+    setSkillValidation(null);
   }, [clearTimer, installService]);
 
   const close = useCallback(() => {
@@ -254,6 +302,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
+    setIsSkillImport(false);
+    setSkillValidation(null);
   }, [clearTimer]);
 
   return {
@@ -262,6 +312,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     plan,
     error,
     bindingValues,
+    isSkillImport,
+    skillValidation,
     startFileImport,
     confirmInstall,
     submitBindings,

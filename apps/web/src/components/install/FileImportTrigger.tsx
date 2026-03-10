@@ -9,7 +9,7 @@ import { type DragEvent, useCallback, useRef, useState } from 'react';
 import { Button } from '../ui/button';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ACCEPTED_EXTENSIONS = '.aicspkg,.zip';
+const ACCEPTED_EXTENSIONS = '.aicspkg,.zip,.md';
 
 interface FileImportTriggerProps {
   onFileSelect: (file: File) => void;
@@ -107,7 +107,7 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
           }`}
         >
           <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-sm">Drop .aicspkg or .zip file here</p>
+          <p className="text-sm">Drop .aicspkg, .zip, or SKILL.md file here</p>
           <p className="text-xs mt-1">Max 50MB</p>
         </div>
       )}

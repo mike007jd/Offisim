@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { BindingForm } from './BindingForm.js';
 import { InstallProgress } from './InstallProgress.js';
 import { ManifestReview } from './ManifestReview.js';
+import { SkillReview } from './SkillReview.js';
 
 type InstallDialogProps = InstallFlowState & InstallFlowActions;
 
@@ -51,12 +52,12 @@ function ErrorContent({ error, onCancel }: { error: string; onCancel: () => void
 }
 
 /** Map step to dialog title */
-function getDialogTitle(step: InstallDialogProps['step']): string {
+function getDialogTitle(step: InstallDialogProps['step'], isSkillImport: boolean): string {
   switch (step) {
     case 'loading':
-      return 'Loading Package';
+      return isSkillImport ? 'Loading Skill' : 'Loading Package';
     case 'review':
-      return 'Review Package';
+      return isSkillImport ? 'Import OpenClaw Skill' : 'Review Package';
     case 'bindings':
       return 'Configure Bindings';
     case 'installing':
@@ -77,6 +78,8 @@ export function InstallDialog(props: InstallDialogProps) {
     plan,
     error,
     bindingValues,
+    isSkillImport,
+    skillValidation,
     confirmInstall,
     submitBindings,
     setBindingValue,
@@ -94,6 +97,16 @@ export function InstallDialog(props: InstallDialogProps) {
 
       case 'review':
         if (!plan) return <LoadingContent />;
+        if (isSkillImport) {
+          return (
+            <SkillReview
+              plan={plan}
+              skillValidation={skillValidation}
+              onApprove={confirmInstall}
+              onCancel={cancel}
+            />
+          );
+        }
         return <ManifestReview plan={plan} onApprove={confirmInstall} onCancel={cancel} />;
 
       case 'bindings':
@@ -131,9 +144,13 @@ export function InstallDialog(props: InstallDialogProps) {
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{getDialogTitle(step)}</DialogTitle>
+          <DialogTitle>{getDialogTitle(step, isSkillImport)}</DialogTitle>
           {step === 'review' && plan && (
-            <DialogDescription>Review the package details before installing.</DialogDescription>
+            <DialogDescription>
+              {isSkillImport
+                ? 'Review the skill details before importing as a new employee.'
+                : 'Review the package details before installing.'}
+            </DialogDescription>
           )}
           {step === 'bindings' && (
             <DialogDescription>Configure model bindings for this package.</DialogDescription>
