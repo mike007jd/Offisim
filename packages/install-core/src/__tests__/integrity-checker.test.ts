@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { checkIntegrity } from '../integrity-checker.js';
 import { extractPackage } from '../manifest-loader.js';
-import { createTestPkg, computeSha256 } from './fixtures/create-test-pkg.js';
+import { computeSha256, createTestPkg } from './fixtures/create-test-pkg.js';
 
 describe('integrity-checker / checkIntegrity', () => {
   // -----------------------------------------------------------------------
@@ -22,9 +22,7 @@ describe('integrity-checker / checkIntegrity', () => {
       manifestOverride: {
         integrity: {
           package_sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          files: [
-            { path: 'assets/employee.test-writer.json', sha256: assetHash },
-          ],
+          files: [{ path: 'assets/employee.test-writer.json', sha256: assetHash }],
         },
       },
     });

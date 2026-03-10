@@ -1,3 +1,5 @@
+import type Database from '@tauri-apps/plugin-sql';
+
 /**
  * Shared singleton for tauri-plugin-sql Database connection.
  *
@@ -7,9 +9,9 @@
  *
  * Dynamic import ensures @tauri-apps/plugin-sql is never loaded in browser mode.
  */
-let dbPromise: Promise<any> | null = null;
+let dbPromise: Promise<Database> | null = null;
 
-export function getTauriDb(): Promise<any> {
+export function getTauriDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const { default: Database } = await import('@tauri-apps/plugin-sql');

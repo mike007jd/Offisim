@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { injectProvider, waitForRuntime } from './helpers/setup';
 
 test.describe('Smoke: Install Flow', () => {
@@ -44,9 +44,9 @@ test.describe('Smoke: Install Flow', () => {
     // Should eventually show the "Installation Failed" heading inside the error content.
     // Use getByRole to avoid strict mode violation — both DialogTitle "Error"
     // and ErrorContent <h3> "Installation Failed" would match getByText.
-    await expect(
-      page.getByRole('heading', { name: 'Installation Failed' }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Installation Failed' })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('cancel closes dialog cleanly', async ({ page }) => {
@@ -72,8 +72,6 @@ test.describe('Smoke: Install Flow', () => {
     await page.keyboard.press('Escape');
 
     // Dialog should be gone
-    await expect(
-      page.getByRole('dialog'),
-    ).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5_000 });
   });
 });

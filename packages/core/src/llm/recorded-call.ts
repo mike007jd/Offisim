@@ -1,8 +1,8 @@
+import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
-import { llmCallStarted, llmCallCompleted, llmUsageRecorded } from '../events/event-factories.js';
 
 function generateLlmCallId(): string {
   return `lc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -24,7 +24,14 @@ export async function recordedLlmCall(
   const startedAt = Date.now();
 
   ctx.eventBus.emit(
-    llmCallStarted(ctx.companyId, llmCallId, meta.nodeName, meta.provider, meta.model, ctx.threadId),
+    llmCallStarted(
+      ctx.companyId,
+      llmCallId,
+      meta.nodeName,
+      meta.provider,
+      meta.model,
+      ctx.threadId,
+    ),
   );
 
   try {
@@ -48,10 +55,26 @@ export async function recordedLlmCall(
     });
 
     ctx.eventBus.emit(
-      llmCallCompleted(ctx.companyId, llmCallId, meta.nodeName, latencyMs, response.usage.inputTokens, response.usage.outputTokens),
+      llmCallCompleted(
+        ctx.companyId,
+        llmCallId,
+        meta.nodeName,
+        latencyMs,
+        response.usage.inputTokens,
+        response.usage.outputTokens,
+      ),
     );
     ctx.eventBus.emit(
-      llmUsageRecorded(ctx.companyId, llmCallId, ctx.threadId, meta.taskRunId ?? null, meta.provider, meta.model, response.usage.inputTokens, response.usage.outputTokens),
+      llmUsageRecorded(
+        ctx.companyId,
+        llmCallId,
+        ctx.threadId,
+        meta.taskRunId ?? null,
+        meta.provider,
+        meta.model,
+        response.usage.inputTokens,
+        response.usage.outputTokens,
+      ),
     );
 
     return response;
@@ -89,7 +112,14 @@ export async function recordedLlmStream(
   const startedAt = Date.now();
 
   ctx.eventBus.emit(
-    llmCallStarted(ctx.companyId, llmCallId, meta.nodeName, meta.provider, meta.model, ctx.threadId),
+    llmCallStarted(
+      ctx.companyId,
+      llmCallId,
+      meta.nodeName,
+      meta.provider,
+      meta.model,
+      ctx.threadId,
+    ),
   );
 
   try {
@@ -114,10 +144,26 @@ export async function recordedLlmStream(
     });
 
     ctx.eventBus.emit(
-      llmCallCompleted(ctx.companyId, llmCallId, meta.nodeName, latencyMs, result.usage.inputTokens, result.usage.outputTokens),
+      llmCallCompleted(
+        ctx.companyId,
+        llmCallId,
+        meta.nodeName,
+        latencyMs,
+        result.usage.inputTokens,
+        result.usage.outputTokens,
+      ),
     );
     ctx.eventBus.emit(
-      llmUsageRecorded(ctx.companyId, llmCallId, ctx.threadId, meta.taskRunId ?? null, meta.provider, meta.model, result.usage.inputTokens, result.usage.outputTokens),
+      llmUsageRecorded(
+        ctx.companyId,
+        llmCallId,
+        ctx.threadId,
+        meta.taskRunId ?? null,
+        meta.provider,
+        meta.model,
+        result.usage.inputTokens,
+        result.usage.outputTokens,
+      ),
     );
 
     return result;

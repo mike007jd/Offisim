@@ -1,13 +1,19 @@
 import type { RuntimeEvent } from '@aics/shared-types';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { buildAicsGraph } from '../../graph/main-graph.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from './fixtures.js';
 import { MockLlmGateway } from './mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from './fixtures.js';
 
 export function createTestRuntime() {
   const repos = createMemoryRepositories();
@@ -33,7 +39,7 @@ export function createTestRuntime() {
   const graph = buildAicsGraph();
   const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
@@ -72,7 +78,7 @@ export function createTestRuntimeWithExtraEmployee() {
   const graph = buildAicsGraph();
   const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 

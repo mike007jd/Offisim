@@ -1,10 +1,10 @@
 import type { RuntimeEvent } from '@aics/shared-types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: EventHandler must accept RuntimeEvent with any payload type; interfaces lack index signatures so RuntimeEvent<SomePayload> is not assignable to RuntimeEvent<Record<string, unknown>>
 export type EventHandler = (event: RuntimeEvent<any>) => void;
 
 export interface EventBus {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   emit(event: RuntimeEvent<any>): void;
   on(prefix: string, handler: EventHandler): () => void;
   once(prefix: string, handler: EventHandler): () => void;
@@ -20,7 +20,7 @@ interface Subscription {
 export class InMemoryEventBus implements EventBus {
   private subscriptions: Subscription[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   emit(event: RuntimeEvent<any>): void {
     const toRemove: Subscription[] = [];
 

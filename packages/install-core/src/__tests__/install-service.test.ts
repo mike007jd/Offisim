@@ -1,18 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { InstallState } from '@aics/shared-types';
-import type { BindingType, BindingStatus } from '@aics/shared-types';
-import type {
-  InstallRepositories,
-  InstallEventEmitter,
-  RuntimeEnvironment,
-  InstallTransactionRow,
-  InstalledPackageRow,
-  InstalledAssetRow,
-  AssetBindingRow,
-  NewEmployee,
-  BindingConfirmation,
-} from '../types.js';
+import type { BindingStatus, BindingType } from '@aics/shared-types';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InstallService, InstallServiceError } from '../install-service.js';
+import type {
+  AssetBindingRow,
+  BindingConfirmation,
+  InstallEventEmitter,
+  InstallRepositories,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+  NewEmployee,
+  RuntimeEnvironment,
+} from '../types.js';
 import { createTestPkg } from './fixtures/create-test-pkg.js';
 
 // ---------------------------------------------------------------------------
@@ -63,8 +63,10 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         if (txn) {
           // Mutate in place (this is test-only memory store)
           (txn as unknown as Record<string, unknown>).state = state;
-          if (errorCode !== undefined) (txn as unknown as Record<string, unknown>).error_code = errorCode;
-          if (errorDetail !== undefined) (txn as unknown as Record<string, unknown>).error_detail = errorDetail;
+          if (errorCode !== undefined)
+            (txn as unknown as Record<string, unknown>).error_code = errorCode;
+          if (errorDetail !== undefined)
+            (txn as unknown as Record<string, unknown>).error_detail = errorDetail;
         }
       },
       finish: async (id, state) => {
@@ -100,7 +102,8 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         const binding = store.bindings.find((b) => b.binding_id === id);
         if (binding) {
           (binding as unknown as Record<string, unknown>).status = status;
-          if (valueJson !== undefined) (binding as unknown as Record<string, unknown>).binding_value_json = valueJson;
+          if (valueJson !== undefined)
+            (binding as unknown as Record<string, unknown>).binding_value_json = valueJson;
         }
       },
     },
@@ -231,7 +234,7 @@ describe('InstallService', () => {
       expect(result.installTxnId).toBeDefined();
       expect(result.plan).toBeDefined();
       expect(result.error).toBeUndefined();
-      expect(result.plan!.manifest.package.id).toBe('aics.employee.test-writer');
+      expect(result.plan?.manifest.package.id).toBe('aics.employee.test-writer');
     });
 
     it('creates a transaction row in the store', async () => {
@@ -264,7 +267,7 @@ describe('InstallService', () => {
       const archive = createPrivilegedArchive();
       const result = await svc.importFile(archive);
 
-      expect(result.plan!.needsConfirmation).toBe(true);
+      expect(result.plan?.needsConfirmation).toBe(true);
 
       const lastEvent = installEvents[installEvents.length - 1]!;
       expect(lastEvent.next).toBe('awaiting_confirmation');
@@ -362,7 +365,7 @@ describe('InstallService', () => {
       const importResult = await svc.importFile(archive);
 
       // Verify we're in awaiting_confirmation
-      expect(store.transactions[0]!.state).toBe('awaiting_confirmation');
+      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
 
       const bindings: BindingConfirmation[] = [
         {
@@ -374,14 +377,14 @@ describe('InstallService', () => {
 
       await svc.confirmBindings(importResult.installTxnId, bindings);
 
-      expect(store.transactions[0]!.state).toBe('installed');
+      expect(store.transactions[0]?.state).toBe('installed');
       expect(store.packages).toHaveLength(1);
     });
 
     it('throws for non-existent transaction', async () => {
-      await expect(
-        svc.confirmBindings('non-existent-txn-id', []),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.confirmBindings('non-existent-txn-id', [])).rejects.toThrow(
+        InstallServiceError,
+      );
     });
 
     it('throws when transaction is already installed', async () => {
@@ -390,9 +393,9 @@ describe('InstallService', () => {
       await svc.confirmBindings(importResult.installTxnId, []);
 
       // Try confirming again — should fail
-      await expect(
-        svc.confirmBindings(importResult.installTxnId, []),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.confirmBindings(importResult.installTxnId, [])).rejects.toThrow(
+        InstallServiceError,
+      );
     });
   });
 
@@ -404,7 +407,7 @@ describe('InstallService', () => {
       const archive = createPrivilegedArchive();
       const importResult = await svc.importFile(archive);
 
-      expect(store.transactions[0]!.state).toBe('awaiting_confirmation');
+      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
 
       await svc.cancel(importResult.installTxnId);
 
@@ -418,7 +421,7 @@ describe('InstallService', () => {
       const importResult = await svc.importFile(archive);
 
       // Should be in awaiting_bindings
-      expect(store.transactions[0]!.state).toBe('awaiting_bindings');
+      expect(store.transactions[0]?.state).toBe('awaiting_bindings');
 
       // Cancel — since awaiting_bindings can't go to cancelled, it goes to failed
       // Actually per state machine, awaiting_bindings can only go to ready_to_install
@@ -439,15 +442,11 @@ describe('InstallService', () => {
       await svc.cancel(importResult.installTxnId);
 
       // Try cancelling again
-      await expect(
-        svc.cancel(importResult.installTxnId),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(InstallServiceError);
     });
 
     it('throws for non-existent transaction', async () => {
-      await expect(
-        svc.cancel('non-existent-txn'),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.cancel('non-existent-txn')).rejects.toThrow(InstallServiceError);
     });
   });
 
@@ -482,7 +481,7 @@ describe('InstallService', () => {
 
       const failEvent = installEvents.find((e) => e.next === 'failed');
       expect(failEvent).toBeDefined();
-      expect(failEvent!.errorCode).toBeDefined();
+      expect(failEvent?.errorCode).toBeDefined();
     });
   });
 });

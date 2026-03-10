@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
-  RuntimeEvent,
-  PlanCreatedPayload,
-  PlanStepStartedPayload,
-  PlanStepCompletedPayload,
   PlanCompletedPayload,
+  PlanCreatedPayload,
+  PlanStepCompletedPayload,
+  PlanStepStartedPayload,
+  RuntimeEvent,
 } from '@aics/shared-types';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export type StepStatus = 'pending' | 'active' | 'completed';
@@ -56,23 +56,20 @@ export function usePlanProgress(): PlanProgressState {
     stateRef.current = INITIAL_STATE;
     setState(INITIAL_STATE);
 
-    const unsubCreated = eventBus.on(
-      'plan.created',
-      (event: RuntimeEvent<PlanCreatedPayload>) => {
-        const { planId, steps } = event.payload;
-        updateState(() => ({
-          planId,
-          steps: steps.map((s) => ({
-            stepIndex: s.stepIndex,
-            description: s.description,
-            taskCount: s.taskCount,
-            status: 'pending' as StepStatus,
-          })),
-          currentStepIndex: -1,
-          isComplete: false,
-        }));
-      },
-    );
+    const unsubCreated = eventBus.on('plan.created', (event: RuntimeEvent<PlanCreatedPayload>) => {
+      const { planId, steps } = event.payload;
+      updateState(() => ({
+        planId,
+        steps: steps.map((s) => ({
+          stepIndex: s.stepIndex,
+          description: s.description,
+          taskCount: s.taskCount,
+          status: 'pending' as StepStatus,
+        })),
+        currentStepIndex: -1,
+        isComplete: false,
+      }));
+    });
 
     const unsubStepStarted = eventBus.on(
       'plan.step.started',

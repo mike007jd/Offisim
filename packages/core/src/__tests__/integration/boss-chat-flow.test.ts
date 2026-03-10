@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
+import { describe, expect, it } from 'vitest';
 import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
 
 describe('boss-chat full flow', () => {
   it('routes user message through boss → manager → pm → dispatcher → employee → summary', async () => {
@@ -65,7 +65,7 @@ describe('boss-chat full flow', () => {
 
     // Should have a taskPlan
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.steps).toHaveLength(1);
+    expect(result.taskPlan?.steps).toHaveLength(1);
 
     // Events should include plan events
     const planEvents = events.filter((e) => e.type === 'plan.created');
@@ -84,17 +84,17 @@ describe('boss-chat full flow', () => {
     // LLM calls should be recorded: boss + manager + pm_planner + employee = 4
     const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
     expect(llmCalls.length).toBeGreaterThanOrEqual(4);
-    expect(llmCalls.every(c => c.input_tokens > 0)).toBe(true);
-    expect(llmCalls.every(c => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
-    expect(llmCalls.every(c => c.error_code === null)).toBe(true);
+    expect(llmCalls.every((c) => c.input_tokens > 0)).toBe(true);
+    expect(llmCalls.every((c) => c.latency_ms != null && c.latency_ms >= 0)).toBe(true);
+    expect(llmCalls.every((c) => c.error_code === null)).toBe(true);
 
     // Verify pm_planner LLM call was recorded
-    const pmCalls = llmCalls.filter(c => c.node_name === 'pm_planner');
+    const pmCalls = llmCalls.filter((c) => c.node_name === 'pm_planner');
     expect(pmCalls).toHaveLength(1);
 
     // LLM events should be emitted
-    const llmStarted = events.filter(e => e.type === 'llm.call.started');
-    const llmCompleted = events.filter(e => e.type === 'llm.call.completed');
+    const llmStarted = events.filter((e) => e.type === 'llm.call.started');
+    const llmCompleted = events.filter((e) => e.type === 'llm.call.completed');
     expect(llmStarted.length).toBeGreaterThanOrEqual(4);
     expect(llmCompleted.length).toBeGreaterThanOrEqual(4);
   });
@@ -104,7 +104,11 @@ describe('boss-chat full flow', () => {
 
     // Boss decides to reply directly
     gateway.pushResponse({
-      content: JSON.stringify({ action: 'direct_reply', reason: 'simple greeting', reply: 'Hello! How can I help?' }),
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reason: 'simple greeting',
+        reply: 'Hello! How can I help?',
+      }),
     });
 
     const result = await graph.invoke(
@@ -130,9 +134,7 @@ describe('boss-chat full flow', () => {
     });
     gateway.pushResponse({
       content: JSON.stringify({
-        assignments: [
-          { taskType: 'code', employeeId: 'e-dev-1', description: 'Write tests' },
-        ],
+        assignments: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Write tests' }],
       }),
     });
     // PM planner creates plan with task runs
@@ -171,7 +173,7 @@ describe('boss-chat full flow', () => {
 
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     expect(taskRuns.length).toBeGreaterThanOrEqual(1);
-    expect(taskRuns[0]!.status).toBe('completed');
+    expect(taskRuns[0]?.status).toBe('completed');
   });
 
   it('uses streaming LLM summary when multiple employees produce results', async () => {
@@ -244,14 +246,14 @@ describe('boss-chat full flow', () => {
 
     // Verify boss_summary LLM call was recorded (the streaming one)
     const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
-    const summaryCalls = llmCalls.filter(c => c.node_name === 'boss_summary');
+    const summaryCalls = llmCalls.filter((c) => c.node_name === 'boss_summary');
     expect(summaryCalls).toHaveLength(1);
-    expect(summaryCalls[0]!.input_tokens).toBe(200);
-    expect(summaryCalls[0]!.output_tokens).toBe(30);
+    expect(summaryCalls[0]?.input_tokens).toBe(200);
+    expect(summaryCalls[0]?.output_tokens).toBe(30);
 
     // Verify streaming events were emitted for boss_summary
-    const llmStarted = events.filter(e =>
-      e.type === 'llm.call.started' && e.payload.nodeName === 'boss_summary',
+    const llmStarted = events.filter(
+      (e) => e.type === 'llm.call.started' && e.payload.nodeName === 'boss_summary',
     );
     expect(llmStarted).toHaveLength(1);
   });

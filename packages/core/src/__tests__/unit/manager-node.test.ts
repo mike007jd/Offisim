@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { HumanMessage } from '@langchain/core/messages';
-import { managerNode } from '../../agents/manager-node.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import type { AicsGraphState } from '../../graph/state.js';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { HumanMessage } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { managerNode } from '../../agents/manager-node.js';
+import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { AicsGraphState } from '../../graph/state.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from '../helpers/fixtures.js';
+import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -79,8 +85,8 @@ describe('managerNode', () => {
     const result = await managerNode(state, config);
 
     expect(result.managerDirective).not.toBeNull();
-    expect(result.managerDirective!.intent).toBe('Build me a website');
-    expect(result.managerDirective!.recommendedEmployees).toEqual(['e-dev-1']);
+    expect(result.managerDirective?.intent).toBe('Build me a website');
+    expect(result.managerDirective?.recommendedEmployees).toEqual(['e-dev-1']);
   });
 
   it('does not create pendingAssignments (PM takes over)', async () => {
@@ -132,7 +138,9 @@ describe('managerNode', () => {
     const state = makeState();
     await managerNode(state, config);
 
-    const enteredEvents = events.filter((e) => e.type === 'graph.node.entered' && e.payload.nodeName === 'manager');
+    const enteredEvents = events.filter(
+      (e) => e.type === 'graph.node.entered' && e.payload.nodeName === 'manager',
+    );
     expect(enteredEvents).toHaveLength(1);
   });
 
@@ -146,7 +154,7 @@ describe('managerNode', () => {
 
     // Should still produce a directive with fallback employee
     expect(result.managerDirective).not.toBeNull();
-    expect(result.managerDirective!.recommendedEmployees.length).toBeGreaterThanOrEqual(1);
+    expect(result.managerDirective?.recommendedEmployees.length).toBeGreaterThanOrEqual(1);
   });
 
   it('handles multiple assignments in directive', async () => {
@@ -170,9 +178,9 @@ describe('managerNode', () => {
     const result = await managerNode(state, config);
 
     expect(result.managerDirective).not.toBeNull();
-    expect(result.managerDirective!.recommendedEmployees).toHaveLength(2);
-    expect(result.managerDirective!.recommendedEmployees).toContain('e-dev-1');
-    expect(result.managerDirective!.recommendedEmployees).toContain('e-design-1');
+    expect(result.managerDirective?.recommendedEmployees).toHaveLength(2);
+    expect(result.managerDirective?.recommendedEmployees).toContain('e-dev-1');
+    expect(result.managerDirective?.recommendedEmployees).toContain('e-design-1');
   });
 
   it('managerDirective has correct structure', async () => {

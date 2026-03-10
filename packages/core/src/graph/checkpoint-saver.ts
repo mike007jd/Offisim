@@ -5,7 +5,7 @@
  * Testing: MemorySaver from @langchain/langgraph
  */
 
-import { MemorySaver, type BaseCheckpointSaver } from '@langchain/langgraph';
+import { type BaseCheckpointSaver, MemorySaver } from '@langchain/langgraph';
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import type Database from 'better-sqlite3';
 

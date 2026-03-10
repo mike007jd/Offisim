@@ -1,9 +1,9 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { AicsGraphState } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { graphNodeEntered } from '../events/event-factories.js';
+import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -47,7 +47,8 @@ function parseManagerDecision(content: string): ManagerDecision | null {
     const assignments: LlmAssignment[] = [];
     for (const a of parsed.assignments) {
       if (
-        typeof a === 'object' && a !== null &&
+        typeof a === 'object' &&
+        a !== null &&
         typeof (a as Record<string, unknown>).taskType === 'string' &&
         typeof (a as Record<string, unknown>).employeeId === 'string' &&
         typeof (a as Record<string, unknown>).description === 'string'
@@ -79,9 +80,7 @@ export async function managerNode(
   }
 
   // Announce node entry
-  runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager'),
-  );
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager'));
 
   const { modelResolver, repos, companyId } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'manager');
@@ -95,34 +94,43 @@ export async function managerNode(
     .join('\n');
 
   // Get last user message
-  const lastUserMessage = [...state.messages]
-    .reverse()
-    .find((m) => m._getType() === 'human');
+  const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
 
-  const userContent = typeof lastUserMessage?.content === 'string'
-    ? lastUserMessage.content
-    : 'No user message found';
+  const userContent =
+    typeof lastUserMessage?.content === 'string'
+      ? lastUserMessage.content
+      : 'No user message found';
 
-  const llmResponse = await recordedLlmCall(runtimeCtx, {
-    messages: [
-      { role: 'system', content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}` },
-      { role: 'user', content: userContent },
-    ],
-    model: resolved.model,
-    temperature: resolved.temperature,
-    maxTokens: resolved.maxTokens,
-  }, { nodeName: 'manager', provider: resolved.provider, model: resolved.model });
+  const llmResponse = await recordedLlmCall(
+    runtimeCtx,
+    {
+      messages: [
+        {
+          role: 'system',
+          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+        },
+        { role: 'user', content: userContent },
+      ],
+      model: resolved.model,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+    },
+    { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
+  );
 
   let decision = parseManagerDecision(llmResponse.content);
 
   // Fallback: assign to first available employee
   if (!decision && nonManagerEmployees.length > 0) {
     decision = {
-      assignments: [{
-        taskType: 'general',
-        employeeId: nonManagerEmployees[0]!.employee_id,
-        description: userContent,
-      }],
+      assignments: [
+        {
+          taskType: 'general',
+          // biome-ignore lint/style/noNonNullAssertion: length > 0 checked above
+          employeeId: nonManagerEmployees[0]!.employee_id,
+          description: userContent,
+        },
+      ],
     };
   }
 
@@ -133,7 +141,7 @@ export async function managerNode(
   return {
     managerDirective: {
       intent: userContent,
-      recommendedEmployees: decision.assignments.map(a => a.employeeId),
+      recommendedEmployees: decision.assignments.map((a) => a.employeeId),
       constraints: undefined,
     },
   };

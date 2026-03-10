@@ -6,18 +6,18 @@
  */
 
 import type { InstallState } from '@aics/shared-types';
-import type {
-  InstallRepositories,
-  InstallEventEmitter,
-  RuntimeEnvironment,
-  InstallPlan,
-  BindingConfirmation,
-  InstallTransactionRow,
-} from './types.js';
-import { validateTransition, isTerminalState } from './state-machine.js';
 import { createInstallPlan } from './install-planner.js';
 import { materialize } from './materializer.js';
 import type { MaterializeResult } from './materializer.js';
+import { isTerminalState, validateTransition } from './state-machine.js';
+import type {
+  BindingConfirmation,
+  InstallEventEmitter,
+  InstallPlan,
+  InstallRepositories,
+  InstallTransactionRow,
+  RuntimeEnvironment,
+} from './types.js';
 // TODO: wire rollback() into catch block once materialize supports partial results
 // import { rollback } from './rollback.js';
 
@@ -230,16 +230,31 @@ export class InstallService {
 
     if (state === 'awaiting_confirmation') {
       if (bindings.length > 0) {
-        await this.transition(installTxnId, state, 'awaiting_bindings', txn.target_package_id ?? undefined);
+        await this.transition(
+          installTxnId,
+          state,
+          'awaiting_bindings',
+          txn.target_package_id ?? undefined,
+        );
         state = 'awaiting_bindings';
       } else {
-        await this.transition(installTxnId, state, 'ready_to_install', txn.target_package_id ?? undefined);
+        await this.transition(
+          installTxnId,
+          state,
+          'ready_to_install',
+          txn.target_package_id ?? undefined,
+        );
         state = 'ready_to_install';
       }
     }
 
     if (state === 'awaiting_bindings') {
-      await this.transition(installTxnId, state, 'ready_to_install', txn.target_package_id ?? undefined);
+      await this.transition(
+        installTxnId,
+        state,
+        'ready_to_install',
+        txn.target_package_id ?? undefined,
+      );
       state = 'ready_to_install';
     }
 
@@ -270,7 +285,12 @@ export class InstallService {
     }
 
     // materializing -> installed
-    await this.transition(installTxnId, 'materializing', 'installed', txn.target_package_id ?? undefined);
+    await this.transition(
+      installTxnId,
+      'materializing',
+      'installed',
+      txn.target_package_id ?? undefined,
+    );
     await this.repos.installTransactions.finish(installTxnId, 'installed');
 
     // Clean up cache
@@ -382,9 +402,7 @@ export class InstallService {
     if (!result.valid) {
       // Some states (like awaiting_confirmation) can't go to failed directly.
       // In those cases, we can only log — the caller should handle this case.
-      console.warn(
-        `[install-service] Cannot transition ${from} -> failed: ${result.reason}`,
-      );
+      console.warn(`[install-service] Cannot transition ${from} -> failed: ${result.reason}`);
       return;
     }
 
@@ -415,7 +433,14 @@ export class InstallService {
       const failResult = validateTransition(failStage, 'failed');
       if (failResult.valid) {
         await this.repos.installTransactions.updateState(txnId, 'failed', errorCode, errorDetail);
-        this.events.emitInstallState(this.companyId, txnId, failStage, 'failed', undefined, errorCode);
+        this.events.emitInstallState(
+          this.companyId,
+          txnId,
+          failStage,
+          'failed',
+          undefined,
+          errorCode,
+        );
       }
     } else {
       // Can't go through the stage — just fail from current state

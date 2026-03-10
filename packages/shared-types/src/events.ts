@@ -1,5 +1,11 @@
-import type { EmployeeState, InstallState, MeetingState, RuntimeEntityType, TaskState } from './states.js';
 import type { BindingStatus, BindingType } from './install.js';
+import type {
+  EmployeeState,
+  InstallState,
+  MeetingState,
+  RuntimeEntityType,
+  TaskState,
+} from './states.js';
 
 /**
  * Cross-package event envelope.

@@ -1,9 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import {
-  graphNodeEntered,
-  graphNodeExited,
-  llmStreamChunk,
-} from '../../events/event-factories.js';
+import { describe, expect, it } from 'vitest';
+import { graphNodeEntered, graphNodeExited, llmStreamChunk } from '../../events/event-factories.js';
 
 describe('Phase 2.3 event factories', () => {
   const companyId = 'c-test-1';

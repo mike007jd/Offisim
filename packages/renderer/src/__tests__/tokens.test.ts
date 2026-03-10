@@ -1,13 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import { STATE_COLORS, SCENE_COLORS } from '../tokens/colors.js';
-import { MOTION, MOTION_REDUCED } from '../tokens/motion.js';
+import { describe, expect, it } from 'vitest';
+import { SCENE_COLORS, STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
+import { MOTION, MOTION_REDUCED } from '../tokens/motion.js';
 
 describe('tokens/colors', () => {
   it('has a color for all 12 employee states', () => {
     const states = [
-      'idle', 'assigned', 'thinking', 'searching', 'executing',
-      'meeting', 'blocked', 'waiting', 'reporting', 'success', 'failed', 'paused',
+      'idle',
+      'assigned',
+      'thinking',
+      'searching',
+      'executing',
+      'meeting',
+      'blocked',
+      'waiting',
+      'reporting',
+      'success',
+      'failed',
+      'paused',
     ] as const;
 
     for (const s of states) {

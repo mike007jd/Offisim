@@ -1,15 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { bossNode } from '../../agents/boss-node.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import type { AicsGraphState } from '../../graph/state.js';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { bossNode } from '../../agents/boss-node.js';
+import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { AicsGraphState } from '../../graph/state.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from '../helpers/fixtures.js';
+import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -74,7 +80,11 @@ describe('bossNode', () => {
 
   it('routes to direct_reply for simple questions', async () => {
     gateway.pushResponse({
-      content: JSON.stringify({ action: 'direct_reply', reason: 'simple greeting', reply: 'Hello!' }),
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reason: 'simple greeting',
+        reply: 'Hello!',
+      }),
     });
 
     const state = makeState({

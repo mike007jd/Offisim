@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { createTestRuntime } from '../helpers/test-runtime.js';
-import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { describe, expect, it } from 'vitest';
+import { buildAicsGraph } from '../../graph/main-graph.js';
 import {
-  meetingStartNode,
-  participantTurnNode,
-  meetingTurnCheck,
   meetingEndNode,
+  meetingStartNode,
+  meetingTurnCheck,
+  participantTurnNode,
 } from '../../graph/meeting-subgraph.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import type { RunnableConfig } from '@langchain/core/runnables';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { createTestRuntime } from '../helpers/test-runtime.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -45,7 +45,7 @@ describe('meeting flow', () => {
 
     expect(startResult.meetingId).toBeTruthy();
     expect(startResult.pendingAssignments).toHaveLength(1);
-    expect(startResult.pendingAssignments![0]!.taskType).toBe('__meeting_state');
+    expect(startResult.pendingAssignments?.[0]?.taskType).toBe('__meeting_state');
 
     // Step 2: Participant turn
     gateway.pushResponse({ content: 'I think we should use a microservices architecture.' });
@@ -81,7 +81,9 @@ describe('meeting flow', () => {
     const llmCalls = await repos.llmCalls.findByThread(runtimeCtx.threadId);
     expect(llmCalls.length).toBeGreaterThanOrEqual(1);
 
-    const meetingCall = llmCalls.find(c => c.node_name.includes('meeting') || c.node_name.includes('participant'));
+    const meetingCall = llmCalls.find(
+      (c) => c.node_name.includes('meeting') || c.node_name.includes('participant'),
+    );
     // If meeting participant turns don't use recordedLlmCall, this might be empty.
     // In that case, this test documents the gap for Phase 2.3.
     if (meetingCall) {
@@ -93,16 +95,18 @@ describe('meeting flow', () => {
   it('meeting turn check ends after one full round', () => {
     // After all participants have spoken once (turnCount >= 1, participantIndex === 0)
     const state = makeState({
-      pendingAssignments: [{
-        taskType: '__meeting_state',
-        employeeId: 'e-dev-1',
-        inputJson: {
-          turnCount: 1,
-          participantIndex: 0,
-          participantIds: ['e-mgr-1', 'e-dev-1'],
-          transcript: ['[Manager Bot]: point 1', '[Dev Bot]: point 2'],
+      pendingAssignments: [
+        {
+          taskType: '__meeting_state',
+          employeeId: 'e-dev-1',
+          inputJson: {
+            turnCount: 1,
+            participantIndex: 0,
+            participantIds: ['e-mgr-1', 'e-dev-1'],
+            transcript: ['[Manager Bot]: point 1', '[Dev Bot]: point 2'],
+          },
         },
-      }],
+      ],
     });
 
     const decision = meetingTurnCheck(state);
@@ -111,16 +115,18 @@ describe('meeting flow', () => {
 
   it('meeting turn check continues during first round', () => {
     const state = makeState({
-      pendingAssignments: [{
-        taskType: '__meeting_state',
-        employeeId: 'e-dev-1',
-        inputJson: {
-          turnCount: 0,
-          participantIndex: 1,
-          participantIds: ['e-mgr-1', 'e-dev-1'],
-          transcript: ['[Manager Bot]: point 1'],
+      pendingAssignments: [
+        {
+          taskType: '__meeting_state',
+          employeeId: 'e-dev-1',
+          inputJson: {
+            turnCount: 0,
+            participantIndex: 1,
+            participantIds: ['e-mgr-1', 'e-dev-1'],
+            transcript: ['[Manager Bot]: point 1'],
+          },
         },
-      }],
+      ],
     });
 
     const decision = meetingTurnCheck(state);
@@ -146,16 +152,18 @@ describe('meeting flow', () => {
 
     const state = makeState({
       meetingId,
-      pendingAssignments: [{
-        taskType: '__meeting_state',
-        employeeId: 'e-dev-1',
-        inputJson: {
-          turnCount: 1,
-          participantIndex: 0,
-          participantIds: ['e-mgr-1', 'e-dev-1'],
-          transcript: ['[Manager Bot]: Use microservices', '[Dev Bot]: Agreed'],
+      pendingAssignments: [
+        {
+          taskType: '__meeting_state',
+          employeeId: 'e-dev-1',
+          inputJson: {
+            turnCount: 1,
+            participantIndex: 0,
+            participantIds: ['e-mgr-1', 'e-dev-1'],
+            transcript: ['[Manager Bot]: Use microservices', '[Dev Bot]: Agreed'],
+          },
         },
-      }],
+      ],
     });
 
     const endResult = await meetingEndNode(state, config);
@@ -216,8 +224,8 @@ describe('meeting flow — full graph integration', () => {
     // Meeting state changed events: active + ended
     const meetingEvents = events.filter((e) => e.type === 'meeting.state.changed');
     expect(meetingEvents).toHaveLength(2);
-    expect(meetingEvents[0]!.payload.next).toBe('active');
-    expect(meetingEvents[1]!.payload.next).toBe('ended');
+    expect(meetingEvents[0]?.payload.next).toBe('active');
+    expect(meetingEvents[1]?.payload.next).toBe('ended');
 
     // Should have messages from the meeting flow
     expect(result.messages.length).toBeGreaterThanOrEqual(4); // human + meeting start + 2 turns + meeting end + summary

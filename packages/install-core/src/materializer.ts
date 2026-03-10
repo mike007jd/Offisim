@@ -12,12 +12,12 @@
  */
 
 import type {
-  InstallPlan,
-  BindingConfirmation,
-  InstallRepositories,
-  InstalledPackageRow,
-  InstalledAssetRow,
   AssetBindingRow,
+  BindingConfirmation,
+  InstallPlan,
+  InstallRepositories,
+  InstalledAssetRow,
+  InstalledPackageRow,
   NewEmployee,
 } from './types.js';
 
@@ -140,7 +140,7 @@ export async function materialize(
       binding_type: req.bindingType,
       binding_key: req.bindingKey,
       binding_value_json: confirmation?.valueJson ?? null,
-      status: confirmation ? 'satisfied' : (req.required ? 'pending' : 'skipped'),
+      status: confirmation ? 'satisfied' : req.required ? 'pending' : 'skipped',
       created_at: now,
       updated_at: now,
     };

@@ -1,15 +1,15 @@
 import {
-  buildAicsGraph,
-  createRuntimeContext,
-  createGateway,
-  InMemoryEventBus,
-  ModelResolver,
+  type InMemoryEventBus,
   MockToolExecutor,
+  ModelResolver,
+  buildAicsGraph,
+  createGateway,
+  createRuntimeContext,
 } from '@aics/core';
 import type { ProviderConfig } from './provider-config';
+import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
-import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { seedTauriDb } from './tauri-seed';
 
 const COMPANY_ID = 'company-001';

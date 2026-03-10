@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { HumanMessage } from '@langchain/core/messages';
 import type { LlmProvider, ModelPolicyConfig } from '@aics/shared-types';
-import type { LlmGateway } from '../../llm/gateway.js';
-import { createGateway } from '../../llm/gateway-factory.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
+import { HumanMessage } from '@langchain/core/messages';
+import { describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import { buildAicsGraph } from '../../graph/main-graph.js';
+import { createGateway } from '../../llm/gateway-factory.js';
+import type { LlmGateway } from '../../llm/gateway.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { makeEmployee, makeManager } from '../helpers/fixtures.js';
 
 // --- Auto-detect first available provider ---
@@ -27,7 +27,8 @@ function detectProvider(): SmokeProvider | null {
       gateway: createGateway({
         provider: 'openai-compat',
         apiKey: process.env.GEMINI_API_KEY,
-        baseURL: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        baseURL:
+          process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
       }),
       provider: 'openai-compat',
       model: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
@@ -104,16 +105,21 @@ function createSmokeRuntime() {
   const toolExecutor = new MockToolExecutor();
   const companyId = 'c-smoke-1';
 
-  repos.seed.companies([{
-    company_id: companyId,
-    name: 'Smoke Test Corp',
-    status: 'active',
-    workspace_root: null,
-    default_model_policy_json: JSON.stringify(policy),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }]);
-  repos.seed.employees([makeManager({ company_id: companyId }), makeEmployee({ company_id: companyId })]);
+  repos.seed.companies([
+    {
+      company_id: companyId,
+      name: 'Smoke Test Corp',
+      status: 'active',
+      workspace_root: null,
+      default_model_policy_json: JSON.stringify(policy),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+  repos.seed.employees([
+    makeManager({ company_id: companyId }),
+    makeEmployee({ company_id: companyId }),
+  ]);
 
   const threadId = `t-smoke-${Date.now()}`;
   const runtimeCtx = createRuntimeContext({

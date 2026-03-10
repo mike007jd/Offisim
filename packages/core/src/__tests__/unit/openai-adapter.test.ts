@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 import type { LlmRequest } from '../../llm/gateway.js';
+import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 
 vi.mock('openai', () => {
   return {

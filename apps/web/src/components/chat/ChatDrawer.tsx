@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 
 interface ChatDrawerProps {
   children: ReactNode;
@@ -26,11 +26,7 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
         className="transition-[max-height] duration-300 ease-in-out overflow-hidden"
         style={{ maxHeight: open ? '50vh' : '0px' }}
       >
-        {open && (
-          <div className="h-[50vh] overflow-hidden">
-            {children}
-          </div>
-        )}
+        {open && <div className="h-[50vh] overflow-hidden">{children}</div>}
       </div>
     </div>
   );

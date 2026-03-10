@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
-import { LAYOUT } from '../tokens/layout.js';
 import { SCENE_COLORS } from '../tokens/colors.js';
+import { LAYOUT } from '../tokens/layout.js';
 
 export interface DeskPosition {
   x: number;
@@ -45,13 +45,7 @@ export class FloorLayer {
 
     for (const pos of positions) {
       const g = new Graphics();
-      g.roundRect(
-        pos.x - width / 2,
-        pos.y - height / 2,
-        width,
-        height,
-        cornerRadius,
-      );
+      g.roundRect(pos.x - width / 2, pos.y - height / 2, width, height, cornerRadius);
       g.fill(SCENE_COLORS.desk);
       g.stroke({ width: borderWidth, color: SCENE_COLORS.deskBorder });
       this.container.addChild(g);

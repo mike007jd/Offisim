@@ -67,15 +67,14 @@ export class MockLlmGateway implements LlmGateway {
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
     // Use stream-specific responses first, then fall back to chat()
-    const response = this.streamResponses.length > 0
-      ? this.streamResponses.shift()!
-      : await this.chat(request);
+    const response =
+      this.streamResponses.length > 0 ? this.streamResponses.shift()! : await this.chat(request);
 
     // Simulate streaming by yielding content word by word
     const words = response.content.split(' ');
     for (const word of words) {
       if (word) {
-        yield { content: word + ' ', done: false };
+        yield { content: `${word} `, done: false };
       }
     }
     yield { usage: response.usage, done: true };

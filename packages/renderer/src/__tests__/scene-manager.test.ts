@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SceneEventBus } from '../core/types.js';
 
 // Mock pixi.js — must be before importing SceneManager
@@ -10,19 +10,40 @@ vi.mock('pixi.js', () => {
     scale = { set: vi.fn(), x: 1, y: 1 };
     visible = true;
     alpha = 1;
-    addChild(c: unknown) { this.children.push(c); return c; }
-    addChildAt(c: unknown, i: number) { this.children.splice(i, 0, c); return c; }
-    removeChild(c: unknown) { const idx = this.children.indexOf(c); if (idx >= 0) this.children.splice(idx, 1); }
+    addChild(c: unknown) {
+      this.children.push(c);
+      return c;
+    }
+    addChildAt(c: unknown, i: number) {
+      this.children.splice(i, 0, c);
+      return c;
+    }
+    removeChild(c: unknown) {
+      const idx = this.children.indexOf(c);
+      if (idx >= 0) this.children.splice(idx, 1);
+    }
     destroy() {}
   }
 
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    roundRect() { return this; }
-    fill() { return this; }
-    stroke() { return this; }
-    cut() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    roundRect() {
+      return this;
+    }
+    fill() {
+      return this;
+    }
+    stroke() {
+      return this;
+    }
+    cut() {
+      return this;
+    }
   }
 
   class MockText extends MockContainer {
@@ -76,13 +97,13 @@ const { SceneManager } = await import('../core/scene-manager.js');
 const gsapModule = await import('gsap');
 const gsap = gsapModule.default;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: test mock mirrors SceneEventBus which requires any for payload types
 function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent<any>) => void } {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: test mock stores generic event handlers
   const handlers: Array<{ prefix: string; handler: (event: RuntimeEvent<any>) => void }> = [];
 
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: mirrors SceneEventBus signature
     on(prefix: string, handler: (event: RuntimeEvent<any>) => void) {
       const entry = { prefix, handler };
       handlers.push(entry);
@@ -91,7 +112,7 @@ function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent<any>
         if (idx >= 0) handlers.splice(idx, 1);
       };
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: test mock fires generic events
     fire(event: RuntimeEvent<any>) {
       for (const { prefix, handler } of handlers) {
         if (event.type.startsWith(prefix)) {
@@ -156,29 +177,35 @@ describe('SceneManager', () => {
     await sm.mount();
 
     // Fire a state change — should not throw
-    eventBus.fire(makeEvent('employee.state.changed', {
-      employeeId: 'emp-alice',
-      prev: 'idle',
-      next: 'thinking',
-    }));
+    eventBus.fire(
+      makeEvent('employee.state.changed', {
+        employeeId: 'emp-alice',
+        prev: 'idle',
+        next: 'thinking',
+      }),
+    );
   });
 
   it('responds to task.assignment.changed events', async () => {
     const sm = new SceneManager({ container, eventBus });
     await sm.mount();
 
-    eventBus.fire(makeEvent('task.assignment.changed', {
-      taskRunId: 'task-1',
-      employeeId: 'emp-bob',
-      action: 'assigned',
-    }));
+    eventBus.fire(
+      makeEvent('task.assignment.changed', {
+        taskRunId: 'task-1',
+        employeeId: 'emp-bob',
+        action: 'assigned',
+      }),
+    );
 
     // Unassign
-    eventBus.fire(makeEvent('task.assignment.changed', {
-      taskRunId: 'task-1',
-      employeeId: 'emp-bob',
-      action: 'unassigned',
-    }));
+    eventBus.fire(
+      makeEvent('task.assignment.changed', {
+        taskRunId: 'task-1',
+        employeeId: 'emp-bob',
+        action: 'unassigned',
+      }),
+    );
   });
 
   it('responds to graph.node.entered/exited events', async () => {
@@ -194,11 +221,13 @@ describe('SceneManager', () => {
     await sm.mount();
 
     // Should not throw
-    eventBus.fire(makeEvent('employee.state.changed', {
-      employeeId: 'emp-unknown',
-      prev: 'idle',
-      next: 'thinking',
-    }));
+    eventBus.fire(
+      makeEvent('employee.state.changed', {
+        employeeId: 'emp-unknown',
+        prev: 'idle',
+        next: 'thinking',
+      }),
+    );
   });
 
   it('uses custom employee seeds', async () => {
@@ -210,11 +239,13 @@ describe('SceneManager', () => {
     await sm.mount();
 
     // Dave events should work
-    eventBus.fire(makeEvent('employee.state.changed', {
-      employeeId: 'emp-dave',
-      prev: 'idle',
-      next: 'assigned',
-    }));
+    eventBus.fire(
+      makeEvent('employee.state.changed', {
+        employeeId: 'emp-dave',
+        prev: 'idle',
+        next: 'assigned',
+      }),
+    );
   });
 
   it('motion getter returns reduced tokens when configured', () => {
@@ -254,11 +285,13 @@ describe('SceneManager', () => {
       expect(result).toBe(true);
 
       // The new employee should respond to state events
-      eventBus.fire(makeEvent('employee.state.changed', {
-        employeeId: 'emp-dave',
-        prev: 'idle',
-        next: 'thinking',
-      }));
+      eventBus.fire(
+        makeEvent('employee.state.changed', {
+          employeeId: 'emp-dave',
+          prev: 'idle',
+          next: 'thinking',
+        }),
+      );
       // No throw = entity was registered correctly
     });
 
@@ -312,11 +345,13 @@ describe('SceneManager', () => {
 
       // All 5 should respond to events without errors
       for (let i = 0; i < 5; i++) {
-        eventBus.fire(makeEvent('employee.state.changed', {
-          employeeId: `emp-extra-${i}`,
-          prev: 'idle',
-          next: 'assigned',
-        }));
+        eventBus.fire(
+          makeEvent('employee.state.changed', {
+            employeeId: `emp-extra-${i}`,
+            prev: 'idle',
+            next: 'assigned',
+          }),
+        );
       }
     });
 
@@ -335,12 +370,14 @@ describe('SceneManager', () => {
       const sm = new SceneManager({ container, eventBus });
       await sm.mount();
 
-      eventBus.fire(makeEvent('meeting.state.changed', {
-        meetingId: 'mtg-1',
-        prev: 'scheduled',
-        next: 'active',
-        participantIds: ['emp-alice', 'emp-bob'],
-      }));
+      eventBus.fire(
+        makeEvent('meeting.state.changed', {
+          meetingId: 'mtg-1',
+          prev: 'scheduled',
+          next: 'active',
+          participantIds: ['emp-alice', 'emp-bob'],
+        }),
+      );
     });
 
     it('responds to meeting.state.changed ended event without errors', async () => {
@@ -348,20 +385,24 @@ describe('SceneManager', () => {
       await sm.mount();
 
       // Show first
-      eventBus.fire(makeEvent('meeting.state.changed', {
-        meetingId: 'mtg-1',
-        prev: 'scheduled',
-        next: 'active',
-        participantIds: ['emp-alice'],
-      }));
+      eventBus.fire(
+        makeEvent('meeting.state.changed', {
+          meetingId: 'mtg-1',
+          prev: 'scheduled',
+          next: 'active',
+          participantIds: ['emp-alice'],
+        }),
+      );
 
       // Then hide
-      eventBus.fire(makeEvent('meeting.state.changed', {
-        meetingId: 'mtg-1',
-        prev: 'active',
-        next: 'ended',
-        participantIds: ['emp-alice'],
-      }));
+      eventBus.fire(
+        makeEvent('meeting.state.changed', {
+          meetingId: 'mtg-1',
+          prev: 'active',
+          next: 'ended',
+          participantIds: ['emp-alice'],
+        }),
+      );
     });
 
     it('meeting room is cleaned up by destroy', async () => {
@@ -369,12 +410,14 @@ describe('SceneManager', () => {
       await sm.mount();
 
       // Show meeting room
-      eventBus.fire(makeEvent('meeting.state.changed', {
-        meetingId: 'mtg-1',
-        prev: 'scheduled',
-        next: 'active',
-        participantIds: [],
-      }));
+      eventBus.fire(
+        makeEvent('meeting.state.changed', {
+          meetingId: 'mtg-1',
+          prev: 'scheduled',
+          next: 'active',
+          participantIds: [],
+        }),
+      );
 
       // Should not throw
       sm.destroy();
@@ -387,11 +430,13 @@ describe('SceneManager', () => {
       await sm.mount();
 
       // Should not throw — tool name shown in alice's bubble
-      eventBus.fire(makeEvent('mcp.tool.called', {
-        serverName: 'filesystem',
-        toolName: 'read_file',
-        employeeId: 'emp-alice',
-      }));
+      eventBus.fire(
+        makeEvent('mcp.tool.called', {
+          serverName: 'filesystem',
+          toolName: 'read_file',
+          employeeId: 'emp-alice',
+        }),
+      );
     });
 
     it('ignores mcp.tool.called for unknown employees', async () => {
@@ -399,11 +444,13 @@ describe('SceneManager', () => {
       await sm.mount();
 
       // Should not throw for unknown employee
-      eventBus.fire(makeEvent('mcp.tool.called', {
-        serverName: 'filesystem',
-        toolName: 'write_file',
-        employeeId: 'emp-unknown',
-      }));
+      eventBus.fire(
+        makeEvent('mcp.tool.called', {
+          serverName: 'filesystem',
+          toolName: 'write_file',
+          employeeId: 'emp-unknown',
+        }),
+      );
     });
   });
 });

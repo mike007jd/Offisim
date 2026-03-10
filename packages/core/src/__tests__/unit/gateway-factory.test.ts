@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { createGateway } from '../../llm/gateway-factory.js';
+import { describe, expect, it } from 'vitest';
 import { AnthropicAdapter } from '../../llm/anthropic-adapter.js';
+import { createGateway } from '../../llm/gateway-factory.js';
 import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 
 describe('createGateway', () => {
@@ -24,9 +24,9 @@ describe('createGateway', () => {
   });
 
   it('throws when openai-compat has no baseURL', () => {
-    expect(() =>
-      createGateway({ provider: 'openai-compat', apiKey: 'sk-test' }),
-    ).toThrow('baseURL');
+    expect(() => createGateway({ provider: 'openai-compat', apiKey: 'sk-test' })).toThrow(
+      'baseURL',
+    );
   });
 
   it('passes defaultHeaders to openai-compat adapter', () => {

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
 import { HumanMessage } from '@langchain/core/messages';
-import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
+import { describe, expect, it } from 'vitest';
 import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
 
 describe('OrchestrationService streaming', () => {
   it('T1: emits graph.node.entered and graph.node.exited for direct reply path', async () => {
@@ -20,23 +20,24 @@ describe('OrchestrationService streaming', () => {
     expect(result.completed).toBe(true);
 
     // Verify graph.node.entered events
-    const enteredEvents = events.filter(e => e.type === 'graph.node.entered');
-    const enteredNames = enteredEvents.map(e => e.payload.nodeName);
+    const enteredEvents = events.filter((e) => e.type === 'graph.node.entered');
+    const enteredNames = enteredEvents.map((e) => e.payload.nodeName);
     expect(enteredNames).toContain('boss');
     expect(enteredNames).toContain('boss_summary');
 
     // Verify graph.node.exited events (emitted by OrchestrationService)
-    const exitedEvents = events.filter(e => e.type === 'graph.node.exited');
-    const exitedNames = exitedEvents.map(e => e.payload.nodeName);
+    const exitedEvents = events.filter((e) => e.type === 'graph.node.exited');
+    const exitedNames = exitedEvents.map((e) => e.payload.nodeName);
     expect(exitedNames).toContain('boss');
     expect(exitedNames).toContain('boss_summary');
 
     // Exited events should come after entered events for each node
     for (const nodeName of ['boss', 'boss_summary']) {
-      const entered = enteredEvents.find(e => e.payload.nodeName === nodeName);
-      const exited = exitedEvents.find(e => e.payload.nodeName === nodeName);
+      const entered = enteredEvents.find((e) => e.payload.nodeName === nodeName);
+      const exited = exitedEvents.find((e) => e.payload.nodeName === nodeName);
       expect(entered).toBeDefined();
       expect(exited).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: values asserted defined above
       expect(exited!.timestamp).toBeGreaterThanOrEqual(entered!.timestamp);
     }
   });
@@ -65,16 +66,16 @@ describe('OrchestrationService streaming', () => {
     expect(result.completed).toBe(true);
 
     // Verify entered events for all 4 nodes in the delegation path
-    const enteredEvents = events.filter(e => e.type === 'graph.node.entered');
-    const enteredNames = enteredEvents.map(e => e.payload.nodeName);
+    const enteredEvents = events.filter((e) => e.type === 'graph.node.entered');
+    const enteredNames = enteredEvents.map((e) => e.payload.nodeName);
     expect(enteredNames).toContain('boss');
     expect(enteredNames).toContain('manager');
     expect(enteredNames).toContain('employee');
     expect(enteredNames).toContain('boss_summary');
 
     // Verify exited events for all 4 nodes
-    const exitedEvents = events.filter(e => e.type === 'graph.node.exited');
-    const exitedNames = exitedEvents.map(e => e.payload.nodeName);
+    const exitedEvents = events.filter((e) => e.type === 'graph.node.exited');
+    const exitedNames = exitedEvents.map((e) => e.payload.nodeName);
     expect(exitedNames).toContain('boss');
     expect(exitedNames).toContain('manager');
     expect(exitedNames).toContain('employee');
@@ -82,11 +83,11 @@ describe('OrchestrationService streaming', () => {
 
     // Verify ordering: boss exited before manager exited before employee exited before boss_summary exited
     const exitTimestamps = Object.fromEntries(
-      exitedEvents.map(e => [e.payload.nodeName, e.timestamp]),
+      exitedEvents.map((e) => [e.payload.nodeName, e.timestamp]),
     );
-    expect(exitTimestamps['boss']).toBeLessThanOrEqual(exitTimestamps['manager']!);
-    expect(exitTimestamps['manager']).toBeLessThanOrEqual(exitTimestamps['employee']!);
-    expect(exitTimestamps['employee']).toBeLessThanOrEqual(exitTimestamps['boss_summary']!);
+    expect(exitTimestamps.boss).toBeLessThanOrEqual(exitTimestamps.manager!);
+    expect(exitTimestamps.manager).toBeLessThanOrEqual(exitTimestamps.employee!);
+    expect(exitTimestamps.employee).toBeLessThanOrEqual(exitTimestamps.boss_summary!);
   });
 
   it('T3: emits llm.stream.chunk events during boss_summary streaming', async () => {
@@ -124,7 +125,7 @@ describe('OrchestrationService streaming', () => {
     expect(result.completed).toBe(true);
 
     // Verify llm.stream.chunk events were emitted
-    const chunkEvents = events.filter(e => e.type === 'llm.stream.chunk');
+    const chunkEvents = events.filter((e) => e.type === 'llm.stream.chunk');
     expect(chunkEvents.length).toBeGreaterThanOrEqual(1);
 
     // All chunk events should reference boss_summary
@@ -135,7 +136,10 @@ describe('OrchestrationService streaming', () => {
     }
 
     // Concatenated chunks should contain the full content (mock adds trailing space per word)
-    const allChunkContent = chunkEvents.map(e => e.payload.content).join('').trim();
+    const allChunkContent = chunkEvents
+      .map((e) => e.payload.content)
+      .join('')
+      .trim();
     expect(allChunkContent).toBe('Both backend and UI tasks completed successfully.');
   });
 
@@ -187,7 +191,7 @@ describe('OrchestrationService streaming', () => {
 
     // All graph.node events should have correct companyId and threadId
     const graphEvents = events.filter(
-      e => e.type === 'graph.node.entered' || e.type === 'graph.node.exited',
+      (e) => e.type === 'graph.node.entered' || e.type === 'graph.node.exited',
     );
     expect(graphEvents.length).toBeGreaterThanOrEqual(2);
 

@@ -3,12 +3,12 @@
  * Part of the install dialog flow (step: 'review').
  */
 
-import { Shield, AlertTriangle, Globe, HardDrive, KeyRound } from 'lucide-react';
-import type { InstallPlan } from '@aics/install-core';
 import type { RiskClass } from '@aics/asset-schema';
+import type { InstallPlan } from '@aics/install-core';
+import { AlertTriangle, Globe, HardDrive, KeyRound, Shield } from 'lucide-react';
+import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Alert, AlertDescription } from '../ui/alert';
 
 interface ManifestReviewProps {
   plan: InstallPlan;
@@ -16,7 +16,10 @@ interface ManifestReviewProps {
   onCancel: () => void;
 }
 
-const RISK_CLASS_CONFIG: Record<RiskClass, { label: string; variant: 'success' | 'warning' | 'error' }> = {
+const RISK_CLASS_CONFIG: Record<
+  RiskClass,
+  { label: string; variant: 'success' | 'warning' | 'error' }
+> = {
   data_asset: { label: 'Data Asset', variant: 'success' },
   logic_asset: { label: 'Logic Asset', variant: 'warning' },
   privileged_asset: { label: 'Privileged Asset', variant: 'error' },
@@ -26,7 +29,10 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
   const { manifest, confirmationReasons } = plan;
   const pkg = manifest.package;
   const perms = manifest.permissions;
-  const riskConfig = RISK_CLASS_CONFIG[perms.risk_class] ?? { label: perms.risk_class, variant: 'secondary' as const };
+  const riskConfig = RISK_CLASS_CONFIG[perms.risk_class] ?? {
+    label: perms.risk_class,
+    variant: 'secondary' as const,
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,9 +54,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       </div>
 
       {/* Summary */}
-      {pkg.summary && (
-        <p className="text-sm text-text-secondary">{pkg.summary}</p>
-      )}
+      {pkg.summary && <p className="text-sm text-text-secondary">{pkg.summary}</p>}
 
       {/* Permissions */}
       <div className="rounded-md border border-border p-3 space-y-2">
@@ -58,22 +62,37 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
 
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <HardDrive className="h-3.5 w-3.5 shrink-0" />
-          <span>Filesystem: <span className="text-text-primary font-medium">{perms.filesystem_scope}</span></span>
+          <span>
+            Filesystem:{' '}
+            <span className="text-text-primary font-medium">{perms.filesystem_scope}</span>
+          </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Globe className="h-3.5 w-3.5 shrink-0" />
-          <span>Network: <span className="text-text-primary font-medium">{perms.network_scope}</span></span>
+          <span>
+            Network: <span className="text-text-primary font-medium">{perms.network_scope}</span>
+          </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <KeyRound className="h-3.5 w-3.5 shrink-0" />
-          <span>Secrets: <span className="text-text-primary font-medium">{perms.declares_secrets ? 'Yes' : 'None'}</span></span>
+          <span>
+            Secrets:{' '}
+            <span className="text-text-primary font-medium">
+              {perms.declares_secrets ? 'Yes' : 'None'}
+            </span>
+          </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Shield className="h-3.5 w-3.5 shrink-0" />
-          <span>Risk class: <span className="text-text-primary font-medium">{perms.risk_class.replace('_', ' ')}</span></span>
+          <span>
+            Risk class:{' '}
+            <span className="text-text-primary font-medium">
+              {perms.risk_class.replace('_', ' ')}
+            </span>
+          </span>
         </div>
       </div>
 
@@ -105,9 +124,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={onApprove}>
-          Approve &amp; Continue
-        </Button>
+        <Button onClick={onApprove}>Approve &amp; Continue</Button>
       </div>
     </div>
   );

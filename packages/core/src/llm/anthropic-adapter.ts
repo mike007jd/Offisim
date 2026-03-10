@@ -1,7 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmError } from '../errors.js';
-import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk, ToolCallResult } from './gateway.js';
-import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from './retry.js';
+import type {
+  LlmGateway,
+  LlmRequest,
+  LlmResponse,
+  LlmStreamChunk,
+  ToolCallResult,
+} from './gateway.js';
+import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
 export interface AnthropicAdapterOptions {
   retryConfig?: RetryConfig;
@@ -48,11 +54,8 @@ export class AnthropicAdapter implements LlmGateway {
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
-    // Retry wraps the entire stream creation. Once tokens start flowing,
-    // a mid-stream failure is non-retryable (throw immediately).
-    const self = this;
     yield* await withRetry(
-      () => self.doChatStream(request),
+      () => this.doChatStream(request),
       this.retryConfig,
       (error) => error instanceof LlmError && error.recoverable,
     );

@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import { injectProvider, waitForRuntime, openChat, sendChat } from './helpers/setup';
+import { expect, test } from '@playwright/test';
 import { getEmployeeCount, isCanvasRendered } from './helpers/scene-bridge';
+import { injectProvider, openChat, sendChat, waitForRuntime } from './helpers/setup';
 
 test.describe('Smoke: Scene Rendering', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,14 +35,21 @@ test.describe('Smoke: Scene Rendering', () => {
     // and SceneManager uses it to drive employee visual state transitions.
     const nodeEntered = page.evaluate(() => {
       return new Promise<boolean>((resolve) => {
+        // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
         const bus = (window as any).__AICS_DEBUG__?.eventBus;
-        if (!bus) { resolve(false); return; }
+        if (!bus) {
+          resolve(false);
+          return;
+        }
         const unsub = bus.on('graph.node.entered', () => {
           unsub();
           resolve(true);
         });
         // Timeout fallback
-        setTimeout(() => { unsub(); resolve(false); }, 55_000);
+        setTimeout(() => {
+          unsub();
+          resolve(false);
+        }, 55_000);
       });
     });
 

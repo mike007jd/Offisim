@@ -15,7 +15,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function computeDelay(attempt: number, config: RetryConfig): number {
-  const exponential = config.baseDelayMs * Math.pow(2, attempt);
+  const exponential = config.baseDelayMs * 2 ** attempt;
   const jitter = exponential * (0.5 + Math.random() * 0.5);
   return Math.min(jitter, config.maxDelayMs);
 }

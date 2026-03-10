@@ -9,7 +9,14 @@ interface AppLayoutProps {
   statusBar: ReactNode;
 }
 
-export function AppLayout({ header, agentPanel, sceneCanvas, chatDrawer, eventLog, statusBar }: AppLayoutProps) {
+export function AppLayout({
+  header,
+  agentPanel,
+  sceneCanvas,
+  chatDrawer,
+  eventLog,
+  statusBar,
+}: AppLayoutProps) {
   return (
     <div className="grid h-screen grid-rows-[auto_1fr_auto_auto]">
       {header}

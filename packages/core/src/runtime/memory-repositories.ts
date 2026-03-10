@@ -1,16 +1,35 @@
 import type { NewEmployee } from '@aics/install-core';
-import type {
-  CheckpointRepository, CompanyRepository, CompanyRow,
-  EmployeeRepository, EmployeeRow, EventRepository,
-  GraphCheckpointRow, GraphThreadRow, HandoffEventRow,
-  HandoffRepository, LlmCallRepository, LlmCallRow,
-  MeetingRepository, MeetingSessionRow,
-  NewGraphCheckpoint, NewGraphThread, NewHandoffEvent,
-  NewLlmCall, NewMeetingSession, NewRuntimeEvent, NewTaskRun, NewToolCall,
-  RuntimeRepositories, TaskRunRepository, TaskRunRow,
-  ThreadRepository, ToolCallRepository, ToolCallRow,
-} from './repositories.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
+import type {
+  CheckpointRepository,
+  CompanyRepository,
+  CompanyRow,
+  EmployeeRepository,
+  EmployeeRow,
+  EventRepository,
+  GraphCheckpointRow,
+  GraphThreadRow,
+  HandoffEventRow,
+  HandoffRepository,
+  LlmCallRepository,
+  LlmCallRow,
+  MeetingRepository,
+  MeetingSessionRow,
+  NewGraphCheckpoint,
+  NewGraphThread,
+  NewHandoffEvent,
+  NewLlmCall,
+  NewMeetingSession,
+  NewRuntimeEvent,
+  NewTaskRun,
+  NewToolCall,
+  RuntimeRepositories,
+  TaskRunRepository,
+  TaskRunRow,
+  ThreadRepository,
+  ToolCallRepository,
+  ToolCallRow,
+} from './repositories.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -82,7 +101,9 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
           ...row,
           status,
           output_json: outputJson ?? row.output_json,
-          finished_at: ['completed', 'failed', 'cancelled'].includes(status) ? now() : row.finished_at,
+          finished_at: ['completed', 'failed', 'cancelled'].includes(status)
+            ? now()
+            : row.finished_at,
         });
       }
     },
@@ -181,8 +202,11 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
       return matching[0] ?? null;
     },
     async findBySeq(threadId, seq) {
-      return [...checkpointsMap.values()]
-        .find((c) => c.thread_id === threadId && c.checkpoint_seq === seq) ?? null;
+      return (
+        [...checkpointsMap.values()].find(
+          (c) => c.thread_id === threadId && c.checkpoint_seq === seq,
+        ) ?? null
+      );
     },
   };
 
@@ -218,8 +242,16 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const installRepos = createMemoryInstallRepositories();
 
   return {
-    companies, threads, taskRuns, employees, toolCalls, handoffs,
-    meetings, checkpoints, events, llmCalls,
+    companies,
+    threads,
+    taskRuns,
+    employees,
+    toolCalls,
+    handoffs,
+    meetings,
+    checkpoints,
+    events,
+    llmCalls,
     ...installRepos,
     seed,
   };

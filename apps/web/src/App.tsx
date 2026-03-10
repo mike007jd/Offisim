@@ -1,19 +1,19 @@
 import { useState } from 'react';
+import { AgentPanel } from './components/agents/AgentPanel';
+import { ChatDrawer } from './components/chat/ChatDrawer';
+import { ChatPanel } from './components/chat/ChatPanel';
+import { EventLog } from './components/events/EventLog';
+import { InstallDialog } from './components/install/InstallDialog';
 import { AppLayout } from './components/layout/AppLayout';
 import { Header } from './components/layout/Header';
 import { StatusBar } from './components/layout/StatusBar';
-import { SettingsDialog } from './components/settings/SettingsDialog';
-import { AgentPanel } from './components/agents/AgentPanel';
-import { ChatPanel } from './components/chat/ChatPanel';
-import { ChatDrawer } from './components/chat/ChatDrawer';
-import { SceneCanvas } from './components/scene/SceneCanvas';
-import { EventLog } from './components/events/EventLog';
 import { PlanProgressPanel } from './components/plan/PlanProgressPanel';
-import { InstallDialog } from './components/install/InstallDialog';
-import { useAicsRuntime } from './runtime/aics-runtime-context';
+import { SceneCanvas } from './components/scene/SceneCanvas';
+import { SettingsDialog } from './components/settings/SettingsDialog';
 import { useReducedMotion } from './hooks/use-reduced-motion';
 import { useInstallFlow } from './hooks/useInstallFlow';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
+import { useAicsRuntime } from './runtime/aics-runtime-context';
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);

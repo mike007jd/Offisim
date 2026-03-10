@@ -7,21 +7,21 @@
  * Uses in-memory repositories and a recording event emitter (no @aics/core imports).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { InstallState } from '@aics/shared-types';
-import type { BindingType, BindingStatus } from '@aics/shared-types';
-import type {
-  InstallRepositories,
-  InstallEventEmitter,
-  RuntimeEnvironment,
-  InstallTransactionRow,
-  InstalledPackageRow,
-  InstalledAssetRow,
-  AssetBindingRow,
-  NewEmployee,
-  BindingConfirmation,
-} from '../../types.js';
+import type { BindingStatus, BindingType } from '@aics/shared-types';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InstallService, InstallServiceError } from '../../install-service.js';
+import type {
+  AssetBindingRow,
+  BindingConfirmation,
+  InstallEventEmitter,
+  InstallRepositories,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+  NewEmployee,
+  RuntimeEnvironment,
+} from '../../types.js';
 import { createTestPkg } from '../fixtures/create-test-pkg.js';
 
 // ---------------------------------------------------------------------------
@@ -72,8 +72,10 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         const txn = store.transactions.find((t) => t.install_txn_id === id);
         if (txn) {
           (txn as unknown as Record<string, unknown>).state = state;
-          if (errorCode !== undefined) (txn as unknown as Record<string, unknown>).error_code = errorCode;
-          if (errorDetail !== undefined) (txn as unknown as Record<string, unknown>).error_detail = errorDetail;
+          if (errorCode !== undefined)
+            (txn as unknown as Record<string, unknown>).error_code = errorCode;
+          if (errorDetail !== undefined)
+            (txn as unknown as Record<string, unknown>).error_detail = errorDetail;
         }
       },
       finish: async (id, state) => {
@@ -109,7 +111,8 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         const binding = store.bindings.find((b) => b.binding_id === id);
         if (binding) {
           (binding as unknown as Record<string, unknown>).status = status;
-          if (valueJson !== undefined) (binding as unknown as Record<string, unknown>).binding_value_json = valueJson;
+          if (valueJson !== undefined)
+            (binding as unknown as Record<string, unknown>).binding_value_json = valueJson;
         }
       },
     },
@@ -279,16 +282,16 @@ describe('Install Full-Flow Integration', () => {
 
       // Step 5: Verify materialized entities
       expect(store.packages).toHaveLength(1);
-      expect(store.packages[0]!.package_id).toBe('aics.employee.test-writer');
-      expect(store.packages[0]!.install_state).toBe('installed');
+      expect(store.packages[0]?.package_id).toBe('aics.employee.test-writer');
+      expect(store.packages[0]?.install_state).toBe('installed');
 
       expect(store.assets).toHaveLength(1);
-      expect(store.assets[0]!.asset_id).toBe('test-writer-default');
-      expect(store.assets[0]!.asset_kind).toBe('employee');
+      expect(store.assets[0]?.asset_id).toBe('test-writer-default');
+      expect(store.assets[0]?.asset_kind).toBe('employee');
 
       expect(store.employees).toHaveLength(1);
-      expect(store.employees[0]!.name).toBe('Test Writer');
-      expect(store.employees[0]!.role_slug).toBe('test-writer-default');
+      expect(store.employees[0]?.name).toBe('Test Writer');
+      expect(store.employees[0]?.role_slug).toBe('test-writer-default');
 
       // TEST_MANIFEST has 2 recommended_models -> 2 binding rows
       expect(store.bindings).toHaveLength(2);
@@ -308,7 +311,9 @@ describe('Install Full-Flow Integration', () => {
       expect(skippedBinding.status).toBe('skipped');
 
       // Step 7: Verify confirm-phase transitions
-      const confirmTransitions = installEvents.slice(eventsBeforeConfirm).map((e) => `${e.prev}->${e.next}`);
+      const confirmTransitions = installEvents
+        .slice(eventsBeforeConfirm)
+        .map((e) => `${e.prev}->${e.next}`);
       expect(confirmTransitions).toEqual([
         'awaiting_bindings->ready_to_install',
         'ready_to_install->materializing',
@@ -322,8 +327,8 @@ describe('Install Full-Flow Integration', () => {
       const importResult = await svc.importFile(archive);
 
       expect(importResult.plan).toBeDefined();
-      expect(importResult.plan!.needsConfirmation).toBe(true);
-      expect(store.transactions[0]!.state).toBe('awaiting_confirmation');
+      expect(importResult.plan?.needsConfirmation).toBe(true);
+      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
 
       // Step 2: Import-phase transitions should end at awaiting_confirmation
       const importTransitions = installEvents.map((e) => `${e.prev}->${e.next}`);
@@ -344,7 +349,9 @@ describe('Install Full-Flow Integration', () => {
       await svc.confirmBindings(importResult.installTxnId, bindings);
 
       // Step 4: Verify full confirm flow through all intermediate states
-      const confirmTransitions = installEvents.slice(eventsBeforeConfirm).map((e) => `${e.prev}->${e.next}`);
+      const confirmTransitions = installEvents
+        .slice(eventsBeforeConfirm)
+        .map((e) => `${e.prev}->${e.next}`);
       expect(confirmTransitions).toEqual([
         'awaiting_confirmation->awaiting_bindings',
         'awaiting_bindings->ready_to_install',
@@ -353,7 +360,7 @@ describe('Install Full-Flow Integration', () => {
       ]);
 
       // Step 5: Final state
-      expect(store.transactions[0]!.state).toBe('installed');
+      expect(store.transactions[0]?.state).toBe('installed');
       expect(store.packages).toHaveLength(1);
       expect(store.employees).toHaveLength(1);
     });
@@ -367,7 +374,7 @@ describe('Install Full-Flow Integration', () => {
       // Confirm with empty bindings — optional bindings will be skipped
       await svc.confirmBindings(importResult.installTxnId, []);
 
-      expect(store.transactions[0]!.state).toBe('installed');
+      expect(store.transactions[0]?.state).toBe('installed');
       expect(store.packages).toHaveLength(1);
       expect(store.employees).toHaveLength(1);
 
@@ -408,7 +415,7 @@ describe('Install Full-Flow Integration', () => {
 
   describe('failure: invalid archive -> error state', () => {
     it('corrupt bytes -> failed with error details', async () => {
-      const garbage = new Uint8Array([0xDE, 0xAD, 0xBE, 0xEF]);
+      const garbage = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
       const result = await svc.importFile(garbage);
 
       // Should return an error, no plan
@@ -471,17 +478,17 @@ describe('Install Full-Flow Integration', () => {
       // Find the event that transitions to 'failed'
       const failEvent = installEvents.find((e) => e.next === 'failed');
       expect(failEvent).toBeDefined();
-      expect(failEvent!.errorCode).toBeDefined();
-      expect(failEvent!.companyId).toBe(COMPANY_ID);
+      expect(failEvent?.errorCode).toBeDefined();
+      expect(failEvent?.companyId).toBe(COMPANY_ID);
     });
 
     it('creates a transaction row even when import fails', async () => {
-      const garbage = new Uint8Array([0xFF, 0xFE]);
+      const garbage = new Uint8Array([0xff, 0xfe]);
       const result = await svc.importFile(garbage);
 
       // Transaction was created before the error occurred
       expect(store.transactions).toHaveLength(1);
-      expect(store.transactions[0]!.install_txn_id).toBe(result.installTxnId);
+      expect(store.transactions[0]?.install_txn_id).toBe(result.installTxnId);
 
       // No materialized entities should exist
       expect(store.packages).toHaveLength(0);
@@ -501,7 +508,7 @@ describe('Install Full-Flow Integration', () => {
       const archive = createPrivilegedArchive();
       const importResult = await svc.importFile(archive);
 
-      expect(store.transactions[0]!.state).toBe('awaiting_confirmation');
+      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
 
       const eventsBeforeCancel = installEvents.length;
       await svc.cancel(importResult.installTxnId);
@@ -512,7 +519,9 @@ describe('Install Full-Flow Integration', () => {
       expect(txn.finished_at).not.toBeNull();
 
       // Verify the cancel event
-      const cancelTransitions = installEvents.slice(eventsBeforeCancel).map((e) => `${e.prev}->${e.next}`);
+      const cancelTransitions = installEvents
+        .slice(eventsBeforeCancel)
+        .map((e) => `${e.prev}->${e.next}`);
       expect(cancelTransitions).toContain('awaiting_confirmation->cancelled');
 
       // No materialized entities
@@ -530,7 +539,7 @@ describe('Install Full-Flow Integration', () => {
       const archive = createValidArchive();
       const importResult = await svc.importFile(archive);
 
-      expect(store.transactions[0]!.state).toBe('awaiting_bindings');
+      expect(store.transactions[0]?.state).toBe('awaiting_bindings');
 
       await svc.cancel(importResult.installTxnId);
 
@@ -548,11 +557,13 @@ describe('Install Full-Flow Integration', () => {
       const importResult = await svc.importFile(archive);
 
       await svc.cancel(importResult.installTxnId);
-      expect(store.transactions[0]!.state).toBe('cancelled');
+      expect(store.transactions[0]?.state).toBe('cancelled');
 
       // Second cancel should throw because we're already in a terminal state
       await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(InstallServiceError);
-      await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(/already in terminal state/);
+      await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(
+        /already in terminal state/,
+      );
     });
 
     it('cancel after successful install throws on terminal state', async () => {
@@ -560,10 +571,12 @@ describe('Install Full-Flow Integration', () => {
       const importResult = await svc.importFile(archive);
       await svc.confirmBindings(importResult.installTxnId, []);
 
-      expect(store.transactions[0]!.state).toBe('installed');
+      expect(store.transactions[0]?.state).toBe('installed');
 
       await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(InstallServiceError);
-      await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(/already in terminal state/);
+      await expect(svc.cancel(importResult.installTxnId)).rejects.toThrow(
+        /already in terminal state/,
+      );
     });
 
     it('cancel with non-existent txnId throws', async () => {
@@ -611,12 +624,12 @@ describe('Install Full-Flow Integration', () => {
       // carry the packageId
       const bindingsEvent = installEvents.find((e) => e.next === 'awaiting_bindings');
       expect(bindingsEvent).toBeDefined();
-      expect(bindingsEvent!.packageId).toBe('aics.employee.test-writer');
+      expect(bindingsEvent?.packageId).toBe('aics.employee.test-writer');
 
       // Earlier transitions don't carry packageId
       const manifestEvent = installEvents.find((e) => e.next === 'manifest_loaded');
       expect(manifestEvent).toBeDefined();
-      expect(manifestEvent!.packageId).toBeUndefined();
+      expect(manifestEvent?.packageId).toBeUndefined();
     });
 
     it('binding events are emitted for confirmed bindings after install', async () => {
@@ -659,9 +672,7 @@ describe('Install Full-Flow Integration', () => {
       ]);
 
       // Only one binding event (for the confirmed one)
-      const cheapDraftEvt = bindingEvents.find(
-        (e) => e.key === 'test-writer-default:cheap-draft',
-      );
+      const cheapDraftEvt = bindingEvents.find((e) => e.key === 'test-writer-default:cheap-draft');
       expect(cheapDraftEvt).toBeUndefined();
     });
 
@@ -674,20 +685,20 @@ describe('Install Full-Flow Integration', () => {
 
       const cancelEvents = installEvents.slice(eventsBeforeCancel);
       expect(cancelEvents).toHaveLength(1);
-      expect(cancelEvents[0]!.prev).toBe('awaiting_confirmation');
-      expect(cancelEvents[0]!.next).toBe('cancelled');
-      expect(cancelEvents[0]!.companyId).toBe(COMPANY_ID);
-      expect(cancelEvents[0]!.txnId).toBe(importResult.installTxnId);
+      expect(cancelEvents[0]?.prev).toBe('awaiting_confirmation');
+      expect(cancelEvents[0]?.next).toBe('cancelled');
+      expect(cancelEvents[0]?.companyId).toBe(COMPANY_ID);
+      expect(cancelEvents[0]?.txnId).toBe(importResult.installTxnId);
     });
 
     it('failure emits an install event with errorCode', async () => {
-      const garbage = new Uint8Array([0xBA, 0xD0]);
+      const garbage = new Uint8Array([0xba, 0xd0]);
       const result = await svc.importFile(garbage);
 
       const failEvent = installEvents.find((e) => e.next === 'failed');
       expect(failEvent).toBeDefined();
-      expect(failEvent!.errorCode).toBeTruthy();
-      expect(failEvent!.txnId).toBe(result.installTxnId);
+      expect(failEvent?.errorCode).toBeTruthy();
+      expect(failEvent?.txnId).toBe(result.installTxnId);
     });
 
     it('events form a valid chain — each event.next equals the next event.prev', async () => {
@@ -703,10 +714,10 @@ describe('Install Full-Flow Integration', () => {
       }
 
       // First event starts from 'created'
-      expect(installEvents[0]!.prev).toBe('created');
+      expect(installEvents[0]?.prev).toBe('created');
 
       // Last event ends at 'installed'
-      expect(installEvents[installEvents.length - 1]!.next).toBe('installed');
+      expect(installEvents[installEvents.length - 1]?.next).toBe('installed');
     });
   });
 
@@ -733,26 +744,24 @@ describe('Install Full-Flow Integration', () => {
 
       // Complete first install
       await svc.confirmBindings(result1.installTxnId, []);
-      expect(
-        store.transactions.find((t) => t.install_txn_id === result1.installTxnId)!.state,
-      ).toBe('installed');
+      expect(store.transactions.find((t) => t.install_txn_id === result1.installTxnId)?.state).toBe(
+        'installed',
+      );
 
       // Second install is still awaiting
-      expect(
-        store.transactions.find((t) => t.install_txn_id === result2.installTxnId)!.state,
-      ).toBe('awaiting_confirmation');
+      expect(store.transactions.find((t) => t.install_txn_id === result2.installTxnId)?.state).toBe(
+        'awaiting_confirmation',
+      );
 
       // Cancel second install
       await svc.cancel(result2.installTxnId);
-      expect(
-        store.transactions.find((t) => t.install_txn_id === result2.installTxnId)!.state,
-      ).toBe('cancelled');
+      expect(store.transactions.find((t) => t.install_txn_id === result2.installTxnId)?.state).toBe(
+        'cancelled',
+      );
     });
 
     it('confirmBindings on non-existent txnId throws txn_not_found', async () => {
-      await expect(
-        svc.confirmBindings('phantom-txn-id', []),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.confirmBindings('phantom-txn-id', [])).rejects.toThrow(InstallServiceError);
     });
 
     it('confirmBindings on already-installed transaction throws invalid_state', async () => {
@@ -761,9 +770,9 @@ describe('Install Full-Flow Integration', () => {
       await svc.confirmBindings(result.installTxnId, []);
 
       // Plan was removed from cache after first confirm
-      await expect(
-        svc.confirmBindings(result.installTxnId, []),
-      ).rejects.toThrow(InstallServiceError);
+      await expect(svc.confirmBindings(result.installTxnId, [])).rejects.toThrow(
+        InstallServiceError,
+      );
     });
   });
 });

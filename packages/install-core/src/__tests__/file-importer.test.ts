@@ -1,14 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { readPackageFile, FileImportError } from '../file-importer.js';
+import { describe, expect, it } from 'vitest';
+import { FileImportError, readPackageFile } from '../file-importer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers — create mock File objects
 // ---------------------------------------------------------------------------
 
-function createMockFile(
-  name: string,
-  sizeOrContent: number | Uint8Array,
-): File {
+function createMockFile(name: string, sizeOrContent: number | Uint8Array): File {
   if (typeof sizeOrContent === 'number') {
     // Create a file with the given size (content doesn't matter for validation)
     const content = new Uint8Array(Math.min(sizeOrContent, 1024));

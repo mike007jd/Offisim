@@ -5,11 +5,11 @@
  * Produces a PlanResult with either an InstallPlan (ok) or an error with stage info.
  */
 
-import type { RuntimeEnvironment, PlanResult } from './types.js';
-import { extractPackage } from './manifest-loader.js';
-import { checkIntegrity } from './integrity-checker.js';
-import { checkCompatibility } from './compatibility-checker.js';
 import { resolveBindings } from './binding-resolver.js';
+import { checkCompatibility } from './compatibility-checker.js';
+import { checkIntegrity } from './integrity-checker.js';
+import { extractPackage } from './manifest-loader.js';
+import type { ExtractedPackage, PlanResult, RuntimeEnvironment } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Confirmation logic
@@ -42,7 +42,9 @@ function computeConfirmation(manifest: {
   }
 
   if (perms.filesystem_scope !== 'none' && perms.filesystem_scope !== 'workspace') {
-    reasons.push(`Package requires filesystem access beyond workspace (scope: ${perms.filesystem_scope})`);
+    reasons.push(
+      `Package requires filesystem access beyond workspace (scope: ${perms.filesystem_scope})`,
+    );
   }
 
   return {
@@ -69,7 +71,7 @@ export async function createInstallPlan(
   expectedHash?: string,
 ): Promise<PlanResult> {
   // 1. Extract and validate manifest
-  let extracted;
+  let extracted: ExtractedPackage;
   try {
     extracted = await extractPackage(archiveBytes);
   } catch (err) {

@@ -1,9 +1,9 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { AicsGraphState, TaskPlan, PlanStep, PlanTask } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
+import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
 
@@ -85,9 +85,8 @@ function parsePmPlan(content: string): LlmPlan | null {
             taskType: task.taskType,
             employeeId: task.employeeId,
             description: task.description,
-            dependsOnStepOutput: typeof task.dependsOnStepOutput === 'boolean'
-              ? task.dependsOnStepOutput
-              : false,
+            dependsOnStepOutput:
+              typeof task.dependsOnStepOutput === 'boolean' ? task.dependsOnStepOutput : false,
           });
         }
       }
@@ -117,9 +116,7 @@ export async function pmPlannerNode(
   }
 
   // Announce node entry
-  runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner'),
-  );
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner'));
 
   const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
   const directive = state.managerDirective;
@@ -157,21 +154,25 @@ export async function pmPlannerNode(
 
   const resolved = modelResolver.resolve(null, 'pm');
 
-  const llmResponse = await recordedLlmCall(runtimeCtx, {
-    messages: [
-      {
-        role: 'system',
-        content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
-      },
-      {
-        role: 'user',
-        content: `Intent: ${directive.intent}${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}`,
-      },
-    ],
-    model: resolved.model,
-    temperature: resolved.temperature,
-    maxTokens: resolved.maxTokens,
-  }, { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model });
+  const llmResponse = await recordedLlmCall(
+    runtimeCtx,
+    {
+      messages: [
+        {
+          role: 'system',
+          content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+        },
+        {
+          role: 'user',
+          content: `Intent: ${directive.intent}${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}`,
+        },
+      ],
+      model: resolved.model,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+    },
+    { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
+  );
 
   let plan = parsePmPlan(llmResponse.content);
 
@@ -179,16 +180,18 @@ export async function pmPlannerNode(
   if (!plan) {
     plan = {
       summary: `Execute task: ${directive.intent}`,
-      steps: [{
-        stepIndex: 0,
-        description: directive.intent,
-        tasks: validEmployees.map((e) => ({
-          taskType: 'general',
-          employeeId: e.employee_id,
+      steps: [
+        {
+          stepIndex: 0,
           description: directive.intent,
-          dependsOnStepOutput: false,
-        })),
-      }],
+          tasks: validEmployees.map((e) => ({
+            taskType: 'general',
+            employeeId: e.employee_id,
+            description: directive.intent,
+            dependsOnStepOutput: false,
+          })),
+        },
+      ],
     };
   }
 

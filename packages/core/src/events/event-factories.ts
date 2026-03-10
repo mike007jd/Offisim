@@ -1,6 +1,6 @@
 import type {
-  BindingStatus,
   BindingStatePayload,
+  BindingStatus,
   BindingType,
   EmployeeInstalledPayload,
   EmployeeState,

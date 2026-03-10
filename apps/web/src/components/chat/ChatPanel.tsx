@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollArea } from '../ui/scroll-area';
-import { MessageBubble } from './MessageBubble';
-import { StreamingBubble } from './StreamingBubble';
-import { ChatInput } from './ChatInput';
-import { ErrorBanner } from '../error/ErrorBanner';
-import { EmptyState } from '../error/EmptyState';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
+import { EmptyState } from '../error/EmptyState';
+import { ErrorBanner } from '../error/ErrorBanner';
+import { ScrollArea } from '../ui/scroll-area';
+import { ChatInput } from './ChatInput';
+import { MessageBubble } from './MessageBubble';
+import { StreamingBubble } from './StreamingBubble';
 
 interface ChatMessage {
   id: string;
@@ -40,7 +40,8 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
     }
   }, [isStreaming, streamContent]);
 
-  // Auto-scroll
+  // Auto-scroll when new messages arrive or streaming content updates
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll-to-bottom intentionally
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -50,10 +51,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
   async function handleSend(text: string) {
     lastStreamRef.current = '';
 
-    setMessages((prev) => [
-      ...prev,
-      { id: genMsgId(), role: 'user', content: text },
-    ]);
+    setMessages((prev) => [...prev, { id: genMsgId(), role: 'user', content: text }]);
 
     const response = await sendMessage(text);
 
@@ -74,9 +72,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
-      {error && (
-        <ErrorBanner message={error} onDismiss={clearError} />
-      )}
+      {error && <ErrorBanner message={error} onDismiss={clearError} />}
       {showEmpty ? (
         <EmptyState isConfigured={isReady} onOpenSettings={onOpenSettings} />
       ) : (

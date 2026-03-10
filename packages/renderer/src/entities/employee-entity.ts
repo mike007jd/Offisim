@@ -1,6 +1,6 @@
-import { Container, Graphics, Text } from 'pixi.js';
-import gsap from 'gsap';
 import type { EmployeeState } from '@aics/shared-types';
+import gsap from 'gsap';
+import { Container, Graphics, Text } from 'pixi.js';
 import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
@@ -48,12 +48,23 @@ export class EmployeeEntity {
     this.container.addChild(this.avatar);
 
     // Name initial in avatar
-    const initial = new Text({ text: (name[0] ?? '?').toUpperCase(), style: { fontSize: radius, fill: STATE_COLORS.idle, fontFamily: 'system-ui, sans-serif', fontWeight: 'bold' } });
+    const initial = new Text({
+      text: (name[0] ?? '?').toUpperCase(),
+      style: {
+        fontSize: radius,
+        fill: STATE_COLORS.idle,
+        fontFamily: 'system-ui, sans-serif',
+        fontWeight: 'bold',
+      },
+    });
     initial.anchor.set(0.5);
     this.container.addChild(initial);
 
     // Name label below
-    this.label = new Text({ text: name, style: { fontSize, fill: 0x334155, fontFamily: 'system-ui, sans-serif' } });
+    this.label = new Text({
+      text: name,
+      style: { fontSize, fill: 0x334155, fontFamily: 'system-ui, sans-serif' },
+    });
     this.label.anchor.set(0.5, 0);
     this.label.position.set(0, labelOffsetY);
     this.container.addChild(this.label);
@@ -61,7 +72,14 @@ export class EmployeeEntity {
     // Task bubble (hidden by default)
     this.taskBubble = new Container();
     this.taskBubble.visible = false;
-    this.taskText = new Text({ text: '', style: { fontSize: LAYOUT.taskBubble.fontSize, fill: 0xffffff, fontFamily: 'system-ui, sans-serif' } });
+    this.taskText = new Text({
+      text: '',
+      style: {
+        fontSize: LAYOUT.taskBubble.fontSize,
+        fill: 0xffffff,
+        fontFamily: 'system-ui, sans-serif',
+      },
+    });
     this.taskText.anchor.set(0.5);
     this.taskBubble.position.set(0, LAYOUT.taskBubble.offsetY);
     this.taskBubble.addChild(this.taskText);
@@ -83,38 +101,59 @@ export class EmployeeEntity {
     if (duration > 0) {
       if (next === 'blocked' || next === 'failed') {
         // Shake animation for error states
-        this.trackTween(gsap.fromTo(this.container, { x: this.container.x - 3 }, {
-          x: this.container.x + 3,
-          duration: 0.08,
-          ease: 'none',
-          yoyo: true,
-          repeat: 5,
-        }));
+        this.trackTween(
+          gsap.fromTo(
+            this.container,
+            { x: this.container.x - 3 },
+            {
+              x: this.container.x + 3,
+              duration: 0.08,
+              ease: 'none',
+              yoyo: true,
+              repeat: 5,
+            },
+          ),
+        );
       } else if (next === 'success') {
         // Pop animation for success
-        this.trackTween(gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
-          x: 1.25, y: 1.25,
-          duration: duration / 2,
-          ease: 'back.out(2)',
-          yoyo: true,
-          repeat: 1,
-        }));
+        this.trackTween(
+          gsap.fromTo(
+            this.ring.scale,
+            { x: 1, y: 1 },
+            {
+              x: 1.25,
+              y: 1.25,
+              duration: duration / 2,
+              ease: 'back.out(2)',
+              yoyo: true,
+              repeat: 1,
+            },
+          ),
+        );
       } else {
         // Standard scale bounce for other transitions
-        this.trackTween(gsap.fromTo(this.ring.scale, { x: 1, y: 1 }, {
-          x: 1.15, y: 1.15,
-          duration: duration / 2,
-          ease,
-          yoyo: true,
-          repeat: 1,
-        }));
+        this.trackTween(
+          gsap.fromTo(
+            this.ring.scale,
+            { x: 1, y: 1 },
+            {
+              x: 1.15,
+              y: 1.15,
+              duration: duration / 2,
+              ease,
+              yoyo: true,
+              repeat: 1,
+            },
+          ),
+        );
       }
     }
 
     // Start continuous pulse for active work states
     if (isActiveState(next) && this.motion.M1.duration > 0) {
       this.pulseTween = gsap.to(this.ring.scale, {
-        x: 1.08, y: 1.08,
+        x: 1.08,
+        y: 1.08,
         duration: this.motion.M1.duration,
         ease: 'sine.inOut',
         yoyo: true,
@@ -145,7 +184,7 @@ export class EmployeeEntity {
   /** Set or clear the current task */
   setTask(taskId: string | null): void {
     if (taskId) {
-      this.taskText.text = taskId.length > 16 ? taskId.slice(0, 14) + '…' : taskId;
+      this.taskText.text = taskId.length > 16 ? `${taskId.slice(0, 14)}…` : taskId;
       this.drawTaskBubbleBg();
       this.taskBubble.visible = true;
       const { duration, ease } = this.motion.M3;
@@ -165,7 +204,9 @@ export class EmployeeEntity {
     const { duration, ease } = this.motion.M3;
     const targetScale = on ? 1.1 : 1.0;
     if (duration > 0) {
-      this.trackTween(gsap.to(this.container.scale, { x: targetScale, y: targetScale, duration, ease }));
+      this.trackTween(
+        gsap.to(this.container.scale, { x: targetScale, y: targetScale, duration, ease }),
+      );
     } else {
       this.container.scale.set(targetScale);
     }
@@ -209,9 +250,7 @@ export class EmployeeEntity {
   }
 }
 
-const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set([
-  'thinking', 'searching', 'executing',
-]);
+const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set(['thinking', 'searching', 'executing']);
 
 function isActiveState(state: EmployeeState): boolean {
   return ACTIVE_STATES.has(state);

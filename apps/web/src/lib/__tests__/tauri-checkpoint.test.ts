@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSelect = vi.fn();
 const mockExecute = vi.fn();
@@ -45,13 +45,19 @@ describe('TauriCheckpointSaver', () => {
       pending_sends: [],
     };
 
-    const result = await saver.put(config, checkpoint as any, { source: 'input', step: 0, parents: {} });
+    // biome-ignore lint/suspicious/noExplicitAny: partial checkpoint test double
+    const result = await saver.put(config, checkpoint as any, {
+      source: 'input',
+      step: 0,
+      parents: {},
+    });
 
     expect(result.configurable?.checkpoint_id).toBe('cp-new');
     // Verify INSERT OR REPLACE was called
     expect(mockExecute).toHaveBeenCalled();
-    const call = mockExecute.mock.calls.find((c: any) =>
-      typeof c[0] === 'string' && c[0].includes('INSERT OR REPLACE INTO checkpoints'),
+    const call = mockExecute.mock.calls.find(
+      // biome-ignore lint/suspicious/noExplicitAny: mock call args inspection
+      (c: any) => typeof c[0] === 'string' && c[0].includes('INSERT OR REPLACE INTO checkpoints'),
     );
     expect(call).toBeDefined();
   });
@@ -67,6 +73,7 @@ describe('TauriCheckpointSaver', () => {
     await saver.putWrites(config, [['messages', { role: 'user', content: 'hello' }]], 'task-1');
 
     // Expect BEGIN, INSERT, COMMIT
+    // biome-ignore lint/suspicious/noExplicitAny: mock call args inspection
     const sqls = mockExecute.mock.calls.map((c: any) => c[0]);
     expect(sqls).toContain('BEGIN');
     expect(sqls).toContain('COMMIT');
@@ -81,6 +88,7 @@ describe('TauriCheckpointSaver', () => {
 
     // Expect BEGIN, 2x DELETE, COMMIT
     expect(mockExecute).toHaveBeenCalledTimes(4);
+    // biome-ignore lint/suspicious/noExplicitAny: mock call args inspection
     const sqls = mockExecute.mock.calls.map((c: any) => c[0]);
     expect(sqls).toContain('BEGIN');
     expect(sqls).toContain('COMMIT');

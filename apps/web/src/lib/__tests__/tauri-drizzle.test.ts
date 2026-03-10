@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @tauri-apps/plugin-sql
 const mockSelect = vi.fn();
@@ -62,9 +62,10 @@ describe('convertPlaceholders (via proxy callback)', () => {
 
     mockSelect.mockResolvedValue([]);
 
-    await db.select().from(employees).where(
-      and(eq(employees.company_id, 'company-001'), eq(employees.role_slug, 'developer')),
-    );
+    await db
+      .select()
+      .from(employees)
+      .where(and(eq(employees.company_id, 'company-001'), eq(employees.role_slug, 'developer')));
 
     expect(mockSelect).toHaveBeenCalledOnce();
     const [sql, params] = mockSelect.mock.calls[0]!;

@@ -8,7 +8,7 @@
  */
 
 import type { PackageManifest } from '@aics/asset-schema';
-import type { RuntimeEnvironment, CompatibilityResult, CompatibilityError } from './types.js';
+import type { CompatibilityError, CompatibilityResult, RuntimeEnvironment } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Version helpers (no semver library)

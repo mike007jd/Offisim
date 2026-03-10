@@ -1,5 +1,11 @@
-import { test, expect } from '@playwright/test';
-import { injectProvider, waitForRuntime, openChat, sendChat, waitForResponse } from './helpers/setup';
+import { expect, test } from '@playwright/test';
+import {
+  injectProvider,
+  openChat,
+  sendChat,
+  waitForResponse,
+  waitForRuntime,
+} from './helpers/setup';
 
 test.describe('Smoke: Chat Flow', () => {
   test.beforeEach(async ({ page }) => {

@@ -11,8 +11,13 @@
  * - manifest-1.0.0.json (manifest types from @aics/asset-schema)
  */
 
-import type { InstallState, InstallSourceType, BindingType, BindingStatus } from '@aics/shared-types';
-import type { PackageManifest, AssetKind, SupportedEnvironment } from '@aics/asset-schema';
+import type { AssetKind, PackageManifest, SupportedEnvironment } from '@aics/asset-schema';
+import type {
+  BindingStatus,
+  BindingType,
+  InstallSourceType,
+  InstallState,
+} from '@aics/shared-types';
 
 // ---------------------------------------------------------------------------
 // State Machine
@@ -111,7 +116,12 @@ export interface InstallPlan {
 /** Result of the planning phase. */
 export type PlanResult =
   | { readonly ok: true; readonly plan: InstallPlan }
-  | { readonly ok: false; readonly stage: string; readonly error: string; readonly errorCode?: string };
+  | {
+      readonly ok: false;
+      readonly stage: string;
+      readonly error: string;
+      readonly errorCode?: string;
+    };
 
 // ---------------------------------------------------------------------------
 // User Input
@@ -213,7 +223,12 @@ export interface InstallRepositories {
   readonly installTransactions: {
     create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow>;
     findById(id: string): Promise<InstallTransactionRow | null>;
-    updateState(id: string, state: InstallState, errorCode?: string, errorDetail?: string): Promise<void>;
+    updateState(
+      id: string,
+      state: InstallState,
+      errorCode?: string,
+      errorDetail?: string,
+    ): Promise<void>;
     finish(id: string, state: InstallState): Promise<void>;
   };
   readonly installedPackages: {

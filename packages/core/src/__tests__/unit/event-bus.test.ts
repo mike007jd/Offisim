@@ -1,6 +1,6 @@
+import type { RuntimeEvent } from '@aics/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { RuntimeEvent } from '@aics/shared-types';
 
 function makeEvent(type: string, overrides?: Partial<RuntimeEvent>): RuntimeEvent {
   return {
@@ -23,7 +23,9 @@ describe('InMemoryEventBus', () => {
     bus.emit(makeEvent('employee.state.changed'));
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ type: 'employee.state.changed' }));
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'employee.state.changed' }),
+    );
   });
 
   it('does not call handler on non-matching prefix', () => {

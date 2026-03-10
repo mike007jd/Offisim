@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { teeStream } from '../../llm/stream-tee.js';
+import { describe, expect, it, vi } from 'vitest';
 import type { LlmStreamChunk } from '../../llm/gateway.js';
+import { teeStream } from '../../llm/stream-tee.js';
 
 async function* mockStream(chunks: LlmStreamChunk[]): AsyncIterable<LlmStreamChunk> {
   for (const chunk of chunks) {
@@ -50,7 +50,7 @@ describe('teeStream', () => {
 
     const result = await teeStream(stream, () => {});
     expect(result.toolCalls).toHaveLength(1);
-    expect(result.toolCalls[0]!.name).toBe('search');
+    expect(result.toolCalls[0]?.name).toBe('search');
   });
 
   it('returns zero usage when stream has no usage chunk', async () => {

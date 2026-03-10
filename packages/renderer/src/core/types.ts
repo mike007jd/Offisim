@@ -6,10 +6,11 @@ import type { EmployeeState, RuntimeEvent } from '@aics/shared-types';
  * is provided by the React integration layer.
  *
  * Handler uses `RuntimeEvent<any>` to stay structurally compatible with core's
- * EventHandler type, avoiding the need for `as` casts at the call site (I2).
+ * EventHandler type — TS interfaces lack index signatures so specific payload
+ * interfaces are not assignable to `RuntimeEvent<Record<string, unknown>>`.
  */
 export interface SceneEventBus {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   on(prefix: string, handler: (event: RuntimeEvent<any>) => void): () => void;
 }
 

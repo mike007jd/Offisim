@@ -25,7 +25,12 @@ export const TRANSITIONS: TransitionMap = new Map<InstallState, ReadonlySet<Inst
   ['compatibility_checked', new Set<InstallState>(['dependency_planned', 'failed'])],
   [
     'dependency_planned',
-    new Set<InstallState>(['awaiting_confirmation', 'awaiting_bindings', 'ready_to_install', 'failed']),
+    new Set<InstallState>([
+      'awaiting_confirmation',
+      'awaiting_bindings',
+      'ready_to_install',
+      'failed',
+    ]),
   ],
   [
     'awaiting_confirmation',
@@ -47,10 +52,7 @@ const TERMINAL_STATES: ReadonlySet<InstallState> = new Set<InstallState>([
   'cancelled',
 ]);
 
-const ERROR_STATES: ReadonlySet<InstallState> = new Set<InstallState>([
-  'failed',
-  'rolled_back',
-]);
+const ERROR_STATES: ReadonlySet<InstallState> = new Set<InstallState>(['failed', 'rolled_back']);
 
 /** Returns true if the given state has no valid outgoing transitions. */
 export function isTerminalState(state: InstallState): boolean {

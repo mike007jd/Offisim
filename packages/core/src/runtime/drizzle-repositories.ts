@@ -1,22 +1,46 @@
-import { eq, and, desc } from 'drizzle-orm';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '@aics/db-local';
-import type { AssetBindingRow, InstallTransactionRow, InstalledAssetRow, InstalledPackageRow, NewEmployee } from '@aics/install-core';
+import type {
+  AssetBindingRow,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+  NewEmployee,
+} from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
+import { and, desc, eq } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type {
-  CheckpointRepository, CompanyRepository, EmployeeRepository,
-  EventRepository, GraphCheckpointRow, GraphThreadRow,
-  HandoffEventRow, HandoffRepository, LlmCallRepository,
-  LlmCallRow, MeetingRepository,
-  MeetingSessionRow, NewGraphCheckpoint, NewGraphThread,
-  NewHandoffEvent, NewLlmCall, NewMeetingSession, NewRuntimeEvent,
-  NewTaskRun, NewToolCall, RuntimeRepositories,
-  TaskRunRepository, TaskRunRow, ThreadRepository,
-  ToolCallRepository, ToolCallRow,
+  CheckpointRepository,
+  CompanyRepository,
+  EmployeeRepository,
+  EmployeeRow,
+  EventRepository,
+  GraphCheckpointRow,
+  GraphThreadRow,
+  HandoffEventRow,
+  HandoffRepository,
+  LlmCallRepository,
+  LlmCallRow,
+  MeetingRepository,
+  MeetingSessionRow,
+  NewGraphCheckpoint,
+  NewGraphThread,
+  NewHandoffEvent,
+  NewLlmCall,
+  NewMeetingSession,
+  NewRuntimeEvent,
+  NewTaskRun,
+  NewToolCall,
+  RuntimeRepositories,
+  TaskRunRepository,
+  TaskRunRow,
+  ThreadRepository,
+  ToolCallRepository,
+  ToolCallRow,
 } from './repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -28,8 +52,16 @@ function now(): string {
 export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   const companies: CompanyRepository = {
     async findById(id) {
-      const rows = db.select().from(schema.companies).where(eq(schema.companies.company_id, id)).all();
-      return (rows[0] as unknown as ReturnType<CompanyRepository['findById']> extends Promise<infer T> ? T : never) ?? null;
+      const rows = db
+        .select()
+        .from(schema.companies)
+        .where(eq(schema.companies.company_id, id))
+        .all();
+      return (
+        (rows[0] as unknown as ReturnType<CompanyRepository['findById']> extends Promise<infer T>
+          ? T
+          : never) ?? null
+      );
     },
   };
 
@@ -40,14 +72,23 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return row as GraphThreadRow;
     },
     async findById(id) {
-      const rows = db.select().from(schema.graphThreads).where(eq(schema.graphThreads.thread_id, id)).all();
+      const rows = db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.thread_id, id))
+        .all();
       return (rows[0] as GraphThreadRow | undefined) ?? null;
     },
     async findByCompany(companyId, opts) {
-      let query = db.select().from(schema.graphThreads)
+      let query = db
+        .select()
+        .from(schema.graphThreads)
         .where(
           opts?.status
-            ? and(eq(schema.graphThreads.company_id, companyId), eq(schema.graphThreads.status, opts.status))
+            ? and(
+                eq(schema.graphThreads.company_id, companyId),
+                eq(schema.graphThreads.status, opts.status),
+              )
             : eq(schema.graphThreads.company_id, companyId),
         )
         .orderBy(desc(schema.graphThreads.created_at));
@@ -73,11 +114,19 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return row as TaskRunRow;
     },
     async findById(id) {
-      const rows = db.select().from(schema.taskRuns).where(eq(schema.taskRuns.task_run_id, id)).all();
+      const rows = db
+        .select()
+        .from(schema.taskRuns)
+        .where(eq(schema.taskRuns.task_run_id, id))
+        .all();
       return (rows[0] as TaskRunRow | undefined) ?? null;
     },
     async findByThread(threadId) {
-      return db.select().from(schema.taskRuns).where(eq(schema.taskRuns.thread_id, threadId)).all() as TaskRunRow[];
+      return db
+        .select()
+        .from(schema.taskRuns)
+        .where(eq(schema.taskRuns.thread_id, threadId))
+        .all() as TaskRunRow[];
     },
     async updateStatus(id, status, outputJson) {
       const finished = ['completed', 'failed', 'cancelled'].includes(status) ? now() : null;
@@ -92,25 +141,43 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     async create(emp: NewEmployee) {
       const employee_id = crypto.randomUUID();
       const ts = now();
-      db.insert(schema.employees).values({
-        employee_id,
-        ...emp,
-        created_at: ts,
-        updated_at: ts,
-      }).run();
+      db.insert(schema.employees)
+        .values({
+          employee_id,
+          ...emp,
+          created_at: ts,
+          updated_at: ts,
+        })
+        .run();
       return { employee_id };
     },
     async findById(id) {
-      const rows = db.select().from(schema.employees).where(eq(schema.employees.employee_id, id)).all();
-      return (rows[0] as unknown as ReturnType<EmployeeRepository['findById']> extends Promise<infer T> ? T : never) ?? null;
+      const rows = db
+        .select()
+        .from(schema.employees)
+        .where(eq(schema.employees.employee_id, id))
+        .all();
+      return (
+        (rows[0] as unknown as ReturnType<EmployeeRepository['findById']> extends Promise<infer T>
+          ? T
+          : never) ?? null
+      );
     },
     async findByCompany(companyId) {
-      return db.select().from(schema.employees).where(eq(schema.employees.company_id, companyId)).all() as any;
+      return db
+        .select()
+        .from(schema.employees)
+        .where(eq(schema.employees.company_id, companyId))
+        .all() as EmployeeRow[];
     },
     async findByRole(companyId, roleSlug) {
-      return db.select().from(schema.employees)
-        .where(and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)))
-        .all() as any;
+      return db
+        .select()
+        .from(schema.employees)
+        .where(
+          and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)),
+        )
+        .all() as EmployeeRow[];
     },
   };
 
@@ -134,8 +201,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return h as HandoffEventRow;
     },
     async findByThread(threadId) {
-      return db.select().from(schema.handoffEvents)
-        .where(eq(schema.handoffEvents.thread_id, threadId)).all() as HandoffEventRow[];
+      return db
+        .select()
+        .from(schema.handoffEvents)
+        .where(eq(schema.handoffEvents.thread_id, threadId))
+        .all() as HandoffEventRow[];
     },
   };
 
@@ -145,8 +215,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return m as MeetingSessionRow;
     },
     async findById(id) {
-      const rows = db.select().from(schema.meetingSessions)
-        .where(eq(schema.meetingSessions.meeting_id, id)).all();
+      const rows = db
+        .select()
+        .from(schema.meetingSessions)
+        .where(eq(schema.meetingSessions.meeting_id, id))
+        .all();
       return (rows[0] as MeetingSessionRow | undefined) ?? null;
     },
     async updateStatus(id, status, summaryJson) {
@@ -162,7 +235,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       db.insert(schema.graphCheckpoints).values(c).run();
     },
     async findLatest(threadId) {
-      const rows = db.select().from(schema.graphCheckpoints)
+      const rows = db
+        .select()
+        .from(schema.graphCheckpoints)
         .where(eq(schema.graphCheckpoints.thread_id, threadId))
         .orderBy(desc(schema.graphCheckpoints.checkpoint_seq))
         .limit(1)
@@ -170,11 +245,15 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return (rows[0] as GraphCheckpointRow | undefined) ?? null;
     },
     async findBySeq(threadId, seq) {
-      const rows = db.select().from(schema.graphCheckpoints)
-        .where(and(
-          eq(schema.graphCheckpoints.thread_id, threadId),
-          eq(schema.graphCheckpoints.checkpoint_seq, seq),
-        ))
+      const rows = db
+        .select()
+        .from(schema.graphCheckpoints)
+        .where(
+          and(
+            eq(schema.graphCheckpoints.thread_id, threadId),
+            eq(schema.graphCheckpoints.checkpoint_seq, seq),
+          ),
+        )
         .all();
       return (rows[0] as GraphCheckpointRow | undefined) ?? null;
     },
@@ -192,12 +271,18 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return c as LlmCallRow;
     },
     async findByThread(threadId) {
-      return db.select().from(schema.llmCalls)
-        .where(eq(schema.llmCalls.thread_id, threadId)).all() as LlmCallRow[];
+      return db
+        .select()
+        .from(schema.llmCalls)
+        .where(eq(schema.llmCalls.thread_id, threadId))
+        .all() as LlmCallRow[];
     },
     async findByTaskRun(taskRunId) {
-      return db.select().from(schema.llmCalls)
-        .where(eq(schema.llmCalls.task_run_id, taskRunId)).all() as LlmCallRow[];
+      return db
+        .select()
+        .from(schema.llmCalls)
+        .where(eq(schema.llmCalls.task_run_id, taskRunId))
+        .all() as LlmCallRow[];
     },
   };
 
@@ -208,8 +293,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return row;
     },
     async findById(id) {
-      const rows = db.select().from(schema.installTransactions)
-        .where(eq(schema.installTransactions.install_txn_id, id)).all();
+      const rows = db
+        .select()
+        .from(schema.installTransactions)
+        .where(eq(schema.installTransactions.install_txn_id, id))
+        .all();
       return (rows[0] as InstallTransactionRow | undefined) ?? null;
     },
     async updateState(id, state: InstallState, errorCode?: string, errorDetail?: string) {
@@ -236,11 +324,15 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return pkg as InstalledPackageRow;
     },
     async findByPackageId(companyId, packageId) {
-      return db.select().from(schema.installedPackages)
-        .where(and(
-          eq(schema.installedPackages.company_id, companyId),
-          eq(schema.installedPackages.package_id, packageId),
-        ))
+      return db
+        .select()
+        .from(schema.installedPackages)
+        .where(
+          and(
+            eq(schema.installedPackages.company_id, companyId),
+            eq(schema.installedPackages.package_id, packageId),
+          ),
+        )
         .all() as InstalledPackageRow[];
     },
   };
@@ -258,7 +350,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return binding as AssetBindingRow;
     },
     async findByTransaction(txnId) {
-      return db.select().from(schema.assetBindings)
+      return db
+        .select()
+        .from(schema.assetBindings)
         .where(eq(schema.assetBindings.install_txn_id, txnId))
         .all() as AssetBindingRow[];
     },
@@ -275,8 +369,19 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   return {
-    companies, threads, taskRuns, employees, toolCalls, handoffs,
-    meetings, checkpoints, events, llmCalls,
-    installTransactions, installedPackages, installedAssets, assetBindings,
+    companies,
+    threads,
+    taskRuns,
+    employees,
+    toolCalls,
+    handoffs,
+    meetings,
+    checkpoints,
+    events,
+    llmCalls,
+    installTransactions,
+    installedPackages,
+    installedAssets,
+    assetBindings,
   };
 }

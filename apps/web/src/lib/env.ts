@@ -3,8 +3,5 @@
  * Uses the injected window.__TAURI__ object that Tauri provides.
  */
 export function isTauri(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    '__TAURI__' in window
-  );
+  return typeof window !== 'undefined' && '__TAURI__' in window;
 }

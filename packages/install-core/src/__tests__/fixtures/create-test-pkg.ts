@@ -6,8 +6,8 @@
  * with adjustments for hashes (they will be computed at runtime, not checked here).
  */
 
-import { zipSync } from 'fflate';
 import type { PackageManifest } from '@aics/asset-schema';
+import { zipSync } from 'fflate';
 
 /**
  * A minimal valid manifest for testing purposes.
@@ -97,11 +97,13 @@ export const TEST_ASSET_CONTENT = JSON.stringify({
  * @param extraFiles - additional files to include in the ZIP beyond manifest.json and the default asset
  * @param omitManifest - if true, do not include manifest.json (for error testing)
  */
-export function createTestPkg(options: {
-  manifestOverride?: Partial<PackageManifest>;
-  extraFiles?: Record<string, string | Uint8Array>;
-  omitManifest?: boolean;
-} = {}): Uint8Array {
+export function createTestPkg(
+  options: {
+    manifestOverride?: Partial<PackageManifest>;
+    extraFiles?: Record<string, string | Uint8Array>;
+    omitManifest?: boolean;
+  } = {},
+): Uint8Array {
   const manifest = { ...TEST_MANIFEST, ...options.manifestOverride };
 
   const zipEntries: Record<string, Uint8Array> = {};
@@ -131,7 +133,10 @@ export function createTestPkg(options: {
  * Compute SHA-256 hex of Uint8Array (for test assertions).
  */
 export async function computeSha256(data: Uint8Array): Promise<string> {
-  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data as Uint8Array<ArrayBuffer>);
+  const hashBuffer = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    data as Uint8Array<ArrayBuffer>,
+  );
   const hashArray = new Uint8Array(hashBuffer);
   return Array.from(hashArray)
     .map((b) => b.toString(16).padStart(2, '0'))

@@ -1,7 +1,7 @@
 import { Settings } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 
 interface HeaderProps {
   providerName?: string;
@@ -14,9 +14,7 @@ export function Header({ providerName, onOpenSettings, onFileImport }: HeaderPro
     <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
       <div className="flex items-center gap-3">
         <h1 className="text-sm font-semibold text-text-primary">AI Company Simulator</h1>
-        {providerName && (
-          <Badge variant="secondary">{providerName}</Badge>
-        )}
+        {providerName && <Badge variant="secondary">{providerName}</Badge>}
       </div>
       <div className="flex items-center gap-2">
         <FileImportTrigger onFileSelect={onFileImport} />

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { usePlanProgress, type PlanStep, type StepStatus } from '../../hooks/usePlanProgress';
-import { Progress } from '../ui/progress';
+import { useEffect, useState } from 'react';
+import { type PlanStep, type StepStatus, usePlanProgress } from '../../hooks/usePlanProgress';
 import { Badge } from '../ui/badge';
+import { Progress } from '../ui/progress';
 
 // ---------------------------------------------------------------------------
 // Step status indicator
@@ -13,6 +13,7 @@ function StepIcon({ status }: { status: StepStatus }) {
       return (
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-success/20 text-success">
           <svg
+            aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 16 16"
             fill="currentColor"
@@ -33,7 +34,6 @@ function StepIcon({ status }: { status: StepStatus }) {
           <span className="relative h-2.5 w-2.5 rounded-full bg-accent" />
         </span>
       );
-    case 'pending':
     default:
       return (
         <span className="flex h-5 w-5 items-center justify-center">
@@ -107,11 +107,13 @@ export function PlanProgressPanel() {
     return (
       <div className="border-b border-border bg-surface-light/50 px-3 py-2">
         <button
+          type="button"
           onClick={() => setCollapsed(false)}
           className="flex w-full items-center gap-2 text-left text-xs text-text-muted hover:text-text-secondary transition-colors"
         >
           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/20 text-success">
             <svg
+              aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 16 16"
               fill="currentColor"
@@ -150,6 +152,7 @@ export function PlanProgressPanel() {
           )}
           {plan.isComplete && (
             <button
+              type="button"
               onClick={() => setCollapsed(true)}
               className="text-[10px] text-text-muted hover:text-text-secondary underline"
             >

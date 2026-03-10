@@ -1,6 +1,6 @@
+import type { ModelPolicyConfig } from '@aics/shared-types';
 import { describe, expect, it } from 'vitest';
 import { ModelResolver } from '../../llm/model-resolver.js';
-import type { ModelPolicyConfig } from '@aics/shared-types';
 
 const DEFAULT_POLICY: ModelPolicyConfig = {
   default: {

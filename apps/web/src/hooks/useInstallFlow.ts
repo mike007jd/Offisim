@@ -6,14 +6,21 @@
  * so the renderer (SceneManager) can add them to the scene.
  */
 
-import { useState, useCallback, useRef } from 'react';
-import type { InstallPlan, BindingConfirmation } from '@aics/install-core';
-import { readPackageFile } from '@aics/install-core';
 import { employeeInstalled } from '@aics/core';
+import type { BindingConfirmation, InstallPlan } from '@aics/install-core';
+import { readPackageFile } from '@aics/install-core';
+import { useCallback, useRef, useState } from 'react';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
-export type InstallStep = 'idle' | 'loading' | 'review' | 'bindings' | 'installing' | 'done' | 'error';
+export type InstallStep =
+  | 'idle'
+  | 'loading'
+  | 'review'
+  | 'bindings'
+  | 'installing'
+  | 'done'
+  | 'error';
 
 export interface InstallFlowState {
   isOpen: boolean;
@@ -78,62 +85,65 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     [eventBus],
   );
 
-  const startFileImport = useCallback((file: File) => {
-    // Validate file size (applies to both real and mock paths)
-    if (file.size > MAX_FILE_SIZE) {
-      setIsOpen(true);
-      setStep('error');
-      setError(`File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
-      return;
-    }
-
-    // Validate file extension
-    const ext = file.name.toLowerCase();
-    if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip')) {
-      setIsOpen(true);
-      setStep('error');
-      setError('Invalid file type. Expected .aicspkg or .zip');
-      return;
-    }
-
-    setIsOpen(true);
-    setStep('loading');
-    setPlan(null);
-    setError(null);
-    setBindingValues(new Map());
-    txnIdRef.current = null;
-
-    if (!installService) {
-      // Mock fallback — no real service available
-      timerRef.current = setTimeout(() => {
-        setPlan(MOCK_INSTALL_PLAN);
-        setStep('review');
-        timerRef.current = null;
-      }, 500);
-      return;
-    }
-
-    // Real path: read file bytes and call InstallService.importFile
-    (async () => {
-      try {
-        const bytes = await readPackageFile(file);
-        const result = await installService.importFile(bytes);
-
-        if (result.error || !result.plan) {
-          setStep('error');
-          setError(result.error ?? 'Import failed: no plan returned');
-          return;
-        }
-
-        txnIdRef.current = result.installTxnId;
-        setPlan(result.plan);
-        setStep('review');
-      } catch (err) {
+  const startFileImport = useCallback(
+    (file: File) => {
+      // Validate file size (applies to both real and mock paths)
+      if (file.size > MAX_FILE_SIZE) {
+        setIsOpen(true);
         setStep('error');
-        setError(err instanceof Error ? err.message : String(err));
+        setError(`File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+        return;
       }
-    })();
-  }, [installService]);
+
+      // Validate file extension
+      const ext = file.name.toLowerCase();
+      if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip')) {
+        setIsOpen(true);
+        setStep('error');
+        setError('Invalid file type. Expected .aicspkg or .zip');
+        return;
+      }
+
+      setIsOpen(true);
+      setStep('loading');
+      setPlan(null);
+      setError(null);
+      setBindingValues(new Map());
+      txnIdRef.current = null;
+
+      if (!installService) {
+        // Mock fallback — no real service available
+        timerRef.current = setTimeout(() => {
+          setPlan(MOCK_INSTALL_PLAN);
+          setStep('review');
+          timerRef.current = null;
+        }, 500);
+        return;
+      }
+
+      // Real path: read file bytes and call InstallService.importFile
+      (async () => {
+        try {
+          const bytes = await readPackageFile(file);
+          const result = await installService.importFile(bytes);
+
+          if (result.error || !result.plan) {
+            setStep('error');
+            setError(result.error ?? 'Import failed: no plan returned');
+            return;
+          }
+
+          txnIdRef.current = result.installTxnId;
+          setPlan(result.plan);
+          setStep('review');
+        } catch (err) {
+          setStep('error');
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+    },
+    [installService],
+  );
 
   const confirmInstall = useCallback(() => {
     if (!plan) return;

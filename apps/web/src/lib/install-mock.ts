@@ -4,8 +4,8 @@
  * Track D will replace mock usage with real InstallService calls.
  */
 
-import type { InstallPlan, BindingRequirement } from '@aics/install-core';
 import type { PackageManifest } from '@aics/asset-schema';
+import type { BindingRequirement, InstallPlan } from '@aics/install-core';
 
 /** Mock manifest based on the Writer Pro fixture */
 export const MOCK_MANIFEST: PackageManifest = {

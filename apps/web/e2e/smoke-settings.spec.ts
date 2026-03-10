@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { injectProvider, waitForRuntime } from './helpers/setup';
 
 test.describe('Smoke: Settings Dialog', () => {
@@ -49,7 +49,9 @@ test.describe('Smoke: Settings Dialog', () => {
     await page.getByRole('button', { name: /Save Configuration/i }).click();
 
     // Dialog should close
-    await expect(page.getByRole('heading', { name: 'Settings' })).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { name: 'Settings' })).not.toBeVisible({
+      timeout: 5_000,
+    });
 
     // Verify localStorage was updated
     const stored = await page.evaluate(() => localStorage.getItem('aics-provider-config'));

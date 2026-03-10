@@ -1,22 +1,27 @@
-import { Application, Container } from 'pixi.js';
-import gsap from 'gsap';
 import type {
-  EmployeeStatePayload,
   EmployeeInstalledPayload,
-  TaskAssignmentPayload,
+  EmployeeStatePayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
-  MeetingStatePayload,
   McpToolCalledPayload,
+  MeetingStatePayload,
+  TaskAssignmentPayload,
 } from '@aics/shared-types';
-import type { SceneEventBus, SceneManagerOptions, EmployeeSeed, NodeVisualMapping } from './types.js';
-import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP } from './types.js';
-import { LAYOUT } from '../tokens/layout.js';
-import { SCENE_COLORS } from '../tokens/colors.js';
-import { FloorLayer } from '../layers/floor-layer.js';
+import gsap from 'gsap';
+import { Application, Container } from 'pixi.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
+import { FloorLayer } from '../layers/floor-layer.js';
+import { SCENE_COLORS } from '../tokens/colors.js';
+import { LAYOUT } from '../tokens/layout.js';
 import { MOTION, MOTION_REDUCED, type MotionBucket } from '../tokens/motion.js';
+import type {
+  EmployeeSeed,
+  NodeVisualMapping,
+  SceneEventBus,
+  SceneManagerOptions,
+} from './types.js';
+import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP } from './types.js';
 
 export class SceneManager {
   private app: Application | null = null;
@@ -99,7 +104,10 @@ export class SceneManager {
     this.employees.forEach((emp, i) => {
       const pos = deskPositions[i % deskPositions.length]!;
       const entity = new EmployeeEntity(emp.id, emp.name, this.motion);
-      entity.container.position.set(pos.x, pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8);
+      entity.container.position.set(
+        pos.x,
+        pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
+      );
       worldContainer.addChild(entity.container);
       this.employeeEntities.set(emp.id, entity);
     });
@@ -130,7 +138,10 @@ export class SceneManager {
     const pos = deskPositions[posIndex]!;
 
     const entity = new EmployeeEntity(id, name, this.motion);
-    entity.container.position.set(pos.x, pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8);
+    entity.container.position.set(
+      pos.x,
+      pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
+    );
 
     // Start invisible and scaled to zero for entrance animation
     entity.container.scale.set(0);
@@ -220,10 +231,7 @@ export class SceneManager {
     const { width, height } = this.app.screen;
     const floorW = LAYOUT.floor.width;
     const floorH = LAYOUT.floor.height;
-    world.position.set(
-      (width - floorW) / 2,
-      (height - floorH) / 2,
-    );
+    world.position.set((width - floorW) / 2, (height - floorH) / 2);
   }
 
   /** Subscribe to runtime events */

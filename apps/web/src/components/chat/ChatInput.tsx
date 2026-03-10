@@ -1,7 +1,7 @@
-import { useState, useRef, type KeyboardEvent } from 'react';
 import { Send } from 'lucide-react';
-import { Textarea } from '../ui/textarea';
+import { type KeyboardEvent, useRef, useState } from 'react';
 import { Button } from '../ui/button';
+import { Textarea } from '../ui/textarea';
 
 interface ChatInputProps {
   onSend: (message: string) => void;

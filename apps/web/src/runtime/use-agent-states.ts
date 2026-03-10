@@ -1,5 +1,5 @@
+import type { EmployeeStatePayload, RuntimeEvent } from '@aics/shared-types';
 import { useEffect, useState } from 'react';
-import type { RuntimeEvent, EmployeeStatePayload } from '@aics/shared-types';
 import { useAicsRuntime } from './aics-runtime-context';
 
 export interface AgentState {

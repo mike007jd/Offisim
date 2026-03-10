@@ -10,10 +10,9 @@ export async function seedTauriDb(): Promise<void> {
   const db = await getTauriDb();
 
   // Check if already seeded
-  const existing = await db.select(
-    'SELECT company_id FROM companies WHERE company_id = $1',
-    ['company-001'],
-  ) as { company_id: string }[];
+  const existing = (await db.select('SELECT company_id FROM companies WHERE company_id = $1', [
+    'company-001',
+  ])) as { company_id: string }[];
   if (existing.length > 0) return;
 
   const now = new Date().toISOString();
@@ -53,7 +52,20 @@ export async function seedTauriDb(): Promise<void> {
          (employee_id, company_id, source_asset_id, source_package_id, name, role_slug,
           workstation_id, persona_json, config_json, enabled, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [emp.id, 'company-001', null, null, emp.name, emp.role, null, emp.persona, null, 1, now, now],
+        [
+          emp.id,
+          'company-001',
+          null,
+          null,
+          emp.name,
+          emp.role,
+          null,
+          emp.persona,
+          null,
+          1,
+          now,
+          now,
+        ],
       );
     }
 

@@ -6,8 +6,8 @@
  * A future phase will add actual deletion once repo delete methods exist.
  */
 
-import type { InstallRepositories } from './types.js';
 import type { MaterializeResult } from './materializer.js';
+import type { InstallRepositories } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public API

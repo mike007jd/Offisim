@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { McpToolExecutor } from '../../mcp/mcp-tool-executor.js';
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '../../mcp/types.js';
+import type {
+  McpClientFactory,
+  McpConnection,
+  McpServerConfig,
+  McpToolDef,
+} from '../../mcp/types.js';
 import { TEST_COMPANY_ID } from '../helpers/fixtures.js';
 
 // ── Mock MCP Client Factory ──────────────────────────────────────
@@ -28,7 +33,13 @@ function createMockConnection(
 }
 
 class MockClientFactory implements McpClientFactory {
-  private readonly configs = new Map<string, { tools: McpToolDef[]; callTool?: (name: string, args: Record<string, unknown>) => Promise<unknown> }>();
+  private readonly configs = new Map<
+    string,
+    {
+      tools: McpToolDef[];
+      callTool?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+    }
+  >();
   readonly connections: McpConnection[] = [];
 
   registerServer(
@@ -54,7 +65,7 @@ describe('McpToolExecutor', () => {
   let executor: McpToolExecutor;
   let eventBus: InMemoryEventBus;
   let factory: MockClientFactory;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types
   let events: RuntimeEvent<any>[];
 
   beforeEach(() => {
@@ -80,7 +91,12 @@ describe('McpToolExecutor', () => {
       { name: 'writeFile', description: 'Write a file', inputSchema: { type: 'object' } },
     ]);
 
-    await executor.addServer({ name: 'fs-server', transport: 'stdio', command: 'node', args: ['server.js'] });
+    await executor.addServer({
+      name: 'fs-server',
+      transport: 'stdio',
+      command: 'node',
+      args: ['server.js'],
+    });
 
     expect(executor.serverCount).toBe(1);
 
@@ -107,13 +123,17 @@ describe('McpToolExecutor', () => {
   });
 
   it('execute dispatches to the correct server and returns result', async () => {
-    factory.registerServer('fs-server', [
-      { name: 'readFile', description: 'Read a file', inputSchema: {} },
-    ], async (_name, args) => ({ content: `contents of ${args.path}` }));
+    factory.registerServer(
+      'fs-server',
+      [{ name: 'readFile', description: 'Read a file', inputSchema: {} }],
+      async (_name, args) => ({ content: `contents of ${args.path}` }),
+    );
 
-    factory.registerServer('git-server', [
-      { name: 'gitStatus', description: 'Git status', inputSchema: {} },
-    ], async () => ({ status: 'clean' }));
+    factory.registerServer(
+      'git-server',
+      [{ name: 'gitStatus', description: 'Git status', inputSchema: {} }],
+      async () => ({ status: 'clean' }),
+    );
 
     await executor.addServer({ name: 'fs-server', transport: 'stdio', command: 'node' });
     await executor.addServer({ name: 'git-server', transport: 'stdio', command: 'node' });
@@ -155,12 +175,8 @@ describe('McpToolExecutor', () => {
   });
 
   it('dispose closes all connections', async () => {
-    factory.registerServer('server-a', [
-      { name: 'toolA', description: 'Tool A', inputSchema: {} },
-    ]);
-    factory.registerServer('server-b', [
-      { name: 'toolB', description: 'Tool B', inputSchema: {} },
-    ]);
+    factory.registerServer('server-a', [{ name: 'toolA', description: 'Tool A', inputSchema: {} }]);
+    factory.registerServer('server-b', [{ name: 'toolB', description: 'Tool B', inputSchema: {} }]);
 
     await executor.addServer({ name: 'server-a', transport: 'stdio', command: 'node' });
     await executor.addServer({ name: 'server-b', transport: 'stdio', command: 'node' });
@@ -186,16 +202,18 @@ describe('McpToolExecutor', () => {
 
     const connectedEvents = events.filter((e) => e.type === 'mcp.server.connected');
     expect(connectedEvents).toHaveLength(1);
-    expect(connectedEvents[0]!.payload).toEqual({
+    expect(connectedEvents[0]?.payload).toEqual({
       serverName: 'my-server',
       toolCount: 2,
     });
   });
 
   it('emits mcpToolCalled event on successful execute', async () => {
-    factory.registerServer('fs-server', [
-      { name: 'readFile', description: 'Read a file', inputSchema: {} },
-    ], async () => ({ content: 'file data' }));
+    factory.registerServer(
+      'fs-server',
+      [{ name: 'readFile', description: 'Read a file', inputSchema: {} }],
+      async () => ({ content: 'file data' }),
+    );
 
     await executor.addServer({ name: 'fs-server', transport: 'stdio', command: 'node' });
 
@@ -210,7 +228,7 @@ describe('McpToolExecutor', () => {
 
     const toolCalledEvents = events.filter((e) => e.type === 'mcp.tool.called');
     expect(toolCalledEvents).toHaveLength(1);
-    expect(toolCalledEvents[0]!.payload).toEqual({
+    expect(toolCalledEvents[0]?.payload).toEqual({
       serverName: 'fs-server',
       toolName: 'readFile',
       employeeId: '',
@@ -241,9 +259,13 @@ describe('McpToolExecutor', () => {
   });
 
   it('handles callTool errors gracefully', async () => {
-    factory.registerServer('error-server', [
-      { name: 'failingTool', description: 'Always fails', inputSchema: {} },
-    ], async () => { throw new Error('Connection reset'); });
+    factory.registerServer(
+      'error-server',
+      [{ name: 'failingTool', description: 'Always fails', inputSchema: {} }],
+      async () => {
+        throw new Error('Connection reset');
+      },
+    );
 
     await executor.addServer({ name: 'error-server', transport: 'stdio', command: 'node' });
 

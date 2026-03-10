@@ -1,8 +1,8 @@
 import type { EventBus } from '../events/event-bus.js';
+import { mcpServerConnected, mcpToolCalled } from '../events/event-factories.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import type { McpClientFactory, McpConnection, McpServerConfig } from './types.js';
-import { mcpServerConnected, mcpToolCalled } from '../events/event-factories.js';
 
 interface McpToolExecutorDeps {
   readonly eventBus: EventBus;
@@ -51,9 +51,7 @@ export class McpToolExecutor implements ToolExecutor {
       this.toolServerMap.set(tool.name, config.name);
     }
 
-    this.eventBus.emit(
-      mcpServerConnected(this.companyId, config.name, connection.tools.length),
-    );
+    this.eventBus.emit(mcpServerConnected(this.companyId, config.name, connection.tools.length));
   }
 
   /**

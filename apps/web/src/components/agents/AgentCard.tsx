@@ -1,6 +1,6 @@
+import type { AgentState } from '../../runtime/use-agent-states';
 import { Badge, type BadgeProps } from '../ui/badge';
 import { Card } from '../ui/card';
-import type { AgentState } from '../../runtime/use-agent-states';
 
 const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
   idle: 'secondary',
@@ -34,7 +34,9 @@ export function AgentCard({ agent }: AgentCardProps) {
           <div className="text-sm font-medium">{agent.name}</div>
           <div className="text-xs text-text-muted">{ROLE_LABELS[agent.role] ?? agent.role}</div>
         </div>
-        <Badge variant={variant} className="text-[10px]">{agent.state}</Badge>
+        <Badge variant={variant} className="text-[10px]">
+          {agent.state}
+        </Badge>
       </div>
     </Card>
   );

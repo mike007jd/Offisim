@@ -4,9 +4,9 @@
  */
 
 import type { BindingRequirement } from '@aics/install-core';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 
 interface BindingFormProps {
   bindings: readonly BindingRequirement[];
@@ -24,7 +24,13 @@ const MODEL_SUGGESTIONS = [
   'google/gemini-2.5-flash',
 ];
 
-export function BindingForm({ bindings, bindingValues, onSetValue, onSubmit, onCancel }: BindingFormProps) {
+export function BindingForm({
+  bindings,
+  bindingValues,
+  onSetValue,
+  onSubmit,
+  onCancel,
+}: BindingFormProps) {
   // Only show model_profile bindings for now
   const modelBindings = bindings.filter((b) => b.bindingType === 'model_profile');
 
@@ -43,10 +49,7 @@ export function BindingForm({ bindings, bindingValues, onSetValue, onSubmit, onC
           const isSkipped = value === '__skip__';
 
           return (
-            <div
-              key={binding.bindingKey}
-              className="rounded-md border border-border p-3 space-y-2"
-            >
+            <div key={binding.bindingKey} className="rounded-md border border-border p-3 space-y-2">
               {/* Binding header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -72,11 +75,7 @@ export function BindingForm({ bindings, bindingValues, onSetValue, onSubmit, onC
               </div>
 
               {/* Hint */}
-              {binding.hint && (
-                <p className="text-xs text-text-muted">
-                  Purpose: {binding.hint}
-                </p>
-              )}
+              {binding.hint && <p className="text-xs text-text-muted">Purpose: {binding.hint}</p>}
 
               {/* Input area */}
               {!isSkipped && (
@@ -111,9 +110,7 @@ export function BindingForm({ bindings, bindingValues, onSetValue, onSubmit, onC
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={onSubmit}>
-          Continue
-        </Button>
+        <Button onClick={onSubmit}>Continue</Button>
       </div>
     </div>
   );

@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { materialize } from '../materializer.js';
 import type {
-  InstallPlan,
-  BindingConfirmation,
-  InstallRepositories,
-  InstalledPackageRow,
-  InstalledAssetRow,
   AssetBindingRow,
+  BindingConfirmation,
+  InstallPlan,
+  InstallRepositories,
+  InstalledAssetRow,
+  InstalledPackageRow,
   NewEmployee,
 } from '../types.js';
-import { materialize } from '../materializer.js';
 import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';
 
 // ---------------------------------------------------------------------------
@@ -32,7 +32,9 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
 
   const repos: InstallRepositories = {
     installTransactions: {
-      create: async () => { throw new Error('Not needed in materializer tests'); },
+      create: async () => {
+        throw new Error('Not needed in materializer tests');
+      },
       findById: async () => null,
       updateState: async () => {},
       finish: async () => {},
@@ -312,7 +314,7 @@ describe('materializer / materialize', () => {
     expect(result.employeeIds).toHaveLength(2);
 
     // Check enabled flags
-    expect(store.assets[0]!.enabled).toBe(1);
-    expect(store.assets[1]!.enabled).toBe(0);
+    expect(store.assets[0]?.enabled).toBe(1);
+    expect(store.assets[1]?.enabled).toBe(0);
   });
 });

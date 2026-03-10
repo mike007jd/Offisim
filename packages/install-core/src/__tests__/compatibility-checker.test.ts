@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { checkCompatibility, parseVersionRange, compareVersions } from '../compatibility-checker.js';
+import { describe, expect, it } from 'vitest';
+import {
+  checkCompatibility,
+  compareVersions,
+  parseVersionRange,
+} from '../compatibility-checker.js';
 import type { RuntimeEnvironment } from '../types.js';
 import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';
 

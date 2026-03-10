@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createInstallPlan } from '../install-planner.js';
 import type { RuntimeEnvironment } from '../types.js';
-import { createTestPkg, computeSha256, TEST_MANIFEST } from './fixtures/create-test-pkg.js';
+import { TEST_MANIFEST, computeSha256, createTestPkg } from './fixtures/create-test-pkg.js';
 
 const COMPAT_ENV: RuntimeEnvironment = {
   runtimeVersion: '1.5.0',

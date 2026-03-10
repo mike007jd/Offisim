@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
+  type ProviderConfig,
+  loadProviderConfig,
+  saveProviderConfig,
+} from '../../lib/provider-config';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { type ProviderConfig, loadProviderConfig, saveProviderConfig } from '../../lib/provider-config';
-import { PROVIDER_PRESETS } from './provider-presets';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { McpConfigPanel } from './McpConfigPanel';
+import { PROVIDER_PRESETS } from './provider-presets';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -42,7 +40,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
         else setPreset('custom');
       } else {
         // Apply default preset values on first open
-        const defaultPreset = PROVIDER_PRESETS['gemini'];
+        const defaultPreset = PROVIDER_PRESETS.gemini;
         setPreset('gemini');
         setBaseURL(defaultPreset?.defaults.baseURL ?? '');
         setModel(defaultPreset?.defaults.model ?? '');
@@ -83,7 +81,11 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
       apiKey,
       model,
       ...(effectiveBaseURL ? { baseURL: effectiveBaseURL } : {}),
-      ...(parsedHeaders ? { defaultHeaders: parsedHeaders } : p?.defaults.defaultHeaders ? { defaultHeaders: p.defaults.defaultHeaders } : {}),
+      ...(parsedHeaders
+        ? { defaultHeaders: parsedHeaders }
+        : p?.defaults.defaultHeaders
+          ? { defaultHeaders: p.defaults.defaultHeaders }
+          : {}),
     };
     saveProviderConfig(config);
     onSave(config);
@@ -97,33 +99,52 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Configure your AI model provider and MCP server connections.</DialogDescription>
+          <DialogDescription>
+            Configure your AI model provider and MCP server connections.
+          </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="provider" className="mt-2">
           <TabsList className="w-full">
-            <TabsTrigger value="provider" className="flex-1">LLM Provider</TabsTrigger>
-            <TabsTrigger value="mcp" className="flex-1">MCP Servers</TabsTrigger>
+            <TabsTrigger value="provider" className="flex-1">
+              LLM Provider
+            </TabsTrigger>
+            <TabsTrigger value="mcp" className="flex-1">
+              MCP Servers
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="provider">
             <div className="flex flex-col gap-4 pt-2">
               <div>
-                <label className="text-sm text-text-secondary mb-1 block">Provider</label>
+                <label
+                  htmlFor="settings-provider"
+                  className="text-sm text-text-secondary mb-1 block"
+                >
+                  Provider
+                </label>
                 <Select value={preset} onValueChange={handlePresetChange}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
-                      <SelectItem key={key} value={key}>{p.label}</SelectItem>
+                      <SelectItem key={key} value={key}>
+                        {p.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm text-text-secondary mb-1 block">API Key</label>
+                <label
+                  htmlFor="settings-api-key"
+                  className="text-sm text-text-secondary mb-1 block"
+                >
+                  API Key
+                </label>
                 <Input
+                  id="settings-api-key"
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
@@ -133,8 +154,14 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
 
               {showBaseURL && (
                 <div>
-                  <label className="text-sm text-text-secondary mb-1 block">Base URL</label>
+                  <label
+                    htmlFor="settings-base-url"
+                    className="text-sm text-text-secondary mb-1 block"
+                  >
+                    Base URL
+                  </label>
                   <Input
+                    id="settings-base-url"
                     value={baseURL}
                     onChange={(e) => setBaseURL(e.target.value)}
                     placeholder="https://api.example.com/v1"
@@ -143,17 +170,18 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
               )}
 
               <div>
-                <label className="text-sm text-text-secondary mb-1 block">Model</label>
+                <label htmlFor="settings-model" className="text-sm text-text-secondary mb-1 block">
+                  Model
+                </label>
                 <Input
+                  id="settings-model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="model-name"
                 />
               </div>
 
-              {saveError && (
-                <p className="text-sm text-red-500">{saveError}</p>
-              )}
+              {saveError && <p className="text-sm text-red-500">{saveError}</p>}
               <Button onClick={handleSave} disabled={!apiKey || !model}>
                 Save Configuration
               </Button>

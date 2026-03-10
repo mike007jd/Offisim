@@ -4,8 +4,8 @@
  * Optional drag-and-drop zone can be shown via showDropZone prop.
  */
 
-import { useRef, useState, useCallback, type DragEvent } from 'react';
 import { Package } from 'lucide-react';
+import { type DragEvent, useCallback, useRef, useState } from 'react';
 import { Button } from '../ui/button';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -107,9 +107,7 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
           }`}
         >
           <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-sm">
-            Drop .aicspkg or .zip file here
-          </p>
+          <p className="text-sm">Drop .aicspkg or .zip file here</p>
           <p className="text-xs mt-1">Max 50MB</p>
         </div>
       )}

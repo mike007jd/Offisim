@@ -5,8 +5,8 @@
  * Validation delegates to @aics/asset-schema's parseManifest (JSON Schema).
  */
 
-import { unzipSync } from 'fflate';
 import { parseManifest } from '@aics/asset-schema';
+import { unzipSync } from 'fflate';
 import type { ExtractedPackage } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -15,7 +15,10 @@ import type { ExtractedPackage } from './types.js';
 
 /** Compute SHA-256 hex digest of the given bytes. */
 async function sha256Hex(data: Uint8Array): Promise<string> {
-  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data as Uint8Array<ArrayBuffer>);
+  const hashBuffer = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    data as Uint8Array<ArrayBuffer>,
+  );
   const hashArray = new Uint8Array(hashBuffer);
   return Array.from(hashArray)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -41,7 +44,9 @@ export async function extractPackage(archiveBytes: Uint8Array): Promise<Extracte
   try {
     entries = unzipSync(archiveBytes);
   } catch (err) {
-    throw new Error(`Failed to decompress archive: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Failed to decompress archive: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   // 2. Locate manifest.json at root level
@@ -56,7 +61,9 @@ export async function extractPackage(archiveBytes: Uint8Array): Promise<Extracte
     const text = new TextDecoder().decode(manifestBytes);
     manifestData = JSON.parse(text);
   } catch (err) {
-    throw new Error(`Failed to parse manifest JSON: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Failed to parse manifest JSON: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   // 4. Validate against JSON Schema (throws on failure)

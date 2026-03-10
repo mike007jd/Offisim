@@ -13,7 +13,7 @@ export function EmptyState({ isConfigured, onOpenSettings }: EmptyStateProps) {
         <div className="text-center">
           <p className="font-medium">No provider configured</p>
           <p className="text-sm mt-1">
-            <button onClick={onOpenSettings} className="text-accent hover:underline">
+            <button type="button" onClick={onOpenSettings} className="text-accent hover:underline">
               Open settings
             </button>{' '}
             to configure your LLM provider.

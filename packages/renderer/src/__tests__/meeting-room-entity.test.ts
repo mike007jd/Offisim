@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock pixi.js — same pattern as scene-manager.test.ts
 vi.mock('pixi.js', () => {
@@ -20,12 +20,24 @@ vi.mock('pixi.js', () => {
   }
 
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    roundRect() { return this; }
-    fill() { return this; }
-    stroke() { return this; }
-    cut() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    roundRect() {
+      return this;
+    }
+    fill() {
+      return this;
+    }
+    stroke() {
+      return this;
+    }
+    cut() {
+      return this;
+    }
   }
 
   return {

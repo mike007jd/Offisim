@@ -1,7 +1,12 @@
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type {
-  RuntimeRepositories, GraphThreadRow, TaskRunRow,
-  HandoffEventRow, LlmCallRow, GraphCheckpointRow, RuntimeEventRow,
+  GraphCheckpointRow,
+  GraphThreadRow,
+  HandoffEventRow,
+  LlmCallRow,
+  RuntimeEventRow,
+  RuntimeRepositories,
+  TaskRunRow,
 } from '../runtime/repositories.js';
 
 export interface ExecutionTrace {
@@ -16,7 +21,10 @@ export interface ExecutionTrace {
 export interface ExecutionTraceService {
   getTrace(threadId: string): Promise<ExecutionTrace | null>;
   getStateAt(threadId: string, checkpointId: string): Promise<Record<string, unknown> | null>;
-  listThreads(companyId: string, opts?: { limit?: number; status?: string }): Promise<GraphThreadRow[]>;
+  listThreads(
+    companyId: string,
+    opts?: { limit?: number; status?: string },
+  ): Promise<GraphThreadRow[]>;
 }
 
 export class ExecutionTraceServiceImpl implements ExecutionTraceService {
@@ -50,7 +58,10 @@ export class ExecutionTraceServiceImpl implements ExecutionTraceService {
     };
   }
 
-  async getStateAt(threadId: string, checkpointId: string): Promise<Record<string, unknown> | null> {
+  async getStateAt(
+    threadId: string,
+    checkpointId: string,
+  ): Promise<Record<string, unknown> | null> {
     const tuple = await this.checkpointSaver.getTuple({
       configurable: { thread_id: threadId, checkpoint_id: checkpointId },
     });
@@ -59,7 +70,10 @@ export class ExecutionTraceServiceImpl implements ExecutionTraceService {
     return tuple.checkpoint.channel_values as Record<string, unknown>;
   }
 
-  async listThreads(companyId: string, opts?: { limit?: number; status?: string }): Promise<GraphThreadRow[]> {
+  async listThreads(
+    companyId: string,
+    opts?: { limit?: number; status?: string },
+  ): Promise<GraphThreadRow[]> {
     return this.repos.threads.findByCompany(companyId, opts);
   }
 }

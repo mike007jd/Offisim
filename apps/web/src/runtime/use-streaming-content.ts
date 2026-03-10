@@ -1,5 +1,5 @@
+import type { LlmStreamChunkPayload, RuntimeEvent } from '@aics/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import type { RuntimeEvent, LlmStreamChunkPayload } from '@aics/shared-types';
 import { useAicsRuntime } from './aics-runtime-context';
 
 export function useStreamingContent(): { content: string; isStreaming: boolean } {

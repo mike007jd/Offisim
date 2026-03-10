@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  planCreated,
-  planStepStarted,
-  planStepCompleted,
-  planCompleted,
   mcpServerConnected,
   mcpToolCalled,
+  planCompleted,
+  planCreated,
+  planStepCompleted,
+  planStepStarted,
 } from '../../events/event-factories.js';
 
 describe('plan event factories', () => {
@@ -20,7 +20,7 @@ describe('plan event factories', () => {
     expect(e.threadId).toBe('th-1');
     expect(e.payload.planId).toBe('plan-1');
     expect(e.payload.steps).toHaveLength(1);
-    expect(e.payload.steps[0]!.taskCount).toBe(2);
+    expect(e.payload.steps[0]?.taskCount).toBe(2);
   });
 
   it('planStepStarted produces correct event', () => {

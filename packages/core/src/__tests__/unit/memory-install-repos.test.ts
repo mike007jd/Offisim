@@ -1,9 +1,16 @@
+import type {
+  AssetBindingRow,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+} from '@aics/install-core';
 import { describe, expect, it } from 'vitest';
-import type { AssetBindingRow, InstallTransactionRow, InstalledAssetRow, InstalledPackageRow } from '@aics/install-core';
 import { createMemoryInstallRepositories } from '../../runtime/memory-install-repos.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 
-function makeTxn(overrides?: Partial<Omit<InstallTransactionRow, 'finished_at'>>): Omit<InstallTransactionRow, 'finished_at'> {
+function makeTxn(
+  overrides?: Partial<Omit<InstallTransactionRow, 'finished_at'>>,
+): Omit<InstallTransactionRow, 'finished_at'> {
   return {
     install_txn_id: 'txn-1',
     company_id: 'c-1',
@@ -81,7 +88,7 @@ describe('MemoryInstallTransactionRepository', () => {
 
     const found = await installTransactions.findById('txn-1');
     expect(found).not.toBeNull();
-    expect(found!.state).toBe('created');
+    expect(found?.state).toBe('created');
   });
 
   it('findById returns null for missing', async () => {
@@ -92,12 +99,17 @@ describe('MemoryInstallTransactionRepository', () => {
   it('updateState changes state and error fields', async () => {
     const { installTransactions } = createMemoryInstallRepositories();
     await installTransactions.create(makeTxn());
-    await installTransactions.updateState('txn-1', 'failed', 'integrity_mismatch', 'hash does not match');
+    await installTransactions.updateState(
+      'txn-1',
+      'failed',
+      'integrity_mismatch',
+      'hash does not match',
+    );
 
     const row = await installTransactions.findById('txn-1');
-    expect(row!.state).toBe('failed');
-    expect(row!.error_code).toBe('integrity_mismatch');
-    expect(row!.error_detail).toBe('hash does not match');
+    expect(row?.state).toBe('failed');
+    expect(row?.error_code).toBe('integrity_mismatch');
+    expect(row?.error_detail).toBe('hash does not match');
   });
 
   it('finish sets state and finished_at', async () => {
@@ -106,8 +118,8 @@ describe('MemoryInstallTransactionRepository', () => {
     await installTransactions.finish('txn-1', 'installed');
 
     const row = await installTransactions.findById('txn-1');
-    expect(row!.state).toBe('installed');
-    expect(row!.finished_at).toBeTruthy();
+    expect(row?.state).toBe('installed');
+    expect(row?.finished_at).toBeTruthy();
   });
 });
 
@@ -119,7 +131,7 @@ describe('MemoryInstalledPackageRepository', () => {
 
     const found = await installedPackages.findByPackageId('c-1', 'pkg-1');
     expect(found).toHaveLength(1);
-    expect(found[0]!.installed_package_id).toBe('ip-1');
+    expect(found[0]?.installed_package_id).toBe('ip-1');
   });
 
   it('findByPackageId returns empty for mismatch', async () => {
@@ -144,7 +156,9 @@ describe('MemoryAssetBindingRepository', () => {
   it('create and findByTransaction', async () => {
     const { assetBindings } = createMemoryInstallRepositories();
     await assetBindings.create(makeBinding());
-    await assetBindings.create(makeBinding({ binding_id: 'bind-2', binding_type: 'mcp_slot', binding_key: 'mcp_github' }));
+    await assetBindings.create(
+      makeBinding({ binding_id: 'bind-2', binding_type: 'mcp_slot', binding_key: 'mcp_github' }),
+    );
 
     const found = await assetBindings.findByTransaction('txn-1');
     expect(found).toHaveLength(2);
@@ -161,8 +175,8 @@ describe('MemoryAssetBindingRepository', () => {
     await assetBindings.updateStatus('bind-1', 'satisfied', '{"model":"gpt-4"}');
 
     const found = await assetBindings.findByTransaction('txn-1');
-    expect(found[0]!.status).toBe('satisfied');
-    expect(found[0]!.binding_value_json).toBe('{"model":"gpt-4"}');
+    expect(found[0]?.status).toBe('satisfied');
+    expect(found[0]?.binding_value_json).toBe('{"model":"gpt-4"}');
   });
 });
 
@@ -182,8 +196,8 @@ describe('EmployeeRepository.create', () => {
     // Verify the employee can be found
     const emp = await repos.employees.findById(result.employee_id);
     expect(emp).not.toBeNull();
-    expect(emp!.name).toBe('Alice');
-    expect(emp!.role_slug).toBe('developer');
-    expect(emp!.company_id).toBe('c-1');
+    expect(emp?.name).toBe('Alice');
+    expect(emp?.role_slug).toBe('developer');
+    expect(emp?.company_id).toBe('c-1');
   });
 });

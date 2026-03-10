@@ -1,23 +1,23 @@
-import { StateGraph, END } from '@langchain/langgraph';
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './state.js';
-import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
+import { END, StateGraph } from '@langchain/langgraph';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { bossNode } from '../agents/boss-node.js';
+import { bossSummaryNode } from '../agents/boss-summary-node.js';
+import { employeeNode } from '../agents/employee-node.js';
+import { errorHandlerNode } from '../agents/error-handler-node.js';
 import { managerNode } from '../agents/manager-node.js';
 import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
-import { employeeNode } from '../agents/employee-node.js';
-import { errorHandlerNode } from '../agents/error-handler-node.js';
-import { bossSummaryNode } from '../agents/boss-summary-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import {
-  meetingStartNode,
-  participantTurnNode,
-  meetingTurnCheck,
   meetingEndNode,
+  meetingStartNode,
+  meetingTurnCheck,
+  participantTurnNode,
 } from './meeting-subgraph.js';
+import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './state.js';
 
 function routeFromBoss(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
@@ -134,11 +134,21 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
     .addNode('meeting_end', (state, config) => meetingEndNode(state, config))
     .addEdge('__start__', 'boss')
-    .addConditionalEdges('boss', routeFromBoss, ['manager', 'boss_summary', 'error_handler', 'meeting_start'])
+    .addConditionalEdges('boss', routeFromBoss, [
+      'manager',
+      'boss_summary',
+      'error_handler',
+      'meeting_start',
+    ])
     .addEdge('manager', 'pm_planner')
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])
     .addEdge('step_dispatcher', 'employee')
-    .addConditionalEdges('employee', routeFromEmployee, ['employee', 'step_advance', 'boss_summary', 'error_handler'])
+    .addConditionalEdges('employee', routeFromEmployee, [
+      'employee',
+      'step_advance',
+      'boss_summary',
+      'error_handler',
+    ])
     .addEdge('step_advance', 'step_dispatcher')
     .addEdge('meeting_start', 'participant_turn')
     .addConditionalEdges('participant_turn', meetingTurnCheck, ['participant_turn', 'meeting_end'])

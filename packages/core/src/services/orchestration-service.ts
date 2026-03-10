@@ -1,7 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { AicsGraphState } from '../graph/state.js';
 import { graphNodeExited } from '../events/event-factories.js';
+import type { AicsGraphState } from '../graph/state.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 /**
  * Thin orchestration wrapper around `graph.stream()`.
@@ -17,8 +17,12 @@ import { graphNodeExited } from '../events/event-factories.js';
  */
 export class OrchestrationService {
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private graph: { stream: (input: any, config: any) => Promise<AsyncIterable<Record<string, any>>> },
+    private graph: {
+      stream: (
+        input: Record<string, unknown>,
+        config: Record<string, unknown>,
+      ) => Promise<AsyncIterable<Record<string, unknown>>>;
+    },
     private runtimeCtx: RuntimeContext,
   ) {}
 
@@ -52,11 +56,7 @@ export class OrchestrationService {
         for (const [nodeName, nodeOutput] of Object.entries(update)) {
           lastNodeName = nodeName;
           this.runtimeCtx.eventBus.emit(
-            graphNodeExited(
-              this.runtimeCtx.companyId,
-              this.runtimeCtx.threadId,
-              nodeName,
-            ),
+            graphNodeExited(this.runtimeCtx.companyId, this.runtimeCtx.threadId, nodeName),
           );
           // Merge node output, accumulating messages to match graph.invoke() behavior
           const delta = nodeOutput as Partial<AicsGraphState>;

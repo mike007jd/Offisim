@@ -1,11 +1,11 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { AicsGraphState } from './state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { buildEmployeePrompt } from '../agents/employee-builder.js';
 import { GraphError } from '../errors.js';
 import { meetingStateChanged } from '../events/event-factories.js';
-import { buildEmployeePrompt } from '../agents/employee-builder.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
+import type { AicsGraphState } from './state.js';
 
 const MAX_TURNS = 10;
 
@@ -48,12 +48,9 @@ export async function meetingStartNode(
   }
 
   // Derive topic from user message
-  const lastUserMessage = [...state.messages]
-    .reverse()
-    .find((m) => m._getType() === 'human');
-  const topic = typeof lastUserMessage?.content === 'string'
-    ? lastUserMessage.content
-    : 'General discussion';
+  const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
+  const topic =
+    typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : 'General discussion';
 
   const meetingId = `mtg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -69,7 +66,9 @@ export async function meetingStartNode(
   });
 
   const participantIds = participants.map((p) => p.employee_id);
-  eventBus.emit(meetingStateChanged(companyId, meetingId, 'scheduled', 'active', participantIds, threadId));
+  eventBus.emit(
+    meetingStateChanged(companyId, meetingId, 'scheduled', 'active', participantIds, threadId),
+  );
 
   // Store meeting turn state in pendingAssignments
   const turnState: MeetingTurnState = {
@@ -81,12 +80,18 @@ export async function meetingStartNode(
 
   return {
     meetingId,
-    pendingAssignments: [{
-      taskType: '__meeting_state',
-      employeeId: participantIds[0]!,
-      inputJson: turnState as unknown as Record<string, unknown>,
-    }],
-    messages: [new AIMessage({ content: `[Meeting] Started: "${topic}" with ${participants.length} participants.` })],
+    pendingAssignments: [
+      {
+        taskType: '__meeting_state',
+        employeeId: participantIds[0]!,
+        inputJson: turnState as unknown as Record<string, unknown>,
+      },
+    ],
+    messages: [
+      new AIMessage({
+        content: `[Meeting] Started: "${topic}" with ${participants.length} participants.`,
+      }),
+    ],
   };
 }
 
@@ -112,7 +117,10 @@ export async function participantTurnNode(
 
   const employee = await repos.employees.findById(currentParticipantId);
   if (!employee) {
-    throw new GraphError(`Meeting participant ${currentParticipantId} not found`, 'participant_turn');
+    throw new GraphError(
+      `Meeting participant ${currentParticipantId} not found`,
+      'participant_turn',
+    );
   }
 
   const company = await repos.companies.findById(companyId);
@@ -120,38 +128,41 @@ export async function participantTurnNode(
     throw new GraphError(`Company ${companyId} not found`, 'participant_turn');
   }
 
-  const lastUserMessage = [...state.messages]
-    .reverse()
-    .find((m) => m._getType() === 'human');
-  const topic = typeof lastUserMessage?.content === 'string'
-    ? lastUserMessage.content
-    : 'General discussion';
+  const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
+  const topic =
+    typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : 'General discussion';
 
   const resolved = modelResolver.resolve(null, employee.role_slug);
-  const context = turnState.transcript.length > 0
-    ? `Previous discussion:\n${turnState.transcript.join('\n')}\n\n`
-    : '';
+  const context =
+    turnState.transcript.length > 0
+      ? `Previous discussion:\n${turnState.transcript.join('\n')}\n\n`
+      : '';
 
-  const prompt = buildEmployeePrompt(employee, company, `${context}Meeting topic: ${topic}\n\nShare your perspective concisely.`);
+  const prompt = buildEmployeePrompt(
+    employee,
+    company,
+    `${context}Meeting topic: ${topic}\n\nShare your perspective concisely.`,
+  );
 
-  const llmResponse = await recordedLlmCall(runtimeCtx, {
-    messages: [
-      { role: 'system', content: prompt },
-      { role: 'user', content: `It's your turn to speak in the meeting about: ${topic}` },
-    ],
-    model: resolved.model,
-    temperature: resolved.temperature,
-    maxTokens: resolved.maxTokens,
-  }, { nodeName: 'meeting_participant', provider: resolved.provider, model: resolved.model });
+  const llmResponse = await recordedLlmCall(
+    runtimeCtx,
+    {
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: `It's your turn to speak in the meeting about: ${topic}` },
+      ],
+      model: resolved.model,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+    },
+    { nodeName: 'meeting_participant', provider: resolved.provider, model: resolved.model },
+  );
 
   // Advance turn state
   const nextIndex = turnState.participantIndex + 1;
-  const nextTurnCount = nextIndex >= turnState.participantIds.length
-    ? turnState.turnCount + 1
-    : turnState.turnCount;
-  const nextParticipantIndex = nextIndex >= turnState.participantIds.length
-    ? 0
-    : nextIndex;
+  const nextTurnCount =
+    nextIndex >= turnState.participantIds.length ? turnState.turnCount + 1 : turnState.turnCount;
+  const nextParticipantIndex = nextIndex >= turnState.participantIds.length ? 0 : nextIndex;
 
   const updatedTranscript = [...turnState.transcript, `[${employee.name}]: ${llmResponse.content}`];
 
@@ -162,14 +173,17 @@ export async function participantTurnNode(
     transcript: updatedTranscript,
   };
 
-  const nextParticipantId = turnState.participantIds[nextParticipantIndex] ?? turnState.participantIds[0]!;
+  const nextParticipantId =
+    turnState.participantIds[nextParticipantIndex] ?? turnState.participantIds[0]!;
 
   return {
-    pendingAssignments: [{
-      taskType: '__meeting_state',
-      employeeId: nextParticipantId,
-      inputJson: updatedTurnState as unknown as Record<string, unknown>,
-    }],
+    pendingAssignments: [
+      {
+        taskType: '__meeting_state',
+        employeeId: nextParticipantId,
+        inputJson: updatedTurnState as unknown as Record<string, unknown>,
+      },
+    ],
     messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
   };
 }
@@ -218,7 +232,14 @@ export async function meetingEndNode(
   if (state.meetingId) {
     await repos.meetings.updateStatus(state.meetingId, 'ended', summaryJson);
     eventBus.emit(
-      meetingStateChanged(companyId, state.meetingId, 'active', 'ended', turnState.participantIds, threadId),
+      meetingStateChanged(
+        companyId,
+        state.meetingId,
+        'active',
+        'ended',
+        turnState.participantIds,
+        threadId,
+      ),
     );
   }
 

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { resolveBindings } from '../binding-resolver.js';
 import type { PackageManifest } from '@aics/asset-schema';
+import { describe, expect, it } from 'vitest';
+import { resolveBindings } from '../binding-resolver.js';
 import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';
 
 describe('binding-resolver / resolveBindings', () => {
@@ -131,7 +131,7 @@ describe('binding-resolver / resolveBindings', () => {
 
     const bindings = resolveBindings(manifest);
     expect(bindings).toHaveLength(1);
-    expect(bindings[0]!.hint).toBeUndefined();
-    expect(bindings[0]!.providerHints).toBeUndefined();
+    expect(bindings[0]?.hint).toBeUndefined();
+    expect(bindings[0]?.providerHints).toBeUndefined();
   });
 });

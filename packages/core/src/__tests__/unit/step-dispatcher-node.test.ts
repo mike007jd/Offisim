@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { HumanMessage } from '@langchain/core/messages';
-import { stepDispatcherNode } from '../../agents/step-dispatcher-node.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import type { AicsGraphState, TaskPlan } from '../../graph/state.js';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { HumanMessage } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { stepDispatcherNode } from '../../agents/step-dispatcher-node.js';
+import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { AicsGraphState, TaskPlan } from '../../graph/state.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from '../helpers/fixtures.js';
+import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
   return {
@@ -108,10 +114,14 @@ describe('stepDispatcherNode', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    expect(result.pendingAssignments![0]!.employeeId).toBe('e-dev-1');
-    expect(result.pendingAssignments![0]!.taskType).toBe('code');
-    expect((result.pendingAssignments![0]!.inputJson as Record<string, unknown>).description).toBe('Build REST API');
-    expect((result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId).toBe('tr-step0-task0');
+    expect(result.pendingAssignments?.[0]?.employeeId).toBe('e-dev-1');
+    expect(result.pendingAssignments?.[0]?.taskType).toBe('code');
+    expect((result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).description).toBe(
+      'Build REST API',
+    );
+    expect((result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId).toBe(
+      'tr-step0-task0',
+    );
     expect(result.currentStepOutputs).toEqual([]);
   });
 
@@ -121,24 +131,28 @@ describe('stepDispatcherNode', () => {
         {
           stepIndex: 0,
           description: 'Research phase',
-          tasks: [{
-            taskType: 'research',
-            employeeId: 'e-dev-1',
-            description: 'Research APIs',
-            dependsOnStepOutput: false,
-            taskRunId: 'tr-step0-task0',
-          }],
+          tasks: [
+            {
+              taskType: 'research',
+              employeeId: 'e-dev-1',
+              description: 'Research APIs',
+              dependsOnStepOutput: false,
+              taskRunId: 'tr-step0-task0',
+            },
+          ],
         },
         {
           stepIndex: 1,
           description: 'Implementation phase',
-          tasks: [{
-            taskType: 'code',
-            employeeId: 'e-dev-1',
-            description: 'Implement based on research',
-            dependsOnStepOutput: true,
-            taskRunId: 'tr-step1-task0',
-          }],
+          tasks: [
+            {
+              taskType: 'code',
+              employeeId: 'e-dev-1',
+              description: 'Implement based on research',
+              dependsOnStepOutput: true,
+              taskRunId: 'tr-step1-task0',
+            },
+          ],
         },
       ],
     });
@@ -177,7 +191,8 @@ describe('stepDispatcherNode', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const description = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).description as string;
+    const description = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>)
+      .description as string;
     expect(description).toContain('Implement based on research');
     expect(description).toContain('Previous step results');
     expect(description).toContain('Found three suitable APIs');
@@ -189,9 +204,9 @@ describe('stepDispatcherNode', () => {
 
     const stepEvents = events.filter((e) => e.type === 'plan.step.started');
     expect(stepEvents).toHaveLength(1);
-    expect(stepEvents[0]!.payload.planId).toBe('plan-test-1');
-    expect(stepEvents[0]!.payload.stepIndex).toBe(0);
-    expect(stepEvents[0]!.payload.taskCount).toBe(1);
+    expect(stepEvents[0]?.payload.planId).toBe('plan-test-1');
+    expect(stepEvents[0]?.payload.stepIndex).toBe(0);
+    expect(stepEvents[0]?.payload.taskCount).toBe(1);
   });
 
   it('updates taskRun status from planned to queued', async () => {

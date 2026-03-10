@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import Database from 'better-sqlite3';
 import { HumanMessage } from '@langchain/core/messages';
+import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { createCheckpointSaver } from '../../graph/checkpoint-saver.js';
 import { buildAicsGraph } from '../../graph/main-graph.js';
-import { createTestRuntime } from '../helpers/test-runtime.js';
 import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { createTestRuntime } from '../helpers/test-runtime.js';
 
 describe('checkpoint persistence (E2E)', () => {
   it('graph execution writes checkpoints that survive DB reopen', async () => {
@@ -40,10 +40,10 @@ describe('checkpoint persistence (E2E)', () => {
     });
 
     expect(tuple).toBeDefined();
-    expect(tuple!.checkpoint).toBeDefined();
-    expect(tuple!.checkpoint.channel_values).toBeDefined();
+    expect(tuple?.checkpoint).toBeDefined();
+    expect(tuple?.checkpoint.channel_values).toBeDefined();
 
-    const state = tuple!.checkpoint.channel_values as Record<string, unknown>;
+    const state = tuple?.checkpoint.channel_values as Record<string, unknown>;
     expect(state.completed).toBe(true);
 
     // --- Phase C: "Restart" — create new SqliteSaver on SAME db ---
@@ -54,9 +54,9 @@ describe('checkpoint persistence (E2E)', () => {
     });
 
     expect(tuple2).toBeDefined();
-    expect(tuple2!.checkpoint.id).toBe(tuple!.checkpoint.id);
+    expect(tuple2?.checkpoint.id).toBe(tuple?.checkpoint.id);
 
-    const state2 = tuple2!.checkpoint.channel_values as Record<string, unknown>;
+    const state2 = tuple2?.checkpoint.channel_values as Record<string, unknown>;
     expect(state2.completed).toBe(true);
 
     db.close();
@@ -106,7 +106,7 @@ describe('checkpoint persistence (E2E)', () => {
 
     expect(tupleA).toBeDefined();
     expect(tupleB).toBeDefined();
-    expect(tupleA!.checkpoint.id).not.toBe(tupleB!.checkpoint.id);
+    expect(tupleA?.checkpoint.id).not.toBe(tupleB?.checkpoint.id);
 
     db.close();
   });

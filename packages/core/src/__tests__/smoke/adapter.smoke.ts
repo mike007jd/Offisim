@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { AnthropicAdapter } from '../../llm/anthropic-adapter.js';
-import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 import { createGateway } from '../../llm/gateway-factory.js';
 import type { LlmGateway } from '../../llm/gateway.js';
+import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 
 // --- Provider detection ---
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
@@ -25,7 +25,7 @@ async function assertChat(adapter: LlmGateway, model: string) {
 }
 
 async function assertChatStream(adapter: LlmGateway, model: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: stream chunk type varies by provider
   const chunks: any[] = [];
   for await (const chunk of adapter.chatStream({
     messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
@@ -46,7 +46,9 @@ describe.skipIf(!HAS_ANTHROPIC)('AnthropicAdapter smoke (live API)', () => {
   let adapter: AnthropicAdapter;
   const model = 'claude-sonnet-4-20250514';
 
-  beforeAll(() => { adapter = new AnthropicAdapter(process.env.ANTHROPIC_API_KEY!); });
+  beforeAll(() => {
+    adapter = new AnthropicAdapter(process.env.ANTHROPIC_API_KEY!);
+  });
 
   it('chat', async () => {
     await assertChat(adapter, model);
@@ -61,7 +63,9 @@ describe.skipIf(!HAS_OPENAI)('OpenAiAdapter smoke (live API)', () => {
   let adapter: OpenAiAdapter;
   const model = 'gpt-4o-mini';
 
-  beforeAll(() => { adapter = new OpenAiAdapter(process.env.OPENAI_API_KEY!); });
+  beforeAll(() => {
+    adapter = new OpenAiAdapter(process.env.OPENAI_API_KEY!);
+  });
 
   it('chat', async () => {
     await assertChat(adapter, model);
@@ -127,7 +131,8 @@ describe.skipIf(!HAS_GEMINI)('Gemini smoke (openai-compat)', () => {
     adapter = createGateway({
       provider: 'openai-compat',
       apiKey: process.env.GEMINI_API_KEY!,
-      baseURL: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      baseURL:
+        process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
     });
   });
 

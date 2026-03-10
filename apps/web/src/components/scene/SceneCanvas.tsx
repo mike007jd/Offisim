@@ -7,10 +7,5 @@ interface SceneCanvasProps {
 export function SceneCanvas({ reducedMotion = false }: SceneCanvasProps) {
   const { containerRef } = useScene(reducedMotion);
 
-  return (
-    <div
-      ref={containerRef}
-      className="h-full w-full overflow-hidden bg-slate-50"
-    />
-  );
+  return <div ref={containerRef} className="h-full w-full overflow-hidden bg-slate-50" />;
 }

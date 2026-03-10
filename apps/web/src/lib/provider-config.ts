@@ -16,7 +16,12 @@ export function loadProviderConfig(): ProviderConfig | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     // Runtime validation — reject stale or corrupt config
-    if (!parsed || typeof parsed.provider !== 'string' || typeof parsed.apiKey !== 'string' || typeof parsed.model !== 'string') {
+    if (
+      !parsed ||
+      typeof parsed.provider !== 'string' ||
+      typeof parsed.apiKey !== 'string' ||
+      typeof parsed.model !== 'string'
+    ) {
       return null;
     }
     return parsed as ProviderConfig;

@@ -22,9 +22,7 @@ export function buildEmployeePrompt(
 ): string {
   const persona = parsePersona(employee.persona_json);
 
-  const lines: string[] = [
-    `You are ${employee.name}, a ${employee.role_slug} at ${company.name}.`,
-  ];
+  const lines: string[] = [`You are ${employee.name}, a ${employee.role_slug} at ${company.name}.`];
 
   if (persona.expertise) {
     lines.push(`Your expertise: ${persona.expertise}`);

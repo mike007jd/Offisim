@@ -3,20 +3,38 @@ import { buildEmployeePrompt } from '../../agents/employee-builder.js';
 import type { CompanyRow, EmployeeRow } from '../../runtime/repositories.js';
 
 const COMPANY: CompanyRow = {
-  company_id: 'c-1', name: 'Acme AI', status: 'active',
+  company_id: 'c-1',
+  name: 'Acme AI',
+  status: 'active',
   workspace_root: null,
   default_model_policy_json: JSON.stringify({
-    default: { profileName: 'balanced', provider: 'anthropic', model: 'claude-sonnet-4-20250514', temperature: 0.7, maxTokens: 4096 },
+    default: {
+      profileName: 'balanced',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-20250514',
+      temperature: 0.7,
+      maxTokens: 4096,
+    },
   }),
-  created_at: '', updated_at: '',
+  created_at: '',
+  updated_at: '',
 };
 
 function makeEmployee(overrides?: Partial<EmployeeRow>): EmployeeRow {
   return {
-    employee_id: 'e-1', company_id: 'c-1', source_asset_id: null,
-    source_package_id: null, name: 'Dev Bot', role_slug: 'developer',
-    workstation_id: null, persona_json: null, config_json: null,
-    enabled: 1, created_at: '', updated_at: '', ...overrides,
+    employee_id: 'e-1',
+    company_id: 'c-1',
+    source_asset_id: null,
+    source_package_id: null,
+    name: 'Dev Bot',
+    role_slug: 'developer',
+    workstation_id: null,
+    persona_json: null,
+    config_json: null,
+    enabled: 1,
+    created_at: '',
+    updated_at: '',
+    ...overrides,
   };
 }
 

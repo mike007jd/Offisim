@@ -4,12 +4,12 @@
  */
 
 import { CheckCircle2, XCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import type { InstallFlowActions, InstallFlowState } from '../../hooks/useInstallFlow.js';
 import { Button } from '../ui/button';
-import { ManifestReview } from './ManifestReview.js';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { BindingForm } from './BindingForm.js';
 import { InstallProgress } from './InstallProgress.js';
-import type { InstallFlowState, InstallFlowActions } from '../../hooks/useInstallFlow.js';
+import { ManifestReview } from './ManifestReview.js';
 
 type InstallDialogProps = InstallFlowState & InstallFlowActions;
 
@@ -94,13 +94,7 @@ export function InstallDialog(props: InstallDialogProps) {
 
       case 'review':
         if (!plan) return <LoadingContent />;
-        return (
-          <ManifestReview
-            plan={plan}
-            onApprove={confirmInstall}
-            onCancel={cancel}
-          />
-        );
+        return <ManifestReview plan={plan} onApprove={confirmInstall} onCancel={cancel} />;
 
       case 'bindings':
         if (!plan) return <LoadingContent />;
@@ -129,19 +123,20 @@ export function InstallDialog(props: InstallDialogProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) cancel(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) cancel();
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{getDialogTitle(step)}</DialogTitle>
           {step === 'review' && plan && (
-            <DialogDescription>
-              Review the package details before installing.
-            </DialogDescription>
+            <DialogDescription>Review the package details before installing.</DialogDescription>
           )}
           {step === 'bindings' && (
-            <DialogDescription>
-              Configure model bindings for this package.
-            </DialogDescription>
+            <DialogDescription>Configure model bindings for this package.</DialogDescription>
           )}
         </DialogHeader>
         {renderContent()}

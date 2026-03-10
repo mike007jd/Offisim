@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { useEffect, useRef, useState } from 'react';
 import { useAicsRuntime } from './aics-runtime-context';
 
 const DEFAULT_MAX = 200;

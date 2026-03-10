@@ -2,28 +2,49 @@
 // but uses `await` on all Drizzle calls (sqlite-proxy returns Promises).
 // If you change repository logic in core, update this file too.
 
-import { eq, and, desc } from 'drizzle-orm';
-import * as schema from '@aics/db-local';
 import type {
-  CompanyRepository, EmployeeRepository,
-  EventRepository, GraphCheckpointRow, GraphThreadRow,
-  HandoffEventRow, HandoffRepository, LlmCallRepository,
-  LlmCallRow, MeetingRepository,
-  MeetingSessionRow, NewGraphCheckpoint, NewGraphThread,
-  NewHandoffEvent, NewLlmCall, NewMeetingSession, NewRuntimeEvent,
-  NewTaskRun, NewToolCall, RuntimeRepositories,
-  TaskRunRepository, TaskRunRow, ThreadRepository,
-  ToolCallRepository, ToolCallRow, CheckpointRepository,
-  InstallTransactionRepository, InstalledPackageRepository,
-  InstalledAssetRepository, AssetBindingRepository,
+  AssetBindingRepository,
+  CheckpointRepository,
+  CompanyRepository,
+  CompanyRow,
+  EmployeeRepository,
+  EmployeeRow,
+  EventRepository,
+  GraphCheckpointRow,
+  GraphThreadRow,
+  HandoffEventRow,
+  HandoffRepository,
+  InstallTransactionRepository,
+  InstalledAssetRepository,
+  InstalledPackageRepository,
+  LlmCallRepository,
+  LlmCallRow,
+  MeetingRepository,
+  MeetingSessionRow,
+  NewGraphCheckpoint,
+  NewGraphThread,
+  NewHandoffEvent,
+  NewLlmCall,
+  NewMeetingSession,
+  NewRuntimeEvent,
+  NewTaskRun,
+  NewToolCall,
+  RuntimeRepositories,
+  TaskRunRepository,
+  TaskRunRow,
+  ThreadRepository,
+  ToolCallRepository,
+  ToolCallRow,
 } from '@aics/core';
-import type { NewEmployee } from '@aics/install-core';
 import {
-  MemoryInstallTransactionRepository,
-  MemoryInstalledPackageRepository,
-  MemoryInstalledAssetRepository,
   MemoryAssetBindingRepository,
+  MemoryInstallTransactionRepository,
+  MemoryInstalledAssetRepository,
+  MemoryInstalledPackageRepository,
 } from '@aics/core';
+import * as schema from '@aics/db-local';
+import type { NewEmployee } from '@aics/install-core';
+import { and, desc, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
 function now(): string {
@@ -39,9 +60,11 @@ function now(): string {
 export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories {
   const companies: CompanyRepository = {
     async findById(id) {
-      const rows = await db.select().from(schema.companies)
+      const rows = await db
+        .select()
+        .from(schema.companies)
         .where(eq(schema.companies.company_id, id));
-      return (rows[0] as any) ?? null;
+      return (rows[0] as CompanyRow | undefined) ?? null;
     },
   };
 
@@ -52,15 +75,22 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return row as GraphThreadRow;
     },
     async findById(id) {
-      const rows = await db.select().from(schema.graphThreads)
+      const rows = await db
+        .select()
+        .from(schema.graphThreads)
         .where(eq(schema.graphThreads.thread_id, id));
       return (rows[0] as GraphThreadRow | undefined) ?? null;
     },
     async findByCompany(companyId, opts) {
-      let query = db.select().from(schema.graphThreads)
+      let query = db
+        .select()
+        .from(schema.graphThreads)
         .where(
           opts?.status
-            ? and(eq(schema.graphThreads.company_id, companyId), eq(schema.graphThreads.status, opts.status))
+            ? and(
+                eq(schema.graphThreads.company_id, companyId),
+                eq(schema.graphThreads.status, opts.status),
+              )
             : eq(schema.graphThreads.company_id, companyId),
         )
         .orderBy(desc(schema.graphThreads.created_at));
@@ -69,10 +99,11 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         query = query.limit(opts.limit) as typeof query;
       }
 
-      return await query as GraphThreadRow[];
+      return (await query) as GraphThreadRow[];
     },
     async updateStatus(id, status) {
-      await db.update(schema.graphThreads)
+      await db
+        .update(schema.graphThreads)
         .set({ status, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
     },
@@ -85,17 +116,22 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return row as TaskRunRow;
     },
     async findById(id) {
-      const rows = await db.select().from(schema.taskRuns)
+      const rows = await db
+        .select()
+        .from(schema.taskRuns)
         .where(eq(schema.taskRuns.task_run_id, id));
       return (rows[0] as TaskRunRow | undefined) ?? null;
     },
     async findByThread(threadId) {
-      return await db.select().from(schema.taskRuns)
-        .where(eq(schema.taskRuns.thread_id, threadId)) as TaskRunRow[];
+      return (await db
+        .select()
+        .from(schema.taskRuns)
+        .where(eq(schema.taskRuns.thread_id, threadId))) as TaskRunRow[];
     },
     async updateStatus(id, status, outputJson) {
       const finished = ['completed', 'failed', 'cancelled'].includes(status) ? now() : null;
-      await db.update(schema.taskRuns)
+      await db
+        .update(schema.taskRuns)
         .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
         .where(eq(schema.taskRuns.task_run_id, id));
     },
@@ -123,17 +159,25 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return { employee_id };
     },
     async findById(id) {
-      const rows = await db.select().from(schema.employees)
+      const rows = await db
+        .select()
+        .from(schema.employees)
         .where(eq(schema.employees.employee_id, id));
-      return (rows[0] as any) ?? null;
+      return (rows[0] as EmployeeRow | undefined) ?? null;
     },
     async findByCompany(companyId) {
-      return await db.select().from(schema.employees)
-        .where(eq(schema.employees.company_id, companyId)) as any;
+      return (await db
+        .select()
+        .from(schema.employees)
+        .where(eq(schema.employees.company_id, companyId))) as EmployeeRow[];
     },
     async findByRole(companyId, roleSlug) {
-      return await db.select().from(schema.employees)
-        .where(and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug))) as any;
+      return (await db
+        .select()
+        .from(schema.employees)
+        .where(
+          and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)),
+        )) as EmployeeRow[];
     },
   };
 
@@ -144,7 +188,8 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return row as ToolCallRow;
     },
     async updateResult(id, status, responseJson) {
-      await db.update(schema.toolCalls)
+      await db
+        .update(schema.toolCalls)
         .set({ status, response_json: responseJson, finished_at: now() })
         .where(eq(schema.toolCalls.tool_call_id, id));
     },
@@ -156,8 +201,10 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return h as HandoffEventRow;
     },
     async findByThread(threadId) {
-      return await db.select().from(schema.handoffEvents)
-        .where(eq(schema.handoffEvents.thread_id, threadId)) as HandoffEventRow[];
+      return (await db
+        .select()
+        .from(schema.handoffEvents)
+        .where(eq(schema.handoffEvents.thread_id, threadId))) as HandoffEventRow[];
     },
   };
 
@@ -167,12 +214,15 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return m as MeetingSessionRow;
     },
     async findById(id) {
-      const rows = await db.select().from(schema.meetingSessions)
+      const rows = await db
+        .select()
+        .from(schema.meetingSessions)
         .where(eq(schema.meetingSessions.meeting_id, id));
       return (rows[0] as MeetingSessionRow | undefined) ?? null;
     },
     async updateStatus(id, status, summaryJson) {
-      await db.update(schema.meetingSessions)
+      await db
+        .update(schema.meetingSessions)
         .set({ status, summary_json: summaryJson ?? undefined, updated_at: now() })
         .where(eq(schema.meetingSessions.meeting_id, id));
     },
@@ -183,18 +233,24 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db.insert(schema.graphCheckpoints).values(c);
     },
     async findLatest(threadId) {
-      const rows = await db.select().from(schema.graphCheckpoints)
+      const rows = await db
+        .select()
+        .from(schema.graphCheckpoints)
         .where(eq(schema.graphCheckpoints.thread_id, threadId))
         .orderBy(desc(schema.graphCheckpoints.checkpoint_seq))
         .limit(1);
       return (rows[0] as GraphCheckpointRow | undefined) ?? null;
     },
     async findBySeq(threadId, seq) {
-      const rows = await db.select().from(schema.graphCheckpoints)
-        .where(and(
-          eq(schema.graphCheckpoints.thread_id, threadId),
-          eq(schema.graphCheckpoints.checkpoint_seq, seq),
-        ));
+      const rows = await db
+        .select()
+        .from(schema.graphCheckpoints)
+        .where(
+          and(
+            eq(schema.graphCheckpoints.thread_id, threadId),
+            eq(schema.graphCheckpoints.checkpoint_seq, seq),
+          ),
+        );
       return (rows[0] as GraphCheckpointRow | undefined) ?? null;
     },
   };
@@ -211,25 +267,42 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return c as LlmCallRow;
     },
     async findByThread(threadId) {
-      return await db.select().from(schema.llmCalls)
-        .where(eq(schema.llmCalls.thread_id, threadId)) as LlmCallRow[];
+      return (await db
+        .select()
+        .from(schema.llmCalls)
+        .where(eq(schema.llmCalls.thread_id, threadId))) as LlmCallRow[];
     },
     async findByTaskRun(taskRunId) {
-      return await db.select().from(schema.llmCalls)
-        .where(eq(schema.llmCalls.task_run_id, taskRunId)) as LlmCallRow[];
+      return (await db
+        .select()
+        .from(schema.llmCalls)
+        .where(eq(schema.llmCalls.task_run_id, taskRunId))) as LlmCallRow[];
     },
   };
 
   // Install repos — memory-backed for now. In Tauri mode, InstallService is null
   // (tauri-runtime.ts), so these are only used to satisfy the RuntimeRepositories type.
   // TODO: When Tauri install support is added, replace with Drizzle-backed implementations.
-  const installTransactions: InstallTransactionRepository = new MemoryInstallTransactionRepository();
+  const installTransactions: InstallTransactionRepository =
+    new MemoryInstallTransactionRepository();
   const installedPackages: InstalledPackageRepository = new MemoryInstalledPackageRepository();
   const installedAssets: InstalledAssetRepository = new MemoryInstalledAssetRepository();
   const assetBindings: AssetBindingRepository = new MemoryAssetBindingRepository();
 
   return {
-    companies, threads, taskRuns, employees, toolCalls, handoffs, meetings, checkpoints, events, llmCalls,
-    installTransactions, installedPackages, installedAssets, assetBindings,
+    companies,
+    threads,
+    taskRuns,
+    employees,
+    toolCalls,
+    handoffs,
+    meetings,
+    checkpoints,
+    events,
+    llmCalls,
+    installTransactions,
+    installedPackages,
+    installedAssets,
+    assetBindings,
   };
 }

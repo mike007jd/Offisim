@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { type HTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
@@ -19,7 +19,11 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={max}
-        className={cn('relative h-2 w-full overflow-hidden rounded-full bg-surface-lighter', className)}
+        tabIndex={0}
+        className={cn(
+          'relative h-2 w-full overflow-hidden rounded-full bg-surface-lighter',
+          className,
+        )}
         {...props}
       >
         <div

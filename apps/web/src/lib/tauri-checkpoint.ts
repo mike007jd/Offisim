@@ -1,15 +1,36 @@
+import type { RunnableConfig } from '@langchain/core/runnables';
 import {
   BaseCheckpointSaver,
   type Checkpoint,
   type CheckpointListOptions,
   type CheckpointMetadata,
   type CheckpointTuple,
-  copyCheckpoint,
   TASKS,
+  copyCheckpoint,
 } from '@langchain/langgraph-checkpoint';
-import type { RunnableConfig } from '@langchain/core/runnables';
-import type { PendingWrite, CheckpointPendingWrite } from '@langchain/langgraph-checkpoint';
+import type { CheckpointPendingWrite, PendingWrite } from '@langchain/langgraph-checkpoint';
 import { getTauriDb } from './tauri-db';
+
+/** Shape of a serialized write row from the pending_writes JSON aggregate. */
+interface SerializedWriteRow {
+  task_id: string;
+  channel: string;
+  type: string;
+  value: string;
+}
+
+/** Shape of a checkpoint row returned from SQLite select. */
+interface CheckpointRow {
+  thread_id: string;
+  checkpoint_ns: string;
+  checkpoint_id: string;
+  parent_checkpoint_id: string | null;
+  type: string;
+  checkpoint: string;
+  metadata: string;
+  pending_writes?: string;
+  pending_sends?: string;
+}
 
 // TASKS is an internal LangGraph constant ('__pregel_tasks').
 // Validate at import time to prevent SQL injection if the constant ever changes.
@@ -26,7 +47,6 @@ if (!/^[a-z_]+$/i.test(TASKS)) {
  * Tables used (`checkpoints` + `writes`) are created by Rust migration 6.
  */
 export class TauriCheckpointSaver extends BaseCheckpointSaver {
-
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const db = await getTauriDb();
     const { thread_id, checkpoint_ns = '', checkpoint_id } = config.configurable ?? {};
@@ -69,7 +89,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       sql += ' ORDER BY checkpoint_id DESC LIMIT 1';
     }
 
-    const rows = await db.select(sql, params);
+    const rows = await db.select<CheckpointRow[]>(sql, params);
     const row = rows[0];
     if (!row) return undefined;
 
@@ -85,7 +105,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     }
 
     const pendingWrites: CheckpointPendingWrite[] = await Promise.all(
-      JSON.parse(row.pending_writes || '[]').map(async (w: any) => [
+      (JSON.parse(row.pending_writes || '[]') as SerializedWriteRow[]).map(async (w) => [
         w.task_id,
         w.channel,
         await this.serde.loadsTyped(w.type ?? 'json', w.value ?? ''),
@@ -171,11 +191,11 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       sql += ` LIMIT ${parsedLimit}`;
     }
 
-    const rows = await db.select(sql, params);
+    const rows = await db.select<CheckpointRow[]>(sql, params);
 
     for (const row of rows) {
       const pendingWrites: CheckpointPendingWrite[] = await Promise.all(
-        JSON.parse(row.pending_writes || '[]').map(async (w: any) => [
+        (JSON.parse(row.pending_writes || '[]') as SerializedWriteRow[]).map(async (w) => [
           w.task_id,
           w.channel,
           await this.serde.loadsTyped(w.type ?? 'json', w.value ?? ''),
@@ -231,11 +251,10 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     }
 
     const preparedCheckpoint = copyCheckpoint(checkpoint);
-    const [[type1, serializedCheckpoint], [type2, serializedMetadata]] =
-      await Promise.all([
-        this.serde.dumpsTyped(preparedCheckpoint),
-        this.serde.dumpsTyped(metadata),
-      ]);
+    const [[type1, serializedCheckpoint], [type2, serializedMetadata]] = await Promise.all([
+      this.serde.dumpsTyped(preparedCheckpoint),
+      this.serde.dumpsTyped(metadata),
+    ]);
 
     if (type1 !== type2) {
       throw new Error('Failed to serialize checkpoint and metadata to same type.');
@@ -245,7 +264,15 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       `INSERT OR REPLACE INTO checkpoints
        (thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, type, checkpoint, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [thread_id, checkpoint_ns, checkpoint.id, parent_checkpoint_id, type1, serializedCheckpoint, serializedMetadata],
+      [
+        thread_id,
+        checkpoint_ns,
+        checkpoint.id,
+        parent_checkpoint_id,
+        type1,
+        serializedCheckpoint,
+        serializedMetadata,
+      ],
     );
 
     return {
@@ -257,11 +284,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     };
   }
 
-  async putWrites(
-    config: RunnableConfig,
-    writes: PendingWrite[],
-    taskId: string,
-  ): Promise<void> {
+  async putWrites(config: RunnableConfig, writes: PendingWrite[], taskId: string): Promise<void> {
     const db = await getTauriDb();
     if (!config.configurable?.thread_id || !config.configurable?.checkpoint_id) {
       throw new Error('Missing thread_id or checkpoint_id in config.configurable.');
@@ -274,7 +297,16 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     const serialized = await Promise.all(
       writes.map(async (write, idx) => {
         const [type, serializedValue] = await this.serde.dumpsTyped(write[1]);
-        return [thread_id, checkpoint_ns, checkpoint_id, taskId, idx, write[0], type, serializedValue];
+        return [
+          thread_id,
+          checkpoint_ns,
+          checkpoint_id,
+          taskId,
+          idx,
+          write[0],
+          type,
+          serializedValue,
+        ];
       }),
     );
 

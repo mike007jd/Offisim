@@ -1,8 +1,8 @@
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
-import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 /**
  * Vite config for apps/web — browser SPA.
@@ -31,81 +31,89 @@ export default defineConfig({
           'api.anthropic.com',
         ]);
 
-        server.middlewares.use('/api/llm-proxy', async (req: IncomingMessage, res: ServerResponse) => {
-          const targetBase = req.headers['x-llm-base-url'] as string;
-          if (!targetBase) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('Missing X-LLM-Base-URL header');
-            return;
-          }
-
-          // Validate target against allowlist to prevent SSRF
-          try {
-            const targetHost = new URL(targetBase).hostname;
-            if (!ALLOWED_HOSTS.has(targetHost)) {
-              res.writeHead(403, { 'Content-Type': 'text/plain' });
-              res.end(`Proxy target not allowed: ${targetHost}. Add it to ALLOWED_HOSTS in vite.config.ts`);
+        server.middlewares.use(
+          '/api/llm-proxy',
+          async (req: IncomingMessage, res: ServerResponse) => {
+            const targetBase = req.headers['x-llm-base-url'] as string;
+            if (!targetBase) {
+              res.writeHead(400, { 'Content-Type': 'text/plain' });
+              res.end('Missing X-LLM-Base-URL header');
               return;
             }
-          } catch {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('Invalid X-LLM-Base-URL header');
-            return;
-          }
 
-          // Build target URL
-          const targetURL = targetBase + (req.url ?? '');
-
-          // Forward headers (except host and the custom one)
-          const forwardHeaders: Record<string, string> = {};
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (key === 'host' || key === 'x-llm-base-url' || !value) continue;
-            forwardHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
-          }
-
-          try {
-            // Collect request body
-            const chunks: Buffer[] = [];
-            for await (const chunk of req) {
-              chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-            }
-            const body = Buffer.concat(chunks);
-
-            const response = await fetch(targetURL, {
-              method: req.method ?? 'POST',
-              headers: forwardHeaders,
-              body: body.length > 0 ? body : undefined,
-            });
-
-            // Forward response status and headers
-            const responseHeaders: Record<string, string> = {};
-            response.headers.forEach((value, key) => {
-              // Don't forward problematic headers
-              if (key !== 'content-encoding' && key !== 'transfer-encoding') {
-                responseHeaders[key] = value;
+            // Validate target against allowlist to prevent SSRF
+            try {
+              const targetHost = new URL(targetBase).hostname;
+              if (!ALLOWED_HOSTS.has(targetHost)) {
+                res.writeHead(403, { 'Content-Type': 'text/plain' });
+                res.end(
+                  `Proxy target not allowed: ${targetHost}. Add it to ALLOWED_HOSTS in vite.config.ts`,
+                );
+                return;
               }
-            });
-            res.writeHead(response.status, responseHeaders);
-
-            // Stream response body
-            if (response.body) {
-              const reader = response.body.getReader();
-              const pump = async () => {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) { res.end(); return; }
-                  res.write(value);
-                }
-              };
-              await pump();
-            } else {
-              res.end(await response.text());
+            } catch {
+              res.writeHead(400, { 'Content-Type': 'text/plain' });
+              res.end('Invalid X-LLM-Base-URL header');
+              return;
             }
-          } catch (err) {
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end(`LLM Proxy Error: ${err instanceof Error ? err.message : String(err)}`);
-          }
-        });
+
+            // Build target URL
+            const targetURL = targetBase + (req.url ?? '');
+
+            // Forward headers (except host and the custom one)
+            const forwardHeaders: Record<string, string> = {};
+            for (const [key, value] of Object.entries(req.headers)) {
+              if (key === 'host' || key === 'x-llm-base-url' || !value) continue;
+              forwardHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
+            }
+
+            try {
+              // Collect request body
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) {
+                chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+              }
+              const body = Buffer.concat(chunks);
+
+              const response = await fetch(targetURL, {
+                method: req.method ?? 'POST',
+                headers: forwardHeaders,
+                body: body.length > 0 ? body : undefined,
+              });
+
+              // Forward response status and headers
+              const responseHeaders: Record<string, string> = {};
+              response.headers.forEach((value, key) => {
+                // Don't forward problematic headers
+                if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+                  responseHeaders[key] = value;
+                }
+              });
+              res.writeHead(response.status, responseHeaders);
+
+              // Stream response body
+              if (response.body) {
+                const reader = response.body.getReader();
+                const pump = async () => {
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                      res.end();
+                      return;
+                    }
+                    res.write(value);
+                  }
+                };
+                await pump();
+              } else {
+                res.end(await response.text());
+              }
+            } catch (err) {
+              res.writeHead(502, { 'Content-Type': 'text/plain' });
+              res.end(`LLM Proxy Error: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          },
+        );
       },
     },
   ],
@@ -122,6 +130,10 @@ export default defineConfig({
     include: ['@aics/core', '@aics/shared-types'],
   },
   build: {
+    // vendor-llm chunk (OpenAI SDK + LangChain + zod) is ~966 KB minified.
+    // This is acceptable because it's loaded lazily on first chat, not on initial render.
+    // The main chunk is now ~598 KB which is well under the default 500 KB limit.
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       external: [
         'better-sqlite3',
@@ -129,6 +141,46 @@ export default defineConfig({
         // Tauri packages — only available in Tauri webview, not browser
         /^@tauri-apps\//,
       ],
+      output: {
+        // ---------------------------------------------------------------------------
+        // Manual chunk splitting to reduce the main bundle from ~1.9 MB.
+        //
+        // Strategy:
+        //   vendor-react  — React core (rarely changes, long cache)
+        //   vendor-llm    — LLM SDKs + LangChain + zod (loaded on first chat)
+        //   vendor-install — fflate + ajv (loaded on first package import)
+        //
+        // PixiJS is NOT manually chunked — Vite's auto-splitting already produces
+        // granular renderer chunks (WebGL, WebGPU, Canvas, etc.) via pixi.js's
+        // own dynamic imports. Forcing them into one chunk would be worse.
+        // ---------------------------------------------------------------------------
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return;
+
+          // React core — shared base, changes infrequently
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'vendor-react';
+          }
+
+          // LLM stack — OpenAI SDK, LangChain, zod, Anthropic SDK
+          if (
+            id.includes('/openai/') ||
+            id.includes('/@langchain/') ||
+            id.includes('/langsmith/') ||
+            id.includes('/zod/') ||
+            id.includes('/@anthropic-ai/') ||
+            id.includes('/langchain/') ||
+            id.includes('/@modelcontextprotocol/')
+          ) {
+            return 'vendor-llm';
+          }
+
+          // Install stack — ZIP + JSON Schema validation
+          if (id.includes('/fflate/') || id.includes('/ajv/') || id.includes('/ajv-formats/')) {
+            return 'vendor-install';
+          }
+        },
+      },
     },
   },
 });

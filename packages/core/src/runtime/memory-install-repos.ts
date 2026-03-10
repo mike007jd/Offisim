@@ -1,4 +1,9 @@
-import type { AssetBindingRow, InstallTransactionRow, InstalledAssetRow, InstalledPackageRow } from '@aics/install-core';
+import type {
+  AssetBindingRow,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+} from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
@@ -22,7 +27,12 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
     return this.store.get(id) ?? null;
   }
 
-  async updateState(id: string, state: InstallState, errorCode?: string, errorDetail?: string): Promise<void> {
+  async updateState(
+    id: string,
+    state: InstallState,
+    errorCode?: string,
+    errorDetail?: string,
+  ): Promise<void> {
     const row = this.store.get(id);
     if (row) {
       this.store.set(id, {

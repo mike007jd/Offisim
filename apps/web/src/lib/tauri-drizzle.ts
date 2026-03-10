@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import * as schema from '@aics/db-local';
+import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { getTauriDb } from './tauri-db';
 
 /**
@@ -26,19 +26,23 @@ function convertPlaceholders(sql: string): string {
  * @returns Drizzle DB instance (async — all .all()/.run() return Promises)
  */
 export function createTauriDrizzleDb() {
-  return drizzle(async (sql, params, method) => {
-    const db = await getTauriDb();
-    const convertedSql = convertPlaceholders(sql);
+  return drizzle(
+    async (sql, params, method) => {
+      const db = await getTauriDb();
+      const convertedSql = convertPlaceholders(sql);
 
-    if (method === 'run') {
-      await db.execute(convertedSql, params);
-      return { rows: [] };
-    }
+      if (method === 'run') {
+        await db.execute(convertedSql, params);
+        return { rows: [] };
+      }
 
-    // SELECT — return rows as array of objects
-    const rows = await db.select(convertedSql, params);
-    return { rows };
-  }, { schema });
+      // SELECT — return rows as array of objects
+      // biome-ignore lint/suspicious/noExplicitAny: drizzle AsyncRemoteCallback requires `rows: any[]`
+      const rows: any[] = await db.select(convertedSql, params);
+      return { rows };
+    },
+    { schema },
+  );
 }
 
 export type TauriDrizzleDb = ReturnType<typeof createTauriDrizzleDb>;

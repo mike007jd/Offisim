@@ -1,5 +1,5 @@
-import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
+import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 
 export interface PendingAssignment {
   taskType: string;

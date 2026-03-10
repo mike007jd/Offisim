@@ -1,10 +1,15 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { AicsGraphState } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { recordedLlmStream } from '../llm/recorded-call.js';
 import { GraphError } from '../errors.js';
-import { graphNodeEntered, llmStreamChunk, planCompleted, planStepCompleted } from '../events/event-factories.js';
+import {
+  graphNodeEntered,
+  llmStreamChunk,
+  planCompleted,
+  planStepCompleted,
+} from '../events/event-factories.js';
+import type { AicsGraphState } from '../graph/state.js';
+import { recordedLlmStream } from '../llm/recorded-call.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -117,12 +122,7 @@ export async function bossSummaryNode(
     (chunk) => {
       if (chunk.content) {
         runtimeCtx.eventBus.emit(
-          llmStreamChunk(
-            runtimeCtx.companyId,
-            state.threadId,
-            'boss_summary',
-            chunk.content,
-          ),
+          llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss_summary', chunk.content),
         );
       }
     },

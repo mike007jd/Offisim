@@ -25,8 +25,7 @@ export async function injectProvider(page: Page): Promise<void> {
   // Model from env (OPENROUTER_MODEL in .env.local) or fallback.
   // google/gemma-3-4b-it:free does NOT support system messages via Google AI Studio,
   // so we default to Llama 3.3 which reliably supports them.
-  const model =
-    process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+  const model = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
   const config: TestProviderConfig = {
     provider: 'openai-compat',
@@ -36,10 +35,10 @@ export async function injectProvider(page: Page): Promise<void> {
   };
 
   await page.goto('/');
-  await page.evaluate(
-    ({ key, value }) => localStorage.setItem(key, value),
-    { key: STORAGE_KEY, value: JSON.stringify(config) },
-  );
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+    key: STORAGE_KEY,
+    value: JSON.stringify(config),
+  });
   await page.reload();
 }
 
@@ -47,10 +46,10 @@ export async function injectProvider(page: Page): Promise<void> {
  * Wait for the AICS runtime to be ready (debug bridge available on window).
  */
 export async function waitForRuntime(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () => (window as any).__AICS_DEBUG__ !== undefined,
-    { timeout: 15_000 },
-  );
+  // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
+  await page.waitForFunction(() => (window as any).__AICS_DEBUG__ !== undefined, {
+    timeout: 15_000,
+  });
 }
 
 /**
@@ -87,10 +86,7 @@ export async function sendChat(page: Page, message: string): Promise<void> {
  * Wait for an AI response to appear in the chat panel.
  * Returns the text content of the last assistant message.
  */
-export async function waitForResponse(
-  page: Page,
-  timeout = 45_000,
-): Promise<string> {
+export async function waitForResponse(page: Page, timeout = 45_000): Promise<string> {
   // First wait for at least one assistant bubble to exist in the DOM
   await page.locator('[data-role="assistant"]').first().waitFor({
     state: 'visible',

@@ -1,7 +1,7 @@
-import { Container, Graphics } from 'pixi.js';
 import gsap from 'gsap';
-import type { MotionBucket } from '../tokens/motion.js';
+import { Container, Graphics } from 'pixi.js';
 import { LAYOUT } from '../tokens/layout.js';
+import type { MotionBucket } from '../tokens/motion.js';
 
 /**
  * PixiJS entity representing a meeting room.
@@ -49,14 +49,16 @@ export class MeetingRoomEntity {
     const { duration, ease } = this.motion.M2;
     if (duration > 0) {
       this.trackTween(gsap.to(this.container.scale, { x: 0, y: 0, duration, ease }));
-      this.trackTween(gsap.to(this.container, {
-        alpha: 0,
-        duration,
-        ease,
-        onComplete: () => {
-          this.container.visible = false;
-        },
-      }));
+      this.trackTween(
+        gsap.to(this.container, {
+          alpha: 0,
+          duration,
+          ease,
+          onComplete: () => {
+            this.container.visible = false;
+          },
+        }),
+      );
     } else {
       this.container.scale.set(0);
       this.container.alpha = 0;

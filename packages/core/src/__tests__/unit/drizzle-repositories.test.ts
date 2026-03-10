@@ -1,7 +1,7 @@
+import * as schema from '@aics/db-local';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { describe, expect, it, beforeEach } from 'vitest';
-import * as schema from '@aics/db-local';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzleRepositories } from '../../runtime/drizzle-repositories.js';
 
 import { readFileSync } from 'node:fs';
@@ -27,19 +27,24 @@ describe('DrizzleRepositories', () => {
     const db = createTestDb();
     repos = createDrizzleRepositories(db);
 
-    db.insert(schema.companies).values({
-      company_id: 'c-1',
-      name: 'Test Corp',
-      status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).run();
+    db.insert(schema.companies)
+      .values({
+        company_id: 'c-1',
+        name: 'Test Corp',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .run();
   });
 
   it('threads: create and findById', async () => {
     const thread = await repos.threads.create({
-      thread_id: 't-1', company_id: 'c-1',
-      entry_mode: 'boss_chat', root_task_id: null, status: 'running',
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
     });
     expect(thread.thread_id).toBe('t-1');
 
@@ -49,8 +54,11 @@ describe('DrizzleRepositories', () => {
 
   it('threads: updateStatus', async () => {
     await repos.threads.create({
-      thread_id: 't-1', company_id: 'c-1',
-      entry_mode: 'boss_chat', root_task_id: null, status: 'running',
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
     });
     await repos.threads.updateStatus('t-1', 'completed');
     const found = await repos.threads.findById('t-1');
@@ -59,13 +67,21 @@ describe('DrizzleRepositories', () => {
 
   it('taskRuns: create and findByThread', async () => {
     await repos.threads.create({
-      thread_id: 't-1', company_id: 'c-1',
-      entry_mode: 'boss_chat', root_task_id: null, status: 'running',
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
     });
     await repos.taskRuns.create({
-      task_run_id: 'tr-1', thread_id: 't-1', employee_id: null,
-      parent_task_run_id: null, task_type: 'boss_chat',
-      status: 'active', input_json: null, output_json: null,
+      task_run_id: 'tr-1',
+      thread_id: 't-1',
+      employee_id: null,
+      parent_task_run_id: null,
+      task_type: 'boss_chat',
+      status: 'active',
+      input_json: null,
+      output_json: null,
       started_at: new Date().toISOString(),
     });
     const runs = await repos.taskRuns.findByThread('t-1');
@@ -74,17 +90,26 @@ describe('DrizzleRepositories', () => {
 
   it('checkpoints: save and findLatest', async () => {
     await repos.threads.create({
-      thread_id: 't-1', company_id: 'c-1',
-      entry_mode: 'boss_chat', root_task_id: null, status: 'running',
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
     });
     await repos.checkpoints.save({
-      checkpoint_id: 'cp-1', thread_id: 't-1', checkpoint_seq: 1,
-      checkpoint_kind: 'node_complete', payload_json: '{}',
+      checkpoint_id: 'cp-1',
+      thread_id: 't-1',
+      checkpoint_seq: 1,
+      checkpoint_kind: 'node_complete',
+      payload_json: '{}',
       created_at: new Date().toISOString(),
     });
     await repos.checkpoints.save({
-      checkpoint_id: 'cp-2', thread_id: 't-1', checkpoint_seq: 2,
-      checkpoint_kind: 'interrupt', payload_json: '{"x":1}',
+      checkpoint_id: 'cp-2',
+      thread_id: 't-1',
+      checkpoint_seq: 2,
+      checkpoint_kind: 'interrupt',
+      payload_json: '{"x":1}',
       created_at: new Date().toISOString(),
     });
     const latest = await repos.checkpoints.findLatest('t-1');

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { withRetry, type RetryConfig } from '../../llm/retry.js';
+import { describe, expect, it, vi } from 'vitest';
 import { LlmError } from '../../errors.js';
+import { type RetryConfig, withRetry } from '../../llm/retry.js';
 
 const FAST_CONFIG: RetryConfig = { maxRetries: 3, baseDelayMs: 1, maxDelayMs: 10 };
 
@@ -13,7 +13,8 @@ describe('withRetry', () => {
   });
 
   it('retries on retryable error and succeeds', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new LlmError('rate limited', 'anthropic', 429))
       .mockResolvedValue('ok');
     const result = await withRetry(fn, FAST_CONFIG, (e) => e instanceof LlmError && e.recoverable);
@@ -40,12 +41,14 @@ describe('withRetry', () => {
   it('applies exponential backoff with jitter', async () => {
     const delays: number[] = [];
     const originalSetTimeout = globalThis.setTimeout;
+    // biome-ignore lint/suspicious/noExplicitAny: setTimeout mock signature override
     vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: any, ms?: number) => {
       delays.push(ms ?? 0);
       return originalSetTimeout(fn, 0); // run immediately for test speed
     });
 
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new LlmError('err', 'anthropic', 429))
       .mockRejectedValueOnce(new LlmError('err', 'anthropic', 429))
       .mockResolvedValue('ok');

@@ -4,9 +4,9 @@
  */
 
 import { CheckCircle2, Circle, Loader2, XCircle } from 'lucide-react';
-import { Progress } from '../ui/progress';
-import { Alert, AlertDescription } from '../ui/alert';
 import type { InstallStep } from '../../hooks/useInstallFlow.js';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Progress } from '../ui/progress';
 
 interface InstallProgressProps {
   currentStep: InstallStep;
@@ -47,7 +47,10 @@ function stepToProgress(step: InstallStep): number {
 }
 
 /** Determine step status relative to current step */
-function getStepStatus(stepKey: string, currentStep: InstallStep): 'completed' | 'active' | 'pending' | 'error' {
+function getStepStatus(
+  stepKey: string,
+  currentStep: InstallStep,
+): 'completed' | 'active' | 'pending' | 'error' {
   if (currentStep === 'error') return 'error';
 
   const stepOrder = INSTALL_STEPS.map((s) => s.key);
@@ -80,7 +83,11 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
     <div className="flex flex-col gap-4">
       <div>
         <h3 className="text-base font-semibold text-text-primary">
-          {currentStep === 'installing' ? 'Installing...' : currentStep === 'done' ? 'Installation Complete' : 'Progress'}
+          {currentStep === 'installing'
+            ? 'Installing...'
+            : currentStep === 'done'
+              ? 'Installation Complete'
+              : 'Progress'}
         </h3>
       </div>
 
@@ -92,10 +99,7 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
         {INSTALL_STEPS.map((step) => {
           const status = getStepStatus(step.key, currentStep);
           return (
-            <div
-              key={step.key}
-              className="flex items-center gap-2 text-sm"
-            >
+            <div key={step.key} className="flex items-center gap-2 text-sm">
               <StepIcon status={status} />
               <span
                 className={

@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
 import type { InstallState } from '@aics/shared-types';
+import { describe, expect, it } from 'vitest';
 import {
   TRANSITIONS,
-  validateTransition,
-  isTerminalState,
   isErrorState,
+  isTerminalState,
+  validateTransition,
 } from '../state-machine.js';
 
 describe('state-machine', () => {

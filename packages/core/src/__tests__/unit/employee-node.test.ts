@@ -1,17 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import type { RuntimeEvent } from '@aics/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { errorHandlerNode } from '../../agents/error-handler-node.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import type { RunnableConfig } from '@langchain/core/runnables';
-import type { RuntimeEvent } from '@aics/shared-types';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from '../helpers/fixtures.js';
+import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -170,11 +176,13 @@ describe('employeeNode', () => {
 
     // Should have the final content from round 3
     expect(result.messages).toHaveLength(1);
-    expect(result.messages![0]!.content).toContain('After reading the file and searching the code');
+    expect(result.messages?.[0]?.content).toContain(
+      'After reading the file and searching the code',
+    );
 
     // LLM was called 3 times: initial + 2 follow-up rounds
     const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
-    expect(llmCalls.filter(c => c.node_name === 'employee')).toHaveLength(3);
+    expect(llmCalls.filter((c) => c.node_name === 'employee')).toHaveLength(3);
   });
 
   it('stops after MAX_TOOL_ROUNDS (5) even if LLM keeps requesting tools', async () => {
@@ -196,7 +204,7 @@ describe('employeeNode', () => {
     // The loop should have stopped after 5 rounds of tool calls
     // Initial call (1) + 5 follow-up rounds = 6 total LLM calls
     const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
-    const employeeCalls = llmCalls.filter(c => c.node_name === 'employee');
+    const employeeCalls = llmCalls.filter((c) => c.node_name === 'employee');
     expect(employeeCalls).toHaveLength(6); // initial + 5 rounds
 
     // Result should still include content from the last response (round 6 = index 5)

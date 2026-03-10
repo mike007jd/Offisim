@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 // ---------------------------------------------------------------------------
@@ -86,10 +86,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
       return;
     }
 
-    setServers((prev) => [
-      ...prev,
-      { name: trimmedName, transport, commandOrUrl: trimmedCmd },
-    ]);
+    setServers((prev) => [...prev, { name: trimmedName, transport, commandOrUrl: trimmedCmd }]);
     // Reset form
     setName('');
     setCommandOrUrl('');
@@ -99,8 +96,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
     setServers((prev) => prev.filter((s) => s.name !== serverName));
   }, []);
 
-  const isConnected = (serverName: string): boolean =>
-    connectedServers?.has(serverName) ?? false;
+  const isConnected = (serverName: string): boolean => connectedServers?.has(serverName) ?? false;
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,8 +107,11 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div>
-            <label className="text-xs text-text-secondary mb-1 block">Server Name</label>
+            <label htmlFor="mcp-server-name" className="text-xs text-text-secondary mb-1 block">
+              Server Name
+            </label>
             <Input
+              id="mcp-server-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. filesystem"
@@ -121,7 +120,9 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
           </div>
 
           <div>
-            <label className="text-xs text-text-secondary mb-1 block">Transport</label>
+            <label htmlFor="mcp-transport" className="text-xs text-text-secondary mb-1 block">
+              Transport
+            </label>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue />
@@ -134,10 +135,11 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
           </div>
 
           <div>
-            <label className="text-xs text-text-secondary mb-1 block">
+            <label htmlFor="mcp-command-or-url" className="text-xs text-text-secondary mb-1 block">
               {transport === 'stdio' ? 'Command' : 'URL'}
             </label>
             <Input
+              id="mcp-command-or-url"
               value={commandOrUrl}
               onChange={(e) => setCommandOrUrl(e.target.value)}
               placeholder={
@@ -166,9 +168,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
       {servers.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">
-              Configured Servers ({servers.length})
-            </CardTitle>
+            <CardTitle className="text-sm">Configured Servers ({servers.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="flex flex-col gap-2">
@@ -202,6 +202,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                     className="shrink-0 text-text-muted hover:text-error h-7 px-2"
                   >
                     <svg
+                      aria-hidden="true"
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 16 16"
                       fill="currentColor"

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import Database from 'better-sqlite3';
 import { MemorySaver } from '@langchain/langgraph';
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
+import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import {
   createCheckpointSaver,
   createMemoryCheckpointSaver,
@@ -50,8 +50,8 @@ describe('SqliteSaver basic persistence', () => {
     });
 
     expect(tuple).toBeDefined();
-    expect(tuple!.checkpoint.id).toBe('cp-001');
-    expect(tuple!.checkpoint.channel_values).toEqual({
+    expect(tuple?.checkpoint.id).toBe('cp-001');
+    expect(tuple?.checkpoint.channel_values).toEqual({
       messages: [],
       completed: false,
     });

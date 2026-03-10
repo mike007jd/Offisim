@@ -1,15 +1,18 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import Database from 'better-sqlite3';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createCheckpointSaver } from '../../graph/checkpoint-saver.js';
 
 describe('SqliteSaver coexistence with app tables', () => {
   const tmpFiles: string[] = [];
 
   function createTempDb(): { db: Database.Database; filePath: string } {
-    const filePath = path.join(os.tmpdir(), `aics-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+    const filePath = path.join(
+      os.tmpdir(),
+      `aics-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+    );
     tmpFiles.push(filePath);
     const db = new Database(filePath);
     // Simulate our app tables
@@ -37,7 +40,11 @@ describe('SqliteSaver coexistence with app tables', () => {
 
   afterEach(() => {
     for (const f of tmpFiles) {
-      try { fs.unlinkSync(f); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(f);
+      } catch {
+        /* ignore */
+      }
     }
     tmpFiles.length = 0;
   });
@@ -64,7 +71,9 @@ describe('SqliteSaver coexistence with app tables', () => {
     await checkpointer.put(config, checkpoint, { source: 'input', step: 0, parents: {} }, {});
 
     // App data still readable
-    const company = db.prepare('SELECT * FROM companies WHERE company_id = ?').get('c-1') as { name: string };
+    const company = db.prepare('SELECT * FROM companies WHERE company_id = ?').get('c-1') as {
+      name: string;
+    };
     expect(company.name).toBe('Test Corp');
 
     // SqliteSaver data readable
@@ -72,10 +81,12 @@ describe('SqliteSaver coexistence with app tables', () => {
       configurable: { thread_id: 't-1', checkpoint_id: 'cp-coexist' },
     });
     expect(tuple).toBeDefined();
-    expect(tuple!.checkpoint.channel_values).toEqual({ test: true });
+    expect(tuple?.checkpoint.channel_values).toEqual({ test: true });
 
     // Our graph_checkpoints table is untouched by SqliteSaver
-    const ourCheckpoints = db.prepare('SELECT COUNT(*) as cnt FROM graph_checkpoints').get() as { cnt: number };
+    const ourCheckpoints = db.prepare('SELECT COUNT(*) as cnt FROM graph_checkpoints').get() as {
+      cnt: number;
+    };
     expect(ourCheckpoints.cnt).toBe(0);
 
     db.close();
@@ -106,7 +117,7 @@ describe('SqliteSaver coexistence with app tables', () => {
       configurable: { thread_id: 'file-thread', checkpoint_id: 'cp-file' },
     });
     expect(tuple).toBeDefined();
-    expect(tuple!.checkpoint.channel_values).toEqual({ persisted: true });
+    expect(tuple?.checkpoint.channel_values).toEqual({ persisted: true });
 
     db2.close();
   });

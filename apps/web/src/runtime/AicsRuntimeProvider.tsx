@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HumanMessage } from '@langchain/core/messages';
 import {
+  InMemoryEventBus,
+  MockToolExecutor,
+  ModelResolver,
+  OrchestrationService,
+  bindingStateChanged,
   buildAicsGraph,
+  createGateway,
   createMemoryCheckpointSaver,
   createMemoryRepositories,
   createRuntimeContext,
-  createGateway,
-  InMemoryEventBus,
-  ModelResolver,
-  MockToolExecutor,
-  OrchestrationService,
   installStateChanged,
-  bindingStateChanged,
 } from '@aics/core';
-import type { CompanyRow, EmployeeRow, RuntimeRepositories, EventBus } from '@aics/core';
+import type { CompanyRow, EmployeeRow, EventBus, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
-import type { InstallRepositories, InstallEventEmitter } from '@aics/install-core';
-import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
-import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
+import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { HumanMessage } from '@langchain/core/messages';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isTauri } from '../lib/env';
+import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
+import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
 
 const COMPANY_ID = 'company-001';
 const THREAD_ID = 'thread-001';
@@ -56,7 +56,9 @@ function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositor
 function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   return {
     emitInstallState(companyId, txnId, prev, next, packageId, errorCode) {
-      eventBus.emit(installStateChanged(companyId, txnId, prev, next, undefined, packageId, errorCode));
+      eventBus.emit(
+        installStateChanged(companyId, txnId, prev, next, undefined, packageId, errorCode),
+      );
     },
     emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
       eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
@@ -100,7 +102,10 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
       name: 'Bob',
       role_slug: 'developer',
       workstation_id: null,
-      persona_json: JSON.stringify({ expertise: 'full-stack development', style: 'detail-oriented' }),
+      persona_json: JSON.stringify({
+        expertise: 'full-stack development',
+        style: 'detail-oriented',
+      }),
       config_json: null,
       enabled: 1,
       created_at: now,
@@ -142,12 +147,12 @@ function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus
 
   // In dev mode, route LLM calls through Vite proxy to avoid CORS.
   // The proxy reads the real target from X-LLM-Base-URL header.
-  const proxyBaseURL = IS_DEV && config.baseURL
-    ? `${window.location.origin}/api/llm-proxy`
-    : undefined;
-  const proxyHeaders = IS_DEV && config.baseURL
-    ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
-    : config.defaultHeaders;
+  const proxyBaseURL =
+    IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
+  const proxyHeaders =
+    IS_DEV && config.baseURL
+      ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
+      : config.defaultHeaders;
 
   const gateway = createGateway({
     provider: config.provider,
@@ -260,6 +265,7 @@ export function AicsRuntimeProvider({ children }: Props) {
   }
 
   // Initialize Tauri runtime on mount / reinit
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version is intentional — reinitRuntime() bumps it to force re-init
   useEffect(() => {
     if (isTauri() && !runtimeRef.current) {
       initPromiseRef.current = initRuntime().catch((err) => {
@@ -280,58 +286,63 @@ export function AicsRuntimeProvider({ children }: Props) {
     setVersion((v) => v + 1);
   }, []);
 
-  const sendMessage = useCallback(async (text: string): Promise<string | undefined> => {
-    let runtime = runtimeRef.current;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getOrCreateRuntime is a render-scoped function that reads refs
+  const sendMessage = useCallback(
+    async (text: string): Promise<string | undefined> => {
+      let runtime = runtimeRef.current;
 
-    // For Tauri: wait for async init if in progress
-    if (!runtime && isTauri()) {
-      if (initPromiseRef.current) {
-        runtime = await initPromiseRef.current;
-      } else {
-        runtime = await initRuntime();
-      }
-    }
-
-    // For Browser: sync init
-    if (!runtime) {
-      runtime = getOrCreateRuntime();
-    }
-
-    if (!runtime) {
-      setError('No provider configured. Open Settings to configure.');
-      return undefined;
-    }
-
-    setIsRunning(true);
-    setError(null);
-
-    try {
-      const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
-      const result = await orch.execute({
-        entryMode: 'boss_chat',
-        messages: [new HumanMessage(text)],
-      });
-      // Extract last AI message content from graph result
-      const msgs = result.messages ?? [];
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        const m = msgs[i]!;
-        if (m._getType() === 'ai' && typeof m.content === 'string' && m.content) {
-          return m.content;
+      // For Tauri: wait for async init if in progress
+      if (!runtime && isTauri()) {
+        if (initPromiseRef.current) {
+          runtime = await initPromiseRef.current;
+        } else {
+          runtime = await initRuntime();
         }
       }
-      return undefined;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return undefined;
-    } finally {
-      setIsRunning(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- version ensures fresh runtime
-  }, [version, initRuntime]);
+
+      // For Browser: sync init
+      if (!runtime) {
+        runtime = getOrCreateRuntime();
+      }
+
+      if (!runtime) {
+        setError('No provider configured. Open Settings to configure.');
+        return undefined;
+      }
+
+      setIsRunning(true);
+      setError(null);
+
+      try {
+        const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
+        const result = await orch.execute({
+          entryMode: 'boss_chat',
+          messages: [new HumanMessage(text)],
+        });
+        // Extract last AI message content from graph result
+        const msgs = result.messages ?? [];
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i]!;
+          if (m._getType() === 'ai' && typeof m.content === 'string' && m.content) {
+            return m.content;
+          }
+        }
+        return undefined;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+        return undefined;
+      } finally {
+        setIsRunning(false);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- version ensures fresh runtime
+    },
+    [version, initRuntime],
+  );
 
   const clearError = useCallback(() => setError(null), []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getOrCreateRuntime is a render-scoped function
   const value = useMemo<AicsRuntimeValue>(() => {
     // NOTE: getOrCreateRuntime() lazily initializes the browser runtime and
     // assigns to runtimeRef. This is intentional — scene/event hooks need
@@ -371,12 +382,8 @@ export function AicsRuntimeProvider({ children }: Props) {
       reinitRuntime,
       installService: runtime?.installService ?? null,
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version]);
 
-  return (
-    <AicsRuntimeContext.Provider value={value}>
-      {children}
-    </AicsRuntimeContext.Provider>
-  );
+  return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;
 }

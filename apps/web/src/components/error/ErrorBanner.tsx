@@ -17,7 +17,12 @@ export function ErrorBanner({ message, onDismiss, onRetry }: ErrorBannerProps) {
           Retry
         </Button>
       )}
-      <button onClick={onDismiss} className="shrink-0 hover:opacity-70">
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 hover:opacity-70"
+        aria-label="Dismiss error"
+      >
         <X className="h-4 w-4" />
       </button>
     </div>

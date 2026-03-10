@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { extractPackage } from '../manifest-loader.js';
-import { createTestPkg, computeSha256, TEST_MANIFEST } from './fixtures/create-test-pkg.js';
+import { TEST_MANIFEST, computeSha256, createTestPkg } from './fixtures/create-test-pkg.js';
 
 describe('manifest-loader / extractPackage', () => {
   // -----------------------------------------------------------------------
@@ -71,7 +71,7 @@ describe('manifest-loader / extractPackage', () => {
   // Corrupt / non-ZIP bytes
   // -----------------------------------------------------------------------
   it('throws on corrupt (non-ZIP) bytes', async () => {
-    const garbage = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE]);
+    const garbage = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0xff, 0xfe]);
     await expect(extractPackage(garbage)).rejects.toThrow('decompress');
   });
 

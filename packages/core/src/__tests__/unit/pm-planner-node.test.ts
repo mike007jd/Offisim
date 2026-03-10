@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { HumanMessage } from '@langchain/core/messages';
-import { pmPlannerNode } from '../../agents/pm-planner-node.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { TEST_COMPANY, TEST_COMPANY_ID, TEST_THREAD_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import type { AicsGraphState } from '../../graph/state.js';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import type { PlanCreatedPayload, RuntimeEvent } from '@aics/shared-types';
+import { HumanMessage } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { pmPlannerNode } from '../../agents/pm-planner-node.js';
+import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { AicsGraphState } from '../../graph/state.js';
+import { ModelResolver } from '../../llm/model-resolver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { createRuntimeContext } from '../../runtime/runtime-context.js';
+import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import {
+  TEST_COMPANY,
+  TEST_COMPANY_ID,
+  TEST_THREAD_ID,
+  makeEmployee,
+  makeManager,
+} from '../helpers/fixtures.js';
+import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
   return {
@@ -106,10 +112,10 @@ describe('pmPlannerNode', () => {
     const result = await pmPlannerNode(state, config);
 
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.steps).toHaveLength(2);
-    expect(result.taskPlan!.steps[0]!.stepIndex).toBe(0);
-    expect(result.taskPlan!.steps[1]!.stepIndex).toBe(1);
-    expect(result.taskPlan!.summary).toBe('Build a website with backend and frontend');
+    expect(result.taskPlan?.steps).toHaveLength(2);
+    expect(result.taskPlan?.steps[0]?.stepIndex).toBe(0);
+    expect(result.taskPlan?.steps[1]?.stepIndex).toBe(1);
+    expect(result.taskPlan?.summary).toBe('Build a website with backend and frontend');
     expect(result.currentStepIndex).toBe(0);
     expect(result.stepResults).toEqual([]);
     expect(result.currentStepOutputs).toEqual([]);
@@ -140,15 +146,15 @@ describe('pmPlannerNode', () => {
     const result = await pmPlannerNode(state, config);
 
     // taskRunId should be set on each task
-    const task = result.taskPlan!.steps[0]!.tasks[0]!;
+    const task = result.taskPlan?.steps[0]?.tasks[0]!;
     expect(task.taskRunId).toBeTruthy();
     expect(task.taskRunId).toMatch(/^tr-/);
 
     // Verify taskRun was created in repository
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     expect(taskRuns).toHaveLength(1);
-    expect(taskRuns[0]!.status).toBe('planned');
-    expect(taskRuns[0]!.employee_id).toBe('e-dev-1');
+    expect(taskRuns[0]?.status).toBe('planned');
+    expect(taskRuns[0]?.employee_id).toBe('e-dev-1');
   });
 
   it('emits planCreated event', async () => {
@@ -177,9 +183,9 @@ describe('pmPlannerNode', () => {
 
     const planEvents = events.filter((e) => e.type === 'plan.created');
     expect(planEvents).toHaveLength(1);
-    const payload = planEvents[0]!.payload as unknown as PlanCreatedPayload;
+    const payload = planEvents[0]?.payload as unknown as PlanCreatedPayload;
     expect(payload.steps).toHaveLength(1);
-    expect(payload.steps[0]!.taskCount).toBe(1);
+    expect(payload.steps[0]?.taskCount).toBe(1);
   });
 
   it('falls back to single-step plan when LLM response is unparseable', async () => {
@@ -191,10 +197,10 @@ describe('pmPlannerNode', () => {
     const result = await pmPlannerNode(state, config);
 
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.steps).toHaveLength(1);
-    expect(result.taskPlan!.steps[0]!.tasks).toHaveLength(1);
-    expect(result.taskPlan!.steps[0]!.tasks[0]!.employeeId).toBe('e-dev-1');
-    expect(result.taskPlan!.steps[0]!.tasks[0]!.taskType).toBe('general');
+    expect(result.taskPlan?.steps).toHaveLength(1);
+    expect(result.taskPlan?.steps[0]?.tasks).toHaveLength(1);
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.employeeId).toBe('e-dev-1');
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.taskType).toBe('general');
   });
 
   it('returns empty plan when directive has no recommended employees', async () => {

@@ -1,5 +1,5 @@
 import type { RuntimeEvent } from '@aics/shared-types';
-import { Play, CheckCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Play } from 'lucide-react';
 
 function relativeTime(ts: number): string {
   const diff = Math.round((Date.now() - ts) / 1000);
@@ -25,9 +25,7 @@ export function EventItem({ event }: EventItemProps) {
       <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
       <div className="flex-1 min-w-0">
         <span className="font-medium text-text-primary">{nodeName}</span>
-        <span className="text-text-muted ml-1">
-          {isEntered ? 'started' : 'completed'}
-        </span>
+        <span className="text-text-muted ml-1">{isEntered ? 'started' : 'completed'}</span>
       </div>
       <span className="text-text-muted shrink-0">{relativeTime(event.timestamp)}</span>
     </div>

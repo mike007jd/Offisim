@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import { ExecutionTraceServiceImpl } from '../../services/execution-trace-service.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryCheckpointSaver } from '../../graph/checkpoint-saver.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
+import { ExecutionTraceServiceImpl } from '../../services/execution-trace-service.js';
 import { TEST_COMPANY, TEST_COMPANY_ID } from '../helpers/fixtures.js';
 
 describe('ExecutionTraceService', () => {
@@ -71,20 +71,26 @@ describe('ExecutionTraceService', () => {
 
     const trace = await service.getTrace('t-1');
     expect(trace).not.toBeNull();
-    expect(trace!.thread.thread_id).toBe('t-1');
-    expect(trace!.taskRuns).toHaveLength(1);
-    expect(trace!.handoffs).toHaveLength(1);
-    expect(trace!.llmCalls).toHaveLength(1);
+    expect(trace?.thread.thread_id).toBe('t-1');
+    expect(trace?.taskRuns).toHaveLength(1);
+    expect(trace?.handoffs).toHaveLength(1);
+    expect(trace?.llmCalls).toHaveLength(1);
   });
 
   it('listThreads returns threads for company', async () => {
     await repos.threads.create({
-      thread_id: 't-1', company_id: TEST_COMPANY_ID, entry_mode: 'boss_chat',
-      root_task_id: null, status: 'completed',
+      thread_id: 't-1',
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'completed',
     });
     await repos.threads.create({
-      thread_id: 't-2', company_id: TEST_COMPANY_ID, entry_mode: 'boss_chat',
-      root_task_id: null, status: 'running',
+      thread_id: 't-2',
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
     });
 
     const threads = await service.listThreads(TEST_COMPANY_ID);
@@ -113,7 +119,7 @@ describe('ExecutionTraceService', () => {
 
     const state = await service.getStateAt('svc-thread-1', 'svc-cp-1');
     expect(state).not.toBeNull();
-    expect(state!.completed).toBe(true);
-    expect(state!.foo).toBe('bar');
+    expect(state?.completed).toBe(true);
+    expect(state?.foo).toBe('bar');
   });
 });

@@ -1,6 +1,6 @@
-import { createContext, useContext } from 'react';
 import type { EventBus } from '@aics/core';
 import type { InstallService } from '@aics/install-core';
+import { createContext, useContext } from 'react';
 
 export interface AicsRuntimeValue {
   eventBus: EventBus;
