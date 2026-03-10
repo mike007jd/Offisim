@@ -15,6 +15,7 @@ export type EmployeeState =
 
 /** Task lifecycle states — source: SCENE_STATE_MATRIX §7 */
 export type TaskState =
+  | 'planned'
   | 'created'
   | 'routed'
   | 'queued'
@@ -52,4 +53,4 @@ export type MeetingState = 'scheduled' | 'gathering' | 'active' | 'waiting' | 'e
 export type ReportState = 'drafting' | 'ready' | 'delivered' | 'rejected';
 
 /** Entity types that can emit runtime events */
-export type RuntimeEntityType = 'employee' | 'task' | 'meeting' | 'install' | 'report' | 'llm' | 'graph';
+export type RuntimeEntityType = 'employee' | 'task' | 'meeting' | 'install' | 'report' | 'llm' | 'graph' | 'plan' | 'mcp';

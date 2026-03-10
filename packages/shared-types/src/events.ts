@@ -31,7 +31,13 @@ export type EventFamily =
   | 'llm.usage.recorded'
   | 'graph.node.entered'
   | 'graph.node.exited'
-  | 'llm.stream.chunk';
+  | 'llm.stream.chunk'
+  | 'plan.created'
+  | 'plan.step.started'
+  | 'plan.step.completed'
+  | 'plan.completed'
+  | 'mcp.server.connected'
+  | 'mcp.tool.called';
 
 // --- Typed event payloads ---
 
@@ -120,4 +126,44 @@ export interface BindingStatePayload {
   readonly bindingKey: string;
   readonly prev: BindingStatus;
   readonly next: BindingStatus;
+}
+
+// --- Mega-Phase A: Plan & MCP Events ---
+
+export interface PlanCreatedPayload {
+  readonly planId: string;
+  readonly threadId: string;
+  readonly steps: ReadonlyArray<{
+    readonly stepIndex: number;
+    readonly description: string;
+    readonly taskCount: number;
+  }>;
+}
+
+export interface PlanStepStartedPayload {
+  readonly planId: string;
+  readonly stepIndex: number;
+  readonly taskCount: number;
+}
+
+export interface PlanStepCompletedPayload {
+  readonly planId: string;
+  readonly stepIndex: number;
+  readonly outputCount: number;
+}
+
+export interface PlanCompletedPayload {
+  readonly planId: string;
+  readonly totalSteps: number;
+}
+
+export interface McpServerConnectedPayload {
+  readonly serverName: string;
+  readonly toolCount: number;
+}
+
+export interface McpToolCalledPayload {
+  readonly serverName: string;
+  readonly toolName: string;
+  readonly employeeId: string;
 }
