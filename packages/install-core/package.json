@@ -20,7 +20,8 @@
     "@aics/db-local": "workspace:*",
     "@aics/registry-client": "workspace:*",
     "@aics/shared-types": "workspace:*",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
