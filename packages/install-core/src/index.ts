@@ -84,3 +84,17 @@ export { rollback } from './rollback.js';
 // File importer (D.4)
 // ---------------------------------------------------------------------------
 export { readPackageFile, FileImportError } from './file-importer.js';
+
+// ---------------------------------------------------------------------------
+// OpenClaw skill integration
+// ---------------------------------------------------------------------------
+export { parseSkill, SkillParseError } from './openclaw/index.js';
+export { validateSkill } from './openclaw/index.js';
+export { skillToManifest } from './openclaw/index.js';
+export type {
+  ParsedSkill,
+  SkillRequirements,
+  SkillMetadata,
+  SkillValidationResult,
+  SkillValidationWarning,
+} from './openclaw/index.js';
