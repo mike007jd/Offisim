@@ -1,8 +1,8 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
+import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
-import { taskStateChanged, taskAssignmentChanged, graphNodeEntered } from '../events/event-factories.js';
+import { graphNodeEntered } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 
 interface LlmAssignment {
@@ -62,10 +62,13 @@ function parseManagerDecision(content: string): ManagerDecision | null {
   }
 }
 
-function generateId(): string {
-  return `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
+/**
+ * Manager node — analyzes the user's request, determines which employees
+ * should be involved, and outputs a ManagerDirective for the PM planner.
+ *
+ * The manager no longer creates taskRuns or pendingAssignments directly.
+ * That responsibility has moved to the PM planner and step dispatcher.
+ */
 export async function managerNode(
   state: AicsGraphState,
   config: RunnableConfig,
@@ -80,7 +83,7 @@ export async function managerNode(
     graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager'),
   );
 
-  const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
+  const { modelResolver, repos, companyId } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'manager');
 
   // Get available employees
@@ -127,52 +130,11 @@ export async function managerNode(
     throw new GraphError('No employees available for assignment', 'manager');
   }
 
-  const pendingAssignments: PendingAssignment[] = [];
-
-  for (const assignment of decision.assignments) {
-    const taskRunId = generateId();
-
-    // Create task_run in repository
-    await repos.taskRuns.create({
-      task_run_id: taskRunId,
-      thread_id: threadId,
-      employee_id: assignment.employeeId,
-      parent_task_run_id: null,
-      task_type: assignment.taskType,
-      status: 'pending',
-      input_json: JSON.stringify({ description: assignment.description }),
-      output_json: null,
-      started_at: new Date().toISOString(),
-    });
-
-    // Create handoff event
-    await repos.handoffs.create({
-      handoff_id: `ho-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      thread_id: threadId,
-      from_employee_id: null, // from boss/manager
-      to_employee_id: assignment.employeeId,
-      reason: assignment.description,
-      payload_json: JSON.stringify({ taskType: assignment.taskType }),
-      created_at: new Date().toISOString(),
-    });
-
-    // Emit events
-    eventBus.emit(taskStateChanged(companyId, taskRunId, 'created', 'queued', threadId, assignment.employeeId));
-    eventBus.emit(taskAssignmentChanged(companyId, taskRunId, assignment.employeeId, 'assigned', threadId));
-
-    pendingAssignments.push({
-      taskType: assignment.taskType,
-      employeeId: assignment.employeeId,
-      inputJson: { description: assignment.description, taskRunId },
-    });
-  }
-
   return {
     managerDirective: {
       intent: userContent,
       recommendedEmployees: decision.assignments.map(a => a.employeeId),
       constraints: undefined,
     },
-    pendingAssignments,
   };
 }

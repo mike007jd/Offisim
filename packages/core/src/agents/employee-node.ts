@@ -106,5 +106,11 @@ export async function employeeNode(
     currentTaskRunId: taskRunId ?? null,
     pendingAssignments: remaining,
     messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
+    currentStepOutputs: [...state.currentStepOutputs, {
+      employeeId: employee.employee_id,
+      employeeName: employee.name,
+      content: llmResponse.content,
+      taskRunId: taskRunId ?? '',
+    }],
   };
 }
