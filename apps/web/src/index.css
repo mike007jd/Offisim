@@ -1,26 +1,131 @@
 @import "tailwindcss";
 
 /*
- * AICS Web Shell — base styles.
- * Tailwind CSS 4: CSS-first configuration via @theme.
+ * AICS Web Shell — Pixel Art Theme
+ * Retro game palette inspired by SNES/GBA era.
+ * Design ref: docs/plans/2026-03-10-phase7-pixel-openclaw-design.md §1.1
  */
 @theme {
-  --color-surface: #0f172a;
-  --color-surface-light: #1e293b;
-  --color-surface-lighter: #334155;
-  --color-border: #475569;
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-success: #22c55e;
-  --color-warning: #eab308;
-  --color-error: #ef4444;
-  --color-info: #6366f1;
+  /* ── Core palette ── */
+  --color-ocean-deep:   #1a1c2c;
+  --color-ocean-mid:    #333c57;
+  --color-ocean-light:  #566c86;
+  --color-sand:         #f4f4f4;
+  --color-shell:        #8b9bb4;
+  --color-lobster-red:  #e43b44;
+  --color-coral-orange: #f77622;
+  --color-kelp-green:   #3e8948;
+  --color-sea-blue:     #3978a8;
+  --color-abyss:        #0e071b;
+  --color-pearl:        #ffffff;
+  --color-foam:         #c0cbdc;
+
+  /* ── Semantic aliases (maps old token names → new palette) ── */
+  --color-surface:         #1a1c2c;
+  --color-surface-light:   #333c57;
+  --color-surface-lighter: #566c86;
+  --color-border:          #566c86;
+  --color-text-primary:    #f4f4f4;
+  --color-text-secondary:  #8b9bb4;
+  --color-text-muted:      #566c86;
+  --color-accent:          #e43b44;
+  --color-accent-hover:    #c42f38;
+  --color-success:         #3e8948;
+  --color-warning:         #f77622;
+  --color-error:           #e43b44;
+  --color-info:            #3978a8;
+
+  /* ── Font families ── */
+  --font-pixel-display: 'Press Start 2P', monospace;
+  --font-pixel-body:    'Pixelify Sans', system-ui, sans-serif;
+  --font-pixel-mono:    'IBM Plex Mono', monospace;
 }
 
+/* ── Base styles ── */
 body {
-  @apply bg-surface text-text-primary antialiased;
-  font-family: system-ui, -apple-system, sans-serif;
+  @apply bg-surface text-text-primary;
+  font-family: var(--font-pixel-body);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeSpeed;
+  image-rendering: pixelated;
+}
+
+/* ── Pixel utility classes ── */
+.font-pixel-display {
+  font-family: var(--font-pixel-display);
+}
+
+.font-pixel-body {
+  font-family: var(--font-pixel-body);
+}
+
+.font-pixel-mono {
+  font-family: var(--font-pixel-mono);
+}
+
+/* ── Pixel border utilities ── */
+.pixel-border {
+  border: 2px solid var(--color-ocean-light);
+  border-radius: 0;
+}
+
+.pixel-border-double {
+  border: 2px solid var(--color-ocean-light);
+  outline: 2px solid var(--color-abyss);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+.pixel-inset {
+  border: 2px solid;
+  border-color: var(--color-abyss) var(--color-ocean-light) var(--color-ocean-light) var(--color-abyss);
+  border-radius: 0;
+}
+
+/* ── Custom pixel scrollbar ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-ocean-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-ocean-light);
+  border: 1px solid var(--color-ocean-mid);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-lobster-red);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-ocean-deep);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ocean-light) var(--color-ocean-deep);
+}
+
+/* ── Pixel cursor blink for inputs ── */
+@keyframes pixel-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.pixel-cursor::after {
+  content: '▮';
+  animation: pixel-blink 1s step-end infinite;
+  color: var(--color-lobster-red);
+}
+
+/* ── Pixel press effect for buttons ── */
+.pixel-press:active {
+  transform: translate(2px, 2px);
+  box-shadow: none !important;
 }
