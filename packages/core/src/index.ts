@@ -103,6 +103,7 @@ export {
   planCompleted,
   mcpServerConnected,
   mcpToolCalled,
+  employeeInstalled,
 } from './events/event-factories.js';
 
 // --- Services ---

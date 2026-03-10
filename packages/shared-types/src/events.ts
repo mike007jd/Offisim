@@ -37,7 +37,8 @@ export type EventFamily =
   | 'plan.step.completed'
   | 'plan.completed'
   | 'mcp.server.connected'
-  | 'mcp.tool.called';
+  | 'mcp.tool.called'
+  | 'employee.installed';
 
 // --- Typed event payloads ---
 
@@ -126,6 +127,15 @@ export interface BindingStatePayload {
   readonly bindingKey: string;
   readonly prev: BindingStatus;
   readonly next: BindingStatus;
+}
+
+// --- Install: Employee Created ---
+
+export interface EmployeeInstalledPayload {
+  readonly employeeId: string;
+  readonly name: string;
+  readonly installTxnId: string;
+  readonly packageId: string;
 }
 
 // --- Mega-Phase A: Plan & MCP Events ---

@@ -6,11 +6,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { type ProviderConfig, loadProviderConfig, saveProviderConfig } from '../../lib/provider-config';
 import { PROVIDER_PRESETS } from './provider-presets';
+import { McpConfigPanel } from './McpConfigPanel';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -92,63 +94,78 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>LLM Provider Settings</DialogTitle>
-          <DialogDescription>Configure the AI model provider for your company runtime.</DialogDescription>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>Configure your AI model provider and MCP server connections.</DialogDescription>
         </DialogHeader>
-        <div className="mt-4 flex flex-col gap-4">
-          <div>
-            <label className="text-sm text-text-secondary mb-1 block">Provider</label>
-            <Select value={preset} onValueChange={handlePresetChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
-                  <SelectItem key={key} value={key}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Tabs defaultValue="provider" className="mt-2">
+          <TabsList className="w-full">
+            <TabsTrigger value="provider" className="flex-1">LLM Provider</TabsTrigger>
+            <TabsTrigger value="mcp" className="flex-1">MCP Servers</TabsTrigger>
+          </TabsList>
 
-          <div>
-            <label className="text-sm text-text-secondary mb-1 block">API Key</label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-            />
-          </div>
+          <TabsContent value="provider">
+            <div className="flex flex-col gap-4 pt-2">
+              <div>
+                <label className="text-sm text-text-secondary mb-1 block">Provider</label>
+                <Select value={preset} onValueChange={handlePresetChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
+                      <SelectItem key={key} value={key}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {showBaseURL && (
-            <div>
-              <label className="text-sm text-text-secondary mb-1 block">Base URL</label>
-              <Input
-                value={baseURL}
-                onChange={(e) => setBaseURL(e.target.value)}
-                placeholder="https://api.example.com/v1"
-              />
+              <div>
+                <label className="text-sm text-text-secondary mb-1 block">API Key</label>
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-..."
+                />
+              </div>
+
+              {showBaseURL && (
+                <div>
+                  <label className="text-sm text-text-secondary mb-1 block">Base URL</label>
+                  <Input
+                    value={baseURL}
+                    onChange={(e) => setBaseURL(e.target.value)}
+                    placeholder="https://api.example.com/v1"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm text-text-secondary mb-1 block">Model</label>
+                <Input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="model-name"
+                />
+              </div>
+
+              {saveError && (
+                <p className="text-sm text-red-500">{saveError}</p>
+              )}
+              <Button onClick={handleSave} disabled={!apiKey || !model}>
+                Save Configuration
+              </Button>
             </div>
-          )}
+          </TabsContent>
 
-          <div>
-            <label className="text-sm text-text-secondary mb-1 block">Model</label>
-            <Input
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="model-name"
-            />
-          </div>
-
-          {saveError && (
-            <p className="text-sm text-red-500">{saveError}</p>
-          )}
-          <Button onClick={handleSave} disabled={!apiKey || !model}>
-            Save Configuration
-          </Button>
-        </div>
+          <TabsContent value="mcp">
+            <div className="pt-2">
+              <McpConfigPanel />
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

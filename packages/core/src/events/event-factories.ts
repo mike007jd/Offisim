@@ -2,6 +2,7 @@ import type {
   BindingStatus,
   BindingStatePayload,
   BindingType,
+  EmployeeInstalledPayload,
   EmployeeState,
   EmployeeStatePayload,
   GraphNodeEnteredPayload,
@@ -355,5 +356,24 @@ export function mcpToolCalled(
     threadId,
     timestamp: Date.now(),
     payload: { serverName, toolName, employeeId },
+  };
+}
+
+// --- Install: Employee Created ---
+
+export function employeeInstalled(
+  companyId: string,
+  employeeId: string,
+  name: string,
+  installTxnId: string,
+  packageId: string,
+): RuntimeEvent<EmployeeInstalledPayload> {
+  return {
+    type: 'employee.installed',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId, name, installTxnId, packageId },
   };
 }

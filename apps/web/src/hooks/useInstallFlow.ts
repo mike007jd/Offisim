@@ -1,11 +1,15 @@
 /**
  * useInstallFlow — manages install dialog state machine.
  * Wired to real InstallService when available; falls back to mock data otherwise.
+ *
+ * After successful install, emits `employee.installed` events for each new employee
+ * so the renderer (SceneManager) can add them to the scene.
  */
 
 import { useState, useCallback, useRef } from 'react';
 import type { InstallPlan, BindingConfirmation } from '@aics/install-core';
 import { readPackageFile } from '@aics/install-core';
+import { employeeInstalled } from '@aics/core';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
@@ -29,9 +33,10 @@ export interface InstallFlowActions {
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const COMPANY_ID = 'company-001';
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
-  const { installService } = useAicsRuntime();
+  const { installService, eventBus } = useAicsRuntime();
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
@@ -51,6 +56,27 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       timerRef.current = null;
     }
   }, []);
+
+  /**
+   * After a successful install, emit employeeInstalled events so
+   * SceneManager can add the new employees to the PixiJS scene.
+   */
+  const emitInstalledEmployees = useCallback(
+    (employeeIds: string[], activePlan: InstallPlan, txnId: string) => {
+      for (const empId of employeeIds) {
+        eventBus.emit(
+          employeeInstalled(
+            COMPANY_ID,
+            empId,
+            activePlan.manifest.package.title,
+            txnId,
+            activePlan.manifest.package.id,
+          ),
+        );
+      }
+    },
+    [eventBus],
+  );
 
   const startFileImport = useCallback((file: File) => {
     // Validate file size (applies to both real and mock paths)
@@ -129,17 +155,20 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     }
 
     // Real path: confirm with empty bindings
+    const currentTxnId = txnIdRef.current;
+    const currentPlan = plan;
     setStep('installing');
     (async () => {
       try {
-        await installService.confirmBindings(txnIdRef.current!, []);
+        const result = await installService.confirmBindings(currentTxnId, []);
+        emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
         setStep('done');
       } catch (err) {
         setStep('error');
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [plan, installService]);
+  }, [plan, installService, emitInstalledEmployees]);
 
   const submitBindings = useCallback(() => {
     if (!installService || !txnIdRef.current || !plan) {
@@ -161,17 +190,20 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         valueJson: JSON.stringify(bindingValues.get(req.bindingKey)),
       }));
 
+    const currentTxnId = txnIdRef.current;
+    const currentPlan = plan;
     setStep('installing');
     (async () => {
       try {
-        await installService.confirmBindings(txnIdRef.current!, confirmations);
+        const result = await installService.confirmBindings(currentTxnId, confirmations);
+        emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
         setStep('done');
       } catch (err) {
         setStep('error');
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [installService, plan, bindingValues]);
+  }, [installService, plan, bindingValues, emitInstalledEmployees]);
 
   const setBindingValue = useCallback((key: string, value: string) => {
     setBindingValues((prev) => {

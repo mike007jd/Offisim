@@ -200,7 +200,7 @@ export class InstallService {
   async confirmBindings(
     installTxnId: string,
     bindings: BindingConfirmation[],
-  ): Promise<void> {
+  ): Promise<MaterializeResult> {
     const txn = await this.loadTxn(installTxnId);
     const currentState = txn.state;
 
@@ -294,6 +294,8 @@ export class InstallService {
         );
       }
     }
+
+    return result;
   }
 
   // -------------------------------------------------------------------------

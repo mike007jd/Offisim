@@ -17,7 +17,7 @@ export type {
   GraphNodeEnteredPayload, GraphNodeExitedPayload, LlmStreamChunkPayload,
   InstallStatePayload, BindingStatePayload,
   PlanCreatedPayload, PlanStepStartedPayload, PlanStepCompletedPayload, PlanCompletedPayload,
-  McpServerConnectedPayload, McpToolCalledPayload,
+  McpServerConnectedPayload, McpToolCalledPayload, EmployeeInstalledPayload,
 } from './events.js';
 
 export type {

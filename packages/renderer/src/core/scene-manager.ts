@@ -2,6 +2,7 @@ import { Application, Container } from 'pixi.js';
 import gsap from 'gsap';
 import type {
   EmployeeStatePayload,
+  EmployeeInstalledPayload,
   TaskAssignmentPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
@@ -297,6 +298,14 @@ export class SceneManager {
         if (entity) {
           entity.setTask(`🔧 ${payload.toolName}`);
         }
+      }),
+    );
+
+    // Employee installed — add new employee to scene after package installation
+    this.unsubscribers.push(
+      this.eventBus.on('employee.installed', (event) => {
+        const payload = event.payload as EmployeeInstalledPayload;
+        this.addEmployee(payload.employeeId, payload.name);
       }),
     );
 

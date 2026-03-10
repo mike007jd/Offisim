@@ -4,7 +4,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import { GraphError } from '../errors.js';
-import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
+import { graphNodeEntered, llmStreamChunk, planCompleted, planStepCompleted } from '../events/event-factories.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -32,6 +32,32 @@ export async function bossSummaryNode(
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
       graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss_summary'),
+    );
+  }
+
+  // Emit planCompleted if there was a task plan
+  if (runtimeCtx && state.taskPlan) {
+    // If there are pending step outputs (the last step didn't go through stepAdvance),
+    // emit planStepCompleted for the final step first.
+    if (state.currentStepOutputs.length > 0) {
+      runtimeCtx.eventBus.emit(
+        planStepCompleted(
+          runtimeCtx.companyId,
+          state.taskPlan.planId,
+          state.currentStepIndex,
+          state.currentStepOutputs.length,
+          state.threadId,
+        ),
+      );
+    }
+
+    runtimeCtx.eventBus.emit(
+      planCompleted(
+        runtimeCtx.companyId,
+        state.taskPlan.planId,
+        state.taskPlan.steps.length,
+        state.threadId,
+      ),
     );
   }
 
