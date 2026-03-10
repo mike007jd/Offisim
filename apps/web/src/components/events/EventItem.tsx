@@ -18,16 +18,16 @@ export function EventItem({ event }: EventItemProps) {
   const nodeName = (event.payload as { nodeName?: string }).nodeName ?? event.entityId;
 
   const Icon = isError ? AlertCircle : isEntered ? Play : CheckCircle;
-  const iconColor = isError ? 'text-error' : isEntered ? 'text-info' : 'text-success';
+  const iconColor = isError ? 'text-lobster-red' : isEntered ? 'text-sea-blue' : 'text-kelp-green';
 
   return (
     <div className="flex items-start gap-2 px-3 py-1.5 text-xs">
       <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
       <div className="flex-1 min-w-0">
-        <span className="font-medium text-text-primary">{nodeName}</span>
-        <span className="text-text-muted ml-1">{isEntered ? 'started' : 'completed'}</span>
+        <span className="font-medium text-sand">{nodeName}</span>
+        <span className="text-shell ml-1">{isEntered ? 'started' : 'completed'}</span>
       </div>
-      <span className="text-text-muted shrink-0">{relativeTime(event.timestamp)}</span>
+      <span className="text-shell shrink-0">{relativeTime(event.timestamp)}</span>
     </div>
   );
 }

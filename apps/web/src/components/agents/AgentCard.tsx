@@ -31,8 +31,8 @@ export function AgentCard({ agent }: AgentCardProps) {
     <Card className="p-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium">{agent.name}</div>
-          <div className="text-xs text-text-muted">{ROLE_LABELS[agent.role] ?? agent.role}</div>
+          <div className="text-sm font-medium text-sand">{agent.name}</div>
+          <div className="text-xs text-shell font-pixel-mono">{ROLE_LABELS[agent.role] ?? agent.role}</div>
         </div>
         <Badge variant={variant} className="text-[10px]">
           {agent.state}

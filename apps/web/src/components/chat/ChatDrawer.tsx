@@ -9,15 +9,15 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-t border-border bg-background">
-      {/* Toggle bar — always visible outside the collapsible area (I4) */}
+    <div className="border-t-2 border-ocean-light bg-ocean-deep">
+      {/* Toggle bar — always visible */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+        className="flex w-full items-center justify-center gap-1 py-1.5 font-pixel-mono text-[10px] text-shell hover:bg-ocean-mid hover:text-sand transition-colors"
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-        <span>{open ? 'Hide Chat' : 'Show Chat'}</span>
+        <span>{open ? 'HIDE CHAT' : 'SHOW CHAT'}</span>
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
       </button>
 

@@ -37,16 +37,16 @@ export function StatusBar({ modelName }: StatusBarProps) {
     runStatus === 'error' ? 'error' : runStatus === 'running' ? 'info' : 'secondary';
 
   return (
-    <footer className="flex h-8 items-center justify-between border-t border-border bg-surface px-4 text-xs text-text-muted">
+    <footer className="flex h-8 items-center justify-between border-t-2 border-ocean-light bg-ocean-deep px-4 font-pixel-mono text-[10px] text-shell">
       <div className="flex items-center gap-4">
         <Badge variant={statusVariant} className="text-[10px] px-1.5 py-0">
           {runStatus}
         </Badge>
-        {modelName && <span>Model: {modelName}</span>}
+        {modelName && <span>MODEL: {modelName}</span>}
       </div>
       <div className="flex items-center gap-4">
-        {totalTokens > 0 && <span>Tokens: {totalTokens.toLocaleString()}</span>}
-        {lastLatencyMs != null && <span>Latency: {lastLatencyMs}ms</span>}
+        {totalTokens > 0 && <span>TKN: {totalTokens.toLocaleString()}</span>}
+        {lastLatencyMs != null && <span>LAT: {lastLatencyMs}ms</span>}
       </div>
     </footer>
   );

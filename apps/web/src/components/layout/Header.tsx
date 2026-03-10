@@ -11,9 +11,12 @@ interface HeaderProps {
 
 export function Header({ providerName, onOpenSettings, onFileImport }: HeaderProps) {
   return (
-    <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
+    <header className="flex h-12 items-center justify-between border-b-2 border-ocean-light bg-ocean-deep px-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-sm font-semibold text-text-primary">AI Company Simulator</h1>
+        <h1 className="font-pixel-display text-[10px] text-lobster-red tracking-wider">
+          AICS
+        </h1>
+        <span className="text-xs text-shell font-pixel-body">AI Company Simulator</span>
         {providerName && <Badge variant="secondary">{providerName}</Badge>}
       </div>
       <div className="flex items-center gap-2">

@@ -21,9 +21,9 @@ export function AppLayout({
     <div className="grid h-screen grid-rows-[auto_1fr_auto_auto]">
       {header}
       <div className="grid min-h-0 grid-cols-[240px_1fr_280px]">
-        <aside className="border-r border-border overflow-y-auto">{agentPanel}</aside>
+        <aside className="border-r-2 border-ocean-light overflow-y-auto">{agentPanel}</aside>
         <main className="min-h-0 min-w-0 overflow-hidden">{sceneCanvas}</main>
-        <aside className="border-l border-border overflow-y-auto">{eventLog}</aside>
+        <aside className="border-l-2 border-ocean-light overflow-y-auto">{eventLog}</aside>
       </div>
       {chatDrawer}
       {statusBar}

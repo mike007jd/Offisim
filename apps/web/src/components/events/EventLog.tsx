@@ -16,7 +16,7 @@ export function EventLog() {
 
   return (
     <div className="flex flex-col h-full">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted p-3 pb-1">
+      <h2 className="font-pixel-display text-[8px] uppercase tracking-wider text-shell p-3 pb-1">
         Event Log
       </h2>
       <ScrollArea className="flex-1">
