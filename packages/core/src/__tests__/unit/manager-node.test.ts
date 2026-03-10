@@ -66,7 +66,7 @@ describe('managerNode', () => {
     config = { configurable: { runtimeCtx } };
   });
 
-  it('creates task_runs and pending assignments for employees', async () => {
+  it('outputs managerDirective with recommended employees', async () => {
     gateway.pushResponse({
       content: JSON.stringify({
         assignments: [
@@ -78,12 +78,28 @@ describe('managerNode', () => {
     const state = makeState();
     const result = await managerNode(state, config);
 
-    expect(result.pendingAssignments).toHaveLength(1);
-    expect(result.pendingAssignments![0]!.employeeId).toBe('e-dev-1');
-    expect(result.pendingAssignments![0]!.taskType).toBe('code');
+    expect(result.managerDirective).not.toBeNull();
+    expect(result.managerDirective!.intent).toBe('Build me a website');
+    expect(result.managerDirective!.recommendedEmployees).toEqual(['e-dev-1']);
   });
 
-  it('creates handoff events', async () => {
+  it('does not create pendingAssignments (PM takes over)', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        assignments: [
+          { taskType: 'code', employeeId: 'e-dev-1', description: 'Build landing page' },
+        ],
+      }),
+    });
+
+    const state = makeState();
+    const result = await managerNode(state, config);
+
+    // Manager no longer creates pendingAssignments
+    expect(result.pendingAssignments).toBeUndefined();
+  });
+
+  it('does not create taskRuns or handoffs (PM takes over)', async () => {
     gateway.pushResponse({
       content: JSON.stringify({
         assignments: [
@@ -95,12 +111,16 @@ describe('managerNode', () => {
     const state = makeState();
     await managerNode(state, config);
 
+    // Manager no longer creates taskRuns
+    const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
+    expect(taskRuns).toHaveLength(0);
+
+    // Manager no longer creates handoffs
     const handoffs = await repos.handoffs.findByThread(TEST_THREAD_ID);
-    expect(handoffs).toHaveLength(1);
-    expect(handoffs[0]!.to_employee_id).toBe('e-dev-1');
+    expect(handoffs).toHaveLength(0);
   });
 
-  it('emits task assignment events', async () => {
+  it('emits graph.node.entered event', async () => {
     gateway.pushResponse({
       content: JSON.stringify({
         assignments: [
@@ -112,8 +132,8 @@ describe('managerNode', () => {
     const state = makeState();
     await managerNode(state, config);
 
-    const assignmentEvents = events.filter((e) => e.type === 'task.assignment.changed');
-    expect(assignmentEvents).toHaveLength(1);
+    const enteredEvents = events.filter((e) => e.type === 'graph.node.entered' && e.payload.nodeName === 'manager');
+    expect(enteredEvents).toHaveLength(1);
   });
 
   it('falls back to first available employee on unparseable response', async () => {
@@ -124,11 +144,12 @@ describe('managerNode', () => {
     const state = makeState();
     const result = await managerNode(state, config);
 
-    // Should still produce at least one assignment (fallback)
-    expect(result.pendingAssignments!.length).toBeGreaterThanOrEqual(1);
+    // Should still produce a directive with fallback employee
+    expect(result.managerDirective).not.toBeNull();
+    expect(result.managerDirective!.recommendedEmployees.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('handles multiple assignments', async () => {
+  it('handles multiple assignments in directive', async () => {
     const designer = makeEmployee({
       employee_id: 'e-design-1',
       name: 'Designer Bot',
@@ -148,6 +169,31 @@ describe('managerNode', () => {
     const state = makeState();
     const result = await managerNode(state, config);
 
-    expect(result.pendingAssignments).toHaveLength(2);
+    expect(result.managerDirective).not.toBeNull();
+    expect(result.managerDirective!.recommendedEmployees).toHaveLength(2);
+    expect(result.managerDirective!.recommendedEmployees).toContain('e-dev-1');
+    expect(result.managerDirective!.recommendedEmployees).toContain('e-design-1');
+  });
+
+  it('managerDirective has correct structure', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        assignments: [
+          { taskType: 'code', employeeId: 'e-dev-1', description: 'Build the feature' },
+        ],
+      }),
+    });
+
+    const state = makeState();
+    const result = await managerNode(state, config);
+
+    // Verify directive structure
+    const directive = result.managerDirective!;
+    expect(directive).toHaveProperty('intent');
+    expect(directive).toHaveProperty('recommendedEmployees');
+    expect(typeof directive.intent).toBe('string');
+    expect(Array.isArray(directive.recommendedEmployees)).toBe(true);
+    expect(directive.intent.length).toBeGreaterThan(0);
+    expect(directive.recommendedEmployees.every((id: string) => typeof id === 'string')).toBe(true);
   });
 });
