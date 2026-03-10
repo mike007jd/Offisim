@@ -167,5 +167,12 @@ export async function managerNode(
     });
   }
 
-  return { pendingAssignments };
+  return {
+    managerDirective: {
+      intent: userContent,
+      recommendedEmployees: decision.assignments.map(a => a.employeeId),
+      constraints: undefined,
+    },
+    pendingAssignments,
+  };
 }

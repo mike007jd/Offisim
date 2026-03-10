@@ -12,8 +12,14 @@ import type {
   LlmCallStartedPayload,
   LlmStreamChunkPayload,
   LlmUsageRecordedPayload,
+  McpServerConnectedPayload,
+  McpToolCalledPayload,
   MeetingState,
   MeetingStatePayload,
+  PlanCompletedPayload,
+  PlanCreatedPayload,
+  PlanStepCompletedPayload,
+  PlanStepStartedPayload,
   RuntimeEvent,
   TaskAssignmentPayload,
   TaskState,
@@ -244,5 +250,110 @@ export function bindingStateChanged(
     threadId,
     timestamp: Date.now(),
     payload: { bindingId, installTxnId, bindingType, bindingKey, prev, next },
+  };
+}
+
+// --- Mega-Phase A: Plan & MCP Events ---
+
+export function planCreated(
+  companyId: string,
+  planId: string,
+  threadId: string,
+  steps: PlanCreatedPayload['steps'],
+): RuntimeEvent<PlanCreatedPayload> {
+  return {
+    type: 'plan.created',
+    entityId: planId,
+    entityType: 'plan',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { planId, threadId, steps },
+  };
+}
+
+export function planStepStarted(
+  companyId: string,
+  planId: string,
+  stepIndex: number,
+  taskCount: number,
+  threadId?: string,
+): RuntimeEvent<PlanStepStartedPayload> {
+  return {
+    type: 'plan.step.started',
+    entityId: planId,
+    entityType: 'plan',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { planId, stepIndex, taskCount },
+  };
+}
+
+export function planStepCompleted(
+  companyId: string,
+  planId: string,
+  stepIndex: number,
+  outputCount: number,
+  threadId?: string,
+): RuntimeEvent<PlanStepCompletedPayload> {
+  return {
+    type: 'plan.step.completed',
+    entityId: planId,
+    entityType: 'plan',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { planId, stepIndex, outputCount },
+  };
+}
+
+export function planCompleted(
+  companyId: string,
+  planId: string,
+  totalSteps: number,
+  threadId?: string,
+): RuntimeEvent<PlanCompletedPayload> {
+  return {
+    type: 'plan.completed',
+    entityId: planId,
+    entityType: 'plan',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { planId, totalSteps },
+  };
+}
+
+export function mcpServerConnected(
+  companyId: string,
+  serverName: string,
+  toolCount: number,
+): RuntimeEvent<McpServerConnectedPayload> {
+  return {
+    type: 'mcp.server.connected',
+    entityId: serverName,
+    entityType: 'mcp',
+    companyId,
+    timestamp: Date.now(),
+    payload: { serverName, toolCount },
+  };
+}
+
+export function mcpToolCalled(
+  companyId: string,
+  serverName: string,
+  toolName: string,
+  employeeId: string,
+  threadId?: string,
+): RuntimeEvent<McpToolCalledPayload> {
+  return {
+    type: 'mcp.tool.called',
+    entityId: `${serverName}/${toolName}`,
+    entityType: 'mcp',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { serverName, toolName, employeeId },
   };
 }

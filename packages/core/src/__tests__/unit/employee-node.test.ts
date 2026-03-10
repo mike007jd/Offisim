@@ -32,6 +32,11 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     completed: false,
     interruptReason: null,
     meetingId: null,
+    managerDirective: null,
+    taskPlan: null,
+    currentStepIndex: 0,
+    stepResults: [],
+    currentStepOutputs: [],
     ...overrides,
   };
 }
