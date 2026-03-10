@@ -18,3 +18,8 @@ tmp/
 # Tool-generated local state (per-machine, not shared)
 .playwright-mcp/
 .claude/settings.local.json
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+blob-report/
