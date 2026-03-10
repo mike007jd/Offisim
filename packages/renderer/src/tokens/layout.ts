@@ -33,4 +33,20 @@ export const LAYOUT = {
     fontSize: 10,
     offsetY: -44,
   },
+
+  /** Meeting room (conference table + chairs) */
+  meetingRoom: {
+    /** Offset from bottom of floor to center of meeting room */
+    bottomOffset: 50,
+    tableWidth: 120,
+    tableHeight: 80,
+    tableCornerRadius: 8,
+    chairRadius: 10,
+    /** Horizontal distance from center to side chairs */
+    chairSideX: 80,
+    /** Horizontal distance from center to top/bottom chairs */
+    chairInnerX: 40,
+    /** Vertical distance from center to top/bottom chairs */
+    chairInnerY: 55,
+  },
 } as const;

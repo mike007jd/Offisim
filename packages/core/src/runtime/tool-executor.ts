@@ -4,6 +4,8 @@ export interface ToolCallRequest {
   readonly toolCallId: string;
   readonly name: string;
   readonly arguments: Record<string, unknown>;
+  /** The employee that initiated this tool call (used for scene feedback). */
+  readonly employeeId?: string;
 }
 
 export interface ToolCallResponse {

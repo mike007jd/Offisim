@@ -102,7 +102,7 @@ export class McpToolExecutor implements ToolExecutor {
       const result = await connection.callTool(call.name, call.arguments);
 
       this.eventBus.emit(
-        mcpToolCalled(this.companyId, serverName, call.name, '', undefined),
+        mcpToolCalled(this.companyId, serverName, call.name, call.employeeId ?? '', undefined),
       );
 
       return { success: true, result };

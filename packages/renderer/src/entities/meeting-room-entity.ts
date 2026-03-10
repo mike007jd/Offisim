@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import gsap from 'gsap';
 import type { MotionBucket } from '../tokens/motion.js';
+import { LAYOUT } from '../tokens/layout.js';
 
 /**
  * PixiJS entity representing a meeting room.
@@ -84,24 +85,26 @@ export class MeetingRoomEntity {
   }
 
   private buildTable(): Graphics {
+    const { tableWidth: w, tableHeight: h, tableCornerRadius: r } = LAYOUT.meetingRoom;
     const g = new Graphics();
-    g.roundRect(-60, -40, 120, 80, 8);
+    g.roundRect(-w / 2, -h / 2, w, h, r);
     g.fill({ color: 0x5c6370 }); // Dark gray table
     return g;
   }
 
   private buildChairs(): Graphics[] {
+    const { chairSideX, chairInnerX, chairInnerY, chairRadius } = LAYOUT.meetingRoom;
     const positions = [
-      { x: -80, y: 0 },
-      { x: 80, y: 0 },
-      { x: -40, y: -55 },
-      { x: 40, y: -55 },
-      { x: -40, y: 55 },
-      { x: 40, y: 55 },
+      { x: -chairSideX, y: 0 },
+      { x: chairSideX, y: 0 },
+      { x: -chairInnerX, y: -chairInnerY },
+      { x: chairInnerX, y: -chairInnerY },
+      { x: -chairInnerX, y: chairInnerY },
+      { x: chairInnerX, y: chairInnerY },
     ];
     return positions.map((pos) => {
       const g = new Graphics();
-      g.circle(pos.x, pos.y, 10);
+      g.circle(pos.x, pos.y, chairRadius);
       g.fill({ color: 0x3e4451 }); // Darker chair
       return g;
     });

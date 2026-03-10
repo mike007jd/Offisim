@@ -5,6 +5,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { GraphError } from '../errors.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { employeeStateChanged, taskStateChanged, taskAssignmentChanged, graphNodeEntered } from '../events/event-factories.js';
+import type { LlmMessage } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 
 export async function employeeNode(
@@ -67,6 +68,13 @@ export async function employeeNode(
     maxTokens: resolved.maxTokens,
   }, { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId });
 
+  // Accumulate conversation history across tool-call rounds so later rounds
+  // can see earlier tool results (fixes lost-context bug).
+  const conversationHistory: LlmMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: taskDescription },
+  ];
+
   // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
   const MAX_TOOL_ROUNDS = 5;
   let round = 0;
@@ -79,18 +87,20 @@ export async function employeeNode(
         toolCallId: toolCall.id,
         name: toolCall.name,
         arguments: toolCall.arguments,
+        employeeId: employee.employee_id,
       });
       toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
     }
 
-    // Follow-up LLM call with tool results
+    // Append this round's assistant intent + tool results to the running history
+    conversationHistory.push(
+      { role: 'assistant', content: `I called tools: ${toolResults.map(t => t.name).join(', ')}` },
+      { role: 'user', content: `Tool results:\n${JSON.stringify(toolResults.map(t => ({ tool: t.name, result: t.result })))}` },
+    );
+
+    // Follow-up LLM call with full accumulated history
     llmResponse = await recordedLlmCall(runtimeCtx, {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: taskDescription },
-        { role: 'assistant', content: `I called tools: ${toolResults.map(t => t.name).join(', ')}` },
-        { role: 'user', content: `Tool results:\n${JSON.stringify(toolResults.map(t => ({ tool: t.name, result: t.result })))}` },
-      ],
+      messages: conversationHistory,
       model: resolved.model,
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,

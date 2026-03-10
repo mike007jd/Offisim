@@ -34,6 +34,8 @@ export class SceneManager {
   private unsubscribers: (() => void)[] = [];
   /** Track which employees were activated by graph node events (for revert on exit). */
   private nodeActiveEmployees: Map<string, string> = new Map();
+  /** Track active MCP tool overlay timers per employee (for auto-clear). */
+  private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -88,7 +90,7 @@ export class SceneManager {
     this.meetingRoom = new MeetingRoomEntity(this.motion);
     this.meetingRoom.container.position.set(
       LAYOUT.floor.width / 2,
-      LAYOUT.floor.height - LAYOUT.floor.padding - 50,
+      LAYOUT.floor.height - LAYOUT.floor.padding - LAYOUT.meetingRoom.bottomOffset,
     );
     worldContainer.addChild(this.meetingRoom.container);
 
@@ -174,6 +176,12 @@ export class SceneManager {
     }
     this.unsubscribers = [];
 
+    // Clear all pending MCP tool overlay timers
+    for (const timer of this.toolOverlayTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.toolOverlayTimers.clear();
+
     // Clean up entities — kill GSAP tweens before clearing (C2)
     for (const entity of this.employeeEntities.values()) {
       entity.destroy();
@@ -223,11 +231,13 @@ export class SceneManager {
     );
 
     // Task assignment changes (I6: use typed payload)
+    // Also clears any pending MCP tool overlay timer for the employee.
     this.unsubscribers.push(
       this.eventBus.on('task.assignment.changed', (event) => {
         const { employeeId, action, taskRunId } = event.payload as TaskAssignmentPayload;
         const entity = this.employeeEntities.get(employeeId);
         if (entity) {
+          this.clearToolOverlayTimer(employeeId);
           entity.setTask(action === 'assigned' ? taskRunId : null);
         }
       }),
@@ -290,13 +300,23 @@ export class SceneManager {
       }),
     );
 
-    // MCP tool call — show tool name in employee bubble
+    // MCP tool call — show tool name in employee bubble with auto-clear
     this.unsubscribers.push(
       this.eventBus.on('mcp.tool.called', (event) => {
         const payload = event.payload as McpToolCalledPayload;
         const entity = this.employeeEntities.get(payload.employeeId);
         if (entity) {
+          // Clear any existing tool overlay timer for this employee
+          this.clearToolOverlayTimer(payload.employeeId);
+
           entity.setTask(`🔧 ${payload.toolName}`);
+
+          // Auto-clear after 3s — the next state or task event will override anyway
+          const timer = setTimeout(() => {
+            this.toolOverlayTimers.delete(payload.employeeId);
+            entity.setTask(null);
+          }, 3000);
+          this.toolOverlayTimers.set(payload.employeeId, timer);
         }
       }),
     );
@@ -315,6 +335,15 @@ export class SceneManager {
       this.app.renderer.on('resize', handleResize);
       const renderer = this.app.renderer;
       this.unsubscribers.push(() => renderer.off('resize', handleResize));
+    }
+  }
+
+  /** Clear and remove a pending MCP tool overlay timer for the given employee. */
+  private clearToolOverlayTimer(employeeId: string): void {
+    const existing = this.toolOverlayTimers.get(employeeId);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+      this.toolOverlayTimers.delete(employeeId);
     }
   }
 
