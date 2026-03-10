@@ -8,4 +8,9 @@ export type {
 } from './core/types.js';
 export { STATE_COLORS, MOTION, LAYOUT } from './tokens/index.js';
 export type { MotionBucket } from './tokens/index.js';
-export { drawPixelGrid, idToHue, PX, PIXEL_PALETTE } from './pixel/index.js';
+
+// Pixel art system
+export { LobsterEntity } from './entities/lobster-entity.js';
+export { EmployeeEntity as LegacyEmployeeEntity } from './entities/employee-entity.js';
+export { drawPixelGrid, idToHue } from './pixel/draw-pixel-grid.js';
+export { PX, PIXEL_PALETTE } from './pixel/pixel-palette.js';

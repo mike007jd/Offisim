@@ -8,8 +8,12 @@ vi.mock('pixi.js', () => {
     children: unknown[] = [];
     position = { set: vi.fn(), x: 0, y: 0 };
     scale = { set: vi.fn(), x: 1, y: 1 };
+    pivot = { set: vi.fn(), x: 0, y: 0 };
     visible = true;
     alpha = 1;
+    rotation = 0;
+    x = 0;
+    y = 0;
     addChild(c: unknown) {
       this.children.push(c);
       return c;
@@ -87,10 +91,19 @@ vi.mock('gsap', () => {
   function makeTween() {
     return { kill: vi.fn(), vars: {} };
   }
+  function makeTimeline() {
+    const tl = {
+      to: vi.fn(() => tl),
+      kill: vi.fn(),
+      vars: {},
+    };
+    return tl;
+  }
   return {
     default: {
       to: vi.fn(() => makeTween()),
       fromTo: vi.fn(() => makeTween()),
+      timeline: vi.fn(() => makeTimeline()),
     },
   };
 });

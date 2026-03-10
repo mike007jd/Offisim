@@ -9,10 +9,9 @@ import type {
 } from '@aics/shared-types';
 import gsap from 'gsap';
 import { Application, Container } from 'pixi.js';
-import { EmployeeEntity } from '../entities/employee-entity.js';
+import { LobsterEntity } from '../entities/lobster-entity.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
-import { SCENE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import { MOTION, MOTION_REDUCED, type MotionBucket } from '../tokens/motion.js';
 import type {
@@ -35,7 +34,7 @@ export class SceneManager {
 
   private floorLayer: FloorLayer | null = null;
   private meetingRoom: MeetingRoomEntity | null = null;
-  private employeeEntities: Map<string, EmployeeEntity> = new Map();
+  private employeeEntities: Map<string, LobsterEntity> = new Map();
   private unsubscribers: (() => void)[] = [];
   /** Track which employees were activated by graph node events (for revert on exit). */
   private nodeActiveEmployees: Map<string, string> = new Map();
@@ -67,7 +66,7 @@ export class SceneManager {
     const app = new Application();
     await app.init({
       resizeTo: this.container,
-      background: SCENE_COLORS.floor,
+      background: 0x1a1c2c, // ocean-deep — matches pixel floor tile base
       antialias: true,
       resolution: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) ?? 1,
       autoDensity: true,
@@ -103,7 +102,7 @@ export class SceneManager {
     const deskPositions = this.floorLayer.getDeskPositions();
     this.employees.forEach((emp, i) => {
       const pos = deskPositions[i % deskPositions.length]!;
-      const entity = new EmployeeEntity(emp.id, emp.name, this.motion);
+      const entity = new LobsterEntity(emp.id, emp.name, this.motion);
       entity.container.position.set(
         pos.x,
         pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
@@ -137,7 +136,7 @@ export class SceneManager {
     const posIndex = this.employeeEntities.size % deskPositions.length;
     const pos = deskPositions[posIndex]!;
 
-    const entity = new EmployeeEntity(id, name, this.motion);
+    const entity = new LobsterEntity(id, name, this.motion);
     entity.container.position.set(
       pos.x,
       pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
@@ -370,7 +369,7 @@ export class SceneManager {
    * Uses word-boundary matching to avoid substring collisions (I5).
    * E.g. "alice_work" matches "emp-alice" but "alice2_work" does not match "emp-alice".
    */
-  private findEmployeeForNode(nodeName: string): EmployeeEntity | undefined {
+  private findEmployeeForNode(nodeName: string): LobsterEntity | undefined {
     const lower = nodeName.toLowerCase();
     for (const [id, entity] of this.employeeEntities) {
       const name = id.replace('emp-', '');
