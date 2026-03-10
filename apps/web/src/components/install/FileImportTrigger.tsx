@@ -100,10 +100,10 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`mt-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+          className={`mt-2 border-2 border-dashed p-6 text-center transition-colors ${
             isDragging
-              ? 'border-accent bg-accent/5 text-text-primary'
-              : 'border-border text-text-muted hover:border-text-muted'
+              ? 'border-lobster-red bg-lobster-red/5 text-sand'
+              : 'border-ocean-light text-ocean-light hover:border-shell'
           }`}
         >
           <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />

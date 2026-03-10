@@ -15,7 +15,7 @@ const buttonVariants = cva(
         outline:
           'border-2 border-ocean-light bg-transparent text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-mid',
         secondary:
-          'border-2 border-ocean-light bg-ocean-mid text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-surface-lighter',
+          'border-2 border-ocean-light bg-ocean-mid text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-light',
         ghost:
           'border-2 border-transparent hover:bg-ocean-mid hover:border-ocean-light',
         link:

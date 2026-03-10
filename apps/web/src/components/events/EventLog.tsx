@@ -22,7 +22,7 @@ export function EventLog() {
       <ScrollArea className="flex-1">
         <div ref={scrollRef}>
           {events.length === 0 ? (
-            <div className="p-3 text-xs text-text-muted">No events yet</div>
+            <div className="p-3 text-xs text-ocean-light">No events yet</div>
           ) : (
             events.map((event, i) => <EventItem key={`${event.timestamp}-${i}`} event={event} />)
           )}

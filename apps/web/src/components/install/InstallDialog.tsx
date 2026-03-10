@@ -16,8 +16,8 @@ type InstallDialogProps = InstallFlowState & InstallFlowActions;
 function LoadingContent() {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      <p className="text-sm text-text-secondary">Loading package...</p>
+      <div className="h-8 w-8 animate-spin border-2 border-lobster-red border-t-transparent" />
+      <p className="text-sm text-shell">Loading package...</p>
     </div>
   );
 }
@@ -26,8 +26,8 @@ function DoneContent({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <CheckCircle2 className="h-10 w-10 text-success" />
-      <h3 className="text-base font-semibold text-text-primary">Installation Complete</h3>
-      <p className="text-sm text-text-secondary text-center">
+      <h3 className="text-base font-semibold text-sand">Installation Complete</h3>
+      <p className="text-sm text-shell text-center">
         The package has been installed successfully.
       </p>
       <Button onClick={onClose} className="mt-2">
@@ -41,7 +41,7 @@ function ErrorContent({ error, onCancel }: { error: string; onCancel: () => void
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <XCircle className="h-10 w-10 text-error" />
-      <h3 className="text-base font-semibold text-text-primary">Installation Failed</h3>
+      <h3 className="text-base font-semibold text-sand">Installation Failed</h3>
       <p className="text-sm text-error text-center">{error}</p>
       <Button variant="outline" onClick={onCancel} className="mt-2">
         Close

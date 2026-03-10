@@ -37,8 +37,8 @@ export function BindingForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-base font-semibold text-text-primary">Configure Model Bindings</h3>
-        <p className="text-sm text-text-secondary mt-1">
+        <h3 className="text-base font-semibold text-sand">Configure Model Bindings</h3>
+        <p className="text-sm text-shell mt-1">
           Choose which models to use for each role. Optional bindings can be skipped.
         </p>
       </div>
@@ -49,11 +49,11 @@ export function BindingForm({
           const isSkipped = value === '__skip__';
 
           return (
-            <div key={binding.bindingKey} className="rounded-md border border-border p-3 space-y-2">
+            <div key={binding.bindingKey} className="border-2 border-ocean-light p-3 space-y-2">
               {/* Binding header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-text-primary truncate">
+                  <span className="text-sm font-medium text-sand truncate">
                     {binding.bindingKey.split(':').pop()}
                   </span>
                   {binding.required ? (
@@ -75,7 +75,7 @@ export function BindingForm({
               </div>
 
               {/* Hint */}
-              {binding.hint && <p className="text-xs text-text-muted">Purpose: {binding.hint}</p>}
+              {binding.hint && <p className="text-xs text-ocean-light">Purpose: {binding.hint}</p>}
 
               {/* Input area */}
               {!isSkipped && (
@@ -91,7 +91,7 @@ export function BindingForm({
                       <button
                         key={model}
                         type="button"
-                        className="rounded-full border border-border px-2 py-0.5 text-xs text-text-secondary hover:bg-surface-lighter hover:text-text-primary transition-colors"
+                        className="border-2 border-ocean-light px-2 py-0.5 text-xs text-shell hover:bg-ocean-mid hover:text-sand transition-colors"
                         onClick={() => onSetValue(binding.bindingKey, model)}
                       >
                         {model}
@@ -106,7 +106,7 @@ export function BindingForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-border">
+      <div className="flex justify-end gap-2 pt-2 border-t border-ocean-light">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

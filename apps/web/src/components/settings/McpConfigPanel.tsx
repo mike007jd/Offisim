@@ -107,7 +107,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div>
-            <label htmlFor="mcp-server-name" className="text-xs text-text-secondary mb-1 block">
+            <label htmlFor="mcp-server-name" className="text-xs text-shell mb-1 block">
               Server Name
             </label>
             <Input
@@ -120,7 +120,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
           </div>
 
           <div>
-            <label htmlFor="mcp-transport" className="text-xs text-text-secondary mb-1 block">
+            <label htmlFor="mcp-transport" className="text-xs text-shell mb-1 block">
               Transport
             </label>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
@@ -135,7 +135,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
           </div>
 
           <div>
-            <label htmlFor="mcp-command-or-url" className="text-xs text-text-secondary mb-1 block">
+            <label htmlFor="mcp-command-or-url" className="text-xs text-shell mb-1 block">
               {transport === 'stdio' ? 'Command' : 'URL'}
             </label>
             <Input
@@ -175,11 +175,11 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
               {servers.map((server) => (
                 <li
                   key={server.name}
-                  className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
+                  className="flex items-center gap-2 border-2 border-ocean-light bg-ocean-deep px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-text-primary truncate">
+                      <span className="text-sm font-medium text-sand truncate">
                         {server.name}
                       </span>
                       <Badge
@@ -189,7 +189,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                         {isConnected(server.name) ? 'Connected' : 'Disconnected'}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-text-muted truncate mt-0.5">
+                    <p className="text-[11px] text-ocean-light truncate mt-0.5">
                       <span className="font-mono">{server.transport}</span>
                       {' \u2014 '}
                       {server.commandOrUrl}
@@ -199,7 +199,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemove(server.name)}
-                    className="shrink-0 text-text-muted hover:text-error h-7 px-2"
+                    className="shrink-0 text-ocean-light hover:text-error h-7 px-2"
                   >
                     <svg
                       aria-hidden="true"
@@ -223,7 +223,7 @@ export function McpConfigPanel({ connectedServers }: McpConfigPanelProps) {
       )}
 
       {servers.length === 0 && (
-        <p className="text-xs text-text-muted text-center py-4">
+        <p className="text-xs text-ocean-light text-center py-4">
           No MCP servers configured. Add one above to enable tool use.
         </p>
       )}

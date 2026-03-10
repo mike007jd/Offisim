@@ -68,11 +68,11 @@ function StepIcon({ status }: { status: 'completed' | 'active' | 'pending' | 'er
     case 'completed':
       return <CheckCircle2 className="h-4 w-4 text-success" />;
     case 'active':
-      return <Loader2 className="h-4 w-4 text-accent animate-spin" />;
+      return <Loader2 className="h-4 w-4 text-lobster-red animate-spin" />;
     case 'error':
       return <XCircle className="h-4 w-4 text-error" />;
     default:
-      return <Circle className="h-4 w-4 text-text-muted" />;
+      return <Circle className="h-4 w-4 text-ocean-light" />;
   }
 }
 
@@ -82,7 +82,7 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-base font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-sand">
           {currentStep === 'installing'
             ? 'Installing...'
             : currentStep === 'done'
@@ -104,10 +104,10 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
               <span
                 className={
                   status === 'completed'
-                    ? 'text-text-secondary'
+                    ? 'text-shell'
                     : status === 'active'
-                      ? 'text-text-primary font-medium'
-                      : 'text-text-muted'
+                      ? 'text-sand font-medium'
+                      : 'text-ocean-light'
                 }
               >
                 {step.label}

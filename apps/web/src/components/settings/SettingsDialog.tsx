@@ -118,7 +118,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
               <div>
                 <label
                   htmlFor="settings-provider"
-                  className="text-sm text-text-secondary mb-1 block"
+                  className="text-sm text-shell mb-1 block"
                 >
                   Provider
                 </label>
@@ -139,7 +139,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
               <div>
                 <label
                   htmlFor="settings-api-key"
-                  className="text-sm text-text-secondary mb-1 block"
+                  className="text-sm text-shell mb-1 block"
                 >
                   API Key
                 </label>
@@ -156,7 +156,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
                 <div>
                   <label
                     htmlFor="settings-base-url"
-                    className="text-sm text-text-secondary mb-1 block"
+                    className="text-sm text-shell mb-1 block"
                   >
                     Base URL
                   </label>
@@ -170,7 +170,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
               )}
 
               <div>
-                <label htmlFor="settings-model" className="text-sm text-text-secondary mb-1 block">
+                <label htmlFor="settings-model" className="text-sm text-shell mb-1 block">
                   Model
                 </label>
                 <Input

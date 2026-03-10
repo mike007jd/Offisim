@@ -68,7 +68,7 @@ const DialogDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-text-secondary', className)}
+    className={cn('text-sm text-shell', className)}
     {...props}
   />
 ));

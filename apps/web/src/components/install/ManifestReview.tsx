@@ -39,12 +39,12 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       {/* Package header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-text-primary truncate">{pkg.title}</h3>
-          <p className="text-sm text-text-secondary mt-0.5">
+          <h3 className="text-base font-semibold text-sand truncate">{pkg.title}</h3>
+          <p className="text-sm text-shell mt-0.5">
             {pkg.id} &middot; v{pkg.version}
           </p>
           {pkg.publisher?.display_name && (
-            <p className="text-xs text-text-muted mt-0.5">
+            <p className="text-xs text-ocean-light mt-0.5">
               by {pkg.publisher.display_name}
               {pkg.publisher.creator_handle ? ` (@${pkg.publisher.creator_handle})` : ''}
             </p>
@@ -54,42 +54,42 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       </div>
 
       {/* Summary */}
-      {pkg.summary && <p className="text-sm text-text-secondary">{pkg.summary}</p>}
+      {pkg.summary && <p className="text-sm text-shell">{pkg.summary}</p>}
 
       {/* Permissions */}
-      <div className="rounded-md border border-border p-3 space-y-2">
-        <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">Permissions</h4>
+      <div className="border-2 border-ocean-light p-3 space-y-2">
+        <h4 className="text-xs font-medium text-ocean-light uppercase tracking-wide font-pixel-body">Permissions</h4>
 
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-shell">
           <HardDrive className="h-3.5 w-3.5 shrink-0" />
           <span>
             Filesystem:{' '}
-            <span className="text-text-primary font-medium">{perms.filesystem_scope}</span>
+            <span className="text-sand font-medium">{perms.filesystem_scope}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-shell">
           <Globe className="h-3.5 w-3.5 shrink-0" />
           <span>
-            Network: <span className="text-text-primary font-medium">{perms.network_scope}</span>
+            Network: <span className="text-sand font-medium">{perms.network_scope}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-shell">
           <KeyRound className="h-3.5 w-3.5 shrink-0" />
           <span>
             Secrets:{' '}
-            <span className="text-text-primary font-medium">
+            <span className="text-sand font-medium">
               {perms.declares_secrets ? 'Yes' : 'None'}
             </span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-shell">
           <Shield className="h-3.5 w-3.5 shrink-0" />
           <span>
             Risk class:{' '}
-            <span className="text-text-primary font-medium">
+            <span className="text-sand font-medium">
               {perms.risk_class.replace('_', ' ')}
             </span>
           </span>
@@ -111,7 +111,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       )}
 
       {/* Compatibility info */}
-      <div className="flex flex-wrap gap-1.5 text-xs text-text-muted">
+      <div className="flex flex-wrap gap-1.5 text-xs text-ocean-light">
         <span>Runtime: {manifest.compatibility.runtime_range}</span>
         <span>&middot;</span>
         <span>Schema: {manifest.compatibility.schema_version}</span>
@@ -120,7 +120,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-border">
+      <div className="flex justify-end gap-2 pt-2 border-t border-ocean-light">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
