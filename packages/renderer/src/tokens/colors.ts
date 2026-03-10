@@ -16,12 +16,12 @@ export const STATE_COLORS: Record<EmployeeState, number> = {
   paused: 0x9ca3af,
 };
 
-/** Floor / furniture palette */
+/** Floor / furniture palette — retro pixel theme */
 export const SCENE_COLORS = {
-  floor: 0xf1f5f9,
-  floorBorder: 0xcbd5e1,
-  desk: 0xe2e8f0,
-  deskBorder: 0x94a3b8,
-  text: 0x334155,
-  textLight: 0x64748b,
+  floor:       0x333c57,  /* ocean-mid */
+  floorBorder: 0x566c86,  /* ocean-light */
+  desk:        0x566c86,  /* ocean-light */
+  deskBorder:  0x8b9bb4,  /* shell */
+  text:        0xf4f4f4,  /* sand */
+  textLight:   0x8b9bb4,  /* shell */
 } as const;

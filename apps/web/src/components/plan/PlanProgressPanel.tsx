@@ -11,7 +11,7 @@ function StepIcon({ status }: { status: StepStatus }) {
   switch (status) {
     case 'completed':
       return (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-success/20 text-success">
+        <span className="flex h-5 w-5 items-center justify-center bg-success/20 text-success">
           <svg
             aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
@@ -30,14 +30,14 @@ function StepIcon({ status }: { status: StepStatus }) {
     case 'active':
       return (
         <span className="relative flex h-5 w-5 items-center justify-center">
-          <span className="absolute h-5 w-5 animate-ping rounded-full bg-accent/30" />
-          <span className="relative h-2.5 w-2.5 rounded-full bg-accent" />
+          <span className="absolute h-5 w-5 animate-ping bg-accent/30" />
+          <span className="relative h-2.5 w-2.5 bg-accent" />
         </span>
       );
     default:
       return (
         <span className="flex h-5 w-5 items-center justify-center">
-          <span className="h-2 w-2 rounded-full bg-text-muted/40" />
+          <span className="h-2 w-2 bg-shell/40" />
         </span>
       );
   }
@@ -57,16 +57,16 @@ function StepRow({ step }: { step: PlanStep }) {
         <p
           className={`text-xs leading-snug ${
             step.status === 'completed'
-              ? 'text-text-muted line-through'
+              ? 'text-shell line-through'
               : step.status === 'active'
-                ? 'text-text-primary font-medium'
-                : 'text-text-secondary'
+                ? 'text-sand font-medium'
+                : 'text-shell'
           }`}
         >
           {step.description}
         </p>
         {step.status === 'active' && step.taskCount > 0 && (
-          <span className="text-[10px] text-text-muted">
+          <span className="text-[10px] text-shell">
             {step.taskCount} task{step.taskCount !== 1 ? 's' : ''}
           </span>
         )}
@@ -105,13 +105,13 @@ export function PlanProgressPanel() {
   // Collapsed summary after completion
   if (collapsed && plan.isComplete) {
     return (
-      <div className="border-b border-border bg-surface-light/50 px-3 py-2">
+      <div className="border-b-2 border-ocean-light bg-ocean-mid/50 px-3 py-2">
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="flex w-full items-center gap-2 text-left text-xs text-text-muted hover:text-text-secondary transition-colors"
+          className="flex w-full items-center gap-2 text-left text-xs text-shell hover:text-shell transition-colors"
         >
-          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success/20 text-success">
+          <span className="flex h-4 w-4 items-center justify-center bg-success/20 text-success">
             <svg
               aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
@@ -134,10 +134,10 @@ export function PlanProgressPanel() {
   }
 
   return (
-    <div className="border-b border-border bg-surface-light/50">
+    <div className="border-b-2 border-ocean-light bg-ocean-mid/50">
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-2 pb-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <h3 className="font-pixel-display text-[8px] uppercase tracking-wider text-shell">
           Plan Progress
         </h3>
         <div className="flex items-center gap-1.5">
@@ -154,7 +154,7 @@ export function PlanProgressPanel() {
             <button
               type="button"
               onClick={() => setCollapsed(true)}
-              className="text-[10px] text-text-muted hover:text-text-secondary underline"
+              className="text-[10px] text-shell hover:text-shell underline"
             >
               hide
             </button>
