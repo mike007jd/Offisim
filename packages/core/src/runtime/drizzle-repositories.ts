@@ -179,6 +179,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         )
         .all() as EmployeeRow[];
     },
+    async delete(employeeId) {
+      db.delete(schema.employees).where(eq(schema.employees.employee_id, employeeId)).run();
+    },
   };
 
   const toolCalls: ToolCallRepository = {

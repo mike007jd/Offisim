@@ -141,6 +141,9 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
         (e) => e.company_id === companyId && e.role_slug === roleSlug,
       );
     },
+    async delete(employeeId) {
+      employeesMap.delete(employeeId);
+    },
   };
 
   const toolCalls: ToolCallRepository = {

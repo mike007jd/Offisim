@@ -65,6 +65,10 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
       (p) => p.company_id === companyId && p.package_id === packageId,
     );
   }
+
+  async delete(id: string): Promise<void> {
+    this.store.delete(id);
+  }
 }
 
 export class MemoryInstalledAssetRepository implements InstalledAssetRepository {
@@ -73,6 +77,10 @@ export class MemoryInstalledAssetRepository implements InstalledAssetRepository 
   async create(asset: InstalledAssetRow): Promise<InstalledAssetRow> {
     this.store.set(asset.installed_asset_id, asset);
     return asset;
+  }
+
+  async delete(id: string): Promise<void> {
+    this.store.delete(id);
   }
 }
 
@@ -98,6 +106,10 @@ export class MemoryAssetBindingRepository implements AssetBindingRepository {
         updated_at: now(),
       });
     }
+  }
+
+  async delete(id: string): Promise<void> {
+    this.store.delete(id);
   }
 }
 

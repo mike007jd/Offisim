@@ -83,12 +83,14 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         return pkg;
       },
       findByPackageId: async () => [],
+      delete: async () => {},
     },
     installedAssets: {
       create: async (asset) => {
         store.assets.push(asset);
         return asset;
       },
+      delete: async () => {},
     },
     assetBindings: {
       create: async (binding) => {
@@ -106,6 +108,7 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
             (binding as unknown as Record<string, unknown>).binding_value_json = valueJson;
         }
       },
+      delete: async () => {},
     },
     employees: {
       create: async (emp) => {
@@ -113,6 +116,7 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
         store.employees.push({ ...emp, employee_id: id });
         return { employee_id: id };
       },
+      delete: async () => {},
     },
   };
 

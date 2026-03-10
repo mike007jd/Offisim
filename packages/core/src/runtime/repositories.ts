@@ -163,6 +163,8 @@ export interface EmployeeRepository {
   findById(employeeId: string): Promise<EmployeeRow | null>;
   findByCompany(companyId: string): Promise<EmployeeRow[]>;
   findByRole(companyId: string, roleSlug: string): Promise<EmployeeRow[]>;
+  /** Delete an employee by ID. Used during install rollback. */
+  delete(employeeId: string): Promise<void>;
 }
 
 export interface ToolCallRepository {

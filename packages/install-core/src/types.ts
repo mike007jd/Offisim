@@ -234,17 +234,25 @@ export interface InstallRepositories {
   readonly installedPackages: {
     create(pkg: InstalledPackageRow): Promise<InstalledPackageRow>;
     findByPackageId(companyId: string, packageId: string): Promise<InstalledPackageRow[]>;
+    /** Delete an installed package by ID. Used during rollback. */
+    delete(id: string): Promise<void>;
   };
   readonly installedAssets: {
     create(asset: InstalledAssetRow): Promise<InstalledAssetRow>;
+    /** Delete an installed asset by ID. Used during rollback. */
+    delete(id: string): Promise<void>;
   };
   readonly assetBindings: {
     create(binding: AssetBindingRow): Promise<AssetBindingRow>;
     findByTransaction(txnId: string): Promise<AssetBindingRow[]>;
     updateStatus(id: string, status: BindingStatus, valueJson?: string): Promise<void>;
+    /** Delete a binding by ID. Used during rollback. */
+    delete(id: string): Promise<void>;
   };
   readonly employees: {
     create(emp: NewEmployee): Promise<{ employee_id: string }>;
+    /** Delete an employee by ID. Used during rollback. */
+    delete(id: string): Promise<void>;
   };
 }
 

@@ -1,9 +1,11 @@
 /**
  * Rollback — reverse materialization artifacts on install failure.
  *
- * MVP stub: since InstallRepositories does not yet expose delete methods,
- * this implementation logs what WOULD be cleaned up and returns successfully.
- * A future phase will add actual deletion once repo delete methods exist.
+ * Cleanup order (reverse of creation):
+ * 1. bindings  (asset_bindings rows)
+ * 2. assets    (installed_assets rows)
+ * 3. employees (employees rows created by this install)
+ * 4. package   (installed_packages row)
  */
 
 import type { MaterializeResult } from './materializer.js';
@@ -16,36 +18,54 @@ import type { InstallRepositories } from './types.js';
 /**
  * Reverse the effects of a materialization.
  *
- * Cleanup order (reverse of creation):
- * 1. bindings  (asset_bindings rows)
- * 2. assets    (installed_assets rows)
- * 3. employees (employees rows created by this install)
- * 4. package   (installed_packages row)
- *
- * MVP: No-op stub — logs intended cleanup actions.
- * The repos don't expose delete methods yet, so we can't actually remove rows.
+ * Deletes rows in reverse order of creation to respect foreign key constraints.
+ * Errors during individual deletes are collected and logged, but the function
+ * attempts to clean up as much as possible (best-effort).
  *
  * @param result - The MaterializeResult from a prior materialize() call.
- * @param _repos - Install repositories (unused in MVP stub).
+ * @param repos - Install repositories with delete methods.
  */
 export async function rollback(
   result: MaterializeResult,
-  _repos: InstallRepositories,
+  repos: InstallRepositories,
 ): Promise<void> {
-  // MVP: Log what would be cleaned up (no actual deletion)
-  //
-  // In production, this would:
-  //   for (const id of result.bindingIds)   await repos.assetBindings.delete(id);
-  //   for (const id of result.installedAssetIds) await repos.installedAssets.delete(id);
-  //   for (const id of result.employeeIds)  await repos.employees.delete(id);
-  //   await repos.installedPackages.delete(result.installedPackageId);
+  const errors: string[] = [];
 
-  if (typeof console !== 'undefined') {
-    console.warn('[install-core/rollback] MVP stub — would clean up:', {
-      installedPackageId: result.installedPackageId,
-      installedAssetIds: result.installedAssetIds,
-      employeeIds: result.employeeIds,
-      bindingIds: result.bindingIds,
-    });
+  // 1. Delete bindings (created last during materialization)
+  for (const id of result.bindingIds) {
+    try {
+      await repos.assetBindings.delete(id);
+    } catch (err) {
+      errors.push(`assetBindings.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 2. Delete installed assets
+  for (const id of result.installedAssetIds) {
+    try {
+      await repos.installedAssets.delete(id);
+    } catch (err) {
+      errors.push(`installedAssets.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 3. Delete employees created by this install
+  for (const id of result.employeeIds) {
+    try {
+      await repos.employees.delete(id);
+    } catch (err) {
+      errors.push(`employees.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 4. Delete the installed package record
+  try {
+    await repos.installedPackages.delete(result.installedPackageId);
+  } catch (err) {
+    errors.push(`installedPackages.delete(${result.installedPackageId}): ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (errors.length > 0) {
+    console.warn('[install-core/rollback] Partial cleanup — some deletes failed:', errors);
   }
 }
