@@ -3,7 +3,7 @@ export const LAYOUT = {
   /** Floor dimensions */
   floor: {
     width: 800,
-    height: 500,
+    height: 600,
     padding: 40,
     cornerRadius: 0, // pixel art = sharp corners
   },
@@ -12,17 +12,17 @@ export const LAYOUT = {
   desk: {
     width: 60, // 20 logical px × PX=3
     height: 30, // 10 logical px × PX=3
-    gap: 80, // more space for lobsters
+    gap: 140, // more space for BIG lobsters with raised claws
     cornerRadius: 0, // pixel art
     borderWidth: 0, // no stroke, pixel border is part of tile
   },
 
-  /** Employee avatar (now a lobster) */
+  /** Employee avatar (now a big lobster) */
   employee: {
-    radius: 24, // kept for positioning compatibility
+    radius: 48, // positioning offset from desk (big lobster)
     ringWidth: 3, // pixel border width
     fontSize: 10, // slightly smaller for pixel look
-    labelOffsetY: 30, // adjusted for lobster size
+    labelOffsetY: 40, // below lobster body
   },
 
   /** Task bubble */
@@ -31,7 +31,7 @@ export const LAYOUT = {
     padding: 8,
     cornerRadius: 0, // pixel art
     fontSize: 10,
-    offsetY: -44,
+    offsetY: -70,
   },
 
   /** Meeting room (conference table + chairs) */

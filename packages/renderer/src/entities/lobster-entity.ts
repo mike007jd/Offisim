@@ -74,11 +74,13 @@ export class LobsterEntity {
     const bodyH = LOBSTER_BODY.length * PX;
     const clawLW = LOBSTER_CLAW_L[0]!.length * PX;
     const clawLH = LOBSTER_CLAW_L.length * PX;
+    const clawRW = LOBSTER_CLAW_R[0]!.length * PX;
     const clawRH = LOBSTER_CLAW_R.length * PX;
     const eyesW = LOBSTER_EYES[0]!.length * PX;
     const eyesH = LOBSTER_EYES.length * PX;
     const legsW = LOBSTER_LEGS[0]!.length * PX;
     const antennaLH = LOBSTER_ANTENNA_L.length * PX;
+    const antennaRW = LOBSTER_ANTENNA_R[0]!.length * PX;
     const antennaRH = LOBSTER_ANTENNA_R.length * PX;
 
     // --- State ring (pixel-style square outline) ---
@@ -88,10 +90,10 @@ export class LobsterEntity {
     this.drawRing(STATE_COLORS.idle, ringSize);
     this.container.addChild(this.ring);
 
-    // --- Legs (behind body) ---
+    // --- Legs (behind body, at thorax level — only parts beyond body width visible) ---
     this.legsGfx = new Graphics();
     drawPixelGrid(this.legsGfx, LOBSTER_LEGS, 0, 0, this.palette);
-    this.legsGfx.position.set(-legsW / 2, bodyH / 2);
+    this.legsGfx.position.set(-legsW / 2, -bodyH / 6);
     this.container.addChild(this.legsGfx);
 
     // --- Body (centered at origin) ---
@@ -100,20 +102,22 @@ export class LobsterEntity {
     this.bodyGfx.position.set(-bodyW / 2, -bodyH / 2);
     this.container.addChild(this.bodyGfx);
 
-    // --- Left claw ---
+    // --- Left claw (RAISED — extends upward from upper body) ---
     this.clawL = new Graphics();
     drawPixelGrid(this.clawL, LOBSTER_CLAW_L, 0, 0, this.palette);
-    this.clawL.position.set(-bodyW / 2 - clawLW, -bodyH / 4);
-    // Pivot at the base (right edge, vertical center) for rotation
-    this.clawL.pivot.set(clawLW, clawLH / 2);
+    // Pivot at bottom-center of claw (arm base) — claw extends UP from pivot
+    this.clawL.pivot.set(clawLW / 2, clawLH);
+    // Position: upper-left of body, claw extends upward and outward
+    this.clawL.position.set(-bodyW / 2 - PX * 2, -bodyH / 3);
     this.container.addChild(this.clawL);
 
-    // --- Right claw ---
+    // --- Right claw (RAISED — extends upward from upper body) ---
     this.clawR = new Graphics();
     drawPixelGrid(this.clawR, LOBSTER_CLAW_R, 0, 0, this.palette);
-    this.clawR.position.set(bodyW / 2, -bodyH / 4);
-    // Pivot at the base (left edge, vertical center) for rotation
-    this.clawR.pivot.set(0, clawRH / 2);
+    // Pivot at bottom-center of claw (arm base)
+    this.clawR.pivot.set(clawRW / 2, clawRH);
+    // Position: upper-right of body
+    this.clawR.position.set(bodyW / 2 + PX * 2, -bodyH / 3);
     this.container.addChild(this.clawR);
 
     // --- Eyes (above body center) ---
@@ -122,17 +126,17 @@ export class LobsterEntity {
     this.eyesGfx.position.set(-eyesW / 2, -bodyH / 2 - eyesH);
     this.container.addChild(this.eyesGfx);
 
-    // --- Left antenna (above left eye) ---
+    // --- Left antenna (above left eye, long curved) ---
     this.antennaL = new Graphics();
     drawPixelGrid(this.antennaL, LOBSTER_ANTENNA_L, 0, 0, this.palette);
-    this.antennaL.position.set(this.eyesGfx.position.x + PX, this.eyesGfx.position.y - antennaLH);
+    this.antennaL.position.set(this.eyesGfx.position.x, this.eyesGfx.position.y - antennaLH);
     this.container.addChild(this.antennaL);
 
-    // --- Right antenna (above right eye) ---
+    // --- Right antenna (above right eye, long curved mirrored) ---
     this.antennaR = new Graphics();
     drawPixelGrid(this.antennaR, LOBSTER_ANTENNA_R, 0, 0, this.palette);
     this.antennaR.position.set(
-      this.eyesGfx.position.x + eyesW - 2 * PX,
+      this.eyesGfx.position.x + eyesW - antennaRW,
       this.eyesGfx.position.y - antennaRH,
     );
     this.container.addChild(this.antennaR);
