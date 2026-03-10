@@ -8,3 +8,4 @@ export type {
 } from './core/types.js';
 export { STATE_COLORS, MOTION, LAYOUT } from './tokens/index.js';
 export type { MotionBucket } from './tokens/index.js';
+export { drawPixelGrid, idToHue, PX, PIXEL_PALETTE } from './pixel/index.js';
