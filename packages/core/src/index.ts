@@ -113,6 +113,11 @@ export { OrchestrationService } from './services/orchestration-service.js';
 // --- Runtime ---
 export { MockToolExecutor } from './runtime/tool-executor.js';
 
+// --- MCP ---
+export { McpToolExecutor } from './mcp/mcp-tool-executor.js';
+export { SdkClientFactory } from './mcp/sdk-client-factory.js';
+export type { McpServerConfig, McpConnection, McpClientFactory, McpToolDef } from './mcp/types.js';
+
 // --- Agent Nodes ---
 export { bossNode } from './agents/boss-node.js';
 export { managerNode } from './agents/manager-node.js';

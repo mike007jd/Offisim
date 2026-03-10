@@ -109,7 +109,7 @@ describe('McpToolExecutor', () => {
   it('execute dispatches to the correct server and returns result', async () => {
     factory.registerServer('fs-server', [
       { name: 'readFile', description: 'Read a file', inputSchema: {} },
-    ], async (name, args) => ({ content: `contents of ${args.path}` }));
+    ], async (_name, args) => ({ content: `contents of ${args.path}` }));
 
     factory.registerServer('git-server', [
       { name: 'gitStatus', description: 'Git status', inputSchema: {} },
