@@ -372,9 +372,9 @@ export class SceneManager {
     this.unsubscribers.push(
       this.eventBus.on('meeting.state.changed', (event) => {
         const { next } = event.payload as MeetingStatePayload;
-        if (next === 'active') {
+        if (next === 'running') {
           this.meetingRoom?.show();
-        } else if (next === 'ended') {
+        } else if (next === 'completed') {
           this.meetingRoom?.hide();
         }
       }),
