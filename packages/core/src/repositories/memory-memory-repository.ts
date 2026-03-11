@@ -43,13 +43,19 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     query: string,
     opts: { scope?: string; ownerId?: string; companyId: string; limit?: number },
   ): Promise<MemoryEntryRow[]> {
-    const lowerQuery = query.toLowerCase();
+    // Extract significant words (3+ chars) for word-based matching
+    const queryWords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length >= 3);
+
     let results = [...this.store.values()].filter((row) => {
       if (row.company_id !== opts.companyId) return false;
       if (opts.scope && row.scope !== opts.scope) return false;
       if (opts.ownerId && row.owner_id !== opts.ownerId) return false;
-      // Case-insensitive substring matching (LIKE fallback)
-      return row.content.toLowerCase().includes(lowerQuery);
+      // Word-based matching: any significant query word in content matches
+      const lowerContent = row.content.toLowerCase();
+      return queryWords.some((word) => lowerContent.includes(word));
     });
     // Sort by importance DESC
     results.sort((a, b) => b.importance - a.importance);
