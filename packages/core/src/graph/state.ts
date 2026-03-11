@@ -47,6 +47,15 @@ export interface StepResult {
   outputs: StepTaskOutput[];
 }
 
+export interface MeetingActionItem {
+  taskRunId: string;
+  description: string;
+  assigneeEmployeeId: string;
+  assigneeName: string;
+  priority: 'high' | 'medium' | 'low';
+  dependsOn: string[];
+}
+
 export const AicsGraphAnnotation = Annotation.Root({
   // Thread tracking
   threadId: Annotation<string>,
@@ -127,6 +136,18 @@ export const AicsGraphAnnotation = Annotation.Root({
   currentStepOutputs: Annotation<StepTaskOutput[]>({
     reducer: (_prev, next) => next,
     default: () => [],
+  }),
+
+  // P2: Handoff guard rail counter (only employeeNode writes this)
+  handoffCount: Annotation<number>({
+    default: () => 0,
+    reducer: (_, b) => b,  // last-write-wins
+  }),
+
+  // P2: Meeting action items populated by meetingEndNode, read by bossSummaryNode
+  meetingActionItems: Annotation<MeetingActionItem[]>({
+    default: () => [],
+    reducer: (_, b) => b,
   }),
 });
 

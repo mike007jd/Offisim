@@ -36,6 +36,8 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     currentStepIndex: 0,
     stepResults: [],
     currentStepOutputs: [],
+    handoffCount: 0,
+    meetingActionItems: [],
     ...overrides,
   };
 }
