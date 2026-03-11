@@ -5,6 +5,7 @@ import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import { MemoryService } from '../../services/memory-service.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
 import {
   TEST_COMPANY,
@@ -21,6 +22,7 @@ export function createTestRuntime() {
   const gateway = new MockLlmGateway();
   const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
   const toolExecutor = new MockToolExecutor();
+  const memoryService = new MemoryService(repos.memories, gateway, eventBus);
 
   // Seed test data
   repos.seed.companies([TEST_COMPANY]);
@@ -34,6 +36,7 @@ export function createTestRuntime() {
     toolExecutor,
     companyId: TEST_COMPANY_ID,
     threadId: TEST_THREAD_ID,
+    memoryService,
   });
 
   const graph = buildAicsGraph();
@@ -43,7 +46,7 @@ export function createTestRuntime() {
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx };
+  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx, memoryService };
 }
 
 export function createTestRuntimeWithExtraEmployee() {
@@ -52,6 +55,7 @@ export function createTestRuntimeWithExtraEmployee() {
   const gateway = new MockLlmGateway();
   const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
   const toolExecutor = new MockToolExecutor();
+  const memoryService = new MemoryService(repos.memories, gateway, eventBus);
 
   repos.seed.companies([TEST_COMPANY]);
   repos.seed.employees([
@@ -73,6 +77,7 @@ export function createTestRuntimeWithExtraEmployee() {
     toolExecutor,
     companyId: TEST_COMPANY_ID,
     threadId: TEST_THREAD_ID,
+    memoryService,
   });
 
   const graph = buildAicsGraph();
@@ -82,5 +87,5 @@ export function createTestRuntimeWithExtraEmployee() {
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx };
+  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx, memoryService };
 }

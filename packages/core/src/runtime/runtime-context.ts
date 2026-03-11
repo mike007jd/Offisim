@@ -1,6 +1,7 @@
 import type { EventBus } from '../events/event-bus.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
+import type { MemoryService } from '../services/memory-service.js';
 import type { RuntimeRepositories } from './repositories.js';
 import type { ToolExecutor } from './tool-executor.js';
 
@@ -12,6 +13,7 @@ export interface RuntimeContext {
   readonly toolExecutor: ToolExecutor;
   readonly companyId: string;
   readonly threadId: string;
+  readonly memoryService?: MemoryService;
 }
 
 export function createRuntimeContext(deps: {
@@ -22,6 +24,7 @@ export function createRuntimeContext(deps: {
   toolExecutor: ToolExecutor;
   companyId: string;
   threadId: string;
+  memoryService?: MemoryService;
 }): RuntimeContext {
   return Object.freeze(deps);
 }
