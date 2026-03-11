@@ -6,7 +6,6 @@ import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { AicsGraphState } from '../../graph/state.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
-import { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';

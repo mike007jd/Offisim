@@ -27,6 +27,9 @@ import type {
   LlmCallRow,
   MeetingRepository,
   MeetingSessionRow,
+  MemoryEntryCreate,
+  MemoryEntryRow,
+  MemoryRepository,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
@@ -392,6 +395,90 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const memories: MemoryRepository = {
+    async create(entry: MemoryEntryCreate) {
+      const ts = now();
+      const row: MemoryEntryRow = {
+        memory_id: entry.memory_id,
+        company_id: entry.company_id,
+        scope: entry.scope,
+        owner_id: entry.owner_id,
+        category: entry.category,
+        content: entry.content,
+        importance: entry.importance,
+        source_thread_id: entry.source_thread_id ?? null,
+        source_task_run_id: entry.source_task_run_id ?? null,
+        created_at: ts,
+        accessed_at: ts,
+        access_count: 0,
+      };
+      db.insert(schema.memoryEntries).values(row).run();
+      return row;
+    },
+    async findById(memoryId) {
+      const row = db
+        .select()
+        .from(schema.memoryEntries)
+        .where(eq(schema.memoryEntries.memory_id, memoryId))
+        .get();
+      return (row as MemoryEntryRow | undefined) ?? null;
+    },
+    async search(query, opts) {
+      const conditions = [eq(schema.memoryEntries.company_id, opts.companyId)];
+      if (opts.scope) conditions.push(eq(schema.memoryEntries.scope, opts.scope));
+      if (opts.ownerId) conditions.push(eq(schema.memoryEntries.owner_id, opts.ownerId));
+      const rows = db
+        .select()
+        .from(schema.memoryEntries)
+        .where(and(...conditions))
+        .orderBy(desc(schema.memoryEntries.importance))
+        .limit(opts.limit ?? 10)
+        .all();
+      // Word-based filter in JS (SQLite LIKE is limited for multi-word matching)
+      const queryWords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3);
+      return (rows as MemoryEntryRow[]).filter((r) => {
+        const lower = r.content.toLowerCase();
+        return queryWords.some((w) => lower.includes(w));
+      });
+    },
+    async delete(memoryId) {
+      db.delete(schema.memoryEntries)
+        .where(eq(schema.memoryEntries.memory_id, memoryId))
+        .run();
+    },
+    async findByOwner(ownerId, opts) {
+      const conditions = [eq(schema.memoryEntries.owner_id, ownerId)];
+      if (opts?.category) conditions.push(eq(schema.memoryEntries.category, opts.category));
+      const rows = db
+        .select()
+        .from(schema.memoryEntries)
+        .where(and(...conditions))
+        .orderBy(desc(schema.memoryEntries.importance))
+        .limit(opts?.limit ?? 50)
+        .all();
+      return rows as MemoryEntryRow[];
+    },
+    async touchAccess(memoryId) {
+      const row = db
+        .select()
+        .from(schema.memoryEntries)
+        .where(eq(schema.memoryEntries.memory_id, memoryId))
+        .get();
+      if (row) {
+        db.update(schema.memoryEntries)
+          .set({
+            accessed_at: now(),
+            access_count: (row as MemoryEntryRow).access_count + 1,
+          })
+          .where(eq(schema.memoryEntries.memory_id, memoryId))
+          .run();
+      }
+    },
+  };
+
   return {
     companies,
     threads,
@@ -403,6 +490,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     checkpoints,
     events,
     llmCalls,
+    memories,
     installTransactions,
     installedPackages,
     installedAssets,

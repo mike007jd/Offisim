@@ -1,6 +1,6 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import type { AicsGraphState } from '../../graph/state.js';
 import {
