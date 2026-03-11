@@ -4,6 +4,11 @@ import {
   meetingStateChanged,
   taskAssignmentChanged,
   taskStateChanged,
+  meetingActionCreated,
+  handoffInitiated,
+  handoffCompleted,
+  memoryCreated,
+  memoryAccessed,
 } from '../../events/event-factories.js';
 
 describe('event factories', () => {
@@ -39,5 +44,41 @@ describe('event factories', () => {
     expect(event.type).toBe('meeting.state.changed');
     expect(event.entityType).toBe('meeting');
     expect(event.payload.participantIds).toEqual(['e-1', 'e-2']);
+  });
+});
+
+describe('P2 event factories', () => {
+  it('meetingActionCreated produces correct event', () => {
+    const e = meetingActionCreated('co-1', 'mtg-1', 'tr-1', 'Implement auth', 'emp-bob', 'high', ['tr-0']);
+    expect(e.type).toBe('meeting.action.created');
+    expect(e.entityType).toBe('task');
+    expect(e.payload.meetingId).toBe('mtg-1');
+    expect(e.payload.assigneeEmployeeId).toBe('emp-bob');
+    expect(e.payload.dependsOn).toEqual(['tr-0']);
+  });
+
+  it('handoffInitiated produces correct event', () => {
+    const e = handoffInitiated('co-1', 'ho-1', 'th-1', 'emp-a', 'emp-b', 'needs expertise', 'tr-1');
+    expect(e.type).toBe('handoff.initiated');
+    expect(e.payload.fromEmployeeId).toBe('emp-a');
+    expect(e.payload.toEmployeeId).toBe('emp-b');
+  });
+
+  it('handoffCompleted produces correct event', () => {
+    const e = handoffCompleted('co-1', 'ho-1', 'emp-b', 'tr-1', 'th-1');
+    expect(e.type).toBe('handoff.completed');
+    expect(e.payload.toEmployeeId).toBe('emp-b');
+  });
+
+  it('memoryCreated produces correct event', () => {
+    const e = memoryCreated('co-1', 'mem-1', 'emp-bob', 'employee', 'experience', 'JWT is better', 'th-1');
+    expect(e.type).toBe('memory.created');
+    expect(e.payload.scope).toBe('employee');
+  });
+
+  it('memoryAccessed produces correct event', () => {
+    const e = memoryAccessed('co-1', 'mem-1', 'emp-bob', 'auth patterns', 'th-1');
+    expect(e.type).toBe('memory.accessed');
+    expect(e.payload.query).toBe('auth patterns');
   });
 });

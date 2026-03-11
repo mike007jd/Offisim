@@ -14,6 +14,8 @@ import type {
   ErrorOccurredPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  HandoffCompletedPayload,
+  HandoffInitiatedPayload,
   InstallState,
   InstallStatePayload,
   LlmCallCompletedPayload,
@@ -22,8 +24,11 @@ import type {
   LlmUsageRecordedPayload,
   McpServerConnectedPayload,
   McpToolCalledPayload,
+  MeetingActionCreatedPayload,
   MeetingState,
   MeetingStatePayload,
+  MemoryAccessedPayload,
+  MemoryCreatedPayload,
   PlanCompletedPayload,
   PlanCreatedPayload,
   PlanStepCompletedPayload,
@@ -527,5 +532,102 @@ export function employeeInstalled(
     companyId,
     timestamp: Date.now(),
     payload: { employeeId, name, installTxnId, packageId },
+  };
+}
+
+// --- P2: Meeting Action, Handoff, Memory Events ---
+
+export function meetingActionCreated(
+  companyId: string,
+  meetingId: string,
+  actionItemId: string,
+  description: string,
+  assigneeEmployeeId: string,
+  priority: MeetingActionCreatedPayload['priority'],
+  dependsOn: string[],
+): RuntimeEvent<MeetingActionCreatedPayload> {
+  return {
+    type: 'meeting.action.created',
+    entityId: actionItemId,
+    entityType: 'task',
+    companyId,
+    timestamp: Date.now(),
+    payload: { meetingId, actionItemId, description, assigneeEmployeeId, priority, dependsOn },
+  };
+}
+
+export function handoffInitiated(
+  companyId: string,
+  handoffId: string,
+  threadId: string,
+  fromEmployeeId: string,
+  toEmployeeId: string,
+  reason: string,
+  taskRunId: string,
+): RuntimeEvent<HandoffInitiatedPayload> {
+  return {
+    type: 'handoff.initiated',
+    entityId: handoffId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { handoffId, threadId, fromEmployeeId, toEmployeeId, reason, taskRunId },
+  };
+}
+
+export function handoffCompleted(
+  companyId: string,
+  handoffId: string,
+  toEmployeeId: string,
+  taskRunId: string,
+  threadId: string,
+): RuntimeEvent<HandoffCompletedPayload> {
+  return {
+    type: 'handoff.completed',
+    entityId: handoffId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { handoffId, toEmployeeId, taskRunId },
+  };
+}
+
+export function memoryCreated(
+  companyId: string,
+  memoryId: string,
+  employeeId: string,
+  scope: MemoryCreatedPayload['scope'],
+  category: MemoryCreatedPayload['category'],
+  contentPreview: string,
+  threadId: string,
+): RuntimeEvent<MemoryCreatedPayload> {
+  return {
+    type: 'memory.created',
+    entityId: memoryId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { memoryId, employeeId, scope, category, contentPreview },
+  };
+}
+
+export function memoryAccessed(
+  companyId: string,
+  memoryId: string,
+  employeeId: string,
+  query: string,
+  threadId: string,
+): RuntimeEvent<MemoryAccessedPayload> {
+  return {
+    type: 'memory.accessed',
+    entityId: memoryId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { memoryId, employeeId, query },
   };
 }

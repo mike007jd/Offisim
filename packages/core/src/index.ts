@@ -121,6 +121,11 @@ export {
   deliverableCreated,
   directChatStarted,
   directChatCompleted,
+  meetingActionCreated,
+  handoffInitiated,
+  handoffCompleted,
+  memoryCreated,
+  memoryAccessed,
 } from './events/event-factories.js';
 
 // --- Services ---
