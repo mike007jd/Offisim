@@ -7,7 +7,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // 001 — Core tables
@@ -354,5 +354,32 @@ export const llmCalls = sqliteTable(
   (table) => [
     index('idx_llm_calls_thread').on(table.thread_id),
     index('idx_llm_calls_task_run').on(table.task_run_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 005 — Agent memory system
+// ---------------------------------------------------------------------------
+
+export const memoryEntries = sqliteTable(
+  'memory_entries',
+  {
+    memory_id: text('memory_id').primaryKey(),
+    company_id: text('company_id').notNull(),
+    scope: text('scope').notNull(),
+    owner_id: text('owner_id').notNull(),
+    category: text('category').notNull(),
+    content: text('content').notNull(),
+    importance: real('importance').notNull().default(0.5),
+    source_thread_id: text('source_thread_id'),
+    source_task_run_id: text('source_task_run_id'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    accessed_at: text('accessed_at').notNull().default(sql`(datetime('now'))`),
+    access_count: integer('access_count').notNull().default(0),
+  },
+  (table) => [
+    index('idx_memory_scope_owner').on(table.scope, table.owner_id),
+    index('idx_memory_company').on(table.company_id),
+    index('idx_memory_importance').on(table.importance),
   ],
 );

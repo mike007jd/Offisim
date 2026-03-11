@@ -1,4 +1,5 @@
 import type { NewEmployee } from '@aics/install-core';
+import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import type {
   CheckpointRepository,
@@ -248,6 +249,8 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
   };
 
+  const memories = new InMemoryMemoryRepository();
+
   const installRepos = createMemoryInstallRepositories();
 
   return {
@@ -261,6 +264,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     checkpoints,
     events,
     llmCalls,
+    memories,
     ...installRepos,
     seed,
   };

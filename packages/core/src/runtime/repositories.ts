@@ -218,6 +218,49 @@ export interface LlmCallRepository {
   findByTaskRun(taskRunId: string): Promise<LlmCallRow[]>;
 }
 
+// ---------------------------------------------------------------------------
+// Memory system
+// ---------------------------------------------------------------------------
+
+export interface MemoryEntryRow {
+  memory_id: string;
+  company_id: string;
+  scope: 'employee' | 'team' | 'company';
+  owner_id: string;
+  category: 'experience' | 'decision' | 'knowledge' | 'preference';
+  content: string;
+  importance: number;
+  source_thread_id: string | null;
+  source_task_run_id: string | null;
+  created_at: string;
+  accessed_at: string;
+  access_count: number;
+}
+
+export interface MemoryEntryCreate {
+  memory_id: string;
+  company_id: string;
+  scope: 'employee' | 'team' | 'company';
+  owner_id: string;
+  category: 'experience' | 'decision' | 'knowledge' | 'preference';
+  content: string;
+  importance: number;
+  source_thread_id?: string | null;
+  source_task_run_id?: string | null;
+}
+
+export interface MemoryRepository {
+  create(entry: MemoryEntryCreate): Promise<MemoryEntryRow>;
+  findById(memoryId: string): Promise<MemoryEntryRow | null>;
+  search(
+    query: string,
+    opts: { scope?: string; ownerId?: string; companyId: string; limit?: number },
+  ): Promise<MemoryEntryRow[]>;
+  delete(memoryId: string): Promise<void>;
+  findByOwner(ownerId: string, opts?: { category?: string; limit?: number }): Promise<MemoryEntryRow[]>;
+  touchAccess(memoryId: string): Promise<void>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -234,4 +277,5 @@ export interface RuntimeRepositories {
   installedPackages: InstalledPackageRepository;
   installedAssets: InstalledAssetRepository;
   assetBindings: AssetBindingRepository;
+  memories: MemoryRepository;
 }
