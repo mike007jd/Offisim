@@ -26,11 +26,11 @@ describe('event factories', () => {
   });
 
   it('taskStateChanged', () => {
-    const event = taskStateChanged('c-1', 'tr-1', 'queued', 'active', 't-1', 'e-1');
+    const event = taskStateChanged('c-1', 'tr-1', 'queued', 'running', 't-1', 'e-1');
     expect(event.type).toBe('task.state.changed');
     expect(event.entityType).toBe('task');
     expect(event.payload.prev).toBe('queued');
-    expect(event.payload.next).toBe('active');
+    expect(event.payload.next).toBe('running');
   });
 
   it('taskAssignmentChanged', () => {
@@ -40,7 +40,7 @@ describe('event factories', () => {
   });
 
   it('meetingStateChanged', () => {
-    const event = meetingStateChanged('c-1', 'm-1', 'scheduled', 'active', ['e-1', 'e-2'], 't-1');
+    const event = meetingStateChanged('c-1', 'm-1', 'scheduled', 'running', ['e-1', 'e-2'], 't-1');
     expect(event.type).toBe('meeting.state.changed');
     expect(event.entityType).toBe('meeting');
     expect(event.payload.participantIds).toEqual(['e-1', 'e-2']);

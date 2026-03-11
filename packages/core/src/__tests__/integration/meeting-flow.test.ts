@@ -147,7 +147,7 @@ describe('meeting flow', () => {
       company_id: runtimeCtx.companyId,
       thread_id: TEST_THREAD_ID,
       topic: 'Architecture',
-      status: 'active',
+      status: 'running',
       summary_json: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -175,7 +175,7 @@ describe('meeting flow', () => {
 
     // Check meeting was updated
     const meeting = await repos.meetings.findById(meetingId);
-    expect(meeting?.status).toBe('ended');
+    expect(meeting?.status).toBe('completed');
     expect(meeting?.summary_json).toBeTruthy();
 
     // Check event emitted
@@ -224,11 +224,11 @@ describe('meeting flow — full graph integration', () => {
     // Should have a meetingId
     expect(result.meetingId).toBeTruthy();
 
-    // Meeting state changed events: active + ended
+    // Meeting state changed events: running + completed
     const meetingEvents = events.filter((e) => e.type === 'meeting.state.changed');
     expect(meetingEvents).toHaveLength(2);
-    expect(meetingEvents[0]?.payload.next).toBe('active');
-    expect(meetingEvents[1]?.payload.next).toBe('ended');
+    expect(meetingEvents[0]?.payload.next).toBe('running');
+    expect(meetingEvents[1]?.payload.next).toBe('completed');
 
     // Should have messages from the meeting flow
     expect(result.messages.length).toBeGreaterThanOrEqual(4); // human + meeting start + 2 turns + meeting end + summary

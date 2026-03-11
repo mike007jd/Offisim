@@ -56,9 +56,9 @@ export async function employeeNode(
 
   // Update task run status
   if (taskRunId) {
-    await repos.taskRuns.updateStatus(taskRunId, 'active');
+    await repos.taskRuns.updateStatus(taskRunId, 'running');
     eventBus.emit(
-      taskStateChanged(companyId, taskRunId, 'queued', 'active', threadId, employee.employee_id),
+      taskStateChanged(companyId, taskRunId, 'queued', 'running', threadId, employee.employee_id),
     );
   }
 
@@ -140,7 +140,7 @@ export async function employeeNode(
         JSON.stringify({ content: llmResponse.content }),
       );
       eventBus.emit(
-        taskStateChanged(companyId, taskRunId, 'active', 'completed', threadId, employee.employee_id),
+        taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId, employee.employee_id),
       );
       eventBus.emit(
         taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
@@ -179,7 +179,7 @@ export async function employeeNode(
     if (taskRunId) {
       await repos.taskRuns.updateStatus(taskRunId, 'failed');
       eventBus.emit(
-        taskStateChanged(companyId, taskRunId, 'active', 'failed', threadId, employee.employee_id),
+        taskStateChanged(companyId, taskRunId, 'running', 'failed', threadId, employee.employee_id),
       );
     }
 

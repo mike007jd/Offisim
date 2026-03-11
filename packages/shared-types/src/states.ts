@@ -19,7 +19,7 @@ export type TaskState =
   | 'created'
   | 'routed'
   | 'queued'
-  | 'active'
+  | 'running'
   | 'waiting_input'
   | 'waiting_dependency'
   | 'review_ready'
@@ -47,7 +47,7 @@ export type InstallState =
   | 'cancelled';
 
 /** Meeting lifecycle states — source: SCENE_STATE_MATRIX §8 */
-export type MeetingState = 'scheduled' | 'gathering' | 'active' | 'waiting' | 'ended';
+export type MeetingState = 'scheduled' | 'gathering' | 'running' | 'waiting' | 'completed' | 'cancelled';
 
 /** Report lifecycle states — source: SCENE_STATE_MATRIX §10 */
 export type ReportState = 'drafting' | 'ready' | 'delivered' | 'rejected';

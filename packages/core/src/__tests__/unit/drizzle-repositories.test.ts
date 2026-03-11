@@ -79,7 +79,7 @@ describe('DrizzleRepositories', () => {
       employee_id: null,
       parent_task_run_id: null,
       task_type: 'boss_chat',
-      status: 'active',
+      status: 'running',
       input_json: null,
       output_json: null,
       started_at: new Date().toISOString(),

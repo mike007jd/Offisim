@@ -59,7 +59,7 @@ export async function meetingStartNode(
     company_id: companyId,
     thread_id: threadId,
     topic,
-    status: 'active',
+    status: 'running',
     summary_json: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -67,7 +67,7 @@ export async function meetingStartNode(
 
   const participantIds = participants.map((p) => p.employee_id);
   eventBus.emit(
-    meetingStateChanged(companyId, meetingId, 'scheduled', 'active', participantIds, threadId),
+    meetingStateChanged(companyId, meetingId, 'scheduled', 'running', participantIds, threadId),
   );
 
   // Store meeting turn state in pendingAssignments
@@ -230,13 +230,13 @@ export async function meetingEndNode(
   });
 
   if (state.meetingId) {
-    await repos.meetings.updateStatus(state.meetingId, 'ended', summaryJson);
+    await repos.meetings.updateStatus(state.meetingId, 'completed', summaryJson);
     eventBus.emit(
       meetingStateChanged(
         companyId,
         state.meetingId,
-        'active',
-        'ended',
+        'running',
+        'completed',
         turnState.participantIds,
         threadId,
       ),
