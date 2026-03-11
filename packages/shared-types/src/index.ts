@@ -50,6 +50,11 @@ export type {
   DeliverableCreatedPayload,
   DirectChatStartedPayload,
   DirectChatCompletedPayload,
+  MeetingActionCreatedPayload,
+  HandoffInitiatedPayload,
+  HandoffCompletedPayload,
+  MemoryCreatedPayload,
+  MemoryAccessedPayload,
 } from './events.js';
 
 export type {

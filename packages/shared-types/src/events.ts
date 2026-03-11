@@ -51,7 +51,12 @@ export type EventFamily =
   | 'error.occurred'
   | 'deliverable.created'
   | 'direct.chat.started'
-  | 'direct.chat.completed';
+  | 'direct.chat.completed'
+  | 'meeting.action.created'
+  | 'handoff.initiated'
+  | 'handoff.completed'
+  | 'memory.created'
+  | 'memory.accessed';
 
 // --- Typed event payloads ---
 
@@ -248,4 +253,44 @@ export interface DirectChatCompletedPayload {
   readonly employeeId: string;
   readonly employeeName: string;
   readonly threadId: string;
+}
+
+// --- P2: Meeting Action, Handoff, Memory Events ---
+
+export interface MeetingActionCreatedPayload {
+  meetingId: string;
+  actionItemId: string;
+  description: string;
+  assigneeEmployeeId: string;
+  priority: 'high' | 'medium' | 'low';
+  dependsOn: string[];
+}
+
+export interface HandoffInitiatedPayload {
+  handoffId: string;
+  threadId: string;
+  fromEmployeeId: string;
+  toEmployeeId: string;
+  reason: string;
+  taskRunId: string;
+}
+
+export interface HandoffCompletedPayload {
+  handoffId: string;
+  toEmployeeId: string;
+  taskRunId: string;
+}
+
+export interface MemoryCreatedPayload {
+  memoryId: string;
+  employeeId: string;
+  scope: 'employee' | 'team' | 'company';
+  category: 'experience' | 'decision' | 'knowledge' | 'preference';
+  contentPreview: string;
+}
+
+export interface MemoryAccessedPayload {
+  memoryId: string;
+  employeeId: string;
+  query: string;
 }
