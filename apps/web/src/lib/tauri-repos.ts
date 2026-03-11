@@ -36,14 +36,15 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import {
-  MemoryAssetBindingRepository,
-  MemoryInstallTransactionRepository,
-  MemoryInstalledAssetRepository,
-  MemoryInstalledPackageRepository,
-} from '@aics/core';
 import * as schema from '@aics/db-local';
-import type { NewEmployee } from '@aics/install-core';
+import type {
+  AssetBindingRow,
+  InstallTransactionRow,
+  InstalledAssetRow,
+  InstalledPackageRow,
+  NewEmployee,
+} from '@aics/install-core';
+import type { BindingStatus, InstallState } from '@aics/shared-types';
 import { and, desc, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
@@ -283,14 +284,98 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
-  // Install repos — memory-backed for now. In Tauri mode, InstallService is null
-  // (tauri-runtime.ts), so these are only used to satisfy the RuntimeRepositories type.
-  // TODO: When Tauri install support is added, replace with Drizzle-backed implementations.
-  const installTransactions: InstallTransactionRepository =
-    new MemoryInstallTransactionRepository();
-  const installedPackages: InstalledPackageRepository = new MemoryInstalledPackageRepository();
-  const installedAssets: InstalledAssetRepository = new MemoryInstalledAssetRepository();
-  const assetBindings: AssetBindingRepository = new MemoryAssetBindingRepository();
+  // Install repos — Drizzle-backed (persistent SQLite via tauri-plugin-sql)
+  const installTransactions: InstallTransactionRepository = {
+    async create(txn) {
+      const row: InstallTransactionRow = { ...txn, finished_at: null };
+      await db.insert(schema.installTransactions).values(row);
+      return row;
+    },
+    async findById(id) {
+      const rows = await db
+        .select()
+        .from(schema.installTransactions)
+        .where(eq(schema.installTransactions.install_txn_id, id));
+      return (rows[0] as InstallTransactionRow | undefined) ?? null;
+    },
+    async updateState(id, state: InstallState, errorCode?: string, errorDetail?: string) {
+      await db
+        .update(schema.installTransactions)
+        .set({
+          state,
+          error_code: errorCode ?? undefined,
+          error_detail: errorDetail ?? undefined,
+        })
+        .where(eq(schema.installTransactions.install_txn_id, id));
+    },
+    async finish(id, state: InstallState) {
+      await db
+        .update(schema.installTransactions)
+        .set({ state, finished_at: now() })
+        .where(eq(schema.installTransactions.install_txn_id, id));
+    },
+  };
+
+  const installedPackages: InstalledPackageRepository = {
+    async create(pkg) {
+      await db.insert(schema.installedPackages).values(pkg);
+      return pkg as InstalledPackageRow;
+    },
+    async findByPackageId(companyId, packageId) {
+      return (await db
+        .select()
+        .from(schema.installedPackages)
+        .where(
+          and(
+            eq(schema.installedPackages.company_id, companyId),
+            eq(schema.installedPackages.package_id, packageId),
+          ),
+        )) as InstalledPackageRow[];
+    },
+    async delete(id) {
+      await db
+        .delete(schema.installedPackages)
+        .where(eq(schema.installedPackages.installed_package_id, id));
+    },
+  };
+
+  const installedAssets: InstalledAssetRepository = {
+    async create(asset) {
+      await db.insert(schema.installedAssets).values(asset);
+      return asset as InstalledAssetRow;
+    },
+    async delete(id) {
+      await db
+        .delete(schema.installedAssets)
+        .where(eq(schema.installedAssets.installed_asset_id, id));
+    },
+  };
+
+  const assetBindings: AssetBindingRepository = {
+    async create(binding) {
+      await db.insert(schema.assetBindings).values(binding);
+      return binding as AssetBindingRow;
+    },
+    async findByTransaction(txnId) {
+      return (await db
+        .select()
+        .from(schema.assetBindings)
+        .where(eq(schema.assetBindings.install_txn_id, txnId))) as AssetBindingRow[];
+    },
+    async updateStatus(id, status: BindingStatus, valueJson?: string) {
+      await db
+        .update(schema.assetBindings)
+        .set({
+          status,
+          binding_value_json: valueJson ?? undefined,
+          updated_at: now(),
+        })
+        .where(eq(schema.assetBindings.binding_id, id));
+    },
+    async delete(id) {
+      await db.delete(schema.assetBindings).where(eq(schema.assetBindings.binding_id, id));
+    },
+  };
 
   return {
     companies,

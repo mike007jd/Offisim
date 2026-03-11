@@ -338,12 +338,22 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         )
         .all() as InstalledPackageRow[];
     },
+    async delete(id) {
+      db.delete(schema.installedPackages)
+        .where(eq(schema.installedPackages.installed_package_id, id))
+        .run();
+    },
   };
 
   const installedAssets: InstalledAssetRepository = {
     async create(asset) {
       db.insert(schema.installedAssets).values(asset).run();
       return asset as InstalledAssetRow;
+    },
+    async delete(id) {
+      db.delete(schema.installedAssets)
+        .where(eq(schema.installedAssets.installed_asset_id, id))
+        .run();
     },
   };
 
@@ -366,6 +376,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
           binding_value_json: valueJson ?? undefined,
           updated_at: now(),
         })
+        .where(eq(schema.assetBindings.binding_id, id))
+        .run();
+    },
+    async delete(id) {
+      db.delete(schema.assetBindings)
         .where(eq(schema.assetBindings.binding_id, id))
         .run();
     },

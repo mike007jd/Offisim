@@ -2,10 +2,15 @@ import {
   type InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
+  bindingStateChanged,
   buildAicsGraph,
   createGateway,
   createRuntimeContext,
+  installStateChanged,
 } from '@aics/core';
+import type { EventBus, RuntimeRepositories } from '@aics/core';
+import { InstallService } from '@aics/install-core';
+import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { ProviderConfig } from './provider-config';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
@@ -15,6 +20,35 @@ import { seedTauriDb } from './tauri-seed';
 
 const COMPANY_ID = 'company-001';
 const THREAD_ID = 'thread-001';
+
+// ---------------------------------------------------------------------------
+// Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
+// ---------------------------------------------------------------------------
+
+/** Adapts RuntimeRepositories to InstallRepositories (structurally identical). */
+function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositories {
+  return {
+    installTransactions: repos.installTransactions,
+    installedPackages: repos.installedPackages,
+    installedAssets: repos.installedAssets,
+    assetBindings: repos.assetBindings,
+    employees: repos.employees,
+  };
+}
+
+/** Adapts the core EventBus to InstallEventEmitter. */
+function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
+  return {
+    emitInstallState(companyId, txnId, prev, next, packageId, errorCode) {
+      eventBus.emit(
+        installStateChanged(companyId, txnId, prev, next, undefined, packageId, errorCode),
+      );
+    },
+    emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
+      eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
+    },
+  };
+}
 
 /**
  * Create the full runtime stack for Tauri desktop mode.
@@ -72,7 +106,17 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     threadId: THREAD_ID,
   });
 
-  // TODO: Wire InstallService for Tauri mode once Drizzle install repos are ready.
-  // For now, install is browser-only (memory repos).
-  return { eventBus, graph, runtimeCtx, installService: null, mcpToolExecutor };
+  // Install service — Drizzle-backed repos for persistent install state
+  const installService = new InstallService({
+    repos: createInstallReposAdapter(repos),
+    events: createEventEmitterAdapter(eventBus),
+    companyId: COMPANY_ID,
+    environment: {
+      runtimeVersion: '0.1.0',
+      environment: 'desktop',
+      schemaVersion: '2026-03',
+    },
+  });
+
+  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor };
 }
