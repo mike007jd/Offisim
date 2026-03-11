@@ -9,7 +9,7 @@ import {
   planCompleted,
   planStepCompleted,
 } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { AicsGraphState, MeetingActionItem } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
@@ -20,6 +20,17 @@ Focus on what was accomplished and any key outcomes.
 
 Employee results:
 `;
+
+/**
+ * Format meeting action items into a human-readable text block.
+ */
+function formatMeetingActionItems(items: MeetingActionItem[]): string {
+  if (items.length === 0) return '';
+  const lines = items.map(
+    (item) => `- [${item.priority}] ${item.assigneeName} — ${item.description}`,
+  );
+  return `\n\n**Action items (${items.length}):**\n${lines.join('\n')}`;
+}
 
 /**
  * Boss summary node — produces the final summary after employee work
@@ -117,9 +128,12 @@ export async function bossSummaryNode(
     );
   };
 
+  // Append meeting action items suffix if present
+  const actionItemsSuffix = formatMeetingActionItems(state.meetingActionItems ?? []);
+
   // Single employee result — no need for LLM summary
   if (employeeResults.length === 1) {
-    const content = employeeResults[0]!;
+    const content = employeeResults[0]! + actionItemsSuffix;
     emitDeliverable(content);
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
@@ -160,11 +174,12 @@ export async function bossSummaryNode(
     },
   );
 
-  emitDeliverable(streamResult.fullContent);
+  const finalContent = streamResult.fullContent + actionItemsSuffix;
+  emitDeliverable(finalContent);
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
 
   return {
     completed: true,
-    messages: [new AIMessage({ content: streamResult.fullContent })],
+    messages: [new AIMessage({ content: finalContent })],
   };
 }

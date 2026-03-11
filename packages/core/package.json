@@ -26,7 +26,8 @@
     "@langchain/langgraph": "^1.2.1",
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "openai": "^6.27.0"
+    "openai": "^6.27.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
