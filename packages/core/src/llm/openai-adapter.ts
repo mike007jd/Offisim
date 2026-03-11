@@ -2,11 +2,13 @@ import OpenAI from 'openai';
 import { LlmError } from '../errors.js';
 import type {
   LlmGateway,
+  LlmMessage,
   LlmRequest,
   LlmResponse,
   LlmStreamChunk,
   LlmUsage,
   ToolCallResult,
+  ToolDef,
 } from './gateway.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
@@ -18,6 +20,63 @@ export interface OpenAiAdapterOptions {
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
+}
+
+/** Convert our ToolDef to OpenAI's tool format */
+function mapToolDefs(
+  tools?: readonly ToolDef[],
+): OpenAI.Chat.Completions.ChatCompletionTool[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return tools.map((t) => ({
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    },
+  }));
+}
+
+/**
+ * Convert our LlmMessage[] to OpenAI's message format.
+ * Handles assistant tool_calls and tool result messages properly.
+ */
+function mapMessages(
+  messages: readonly LlmMessage[],
+): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  const result: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      // Assistant message with tool calls
+      result.push({
+        role: 'assistant',
+        content: msg.content || null,
+        tool_calls: msg.toolCalls.map((tc) => ({
+          id: tc.id,
+          type: 'function' as const,
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        })),
+      });
+    } else if (msg.role === 'tool' && msg.toolCallId) {
+      // Tool result message
+      result.push({
+        role: 'tool',
+        content: msg.content,
+        tool_call_id: msg.toolCallId,
+      });
+    } else {
+      result.push({
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content,
+      });
+    }
+  }
+
+  return result;
 }
 
 export class OpenAiAdapter implements LlmGateway {
@@ -52,10 +111,8 @@ export class OpenAiAdapter implements LlmGateway {
         model: request.model,
         max_tokens: request.maxTokens ?? 4096,
         temperature: request.temperature,
-        messages: request.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        messages: mapMessages(request.messages),
+        tools: mapToolDefs(request.tools),
       });
 
       return this.mapResponse(response);
@@ -78,10 +135,8 @@ export class OpenAiAdapter implements LlmGateway {
         model: request.model,
         max_tokens: request.maxTokens ?? 4096,
         temperature: request.temperature,
-        messages: request.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        messages: mapMessages(request.messages),
+        tools: mapToolDefs(request.tools),
         stream: true,
         // stream_options.include_usage is an OpenAI extension;
         // not all compat endpoints support it. When omitted, usage will be undefined.
@@ -92,12 +147,36 @@ export class OpenAiAdapter implements LlmGateway {
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
         try {
           let finalUsage: LlmUsage | undefined;
+          // Accumulate tool calls during streaming
+          const streamToolCalls: Map<
+            number,
+            { id: string; name: string; argChunks: string[] }
+          > = new Map();
 
           for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta;
             if (delta?.content) {
               yield { content: delta.content, done: false };
             }
+
+            // Handle streamed tool_calls
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const existing = streamToolCalls.get(tc.index);
+                if (!existing) {
+                  streamToolCalls.set(tc.index, {
+                    id: tc.id ?? '',
+                    name: tc.function?.name ?? '',
+                    argChunks: tc.function?.arguments ? [tc.function.arguments] : [],
+                  });
+                } else {
+                  if (tc.id) existing.id = tc.id;
+                  if (tc.function?.name) existing.name = tc.function.name;
+                  if (tc.function?.arguments) existing.argChunks.push(tc.function.arguments);
+                }
+              }
+            }
+
             // OpenAI sends usage in the LAST chunk when stream_options.include_usage is true
             if (chunk.usage) {
               finalUsage = {
@@ -107,16 +186,33 @@ export class OpenAiAdapter implements LlmGateway {
             }
           }
 
-          yield { done: true, usage: finalUsage };
+          // Build final tool calls
+          const toolCalls: ToolCallResult[] = [];
+          for (const tc of streamToolCalls.values()) {
+            const jsonStr = tc.argChunks.join('');
+            try {
+              toolCalls.push({
+                id: tc.id,
+                name: tc.name,
+                arguments: jsonStr ? (JSON.parse(jsonStr) as Record<string, unknown>) : {},
+              });
+            } catch {
+              toolCalls.push({ id: tc.id, name: tc.name, arguments: {} });
+            }
+          }
+
+          yield {
+            done: true,
+            toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+            usage: finalUsage,
+          };
         } catch (error: unknown) {
-          // Mid-stream failure is non-retryable
           throw self.mapError(error);
         }
       }
 
       return generate();
     } catch (error: unknown) {
-      // Connection-level failure before stream starts — retryable via withRetry
       throw this.mapError(error);
     }
   }
@@ -129,11 +225,16 @@ export class OpenAiAdapter implements LlmGateway {
     if (choice?.message?.tool_calls) {
       for (const tc of choice.message.tool_calls) {
         if (tc.type === 'function') {
-          toolCalls.push({
-            id: tc.id,
-            name: tc.function.name,
-            arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>,
-          });
+          try {
+            toolCalls.push({
+              id: tc.id,
+              name: tc.function.name,
+              arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>,
+            });
+          } catch {
+            // Malformed JSON from LLM — treat as empty arguments
+            toolCalls.push({ id: tc.id, name: tc.function.name, arguments: {} });
+          }
         }
       }
     }

@@ -4,6 +4,7 @@ import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -37,30 +38,23 @@ Rules:
 - Each assignment must reference a valid employee ID`;
 
 function parseManagerDecision(content: string): ManagerDecision | null {
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
+  if (!parsed || !Array.isArray(parsed.assignments)) return null;
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    if (!Array.isArray(parsed.assignments)) return null;
-
-    const assignments: LlmAssignment[] = [];
-    for (const a of parsed.assignments) {
-      if (
-        typeof a === 'object' &&
-        a !== null &&
-        typeof (a as Record<string, unknown>).taskType === 'string' &&
-        typeof (a as Record<string, unknown>).employeeId === 'string' &&
-        typeof (a as Record<string, unknown>).description === 'string'
-      ) {
-        assignments.push(a as LlmAssignment);
-      }
+  const assignments: LlmAssignment[] = [];
+  for (const a of parsed.assignments) {
+    if (
+      typeof a === 'object' &&
+      a !== null &&
+      typeof (a as Record<string, unknown>).taskType === 'string' &&
+      typeof (a as Record<string, unknown>).employeeId === 'string' &&
+      typeof (a as Record<string, unknown>).description === 'string'
+    ) {
+      assignments.push(a as LlmAssignment);
     }
-
-    return assignments.length > 0 ? { assignments } : null;
-  } catch {
-    return null;
   }
+
+  return assignments.length > 0 ? { assignments } : null;
 }
 
 /**

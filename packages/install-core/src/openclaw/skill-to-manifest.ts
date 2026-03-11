@@ -12,12 +12,24 @@ import type { ParsedSkill } from './types.js';
 /**
  * Slugify a skill name into a safe package/asset ID component.
  * E.g. "Code Reviewer!" -> "code-reviewer"
+ *
+ * Falls back to a hash-based slug for pure non-ASCII names (e.g. Chinese, Japanese)
+ * that would produce an empty string after stripping non-alphanumeric chars.
  */
 function slugify(name: string): string {
-  return name
+  const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+  if (slug) return slug;
+
+  // Non-ASCII fallback: simple hash from char codes to produce a stable slug
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return `skill-${Math.abs(hash).toString(36)}`;
 }
 
 /** All-zeros SHA-256 placeholder for synthetic packages. */
@@ -72,7 +84,7 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
       {
         asset_id: assetId,
         kind: 'employee',
-        path: 'SKILL.md',
+        path: 'assets/SKILL.md',
         default_enabled: true,
       },
     ],

@@ -1,6 +1,10 @@
 export interface LlmMessage {
-  readonly role: 'system' | 'user' | 'assistant';
+  readonly role: 'system' | 'user' | 'assistant' | 'tool';
   readonly content: string;
+  /** For role='assistant': tool calls the model wants to make */
+  readonly toolCalls?: readonly ToolCallResult[];
+  /** For role='tool': the tool_call_id this result responds to */
+  readonly toolCallId?: string;
 }
 
 export interface ToolDef {

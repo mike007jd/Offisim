@@ -4,6 +4,7 @@ import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 
 const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
@@ -53,54 +54,48 @@ interface LlmPlan {
 }
 
 function parsePmPlan(content: string): LlmPlan | null {
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
+  if (!parsed) return null;
+  if (typeof parsed.summary !== 'string') return null;
+  if (!Array.isArray(parsed.steps)) return null;
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    if (typeof parsed.summary !== 'string') return null;
-    if (!Array.isArray(parsed.steps)) return null;
+  const steps: LlmPlanStep[] = [];
+  for (const s of parsed.steps) {
+    if (typeof s !== 'object' || s === null) continue;
+    const step = s as Record<string, unknown>;
+    if (typeof step.stepIndex !== 'number') continue;
+    if (typeof step.description !== 'string') continue;
+    if (!Array.isArray(step.tasks)) continue;
 
-    const steps: LlmPlanStep[] = [];
-    for (const s of parsed.steps) {
-      if (typeof s !== 'object' || s === null) continue;
-      const step = s as Record<string, unknown>;
-      if (typeof step.stepIndex !== 'number') continue;
-      if (typeof step.description !== 'string') continue;
-      if (!Array.isArray(step.tasks)) continue;
-
-      const tasks: LlmPlanStep['tasks'] = [];
-      for (const t of step.tasks) {
-        if (typeof t !== 'object' || t === null) continue;
-        const task = t as Record<string, unknown>;
-        if (
-          typeof task.taskType === 'string' &&
-          typeof task.employeeId === 'string' &&
-          typeof task.description === 'string'
-        ) {
-          tasks.push({
-            taskType: task.taskType,
-            employeeId: task.employeeId,
-            description: task.description,
-            dependsOnStepOutput:
-              typeof task.dependsOnStepOutput === 'boolean' ? task.dependsOnStepOutput : false,
-          });
-        }
-      }
-
-      if (tasks.length > 0) {
-        steps.push({
-          stepIndex: step.stepIndex,
-          description: step.description,
-          tasks,
+    const tasks: LlmPlanStep['tasks'] = [];
+    for (const t of step.tasks) {
+      if (typeof t !== 'object' || t === null) continue;
+      const task = t as Record<string, unknown>;
+      if (
+        typeof task.taskType === 'string' &&
+        typeof task.employeeId === 'string' &&
+        typeof task.description === 'string'
+      ) {
+        tasks.push({
+          taskType: task.taskType,
+          employeeId: task.employeeId,
+          description: task.description,
+          dependsOnStepOutput:
+            typeof task.dependsOnStepOutput === 'boolean' ? task.dependsOnStepOutput : false,
         });
       }
     }
 
-    return steps.length > 0 ? { summary: parsed.summary, steps } : null;
-  } catch {
-    return null;
+    if (tasks.length > 0) {
+      steps.push({
+        stepIndex: step.stepIndex,
+        description: step.description,
+        tasks,
+      });
+    }
   }
+
+  return steps.length > 0 ? { summary: parsed.summary, steps } : null;
 }
 
 export async function pmPlannerNode(

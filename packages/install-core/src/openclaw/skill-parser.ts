@@ -99,7 +99,18 @@ function extractMetadata(
  * @returns ParsedSkill with name, description, instructions, requirements, metadata.
  * @throws {SkillParseError} If frontmatter is missing or required fields absent.
  */
+/** Maximum allowed SKILL.md size (512 KB). Prevents OOM on malicious input. */
+const MAX_SKILL_SIZE = 512 * 1024;
+
 export function parseSkill(content: string): ParsedSkill {
+  // 0. Guard against excessively large input
+  if (content.length > MAX_SKILL_SIZE) {
+    throw new SkillParseError(
+      'input_too_large',
+      `SKILL.md exceeds maximum size (${MAX_SKILL_SIZE} bytes). Got ${content.length} bytes.`,
+    );
+  }
+
   // 1. Extract frontmatter
   let parsed: matter.GrayMatterFile<string>;
   try {

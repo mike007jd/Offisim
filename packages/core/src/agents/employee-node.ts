@@ -303,6 +303,7 @@ export async function employeeNode(
         );
 
         // 5. Return Command — bypasses routeFromEmployee
+        //    Prepend handoff task but KEEP remaining assignments from this step
         return new Command({
           goto: 'employee',
           update: {
@@ -317,6 +318,7 @@ export async function employeeNode(
                   taskRunId: newTaskRunId,
                 },
               },
+              ...remaining,
             ],
             handoffCount: state.handoffCount + 1,
             currentStepOutputs: [
@@ -359,17 +361,24 @@ export async function employeeNode(
         toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
       }
 
-      // Append this round's assistant intent + tool results to the running history
-      conversationHistory.push(
-        {
-          role: 'assistant',
-          content: `I called tools: ${toolResults.map((t) => t.name).join(', ')}`,
-        },
-        {
-          role: 'user',
-          content: `Tool results:\n${JSON.stringify(toolResults.map((t) => ({ tool: t.name, result: t.result })))}`,
-        },
-      );
+      // Append this round's assistant message (with tool calls) + tool results
+      // to the running history using proper LLM message format.
+      conversationHistory.push({
+        role: 'assistant',
+        content: llmResponse.content || '',
+        toolCalls: llmResponse.toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          arguments: tc.arguments,
+        })),
+      });
+      for (const tr of toolResults) {
+        conversationHistory.push({
+          role: 'tool',
+          content: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
+          toolCallId: tr.callId,
+        });
+      }
 
       // Follow-up LLM call with full accumulated history
       llmResponse = await recordedLlmCall(

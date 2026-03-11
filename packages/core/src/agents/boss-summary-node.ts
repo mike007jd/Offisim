@@ -12,6 +12,7 @@ import {
 import type { AicsGraphState, MeetingActionItem } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -92,11 +93,20 @@ export async function bossSummaryNode(
     return { completed: true };
   }
 
-  // Collect employee results from messages
-  const employeeResults = state.messages
-    .filter((m) => m._getType() === 'ai')
-    .map((m) => (typeof m.content === 'string' ? m.content : ''))
-    .filter((c) => c.startsWith('['));
+  // Collect employee results. Prefer currentStepOutputs (authoritative) over
+  // message content filtering (which can misidentify error/meeting messages).
+  // Fall back to message filtering for meeting flow which doesn't populate stepOutputs.
+  const EXCLUDED_PREFIXES = ['[Error Handler]', '[Meeting]'];
+  const employeeResults =
+    state.currentStepOutputs.length > 0
+      ? state.currentStepOutputs.map((o) => `[${o.employeeName}]: ${o.content}`)
+      : state.messages
+          .filter((m) => m._getType() === 'ai')
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .filter(
+            (c) =>
+              c.startsWith('[') && !EXCLUDED_PREFIXES.some((prefix) => c.startsWith(prefix)),
+          );
 
   if (employeeResults.length === 0) {
     if (runtimeCtx) {
@@ -119,7 +129,7 @@ export async function bossSummaryNode(
     runtimeCtx.eventBus.emit(
       deliverableCreated(
         runtimeCtx.companyId,
-        `del-${Date.now()}`,
+        generateId('del'),
         state.threadId,
         title,
         finalContent,

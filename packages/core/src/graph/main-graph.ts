@@ -134,7 +134,10 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('manager', (state, config) => managerNode(state, config))
     .addNode('pm_planner', (state, config) => pmPlannerNode(state, config))
     .addNode('step_dispatcher', (state, config) => stepDispatcherNode(state, config))
-    .addNode('employee', (state, config) => employeeNode(state, config))
+    .addNode('employee', (state: AicsGraphState, config: RunnableConfig) => employeeNode(state, config), {
+      // employee node may return Command (handoff) targeting itself
+      ends: ['employee'],
+    } as Record<string, unknown>)
     .addNode('step_advance', (state, config) => stepAdvanceNode(state, config))
     .addNode('employee_direct_setup', (state, config) => employeeDirectSetupNode(state, config))
     .addNode('error_handler', (state, config) => errorHandlerNode(state, config))

@@ -82,6 +82,7 @@ export async function errorHandlerNode(
     return {
       completed: true,
       interruptReason: null,
+      pendingAssignments: [],
       messages: [
         new AIMessage({
           content: `[Error Handler] ${structured.errorCode}: ${structured.message}.${recoverableHint}`,
@@ -102,6 +103,7 @@ export async function errorHandlerNode(
   return {
     completed: true,
     interruptReason: null,
+    pendingAssignments: [],
     messages: [
       new AIMessage({
         content: `[Error Handler] The workflow encountered an issue: ${reason}. This error may be recoverable — you can retry the request.`,

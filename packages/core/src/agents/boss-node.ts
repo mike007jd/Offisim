@@ -5,6 +5,7 @@ import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting';
@@ -28,24 +29,18 @@ Rules:
 - "meeting": when the user explicitly asks for a team meeting or discussion`;
 
 function parseBossDecision(content: string): BossDecision | null {
-  // Try to extract JSON from the response
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
+  if (!parsed) return null;
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    const action = parsed.action;
-    if (action === 'delegate' || action === 'direct_reply' || action === 'meeting') {
-      return {
-        action,
-        reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
-        reply: typeof parsed.reply === 'string' ? parsed.reply : undefined,
-      };
-    }
-    return null;
-  } catch {
-    return null;
+  const action = parsed.action;
+  if (action === 'delegate' || action === 'direct_reply' || action === 'meeting') {
+    return {
+      action,
+      reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
+      reply: typeof parsed.reply === 'string' ? parsed.reply : undefined,
+    };
   }
+  return null;
 }
 
 function mapActionToRoute(action: BossDecision['action']): AicsGraphState['routeDecision'] {
