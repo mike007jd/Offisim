@@ -1,7 +1,7 @@
 # P2 Design: Deep Multi-Agent Collaboration
 
 **Date**: 2026-03-11
-**Status**: Draft
+**Status**: Final
 **Scope**: Meeting action-item extraction, explicit handoff, 3-layer agent memory
 
 ---
@@ -19,7 +19,7 @@ Patterns drawn from five high-star frameworks:
 - **ChatDev** (phase-based artifact passing, role-flip dehallucination)
 - **Letta/MemGPT** (agent self-managed memory via tool calls)
 - **Mem0** (LLM-driven dedup/conflict resolution)
-- **LangGraph** (Command pattern for handoffs, withStructuredOutput)
+- **LangGraph** (Command pattern for handoffs)
 - **Instructor** (action-item schema with dependencies)
 
 ### Existing infrastructure
@@ -30,8 +30,24 @@ Patterns drawn from five high-star frameworks:
 | `handoff_events` table | Schema exists | Never written to; no graph logic |
 | `meeting_sessions` table | Working | topic, status, summary_json |
 | EventBus | 29 event types | Extensible via shared-types |
-| LangGraph StateGraph | 10 nodes | Supports Command pattern natively |
+| LangGraph StateGraph | 10 nodes | `@langchain/langgraph@1.2.1` supports Command class |
 | ToolExecutor | Working | MCP tool execution for employees |
+| LlmGateway | `chat()` + `chatStream()` | No `withStructuredOutput` — must use prompt + Zod parse |
+
+### Pre-P2 hotfix: status constraint mismatches
+
+**Discovery**: The existing code uses status values not in the DB CHECK constraints:
+- `meeting_sessions`: code uses `'active'`/`'ended'`, constraint allows `'running'`/`'completed'`
+- `task_runs`: code uses `'active'`, constraint allows `'running'`
+
+This has not caused issues because memory repositories bypass SQLite constraints, but **will fail in Tauri (real SQLite)**. Fix as Phase 0 prerequisite:
+
+```sql
+-- Option: align code to constraints (less migration work)
+-- meeting-subgraph.ts: 'active' → 'running', 'ended' → 'completed'
+-- employee-node.ts: 'active' → 'running'
+-- Update shared-types if status types are defined there
+```
 
 ---
 
@@ -47,42 +63,98 @@ When a meeting ends, extract structured action items and decisions from the tran
 
 **Step 1 — Structured extraction in meetingEndNode**
 
-After collecting all participant turns, call LLM with `withStructuredOutput`:
+AICS uses its own `LlmGateway` (not LangChain ChatModel), so `withStructuredOutput` is **not available**. Instead, use prompt-based JSON extraction + Zod validation:
 
 ```typescript
-const MeetingOutputSchema = z.object({
-  summary: z.string().describe('Concise meeting summary'),
-  actionItems: z.array(z.object({
-    description: z.string(),
-    assigneeId: z.enum(employeeIds),  // constrained to known employees
-    priority: z.enum(['high', 'medium', 'low']),
-    dependsOn: z.array(z.number()).default([]),  // indexes into this array
-  })),
-  decisions: z.array(z.string()).describe('Key decisions reached'),
-});
+// 1. Build dynamic schema context (employee list is runtime data)
+const employees = await runtimeCtx.repos.employees.findByCompany(state.companyId);
+const employeeMap = Object.fromEntries(employees.map(e => [e.employee_id, e.name]));
+
+// 2. System prompt instructs JSON output
+const systemPrompt = `You are a meeting secretary. Extract action items from the transcript.
+Respond with ONLY a JSON object matching this schema:
+{
+  "summary": "string — concise meeting summary",
+  "actionItems": [{
+    "description": "string",
+    "assigneeId": "one of: ${employees.map(e => e.employee_id).join(', ')}",
+    "priority": "high | medium | low",
+    "dependsOnIndex": [number] // indexes of other items this depends on, or []
+  }],
+  "decisions": ["string — key decisions reached"]
+}
+Available employees: ${employees.map(e => `${e.employee_id} (${e.name}, ${e.role})`).join(', ')}`;
+
+// 3. LLM call + Zod parse with fallback
+const raw = await runtimeCtx.llmGateway.chat({ system: systemPrompt, messages: [...transcript] });
+const parsed = MeetingOutputSchema.safeParse(JSON.parse(raw));
+if (!parsed.success) {
+  // Fallback: store raw summary, skip action items, log warning
+}
 ```
 
-The `employeeIds` enum is built dynamically from `runtimeCtx.repos.employees.findByCompany()` at node entry. This eliminates fuzzy matching.
+The `MeetingOutputSchema` is built dynamically per invocation because `assigneeId` is constrained to known employee IDs:
 
-**Step 2 — TaskRun creation**
+```typescript
+function buildMeetingOutputSchema(employeeIds: [string, ...string[]]) {
+  return z.object({
+    summary: z.string(),
+    actionItems: z.array(z.object({
+      description: z.string(),
+      assigneeId: z.enum(employeeIds),
+      priority: z.enum(['high', 'medium', 'low']),
+      dependsOnIndex: z.array(z.number()).default([]),
+    })),
+    decisions: z.array(z.string()),
+  });
+}
+```
+
+Note: This is a **dynamic Zod schema** — must be constructed inside the node function, not as a module-level constant.
+
+**Step 2 — TaskRun creation + index-to-ID mapping**
 
 For each action item:
 - Create `TaskRun` with `task_type: 'meeting_action'`, `status: 'queued'`, `employee_id: assigneeId`
-- Store `dependsOn` in `input_json` for future dependency-aware scheduling
-- Emit `meeting.action.created` event
+- Map `dependsOnIndex` (array indexes) → `dependsOn` (taskRunIds) after all TaskRuns are created
+- Store mapped `dependsOn` taskRunIds in `input_json`
+- Emit `meeting.action.created` event per item
+
+```typescript
+// Create all TaskRuns first to get IDs
+const taskRunIds: string[] = [];
+for (const item of parsed.data.actionItems) {
+  const taskRunId = `tr-ma-${Date.now()}-${taskRunIds.length}`;
+  taskRunIds.push(taskRunId);
+  await runtimeCtx.repos.taskRuns.create({
+    task_run_id: taskRunId,
+    thread_id: state.threadId,
+    employee_id: item.assigneeId,
+    task_type: 'meeting_action',
+    status: 'queued',
+    input_json: JSON.stringify({ description: item.description, priority: item.priority }),
+    // dependsOn mapped below
+  });
+}
+// Map indexes to IDs and update input_json
+for (let i = 0; i < parsed.data.actionItems.length; i++) {
+  const deps = parsed.data.actionItems[i].dependsOnIndex
+    .filter(idx => idx >= 0 && idx < taskRunIds.length && idx !== i)
+    .map(idx => taskRunIds[idx]);
+  if (deps.length > 0) {
+    // Update input_json to include dependsOn
+    await runtimeCtx.repos.taskRuns.updateStatus(taskRunIds[i], 'queued'); // re-save with deps
+  }
+}
+```
 
 **Step 3 — Boss summary integration**
 
-`meetingEndNode` returns action items metadata in state. `bossSummaryNode` incorporates them into the user-facing summary:
-
-> "Meeting concluded. 3 action items created: [high] Bob — implement auth module, [medium] Alice — write tests, [low] Carol — update docs."
-
-Action items are queued, not immediately executed. The user can trigger them via future task board (P3) or by asking boss "execute the meeting action items."
+`meetingEndNode` populates `meetingActionItems` in graph state. `bossSummaryNode` reads this array and includes it in the user-facing summary. No changes to boss_summary's LLM call — just append action items as text to the final message.
 
 **Step 4 — New events**
 
 ```typescript
-// shared-types/events.ts additions
 EventFamily = 'meeting.action.created'
 interface MeetingActionCreatedPayload {
   meetingId: string;
@@ -102,9 +174,10 @@ interface MeetingActionCreatedPayload {
 
 ### Test plan
 
-- Unit: meetingEndNode with mock LLM returning structured output → verify TaskRun creation + events
-- Unit: Zod schema validation with edge cases (empty action items, circular dependsOn)
-- Integration: full meeting flow → meetingEnd → boss_summary includes action items
+- Unit: meetingEndNode with mock LLM returning valid JSON → verify TaskRun creation + events
+- Unit: Zod schema validation: empty action items, circular dependsOnIndex, invalid assigneeId
+- Unit: JSON parse failure fallback — raw summary preserved, no crash
+- Integration: full meeting flow → meetingEnd → boss_summary includes action items text
 
 ---
 
@@ -120,68 +193,89 @@ Allow an employee to hand off work to another employee mid-execution, with struc
 
 **Approach: Command pattern inside employee_node**
 
-Instead of adding a separate `handoff_check_node` (which adds graph topology complexity), use LangGraph's `Command` pattern. After task completion, the employee LLM can decide whether handoff is needed:
+Use LangGraph's `Command` class (`new Command(...)`, not `Command(...)`). When employee calls `handoff_to` tool, the node returns a Command instead of a plain state update.
+
+**Return type change**: `employeeNode` signature changes from:
+```typescript
+Promise<Partial<AicsGraphState>>
+```
+to:
+```typescript
+Promise<Partial<AicsGraphState> | Command>
+```
+
+LangGraph v1.2.1 StateGraph nodes accept `Command` returns natively. When a node returns `Command`, **conditional edges are bypassed** — the Command's `goto` takes precedence over `routeFromEmployee`. This means `routeFromEmployee` is NOT called for handoff paths.
+
+**Handoff detection via tool call**
+
+Add `handoff_to` as a **virtual tool** (not MCP) to the employee's LLM request. This requires modifying how `employeeNode` constructs the LLM call:
 
 ```typescript
-// In employee-node.ts, after LLM response:
-if (llmResponse includes handoff signal) {
+// Current: employeeNode calls recordedLlmCall without tools parameter
+// Changed: inject handoff_to + MCP tools into the tools parameter
+
+const mcpTools = await runtimeCtx.toolExecutor.listAvailable(state.companyId);
+const colleagues = employees.filter(e => e.employee_id !== currentEmployee.employee_id);
+
+const allTools = [
+  ...mcpTools,
+  ...(colleagues.length > 0 ? [{
+    name: 'handoff_to',
+    description: 'Hand off this task to another employee who is better suited.',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetEmployeeId: {
+          type: 'string',
+          enum: colleagues.map(e => e.employee_id),
+          description: `Available colleagues: ${colleagues.map(e => `${e.employee_id} (${e.name})`).join(', ')}`
+        },
+        reason: { type: 'string' },
+        completedWork: { type: 'string', description: 'Summary of what you completed' },
+        remainingWork: { type: 'string', description: 'What the next employee should do' },
+      },
+      required: ['targetEmployeeId', 'reason', 'completedWork', 'remainingWork'],
+    },
+  }] : []),
+];
+```
+
+In the tool-calling loop, detect `handoff_to` and handle separately:
+
+```typescript
+if (toolCall.name === 'handoff_to') {
+  const { targetEmployeeId, reason, completedWork, remainingWork } = toolCall.args;
+
   // Write handoff record
-  await runtimeCtx.repos.handoffs.create({
-    handoff_id: `ho-${Date.now()}`,
-    thread_id: state.threadId,
-    from_employee_id: currentEmployee.employee_id,
-    to_employee_id: targetEmployeeId,
-    reason: handoffReason,
-    payload_json: JSON.stringify(handoffContext),  // structured, not chat
-  });
+  await runtimeCtx.repos.handoffs.create({ ... });
 
   // Emit event
   runtimeCtx.eventBus.emit(handoffInitiated(...));
 
-  // Return Command to re-enter employee node with new assignment
-  return Command({
+  // Return Command — bypasses routeFromEmployee
+  return new Command({
     goto: 'employee',
     update: {
       pendingAssignments: [{
         taskType: 'handoff_continuation',
         employeeId: targetEmployeeId,
-        inputJson: {
-          description: handoffContext.taskDescription,
-          priorWork: handoffContext.completedOutput,  // artifact, not messages
-          handoffReason,
-          taskRunId: newTaskRunId,
-        },
+        inputJson: { description: remainingWork, priorWork: completedWork, handoffReason: reason },
       }],
+      handoffCount: state.handoffCount + 1,
     },
   });
 }
+
+// MCP tools: delegate to toolExecutor as before
 ```
 
-**Handoff detection mechanism**
+**Guard rails**
 
-Two approaches evaluated:
+- Max 3 handoffs per graph run: check `state.handoffCount >= 3` before offering `handoff_to` tool
+- Self-handoff: filtered out by `colleagues` list construction
+- Chain handoff: `handoff_to` tool IS available for `handoff_continuation` tasks (the receiving employee may also decide to hand off — this is intentional, guarded by max count)
 
-| Approach | Pro | Con |
-|----------|-----|-----|
-| LLM tool call (`handoff_to` tool) | Natural, LLM decides | Extra tool, prompt engineering |
-| Post-hoc LLM check | Separate concern | Extra LLM call per task |
-
-**Chosen: LLM tool call.** Add a `handoff_to` tool to the employee's available tools when multiple employees exist in the company. The tool schema:
-
-```typescript
-{
-  name: 'handoff_to',
-  description: 'Hand off this task to another employee who is better suited',
-  parameters: {
-    targetEmployeeId: z.enum(colleagueIds),
-    reason: z.string(),
-    completedWork: z.string().describe('Summary of what you have done so far'),
-    remainingWork: z.string().describe('What the next employee should do'),
-  }
-}
-```
-
-This is an artifact-driven handoff (MetaGPT pattern): the receiving employee gets `completedWork` + `remainingWork`, not the full conversation history.
+**Direct chat edge case**: When `entryMode === 'direct_chat'`, `handoff_to` tool is **NOT injected**. Direct chat is 1:1 between user and specific employee; handoff would violate user intent.
 
 **New events**
 
@@ -204,12 +298,6 @@ interface HandoffCompletedPayload {
 }
 ```
 
-**Guard rails**
-
-- Max 3 handoffs per graph run (prevent infinite delegation loops)
-- Employee cannot hand off to themselves
-- `handoff_to` tool only available when `pendingAssignments[0].taskType !== 'handoff_continuation'` (prevent chain handoff without work)
-
 ### What this does NOT do
 
 - Does not implement swarm-style peer-to-peer handoff (AICS is hierarchical)
@@ -219,7 +307,8 @@ interface HandoffCompletedPayload {
 ### Test plan
 
 - Unit: employee-node with mock LLM calling `handoff_to` tool → verify Command return, handoff_events write, events emitted
-- Unit: guard rails — self-handoff rejected, max 3 handoffs enforced, chain handoff blocked
+- Unit: guard rails — self-handoff not in tool list, max 3 handoffs enforced (tool removed), direct_chat has no handoff_to
+- Unit: `routeFromEmployee` NOT called when Command is returned (verify via mock)
 - Integration: boss → manager → pm → employee A → handoff → employee B → boss_summary
 
 ---
@@ -232,12 +321,13 @@ Give employees persistent memory across sessions: personal experience, team know
 
 ### Design
 
-**Change scope**: new `memory_entries` table + FTS5, new MemoryRepository, memory tools injected into ToolExecutor, employee-node prompt enhancement.
+**Change scope**: new `memory_entries` table + FTS5 (with LIKE fallback), new MemoryRepository, memory tools injected into employee-node, employee-node prompt enhancement.
 
 ### Layer 1: Database schema
 
 ```sql
--- New migration: 006_memory_system.sql
+-- New migration: 005_memory_system.sql
+-- (Next available number after 001-004 in db-local/src/migrations/)
 
 CREATE TABLE memory_entries (
   memory_id    TEXT PRIMARY KEY,
@@ -257,26 +347,56 @@ CREATE TABLE memory_entries (
 CREATE INDEX idx_memory_scope_owner ON memory_entries(scope, owner_id);
 CREATE INDEX idx_memory_company ON memory_entries(company_id);
 CREATE INDEX idx_memory_importance ON memory_entries(importance DESC);
+```
 
--- FTS5 virtual table for full-text search
-CREATE VIRTUAL TABLE memory_entries_fts USING fts5(
-  content,
-  content=memory_entries,
-  content_rowid=rowid,
-  tokenize='unicode61'
-);
+**FTS5 — with graceful degradation**
 
--- Triggers to keep FTS5 in sync
-CREATE TRIGGER memory_fts_insert AFTER INSERT ON memory_entries BEGIN
+FTS5 availability depends on SQLite compilation flags. `tauri-plugin-sql` uses `rusqlite` which may or may not include FTS5 (`SQLITE_ENABLE_FTS5`). Web browser (sql.js) typically includes it.
+
+Strategy: **probe at startup, degrade to LIKE if unavailable**.
+
+```typescript
+// In migration runner or MemoryRepository init:
+async function initFts5(db): Promise<boolean> {
+  try {
+    await db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(
+        content,
+        content=memory_entries,
+        content_rowid=rowid,
+        tokenize='unicode61'
+      );
+      -- Note: rowid is SQLite's implicit integer rowid, not memory_id TEXT PK.
+      -- TEXT PRIMARY KEY tables still have an implicit rowid.
+    `);
+    // Create sync triggers...
+    return true;  // FTS5 available
+  } catch {
+    return false;  // Degrade to LIKE queries
+  }
+}
+```
+
+FTS5 sync triggers (only created if FTS5 probe succeeds):
+
+```sql
+CREATE TRIGGER IF NOT EXISTS memory_fts_insert AFTER INSERT ON memory_entries BEGIN
   INSERT INTO memory_entries_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
-CREATE TRIGGER memory_fts_delete AFTER DELETE ON memory_entries BEGIN
+CREATE TRIGGER IF NOT EXISTS memory_fts_delete AFTER DELETE ON memory_entries BEGIN
   INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
 END;
-CREATE TRIGGER memory_fts_update AFTER UPDATE OF content ON memory_entries BEGIN
+CREATE TRIGGER IF NOT EXISTS memory_fts_update AFTER UPDATE OF content ON memory_entries BEGIN
   INSERT INTO memory_entries_fts(memory_entries_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
   INSERT INTO memory_entries_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
+```
+
+Fallback search when FTS5 unavailable:
+
+```sql
+-- FTS5: SELECT * FROM memory_entries_fts WHERE content MATCH ? ORDER BY rank
+-- LIKE:  SELECT * FROM memory_entries WHERE content LIKE '%' || ? || '%' ORDER BY importance DESC
 ```
 
 ### Layer 2: MemoryRepository + MemoryService
@@ -291,7 +411,7 @@ interface MemoryRepository {
     ownerId?: string;
     companyId: string;
     limit?: number;
-  }): Promise<MemoryEntry[]>;  // FTS5 MATCH query
+  }): Promise<MemoryEntry[]>;  // FTS5 MATCH or LIKE fallback
   update(memoryId: string, patch: Partial<MemoryEntryUpdate>): Promise<void>;
   delete(memoryId: string): Promise<void>;
   findByOwner(ownerId: string, opts?: { category?: string; limit?: number }): Promise<MemoryEntry[]>;
@@ -300,46 +420,62 @@ interface MemoryRepository {
 
 // MemoryService wraps repository + adds business logic
 class MemoryService {
+  constructor(private repo: MemoryRepository, private llmGateway: LlmGateway) {}
+
   // Called before employee execution: retrieve relevant memories
   async getRelevantMemories(employeeId: string, companyId: string, taskContext: string): Promise<MemoryEntry[]> {
     // 1. Employee's own memories (scope: 'employee', owner: employeeId)
     // 2. Team memories (scope: 'team', owner: companyId)
     // 3. Company memories (scope: 'company', owner: companyId)
-    // Merge, rank by FTS5 score * importance * recency, return top-K
+    // Merge, rank by FTS5 score * importance * recency, return top-5
   }
 
   // Called after employee execution: optional reflection pass
-  async reflectAndRemember(employeeId: string, taskOutput: string, runtimeCtx: RuntimeContext): Promise<void> {
-    // LLM decides: is there anything worth remembering?
+  // Cost control: only for task_type !== 'direct_chat', configurable via flag
+  async reflectAndRemember(
+    employeeId: string,
+    companyId: string,
+    taskOutput: string,
+    runtimeCtx: RuntimeContext,
+    opts?: { skip?: boolean }
+  ): Promise<void> {
+    if (opts?.skip) return;
+    // LLM call: "Based on this task output, is there anything worth remembering?"
     // If yes, creates memory_entries with appropriate scope/category
+    // Uses prompt-based JSON extraction (same pattern as Subsystem A)
   }
 }
 ```
 
+**Reflection cost control**: `reflectAndRemember` adds 1 LLM call per task. To control costs:
+- Skip for `direct_chat` tasks (short, conversational)
+- Skip for `handoff_continuation` tasks (receiving employee hasn't done enough to reflect)
+- Future: configurable in company settings
+
 ### Layer 3: Memory tools for agents (Letta pattern)
 
-Three tools injected into every employee's ToolExecutor:
+Three **virtual tools** (not MCP) injected into employee's LLM call alongside `handoff_to`:
 
 ```typescript
 // remember: agent actively stores a memory
 {
   name: 'remember',
-  description: 'Store something important for future reference. Use for lessons learned, user preferences, project decisions, or useful patterns.',
+  description: 'Store something important for future reference.',
   parameters: {
-    content: z.string().describe('What to remember'),
-    category: z.enum(['experience', 'decision', 'knowledge', 'preference']),
-    scope: z.enum(['employee', 'team']).default('employee'),
-    importance: z.number().min(0).max(1).default(0.5),
+    content: { type: 'string', description: 'What to remember' },
+    category: { type: 'string', enum: ['experience', 'decision', 'knowledge', 'preference'] },
+    scope: { type: 'string', enum: ['employee', 'team'], default: 'employee' },
+    importance: { type: 'number', minimum: 0, maximum: 1, default: 0.5 },
   }
 }
 
 // recall: agent actively searches memory
 {
   name: 'recall',
-  description: 'Search your memories for relevant past experiences, decisions, or knowledge.',
+  description: 'Search your memories for relevant past experiences.',
   parameters: {
-    query: z.string().describe('What to search for'),
-    scope: z.enum(['employee', 'team', 'company']).optional(),
+    query: { type: 'string', description: 'What to search for' },
+    scope: { type: 'string', enum: ['employee', 'team', 'company'] },
   }
 }
 
@@ -348,10 +484,12 @@ Three tools injected into every employee's ToolExecutor:
   name: 'forget',
   description: 'Remove a memory that is no longer accurate or relevant.',
   parameters: {
-    memoryId: z.string(),
+    memoryId: { type: 'string' },
   }
 }
 ```
+
+These tools are handled in the same tool-calling loop as `handoff_to`, dispatched to `MemoryService` instead of `ToolExecutor`.
 
 ### Memory injection flow
 
@@ -360,10 +498,10 @@ employee_node entry:
   1. MemoryService.getRelevantMemories(employeeId, companyId, taskDescription)
   2. Inject top-5 as system prompt section:
      "## Your memories\n- [experience] Last time I did auth, JWT worked better than sessions\n- ..."
-  3. Add remember/recall/forget to available tools
+  3. Add remember/recall/forget to available tools (alongside handoff_to + MCP tools)
   4. Employee executes task (may call remember/recall during execution)
-  5. After task: MemoryService.reflectAndRemember() — one extra LLM call
-     asking "Is there anything from this task worth remembering?"
+  5. After task completion (not handoff, not error):
+     MemoryService.reflectAndRemember() — one LLM call
 ```
 
 ### Memory scopes explained
@@ -378,18 +516,19 @@ Company-scope memories are seeded from SOP/configuration, not created by agents.
 
 ### What this does NOT do
 
-- No vector embeddings (deferred; FTS5 is sufficient for P2, sqlite-vec for later)
-- No Mem0-style dedup/conflict resolution (LLM overhead too high for MVP; simple FTS5 match to check for near-duplicates instead)
+- No vector embeddings (deferred; FTS5/LIKE is sufficient for P2, sqlite-vec for later)
+- No Mem0-style dedup/conflict resolution (simple near-duplicate check via FTS5 instead)
 - No cross-company memory sharing
 - No memory size limits (add garbage collection in P3 based on access_count + age)
 
 ### Test plan
 
-- Unit: MemoryRepository CRUD + FTS5 search (Drizzle + in-memory SQLite)
+- Unit: MemoryRepository CRUD + FTS5 search + LIKE fallback (both paths)
 - Unit: MemoryService.getRelevantMemories with mixed scopes
-- Unit: Memory tools (remember/recall/forget) through ToolExecutor
+- Unit: Memory tools (remember/recall/forget) in tool-calling loop
+- Unit: FTS5 probe — success and failure paths
 - Integration: employee executes task → calls remember → next task for same employee → memories injected in prompt
-- Edge: FTS5 with CJK text (Chinese task descriptions), empty memories, importance ranking
+- Edge: CJK text search, empty memories, importance ranking, access_count increment
 
 ---
 
@@ -427,33 +566,36 @@ interface RuntimeContext {
 
 ```typescript
 // AicsGraphAnnotation additions:
-handoffCount: number;  // tracks handoffs per run, for guard rail
-meetingActionItems: MeetingActionItem[];  // populated by meetingEndNode, read by bossSummaryNode
+handoffCount: Annotation<number>({   // default: 0, no reducer needed (last-write-wins is correct)
+  default: () => 0,
+}),
+meetingActionItems: Annotation<MeetingActionItem[]>({
+  default: () => [],
+}),
 ```
+
+`handoffCount` uses last-write-wins (default LangGraph behavior). This is correct because only `employeeNode` writes it, and Command updates are atomic.
 
 ### Migration sequence
 
 ```
-006_memory_system.sql  — memory_entries table + FTS5 + triggers + indexes
+005_memory_system.sql  — memory_entries table + indexes (FTS5 created at runtime via probe)
 ```
 
-`handoff_events` table already exists (migration 003). No new migration needed for handoff.
+Additionally, Phase 0 includes a code-level fix aligning status values to existing DB constraints (no new migration — just fix code to use `'running'` instead of `'active'`, `'completed'` instead of `'ended'`).
 
 ---
 
 ## Parallel development strategy
 
-Three subsystems have zero code dependencies on each other:
+| Subsystem | Touches | Can start after | Merge order |
+|-----------|---------|-----------------|-------------|
+| Phase 0: shared-types + state + status fix | shared-types, state.ts, meeting-subgraph.ts, employee-node.ts | nothing | **First** |
+| A: Meeting actions | meeting-subgraph.ts, boss-summary-node.ts | Phase 0 | Second (parallel with B) |
+| B: Handoff | employee-node.ts, event-factories.ts | Phase 0 | Second (parallel with A) |
+| C: Memory | NEW files + employee-node.ts | Phase 0 + B merged | **Last** (depends on B's employee-node changes) |
 
-| Subsystem | Touches | Can start after |
-|-----------|---------|-----------------|
-| A: Meeting actions | meeting-subgraph.ts, boss-summary-node.ts, shared-types | shared-types events defined |
-| B: Handoff | employee-node.ts, shared-types, handoff repo | shared-types events defined |
-| C: Memory | NEW files (memory table, repo, service, tools), employee-node.ts | migration created |
-
-**Merge order**: shared-types first (all 3 depend on new event types) → A and B in parallel → C last (touches employee-node which B also touches).
-
-Actually: define shared-types events + graph state changes as Phase 0, then dispatch A/B/C as parallel agents.
+A and B are truly parallel (touch different files except shared-types which is done in Phase 0). C must wait for B because both modify `employee-node.ts` — C builds on B's tool injection mechanism.
 
 ---
 
@@ -461,9 +603,9 @@ Actually: define shared-types events + graph state changes as Phase 0, then disp
 
 | Subsystem | New files | Modified files | New tests | LLM calls added per run |
 |-----------|-----------|---------------|-----------|------------------------|
-| A: Meeting actions | 0 | 3 (meeting-subgraph, boss-summary, shared-types) | ~6 | +1 (structured extraction) |
-| B: Handoff | 0 | 3 (employee-node, shared-types, event-factories) | ~8 | 0 (tool call, not extra LLM) |
-| C: Memory | ~6 (migration, schema, repo, service, tools, memory repo tests) | 3 (employee-node, runtime-context, repositories) | ~12 | +1 (reflection after task) |
-| Phase 0 | 0 | 3 (shared-types, state, event-factories) | ~2 | 0 |
+| Phase 0 | 0 | 4 (shared-types, state, meeting-subgraph, employee-node) | ~2 | 0 |
+| A: Meeting actions | 0 | 3 (meeting-subgraph, boss-summary, event-factories) | ~6 | +1 (structured extraction) |
+| B: Handoff | 0 | 3 (employee-node, event-factories, shared-types) | ~8 | 0 (tool call, not extra LLM) |
+| C: Memory | ~6 (migration, drizzle schema, repo interface, memory repo, memory service, memory tools) | 3 (employee-node, runtime-context, repositories) | ~12 | +1 (reflection, skippable) |
 
-**Total**: ~6 new files, ~6 modified files, ~28 new tests.
+**Total**: ~6 new files, ~9 modified files, ~28 new tests, +2 LLM calls per full run (1 skippable).
