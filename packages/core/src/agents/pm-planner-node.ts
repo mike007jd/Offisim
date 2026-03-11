@@ -4,6 +4,7 @@ import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 
 const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
 
@@ -49,10 +50,6 @@ interface LlmPlanStep {
 interface LlmPlan {
   summary: string;
   steps: LlmPlanStep[];
-}
-
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function parsePmPlan(content: string): LlmPlan | null {

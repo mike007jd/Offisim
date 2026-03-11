@@ -7,7 +7,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
@@ -427,22 +427,32 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       const conditions = [eq(schema.memoryEntries.company_id, opts.companyId)];
       if (opts.scope) conditions.push(eq(schema.memoryEntries.scope, opts.scope));
       if (opts.ownerId) conditions.push(eq(schema.memoryEntries.owner_id, opts.ownerId));
+      // Add SQL-level LIKE conditions for each significant word (3+ chars)
+      const queryWords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3);
+      if (queryWords.length > 0) {
+        // At least one word must match (OR across words via a single check)
+        // Use a wider candidate set first, then JS-filter for precision
+        // SQL LIKE '%word%' for the first word to narrow the candidate set
+        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`);
+      }
+      const limit = opts.limit ?? 10;
+      // Fetch wider candidate set, then JS-filter + limit
       const rows = db
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
         .orderBy(desc(schema.memoryEntries.importance))
-        .limit(opts.limit ?? 10)
+        .limit(limit * 5)
         .all();
-      // Word-based filter in JS (SQLite LIKE is limited for multi-word matching)
-      const queryWords = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w) => w.length >= 3);
-      return (rows as MemoryEntryRow[]).filter((r) => {
+      // Word-based filter in JS for multi-word precision
+      const filtered = (rows as MemoryEntryRow[]).filter((r) => {
         const lower = r.content.toLowerCase();
         return queryWords.some((w) => lower.includes(w));
       });
+      return filtered.slice(0, limit);
     },
     async delete(memoryId) {
       db.delete(schema.memoryEntries)
@@ -462,20 +472,13 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return rows as MemoryEntryRow[];
     },
     async touchAccess(memoryId) {
-      const row = db
-        .select()
-        .from(schema.memoryEntries)
+      db.update(schema.memoryEntries)
+        .set({
+          accessed_at: now(),
+          access_count: sql`${schema.memoryEntries.access_count} + 1`,
+        })
         .where(eq(schema.memoryEntries.memory_id, memoryId))
-        .get();
-      if (row) {
-        db.update(schema.memoryEntries)
-          .set({
-            accessed_at: now(),
-            access_count: (row as MemoryEntryRow).access_count + 1,
-          })
-          .where(eq(schema.memoryEntries.memory_id, memoryId))
-          .run();
-      }
+        .run();
     },
   };
 

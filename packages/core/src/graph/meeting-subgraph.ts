@@ -7,9 +7,14 @@ import { meetingActionCreated, meetingStateChanged } from '../events/event-facto
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { generateId } from '../utils/generate-id.js';
 import type { AicsGraphState, MeetingActionItem } from './state.js';
 
 const MAX_TURNS = 10;
+
+/** Internal task type used to store meeting turn state in pendingAssignments. */
+const MEETING_STATE_TASK_TYPE = '__meeting_state';
 
 interface MeetingTurnState {
   turnCount: number;
@@ -20,7 +25,7 @@ interface MeetingTurnState {
 
 function parseMeetingTurnState(state: AicsGraphState): MeetingTurnState {
   // Extract turn state from the last message metadata or defaults
-  const existing = state.pendingAssignments.find((a) => a.taskType === '__meeting_state');
+  const existing = state.pendingAssignments.find((a) => a.taskType === MEETING_STATE_TASK_TYPE);
   if (existing) {
     return existing.inputJson as unknown as MeetingTurnState;
   }
@@ -54,7 +59,7 @@ export async function meetingStartNode(
   const topic =
     typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : 'General discussion';
 
-  const meetingId = `mtg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const meetingId = generateId('mtg');
 
   await repos.meetings.create({
     meeting_id: meetingId,
@@ -84,7 +89,7 @@ export async function meetingStartNode(
     meetingId,
     pendingAssignments: [
       {
-        taskType: '__meeting_state',
+        taskType: MEETING_STATE_TASK_TYPE,
         employeeId: participantIds[0]!,
         inputJson: turnState as unknown as Record<string, unknown>,
       },
@@ -181,7 +186,7 @@ export async function participantTurnNode(
   return {
     pendingAssignments: [
       {
-        taskType: '__meeting_state',
+        taskType: MEETING_STATE_TASK_TYPE,
         employeeId: nextParticipantId,
         inputJson: updatedTurnState as unknown as Record<string, unknown>,
       },
@@ -284,18 +289,16 @@ Do not include any text outside the JSON object.`;
       { nodeName: 'meeting_end', provider: resolved.provider, model: resolved.model },
     );
 
-    // Parse JSON from response
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(response.content);
-    } catch {
-      console.warn('[meetingEndNode] Failed to parse LLM response as JSON, falling back to empty action items');
+    // Parse JSON from response (handles markdown code blocks and embedded JSON)
+    const parsed = extractJsonFromLlm(response.content);
+    if (!parsed) {
+      console.warn('[meetingEndNode] Failed to extract JSON from LLM response, falling back to empty action items');
       return [];
     }
 
     // Validate with Zod
-    const schema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
-    const result = schema.safeParse(parsed);
+    const zodSchema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
+    const result = zodSchema.safeParse(parsed);
     if (!result.success) {
       console.warn('[meetingEndNode] Zod validation failed, falling back to empty action items:', result.error.message);
       return [];
@@ -309,7 +312,7 @@ Do not include any text outside the JSON object.`;
     const taskRunIds: string[] = [];
 
     for (const item of result.data.actionItems) {
-      const taskRunId = `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const taskRunId = generateId('tr');
       taskRunIds.push(taskRunId);
 
       await runtimeCtx.repos.taskRuns.create({

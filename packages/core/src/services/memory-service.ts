@@ -3,6 +3,8 @@ import type { EventBus } from '../events/event-bus.js';
 import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { generateId } from '../utils/generate-id.js';
 
 /** Zod schema for LLM-extracted memories */
 const ExtractedMemorySchema = z.object({
@@ -98,6 +100,46 @@ export class MemoryService {
   }
 
   /**
+   * Store a single memory entry and emit event.
+   * Used by virtual tool handler and reflectAndRemember.
+   */
+  async createMemory(params: {
+    employeeId: string;
+    companyId: string;
+    scope: 'employee' | 'team' | 'company';
+    category: 'experience' | 'decision' | 'knowledge' | 'preference';
+    content: string;
+    importance: number;
+    threadId: string;
+  }): Promise<string> {
+    const memoryId = generateId('mem');
+    await this.memoryRepo.create({
+      memory_id: memoryId,
+      company_id: params.companyId,
+      scope: params.scope,
+      owner_id: params.scope === 'employee' ? params.employeeId : params.companyId,
+      category: params.category,
+      content: params.content,
+      importance: params.importance,
+      source_thread_id: params.threadId,
+    });
+
+    this.eventBus.emit(
+      memoryCreated(
+        params.companyId,
+        memoryId,
+        params.employeeId,
+        params.scope,
+        params.category,
+        params.content.slice(0, 100),
+        params.threadId,
+      ),
+    );
+
+    return memoryId;
+  }
+
+  /**
    * After task completion, asks LLM to extract worth-remembering insights.
    */
   async reflectAndRemember(
@@ -128,37 +170,23 @@ export class MemoryService {
     }
 
     // Extract JSON from response (handle markdown code blocks)
-    const jsonStr = this.extractJson(rawResponse);
-    if (!jsonStr) return;
+    const extracted = extractJsonFromLlm(rawResponse);
+    if (!extracted) return;
 
-    const parsed = ExtractedMemorySchema.safeParse(JSON.parse(jsonStr));
+    const parsed = ExtractedMemorySchema.safeParse(extracted);
     if (!parsed.success) return;
 
-    // Create memory entries
+    // Create memory entries via shared method
     for (const mem of parsed.data.memories) {
-      const memoryId = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      await this.memoryRepo.create({
-        memory_id: memoryId,
-        company_id: companyId,
+      await this.createMemory({
+        employeeId,
+        companyId,
         scope: mem.scope,
-        owner_id: mem.scope === 'employee' ? employeeId : companyId,
         category: mem.category,
         content: mem.content,
         importance: mem.importance,
-        source_thread_id: threadId,
+        threadId,
       });
-
-      this.eventBus.emit(
-        memoryCreated(
-          companyId,
-          memoryId,
-          employeeId,
-          mem.scope,
-          mem.category,
-          mem.content.slice(0, 100),
-          threadId,
-        ),
-      );
     }
   }
 
@@ -170,16 +198,4 @@ export class MemoryService {
     return Math.exp(-0.1 * ageDays);
   }
 
-  /** Extract JSON from LLM response that may be wrapped in markdown code blocks */
-  private extractJson(text: string): string | null {
-    // Try direct parse first
-    const trimmed = text.trim();
-    if (trimmed.startsWith('{')) return trimmed;
-
-    // Try extracting from ```json ... ``` blocks
-    const match = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    if (match?.[1]) return match[1].trim();
-
-    return null;
-  }
 }

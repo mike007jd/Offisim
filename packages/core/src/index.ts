@@ -92,6 +92,10 @@ export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
 export { teeStream } from './llm/stream-tee.js';
 export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
 
+// --- Utilities ---
+export { extractJsonFromLlm } from './utils/extract-json.js';
+export { generateId } from './utils/generate-id.js';
+
 // --- Events ---
 export { InMemoryEventBus } from './events/event-bus.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';

@@ -7,7 +7,6 @@ import {
   graphNodeEntered,
   handoffInitiated,
   memoryAccessed,
-  memoryCreated,
   taskAssignmentChanged,
   taskStateChanged,
 } from '../events/event-factories.js';
@@ -16,10 +15,14 @@ import type { LlmMessage, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 
 /** Maximum number of employee-to-employee handoffs per thread. */
 const MAX_HANDOFF_COUNT = 3;
+
+/** Task type for handoff continuation tasks. */
+const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
 /** Virtual tool names for memory operations */
 const MEMORY_TOOL_NAMES = ['remember', 'recall', 'forget'] as const;
@@ -240,7 +243,7 @@ export async function employeeNode(
         };
 
         // 1. Write handoff record
-        const handoffId = `ho-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const handoffId = generateId('ho');
         await repos.handoffs.create({
           handoff_id: handoffId,
           thread_id: state.threadId,
@@ -255,13 +258,13 @@ export async function employeeNode(
         });
 
         // 2. Create new TaskRun for receiving employee
-        const newTaskRunId = `tr-ho-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const newTaskRunId = generateId('tr-ho');
         await repos.taskRuns.create({
           task_run_id: newTaskRunId,
           thread_id: state.threadId,
           employee_id: args.targetEmployeeId,
           parent_task_run_id: taskRunId ?? null,
-          task_type: 'handoff_continuation',
+          task_type: TASK_TYPE_HANDOFF_CONTINUATION,
           status: 'queued',
           input_json: JSON.stringify({
             description: args.remainingWork,
@@ -305,7 +308,7 @@ export async function employeeNode(
           update: {
             pendingAssignments: [
               {
-                taskType: 'handoff_continuation',
+                taskType: TASK_TYPE_HANDOFF_CONTINUATION,
                 employeeId: args.targetEmployeeId,
                 inputJson: {
                   description: args.remainingWork,
@@ -405,7 +408,7 @@ export async function employeeNode(
     // Reflect and remember — skip for direct_chat and handoff_continuation
     if (memoryService) {
       const skipReflection =
-        state.entryMode === 'direct_chat' || assignment.taskType === 'handoff_continuation';
+        state.entryMode === 'direct_chat' || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
       try {
         await memoryService.reflectAndRemember(
           employee.employee_id,
@@ -494,21 +497,15 @@ async function handleMemoryTool(
       const scope = String(args.scope ?? 'employee') as 'employee' | 'team' | 'company';
       const importance = Math.max(0, Math.min(1, Number(args.importance ?? 0.5)));
 
-      const memoryId = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      await repos.memories.create({
-        memory_id: memoryId,
-        company_id: companyId,
+      const memoryId = await memoryService.createMemory({
+        employeeId,
+        companyId,
         scope,
-        owner_id: scope === 'employee' ? employeeId : companyId,
         category,
         content,
         importance,
-        source_thread_id: threadId,
+        threadId,
       });
-
-      eventBus.emit(
-        memoryCreated(companyId, memoryId, employeeId, scope, category, content.slice(0, 100), threadId),
-      );
 
       return `Memory stored (id: ${memoryId})`;
     }
@@ -519,13 +516,15 @@ async function handleMemoryTool(
 
       if (memories.length === 0) return 'No relevant memories found.';
 
-      // Touch access for each recalled memory
-      for (const mem of memories) {
-        await repos.memories.touchAccess(mem.memory_id);
-        eventBus.emit(
-          memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId),
-        );
-      }
+      // Touch access for each recalled memory (parallel — independent operations)
+      await Promise.all(
+        memories.map(async (mem) => {
+          await repos.memories.touchAccess(mem.memory_id);
+          eventBus.emit(
+            memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId),
+          );
+        }),
+      );
 
       return memories
         .map(

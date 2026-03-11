@@ -1,12 +1,9 @@
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
-
-function generateLlmCallId(): string {
-  return `lc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 interface RecordedCallMeta {
   nodeName: string;
@@ -20,7 +17,7 @@ export async function recordedLlmCall(
   request: LlmRequest,
   meta: RecordedCallMeta,
 ): Promise<LlmResponse> {
-  const llmCallId = generateLlmCallId();
+  const llmCallId = generateId('lc');
   const startedAt = Date.now();
 
   ctx.eventBus.emit(
@@ -108,7 +105,7 @@ export async function recordedLlmStream(
   meta: RecordedCallMeta,
   onChunk: (chunk: LlmStreamChunk) => void,
 ): Promise<TeeResult> {
-  const llmCallId = generateLlmCallId();
+  const llmCallId = generateId('lc');
   const startedAt = Date.now();
 
   ctx.eventBus.emit(
