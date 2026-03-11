@@ -287,20 +287,110 @@ describe('SceneManager', () => {
     expect(sm.motion.M2.duration).toBe(0.4);
   });
 
+  describe('entity types', () => {
+    it('default employees use EmployeeEntity (human avatar)', async () => {
+      const sm = new SceneManager({
+        container,
+        eventBus,
+        employees: [{ id: 'emp-alice', name: 'Alice' }], // no entityType → default 'employee'
+      });
+      await sm.mount();
+
+      expect(sm.employeeCount).toBe(1);
+      expect(sm.employeeIds).toEqual(['emp-alice']);
+
+      // Employee entity should respond to state + task events
+      eventBus.fire(
+        makeEvent('employee.state.changed', {
+          employeeId: 'emp-alice',
+          prev: 'idle',
+          next: 'thinking',
+        }),
+      );
+    });
+
+    it('lobster entityType creates LobsterEntity', async () => {
+      const sm = new SceneManager({
+        container,
+        eventBus,
+        employees: [{ id: 'claw-01', name: 'OpenClaw Agent', entityType: 'lobster' as const }],
+      });
+      await sm.mount();
+
+      expect(sm.employeeCount).toBe(1);
+      expect(sm.employeeIds).toEqual(['claw-01']);
+
+      // Lobster entity should also respond to state events
+      eventBus.fire(
+        makeEvent('employee.state.changed', {
+          employeeId: 'claw-01',
+          prev: 'idle',
+          next: 'executing',
+        }),
+      );
+    });
+
+    it('mixed entity types coexist in the same scene', async () => {
+      const sm = new SceneManager({
+        container,
+        eventBus,
+        employees: [
+          { id: 'emp-alice', name: 'Alice' }, // default → employee
+          { id: 'claw-01', name: 'Lobster', entityType: 'lobster' as const },
+          { id: 'emp-bob', name: 'Bob', entityType: 'employee' as const },
+        ],
+      });
+      await sm.mount();
+
+      expect(sm.employeeCount).toBe(3);
+
+      // All entity types respond to events
+      for (const id of ['emp-alice', 'claw-01', 'emp-bob']) {
+        eventBus.fire(
+          makeEvent('employee.state.changed', {
+            employeeId: id,
+            prev: 'idle',
+            next: 'assigned',
+          }),
+        );
+      }
+    });
+  });
+
   describe('addEmployee', () => {
     it('returns false before mount', () => {
       const sm = new SceneManager({ container, eventBus });
       expect(sm.addEmployee('emp-new', 'NewGuy')).toBe(false);
     });
 
-    it('adds an employee entity after mount', async () => {
+    it('adds a lobster entity by default (installed = OpenClaw)', async () => {
       const sm = new SceneManager({ container, eventBus });
       await sm.mount();
 
-      const result = sm.addEmployee('emp-dave', 'Dave');
+      const initialCount = sm.employeeCount;
+      const result = sm.addEmployee('claw-new', 'NewLobster');
       expect(result).toBe(true);
+      expect(sm.employeeCount).toBe(initialCount + 1);
+      expect(sm.employeeIds).toContain('claw-new');
 
-      // The new employee should respond to state events
+      // Lobster entity should respond to state events
+      eventBus.fire(
+        makeEvent('employee.state.changed', {
+          employeeId: 'claw-new',
+          prev: 'idle',
+          next: 'thinking',
+        }),
+      );
+    });
+
+    it('adds an employee entity when entityType is employee', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      const result = sm.addEmployee('emp-dave', 'Dave', 'employee');
+      expect(result).toBe(true);
+      expect(sm.employeeIds).toContain('emp-dave');
+
       eventBus.fire(
         makeEvent('employee.state.changed', {
           employeeId: 'emp-dave',
@@ -308,7 +398,6 @@ describe('SceneManager', () => {
           next: 'thinking',
         }),
       );
-      // No throw = entity was registered correctly
     });
 
     it('returns false for duplicate employee id', async () => {
@@ -378,6 +467,49 @@ describe('SceneManager', () => {
       sm.addEmployee('emp-dave', 'Dave');
       // destroy should not throw even with dynamically added employees
       sm.destroy();
+    });
+  });
+
+  describe('employee.installed event', () => {
+    it('adds a lobster entity when employee.installed fires', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      const initialCount = sm.employeeCount;
+
+      eventBus.fire(
+        makeEvent('employee.installed', {
+          employeeId: 'claw-installed-01',
+          name: 'Installed Agent',
+        }),
+      );
+
+      expect(sm.employeeCount).toBe(initialCount + 1);
+      expect(sm.employeeIds).toContain('claw-installed-01');
+    });
+
+    it('ignores duplicate employee.installed for same id', async () => {
+      const sm = new SceneManager({ container, eventBus });
+      await sm.mount();
+
+      eventBus.fire(
+        makeEvent('employee.installed', {
+          employeeId: 'claw-dup',
+          name: 'Dup Agent',
+        }),
+      );
+
+      const countAfterFirst = sm.employeeCount;
+
+      // Second install with same id should be silently ignored
+      eventBus.fire(
+        makeEvent('employee.installed', {
+          employeeId: 'claw-dup',
+          name: 'Dup Agent 2',
+        }),
+      );
+
+      expect(sm.employeeCount).toBe(countAfterFirst);
     });
   });
 

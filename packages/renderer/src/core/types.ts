@@ -1,3 +1,4 @@
+import type { Container } from 'pixi.js';
 import type { EmployeeState, RuntimeEvent } from '@aics/shared-types';
 
 /**
@@ -14,10 +15,41 @@ export interface SceneEventBus {
   on(prefix: string, handler: (event: RuntimeEvent<any>) => void): () => void;
 }
 
+// ---------------------------------------------------------------------------
+// Entity types — normal employees vs OpenClaw agents
+// ---------------------------------------------------------------------------
+
+/**
+ * Visual entity type determines which renderer class to use.
+ * - 'employee': standard human-like avatar (EmployeeEntity — circle + initial)
+ * - 'lobster': pixel-art lobster (LobsterEntity — OpenClaw imported agent)
+ */
+export type SceneEntityType = 'employee' | 'lobster';
+
+/**
+ * Common interface for all scene entities (EmployeeEntity, LobsterEntity, etc.).
+ * SceneManager operates on this interface — it doesn't care which visual class
+ * is underneath.
+ */
+export interface SceneEntity {
+  readonly container: Container;
+  readonly id: string;
+  setState(next: EmployeeState): void;
+  setTask(taskId: string | null): void;
+  setHighlight(on: boolean): void;
+  destroy(): void;
+}
+
 /** Seed employee definition */
 export interface EmployeeSeed {
   readonly id: string;
   readonly name: string;
+  /**
+   * Which visual entity to render for this employee.
+   * - 'employee' (default): standard avatar — for company's own employees
+   * - 'lobster': pixel lobster — for OpenClaw imported agents
+   */
+  readonly entityType?: SceneEntityType;
 }
 
 /**
