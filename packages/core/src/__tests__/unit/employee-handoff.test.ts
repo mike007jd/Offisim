@@ -270,8 +270,8 @@ describe('employeeNode — handoff via Command', () => {
 
     const handoffEvents = events.filter((e) => e.type === 'handoff.initiated');
     expect(handoffEvents).toHaveLength(1);
-    expect(handoffEvents[0].payload.fromEmployeeId).toBe('e-dev-1');
-    expect(handoffEvents[0].payload.toEmployeeId).toBe('e-design-1');
+    expect(handoffEvents[0]!.payload.fromEmployeeId).toBe('e-dev-1');
+    expect(handoffEvents[0]!.payload.toEmployeeId).toBe('e-design-1');
   });
 
   it('emits employee.state.changed to idle after handoff', async () => {

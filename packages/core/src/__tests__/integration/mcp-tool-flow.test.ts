@@ -220,7 +220,8 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = await employeeNode(state, config);
+    const raw = await employeeNode(state, config);
+    const result = raw as Partial<AicsGraphState>;
 
     // Verify final output
     expect(result.messages).toHaveLength(1);
@@ -274,7 +275,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = await employeeNode(state, config);
+    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
 
     // Verify final output
     expect(result.messages).toHaveLength(1);
@@ -344,7 +345,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = await employeeNode(state, config);
+    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
 
     // Employee should still produce output despite tool error
     expect(result.messages).toHaveLength(1);
@@ -368,7 +369,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = await employeeNode(state, config);
+    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
 
     expect(result.messages).toHaveLength(1);
 

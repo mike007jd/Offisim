@@ -36,6 +36,7 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
+import { InMemoryMemoryRepository } from '@aics/core';
 import * as schema from '@aics/db-local';
 import type {
   AssetBindingRow,
@@ -398,5 +399,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     installedPackages,
     installedAssets,
     assetBindings,
+    // TODO(P3): Replace with Drizzle-backed Tauri memory repository once migration 005 is applied
+    memories: new InMemoryMemoryRepository(),
   };
 }

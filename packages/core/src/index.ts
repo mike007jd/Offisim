@@ -94,6 +94,7 @@ export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
 
 // --- Events ---
 export { InMemoryEventBus } from './events/event-bus.js';
+export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
 export {
   employeeStateChanged,
   taskStateChanged,
