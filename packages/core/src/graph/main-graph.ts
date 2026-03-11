@@ -3,6 +3,7 @@ import { END, StateGraph } from '@langchain/langgraph';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { bossNode } from '../agents/boss-node.js';
 import { bossSummaryNode } from '../agents/boss-summary-node.js';
+import { employeeDirectSetupNode } from '../agents/employee-direct-setup-node.js';
 import { employeeNode } from '../agents/employee-node.js';
 import { errorHandlerNode } from '../agents/error-handler-node.js';
 import { managerNode } from '../agents/manager-node.js';
@@ -18,6 +19,13 @@ import {
   participantTurnNode,
 } from './meeting-subgraph.js';
 import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './state.js';
+
+function routeFromStart(state: AicsGraphState): string {
+  if (state.entryMode === 'direct_chat' && state.targetEmployeeId) {
+    return 'employee_direct_setup';
+  }
+  return 'boss';
+}
 
 function routeFromBoss(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
@@ -128,12 +136,13 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('step_dispatcher', (state, config) => stepDispatcherNode(state, config))
     .addNode('employee', (state, config) => employeeNode(state, config))
     .addNode('step_advance', (state, config) => stepAdvanceNode(state, config))
+    .addNode('employee_direct_setup', (state, config) => employeeDirectSetupNode(state, config))
     .addNode('error_handler', (state, config) => errorHandlerNode(state, config))
     .addNode('boss_summary', (state, config) => bossSummaryNode(state, config))
     .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
     .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
     .addNode('meeting_end', (state, config) => meetingEndNode(state, config))
-    .addEdge('__start__', 'boss')
+    .addConditionalEdges('__start__', routeFromStart, ['boss', 'employee_direct_setup'])
     .addConditionalEdges('boss', routeFromBoss, [
       'manager',
       'boss_summary',
@@ -150,6 +159,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
       'error_handler',
     ])
     .addEdge('step_advance', 'step_dispatcher')
+    .addEdge('employee_direct_setup', 'employee')
     .addEdge('meeting_start', 'participant_turn')
     .addConditionalEdges('participant_turn', meetingTurnCheck, ['participant_turn', 'meeting_end'])
     .addEdge('meeting_end', 'boss_summary')

@@ -29,10 +29,12 @@ export class OrchestrationService {
   async execute(input: {
     entryMode: AicsGraphState['entryMode'];
     messages: BaseMessage[];
+    targetEmployeeId?: string | null;
   }): Promise<AicsGraphState> {
     const fullInput = {
       threadId: this.runtimeCtx.threadId,
       companyId: this.runtimeCtx.companyId,
+      targetEmployeeId: input.targetEmployeeId ?? null,
       ...input,
     };
 

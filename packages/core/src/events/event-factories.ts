@@ -2,9 +2,16 @@ import type {
   BindingStatePayload,
   BindingStatus,
   BindingType,
+  DeliverableCreatedPayload,
+  DirectChatCompletedPayload,
+  DirectChatStartedPayload,
+  EmployeeCreatedPayload,
+  EmployeeDeletedPayload,
   EmployeeInstalledPayload,
   EmployeeState,
   EmployeeStatePayload,
+  EmployeeUpdatedPayload,
+  ErrorOccurredPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
   InstallState,
@@ -360,6 +367,151 @@ export function mcpToolCalled(
 }
 
 // --- Install: Employee Created ---
+
+// --- Employee CRUD Events ---
+
+export function employeeCreated(
+  companyId: string,
+  employeeId: string,
+  name: string,
+  roleSlug: string,
+): RuntimeEvent<EmployeeCreatedPayload> {
+  return {
+    type: 'employee.created',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId, name, roleSlug },
+  };
+}
+
+export function employeeUpdated(
+  companyId: string,
+  employeeId: string,
+  name: string,
+  roleSlug: string,
+): RuntimeEvent<EmployeeUpdatedPayload> {
+  return {
+    type: 'employee.updated',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId, name, roleSlug },
+  };
+}
+
+export function employeeDeleted(
+  companyId: string,
+  employeeId: string,
+): RuntimeEvent<EmployeeDeletedPayload> {
+  return {
+    type: 'employee.deleted',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId },
+  };
+}
+
+// --- P1: Error, Deliverable, Direct Chat Events ---
+
+export function errorOccurred(
+  companyId: string,
+  errorCode: string,
+  message: string,
+  recoverable: boolean,
+  nodeName: string,
+  opts?: {
+    employeeId?: string;
+    taskRunId?: string;
+    provider?: string;
+    model?: string;
+    threadId?: string;
+  },
+): RuntimeEvent<ErrorOccurredPayload> {
+  return {
+    type: 'error.occurred',
+    entityId: opts?.employeeId ?? nodeName,
+    entityType: 'employee',
+    companyId,
+    threadId: opts?.threadId,
+    timestamp: Date.now(),
+    payload: {
+      errorCode,
+      message,
+      recoverable,
+      nodeName,
+      employeeId: opts?.employeeId,
+      taskRunId: opts?.taskRunId,
+      provider: opts?.provider,
+      model: opts?.model,
+    },
+  };
+}
+
+export function deliverableCreated(
+  companyId: string,
+  deliverableId: string,
+  threadId: string,
+  title: string,
+  content: string,
+  contributingEmployees: DeliverableCreatedPayload['contributingEmployees'],
+): RuntimeEvent<DeliverableCreatedPayload> {
+  const now = Date.now();
+  return {
+    type: 'deliverable.created',
+    entityId: deliverableId,
+    entityType: 'task',
+    companyId,
+    threadId,
+    timestamp: now,
+    payload: {
+      deliverableId,
+      threadId,
+      title,
+      content,
+      contributingEmployees,
+      createdAt: now,
+    },
+  };
+}
+
+export function directChatStarted(
+  companyId: string,
+  employeeId: string,
+  employeeName: string,
+  threadId: string,
+): RuntimeEvent<DirectChatStartedPayload> {
+  return {
+    type: 'direct.chat.started',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { employeeId, employeeName, threadId },
+  };
+}
+
+export function directChatCompleted(
+  companyId: string,
+  employeeId: string,
+  employeeName: string,
+  threadId: string,
+): RuntimeEvent<DirectChatCompletedPayload> {
+  return {
+    type: 'direct.chat.completed',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { employeeId, employeeName, threadId },
+  };
+}
 
 export function employeeInstalled(
   companyId: string,

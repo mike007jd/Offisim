@@ -118,5 +118,5 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     },
   });
 
-  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor };
+  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
 }

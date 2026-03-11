@@ -2,6 +2,8 @@ import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { GraphError } from '../errors.js';
 import {
+  deliverableCreated,
+  directChatCompleted,
   graphNodeEntered,
   llmStreamChunk,
   planCompleted,
@@ -66,6 +68,14 @@ export async function bossSummaryNode(
     );
   }
 
+  // Emit directChatCompleted if this was a direct chat flow
+  if (runtimeCtx && state.entryMode === 'direct_chat' && state.targetEmployeeId) {
+    const empName = state.currentStepOutputs[0]?.employeeName ?? 'Unknown';
+    runtimeCtx.eventBus.emit(
+      directChatCompleted(runtimeCtx.companyId, state.targetEmployeeId, empName, state.threadId),
+    );
+  }
+
   // If there's already a direct reply from boss, just mark completed
   if (state.routeDecision === 'direct_reply') {
     return { completed: true };
@@ -87,14 +97,36 @@ export async function bossSummaryNode(
     };
   }
 
+  // Helper: emit deliverable event when there are actual employee outputs
+  const emitDeliverable = (finalContent: string) => {
+    if (!runtimeCtx || state.currentStepOutputs.length === 0) return;
+    const contributingEmployees = state.currentStepOutputs.map((o) => ({
+      employeeId: o.employeeId,
+      employeeName: o.employeeName,
+    }));
+    const title = state.taskPlan?.summary ?? finalContent.slice(0, 80);
+    runtimeCtx.eventBus.emit(
+      deliverableCreated(
+        runtimeCtx.companyId,
+        `del-${Date.now()}`,
+        state.threadId,
+        title,
+        finalContent,
+        contributingEmployees,
+      ),
+    );
+  };
+
   // Single employee result — no need for LLM summary
   if (employeeResults.length === 1) {
+    const content = employeeResults[0]!;
+    emitDeliverable(content);
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
     return {
       completed: true,
-      messages: [new AIMessage({ content: employeeResults[0]! })],
+      messages: [new AIMessage({ content })],
     };
   }
 
@@ -128,6 +160,7 @@ export async function bossSummaryNode(
     },
   );
 
+  emitDeliverable(streamResult.fullContent);
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
 
   return {

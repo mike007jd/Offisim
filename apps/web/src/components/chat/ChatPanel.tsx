@@ -1,9 +1,11 @@
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '../ui/button';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
@@ -16,6 +18,9 @@ interface ChatMessage {
 
 interface ChatPanelProps {
   onOpenSettings: () => void;
+  selectedEmployeeId?: string | null;
+  selectedEmployeeName?: string | null;
+  onClearSelection?: () => void;
 }
 
 let nextMsgId = 0;
@@ -23,15 +28,42 @@ function genMsgId(): string {
   return `msg-${nextMsgId++}`;
 }
 
-export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
-  const { sendMessage, isRunning, isReady, error, clearError } = useAicsRuntime();
+export function ChatPanel({
+  onOpenSettings,
+  selectedEmployeeId,
+  selectedEmployeeName,
+  onClearSelection,
+}: ChatPanelProps) {
+  const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError } = useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Per-target message history: null key = boss chat, employeeId = direct chat
+  const [messagesByTarget, setMessagesByTarget] = useState<Map<string | null, ChatMessage[]>>(
+    new Map(),
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Track which target the last error occurred on, so retry adds response to the correct bucket
+  const errorTargetRef = useRef<string | null>(null);
+
+  // Current target key
+  const targetKey = selectedEmployeeId ?? null;
+
+  // Current messages for the active target
+  const messages = messagesByTarget.get(targetKey) ?? [];
+
+  // Clear error when switching targets — old error is no longer relevant
+  const prevTargetRef = useRef(targetKey);
+  useEffect(() => {
+    if (prevTargetRef.current !== targetKey && error) {
+      clearError();
+    }
+    prevTargetRef.current = targetKey;
+  }, [targetKey, error, clearError]);
+
   // Track latest stream content in a ref so handleSend can read it after
-  // sendMessage resolves. This is the ONLY place assistant messages are
-  // added — no competing useEffect path.
+  // sendMessage resolves.
   const lastStreamRef = useRef('');
 
   useEffect(() => {
@@ -48,33 +80,81 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
     }
   }, [messages, streamContent]);
 
+  function addMessage(target: string | null, msg: ChatMessage) {
+    setMessagesByTarget((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(target) ?? [];
+      next.set(target, [...existing, msg]);
+      return next;
+    });
+  }
+
   async function handleSend(text: string) {
     lastStreamRef.current = '';
+    errorTargetRef.current = targetKey;
 
-    setMessages((prev) => [...prev, { id: genMsgId(), role: 'user', content: text }]);
+    addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
 
-    const response = await sendMessage(text);
+    const response = await sendMessage(text, {
+      targetEmployeeId: selectedEmployeeId ?? undefined,
+    });
 
     // After sendMessage resolves, pick the best source for the assistant reply:
     // 1. Streaming content (from boss-summary's llm.stream.chunk events)
     // 2. Direct graph return value (for non-streaming / direct_reply paths)
     const finalContent = lastStreamRef.current || response;
     if (finalContent) {
-      setMessages((prev) => [
-        ...prev,
-        { id: genMsgId(), role: 'assistant', content: finalContent },
-      ]);
+      addMessage(targetKey, { id: genMsgId(), role: 'assistant', content: finalContent });
+    }
+    lastStreamRef.current = '';
+  }
+
+  async function handleRetry() {
+    lastStreamRef.current = '';
+    // Use the target where the error originally occurred
+    const retryTarget = errorTargetRef.current;
+    const response = await retryLastMessage();
+    const finalContent = lastStreamRef.current || response;
+    if (finalContent) {
+      addMessage(retryTarget, { id: genMsgId(), role: 'assistant', content: finalContent });
     }
     lastStreamRef.current = '';
   }
 
   const showEmpty = messages.length === 0 && !isStreaming;
+  const isDirectChat = !!selectedEmployeeId;
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
-      {error && <ErrorBanner message={error} onDismiss={clearError} />}
+      {isDirectChat && (
+        <div className="flex items-center gap-2 border-b-2 border-ocean-light bg-ocean-deep/80 px-4 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-shell hover:text-sand"
+            onClick={onClearSelection}
+          >
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+            Team
+          </Button>
+          <span className="text-xs font-pixel-mono text-coral">
+            Direct chat with {selectedEmployeeName ?? selectedEmployeeId}
+          </span>
+        </div>
+      )}
+      {error && <ErrorBanner message={error} onDismiss={clearError} onRetry={handleRetry} />}
       {showEmpty ? (
-        <EmptyState isConfigured={isReady} onOpenSettings={onOpenSettings} />
+        isDirectChat ? (
+          <div className="flex flex-1 items-center justify-center p-4">
+            <p className="text-xs text-shell font-pixel-mono text-center">
+              Start a conversation with {selectedEmployeeName ?? 'this employee'}.
+              <br />
+              They will respond using their persona.
+            </p>
+          </div>
+        ) : (
+          <EmptyState isConfigured={isReady} onOpenSettings={onOpenSettings} />
+        )
       ) : (
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="flex flex-col gap-3 p-4">

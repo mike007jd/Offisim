@@ -180,6 +180,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
           and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)),
         )) as EmployeeRow[];
     },
+    async update(employeeId, patch) {
+      await db
+        .update(schema.employees)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.employees.employee_id, employeeId));
+    },
     async delete(employeeId) {
       await db.delete(schema.employees).where(eq(schema.employees.employee_id, employeeId));
     },

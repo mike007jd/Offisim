@@ -26,6 +26,7 @@ export type {
   CheckpointRepository,
   CompanyRepository,
   EmployeeRepository,
+  EmployeeUpdate,
   ThreadRepository,
   TaskRunRepository,
   ToolCallRepository,
@@ -112,7 +113,14 @@ export {
   planCompleted,
   mcpServerConnected,
   mcpToolCalled,
+  employeeCreated,
+  employeeUpdated,
+  employeeDeleted,
   employeeInstalled,
+  errorOccurred,
+  deliverableCreated,
+  directChatStarted,
+  directChatCompleted,
 } from './events/event-factories.js';
 
 // --- Services ---
@@ -134,6 +142,7 @@ export type { McpServerConfig, McpConnection, McpClientFactory, McpToolDef } fro
 export { bossNode } from './agents/boss-node.js';
 export { managerNode } from './agents/manager-node.js';
 export { employeeNode } from './agents/employee-node.js';
+export { employeeDirectSetupNode } from './agents/employee-direct-setup-node.js';
 export { errorHandlerNode } from './agents/error-handler-node.js';
 export { bossSummaryNode } from './agents/boss-summary-node.js';
 export { buildEmployeePrompt } from './agents/employee-builder.js';

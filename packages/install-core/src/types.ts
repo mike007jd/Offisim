@@ -199,13 +199,15 @@ export interface AssetBindingRow {
 // New Employee (for materialization)
 // ---------------------------------------------------------------------------
 
-/** Data needed to create a new employee from an installed asset. */
+/** Data needed to create a new employee (from install or UI editor). */
 export interface NewEmployee {
   readonly company_id: string;
   readonly name: string;
   readonly role_slug: string;
-  readonly source_asset_id: string;
-  readonly source_package_id: string;
+  /** Null for UI-created employees, non-null for installed assets. */
+  readonly source_asset_id: string | null;
+  /** Null for UI-created employees, non-null for installed packages. */
+  readonly source_package_id: string | null;
   readonly persona_json?: string;
   readonly config_json?: string;
 }

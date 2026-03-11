@@ -1,4 +1,6 @@
 import type {
+  EmployeeCreatedPayload,
+  EmployeeDeletedPayload,
   EmployeeInstalledPayload,
   EmployeeStatePayload,
   GraphNodeEnteredPayload,
@@ -194,6 +196,49 @@ export class SceneManager {
     return true;
   }
 
+  /**
+   * Remove an employee from the scene with a scale-to-zero + fade-out exit animation.
+   * Called when an employee is deleted (UI or rollback).
+   *
+   * @returns true if the employee was found and removed, false otherwise.
+   */
+  removeEmployee(id: string): boolean {
+    const entity = this.employeeEntities.get(id);
+    if (!entity) return false;
+
+    // Clear any pending MCP tool overlay timer
+    this.clearToolOverlayTimer(id);
+
+    // Remove from map immediately (prevents duplicate removal)
+    this.employeeEntities.delete(id);
+
+    // Exit animation: scale-to-zero + fade-out using M1 (slow exit)
+    const { duration, ease } = this.motion.M1;
+    if (duration > 0) {
+      gsap.to(entity.container.scale, {
+        x: 0,
+        y: 0,
+        duration,
+        ease,
+      });
+      gsap.to(entity.container, {
+        alpha: 0,
+        duration,
+        ease,
+        onComplete: () => {
+          entity.destroy();
+          entity.container.destroy({ children: true });
+        },
+      });
+    } else {
+      // Reduced-motion: destroy immediately
+      entity.destroy();
+      entity.container.destroy({ children: true });
+    }
+
+    return true;
+  }
+
   /** Number of employee entities currently in the scene (for debug bridge). */
   get employeeCount(): number {
     return this.employeeEntities.size;
@@ -362,6 +407,22 @@ export class SceneManager {
         const payload = event.payload as EmployeeInstalledPayload;
         // Installed employees default to 'lobster' — they come from packages (OpenClaw)
         this.addEmployee(payload.employeeId, payload.name, 'lobster');
+      }),
+    );
+
+    // Employee created (UI) — add new employee to scene as human avatar
+    this.unsubscribers.push(
+      this.eventBus.on('employee.created', (event) => {
+        const payload = event.payload as EmployeeCreatedPayload;
+        this.addEmployee(payload.employeeId, payload.name, 'employee');
+      }),
+    );
+
+    // Employee deleted — remove from scene with exit animation
+    this.unsubscribers.push(
+      this.eventBus.on('employee.deleted', (event) => {
+        const payload = event.payload as EmployeeDeletedPayload;
+        this.removeEmployee(payload.employeeId);
       }),
     );
 

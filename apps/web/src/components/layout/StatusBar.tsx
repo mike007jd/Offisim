@@ -1,5 +1,4 @@
-import type { LlmCallCompletedPayload, RuntimeEvent } from '@aics/shared-types';
-import { useEffect, useState } from 'react';
+import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { Badge } from '../ui/badge';
 
@@ -8,29 +7,8 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ modelName }: StatusBarProps) {
-  const { eventBus, isRunning, error } = useAicsRuntime();
-  const [totalTokens, setTotalTokens] = useState(0);
-  const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
-
-  useEffect(() => {
-    const unsub = eventBus.on(
-      'llm.call.completed',
-      (event: RuntimeEvent<LlmCallCompletedPayload>) => {
-        const { latencyMs, inputTokens, outputTokens } = event.payload;
-        setTotalTokens((prev) => prev + inputTokens + outputTokens);
-        setLastLatencyMs(latencyMs);
-      },
-    );
-    return unsub;
-  }, [eventBus]);
-
-  // Reset tokens on new run
-  useEffect(() => {
-    if (isRunning) {
-      setTotalTokens(0);
-      setLastLatencyMs(null);
-    }
-  }, [isRunning]);
+  const { isRunning, error } = useAicsRuntime();
+  const metrics = useDashboardMetrics();
 
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';
   const statusVariant =
@@ -38,15 +16,20 @@ export function StatusBar({ modelName }: StatusBarProps) {
 
   return (
     <footer className="flex h-8 items-center justify-between border-t-2 border-ocean-light bg-ocean-deep px-4 font-pixel-mono text-[10px] text-shell">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <Badge variant={statusVariant} className="text-[10px] px-1.5 py-0">
           {runStatus}
         </Badge>
-        {modelName && <span>MODEL: {modelName}</span>}
+        {modelName && <span className="text-[10px] text-shell">MODEL: {modelName}</span>}
       </div>
-      <div className="flex items-center gap-4">
-        {totalTokens > 0 && <span>TKN: {totalTokens.toLocaleString()}</span>}
-        {lastLatencyMs != null && <span>LAT: {lastLatencyMs}ms</span>}
+      <div className="flex items-center gap-3 text-[10px] text-shell">
+        {metrics.activeTaskCount > 0 && <span>⚡ {metrics.activeTaskCount} tasks</span>}
+        <span>👥 {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total}</span>
+        {(metrics.totalInputTokens + metrics.totalOutputTokens) > 0 && (
+          <span>TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}</span>
+        )}
+        {metrics.estimatedCostUsd > 0 && <span>~${metrics.estimatedCostUsd.toFixed(4)}</span>}
+        {metrics.elapsedMs != null && <span>{(metrics.elapsedMs / 1000).toFixed(1)}s</span>}
       </div>
     </footer>
   );

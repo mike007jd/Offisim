@@ -17,6 +17,7 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     threadId: TEST_THREAD_ID,
     companyId: 'c-test-1',
     entryMode: 'meeting' as const,
+    targetEmployeeId: null,
     messages: [new HumanMessage('Discuss architecture decisions')],
     routeDecision: 'start_meeting',
     currentTaskRunId: null,

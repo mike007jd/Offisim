@@ -22,6 +22,7 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
     entryMode: 'boss_chat' as const,
+    targetEmployeeId: null,
     messages: [new HumanMessage('Build me a website')],
     routeDecision: null,
     currentTaskRunId: null,

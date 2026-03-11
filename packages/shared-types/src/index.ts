@@ -43,6 +43,13 @@ export type {
   McpServerConnectedPayload,
   McpToolCalledPayload,
   EmployeeInstalledPayload,
+  EmployeeCreatedPayload,
+  EmployeeUpdatedPayload,
+  EmployeeDeletedPayload,
+  ErrorOccurredPayload,
+  DeliverableCreatedPayload,
+  DirectChatStartedPayload,
+  DirectChatCompletedPayload,
 } from './events.js';
 
 export type {

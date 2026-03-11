@@ -158,11 +158,18 @@ export interface TaskRunRepository {
   updateStatus(taskRunId: string, status: string, outputJson?: string | null): Promise<void>;
 }
 
+/** Updatable fields for an employee. */
+export type EmployeeUpdate = Partial<
+  Pick<EmployeeRow, 'name' | 'role_slug' | 'persona_json' | 'config_json' | 'enabled' | 'workstation_id'>
+>;
+
 export interface EmployeeRepository {
   create(employee: NewEmployee): Promise<{ employee_id: string }>;
   findById(employeeId: string): Promise<EmployeeRow | null>;
   findByCompany(companyId: string): Promise<EmployeeRow[]>;
   findByRole(companyId: string, roleSlug: string): Promise<EmployeeRow[]>;
+  /** Update employee fields. */
+  update(employeeId: string, patch: EmployeeUpdate): Promise<void>;
   /** Delete an employee by ID. Used during install rollback. */
   delete(employeeId: string): Promise<void>;
 }

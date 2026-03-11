@@ -1,5 +1,12 @@
-import type { EmployeeStatePayload, RuntimeEvent } from '@aics/shared-types';
+import type {
+  EmployeeCreatedPayload,
+  EmployeeDeletedPayload,
+  EmployeeStatePayload,
+  EmployeeUpdatedPayload,
+  RuntimeEvent,
+} from '@aics/shared-types';
 import { useEffect, useState } from 'react';
+import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from './aics-runtime-context';
 
 export interface AgentState {
@@ -10,21 +17,37 @@ export interface AgentState {
 }
 
 /**
- * Subscribes to employee.state.changed events and maintains current state
- * per employee. Seeds initial state from hardcoded Phase 3 employees.
+ * Subscribes to employee events and maintains current state per employee.
+ * Loads initial state from repos when available, then dynamically
+ * responds to employee.created / employee.updated / employee.deleted events.
  */
 export function useAgentStates(): Map<string, AgentState> {
-  const { eventBus } = useAicsRuntime();
-  const [agents, setAgents] = useState<Map<string, AgentState>>(() => {
-    const m = new Map<string, AgentState>();
-    m.set('emp-alice', { name: 'Alice', role: 'engineering_manager', state: 'idle' });
-    m.set('emp-bob', { name: 'Bob', role: 'developer', state: 'idle' });
-    m.set('emp-carol', { name: 'Carol', role: 'designer', state: 'idle' });
-    return m;
-  });
+  const { eventBus, repos } = useAicsRuntime();
+  const [agents, setAgents] = useState<Map<string, AgentState>>(new Map());
+
+  // Load employees from repos on mount (replaces hardcoded seed)
+  useEffect(() => {
+    if (!repos) return;
+    repos.employees.findByCompany(COMPANY_ID).then((rows) => {
+      setAgents((prev) => {
+        const next = new Map(prev);
+        for (const row of rows) {
+          if (!next.has(row.employee_id)) {
+            next.set(row.employee_id, {
+              name: row.name,
+              role: row.role_slug,
+              state: 'idle',
+            });
+          }
+        }
+        return next;
+      });
+    });
+  }, [repos]);
 
   useEffect(() => {
-    const unsub = eventBus.on('employee.state.', (event: RuntimeEvent<EmployeeStatePayload>) => {
+    // Employee state changes (runtime activity)
+    const unsubState = eventBus.on('employee.state.', (event: RuntimeEvent<EmployeeStatePayload>) => {
       const { employeeId, next, taskRunId } = event.payload;
       setAgents((prev) => {
         const next2 = new Map(prev);
@@ -35,7 +58,46 @@ export function useAgentStates(): Map<string, AgentState> {
         return next2;
       });
     });
-    return unsub;
+
+    // Employee created — add new entry with idle state
+    const unsubCreated = eventBus.on('employee.created', (event: RuntimeEvent<EmployeeCreatedPayload>) => {
+      const { employeeId, name, roleSlug } = event.payload;
+      setAgents((prev) => {
+        const next = new Map(prev);
+        next.set(employeeId, { name, role: roleSlug, state: 'idle' });
+        return next;
+      });
+    });
+
+    // Employee updated — update name/role, keep current state
+    const unsubUpdated = eventBus.on('employee.updated', (event: RuntimeEvent<EmployeeUpdatedPayload>) => {
+      const { employeeId, name, roleSlug } = event.payload;
+      setAgents((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(employeeId);
+        if (existing) {
+          next.set(employeeId, { ...existing, name, role: roleSlug });
+        }
+        return next;
+      });
+    });
+
+    // Employee deleted — remove entry
+    const unsubDeleted = eventBus.on('employee.deleted', (event: RuntimeEvent<EmployeeDeletedPayload>) => {
+      const { employeeId } = event.payload;
+      setAgents((prev) => {
+        const next = new Map(prev);
+        next.delete(employeeId);
+        return next;
+      });
+    });
+
+    return () => {
+      unsubState();
+      unsubCreated();
+      unsubUpdated();
+      unsubDeleted();
+    };
   }, [eventBus]);
 
   return agents;

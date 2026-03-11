@@ -179,6 +179,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         )
         .all() as EmployeeRow[];
     },
+    async update(employeeId, patch) {
+      db.update(schema.employees)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.employees.employee_id, employeeId))
+        .run();
+    },
     async delete(employeeId) {
       db.delete(schema.employees).where(eq(schema.employees.employee_id, employeeId)).run();
     },

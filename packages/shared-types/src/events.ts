@@ -44,7 +44,14 @@ export type EventFamily =
   | 'plan.completed'
   | 'mcp.server.connected'
   | 'mcp.tool.called'
-  | 'employee.installed';
+  | 'employee.installed'
+  | 'employee.created'
+  | 'employee.updated'
+  | 'employee.deleted'
+  | 'error.occurred'
+  | 'deliverable.created'
+  | 'direct.chat.started'
+  | 'direct.chat.completed';
 
 // --- Typed event payloads ---
 
@@ -182,4 +189,63 @@ export interface McpToolCalledPayload {
   readonly serverName: string;
   readonly toolName: string;
   readonly employeeId: string;
+}
+
+// --- Employee CRUD Events ---
+
+export interface EmployeeCreatedPayload {
+  readonly employeeId: string;
+  readonly name: string;
+  readonly roleSlug: string;
+}
+
+export interface EmployeeUpdatedPayload {
+  readonly employeeId: string;
+  readonly name: string;
+  readonly roleSlug: string;
+}
+
+export interface EmployeeDeletedPayload {
+  readonly employeeId: string;
+}
+
+// --- P1: Error Events ---
+
+export interface ErrorOccurredPayload {
+  readonly errorCode: string;
+  readonly message: string;
+  readonly recoverable: boolean;
+  readonly nodeName: string;
+  readonly employeeId?: string;
+  readonly taskRunId?: string;
+  readonly provider?: string;
+  readonly model?: string;
+}
+
+// --- P1: Deliverable Events ---
+
+export interface DeliverableCreatedPayload {
+  readonly deliverableId: string;
+  readonly threadId: string;
+  readonly title: string;
+  readonly content: string;
+  readonly contributingEmployees: ReadonlyArray<{
+    readonly employeeId: string;
+    readonly employeeName: string;
+  }>;
+  readonly createdAt: number;
+}
+
+// --- P1: Direct Chat Events ---
+
+export interface DirectChatStartedPayload {
+  readonly employeeId: string;
+  readonly employeeName: string;
+  readonly threadId: string;
+}
+
+export interface DirectChatCompletedPayload {
+  readonly employeeId: string;
+  readonly employeeName: string;
+  readonly threadId: string;
 }

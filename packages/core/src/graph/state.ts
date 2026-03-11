@@ -51,7 +51,13 @@ export const AicsGraphAnnotation = Annotation.Root({
   // Thread tracking
   threadId: Annotation<string>,
   companyId: Annotation<string>,
-  entryMode: Annotation<'boss_chat' | 'meeting' | 'install_flow' | 'background_sync'>,
+  entryMode: Annotation<'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat'>,
+
+  // Direct chat target
+  targetEmployeeId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 
   // LangGraph message list (with built-in reducer)
   messages: Annotation<BaseMessage[]>({

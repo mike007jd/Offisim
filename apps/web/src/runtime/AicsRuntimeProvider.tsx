@@ -18,11 +18,9 @@ import { HumanMessage } from '@langchain/core/messages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
 import { isTauri } from '../lib/env';
+import { COMPANY_ID, THREAD_ID } from '../lib/constants';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
 import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
-
-const COMPANY_ID = 'company-001';
-const THREAD_ID = 'thread-001';
 
 type RuntimeBundle = {
   eventBus: InMemoryEventBus;
@@ -30,6 +28,7 @@ type RuntimeBundle = {
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
   installService: InstallService | null;
   mcpToolExecutor: McpToolExecutor | null;
+  repos: RuntimeRepositories;
 };
 
 // ---------------------------------------------------------------------------
@@ -203,7 +202,7 @@ function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus
     },
   });
 
-  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor };
+  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
 }
 
 interface Props {
@@ -296,9 +295,11 @@ export function AicsRuntimeProvider({ children }: Props) {
     setVersion((v) => v + 1);
   }, []);
 
+  const lastFailedMessageRef = useRef<{ text: string; targetEmployeeId?: string } | null>(null);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getOrCreateRuntime is a render-scoped function that reads refs
   const sendMessage = useCallback(
-    async (text: string): Promise<string | undefined> => {
+    async (text: string, options?: { targetEmployeeId?: string }): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
 
       // For Tauri: wait for async init if in progress
@@ -322,12 +323,15 @@ export function AicsRuntimeProvider({ children }: Props) {
 
       setIsRunning(true);
       setError(null);
+      lastFailedMessageRef.current = null;
 
       try {
+        const entryMode = options?.targetEmployeeId ? 'direct_chat' : 'boss_chat';
         const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
         const result = await orch.execute({
-          entryMode: 'boss_chat',
+          entryMode,
           messages: [new HumanMessage(text)],
+          targetEmployeeId: options?.targetEmployeeId ?? null,
         });
         // Extract last AI message content from graph result
         const msgs = result.messages ?? [];
@@ -341,6 +345,7 @@ export function AicsRuntimeProvider({ children }: Props) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
+        lastFailedMessageRef.current = { text, targetEmployeeId: options?.targetEmployeeId };
         return undefined;
       } finally {
         setIsRunning(false);
@@ -349,6 +354,12 @@ export function AicsRuntimeProvider({ children }: Props) {
     },
     [version, initRuntime],
   );
+
+  const retryLastMessage = useCallback(async (): Promise<string | undefined> => {
+    const last = lastFailedMessageRef.current;
+    if (!last) return undefined;
+    return sendMessage(last.text, { targetEmployeeId: last.targetEmployeeId });
+  }, [sendMessage]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -453,15 +464,17 @@ export function AicsRuntimeProvider({ children }: Props) {
       isRunning,
       error,
       sendMessage,
+      retryLastMessage,
       clearError,
       reinitRuntime,
       installService: runtime?.installService ?? null,
+      repos: runtime?.repos ?? null,
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
-  }, [isRunning, isInitializing, error, sendMessage, clearError, reinitRuntime, version, connectMcpServer, disconnectMcpServer, connectedMcpServers]);
+  }, [isRunning, isInitializing, error, sendMessage, retryLastMessage, clearError, reinitRuntime, version, connectMcpServer, disconnectMcpServer, connectedMcpServers]);
 
   return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;
 }

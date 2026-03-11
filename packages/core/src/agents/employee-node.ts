@@ -67,103 +67,140 @@ export async function employeeNode(
     ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
   const systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
 
-  // Initial LLM call
-  let llmResponse = await recordedLlmCall(
-    runtimeCtx,
-    {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: taskDescription },
-      ],
-      model: resolved.model,
-      temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
-    },
-    { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
-  );
-
-  // Accumulate conversation history across tool-call rounds so later rounds
-  // can see earlier tool results (fixes lost-context bug).
-  const conversationHistory: LlmMessage[] = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: taskDescription },
-  ];
-
-  // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
-  const MAX_TOOL_ROUNDS = 5;
-  let round = 0;
-
-  while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
-    round++;
-    const toolResults = [];
-    for (const toolCall of llmResponse.toolCalls) {
-      const result = await toolExecutor.execute({
-        toolCallId: toolCall.id,
-        name: toolCall.name,
-        arguments: toolCall.arguments,
-        employeeId: employee.employee_id,
-      });
-      toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
-    }
-
-    // Append this round's assistant intent + tool results to the running history
-    conversationHistory.push(
-      {
-        role: 'assistant',
-        content: `I called tools: ${toolResults.map((t) => t.name).join(', ')}`,
-      },
-      {
-        role: 'user',
-        content: `Tool results:\n${JSON.stringify(toolResults.map((t) => ({ tool: t.name, result: t.result })))}`,
-      },
-    );
-
-    // Follow-up LLM call with full accumulated history
-    llmResponse = await recordedLlmCall(
+  try {
+    // Initial LLM call
+    let llmResponse = await recordedLlmCall(
       runtimeCtx,
       {
-        messages: conversationHistory,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: taskDescription },
+        ],
         model: resolved.model,
         temperature: resolved.temperature,
         maxTokens: resolved.maxTokens,
       },
       { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
     );
-  }
 
-  // Update task run to completed
-  if (taskRunId) {
-    await repos.taskRuns.updateStatus(
+    // Accumulate conversation history across tool-call rounds so later rounds
+    // can see earlier tool results (fixes lost-context bug).
+    const conversationHistory: LlmMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: taskDescription },
+    ];
+
+    // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
+    const MAX_TOOL_ROUNDS = 5;
+    let round = 0;
+
+    while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
+      round++;
+      const toolResults = [];
+      for (const toolCall of llmResponse.toolCalls) {
+        const result = await toolExecutor.execute({
+          toolCallId: toolCall.id,
+          name: toolCall.name,
+          arguments: toolCall.arguments,
+          employeeId: employee.employee_id,
+        });
+        toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
+      }
+
+      // Append this round's assistant intent + tool results to the running history
+      conversationHistory.push(
+        {
+          role: 'assistant',
+          content: `I called tools: ${toolResults.map((t) => t.name).join(', ')}`,
+        },
+        {
+          role: 'user',
+          content: `Tool results:\n${JSON.stringify(toolResults.map((t) => ({ tool: t.name, result: t.result })))}`,
+        },
+      );
+
+      // Follow-up LLM call with full accumulated history
+      llmResponse = await recordedLlmCall(
+        runtimeCtx,
+        {
+          messages: conversationHistory,
+          model: resolved.model,
+          temperature: resolved.temperature,
+          maxTokens: resolved.maxTokens,
+        },
+        { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
+      );
+    }
+
+    // Update task run to completed
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(
+        taskRunId,
+        'completed',
+        JSON.stringify({ content: llmResponse.content }),
+      );
+      eventBus.emit(
+        taskStateChanged(companyId, taskRunId, 'active', 'completed', threadId, employee.employee_id),
+      );
+      eventBus.emit(
+        taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
+      );
+    }
+
+    // Emit employee idle state
+    eventBus.emit(
+      employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+    );
+
+    return {
+      currentEmployeeId: employee.employee_id,
+      currentTaskRunId: taskRunId ?? null,
+      pendingAssignments: remaining,
+      messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
+      currentStepOutputs: [
+        ...state.currentStepOutputs,
+        {
+          employeeId: employee.employee_id,
+          employeeName: employee.name,
+          content: llmResponse.content,
+          taskRunId: taskRunId ?? '',
+        },
+      ],
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    // Emit employee state: executing → failed
+    eventBus.emit(
+      employeeStateChanged(companyId, employee.employee_id, 'executing', 'failed', threadId, taskRunId),
+    );
+
+    // Update task run status to failed
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(taskRunId, 'failed');
+      eventBus.emit(
+        taskStateChanged(companyId, taskRunId, 'active', 'failed', threadId, employee.employee_id),
+      );
+    }
+
+    // Build structured error JSON for error_handler node to parse
+    const structuredError = {
+      errorCode: 'LLM_CALL_FAILED',
+      message: errorMessage,
+      recoverable: true,
+      nodeName: 'employee',
+      employeeId: employee.employee_id,
       taskRunId,
-      'completed',
-      JSON.stringify({ content: llmResponse.content }),
-    );
-    eventBus.emit(
-      taskStateChanged(companyId, taskRunId, 'active', 'completed', threadId, employee.employee_id),
-    );
-    eventBus.emit(
-      taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
-    );
+      provider: resolved.provider,
+      model: resolved.model,
+    };
+
+    return {
+      currentEmployeeId: employee.employee_id,
+      currentTaskRunId: taskRunId ?? null,
+      pendingAssignments: remaining,
+      interruptReason: JSON.stringify(structuredError),
+      currentStepOutputs: state.currentStepOutputs,
+    };
   }
-
-  // Emit employee idle state
-  eventBus.emit(
-    employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
-  );
-
-  return {
-    currentEmployeeId: employee.employee_id,
-    currentTaskRunId: taskRunId ?? null,
-    pendingAssignments: remaining,
-    messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
-    currentStepOutputs: [
-      ...state.currentStepOutputs,
-      {
-        employeeId: employee.employee_id,
-        employeeName: employee.name,
-        content: llmResponse.content,
-        taskRunId: taskRunId ?? '',
-      },
-    ],
-  };
 }

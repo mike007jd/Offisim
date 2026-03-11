@@ -141,6 +141,12 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
         (e) => e.company_id === companyId && e.role_slug === roleSlug,
       );
     },
+    async update(employeeId, patch) {
+      const row = employeesMap.get(employeeId);
+      if (row) {
+        employeesMap.set(employeeId, { ...row, ...patch, updated_at: now() });
+      }
+    },
     async delete(employeeId) {
       employeesMap.delete(employeeId);
     },
