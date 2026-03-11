@@ -1,11 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { z } from 'zod';
 import { buildEmployeePrompt } from '../agents/employee-builder.js';
 import { GraphError } from '../errors.js';
-import { meetingStateChanged } from '../events/event-factories.js';
+import { meetingActionCreated, meetingStateChanged } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { AicsGraphState } from './state.js';
+import type { AicsGraphState, MeetingActionItem } from './state.js';
 
 const MAX_TURNS = 10;
 
@@ -209,7 +211,146 @@ export function meetingTurnCheck(state: AicsGraphState): string {
 }
 
 /**
- * Meeting end — produce summary and update meeting record.
+ * Build a Zod schema for meeting output, with assigneeId dynamically constrained
+ * to the set of known employee IDs.
+ */
+function buildMeetingOutputSchema(employeeIds: [string, ...string[]]) {
+  return z.object({
+    summary: z.string(),
+    actionItems: z.array(
+      z.object({
+        description: z.string(),
+        assigneeId: z.enum(employeeIds),
+        priority: z.enum(['high', 'medium', 'low']),
+        dependsOnIndex: z.array(z.number()).default([]),
+      }),
+    ),
+    decisions: z.array(z.string()),
+  });
+}
+
+/**
+ * Extract structured action items from the meeting transcript using LLM.
+ * Returns empty array on any parse/validation failure (graceful fallback).
+ */
+async function extractMeetingActionItems(
+  runtimeCtx: RuntimeContext,
+  transcript: string[],
+  employees: EmployeeRow[],
+): Promise<MeetingActionItem[]> {
+  const employeeIds = employees.map((e) => e.employee_id);
+  if (employeeIds.length === 0) return [];
+
+  const employeeListText = employees
+    .map((e) => `- ID: ${e.employee_id}, Name: ${e.name}, Role: ${e.role_slug}`)
+    .join('\n');
+
+  const systemPrompt = `You are analyzing a meeting transcript to extract structured output.
+
+Available employees:
+${employeeListText}
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "summary": "brief meeting summary",
+  "actionItems": [
+    {
+      "description": "what needs to be done",
+      "assigneeId": "one of the employee IDs listed above",
+      "priority": "high" | "medium" | "low",
+      "dependsOnIndex": [indexes of other action items this depends on]
+    }
+  ],
+  "decisions": ["key decisions made"]
+}
+
+Do not include any text outside the JSON object.`;
+
+  const transcriptText = transcript.join('\n');
+
+  try {
+    const resolved = runtimeCtx.modelResolver.resolve(null, 'boss');
+    const response = await recordedLlmCall(
+      runtimeCtx,
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Meeting transcript:\n${transcriptText}\n\nExtract the structured output.` },
+        ],
+        model: resolved.model,
+        temperature: 0.2,
+        maxTokens: resolved.maxTokens,
+      },
+      { nodeName: 'meeting_end', provider: resolved.provider, model: resolved.model },
+    );
+
+    // Parse JSON from response
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(response.content);
+    } catch {
+      console.warn('[meetingEndNode] Failed to parse LLM response as JSON, falling back to empty action items');
+      return [];
+    }
+
+    // Validate with Zod
+    const schema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+      console.warn('[meetingEndNode] Zod validation failed, falling back to empty action items:', result.error.message);
+      return [];
+    }
+
+    // Build employee name lookup
+    const employeeNameMap = new Map(employees.map((e) => [e.employee_id, e.name]));
+
+    // Create TaskRuns and build MeetingActionItem array
+    const actionItems: MeetingActionItem[] = [];
+    const taskRunIds: string[] = [];
+
+    for (const item of result.data.actionItems) {
+      const taskRunId = `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      taskRunIds.push(taskRunId);
+
+      await runtimeCtx.repos.taskRuns.create({
+        task_run_id: taskRunId,
+        thread_id: runtimeCtx.threadId,
+        employee_id: item.assigneeId,
+        parent_task_run_id: null,
+        task_type: 'meeting_action',
+        status: 'queued',
+        input_json: JSON.stringify({ description: item.description, priority: item.priority }),
+        output_json: null,
+        started_at: new Date().toISOString(),
+      });
+
+      // Map dependsOnIndex to taskRunIds (resolved after all items are created in this loop)
+      const dependsOn = item.dependsOnIndex
+        .filter((idx) => idx >= 0 && idx < taskRunIds.length - 1)
+        .map((idx) => taskRunIds[idx] ?? '')
+        .filter((id) => id !== '');
+
+      const actionItem: MeetingActionItem = {
+        taskRunId,
+        description: item.description,
+        assigneeEmployeeId: item.assigneeId,
+        assigneeName: employeeNameMap.get(item.assigneeId) ?? 'Unknown',
+        priority: item.priority,
+        dependsOn,
+      };
+
+      actionItems.push(actionItem);
+    }
+
+    return actionItems;
+  } catch (error) {
+    console.warn('[meetingEndNode] Action item extraction failed, falling back to empty:', error);
+    return [];
+  }
+}
+
+/**
+ * Meeting end — produce summary, extract action items, and update meeting record.
  */
 export async function meetingEndNode(
   state: AicsGraphState,
@@ -223,6 +364,34 @@ export async function meetingEndNode(
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);
 
+  // 1. Get employees for action-item extraction
+  const employees = await repos.employees.findByCompany(companyId);
+
+  // 2. Extract structured action items from transcript
+  const meetingActionItems = await extractMeetingActionItems(
+    runtimeCtx,
+    turnState.transcript,
+    employees,
+  );
+
+  // 3. Emit meeting.action.created events
+  if (state.meetingId) {
+    for (const item of meetingActionItems) {
+      eventBus.emit(
+        meetingActionCreated(
+          companyId,
+          state.meetingId,
+          item.taskRunId,
+          item.description,
+          item.assigneeEmployeeId,
+          item.priority,
+          item.dependsOn,
+        ),
+      );
+    }
+  }
+
+  // 4. Update meeting record
   const summaryJson = JSON.stringify({
     totalTurns: turnState.turnCount,
     participants: turnState.participantIds,
@@ -246,6 +415,7 @@ export async function meetingEndNode(
   return {
     pendingAssignments: [],
     completed: true,
+    meetingActionItems,
     messages: [
       new AIMessage({
         content: `[Meeting] Concluded after ${turnState.transcript.length} contributions from ${turnState.participantIds.length} participants.`,
