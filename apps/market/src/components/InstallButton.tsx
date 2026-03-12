@@ -1,26 +1,41 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { InstallModal } from './InstallModal';
 
 interface Props {
   listingId: string;
   version: string;
+  /** Display title for the asset (shown in the fallback modal) */
+  title?: string;
 }
 
-export function InstallButton({ listingId, version }: Props) {
-  const [showFallback, setShowFallback] = useState(false);
+export function InstallButton({ listingId, version, title }: Props) {
+  const [showModal, setShowModal] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleInstall() {
-    const deepLink = `aics://install?listing_id=${listingId}&version=${encodeURIComponent(version)}`;
+  const handleInstall = useCallback(() => {
+    const deepLink = `aics://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
     // Try deep link
     window.location.href = deepLink;
-    // Show fallback after a timeout if app didn't open
-    setTimeout(() => setShowFallback(true), 2000);
-  }
+    // Show fallback modal after a timeout if app didn't open
+    timerRef.current = setTimeout(() => {
+      setShowModal(true);
+      timerRef.current = null;
+    }, 2000);
+  }, [listingId, version]);
+
+  const handleCloseModal = useCallback(() => {
+    setShowModal(false);
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   return (
-    <div>
+    <>
       <button
         onClick={handleInstall}
         className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
@@ -29,26 +44,14 @@ export function InstallButton({ listingId, version }: Props) {
         Install in AICS
       </button>
 
-      {showFallback && (
-        <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4 text-sm">
-          <p className="font-medium text-gray-900">Desktop app not detected</p>
-          <p className="mt-1 text-gray-600">
-            To install assets, you need the AICS Desktop app.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  `aics://install?listing_id=${listingId}&version=${encodeURIComponent(version)}`,
-                );
-              }}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs hover:bg-white"
-            >
-              Copy install link
-            </button>
-          </div>
-        </div>
+      {showModal && (
+        <InstallModal
+          listingId={listingId}
+          version={version}
+          title={title ?? 'this asset'}
+          onClose={handleCloseModal}
+        />
       )}
-    </div>
+    </>
   );
 }

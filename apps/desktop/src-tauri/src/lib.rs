@@ -1,3 +1,4 @@
+mod deep_link;
 mod mcp_bridge;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -98,7 +99,27 @@ pub fn run() {
         )
         .plugin(tauri_plugin_cors_fetch::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(mcp_bridge::init())
+        .setup(|app| {
+            // Register deep link scheme on platforms that need runtime registration
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+
+            // Listen for incoming deep link URLs
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    deep_link::handle_deep_link_urls(&handle, event.urls().to_vec());
+                });
+            }
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
