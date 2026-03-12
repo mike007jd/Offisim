@@ -75,6 +75,7 @@ function extractRequirements(meta: Record<string, unknown>): SkillRequirements {
               : 'either'),
             registryUrl: typeof m['registry-url'] === 'string' ? m['registry-url'] : undefined,
           }))
+          .filter((m) => m.name.length > 0)
       : undefined,
   };
 }

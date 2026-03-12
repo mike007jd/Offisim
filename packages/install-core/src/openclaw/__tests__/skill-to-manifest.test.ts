@@ -76,4 +76,24 @@ describe('skillToManifest', () => {
     const m2 = skillToManifest({ ...SKILL, name: 'other-skill' });
     expect(m1.package.id).not.toBe(m2.package.id);
   });
+
+  it('maps required mcps to manifest.requirements.required_mcps', () => {
+    const withMcps: ParsedSkill = {
+      ...SKILL,
+      requirements: {
+        ...SKILL.requirements,
+        mcps: [
+          { name: 'github', description: 'GitHub API', transport: 'stdio' as const },
+          { name: 'slack', description: 'Slack API', transport: 'sse' as const },
+        ],
+      },
+    };
+    const manifest = skillToManifest(withMcps);
+    expect(manifest.requirements.required_mcps).toEqual(['github', 'slack']);
+  });
+
+  it('defaults required_mcps to empty array when no mcps', () => {
+    const manifest = skillToManifest(SKILL);
+    expect(manifest.requirements.required_mcps).toEqual([]);
+  });
 });
