@@ -79,21 +79,25 @@ export async function recordedLlmCall(
     const latencyMs = Date.now() - startedAt;
     const errorCode = error instanceof Error ? error.message : 'unknown';
 
-    await ctx.repos.llmCalls.create({
-      llm_call_id: llmCallId,
-      thread_id: ctx.threadId,
-      task_run_id: meta.taskRunId ?? null,
-      node_name: meta.nodeName,
-      provider: meta.provider,
-      model: meta.model,
-      input_tokens: 0,
-      output_tokens: 0,
-      usage_raw_json: null,
-      response_json: null,
-      latency_ms: latencyMs,
-      error_code: errorCode,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await ctx.repos.llmCalls.create({
+        llm_call_id: llmCallId,
+        thread_id: ctx.threadId,
+        task_run_id: meta.taskRunId ?? null,
+        node_name: meta.nodeName,
+        provider: meta.provider,
+        model: meta.model,
+        input_tokens: 0,
+        output_tokens: 0,
+        usage_raw_json: null,
+        response_json: null,
+        latency_ms: latencyMs,
+        error_code: errorCode,
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbError) {
+      console.error('Failed to record LLM error to DB:', dbError);
+    }
 
     throw error;
   }
@@ -168,21 +172,25 @@ export async function recordedLlmStream(
     const latencyMs = Date.now() - startedAt;
     const errorCode = error instanceof Error ? error.message : 'unknown';
 
-    await ctx.repos.llmCalls.create({
-      llm_call_id: llmCallId,
-      thread_id: ctx.threadId,
-      task_run_id: meta.taskRunId ?? null,
-      node_name: meta.nodeName,
-      provider: meta.provider,
-      model: meta.model,
-      input_tokens: 0,
-      output_tokens: 0,
-      usage_raw_json: null,
-      response_json: null,
-      latency_ms: latencyMs,
-      error_code: errorCode,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await ctx.repos.llmCalls.create({
+        llm_call_id: llmCallId,
+        thread_id: ctx.threadId,
+        task_run_id: meta.taskRunId ?? null,
+        node_name: meta.nodeName,
+        provider: meta.provider,
+        model: meta.model,
+        input_tokens: 0,
+        output_tokens: 0,
+        usage_raw_json: null,
+        response_json: null,
+        latency_ms: latencyMs,
+        error_code: errorCode,
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbError) {
+      console.error('Failed to record LLM error to DB:', dbError);
+    }
 
     throw error;
   }
