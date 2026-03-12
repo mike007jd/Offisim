@@ -2,12 +2,7 @@ import type Database from '@tauri-apps/plugin-sql';
 
 /**
  * Shared singleton for tauri-plugin-sql Database connection.
- *
- * All Tauri modules (tauri-drizzle, tauri-checkpoint, tauri-seed) MUST use
- * this singleton to avoid creating multiple SQLite connections, which can
- * cause WAL lock contention.
- *
- * Dynamic import ensures @tauri-apps/plugin-sql is never loaded in browser mode.
+ * Resets on init failure so next call retries instead of permanent poisoning.
  */
 let dbPromise: Promise<Database> | null = null;
 
@@ -15,8 +10,15 @@ export function getTauriDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const { default: Database } = await import('@tauri-apps/plugin-sql');
-      return Database.load('sqlite:aics.db');
-    })();
+      const db = await Database.load('sqlite:aics.db');
+      // Enable WAL for concurrent read/write safety
+      await db.execute('PRAGMA journal_mode=WAL', []);
+      await db.execute('PRAGMA busy_timeout=5000', []);
+      return db;
+    })().catch((err) => {
+      dbPromise = null; // Reset so next call retries
+      throw err;
+    });
   }
   return dbPromise;
 }
