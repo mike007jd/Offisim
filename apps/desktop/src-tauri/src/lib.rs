@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS writes (
 );",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "mcp audit log",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/007_mcp_audit_log.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
