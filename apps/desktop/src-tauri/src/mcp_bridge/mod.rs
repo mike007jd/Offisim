@@ -1,26 +1,33 @@
 pub mod error;
+pub mod health;
 pub mod jsonrpc_framer;
 pub mod process_manager;
 pub mod types;
 
+use process_manager::ManagedProcess;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Wry,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Temporary placeholder — ProcessRegistry moves to commands.rs in Task 10.
 /// Using tokio::sync::Mutex for async safety.
 pub struct ProcessRegistry {
-    // Will hold ManagedProcess entries in Task 10
-    pub servers: tokio::sync::Mutex<HashMap<String, ()>>,
+    pub servers: Arc<Mutex<HashMap<String, ManagedProcess>>>,
 }
 
 impl ProcessRegistry {
     pub fn new() -> Self {
         Self {
-            servers: tokio::sync::Mutex::new(HashMap::new()),
+            servers: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub fn servers_arc(&self) -> Arc<Mutex<HashMap<String, ManagedProcess>>> {
+        Arc::clone(&self.servers)
     }
 }
 
