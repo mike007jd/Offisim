@@ -13,6 +13,10 @@ import type { AssetBindingRepository } from '../repos/asset-binding-repository.j
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
+import {
+  MemoryEmployeeVersionRepository,
+  MemoryModelCostRateRepository,
+} from './memory-repositories.js';
 import type {
   CheckpointRepository,
   CompanyRepository,
@@ -140,6 +144,41 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
         .where(eq(schema.taskRuns.task_run_id, id))
         .run();
+    },
+    // TODO(runtime-completion): Optimize with proper SQL JOIN instead of in-memory filter
+    async findQueue(companyId, opts) {
+      const threadRows = db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId))
+        .all();
+      const threadIds = new Set(threadRows.map((t) => t.thread_id));
+      let allRuns = db.select().from(schema.taskRuns).all() as TaskRunRow[];
+      allRuns = allRuns.filter((r) => threadIds.has(r.thread_id));
+      if (opts?.statuses) {
+        const statuses = new Set(opts.statuses);
+        allRuns = allRuns.filter((r) => statuses.has(r.status));
+      }
+      allRuns.sort((a, b) => b.started_at.localeCompare(a.started_at));
+      if (opts?.limit) allRuns = allRuns.slice(0, opts.limit);
+      return allRuns;
+    },
+    // TODO(runtime-completion): Optimize with SQL GROUP BY
+    async countByStatus(companyId) {
+      const threadRows = db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId))
+        .all();
+      const threadIds = new Set(threadRows.map((t) => t.thread_id));
+      const allRuns = db.select().from(schema.taskRuns).all() as TaskRunRow[];
+      const counts: Record<string, number> = {};
+      for (const r of allRuns) {
+        if (threadIds.has(r.thread_id)) {
+          counts[r.status] = (counts[r.status] ?? 0) + 1;
+        }
+      }
+      return counts;
     },
   };
 
@@ -516,5 +555,8 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     installedPackages,
     installedAssets,
     assetBindings,
+    // TODO(runtime-completion): Replace with Drizzle-backed implementations
+    employeeVersions: new MemoryEmployeeVersionRepository(),
+    costRates: new MemoryModelCostRateRepository(),
   };
 }

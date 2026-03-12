@@ -73,6 +73,18 @@ CREATE TABLE IF NOT EXISTS writes (
             sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/008_memory_system.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "employee version history",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/009_employee_versions.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "model cost rates",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/010_model_cost_rates.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

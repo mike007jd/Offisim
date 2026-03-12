@@ -58,7 +58,9 @@ export type EventFamily =
   | 'handoff.initiated'
   | 'handoff.completed'
   | 'memory.created'
-  | 'memory.accessed';
+  | 'memory.accessed'
+  | 'employee.workstation.changed'
+  | 'employee.version.created';
 
 // --- Typed event payloads ---
 
@@ -328,4 +330,18 @@ export interface MemoryAccessedPayload {
   memoryId: string;
   employeeId: string;
   query: string;
+}
+
+// --- Runtime Completion: Workstation & Version Events ---
+
+export interface EmployeeWorkstationChangedPayload {
+  readonly employeeId: string;
+  readonly fromWorkstationId: string | null;
+  readonly toWorkstationId: string | null;
+}
+
+export interface EmployeeVersionCreatedPayload {
+  readonly employeeId: string;
+  readonly versionNum: number;
+  readonly changeType: 'create' | 'update' | 'rollback';
 }

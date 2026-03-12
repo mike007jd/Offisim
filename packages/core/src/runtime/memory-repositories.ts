@@ -7,6 +7,8 @@ import type {
   CompanyRow,
   EmployeeRepository,
   EmployeeRow,
+  EmployeeVersionRepository,
+  EmployeeVersionRow,
   EventRepository,
   GraphCheckpointRow,
   GraphThreadRow,
@@ -18,12 +20,16 @@ import type {
   McpAuditRow,
   MeetingRepository,
   MeetingSessionRow,
+  ModelCostRateRepository,
+  ModelCostRateRow,
+  NewEmployeeVersion,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
+  NewModelCostRate,
   NewRuntimeEvent,
   NewTaskRun,
   NewToolCall,
@@ -110,6 +116,36 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
             : row.finished_at,
         });
       }
+    },
+    async findQueue(companyId, opts) {
+      // Join through threads to filter by company
+      const companyThreadIds = new Set(
+        [...threadsMap.values()]
+          .filter((t) => t.company_id === companyId)
+          .map((t) => t.thread_id),
+      );
+      let results = [...taskRunsMap.values()].filter((r) => companyThreadIds.has(r.thread_id));
+      if (opts?.statuses) {
+        const statuses = new Set(opts.statuses);
+        results = results.filter((r) => statuses.has(r.status));
+      }
+      results.sort((a, b) => b.started_at.localeCompare(a.started_at));
+      if (opts?.limit) results = results.slice(0, opts.limit);
+      return results;
+    },
+    async countByStatus(companyId) {
+      const companyThreadIds = new Set(
+        [...threadsMap.values()]
+          .filter((t) => t.company_id === companyId)
+          .map((t) => t.thread_id),
+      );
+      const counts: Record<string, number> = {};
+      for (const r of taskRunsMap.values()) {
+        if (companyThreadIds.has(r.thread_id)) {
+          counts[r.status] = (counts[r.status] ?? 0) + 1;
+        }
+      }
+      return counts;
     },
   };
 
@@ -257,6 +293,8 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const installRepos = createMemoryInstallRepositories();
 
   const mcpAudit = new MemoryMcpAuditRepository();
+  const employeeVersions = new MemoryEmployeeVersionRepository();
+  const costRates = new MemoryModelCostRateRepository();
 
   return {
     companies,
@@ -271,9 +309,96 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     llmCalls,
     memories,
     mcpAudit,
+    employeeVersions,
+    costRates,
     ...installRepos,
     seed,
   };
+}
+
+export class MemoryEmployeeVersionRepository implements EmployeeVersionRepository {
+  private readonly rows: EmployeeVersionRow[] = [];
+
+  async create(version: NewEmployeeVersion): Promise<EmployeeVersionRow> {
+    const row: EmployeeVersionRow = {
+      ...version,
+      version_id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  async findByEmployee(employeeId: string, opts?: { limit?: number }): Promise<EmployeeVersionRow[]> {
+    const results = this.rows
+      .filter((r) => r.employee_id === employeeId)
+      .sort((a, b) => b.version_num - a.version_num);
+    return opts?.limit ? results.slice(0, opts.limit) : results;
+  }
+
+  async findByVersion(employeeId: string, versionNum: number): Promise<EmployeeVersionRow | null> {
+    return (
+      this.rows.find((r) => r.employee_id === employeeId && r.version_num === versionNum) ?? null
+    );
+  }
+
+  async getLatestVersionNum(employeeId: string): Promise<number> {
+    const versions = this.rows.filter((r) => r.employee_id === employeeId);
+    if (versions.length === 0) return 0;
+    return Math.max(...versions.map((v) => v.version_num));
+  }
+}
+
+export class MemoryModelCostRateRepository implements ModelCostRateRepository {
+  private readonly rows: ModelCostRateRow[] = [];
+
+  async create(rate: NewModelCostRate): Promise<ModelCostRateRow> {
+    const row: ModelCostRateRow = {
+      ...rate,
+      rate_id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  async findByProviderModel(provider: string, model: string): Promise<ModelCostRateRow | null> {
+    // Find the best matching rate using glob pattern matching
+    const matching = this.rows.filter((r) => {
+      if (r.provider !== provider) return false;
+      const regex = new RegExp(
+        '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+        'i',
+      );
+      return regex.test(model);
+    });
+    if (matching.length === 0) return null;
+    // Prefer the most specific pattern (longest without wildcards)
+    matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
+    return matching[0]!;
+  }
+
+  async findAll(): Promise<ModelCostRateRow[]> {
+    return [...this.rows];
+  }
+
+  async upsert(rate: NewModelCostRate): Promise<ModelCostRateRow> {
+    const existing = this.rows.findIndex(
+      (r) =>
+        r.provider === rate.provider &&
+        r.model_pattern === rate.model_pattern &&
+        r.effective_from === rate.effective_from,
+    );
+    if (existing >= 0) {
+      const updated: ModelCostRateRow = {
+        ...this.rows[existing]!,
+        ...rate,
+      };
+      this.rows[existing] = updated;
+      return updated;
+    }
+    return this.create(rate);
+  }
 }
 
 export class MemoryMcpAuditRepository implements McpAuditRepository {

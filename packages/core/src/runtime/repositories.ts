@@ -156,6 +156,8 @@ export interface TaskRunRepository {
   findById(taskRunId: string): Promise<TaskRunRow | null>;
   findByThread(threadId: string): Promise<TaskRunRow[]>;
   updateStatus(taskRunId: string, status: string, outputJson?: string | null): Promise<void>;
+  findQueue(companyId: string, opts?: { statuses?: string[]; limit?: number }): Promise<TaskRunRow[]>;
+  countByStatus(companyId: string): Promise<Record<string, number>>;
 }
 
 /** Updatable fields for an employee. */
@@ -287,6 +289,54 @@ export interface McpAuditRepository {
   listByThread(threadId: string): Promise<McpAuditRow[]>;
 }
 
+// ---------------------------------------------------------------------------
+// Employee version history
+// ---------------------------------------------------------------------------
+
+export interface EmployeeVersionRow {
+  version_id: string;
+  employee_id: string;
+  version_num: number;
+  change_type: string;
+  snapshot_json: string;
+  change_summary: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export type NewEmployeeVersion = Omit<EmployeeVersionRow, 'version_id' | 'created_at'>;
+
+export interface EmployeeVersionRepository {
+  create(version: NewEmployeeVersion): Promise<EmployeeVersionRow>;
+  findByEmployee(employeeId: string, opts?: { limit?: number }): Promise<EmployeeVersionRow[]>;
+  findByVersion(employeeId: string, versionNum: number): Promise<EmployeeVersionRow | null>;
+  getLatestVersionNum(employeeId: string): Promise<number>;
+}
+
+// ---------------------------------------------------------------------------
+// Model cost rates
+// ---------------------------------------------------------------------------
+
+export interface ModelCostRateRow {
+  rate_id: string;
+  provider: string;
+  model_pattern: string;
+  input_cost_per_mtok: number;
+  output_cost_per_mtok: number;
+  effective_from: string;
+  effective_until: string | null;
+  created_at: string;
+}
+
+export type NewModelCostRate = Omit<ModelCostRateRow, 'rate_id' | 'created_at'>;
+
+export interface ModelCostRateRepository {
+  create(rate: NewModelCostRate): Promise<ModelCostRateRow>;
+  findByProviderModel(provider: string, model: string): Promise<ModelCostRateRow | null>;
+  findAll(): Promise<ModelCostRateRow[]>;
+  upsert(rate: NewModelCostRate): Promise<ModelCostRateRow>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -305,4 +355,6 @@ export interface RuntimeRepositories {
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
   mcpAudit: McpAuditRepository;
+  employeeVersions: EmployeeVersionRepository;
+  costRates: ModelCostRateRepository;
 }

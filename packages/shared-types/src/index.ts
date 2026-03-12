@@ -58,6 +58,8 @@ export type {
   HandoffCompletedPayload,
   MemoryCreatedPayload,
   MemoryAccessedPayload,
+  EmployeeWorkstationChangedPayload,
+  EmployeeVersionCreatedPayload,
 } from './events.js';
 
 export type {

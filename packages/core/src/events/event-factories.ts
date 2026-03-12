@@ -11,6 +11,8 @@ import type {
   EmployeeState,
   EmployeeStatePayload,
   EmployeeUpdatedPayload,
+  EmployeeVersionCreatedPayload,
+  EmployeeWorkstationChangedPayload,
   ErrorOccurredPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
@@ -651,5 +653,39 @@ export function memoryAccessed(
     threadId,
     timestamp: Date.now(),
     payload: { memoryId, employeeId, query },
+  };
+}
+
+// --- Runtime Completion: Workstation & Version Events ---
+
+export function employeeWorkstationChanged(
+  companyId: string,
+  employeeId: string,
+  fromWorkstationId: string | null,
+  toWorkstationId: string | null,
+): RuntimeEvent<EmployeeWorkstationChangedPayload> {
+  return {
+    type: 'employee.workstation.changed',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId, fromWorkstationId, toWorkstationId },
+  };
+}
+
+export function employeeVersionCreated(
+  companyId: string,
+  employeeId: string,
+  versionNum: number,
+  changeType: 'create' | 'update' | 'rollback',
+): RuntimeEvent<EmployeeVersionCreatedPayload> {
+  return {
+    type: 'employee.version.created',
+    entityId: employeeId,
+    entityType: 'employee',
+    companyId,
+    timestamp: Date.now(),
+    payload: { employeeId, versionNum, changeType },
   };
 }

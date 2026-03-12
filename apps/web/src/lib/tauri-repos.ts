@@ -39,7 +39,11 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import { MemoryMcpAuditRepository } from '@aics/core';
+import {
+  MemoryMcpAuditRepository,
+  MemoryEmployeeVersionRepository,
+  MemoryModelCostRateRepository,
+} from '@aics/core';
 import * as schema from '@aics/db-local';
 import type {
   AssetBindingRow,
@@ -139,6 +143,43 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .update(schema.taskRuns)
         .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
         .where(eq(schema.taskRuns.task_run_id, id));
+    },
+    // TODO(runtime-completion): Replace with Drizzle-backed query joining through graph_threads
+    async findQueue(companyId, opts) {
+      // For now, fetch all task runs and filter in memory
+      const threads = await db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId));
+      const threadIds = new Set(threads.map((t) => t.thread_id));
+
+      let allRuns = (await db.select().from(schema.taskRuns)) as TaskRunRow[];
+      allRuns = allRuns.filter((r) => threadIds.has(r.thread_id));
+
+      if (opts?.statuses) {
+        const statuses = new Set(opts.statuses);
+        allRuns = allRuns.filter((r) => statuses.has(r.status));
+      }
+      allRuns.sort((a, b) => b.started_at.localeCompare(a.started_at));
+      if (opts?.limit) allRuns = allRuns.slice(0, opts.limit);
+      return allRuns;
+    },
+    // TODO(runtime-completion): Replace with Drizzle-backed GROUP BY query
+    async countByStatus(companyId) {
+      const threads = await db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId));
+      const threadIds = new Set(threads.map((t) => t.thread_id));
+
+      const allRuns = (await db.select().from(schema.taskRuns)) as TaskRunRow[];
+      const counts: Record<string, number> = {};
+      for (const r of allRuns) {
+        if (threadIds.has(r.thread_id)) {
+          counts[r.status] = (counts[r.status] ?? 0) + 1;
+        }
+      }
+      return counts;
     },
   };
 
@@ -485,5 +526,8 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     memories,
     // TODO(P3): Replace with Drizzle-backed Tauri MCP audit repository once migration 007 is applied
     mcpAudit: new MemoryMcpAuditRepository(),
+    // TODO(runtime-completion): Replace with Drizzle-backed Tauri repos once migrations 009/010 are verified
+    employeeVersions: new MemoryEmployeeVersionRepository(),
+    costRates: new MemoryModelCostRateRepository(),
   };
 }

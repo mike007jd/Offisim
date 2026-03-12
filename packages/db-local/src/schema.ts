@@ -327,6 +327,30 @@ export const runtimeEvents = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// 006 — Employee version history
+// ---------------------------------------------------------------------------
+
+export const employeeVersions = sqliteTable(
+  'employee_versions',
+  {
+    version_id: text('version_id').primaryKey(),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.employee_id, { onDelete: 'cascade' }),
+    version_num: integer('version_num').notNull(),
+    change_type: text('change_type').notNull(),
+    snapshot_json: text('snapshot_json').notNull(),
+    change_summary: text('change_summary'),
+    created_by: text('created_by').notNull().default('user'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_emp_ver_emp_num').on(table.employee_id, table.version_num),
+    index('idx_emp_ver_emp').on(table.employee_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // 005 — LLM call tracking
 // ---------------------------------------------------------------------------
 
@@ -381,6 +405,31 @@ export const memoryEntries = sqliteTable(
     index('idx_memory_scope_owner').on(table.scope, table.owner_id),
     index('idx_memory_company').on(table.company_id),
     index('idx_memory_importance').on(table.importance),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 007 — Model cost rates
+// ---------------------------------------------------------------------------
+
+export const modelCostRates = sqliteTable(
+  'model_cost_rates',
+  {
+    rate_id: text('rate_id').primaryKey(),
+    provider: text('provider').notNull(),
+    model_pattern: text('model_pattern').notNull(),
+    input_cost_per_mtok: real('input_cost_per_mtok').notNull(),
+    output_cost_per_mtok: real('output_cost_per_mtok').notNull(),
+    effective_from: text('effective_from').notNull(),
+    effective_until: text('effective_until'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_cost_rates_provider_model').on(
+      table.provider,
+      table.model_pattern,
+      table.effective_from,
+    ),
   ],
 );
 

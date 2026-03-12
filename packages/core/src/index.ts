@@ -39,6 +39,12 @@ export type {
   MemoryEntryRow,
   MemoryEntryCreate,
   MemoryRepository,
+  EmployeeVersionRow,
+  NewEmployeeVersion,
+  EmployeeVersionRepository,
+  ModelCostRateRow,
+  NewModelCostRate,
+  ModelCostRateRepository,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -76,7 +82,12 @@ export type { ThreadForkService } from './services/thread-fork-service.js';
 export { buildAicsGraph } from './graph/main-graph.js';
 export { createRuntimeContext } from './runtime/runtime-context.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
-export { createMemoryRepositories, MemoryMcpAuditRepository } from './runtime/memory-repositories.js';
+export {
+  createMemoryRepositories,
+  MemoryMcpAuditRepository,
+  MemoryEmployeeVersionRepository,
+  MemoryModelCostRateRepository,
+} from './runtime/memory-repositories.js';
 export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export {
@@ -138,6 +149,8 @@ export {
   handoffCompleted,
   memoryCreated,
   memoryAccessed,
+  employeeWorkstationChanged,
+  employeeVersionCreated,
 } from './events/event-factories.js';
 
 // --- Services ---
