@@ -24,6 +24,7 @@ import type {
   LlmUsageRecordedPayload,
   McpServerConnectedPayload,
   McpToolCalledPayload,
+  McpToolResultPayload,
   MeetingActionCreatedPayload,
   MeetingState,
   MeetingStatePayload,
@@ -368,6 +369,26 @@ export function mcpToolCalled(
     threadId,
     timestamp: Date.now(),
     payload: { serverName, toolName, employeeId },
+  };
+}
+
+export function mcpToolResult(
+  companyId: string,
+  serverName: string,
+  toolName: string,
+  employeeId: string,
+  toolCallId: string,
+  success: boolean,
+  latencyMs: number,
+  error?: string,
+): RuntimeEvent<McpToolResultPayload> {
+  return {
+    type: 'mcp.tool.result',
+    entityId: `${serverName}/${toolName}`,
+    entityType: 'mcp',
+    companyId,
+    timestamp: Date.now(),
+    payload: { serverName, toolName, employeeId, toolCallId, success, latencyMs, error },
   };
 }
 

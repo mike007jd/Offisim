@@ -118,6 +118,7 @@ export {
   planCompleted,
   mcpServerConnected,
   mcpToolCalled,
+  mcpToolResult,
   employeeCreated,
   employeeUpdated,
   employeeDeleted,
