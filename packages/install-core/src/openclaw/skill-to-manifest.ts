@@ -72,7 +72,7 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
     },
     requirements: {
       required_capabilities: [],
-      required_mcps: [],
+      required_mcps: (skill.requirements.mcps ?? []).map((m) => m.name),
     },
     permissions: {
       risk_class: 'data_asset',
