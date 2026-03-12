@@ -1,9 +1,9 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import { BossDashboard } from '../dashboard/BossDashboard';
 import { EventLog } from '../events/EventLog';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
-import { useAgentStates } from '../../runtime/use-agent-states';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 export function RightSidebar() {
   const agents = useAgentStates();

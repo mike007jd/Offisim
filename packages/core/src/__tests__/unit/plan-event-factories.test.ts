@@ -16,8 +16,18 @@ describe('plan event factories', () => {
         description: 'research',
         taskCount: 2,
         tasks: [
-          { taskRunId: 'tr-1', taskType: 'research', description: 'Do research', employeeId: 'emp-1' },
-          { taskRunId: 'tr-2', taskType: 'writing', description: 'Write report', employeeId: 'emp-2' },
+          {
+            taskRunId: 'tr-1',
+            taskType: 'research',
+            description: 'Do research',
+            employeeId: 'emp-1',
+          },
+          {
+            taskRunId: 'tr-2',
+            taskType: 'writing',
+            description: 'Write report',
+            employeeId: 'emp-2',
+          },
         ],
       },
     ]);

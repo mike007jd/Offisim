@@ -154,10 +154,8 @@ export class OpenAiAdapter implements LlmGateway {
         try {
           let finalUsage: LlmUsage | undefined;
           // Accumulate tool calls during streaming
-          const streamToolCalls: Map<
-            number,
-            { id: string; name: string; argChunks: string[] }
-          > = new Map();
+          const streamToolCalls: Map<number, { id: string; name: string; argChunks: string[] }> =
+            new Map();
 
           for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta;

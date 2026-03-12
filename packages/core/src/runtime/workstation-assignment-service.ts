@@ -36,12 +36,7 @@ export class WorkstationAssignmentService {
     await this.employees.update(employeeId, { workstation_id: workstationId });
 
     this.eventBus.emit(
-      employeeWorkstationChanged(
-        employee.company_id,
-        employeeId,
-        oldWorkstationId,
-        workstationId,
-      ),
+      employeeWorkstationChanged(employee.company_id, employeeId, oldWorkstationId, workstationId),
     );
   }
 }

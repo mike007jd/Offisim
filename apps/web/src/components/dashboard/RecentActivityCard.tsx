@@ -122,7 +122,11 @@ function shortenEventType(type: string): string {
 function formatTime(iso: string): string {
   try {
     const date = new Date(iso);
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   } catch {
     return iso;
   }

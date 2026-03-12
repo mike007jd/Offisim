@@ -13,7 +13,12 @@ export function ErrorBanner({ message, onDismiss, onRetry }: ErrorBannerProps) {
       <AlertCircle className="h-4 w-4 shrink-0" />
       <span className="flex-1 truncate">{message}</span>
       {onRetry && (
-        <Button variant="ghost" size="sm" className="text-lobster-red hover:text-lobster-red" onClick={onRetry}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-lobster-red hover:text-lobster-red"
+          onClick={onRetry}
+        >
           Retry
         </Button>
       )}

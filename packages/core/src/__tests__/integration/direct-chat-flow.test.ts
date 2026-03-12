@@ -9,7 +9,8 @@ describe('direct chat flow', () => {
 
     // Only one LLM call needed: the employee node
     gateway.pushResponse({
-      content: 'Here is the function you requested:\n```ts\nfunction add(a: number, b: number) { return a + b; }\n```',
+      content:
+        'Here is the function you requested:\n```ts\nfunction add(a: number, b: number) { return a + b; }\n```',
     });
 
     const result = await graph.invoke(

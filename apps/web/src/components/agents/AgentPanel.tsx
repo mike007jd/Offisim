@@ -6,7 +6,12 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import { EmployeeEditorDialog } from '../employees/EmployeeEditorDialog';
 import { InterviewWizard } from '../employees/InterviewWizard';
 import { Button } from '../ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { AgentCard } from './AgentCard';
 
 interface AgentPanelProps {

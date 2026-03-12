@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  ACCESSORY_BERET,
+  ACCESSORY_GLASSES,
+  ACCESSORY_TIE,
+  LOBSTER_ANTENNA_L,
+  LOBSTER_ANTENNA_R,
   LOBSTER_BODY,
   LOBSTER_CLAW_L,
   LOBSTER_CLAW_R,
   LOBSTER_EYES,
   LOBSTER_LEGS,
-  LOBSTER_ANTENNA_L,
-  LOBSTER_ANTENNA_R,
-  ACCESSORY_GLASSES,
-  ACCESSORY_TIE,
-  ACCESSORY_BERET,
 } from '../pixel/lobster-shapes.js';
 
 // ---------------------------------------------------------------------------
@@ -71,10 +71,9 @@ describe('LOBSTER_CLAW_L and LOBSTER_CLAW_R', () => {
   it('have the same dimensions', () => {
     expect(LOBSTER_CLAW_L.length).toBe(LOBSTER_CLAW_R.length);
     for (let r = 0; r < LOBSTER_CLAW_L.length; r++) {
-      expect(
-        LOBSTER_CLAW_L[r]!.length,
-        `row ${r} column count should match`,
-      ).toBe(LOBSTER_CLAW_R[r]!.length);
+      expect(LOBSTER_CLAW_L[r]!.length, `row ${r} column count should match`).toBe(
+        LOBSTER_CLAW_R[r]!.length,
+      );
     }
   });
 
@@ -83,37 +82,25 @@ describe('LOBSTER_CLAW_L and LOBSTER_CLAW_R', () => {
       const leftRow = LOBSTER_CLAW_L[r]!;
       const rightRow = LOBSTER_CLAW_R[r]!;
       const leftReversed = [...leftRow].reverse();
-      expect(
-        rightRow,
-        `row ${r}: right claw should equal reversed left claw`,
-      ).toEqual(leftReversed);
+      expect(rightRow, `row ${r}: right claw should equal reversed left claw`).toEqual(
+        leftReversed,
+      );
     }
   });
 });
 
 describe('Palette index validity', () => {
-  it.each(Object.keys(ALL_GRIDS))(
-    '%s uses only valid palette indices (0-16)',
-    (name) => {
-      const grid = ALL_GRIDS[name]!;
-      expect(allIndicesValid(grid), `${name} has invalid palette index`).toBe(
-        true,
-      );
-    },
-  );
+  it.each(Object.keys(ALL_GRIDS))('%s uses only valid palette indices (0-16)', (name) => {
+    const grid = ALL_GRIDS[name]!;
+    expect(allIndicesValid(grid), `${name} has invalid palette index`).toBe(true);
+  });
 });
 
 describe('Non-empty grids', () => {
-  it.each(Object.keys(ALL_GRIDS))(
-    '%s has at least one non-zero pixel',
-    (name) => {
-      const grid = ALL_GRIDS[name]!;
-      expect(
-        hasNonZeroPixel(grid),
-        `${name} should not be completely empty`,
-      ).toBe(true);
-    },
-  );
+  it.each(Object.keys(ALL_GRIDS))('%s has at least one non-zero pixel', (name) => {
+    const grid = ALL_GRIDS[name]!;
+    expect(hasNonZeroPixel(grid), `${name} should not be completely empty`).toBe(true);
+  });
 });
 
 describe('LOBSTER_EYES', () => {

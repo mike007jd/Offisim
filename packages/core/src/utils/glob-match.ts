@@ -5,10 +5,7 @@ import type { ModelCostRateRow } from '../runtime/repositories.js';
  * Case-insensitive by default.
  */
 export function globToRegex(pattern: string): RegExp {
-  return new RegExp(
-    '^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
-    'i',
-  );
+  return new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
 }
 
 /**

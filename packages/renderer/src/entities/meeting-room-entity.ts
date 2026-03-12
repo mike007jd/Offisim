@@ -117,18 +117,20 @@ export class MeetingRoomEntity {
     if (this.tableGlow) {
       const { duration, ease } = this.motion.M2;
       if (duration > 0) {
-        this.trackTween(gsap.to(this.tableGlow, {
-          alpha: 0,
-          duration,
-          ease,
-          onComplete: () => {
-            if (this.tableGlow) {
-              this.container.removeChild(this.tableGlow);
-              this.tableGlow.destroy();
-              this.tableGlow = null;
-            }
-          },
-        }));
+        this.trackTween(
+          gsap.to(this.tableGlow, {
+            alpha: 0,
+            duration,
+            ease,
+            onComplete: () => {
+              if (this.tableGlow) {
+                this.container.removeChild(this.tableGlow);
+                this.tableGlow.destroy();
+                this.tableGlow = null;
+              }
+            },
+          }),
+        );
       } else if (this.tableGlow) {
         this.container.removeChild(this.tableGlow);
         this.tableGlow.destroy();

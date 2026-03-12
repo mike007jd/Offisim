@@ -9,8 +9,18 @@ describe('planCreated (enriched)', () => {
         description: 'Step one',
         taskCount: 2,
         tasks: [
-          { taskRunId: 'tr-1', taskType: 'research', description: 'Research AI', employeeId: 'emp-a' },
-          { taskRunId: 'tr-2', taskType: 'writing', description: 'Write report', employeeId: 'emp-b' },
+          {
+            taskRunId: 'tr-1',
+            taskType: 'research',
+            description: 'Research AI',
+            employeeId: 'emp-a',
+          },
+          {
+            taskRunId: 'tr-2',
+            taskType: 'writing',
+            description: 'Write report',
+            employeeId: 'emp-b',
+          },
         ],
       },
     ]);

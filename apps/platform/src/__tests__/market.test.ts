@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
-import type { PlatformEnv } from '../types.js';
-import { market } from '../routes/market.js';
+import { describe, expect, it, vi } from 'vitest';
 import { creatorsRoute } from '../routes/creators.js';
+import { market } from '../routes/market.js';
+import type { PlatformEnv } from '../types.js';
 
 // ── Helpers ──
 
@@ -44,7 +44,12 @@ const fakeVersion = {
   version: '1.0.0',
   manifest_json: {
     requirements: { required_capabilities: [], required_mcps: [], recommended_models: [] },
-    permissions: { risk_class: 'sandboxed', declares_secrets: false, filesystem_scope: 'none', network_scope: 'none' },
+    permissions: {
+      risk_class: 'sandboxed',
+      declares_secrets: false,
+      filesystem_scope: 'none',
+      network_scope: 'none',
+    },
   },
   runtime_range: '>=1.0.0',
   schema_version: '1.0',
@@ -145,7 +150,7 @@ describe('Market Routes', () => {
       const res = await app.request('/v1/market/search?per_page=5');
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body).toHaveProperty('items');
       expect(body).toHaveProperty('page', 1);
       expect(body).toHaveProperty('per_page', 5);
@@ -166,36 +171,30 @@ describe('Market Routes', () => {
       const res = await app.request('/v1/market/search');
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.items).toEqual([]);
       expect(body.total).toBe(0);
     });
 
     it('clamps per_page to max 50', async () => {
-      const mockDb = createMockDb([
-        [],
-        [{ count: 0 }],
-      ]);
+      const mockDb = createMockDb([[], [{ count: 0 }]]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/market/search?per_page=999');
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.per_page).toBe(50);
     });
 
     it('clamps per_page to min 1', async () => {
-      const mockDb = createMockDb([
-        [],
-        [{ count: 0 }],
-      ]);
+      const mockDb = createMockDb([[], [{ count: 0 }]]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/market/search?per_page=0');
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.per_page).toBe(1);
     });
   });
@@ -210,14 +209,21 @@ describe('Market Routes', () => {
         // 3. tags
         [{ tag: 'productivity' }],
         // 4. previews
-        [{ kind: 'screenshot', url: 'https://img.test/1.png', alt_text: 'Screenshot', sort_order: 0 }],
+        [
+          {
+            kind: 'screenshot',
+            url: 'https://img.test/1.png',
+            alt_text: 'Screenshot',
+            sort_order: 0,
+          },
+        ],
       ]);
       const app = createApp(mockDb);
 
       const res = await app.request(`/v1/market/listings/${LISTING_ID}`);
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.title).toBe('Test Listing');
       expect(body.creator.handle).toBe('testcreator');
@@ -251,7 +257,7 @@ describe('Market Routes', () => {
       const res = await app.request(`/v1/market/listings/${LISTING_ID}/versions`);
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.versions).toHaveLength(1);
       expect(body.versions[0].version).toBe('1.0.0');
@@ -264,7 +270,9 @@ describe('Market Routes', () => {
       ]);
       const app = createApp(mockDb);
 
-      const res = await app.request('/v1/market/listings/00000000-0000-0000-0000-000000000000/versions');
+      const res = await app.request(
+        '/v1/market/listings/00000000-0000-0000-0000-000000000000/versions',
+      );
       expect(res.status).toBe(404);
     });
   });
@@ -282,7 +290,7 @@ describe('Market Routes', () => {
       const res = await app.request(`/v1/market/listings/${LISTING_ID}/reviews`);
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.reviews).toHaveLength(1);
       expect(body.reviews[0].rating).toBe(5);
@@ -290,12 +298,12 @@ describe('Market Routes', () => {
     });
 
     it('returns 404 for non-existent listing', async () => {
-      const mockDb = createMockDb([
-        [],
-      ]);
+      const mockDb = createMockDb([[]]);
       const app = createApp(mockDb);
 
-      const res = await app.request(`/v1/market/listings/00000000-0000-0000-0000-000000000000/reviews`);
+      const res = await app.request(
+        `/v1/market/listings/00000000-0000-0000-0000-000000000000/reviews`,
+      );
       expect(res.status).toBe(404);
     });
   });
@@ -315,7 +323,7 @@ describe('Creators Route', () => {
       const res = await app.request('/v1/market/creators/testcreator');
       expect(res.status).toBe(200);
 
-      const body = await res.json() as any;
+      const body = (await res.json()) as any;
       expect(body.handle).toBe('testcreator');
       expect(body.display_name).toBe('Test Creator');
       expect(body.verification_state).toBe('verified');

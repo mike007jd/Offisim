@@ -25,13 +25,27 @@ vi.mock('pixi.js', () => {
     destroy() {}
   }
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    roundRect() { return this; }
-    rect() { return this; }
-    fill(_c?: unknown) { return this; }
-    stroke(_c?: unknown) { return this; }
-    cut() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    roundRect() {
+      return this;
+    }
+    rect() {
+      return this;
+    }
+    fill(_c?: unknown) {
+      return this;
+    }
+    stroke(_c?: unknown) {
+      return this;
+    }
+    cut() {
+      return this;
+    }
   }
   return { Container: MockContainer, Graphics: MockGraphics };
 });
@@ -97,10 +111,7 @@ describe('lobster-animations', () => {
 
       createIdleBob(container, motion);
 
-      expect(gsap.to).toHaveBeenCalledWith(
-        container,
-        expect.objectContaining({ duration: 0 }),
-      );
+      expect(gsap.to).toHaveBeenCalledWith(container, expect.objectContaining({ duration: 0 }));
       // Should NOT have yoyo/repeat in the zero-duration call
       const callArgs = vi.mocked(gsap.to).mock.calls[0]![1] as Record<string, unknown>;
       expect(callArgs.yoyo).toBeUndefined();
@@ -135,17 +146,9 @@ describe('lobster-animations', () => {
       const tl = result as any;
       expect(tl.to).toHaveBeenCalledTimes(2);
       // First call for clawL with positive rotation
-      expect(tl.to).toHaveBeenCalledWith(
-        clawL,
-        expect.objectContaining({ rotation: 0.09 }),
-        0,
-      );
+      expect(tl.to).toHaveBeenCalledWith(clawL, expect.objectContaining({ rotation: 0.09 }), 0);
       // Second call for clawR with negative rotation
-      expect(tl.to).toHaveBeenCalledWith(
-        clawR,
-        expect.objectContaining({ rotation: -0.09 }),
-        0,
-      );
+      expect(tl.to).toHaveBeenCalledWith(clawR, expect.objectContaining({ rotation: -0.09 }), 0);
     });
 
     it('returns no-op tween when motion duration is zero', () => {
@@ -156,10 +159,7 @@ describe('lobster-animations', () => {
       createClawWiggle(clawL, clawR, motion);
 
       // Should call gsap.to (no-op), NOT gsap.timeline
-      expect(gsap.to).toHaveBeenCalledWith(
-        clawL,
-        expect.objectContaining({ duration: 0 }),
-      );
+      expect(gsap.to).toHaveBeenCalledWith(clawL, expect.objectContaining({ duration: 0 }));
       expect(gsap.timeline).not.toHaveBeenCalled();
     });
   });
@@ -183,21 +183,9 @@ describe('lobster-animations', () => {
       const tl = result as any;
       // 3 calls: antennaL, antennaR, eyesGfx
       expect(tl.to).toHaveBeenCalledTimes(3);
-      expect(tl.to).toHaveBeenCalledWith(
-        antennaL,
-        expect.objectContaining({ rotation: 0.15 }),
-        0,
-      );
-      expect(tl.to).toHaveBeenCalledWith(
-        antennaR,
-        expect.objectContaining({ rotation: -0.15 }),
-        0,
-      );
-      expect(tl.to).toHaveBeenCalledWith(
-        eyesGfx,
-        expect.objectContaining({ y: -2 }),
-        0,
-      );
+      expect(tl.to).toHaveBeenCalledWith(antennaL, expect.objectContaining({ rotation: 0.15 }), 0);
+      expect(tl.to).toHaveBeenCalledWith(antennaR, expect.objectContaining({ rotation: -0.15 }), 0);
+      expect(tl.to).toHaveBeenCalledWith(eyesGfx, expect.objectContaining({ y: -2 }), 0);
     });
 
     it('returns no-op tween when motion duration is zero', () => {
@@ -208,10 +196,7 @@ describe('lobster-animations', () => {
 
       createThinkingAnimation(antennaL, antennaR, eyesGfx, motion);
 
-      expect(gsap.to).toHaveBeenCalledWith(
-        antennaL,
-        expect.objectContaining({ duration: 0 }),
-      );
+      expect(gsap.to).toHaveBeenCalledWith(antennaL, expect.objectContaining({ duration: 0 }));
       expect(gsap.timeline).not.toHaveBeenCalled();
     });
   });
@@ -252,10 +237,7 @@ describe('lobster-animations', () => {
 
       createWorkingAnimation(clawL, clawR, motion);
 
-      expect(gsap.to).toHaveBeenCalledWith(
-        clawL,
-        expect.objectContaining({ duration: 0 }),
-      );
+      expect(gsap.to).toHaveBeenCalledWith(clawL, expect.objectContaining({ duration: 0 }));
       expect(gsap.timeline).not.toHaveBeenCalled();
     });
   });

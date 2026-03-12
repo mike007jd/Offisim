@@ -4,14 +4,14 @@
  * Future: queue for human review, AI-assisted checks.
  */
 
-import { eq } from 'drizzle-orm';
 import {
-  publishDrafts,
-  moderationJobs,
-  listings,
-  packageVersions,
   listingTags,
+  listings,
+  moderationJobs,
+  packageVersions,
+  publishDrafts,
 } from '@aics/db-platform';
+import { eq } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 
 export async function processModerationJob(db: PlatformDb, jobId: string): Promise<void> {
@@ -32,7 +32,11 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   if (!draft) {
     await db
       .update(moderationJobs)
-      .set({ status: 'completed', result: { outcome: 'rejected', reason: 'Draft not found' }, completed_at: new Date() })
+      .set({
+        status: 'completed',
+        result: { outcome: 'rejected', reason: 'Draft not found' },
+        completed_at: new Date(),
+      })
       .where(eq(moderationJobs.job_id, jobId));
     return;
   }
@@ -41,7 +45,11 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   if (draft.validation_state !== 'valid') {
     await db
       .update(moderationJobs)
-      .set({ status: 'completed', result: { outcome: 'rejected', reason: 'Manifest not valid' }, completed_at: new Date() })
+      .set({
+        status: 'completed',
+        result: { outcome: 'rejected', reason: 'Manifest not valid' },
+        completed_at: new Date(),
+      })
       .where(eq(moderationJobs.job_id, jobId));
 
     await db
@@ -115,15 +123,22 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
 
   await db
     .update(moderationJobs)
-    .set({ status: 'completed', result: { outcome: 'approved', listing_id: listingId }, completed_at: new Date() })
+    .set({
+      status: 'completed',
+      result: { outcome: 'approved', listing_id: listingId },
+      completed_at: new Date(),
+    })
     .where(eq(moderationJobs.job_id, jobId));
 }
 
 function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80)
-    + '-' + Date.now().toString(36);
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 80) +
+    '-' +
+    Date.now().toString(36)
+  );
 }

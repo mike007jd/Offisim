@@ -1,7 +1,7 @@
+import { creators, listings, packageVersions } from '@aics/db-platform';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { eq, desc, and, inArray } from 'drizzle-orm';
-import { creators, listings, packageVersions } from '@aics/db-platform';
 import type { PlatformEnv } from '../types.js';
 
 const creatorsRoute = new Hono<PlatformEnv>();
@@ -11,11 +11,7 @@ creatorsRoute.get('/:handle', async (c) => {
   const db = c.get('db');
   const handle = c.req.param('handle');
 
-  const [creator] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.handle, handle))
-    .limit(1);
+  const [creator] = await db.select().from(creators).where(eq(creators.handle, handle)).limit(1);
 
   if (!creator) throw new HTTPException(404, { message: 'Creator not found' });
 
@@ -27,13 +23,19 @@ creatorsRoute.get('/:handle', async (c) => {
 
   // Batch fetch latest active versions for all listings
   const listingIds = creatorListings.map((l) => l.listing_id);
-  const allVersions = listingIds.length > 0
-    ? await db
-        .select()
-        .from(packageVersions)
-        .where(and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')))
-        .orderBy(desc(packageVersions.published_at))
-    : [];
+  const allVersions =
+    listingIds.length > 0
+      ? await db
+          .select()
+          .from(packageVersions)
+          .where(
+            and(
+              inArray(packageVersions.listing_id, listingIds),
+              eq(packageVersions.status, 'active'),
+            ),
+          )
+          .orderBy(desc(packageVersions.published_at))
+      : [];
 
   const versionMap = new Map<string, string>();
   for (const v of allVersions) {

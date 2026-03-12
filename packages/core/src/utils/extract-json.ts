@@ -32,9 +32,7 @@ export function extractJsonFromLlm<T = unknown>(text: string): T | null {
   }
 
   // 3. Balanced-brace extraction (non-greedy, handles nested + string escapes)
-  return (
-    extractBalanced<T>(trimmed, '{', '}') ?? extractBalanced<T>(trimmed, '[', ']')
-  );
+  return extractBalanced<T>(trimmed, '{', '}') ?? extractBalanced<T>(trimmed, '[', ']');
 }
 
 function extractBalanced<T>(text: string, open: string, close: string): T | null {

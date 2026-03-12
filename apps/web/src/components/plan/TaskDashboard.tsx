@@ -11,9 +11,7 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
   }
 
   const pct =
-    dashboard.stats.total > 0
-      ? (dashboard.stats.completed / dashboard.stats.total) * 100
-      : 0;
+    dashboard.stats.total > 0 ? (dashboard.stats.completed / dashboard.stats.total) * 100 : 0;
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -30,10 +28,7 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
       {/* Progress bar */}
       <div className="h-1.5 w-full rounded-full bg-ocean-mid/30">
-        <div
-          className="h-full rounded-full bg-koi transition-all"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full rounded-full bg-koi transition-all" style={{ width: `${pct}%` }} />
       </div>
 
       {/* Steps */}

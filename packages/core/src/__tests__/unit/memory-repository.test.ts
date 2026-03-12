@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
 import type { MemoryEntryCreate } from '../../runtime/repositories.js';
 
@@ -71,7 +71,12 @@ describe('InMemoryMemoryRepository', () => {
       makeEntry({ memory_id: 'mem-e2', scope: 'employee', owner_id: 'e-2', content: 'foo baz' }),
     );
     await repo.create(
-      makeEntry({ memory_id: 'mem-co', scope: 'company', owner_id: 'c-test-1', content: 'foo qux' }),
+      makeEntry({
+        memory_id: 'mem-co',
+        scope: 'company',
+        owner_id: 'c-test-1',
+        content: 'foo qux',
+      }),
     );
 
     const scopeFiltered = await repo.search('foo', {
@@ -91,7 +96,9 @@ describe('InMemoryMemoryRepository', () => {
 
   it('search sorts by importance DESC and respects limit', async () => {
     await repo.create(makeEntry({ memory_id: 'mem-low', content: 'common fact', importance: 0.3 }));
-    await repo.create(makeEntry({ memory_id: 'mem-high', content: 'common insight', importance: 0.9 }));
+    await repo.create(
+      makeEntry({ memory_id: 'mem-high', content: 'common insight', importance: 0.9 }),
+    );
     await repo.create(makeEntry({ memory_id: 'mem-mid', content: 'common note', importance: 0.6 }));
 
     const results = await repo.search('common', { companyId: COMPANY_ID, limit: 2 });

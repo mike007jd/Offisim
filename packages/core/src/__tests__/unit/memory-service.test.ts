@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach } from 'vitest';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
 import { MemoryService } from '../../services/memory-service.js';
@@ -59,12 +59,7 @@ describe('MemoryService', () => {
         importance: 0.9,
       });
 
-      const results = await service.getRelevantMemories(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'testing',
-        10,
-      );
+      const results = await service.getRelevantMemories(EMPLOYEE_ID, COMPANY_ID, 'testing', 10);
       expect(results).toHaveLength(3);
       // Should be sorted by importance * recency (all same recency, so by importance)
       expect(results[0]!.memory_id).toBe('mem-co');
@@ -84,12 +79,7 @@ describe('MemoryService', () => {
         importance: 0.5,
       });
 
-      const results = await service.getRelevantMemories(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'duplicate',
-        10,
-      );
+      const results = await service.getRelevantMemories(EMPLOYEE_ID, COMPANY_ID, 'duplicate', 10);
       // Should appear only once despite matching in company scope search
       const ids = results.map((r) => r.memory_id);
       const uniqueIds = new Set(ids);
@@ -109,22 +99,12 @@ describe('MemoryService', () => {
         });
       }
 
-      const results = await service.getRelevantMemories(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'fact',
-        2,
-      );
+      const results = await service.getRelevantMemories(EMPLOYEE_ID, COMPANY_ID, 'fact', 2);
       expect(results).toHaveLength(2);
     });
 
     it('returns empty array when no memories match', async () => {
-      const results = await service.getRelevantMemories(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'nonexistent',
-        10,
-      );
+      const results = await service.getRelevantMemories(EMPLOYEE_ID, COMPANY_ID, 'nonexistent', 10);
       expect(results).toHaveLength(0);
     });
   });
@@ -170,13 +150,9 @@ describe('MemoryService', () => {
     });
 
     it('skips when opts.skip is true', async () => {
-      await service.reflectAndRemember(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'Some task content',
-        THREAD_ID,
-        { skip: true },
-      );
+      await service.reflectAndRemember(EMPLOYEE_ID, COMPANY_ID, 'Some task content', THREAD_ID, {
+        skip: true,
+      });
 
       const allMemories = await memoryRepo.findByOwner(EMPLOYEE_ID);
       expect(allMemories).toHaveLength(0);
@@ -185,12 +161,7 @@ describe('MemoryService', () => {
     it('handles LLM returning empty memories array', async () => {
       gateway.pushResponse({ content: '{ "memories": [] }' });
 
-      await service.reflectAndRemember(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'trivial task',
-        THREAD_ID,
-      );
+      await service.reflectAndRemember(EMPLOYEE_ID, COMPANY_ID, 'trivial task', THREAD_ID);
 
       const allMemories = await memoryRepo.findByOwner(EMPLOYEE_ID);
       expect(allMemories).toHaveLength(0);
@@ -225,12 +196,7 @@ describe('MemoryService', () => {
       gateway.pushResponse({ content: 'This is not JSON at all' });
 
       // Should not throw
-      await service.reflectAndRemember(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'task content',
-        THREAD_ID,
-      );
+      await service.reflectAndRemember(EMPLOYEE_ID, COMPANY_ID, 'task content', THREAD_ID);
 
       const memories = await memoryRepo.findByOwner(EMPLOYEE_ID);
       expect(memories).toHaveLength(0);
@@ -244,12 +210,7 @@ describe('MemoryService', () => {
       });
 
       // Should not throw
-      await service.reflectAndRemember(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'task content',
-        THREAD_ID,
-      );
+      await service.reflectAndRemember(EMPLOYEE_ID, COMPANY_ID, 'task content', THREAD_ID);
 
       const memories = await memoryRepo.findByOwner(EMPLOYEE_ID);
       expect(memories).toHaveLength(0);
@@ -275,12 +236,7 @@ describe('MemoryService', () => {
         }),
       });
 
-      await service.reflectAndRemember(
-        EMPLOYEE_ID,
-        COMPANY_ID,
-        'task content',
-        THREAD_ID,
-      );
+      await service.reflectAndRemember(EMPLOYEE_ID, COMPANY_ID, 'task content', THREAD_ID);
 
       const empMemories = await memoryRepo.findByOwner(EMPLOYEE_ID);
       expect(empMemories).toHaveLength(1);

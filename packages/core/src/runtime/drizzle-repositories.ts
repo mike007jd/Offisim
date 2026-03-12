@@ -27,6 +27,8 @@ import type {
   HandoffRepository,
   LlmCallRepository,
   LlmCallRow,
+  McpAuditRepository,
+  McpAuditRow,
   MeetingRepository,
   MeetingSessionRow,
   MemoryEntryCreate,
@@ -39,6 +41,7 @@ import type {
   NewGraphThread,
   NewHandoffEvent,
   NewLlmCall,
+  NewMcpAudit,
   NewMeetingSession,
   NewModelCostRate,
   NewRuntimeEvent,
@@ -50,9 +53,6 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-  McpAuditRepository,
-  McpAuditRow,
-  NewMcpAudit,
 } from './repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -459,9 +459,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .run();
     },
     async delete(id) {
-      db.delete(schema.assetBindings)
-        .where(eq(schema.assetBindings.binding_id, id))
-        .run();
+      db.delete(schema.assetBindings).where(eq(schema.assetBindings.binding_id, id)).run();
     },
   };
 
@@ -506,7 +504,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         // At least one word must match (OR across words via a single check)
         // Use a wider candidate set first, then JS-filter for precision
         // SQL LIKE '%word%' for the first word to narrow the candidate set
-        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`);
+        conditions.push(
+          sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`,
+        );
       }
       const limit = opts.limit ?? 10;
       // Fetch wider candidate set, then JS-filter + limit
@@ -525,9 +525,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return filtered.slice(0, limit);
     },
     async delete(memoryId) {
-      db.delete(schema.memoryEntries)
-        .where(eq(schema.memoryEntries.memory_id, memoryId))
-        .run();
+      db.delete(schema.memoryEntries).where(eq(schema.memoryEntries.memory_id, memoryId)).run();
     },
     async findByOwner(ownerId, opts) {
       const conditions = [eq(schema.memoryEntries.owner_id, ownerId)];

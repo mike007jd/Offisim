@@ -15,7 +15,7 @@ export function useEventStream(pattern: string, maxEvents = DEFAULT_MAX): Runtim
     if (bufferRef.current.length === 0) return;
     const batch = bufferRef.current;
     bufferRef.current = [];
-    setEvents(prev => [...prev, ...batch].slice(-maxEvents));
+    setEvents((prev) => [...prev, ...batch].slice(-maxEvents));
   }, [maxEvents]);
 
   useEffect(() => {

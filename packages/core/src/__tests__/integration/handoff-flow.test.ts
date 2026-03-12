@@ -158,9 +158,7 @@ describe('handoff flow (integration)', () => {
     // Manager assigns to dev
     gateway.pushResponse({
       content: JSON.stringify({
-        assignments: [
-          { taskType: 'code', employeeId: 'e-dev-1', description: 'Start the work' },
-        ],
+        assignments: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Start the work' }],
       }),
     });
 

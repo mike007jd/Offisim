@@ -263,7 +263,11 @@ describe('McpToolExecutor', () => {
       { name: 'read_file', description: 'Read a file', inputSchema: {} },
     ]);
 
-    const mockConfig: McpServerConfig = { name: 'test-server', transport: 'stdio', command: 'node' };
+    const mockConfig: McpServerConfig = {
+      name: 'test-server',
+      transport: 'stdio',
+      command: 'node',
+    };
     await executor.addServer(mockConfig);
     expect(executor.getServerForTool('read_file')).toBe('test-server');
   });

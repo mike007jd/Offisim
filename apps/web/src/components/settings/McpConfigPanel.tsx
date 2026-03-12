@@ -234,9 +234,7 @@ export function McpConfigPanel() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-sand truncate">
-                        {server.name}
-                      </span>
+                      <span className="text-sm font-medium text-sand truncate">{server.name}</span>
                       <Badge
                         variant={isConnected(server.name) ? 'success' : 'secondary'}
                         className="text-[10px] px-1.5 py-0 shrink-0"

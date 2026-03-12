@@ -1,19 +1,19 @@
-import type { Container } from 'pixi.js';
 import type { EmployeeState, RuntimeEvent } from '@aics/shared-types';
+import type { Container } from 'pixi.js';
 
 /**
  * Named scene layers (z-order L0–L7).
  * Per SCENE_STATE_MATRIX §4.
  */
 export const LAYER_NAMES = [
-  'floor',       // L0: floor tiles, room boundaries
-  'furniture',   // L1: desks, chairs, monitors, racks
-  'entity',      // L2: employee avatars
-  'accent',      // L3: halos, desk glows, state rings
-  'semantic',    // L4: route lines, install candidates
-  'bubble',      // L5: task bubbles, report markers
-  'focus',       // L6: spotlight, attention router
-  'bridge',      // L7: DOM-coordinated anchors
+  'floor', // L0: floor tiles, room boundaries
+  'furniture', // L1: desks, chairs, monitors, racks
+  'entity', // L2: employee avatars
+  'accent', // L3: halos, desk glows, state rings
+  'semantic', // L4: route lines, install candidates
+  'bubble', // L5: task bubbles, report markers
+  'focus', // L6: spotlight, attention router
+  'bridge', // L7: DOM-coordinated anchors
 ] as const;
 
 export type LayerName = (typeof LAYER_NAMES)[number];

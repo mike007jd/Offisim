@@ -46,11 +46,13 @@ function buildMemoryTools(): ToolDef[] {
           scope: {
             type: 'string',
             enum: ['employee', 'team'],
-            description: 'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for SOP/config.',
+            description:
+              'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for SOP/config.',
           },
           importance: {
             type: 'number',
-            description: 'Importance 0.0-1.0 (0.3=minor, 0.5=moderate, 0.7=important, 0.9=critical)',
+            description:
+              'Importance 0.0-1.0 (0.3=minor, 0.5=moderate, 0.7=important, 0.9=critical)',
           },
         },
         required: ['content', 'category', 'scope', 'importance'],
@@ -338,9 +340,12 @@ export async function employeeNode(
       const toolResults = [];
       for (const toolCall of llmResponse.toolCalls) {
         // Check for memory virtual tools
-        if (memoryService && MEMORY_TOOL_NAMES.includes(toolCall.name as typeof MEMORY_TOOL_NAMES[number])) {
+        if (
+          memoryService &&
+          MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
+        ) {
           const result = await handleMemoryTool(
-            toolCall.name as typeof MEMORY_TOOL_NAMES[number],
+            toolCall.name as (typeof MEMORY_TOOL_NAMES)[number],
             toolCall.arguments,
             employee.employee_id,
             companyId,
@@ -395,7 +400,9 @@ export async function employeeNode(
     }
 
     if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
-      console.warn(`[employee-node] Tool loop hit max ${MAX_TOOL_ROUNDS} rounds for ${employee.name}`);
+      console.warn(
+        `[employee-node] Tool loop hit max ${MAX_TOOL_ROUNDS} rounds for ${employee.name}`,
+      );
     }
 
     // Update task run to completed
@@ -406,7 +413,14 @@ export async function employeeNode(
         JSON.stringify({ content: llmResponse.content }),
       );
       eventBus.emit(
-        taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId, employee.employee_id),
+        taskStateChanged(
+          companyId,
+          taskRunId,
+          'running',
+          'completed',
+          threadId,
+          employee.employee_id,
+        ),
       );
       eventBus.emit(
         taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
@@ -415,7 +429,14 @@ export async function employeeNode(
 
     // Emit employee idle state
     eventBus.emit(
-      employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+      employeeStateChanged(
+        companyId,
+        employee.employee_id,
+        'executing',
+        'idle',
+        threadId,
+        taskRunId,
+      ),
     );
 
     // Reflect and remember — skip for direct_chat and handoff_continuation
@@ -455,7 +476,14 @@ export async function employeeNode(
 
     // Emit employee state: executing → failed
     eventBus.emit(
-      employeeStateChanged(companyId, employee.employee_id, 'executing', 'failed', threadId, taskRunId),
+      employeeStateChanged(
+        companyId,
+        employee.employee_id,
+        'executing',
+        'failed',
+        threadId,
+        taskRunId,
+      ),
     );
 
     // Update task run status to failed
@@ -493,7 +521,7 @@ export async function employeeNode(
 // ---------------------------------------------------------------------------
 
 async function handleMemoryTool(
-  toolName: typeof MEMORY_TOOL_NAMES[number],
+  toolName: (typeof MEMORY_TOOL_NAMES)[number],
   args: Record<string, unknown>,
   employeeId: string,
   companyId: string,
@@ -506,7 +534,11 @@ async function handleMemoryTool(
   switch (toolName) {
     case 'remember': {
       const content = String(args.content ?? '');
-      const category = String(args.category ?? 'experience') as 'experience' | 'decision' | 'knowledge' | 'preference';
+      const category = String(args.category ?? 'experience') as
+        | 'experience'
+        | 'decision'
+        | 'knowledge'
+        | 'preference';
       const scope = String(args.scope ?? 'employee') as 'employee' | 'team' | 'company';
       const importance = Math.max(0, Math.min(1, Number(args.importance ?? 0.5)));
 
@@ -533,9 +565,7 @@ async function handleMemoryTool(
       await Promise.all(
         memories.map(async (mem) => {
           await repos.memories.touchAccess(mem.memory_id);
-          eventBus.emit(
-            memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId),
-          );
+          eventBus.emit(memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId));
         }),
       );
 

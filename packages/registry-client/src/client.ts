@@ -1,20 +1,23 @@
 import { RegistryApiError } from './errors.js';
 import type {
-  SearchParams,
-  SearchResponse,
-  ListingDetail,
-  VersionListResponse,
-  ReviewListResponse,
-  CreatorProfile,
+  ArtifactDownloadInfo,
   CreateDraftRequest,
-  PublishDraft,
-  PutDraftManifestRequest,
-  PublishSubmitRequest,
-  SubmitResponse,
   CreateReviewRequest,
-  Review,
+  CreatorProfile,
+  InstallReceiptRequest,
+  InstallReceiptResponse,
   LibraryParams,
   LibraryResponse,
+  ListingDetail,
+  PublishDraft,
+  PublishSubmitRequest,
+  PutDraftManifestRequest,
+  Review,
+  ReviewListResponse,
+  SearchParams,
+  SearchResponse,
+  SubmitResponse,
+  VersionListResponse,
 } from './types.js';
 
 export interface RegistryClientConfig {
@@ -86,6 +89,18 @@ export class RegistryClient {
     return this.post<Review>('/v1/reviews', req);
   }
 
+  // ── Install support ──
+
+  async getArtifactDownloadInfo(packageVersionId: string): Promise<ArtifactDownloadInfo> {
+    return this.get<ArtifactDownloadInfo>(`/v1/install/download/${packageVersionId}`);
+  }
+
+  async reportInstall(req: InstallReceiptRequest): Promise<InstallReceiptResponse> {
+    return this.post<InstallReceiptResponse>('/v1/install/receipts', req);
+  }
+
+  // ── Library ──
+
   async getMyLibrary(params?: LibraryParams): Promise<LibraryResponse> {
     const qs = new URLSearchParams();
     if (params?.kind) qs.set('kind', params.kind);
@@ -113,7 +128,11 @@ export class RegistryClient {
     if (!res.ok) {
       const errorBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       const fallback = { code: 'UNKNOWN', message: res.statusText };
-      const errObj = (errorBody.error ?? fallback) as { code: string; message: string; details?: Record<string, unknown> };
+      const errObj = (errorBody.error ?? fallback) as {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      };
       throw new RegistryApiError(res.status, errObj.code, errObj.message, errObj.details);
     }
 

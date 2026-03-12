@@ -49,7 +49,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       .split(/\s+/)
       .filter((w) => w.length >= 3);
 
-    let results = [...this.store.values()].filter((row) => {
+    const results = [...this.store.values()].filter((row) => {
       if (row.company_id !== opts.companyId) return false;
       if (opts.scope && row.scope !== opts.scope) return false;
       if (opts.ownerId && row.owner_id !== opts.ownerId) return false;

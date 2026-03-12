@@ -129,9 +129,9 @@ describe('WorkstationAssignmentService', () => {
   it('should throw when employee does not exist', async () => {
     vi.mocked(employees.findById).mockResolvedValue(null);
 
-    await expect(
-      service.assignToWorkstation('emp-nonexistent', 'ws-1'),
-    ).rejects.toThrow('Employee emp-nonexistent not found');
+    await expect(service.assignToWorkstation('emp-nonexistent', 'ws-1')).rejects.toThrow(
+      'Employee emp-nonexistent not found',
+    );
 
     expect(employees.update).not.toHaveBeenCalled();
     expect(eventBus.emit).not.toHaveBeenCalled();

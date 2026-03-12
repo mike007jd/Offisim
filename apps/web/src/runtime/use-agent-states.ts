@@ -47,50 +47,62 @@ export function useAgentStates(): Map<string, AgentState> {
 
   useEffect(() => {
     // Employee state changes (runtime activity)
-    const unsubState = eventBus.on('employee.state.', (event: RuntimeEvent<EmployeeStatePayload>) => {
-      const { employeeId, next, taskRunId } = event.payload;
-      setAgents((prev) => {
-        const next2 = new Map(prev);
-        const existing = next2.get(employeeId);
-        if (existing) {
-          next2.set(employeeId, { ...existing, state: next, taskRunId });
-        }
-        return next2;
-      });
-    });
+    const unsubState = eventBus.on(
+      'employee.state.',
+      (event: RuntimeEvent<EmployeeStatePayload>) => {
+        const { employeeId, next, taskRunId } = event.payload;
+        setAgents((prev) => {
+          const next2 = new Map(prev);
+          const existing = next2.get(employeeId);
+          if (existing) {
+            next2.set(employeeId, { ...existing, state: next, taskRunId });
+          }
+          return next2;
+        });
+      },
+    );
 
     // Employee created — add new entry with idle state
-    const unsubCreated = eventBus.on('employee.created', (event: RuntimeEvent<EmployeeCreatedPayload>) => {
-      const { employeeId, name, roleSlug } = event.payload;
-      setAgents((prev) => {
-        const next = new Map(prev);
-        next.set(employeeId, { name, role: roleSlug, state: 'idle' });
-        return next;
-      });
-    });
+    const unsubCreated = eventBus.on(
+      'employee.created',
+      (event: RuntimeEvent<EmployeeCreatedPayload>) => {
+        const { employeeId, name, roleSlug } = event.payload;
+        setAgents((prev) => {
+          const next = new Map(prev);
+          next.set(employeeId, { name, role: roleSlug, state: 'idle' });
+          return next;
+        });
+      },
+    );
 
     // Employee updated — update name/role, keep current state
-    const unsubUpdated = eventBus.on('employee.updated', (event: RuntimeEvent<EmployeeUpdatedPayload>) => {
-      const { employeeId, name, roleSlug } = event.payload;
-      setAgents((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(employeeId);
-        if (existing) {
-          next.set(employeeId, { ...existing, name, role: roleSlug });
-        }
-        return next;
-      });
-    });
+    const unsubUpdated = eventBus.on(
+      'employee.updated',
+      (event: RuntimeEvent<EmployeeUpdatedPayload>) => {
+        const { employeeId, name, roleSlug } = event.payload;
+        setAgents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(employeeId);
+          if (existing) {
+            next.set(employeeId, { ...existing, name, role: roleSlug });
+          }
+          return next;
+        });
+      },
+    );
 
     // Employee deleted — remove entry
-    const unsubDeleted = eventBus.on('employee.deleted', (event: RuntimeEvent<EmployeeDeletedPayload>) => {
-      const { employeeId } = event.payload;
-      setAgents((prev) => {
-        const next = new Map(prev);
-        next.delete(employeeId);
-        return next;
-      });
-    });
+    const unsubDeleted = eventBus.on(
+      'employee.deleted',
+      (event: RuntimeEvent<EmployeeDeletedPayload>) => {
+        const { employeeId } = event.payload;
+        setAgents((prev) => {
+          const next = new Map(prev);
+          next.delete(employeeId);
+          return next;
+        });
+      },
+    );
 
     return () => {
       unsubState();

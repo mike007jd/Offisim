@@ -67,14 +67,16 @@ function extractRequirements(meta: Record<string, unknown>): SkillRequirements {
     mcps: Array.isArray(requires.mcps)
       ? requires.mcps
           .filter((m): m is Record<string, unknown> => typeof m === 'object' && m !== null)
-          .map((m): RequiredMcp => ({
-            name: String(m.name ?? ''),
-            description: String(m.description ?? ''),
-            transport: (['stdio', 'sse', 'either'].includes(String(m.transport))
-              ? String(m.transport) as 'stdio' | 'sse' | 'either'
-              : 'either'),
-            registryUrl: typeof m['registry-url'] === 'string' ? m['registry-url'] : undefined,
-          }))
+          .map(
+            (m): RequiredMcp => ({
+              name: String(m.name ?? ''),
+              description: String(m.description ?? ''),
+              transport: ['stdio', 'sse', 'either'].includes(String(m.transport))
+                ? (String(m.transport) as 'stdio' | 'sse' | 'either')
+                : 'either',
+              registryUrl: typeof m['registry-url'] === 'string' ? m['registry-url'] : undefined,
+            }),
+          )
           .filter((m) => m.name.length > 0)
       : undefined,
   };
@@ -139,7 +141,10 @@ export function parseSkill(content: string): ParsedSkill {
 
   // Check if there actually was frontmatter (gray-matter returns empty data for plain markdown)
   if (!data || Object.keys(data).length === 0) {
-    throw new SkillParseError('no_frontmatter', 'SKILL.md must contain YAML frontmatter (--- delimited)');
+    throw new SkillParseError(
+      'no_frontmatter',
+      'SKILL.md must contain YAML frontmatter (--- delimited)',
+    );
   }
 
   // 2. Validate required fields

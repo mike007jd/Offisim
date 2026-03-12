@@ -118,11 +118,19 @@ export class CostCalculationService {
 
     // 5. Group
     const groupBy = opts.groupBy ?? 'model';
-    const groups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
+    const groups = new Map<
+      string,
+      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
+    >();
 
     for (const call of filtered) {
       const key = this.resolveGroupKey(call, groupBy);
-      const existing = groups.get(key) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
+      const existing = groups.get(key) ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalCost: 0,
+        callCount: 0,
+      };
 
       const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
       const totalCost = rate
@@ -157,13 +165,27 @@ export class CostCalculationService {
   async getDashboardSummary(companyId: string): Promise<DashboardSummary> {
     const threads = await this.threadRepo.findByCompany(companyId);
     if (threads.length === 0) {
-      return { totalCost: 0, todayCost: 0, totalCalls: 0, todayCalls: 0, byModel: [], byEmployee: [] };
+      return {
+        totalCost: 0,
+        todayCost: 0,
+        totalCalls: 0,
+        todayCalls: 0,
+        byModel: [],
+        byEmployee: [],
+      };
     }
 
     const threadIds = threads.map((t) => t.thread_id);
     const allCalls = await this.llmCallRepo.findByThreadIds(threadIds);
     if (allCalls.length === 0) {
-      return { totalCost: 0, todayCost: 0, totalCalls: 0, todayCalls: 0, byModel: [], byEmployee: [] };
+      return {
+        totalCost: 0,
+        todayCost: 0,
+        totalCalls: 0,
+        todayCalls: 0,
+        byModel: [],
+        byEmployee: [],
+      };
     }
 
     const allRates = await this.costRateRepo.findAll();
@@ -174,8 +196,14 @@ export class CostCalculationService {
     let todayCost = 0;
     let totalCalls = 0;
     let todayCalls = 0;
-    const modelGroups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
-    const employeeGroups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
+    const modelGroups = new Map<
+      string,
+      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
+    >();
+    const employeeGroups = new Map<
+      string,
+      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
+    >();
 
     for (const call of allCalls) {
       const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
@@ -194,7 +222,12 @@ export class CostCalculationService {
 
       // By model
       const modelKey = `${call.provider}/${call.model}`;
-      const mg = modelGroups.get(modelKey) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
+      const mg = modelGroups.get(modelKey) ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalCost: 0,
+        callCount: 0,
+      };
       mg.inputTokens += call.input_tokens;
       mg.outputTokens += call.output_tokens;
       mg.totalCost += cost;
@@ -202,7 +235,12 @@ export class CostCalculationService {
       modelGroups.set(modelKey, mg);
 
       // By employee (node_name)
-      const eg = employeeGroups.get(call.node_name) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
+      const eg = employeeGroups.get(call.node_name) ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalCost: 0,
+        callCount: 0,
+      };
       eg.inputTokens += call.input_tokens;
       eg.outputTokens += call.output_tokens;
       eg.totalCost += cost;
@@ -210,7 +248,12 @@ export class CostCalculationService {
       employeeGroups.set(call.node_name, eg);
     }
 
-    const toAggArray = (groups: Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>): CostAggregate[] => {
+    const toAggArray = (
+      groups: Map<
+        string,
+        { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
+      >,
+    ): CostAggregate[] => {
       const arr: CostAggregate[] = [];
       for (const [groupKey, data] of groups) {
         arr.push({ groupKey, ...data });

@@ -1,3 +1,4 @@
+import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core';
 /**
  * MCP client factory for Tauri desktop environment.
  *
@@ -5,7 +6,6 @@
  * SSE transport  — delegates to BrowserMcpClientFactory (composition).
  */
 import { invoke } from '@tauri-apps/api/core';
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 
 interface McpSpawnResult {
@@ -23,9 +23,7 @@ export class TauriMcpClientFactory implements McpClientFactory {
     }
 
     if (!config.command) {
-      throw new Error(
-        `MCP server '${config.name}' uses stdio but has no command specified.`,
-      );
+      throw new Error(`MCP server '${config.name}' uses stdio but has no command specified.`);
     }
 
     const result = await invoke<McpSpawnResult>('plugin:mcp_bridge|mcp_spawn', {

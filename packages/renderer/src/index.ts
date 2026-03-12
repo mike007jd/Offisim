@@ -10,7 +10,15 @@ export type {
 } from './core/types.js';
 export { LAYER_NAMES } from './core/types.js';
 export type { LayerName, SceneLayers } from './core/types.js';
-export { STATE_COLORS, MOTION, LAYOUT, MOTION_TIER_A, MOTION_TIER_B, MOTION_TIER_C, getMotionForTier } from './tokens/index.js';
+export {
+  STATE_COLORS,
+  MOTION,
+  LAYOUT,
+  MOTION_TIER_A,
+  MOTION_TIER_B,
+  MOTION_TIER_C,
+  getMotionForTier,
+} from './tokens/index.js';
 export type { MotionBucket, PerformanceTier, MotionTokens } from './tokens/index.js';
 
 // Entity types — normal employees (human avatar) + OpenClaw agents (lobster)

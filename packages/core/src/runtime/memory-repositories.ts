@@ -121,9 +121,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     async findQueue(companyId, opts) {
       // Join through threads to filter by company
       const companyThreadIds = new Set(
-        [...threadsMap.values()]
-          .filter((t) => t.company_id === companyId)
-          .map((t) => t.thread_id),
+        [...threadsMap.values()].filter((t) => t.company_id === companyId).map((t) => t.thread_id),
       );
       let results = [...taskRunsMap.values()].filter((r) => companyThreadIds.has(r.thread_id));
       if (opts?.statuses) {
@@ -136,9 +134,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
     async countByStatus(companyId) {
       const companyThreadIds = new Set(
-        [...threadsMap.values()]
-          .filter((t) => t.company_id === companyId)
-          .map((t) => t.thread_id),
+        [...threadsMap.values()].filter((t) => t.company_id === companyId).map((t) => t.thread_id),
       );
       const counts: Record<string, number> = {};
       for (const r of taskRunsMap.values()) {
@@ -277,7 +273,9 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
     async findByThreadIds(threadIds) {
       const idSet = new Set(threadIds);
-      return [...llmCallsMap.values()].filter((c) => c.thread_id !== null && idSet.has(c.thread_id));
+      return [...llmCallsMap.values()].filter(
+        (c) => c.thread_id !== null && idSet.has(c.thread_id),
+      );
     },
     async findByTaskRun(taskRunId) {
       return [...llmCallsMap.values()].filter((c) => c.task_run_id === taskRunId);
@@ -334,7 +332,10 @@ export class MemoryEmployeeVersionRepository implements EmployeeVersionRepositor
     return row;
   }
 
-  async findByEmployee(employeeId: string, opts?: { limit?: number }): Promise<EmployeeVersionRow[]> {
+  async findByEmployee(
+    employeeId: string,
+    opts?: { limit?: number },
+  ): Promise<EmployeeVersionRow[]> {
     const results = this.rows
       .filter((r) => r.employee_id === employeeId)
       .sort((a, b) => b.version_num - a.version_num);

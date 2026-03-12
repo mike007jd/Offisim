@@ -62,11 +62,7 @@ function DeliverableCard({ item }: { item: Deliverable }) {
         {item.contributingEmployees.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {item.contributingEmployees.map((emp) => (
-              <Badge
-                key={emp.employeeId}
-                variant="info"
-                className="text-[10px] px-1.5 py-0"
-              >
+              <Badge key={emp.employeeId} variant="info" className="text-[10px] px-1.5 py-0">
                 {emp.employeeName}
               </Badge>
             ))}

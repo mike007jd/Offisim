@@ -116,10 +116,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
           <TabsContent value="provider">
             <div className="flex flex-col gap-4 pt-2">
               <div>
-                <label
-                  htmlFor="settings-provider"
-                  className="text-sm text-shell mb-1 block"
-                >
+                <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
                   Provider
                 </label>
                 <Select value={preset} onValueChange={handlePresetChange}>
@@ -137,10 +134,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
               </div>
 
               <div>
-                <label
-                  htmlFor="settings-api-key"
-                  className="text-sm text-shell mb-1 block"
-                >
+                <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
                   API Key
                 </label>
                 <Input
@@ -154,10 +148,7 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
 
               {showBaseURL && (
                 <div>
-                  <label
-                    htmlFor="settings-base-url"
-                    className="text-sm text-shell mb-1 block"
-                  >
+                  <label htmlFor="settings-base-url" className="text-sm text-shell mb-1 block">
                     Base URL
                   </label>
                   <Input

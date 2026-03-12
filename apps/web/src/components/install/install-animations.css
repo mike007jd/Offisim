@@ -15,14 +15,30 @@
 }
 
 /* Stagger: each child delays 50ms more */
-.manifest-row-reveal:nth-child(1) { animation-delay: 0ms; }
-.manifest-row-reveal:nth-child(2) { animation-delay: 50ms; }
-.manifest-row-reveal:nth-child(3) { animation-delay: 100ms; }
-.manifest-row-reveal:nth-child(4) { animation-delay: 150ms; }
-.manifest-row-reveal:nth-child(5) { animation-delay: 200ms; }
-.manifest-row-reveal:nth-child(6) { animation-delay: 250ms; }
-.manifest-row-reveal:nth-child(7) { animation-delay: 300ms; }
-.manifest-row-reveal:nth-child(8) { animation-delay: 350ms; }
+.manifest-row-reveal:nth-child(1) {
+  animation-delay: 0ms;
+}
+.manifest-row-reveal:nth-child(2) {
+  animation-delay: 50ms;
+}
+.manifest-row-reveal:nth-child(3) {
+  animation-delay: 100ms;
+}
+.manifest-row-reveal:nth-child(4) {
+  animation-delay: 150ms;
+}
+.manifest-row-reveal:nth-child(5) {
+  animation-delay: 200ms;
+}
+.manifest-row-reveal:nth-child(6) {
+  animation-delay: 250ms;
+}
+.manifest-row-reveal:nth-child(7) {
+  animation-delay: 300ms;
+}
+.manifest-row-reveal:nth-child(8) {
+  animation-delay: 350ms;
+}
 
 /* ANIM-022: Compatibility verdict emphasis */
 [data-verdict="fail"] {
@@ -35,13 +51,22 @@
 }
 
 @keyframes verdict-pulse {
-  0%, 100% { border-color: var(--lobster-red, #ef4444); }
-  50% { border-color: rgba(239, 68, 68, 0.5); }
+  0%,
+  100% {
+    border-color: var(--lobster-red, #ef4444);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.5);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ANIM-023: Binding required state */
@@ -55,6 +80,11 @@
 }
 
 @keyframes badge-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }

@@ -27,10 +27,12 @@ function statusBadgeColor(status: string): string {
 
 export function TaskItem({ task }: { task: TaskInfo }) {
   return (
-    <li className={cn(
-      'flex items-center gap-2 text-[10px] transition-colors duration-500',
-      task.status === 'running' && 'border-l-2 border-koi pl-1',
-    )}>
+    <li
+      className={cn(
+        'flex items-center gap-2 text-[10px] transition-colors duration-500',
+        task.status === 'running' && 'border-l-2 border-koi pl-1',
+      )}
+    >
       <span className={cn('rounded px-1 py-0.5', statusBadgeColor(task.status))}>
         {task.status}
       </span>

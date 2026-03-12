@@ -36,6 +36,8 @@ export interface InstallFlowState {
 
 export interface InstallFlowActions {
   startFileImport: (file: File) => void;
+  /** Start install from a marketplace deep link (listing_id + version) */
+  startRegistryInstall: (listingId: string, version: string) => void;
   confirmInstall: () => void;
   submitBindings: () => void;
   setBindingValue: (key: string, value: string) => void;
@@ -191,6 +193,84 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     [installService],
   );
 
+  /**
+   * Start install from a marketplace deep link.
+   * Fetches artifact download info from the platform API, downloads the package,
+   * and feeds it into the standard file import flow.
+   */
+  const startRegistryInstall = useCallback(
+    (listingId: string, version: string) => {
+      setIsOpen(true);
+      setStep('loading');
+      setPlan(null);
+      setError(null);
+      setBindingValues(new Map());
+      setIsSkillImport(false);
+      setSkillValidation(null);
+      txnIdRef.current = null;
+
+      (async () => {
+        try {
+          // 1. Get listing detail to find the package version ID
+          const platformUrl =
+            import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
+          const detailRes = await fetch(`${platformUrl}/v1/market/listings/${listingId}`);
+          if (!detailRes.ok) {
+            throw new Error(`Failed to fetch listing: ${detailRes.statusText}`);
+          }
+          const detail = await detailRes.json();
+
+          // 2. Find matching version or use latest
+          const versionsRes = await fetch(
+            `${platformUrl}/v1/market/listings/${listingId}/versions`,
+          );
+          const versionsData = await versionsRes.json();
+          const versions = versionsData.versions ?? [];
+          const matchedVersion =
+            versions.find((v: { version: string }) => v.version === version) ??
+            versions[0];
+
+          if (!matchedVersion) {
+            throw new Error(`No version ${version} found for listing ${listingId}`);
+          }
+
+          // 3. Get artifact download URL
+          const downloadRes = await fetch(
+            `${platformUrl}/v1/install/download/${matchedVersion.package_version_id ?? matchedVersion.package_id}`,
+          );
+          if (!downloadRes.ok) {
+            // Fallback: show review with metadata only (no binary yet)
+            // This handles the case where artifact isn't uploaded to registry yet
+            setPlan(MOCK_INSTALL_PLAN);
+            setStep('review');
+            return;
+          }
+          const downloadInfo = await downloadRes.json();
+
+          // 4. Download the actual artifact
+          const artifactRes = await fetch(downloadInfo.artifact_url);
+          if (!artifactRes.ok) {
+            throw new Error(`Failed to download artifact: ${artifactRes.statusText}`);
+          }
+          const blob = await artifactRes.blob();
+
+          // 5. Feed into standard file import flow
+          const file = new File([blob], `${detail.slug ?? listingId}.aicspkg`, {
+            type: 'application/octet-stream',
+          });
+
+          // Reset state and re-enter through file import
+          setIsOpen(false);
+          startFileImport(file);
+        } catch (err) {
+          setStep('error');
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+    },
+    [startFileImport],
+  );
+
   const confirmInstall = useCallback(() => {
     if (!plan) return;
 
@@ -315,6 +395,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     isSkillImport,
     skillValidation,
     startFileImport,
+    startRegistryInstall,
     confirmInstall,
     submitBindings,
     setBindingValue,

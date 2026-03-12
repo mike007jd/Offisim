@@ -14,15 +14,21 @@ import {
   createRuntimeContext,
   installStateChanged,
 } from '@aics/core';
-import type { CompanyRow, EmployeeRow, EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
+import type {
+  CompanyRow,
+  EmployeeRow,
+  EventBus,
+  McpServerConfig,
+  RuntimeRepositories,
+} from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 // HumanMessage is dynamically imported in sendMessage to avoid pulling
 // @langchain/core into the main bundle (~200 KB savings).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
-import { isTauri } from '../lib/env';
 import { COMPANY_ID, THREAD_ID } from '../lib/constants';
+import { isTauri } from '../lib/env';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
 import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
 
@@ -171,7 +177,10 @@ const IS_DEV = import.meta.env.DEV;
  *   bus ensures UI hooks always subscribe to the same instance, avoiding the
  *   "EventBus churn" problem during initialization.
  */
-async function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus): Promise<RuntimeBundle> {
+async function createBrowserRuntime(
+  config: ProviderConfig,
+  eventBus: InMemoryEventBus,
+): Promise<RuntimeBundle> {
   const repos = createMemoryRepositories();
   await seedCompany(repos);
 
@@ -211,7 +220,11 @@ async function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEv
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
-    mcpToolExecutor, repos.mcpAudit, eventBus, COMPANY_ID, THREAD_ID,
+    mcpToolExecutor,
+    repos.mcpAudit,
+    eventBus,
+    COMPANY_ID,
+    THREAD_ID,
   );
 
   const runtimeCtx = createRuntimeContext({
@@ -385,20 +398,17 @@ export function AicsRuntimeProvider({ children }: Props) {
   const clearError = useCallback(() => setError(null), []);
 
   // --- MCP server management ---
-  const connectMcpServer = useCallback(
-    async (config: McpServerConfig): Promise<number> => {
-      const runtime = runtimeRef.current;
-      if (!runtime?.mcpToolExecutor) {
-        throw new Error('Runtime not ready — cannot connect MCP server.');
-      }
-      await runtime.mcpToolExecutor.addServer(config);
-      setConnectedMcpServers((prev) => new Set([...prev, config.name]));
-      // Return tool count — serverCount is available but we want tool count
-      // Approximation: return serverCount as a signal that connection succeeded
-      return runtime.mcpToolExecutor.serverCount;
-    },
-    [],
-  );
+  const connectMcpServer = useCallback(async (config: McpServerConfig): Promise<number> => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.mcpToolExecutor) {
+      throw new Error('Runtime not ready — cannot connect MCP server.');
+    }
+    await runtime.mcpToolExecutor.addServer(config);
+    setConnectedMcpServers((prev) => new Set([...prev, config.name]));
+    // Return tool count — serverCount is available but we want tool count
+    // Approximation: return serverCount as a signal that connection succeeded
+    return runtime.mcpToolExecutor.serverCount;
+  }, []);
 
   const disconnectMcpServer = useCallback(async (name: string): Promise<void> => {
     const runtime = runtimeRef.current;
@@ -479,7 +489,11 @@ export function AicsRuntimeProvider({ children }: Props) {
 
     // Create shared EmployeeVersionService once per runtime lifecycle (I6)
     const employeeVersionService = runtime?.repos
-      ? new EmployeeVersionService(runtime.repos.employeeVersions, runtime.repos.employees, eventBus)
+      ? new EmployeeVersionService(
+          runtime.repos.employeeVersions,
+          runtime.repos.employees,
+          eventBus,
+        )
       : null;
 
     return {
@@ -499,7 +513,19 @@ export function AicsRuntimeProvider({ children }: Props) {
       connectedMcpServers,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
-  }, [isRunning, isInitializing, error, sendMessage, retryLastMessage, clearError, reinitRuntime, version, connectMcpServer, disconnectMcpServer, connectedMcpServers]);
+  }, [
+    isRunning,
+    isInitializing,
+    error,
+    sendMessage,
+    retryLastMessage,
+    clearError,
+    reinitRuntime,
+    version,
+    connectMcpServer,
+    disconnectMcpServer,
+    connectedMcpServers,
+  ]);
 
   return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;
 }

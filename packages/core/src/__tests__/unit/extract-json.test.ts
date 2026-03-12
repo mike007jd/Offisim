@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { extractJsonFromLlm } from '../../utils/extract-json.js';
 
 describe('extractJsonFromLlm', () => {
@@ -38,7 +38,9 @@ describe('extractJsonFromLlm', () => {
   });
 
   it('preserves generic type parameter', () => {
-    interface Custom { x: number }
+    interface Custom {
+      x: number;
+    }
     const result = extractJsonFromLlm<Custom>('{"x": 42}');
     expect(result?.x).toBe(42);
   });

@@ -47,8 +47,11 @@ export const MIN_FADE_DURATION = 0.3;
 /** Get motion tokens for the given performance tier. */
 export function getMotionForTier(tier: PerformanceTier): MotionTokens {
   switch (tier) {
-    case 'A': return MOTION_TIER_A;
-    case 'B': return MOTION_TIER_B;
-    case 'C': return MOTION_TIER_C;
+    case 'A':
+      return MOTION_TIER_A;
+    case 'B':
+      return MOTION_TIER_B;
+    case 'C':
+      return MOTION_TIER_C;
   }
 }

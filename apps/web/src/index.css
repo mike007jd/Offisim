@@ -7,38 +7,38 @@
  */
 @theme {
   /* ── Core palette ── */
-  --color-ocean-deep:   #1a1c2c;
-  --color-ocean-mid:    #333c57;
-  --color-ocean-light:  #566c86;
-  --color-sand:         #f4f4f4;
-  --color-shell:        #8b9bb4;
-  --color-lobster-red:  #e43b44;
+  --color-ocean-deep: #1a1c2c;
+  --color-ocean-mid: #333c57;
+  --color-ocean-light: #566c86;
+  --color-sand: #f4f4f4;
+  --color-shell: #8b9bb4;
+  --color-lobster-red: #e43b44;
   --color-coral-orange: #f77622;
-  --color-kelp-green:   #3e8948;
-  --color-sea-blue:     #3978a8;
-  --color-abyss:        #0e071b;
-  --color-pearl:        #ffffff;
-  --color-foam:         #c0cbdc;
+  --color-kelp-green: #3e8948;
+  --color-sea-blue: #3978a8;
+  --color-abyss: #0e071b;
+  --color-pearl: #ffffff;
+  --color-foam: #c0cbdc;
 
   /* ── Semantic aliases (maps old token names → new palette) ── */
-  --color-surface:         #1a1c2c;
-  --color-surface-light:   #333c57;
+  --color-surface: #1a1c2c;
+  --color-surface-light: #333c57;
   --color-surface-lighter: #566c86;
-  --color-border:          #566c86;
-  --color-text-primary:    #f4f4f4;
-  --color-text-secondary:  #8b9bb4;
-  --color-text-muted:      #566c86;
-  --color-accent:          #e43b44;
-  --color-accent-hover:    #c42f38;
-  --color-success:         #3e8948;
-  --color-warning:         #f77622;
-  --color-error:           #e43b44;
-  --color-info:            #3978a8;
+  --color-border: #566c86;
+  --color-text-primary: #f4f4f4;
+  --color-text-secondary: #8b9bb4;
+  --color-text-muted: #566c86;
+  --color-accent: #e43b44;
+  --color-accent-hover: #c42f38;
+  --color-success: #3e8948;
+  --color-warning: #f77622;
+  --color-error: #e43b44;
+  --color-info: #3978a8;
 
   /* ── Font families ── */
-  --font-pixel-display: 'Press Start 2P', monospace;
-  --font-pixel-body:    'Pixelify Sans', system-ui, sans-serif;
-  --font-pixel-mono:    'IBM Plex Mono', monospace;
+  --font-pixel-display: "Press Start 2P", monospace;
+  --font-pixel-body: "Pixelify Sans", system-ui, sans-serif;
+  --font-pixel-mono: "IBM Plex Mono", monospace;
 }
 
 /* ── Base styles ── */
@@ -79,7 +79,8 @@ body {
 
 .pixel-inset {
   border: 2px solid;
-  border-color: var(--color-abyss) var(--color-ocean-light) var(--color-ocean-light) var(--color-abyss);
+  border-color: var(--color-abyss) var(--color-ocean-light) var(--color-ocean-light)
+    var(--color-abyss);
   border-radius: 0;
 }
 
@@ -114,12 +115,17 @@ body {
 
 /* ── Pixel cursor blink for inputs ── */
 @keyframes pixel-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .pixel-cursor::after {
-  content: '▮';
+  content: "▮";
   animation: pixel-blink 1s step-end infinite;
   color: var(--color-lobster-red);
 }

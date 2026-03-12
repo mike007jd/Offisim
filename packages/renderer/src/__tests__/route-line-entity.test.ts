@@ -7,14 +7,25 @@ vi.mock('pixi.js', () => {
     scale = { set: vi.fn(), x: 1, y: 1 };
     visible = true;
     alpha = 1;
-    addChild(c: unknown) { this.children.push(c); return c; }
+    addChild(c: unknown) {
+      this.children.push(c);
+      return c;
+    }
     destroy() {}
   }
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    moveTo() { return this; }
-    lineTo() { return this; }
-    stroke() { return this; }
+    clear() {
+      return this;
+    }
+    moveTo() {
+      return this;
+    }
+    lineTo() {
+      return this;
+    }
+    stroke() {
+      return this;
+    }
   }
   return { Container: MockContainer, Graphics: MockGraphics };
 });

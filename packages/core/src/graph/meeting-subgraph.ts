@@ -280,7 +280,10 @@ Do not include any text outside the JSON object.`;
       {
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Meeting transcript:\n${transcriptText}\n\nExtract the structured output.` },
+          {
+            role: 'user',
+            content: `Meeting transcript:\n${transcriptText}\n\nExtract the structured output.`,
+          },
         ],
         model: resolved.model,
         temperature: 0.2,
@@ -292,7 +295,9 @@ Do not include any text outside the JSON object.`;
     // Parse JSON from response (handles markdown code blocks and embedded JSON)
     const parsed = extractJsonFromLlm(response.content);
     if (!parsed) {
-      console.warn('[meetingEndNode] Failed to extract JSON from LLM response, falling back to empty action items');
+      console.warn(
+        '[meetingEndNode] Failed to extract JSON from LLM response, falling back to empty action items',
+      );
       return [];
     }
 
@@ -300,7 +305,10 @@ Do not include any text outside the JSON object.`;
     const zodSchema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
     const result = zodSchema.safeParse(parsed);
     if (!result.success) {
-      console.warn('[meetingEndNode] Zod validation failed, falling back to empty action items:', result.error.message);
+      console.warn(
+        '[meetingEndNode] Zod validation failed, falling back to empty action items:',
+        result.error.message,
+      );
       return [];
     }
 

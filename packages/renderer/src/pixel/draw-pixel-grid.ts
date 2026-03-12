@@ -1,5 +1,5 @@
-import { Graphics } from 'pixi.js';
-import { PX, PIXEL_PALETTE } from './pixel-palette.js';
+import type { Graphics } from 'pixi.js';
+import { PIXEL_PALETTE, PX } from './pixel-palette.js';
 
 /**
  * Draw a pixel art grid onto a Graphics object.

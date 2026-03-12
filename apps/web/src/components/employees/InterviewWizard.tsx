@@ -59,7 +59,12 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogTitle className="sr-only">Interview Onboarding Wizard</DialogTitle>
 
@@ -125,9 +130,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           {currentStepName === 'model' && (
             <ModelStep formData={state.formData} updateField={updateField} />
           )}
-          {currentStepName === 'preview' && (
-            <PreviewStep formData={state.formData} />
-          )}
+          {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
         </div>
 
         {/* Footer Navigation */}
@@ -151,7 +154,9 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
 
             {isLastStep ? (
               <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : (
+                {isSubmitting ? (
+                  'Creating...'
+                ) : (
                   <>
                     <UserPlus className="h-3.5 w-3.5 mr-1" />
                     Create Employee

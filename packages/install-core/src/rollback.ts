@@ -36,7 +36,9 @@ export async function rollback(
     try {
       await repos.assetBindings.delete(id);
     } catch (err) {
-      errors.push(`assetBindings.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
+      errors.push(
+        `assetBindings.delete(${id}): ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -45,7 +47,9 @@ export async function rollback(
     try {
       await repos.installedAssets.delete(id);
     } catch (err) {
-      errors.push(`installedAssets.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
+      errors.push(
+        `installedAssets.delete(${id}): ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -62,7 +66,9 @@ export async function rollback(
   try {
     await repos.installedPackages.delete(result.installedPackageId);
   } catch (err) {
-    errors.push(`installedPackages.delete(${result.installedPackageId}): ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(
+      `installedPackages.delete(${result.installedPackageId}): ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   if (errors.length > 0) {

@@ -50,7 +50,12 @@ export function EmployeeEditorDialog({
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -58,11 +63,19 @@ export function EmployeeEditorDialog({
 
         <Tabs defaultValue="profile" className="mt-2">
           <TabsList className="w-full">
-            <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
-            <TabsTrigger value="persona" className="flex-1">Persona</TabsTrigger>
-            <TabsTrigger value="config" className="flex-1">Config</TabsTrigger>
+            <TabsTrigger value="profile" className="flex-1">
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="persona" className="flex-1">
+              Persona
+            </TabsTrigger>
+            <TabsTrigger value="config" className="flex-1">
+              Config
+            </TabsTrigger>
             {isEditMode && (
-              <TabsTrigger value="history" className="flex-1">History</TabsTrigger>
+              <TabsTrigger value="history" className="flex-1">
+                History
+              </TabsTrigger>
             )}
           </TabsList>
 
@@ -212,7 +225,9 @@ export function EmployeeEditorDialog({
                   max={2}
                   step={0.1}
                   value={formData.temperature}
-                  onChange={(e) => updateField('temperature', Number.parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    updateField('temperature', Number.parseFloat(e.target.value) || 0)
+                  }
                 />
               </div>
 
@@ -227,7 +242,9 @@ export function EmployeeEditorDialog({
                   max={100000}
                   step={1}
                   value={formData.maxTokens}
-                  onChange={(e) => updateField('maxTokens', Number.parseInt(e.target.value, 10) || 4096)}
+                  onChange={(e) =>
+                    updateField('maxTokens', Number.parseInt(e.target.value, 10) || 4096)
+                  }
                 />
               </div>
             </div>
@@ -245,24 +262,14 @@ export function EmployeeEditorDialog({
         <div className="flex items-center justify-between pt-4 border-t border-ocean-light mt-2">
           <div>
             {isEditMode && !isConfirmingDelete && (
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={isSaving}
-                onClick={requestDelete}
-              >
+              <Button variant="destructive" size="sm" disabled={isSaving} onClick={requestDelete}>
                 Delete
               </Button>
             )}
             {isEditMode && isConfirmingDelete && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-destructive">Delete this employee?</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={isSaving}
-                  onClick={confirmDelete}
-                >
+                <Button variant="destructive" size="sm" disabled={isSaving} onClick={confirmDelete}>
                   {isSaving ? 'Deleting...' : 'Confirm'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={cancelDelete}>

@@ -39,15 +39,13 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import {
-  MemoryMcpAuditRepository,
-} from '@aics/core';
+import { MemoryMcpAuditRepository } from '@aics/core';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
-  NewEmployeeVersion,
   ModelCostRateRepository,
   ModelCostRateRow,
+  NewEmployeeVersion,
   NewModelCostRate,
 } from '@aics/core';
 import * as schema from '@aics/db-local';
@@ -490,7 +488,9 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .split(/\s+/)
         .filter((w) => w.length >= 3);
       if (queryWords.length > 0) {
-        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`);
+        conditions.push(
+          sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`,
+        );
       }
       const limit = opts.limit ?? 10;
       const rows = await db
@@ -506,9 +506,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return filtered.slice(0, limit);
     },
     async delete(memoryId) {
-      await db
-        .delete(schema.memoryEntries)
-        .where(eq(schema.memoryEntries.memory_id, memoryId));
+      await db.delete(schema.memoryEntries).where(eq(schema.memoryEntries.memory_id, memoryId));
     },
     async findByOwner(ownerId, opts) {
       const conditions = [eq(schema.memoryEntries.owner_id, ownerId)];

@@ -1,6 +1,6 @@
+import { creators, listings, packageVersions, userLibrary } from '@aics/db-platform';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { eq, and, desc, inArray } from 'drizzle-orm';
-import { userLibrary, listings, creators, packageVersions } from '@aics/db-platform';
 import { requireAuth } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -35,7 +35,9 @@ meRoute.get('/library', requireAuth, async (c) => {
     db
       .select()
       .from(packageVersions)
-      .where(and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')))
+      .where(
+        and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')),
+      )
       .orderBy(desc(packageVersions.published_at)),
   ]);
 
@@ -89,7 +91,7 @@ meRoute.get('/library', requireAuth, async (c) => {
             verification_state: creator.verification_state,
           },
           status: listing.status,
-          latest_version: (versionMap.get(listing.listing_id))?.version ?? '0.0.0',
+          latest_version: versionMap.get(listing.listing_id)?.version ?? '0.0.0',
           rating: listing.rating_avg ?? 0,
           install_count: listing.install_count ?? 0,
         },

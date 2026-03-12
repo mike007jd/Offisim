@@ -175,7 +175,14 @@ export { AuditingToolExecutor } from './mcp/auditing-tool-executor.js';
 // NOTE: SdkClientFactory intentionally NOT in barrel — imports node:stream/child_process
 // which breaks browser builds. Use direct import in Node.js/Tauri environments:
 //   import { SdkClientFactory } from '@aics/core/dist/mcp/sdk-client-factory.js';
-export type { McpServerConfig, McpConnection, McpClientFactory, McpToolDef, ToolApprovalMode, ToolPermissionPolicy } from './mcp/types.js';
+export type {
+  McpServerConfig,
+  McpConnection,
+  McpClientFactory,
+  McpToolDef,
+  ToolApprovalMode,
+  ToolPermissionPolicy,
+} from './mcp/types.js';
 
 // --- Agent Nodes ---
 export { bossNode } from './agents/boss-node.js';

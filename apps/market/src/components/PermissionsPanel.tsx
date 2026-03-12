@@ -1,5 +1,5 @@
-import { Shield, FolderOpen, Wifi, KeyRound } from 'lucide-react';
 import type { PermissionSummary } from '@aics/registry-client';
+import { FolderOpen, KeyRound, Shield, Wifi } from 'lucide-react';
 import { RiskBadge } from './RiskBadge';
 
 export function PermissionsPanel({ permissions }: { permissions: PermissionSummary }) {
@@ -24,9 +24,7 @@ export function PermissionsPanel({ permissions }: { permissions: PermissionSumma
         </div>
         <div className="flex items-center gap-2">
           <Wifi size={14} className="text-gray-400" />
-          <span className="text-gray-600">
-            Network: {permissions.network_scope ?? 'none'}
-          </span>
+          <span className="text-gray-600">Network: {permissions.network_scope ?? 'none'}</span>
         </div>
         {permissions.declares_secrets && (
           <div className="flex items-center gap-2 text-yellow-700">

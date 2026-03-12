@@ -2,29 +2,29 @@ import type { EmployeeState } from '@aics/shared-types';
 import gsap from 'gsap';
 import { Container, Graphics, Text } from 'pixi.js';
 import { drawPixelGrid, idToHue } from '../pixel/draw-pixel-grid.js';
-import { PX, PIXEL_PALETTE } from '../pixel/pixel-palette.js';
 import {
+  LOBSTER_ANTENNA_L,
+  LOBSTER_ANTENNA_R,
   LOBSTER_BODY,
   LOBSTER_CLAW_L,
   LOBSTER_CLAW_R,
   LOBSTER_EYES,
   LOBSTER_LEGS,
-  LOBSTER_ANTENNA_L,
-  LOBSTER_ANTENNA_R,
 } from '../pixel/lobster-shapes.js';
+import { PIXEL_PALETTE, PX } from '../pixel/pixel-palette.js';
 import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
 import {
-  createIdleBob,
-  createClawWiggle,
-  createThinkingAnimation,
-  createWorkingAnimation,
-  createSearchingAnimation,
   createBlockedAnimation,
-  createWaitingAnimation,
+  createClawWiggle,
+  createIdleBob,
   createReportingAnimation,
+  createSearchingAnimation,
   createSuccessAnimation,
+  createThinkingAnimation,
+  createWaitingAnimation,
+  createWorkingAnimation,
 } from './lobster-animations.js';
 
 /**
@@ -265,19 +265,25 @@ export class LobsterEntity {
     } else if (next === 'thinking') {
       // Thinking: idle bob + antenna wiggle + eye shift + gentle claw wiggle
       this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
-      this.bodyAnimTweens.push(createThinkingAnimation(this.antennaL, this.antennaR, this.eyesGfx, this.motion.M1));
+      this.bodyAnimTweens.push(
+        createThinkingAnimation(this.antennaL, this.antennaR, this.eyesGfx, this.motion.M1),
+      );
       this.bodyAnimTweens.push(createClawWiggle(this.clawL, this.clawR, this.motion.M1));
     } else if (next === 'searching') {
       // ANIM-008: Searching — idle bob + eye scan + antennae forward
       this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
-      this.bodyAnimTweens.push(createSearchingAnimation(this.eyesGfx, this.antennaL, this.antennaR, this.motion.M1));
+      this.bodyAnimTweens.push(
+        createSearchingAnimation(this.eyesGfx, this.antennaL, this.antennaR, this.motion.M1),
+      );
     } else if (next === 'executing') {
       // Working: idle bob + fast claw wiggle
       this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
       this.bodyAnimTweens.push(createWorkingAnimation(this.clawL, this.clawR, this.motion.M1));
     } else if (next === 'blocked') {
       // ANIM-010: Blocked — defensive claws + jitter (no idle bob — stalled)
-      this.bodyAnimTweens.push(createBlockedAnimation(this.clawL, this.clawR, this.container, this.motion.M1));
+      this.bodyAnimTweens.push(
+        createBlockedAnimation(this.clawL, this.clawR, this.container, this.motion.M1),
+      );
     } else if (next === 'waiting' || next === 'assigned') {
       // ANIM-011: Waiting — subtle breathe
       this.bodyAnimTweens.push(createWaitingAnimation(this.container, this.motion.M1));
@@ -371,9 +377,7 @@ export class LobsterEntity {
    * @param ringSize - If provided, overrides the default ring size calculation.
    */
   private drawRing(color: number, ringSize?: number): void {
-    const size =
-      ringSize ??
-      Math.max(LOBSTER_BODY[0]!.length * PX, LOBSTER_BODY.length * PX) + 12;
+    const size = ringSize ?? Math.max(LOBSTER_BODY[0]!.length * PX, LOBSTER_BODY.length * PX) + 12;
     const { ringWidth } = LAYOUT.employee;
     this.ring.clear();
     this.ring.rect(-size / 2, -size / 2, size, size);
@@ -400,7 +404,10 @@ export class LobsterEntity {
 }
 
 const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set([
-  'thinking', 'searching', 'executing', 'reporting',
+  'thinking',
+  'searching',
+  'executing',
+  'reporting',
 ]);
 
 function isActiveState(state: EmployeeState): boolean {

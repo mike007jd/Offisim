@@ -19,7 +19,10 @@ interface StyleStepProps {
 export function StyleStep({ formData, updateField }: StyleStepProps) {
   const togglePreset = (label: string) => {
     const current = formData.style.trim();
-    const parts = current.split(',').map((s) => s.trim()).filter(Boolean);
+    const parts = current
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const idx = parts.findIndex((p) => p.toLowerCase() === label.toLowerCase());
     if (idx >= 0) {
       parts.splice(idx, 1);

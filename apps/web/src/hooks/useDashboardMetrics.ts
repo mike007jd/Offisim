@@ -157,24 +157,21 @@ export function useDashboardMetrics(): DashboardMetrics {
     );
 
     // --- Active task count ---
-    const unsubTask = eventBus.on(
-      'task.state.changed',
-      (event: RuntimeEvent<TaskStatePayload>) => {
-        const { taskRunId, next } = event.payload;
-        const tasks = activeTasksRef.current;
+    const unsubTask = eventBus.on('task.state.changed', (event: RuntimeEvent<TaskStatePayload>) => {
+      const { taskRunId, next } = event.payload;
+      const tasks = activeTasksRef.current;
 
-        if (ACTIVE_TASK_STATES.has(next)) {
-          tasks.add(taskRunId);
-        } else {
-          tasks.delete(taskRunId);
-        }
+      if (ACTIVE_TASK_STATES.has(next)) {
+        tasks.add(taskRunId);
+      } else {
+        tasks.delete(taskRunId);
+      }
 
-        updateMetrics((prev) => ({
-          ...prev,
-          activeTaskCount: tasks.size,
-        }));
-      },
-    );
+      updateMetrics((prev) => ({
+        ...prev,
+        activeTaskCount: tasks.size,
+      }));
+    });
 
     // --- Employee utilization (prefix match on 'employee.state.') ---
     const unsubEmployee = eventBus.on(

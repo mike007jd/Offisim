@@ -1,9 +1,9 @@
-import type { Metadata } from 'next';
 import type { CreatorProfile } from '@aics/registry-client';
+import { Globe, ShieldCheck } from 'lucide-react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getRegistryClient } from '../../../lib/registry';
 import { ListingCard } from '../../../components/ListingCard';
-import { ShieldCheck, Globe } from 'lucide-react';
+import { getRegistryClient } from '../../../lib/registry';
 
 interface Props {
   params: Promise<{ handle: string }>;

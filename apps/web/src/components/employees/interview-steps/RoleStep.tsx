@@ -3,13 +3,48 @@ import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 import { cn } from '../../../lib/utils';
 
 const ROLE_CARDS = [
-  { value: 'pm', label: 'Product Manager', description: 'Drives product vision and priorities', icon: LayoutDashboard },
-  { value: 'developer', label: 'Developer', description: 'Builds features and writes code', icon: Code2 },
-  { value: 'designer', label: 'Designer', description: 'Crafts user experiences and visuals', icon: Palette },
-  { value: 'qa', label: 'QA Engineer', description: 'Ensures quality through testing', icon: Search },
-  { value: 'devops', label: 'DevOps Engineer', description: 'Manages infrastructure and deployments', icon: Server },
-  { value: 'analyst', label: 'Analyst', description: 'Extracts insights from data', icon: TrendingUp },
-  { value: 'engineering_manager', label: 'Engineering Manager', description: 'Leads teams and coordinates work', icon: Users },
+  {
+    value: 'pm',
+    label: 'Product Manager',
+    description: 'Drives product vision and priorities',
+    icon: LayoutDashboard,
+  },
+  {
+    value: 'developer',
+    label: 'Developer',
+    description: 'Builds features and writes code',
+    icon: Code2,
+  },
+  {
+    value: 'designer',
+    label: 'Designer',
+    description: 'Crafts user experiences and visuals',
+    icon: Palette,
+  },
+  {
+    value: 'qa',
+    label: 'QA Engineer',
+    description: 'Ensures quality through testing',
+    icon: Search,
+  },
+  {
+    value: 'devops',
+    label: 'DevOps Engineer',
+    description: 'Manages infrastructure and deployments',
+    icon: Server,
+  },
+  {
+    value: 'analyst',
+    label: 'Analyst',
+    description: 'Extracts insights from data',
+    icon: TrendingUp,
+  },
+  {
+    value: 'engineering_manager',
+    label: 'Engineering Manager',
+    description: 'Leads teams and coordinates work',
+    icon: Users,
+  },
 ] as const;
 
 interface RoleStepProps {

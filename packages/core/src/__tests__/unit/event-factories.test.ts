@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   employeeStateChanged,
+  handoffCompleted,
+  handoffInitiated,
+  meetingActionCreated,
   meetingStateChanged,
+  memoryAccessed,
+  memoryCreated,
   taskAssignmentChanged,
   taskStateChanged,
-  meetingActionCreated,
-  handoffInitiated,
-  handoffCompleted,
-  memoryCreated,
-  memoryAccessed,
 } from '../../events/event-factories.js';
 
 describe('event factories', () => {
@@ -49,7 +49,9 @@ describe('event factories', () => {
 
 describe('P2 event factories', () => {
   it('meetingActionCreated produces correct event', () => {
-    const e = meetingActionCreated('co-1', 'mtg-1', 'tr-1', 'Implement auth', 'emp-bob', 'high', ['tr-0']);
+    const e = meetingActionCreated('co-1', 'mtg-1', 'tr-1', 'Implement auth', 'emp-bob', 'high', [
+      'tr-0',
+    ]);
     expect(e.type).toBe('meeting.action.created');
     expect(e.entityType).toBe('task');
     expect(e.payload.meetingId).toBe('mtg-1');
@@ -71,7 +73,15 @@ describe('P2 event factories', () => {
   });
 
   it('memoryCreated produces correct event', () => {
-    const e = memoryCreated('co-1', 'mem-1', 'emp-bob', 'employee', 'experience', 'JWT is better', 'th-1');
+    const e = memoryCreated(
+      'co-1',
+      'mem-1',
+      'emp-bob',
+      'employee',
+      'experience',
+      'JWT is better',
+      'th-1',
+    );
     expect(e.type).toBe('memory.created');
     expect(e.payload.scope).toBe('employee');
   });

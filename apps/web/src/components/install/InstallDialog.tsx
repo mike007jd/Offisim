@@ -29,9 +29,7 @@ function DoneContent({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <CheckCircle2 className="h-10 w-10 text-success" />
       <h3 className="text-base font-semibold text-sand">Installation Complete</h3>
-      <p className="text-sm text-shell text-center">
-        The package has been installed successfully.
-      </p>
+      <p className="text-sm text-shell text-center">The package has been installed successfully.</p>
       <Button onClick={onClose} className="mt-2">
         Close
       </Button>

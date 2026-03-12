@@ -12,9 +12,9 @@
  */
 
 // Shorthand aliases for readability
-const _ = 0;  // transparent
-const L = 3;  // ocean-light (surface/seat)
-const S = 4;  // shell (edges/back)
+const _ = 0; // transparent
+const L = 3; // ocean-light (surface/seat)
+const S = 4; // shell (edges/back)
 const B = 11; // sea-blue (screen)
 const D = 12; // abyss (dark: legs/frame)
 

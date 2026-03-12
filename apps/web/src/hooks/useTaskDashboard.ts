@@ -152,9 +152,7 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
           ...prev,
           currentStepIndex: stepIndex,
           steps: prev.steps.map((s) =>
-            s.stepIndex === stepIndex
-              ? { ...s, status: 'active' as const, expanded: true }
-              : s,
+            s.stepIndex === stepIndex ? { ...s, status: 'active' as const, expanded: true } : s,
           ),
         }));
       },
@@ -168,74 +166,68 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
         update((prev) => ({
           ...prev,
           steps: prev.steps.map((s) =>
-            s.stepIndex === stepIndex
-              ? { ...s, status: 'completed' as const }
-              : s,
+            s.stepIndex === stepIndex ? { ...s, status: 'completed' as const } : s,
           ),
         }));
       },
     );
 
     // plan.completed
-    const offCompleted = eventBus.on(
-      'plan.completed',
-      (_e: RuntimeEvent<PlanCompletedPayload>) => {
-        update((prev) => ({ ...prev, isComplete: true }));
-      },
-    );
+    const offCompleted = eventBus.on('plan.completed', (_e: RuntimeEvent<PlanCompletedPayload>) => {
+      update((prev) => ({ ...prev, isComplete: true }));
+    });
 
     // task.state.changed — update or create task in its step
-    const offTaskState = eventBus.on(
-      'task.state.changed',
-      (e: RuntimeEvent<TaskStatePayload>) => {
-        const { taskRunId, next: nextStatus, employeeId } = e.payload;
-        update((prev) => {
-          const steps = prev.steps.map((s) => ({ ...s, tasks: [...s.tasks] }));
-          const [si, ti] = findTask(steps, taskRunId);
+    const offTaskState = eventBus.on('task.state.changed', (e: RuntimeEvent<TaskStatePayload>) => {
+      const { taskRunId, next: nextStatus, employeeId } = e.payload;
+      update((prev) => {
+        const steps = prev.steps.map((s) => ({ ...s, tasks: [...s.tasks] }));
+        const [si, ti] = findTask(steps, taskRunId);
 
-          const existingStep = si >= 0 ? steps[si] : undefined;
-          const existingTask = existingStep && ti >= 0 ? existingStep.tasks[ti] : undefined;
+        const existingStep = si >= 0 ? steps[si] : undefined;
+        const existingTask = existingStep && ti >= 0 ? existingStep.tasks[ti] : undefined;
 
-          if (existingStep && existingTask) {
-            // Update existing task
-            existingStep.tasks[ti] = {
-              ...existingTask,
+        if (existingStep && existingTask) {
+          // Update existing task
+          existingStep.tasks[ti] = {
+            ...existingTask,
+            status: nextStatus,
+            employeeId: employeeId ?? existingTask.employeeId,
+          };
+        } else {
+          // Unknown task — assign to active step (or last step), replacing first placeholder.
+          // Fallback chain: currentStepIndex → first 'active' step → last step.
+          if (steps.length === 0) return prev; // No plan yet — ignore stray task events
+          let targetIdx = prev.currentStepIndex >= 0 ? prev.currentStepIndex : -1;
+          if (targetIdx < 0) {
+            targetIdx = steps.findIndex((s) => s.status === 'active');
+          }
+          if (targetIdx < 0) targetIdx = steps.length - 1;
+          const targetStep = steps[targetIdx];
+          if (targetStep) {
+            const placeholderIdx = targetStep.tasks.findIndex((t) =>
+              t.taskRunId.startsWith('placeholder-'),
+            );
+            const newTask: TaskInfo = {
+              taskRunId,
+              employeeId: employeeId ?? null,
+              employeeName: employeeId
+                ? (agentsRef.current?.get(employeeId)?.name ?? employeeId)
+                : null,
+              taskType: nextStatus,
+              description: taskRunId,
               status: nextStatus,
-              employeeId: employeeId ?? existingTask.employeeId,
             };
-          } else {
-            // Unknown task — assign to active step (or last step), replacing first placeholder.
-            // Fallback chain: currentStepIndex → first 'active' step → last step.
-            if (steps.length === 0) return prev; // No plan yet — ignore stray task events
-            let targetIdx = prev.currentStepIndex >= 0 ? prev.currentStepIndex : -1;
-            if (targetIdx < 0) {
-              targetIdx = steps.findIndex((s) => s.status === 'active');
-            }
-            if (targetIdx < 0) targetIdx = steps.length - 1;
-            const targetStep = steps[targetIdx];
-            if (targetStep) {
-              const placeholderIdx = targetStep.tasks.findIndex((t) =>
-                t.taskRunId.startsWith('placeholder-'),
-              );
-              const newTask: TaskInfo = {
-                taskRunId,
-                employeeId: employeeId ?? null,
-                employeeName: employeeId ? (agentsRef.current?.get(employeeId)?.name ?? employeeId) : null,
-                taskType: nextStatus,
-                description: taskRunId,
-                status: nextStatus,
-              };
-              if (placeholderIdx >= 0) {
-                targetStep.tasks[placeholderIdx] = newTask;
-              } else {
-                targetStep.tasks.push(newTask);
-              }
+            if (placeholderIdx >= 0) {
+              targetStep.tasks[placeholderIdx] = newTask;
+            } else {
+              targetStep.tasks.push(newTask);
             }
           }
-          return { ...prev, steps };
-        });
-      },
-    );
+        }
+        return { ...prev, steps };
+      });
+    });
 
     // task.assignment.changed — set employeeId on task
     const offTaskAssign = eventBus.on(
@@ -248,9 +240,10 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
           const assignStep = si >= 0 ? steps[si] : undefined;
           const assignTask = assignStep && ti >= 0 ? assignStep.tasks[ti] : undefined;
           if (assignStep && assignTask) {
-            const resolvedName = action === 'assigned'
-              ? agentsRef.current?.get(employeeId)?.name ?? employeeId
-              : null;
+            const resolvedName =
+              action === 'assigned'
+                ? (agentsRef.current?.get(employeeId)?.name ?? employeeId)
+                : null;
             assignStep.tasks[ti] = {
               ...assignTask,
               employeeId: action === 'assigned' ? employeeId : null,

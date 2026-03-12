@@ -47,7 +47,13 @@ export type InstallState =
   | 'cancelled';
 
 /** Meeting lifecycle states — source: SCENE_STATE_MATRIX §8 */
-export type MeetingState = 'scheduled' | 'gathering' | 'running' | 'waiting' | 'completed' | 'cancelled';
+export type MeetingState =
+  | 'scheduled'
+  | 'gathering'
+  | 'running'
+  | 'waiting'
+  | 'completed'
+  | 'cancelled';
 
 /** Report lifecycle states — source: SCENE_STATE_MATRIX §10 */
 export type ReportState = 'drafting' | 'ready' | 'delivered' | 'rejected';

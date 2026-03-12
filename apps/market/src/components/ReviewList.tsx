@@ -1,6 +1,6 @@
 import type { Review } from '@aics/registry-client';
-import { RatingStars } from './RatingStars';
 import { formatDate } from '../lib/format';
+import { RatingStars } from './RatingStars';
 
 export function ReviewList({ reviews }: { reviews: Review[] }) {
   if (reviews.length === 0) {

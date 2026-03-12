@@ -104,8 +104,7 @@ export async function bossSummaryNode(
           .filter((m) => m._getType() === 'ai')
           .map((m) => (typeof m.content === 'string' ? m.content : ''))
           .filter(
-            (c) =>
-              c.startsWith('[') && !EXCLUDED_PREFIXES.some((prefix) => c.startsWith(prefix)),
+            (c) => c.startsWith('[') && !EXCLUDED_PREFIXES.some((prefix) => c.startsWith(prefix)),
           );
 
   if (employeeResults.length === 0) {

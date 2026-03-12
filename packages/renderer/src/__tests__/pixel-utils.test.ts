@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { PX, PIXEL_PALETTE, drawPixelGrid, idToHue } from '../pixel/index.js';
+import { describe, expect, it } from 'vitest';
+import { PIXEL_PALETTE, PX, drawPixelGrid, idToHue } from '../pixel/index.js';
 
 // ---------------------------------------------------------------------------
 // Mock Graphics — tracks rect() and fill() calls

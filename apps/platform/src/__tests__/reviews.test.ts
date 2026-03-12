@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
-import type { PlatformEnv } from '../types.js';
-import { reviewsRoute } from '../routes/reviews.js';
+import { describe, expect, it, vi } from 'vitest';
 import { optionalAuth } from '../middleware/auth.js';
 import { errorHandler } from '../middleware/error-handler.js';
+import { reviewsRoute } from '../routes/reviews.js';
+import type { PlatformEnv } from '../types.js';
 
 // ── Helpers ──
 
@@ -176,7 +176,7 @@ describe('Reviews Route', () => {
       });
 
       expect(res.status).toBe(201);
-      const json = await res.json() as any;
+      const json = (await res.json()) as any;
       expect(json.review_id).toBe(REVIEW_ID);
       expect(json.rating).toBe(4);
     });
@@ -215,7 +215,7 @@ describe('Reviews Route', () => {
       });
 
       expect(res.status).toBe(200);
-      const json = await res.json() as any;
+      const json = (await res.json()) as any;
       expect(json.rating).toBe(5);
     });
   });

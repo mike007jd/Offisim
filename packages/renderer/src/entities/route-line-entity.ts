@@ -5,8 +5,10 @@ import { MIN_FADE_DURATION, type MotionBucket } from '../tokens/motion.js';
 /** Draw a dashed line manually (PixiJS 8 Graphics has no native dash support). */
 function drawDashedLine(
   g: Graphics,
-  x1: number, y1: number,
-  x2: number, y2: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
   dashLen: number,
   gapLen: number,
   offset: number,
@@ -119,9 +121,12 @@ export class RouteLineEntity {
     this.gfx.clear();
     drawDashedLine(
       this.gfx,
-      this.fromX, this.fromY,
-      this.toX, this.toY,
-      8, 4, // dash: 8px on, 4px off
+      this.fromX,
+      this.fromY,
+      this.toX,
+      this.toY,
+      8,
+      4, // dash: 8px on, 4px off
       this.dashOffset,
       this.color,
       2,

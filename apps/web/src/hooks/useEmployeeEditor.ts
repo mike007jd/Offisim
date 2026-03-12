@@ -1,5 +1,10 @@
 import type { EmployeeRow, EmployeeUpdate } from '@aics/core';
-import { employeeCreated, employeeDeleted, employeeUpdated, employeeWorkstationChanged } from '@aics/core';
+import {
+  employeeCreated,
+  employeeDeleted,
+  employeeUpdated,
+  employeeWorkstationChanged,
+} from '@aics/core';
 import { useCallback, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
@@ -30,7 +35,9 @@ const DEFAULT_FORM: EmployeeFormData = {
   maxTokens: 4096,
 };
 
-function parsePersonaJson(raw: string | null): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions'> {
+function parsePersonaJson(
+  raw: string | null,
+): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions'> {
   if (!raw) return { expertise: '', style: '', customInstructions: '' };
   try {
     const parsed = JSON.parse(raw);
@@ -44,7 +51,9 @@ function parsePersonaJson(raw: string | null): Pick<EmployeeFormData, 'expertise
   }
 }
 
-function parseConfigJson(raw: string | null): Pick<EmployeeFormData, 'modelPreference' | 'temperature' | 'maxTokens'> {
+function parseConfigJson(
+  raw: string | null,
+): Pick<EmployeeFormData, 'modelPreference' | 'temperature' | 'maxTokens'> {
   if (!raw) return { modelPreference: '', temperature: 0.7, maxTokens: 4096 };
   try {
     const parsed = JSON.parse(raw);
@@ -99,30 +108,39 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const updateField = useCallback(<K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {
-    setFormData((prev) => {
-      const next = { ...prev, [key]: value };
-      setIsDirty(JSON.stringify(next) !== JSON.stringify(originalData));
-      return next;
-    });
-  }, [originalData]);
+  const updateField = useCallback(
+    <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {
+      setFormData((prev) => {
+        const next = { ...prev, [key]: value };
+        setIsDirty(JSON.stringify(next) !== JSON.stringify(originalData));
+        return next;
+      });
+    },
+    [originalData],
+  );
 
-  const handleSetFormData = useCallback((data: EmployeeFormData) => {
-    setFormData(data);
-    setIsDirty(JSON.stringify(data) !== JSON.stringify(originalData));
-  }, [originalData]);
+  const handleSetFormData = useCallback(
+    (data: EmployeeFormData) => {
+      setFormData(data);
+      setIsDirty(JSON.stringify(data) !== JSON.stringify(originalData));
+    },
+    [originalData],
+  );
 
-  const openForEdit = useCallback(async (id: string) => {
-    if (!repos) return;
-    const row = await repos.employees.findById(id);
-    if (!row) return;
-    const data = rowToFormData(row);
-    setEmployeeId(id);
-    setFormData(data);
-    setOriginalData(data);
-    setIsDirty(false);
-    setIsOpen(true);
-  }, [repos]);
+  const openForEdit = useCallback(
+    async (id: string) => {
+      if (!repos) return;
+      const row = await repos.employees.findById(id);
+      if (!row) return;
+      const data = rowToFormData(row);
+      setEmployeeId(id);
+      setFormData(data);
+      setOriginalData(data);
+      setIsDirty(false);
+      setIsOpen(true);
+    },
+    [repos],
+  );
 
   const openForCreate = useCallback(() => {
     setEmployeeId(null);
@@ -163,12 +181,14 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
 
         // Emit workstation change if it differs from original
         if (formData.workstation_id !== originalData.workstation_id) {
-          eventBus.emit(employeeWorkstationChanged(
-            COMPANY_ID,
-            employeeId,
-            originalData.workstation_id,
-            formData.workstation_id,
-          ));
+          eventBus.emit(
+            employeeWorkstationChanged(
+              COMPANY_ID,
+              employeeId,
+              originalData.workstation_id,
+              formData.workstation_id,
+            ),
+          );
         }
         // Snapshot current state as a new version
         await versionService?.createVersion(employeeId, 'update');
@@ -183,7 +203,9 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           persona_json: personaJson,
           config_json: configJson,
         });
-        eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug));
+        eventBus.emit(
+          employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug),
+        );
         // Snapshot initial state as version 1
         await versionService?.createVersion(result.employee_id, 'create');
       }

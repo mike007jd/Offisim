@@ -15,13 +15,18 @@ import gsap from 'gsap';
 import { Application, Container, Graphics } from 'pixi.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
 import { LobsterEntity } from '../entities/lobster-entity.js';
+import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { RouteLineEntity } from '../entities/route-line-entity.js';
 import { InteractionController } from '../interaction/interaction-controller.js';
-import { STATE_COLORS } from '../tokens/colors.js';
-import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
+import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
-import { getMotionForTier, MIN_FADE_DURATION, type PerformanceTier, type MotionTokens } from '../tokens/motion.js';
+import {
+  MIN_FADE_DURATION,
+  type MotionTokens,
+  type PerformanceTier,
+  getMotionForTier,
+} from '../tokens/motion.js';
 import type {
   EmployeeSeed,
   LayerName,
@@ -29,8 +34,8 @@ import type {
   SceneEntity,
   SceneEntityType,
   SceneEventBus,
-  SceneManagerOptions,
   SceneLayers,
+  SceneManagerOptions,
 } from './types.js';
 import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP, LAYER_NAMES } from './types.js';
 
@@ -68,7 +73,9 @@ export class SceneManager {
   /** Ghost entity shown during install preview (ANIM-020) */
   private installGhost: SceneEntity | null = null;
   /** Install transaction ID for the current ghost preview. Exposed for test/debug introspection. */
-  get installGhostTxnId(): string | null { return this._installGhostTxnId; }
+  get installGhostTxnId(): string | null {
+    return this._installGhostTxnId;
+  }
   private _installGhostTxnId: string | null = null;
 
   constructor(options: SceneManagerOptions) {
@@ -101,7 +108,11 @@ export class SceneManager {
    * - 'employee' (default): EmployeeEntity — standard human-like avatar
    * - 'lobster': LobsterEntity — pixel lobster for OpenClaw agents
    */
-  private createEntity(id: string, name: string, entityType: SceneEntityType = this.entityStyle): SceneEntity {
+  private createEntity(
+    id: string,
+    name: string,
+    entityType: SceneEntityType = this.entityStyle,
+  ): SceneEntity {
     if (entityType === 'lobster') {
       return new LobsterEntity(id, name, this.motion);
     }
@@ -485,8 +496,10 @@ export class SceneManager {
           if (fromEntity && toEntity) {
             const line = new RouteLineEntity(taskRunId, STATE_COLORS.assigned, this.motion);
             line.setEndpoints(
-              fromEntity.container.x, fromEntity.container.y,
-              toEntity.container.x, toEntity.container.y,
+              fromEntity.container.x,
+              fromEntity.container.y,
+              toEntity.container.x,
+              toEntity.container.y,
             );
             this.layers.semantic.addChild(line.container);
             this.routeLines.set(taskRunId, line);
@@ -563,8 +576,10 @@ export class SceneManager {
                     this.motion,
                   );
                   line.setEndpoints(
-                    entity.container.x, entity.container.y,
-                    this.meetingRoom.container.x, this.meetingRoom.container.y,
+                    entity.container.x,
+                    entity.container.y,
+                    this.meetingRoom.container.x,
+                    this.meetingRoom.container.y,
                   );
                   this.layers.semantic.addChild(line.container);
                   this.routeLines.set(`meeting-${pid}`, line);
@@ -779,7 +794,10 @@ export class SceneManager {
       }
     }
     const emptyIdx = deskPositions.findIndex((_, i) => !occupiedPositions.has(i));
-    const pos = emptyIdx >= 0 ? deskPositions[emptyIdx]! : { x: LAYOUT.floor.width / 2, y: LAYOUT.floor.height / 2 };
+    const pos =
+      emptyIdx >= 0
+        ? deskPositions[emptyIdx]!
+        : { x: LAYOUT.floor.width / 2, y: LAYOUT.floor.height / 2 };
 
     const ghost = this.createEntity('ghost-preview', '?', this.entityStyle);
     ghost.container.position.set(
@@ -824,7 +842,10 @@ export class SceneManager {
       const dissolveDuration = Math.max(duration, MIN_FADE_DURATION);
       gsap.to(ghost.container, { alpha: 0, duration: dissolveDuration, ease });
       gsap.to(ghost.container.scale, {
-        x: 0.8, y: 0.8, duration: dissolveDuration, ease,
+        x: 0.8,
+        y: 0.8,
+        duration: dissolveDuration,
+        ease,
         onComplete: () => {
           ghost.destroy();
         },
@@ -862,8 +883,11 @@ export class SceneManager {
     // Find highest priority (most recent if tied)
     let best: { entityId: string; priority: number; timestamp: number } | null = null;
     for (const [entityId, req] of this.attentionRequests) {
-      if (!best || req.priority > best.priority ||
-          (req.priority === best.priority && req.timestamp > best.timestamp)) {
+      if (
+        !best ||
+        req.priority > best.priority ||
+        (req.priority === best.priority && req.timestamp > best.timestamp)
+      ) {
         best = { entityId, ...req };
       }
     }

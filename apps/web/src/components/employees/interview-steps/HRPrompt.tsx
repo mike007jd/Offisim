@@ -3,11 +3,13 @@ import type { WizardStep } from '../../../hooks/useInterviewWizard';
 /** HR question text for each wizard step. */
 const HR_QUESTIONS: Record<WizardStep, string> = {
   role: "Welcome! Let's start by picking a role for your new team member. What position are we hiring for?",
-  name: "Great choice! Every team member needs a name. What should we call them?",
-  expertise: "What specific skills or expertise areas does this person bring to the team?",
-  style: "How would you describe their working style? This helps set the tone for their collaboration.",
-  instructions: "Any special instructions or behavioral guidelines? This is optional — feel free to skip.",
-  model: "Would you like to configure the AI model settings, or use our sensible defaults?",
+  name: 'Great choice! Every team member needs a name. What should we call them?',
+  expertise: 'What specific skills or expertise areas does this person bring to the team?',
+  style:
+    'How would you describe their working style? This helps set the tone for their collaboration.',
+  instructions:
+    'Any special instructions or behavioral guidelines? This is optional — feel free to skip.',
+  model: 'Would you like to configure the AI model settings, or use our sensible defaults?',
   preview: "Here's a summary of your new hire. Review everything and create when you're ready!",
 };
 

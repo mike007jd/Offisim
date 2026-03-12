@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AuditingToolExecutor } from '../../mcp/auditing-tool-executor.js';
-import type { ToolExecutor, ToolCallRequest, ToolCallResponse } from '../../runtime/tool-executor.js';
-import type { McpAuditRepository, McpAuditRow, NewMcpAudit } from '../../runtime/repositories.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventBus } from '../../events/event-bus.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
+import { AuditingToolExecutor } from '../../mcp/auditing-tool-executor.js';
+import type { McpAuditRepository, McpAuditRow, NewMcpAudit } from '../../runtime/repositories.js';
+import type {
+  ToolCallRequest,
+  ToolCallResponse,
+  ToolExecutor,
+} from '../../runtime/tool-executor.js';
 
 // Mock inner executor
 function createMockExecutor(response: ToolCallResponse): ToolExecutor {
@@ -18,7 +22,10 @@ function createMockAuditRepo(): McpAuditRepository & { rows: NewMcpAudit[] } {
   const rows: NewMcpAudit[] = [];
   return {
     rows,
-    create: vi.fn(async (audit: NewMcpAudit) => { rows.push(audit); return audit as McpAuditRow; }),
+    create: vi.fn(async (audit: NewMcpAudit) => {
+      rows.push(audit);
+      return audit as McpAuditRow;
+    }),
     listByThread: vi.fn(async () => []),
   };
 }

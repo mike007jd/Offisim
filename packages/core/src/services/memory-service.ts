@@ -165,7 +165,10 @@ export class MemoryService {
       });
       rawResponse = response.content;
     } catch (error) {
-      console.error(`[MemoryService] reflectAndRemember failed for employee "${employeeId}":`, error);
+      console.error(
+        `[MemoryService] reflectAndRemember failed for employee "${employeeId}":`,
+        error,
+      );
       return;
     }
 
@@ -202,5 +205,4 @@ export class MemoryService {
     // Half-life of 7 days
     return Math.exp(-0.1 * ageDays);
   }
-
 }

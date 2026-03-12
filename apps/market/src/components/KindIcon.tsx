@@ -1,4 +1,4 @@
-import { User, Zap, GitBranch, Building2, LayoutGrid, Package } from 'lucide-react';
+import { Building2, GitBranch, LayoutGrid, Package, User, Zap } from 'lucide-react';
 
 const icons: Record<string, typeof User> = {
   employee: User,

@@ -9,7 +9,10 @@ interface VersionHistoryTabProps {
   employeeId: string;
 }
 
-const CHANGE_TYPE_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'info' }> = {
+const CHANGE_TYPE_BADGE: Record<
+  string,
+  { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'info' }
+> = {
   create: { label: 'Created', variant: 'success' },
   update: { label: 'Updated', variant: 'info' },
   rollback: { label: 'Rollback', variant: 'warning' },
@@ -25,15 +28,8 @@ function formatTimestamp(iso: string): string {
 }
 
 export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
-  const {
-    versions,
-    loading,
-    diffResult,
-    selectedVersion,
-    selectVersion,
-    rollback,
-    isRollingBack,
-  } = useEmployeeVersions(employeeId);
+  const { versions, loading, diffResult, selectedVersion, selectVersion, rollback, isRollingBack } =
+    useEmployeeVersions(employeeId);
 
   const [confirmRollback, setConfirmRollback] = useState<number | null>(null);
 
@@ -59,7 +55,10 @@ export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
       <ScrollArea className="max-h-48">
         <div className="flex flex-col gap-1">
           {versions.map((v) => {
-            const badge = CHANGE_TYPE_BADGE[v.change_type] ?? { label: v.change_type, variant: 'secondary' as const };
+            const badge = CHANGE_TYPE_BADGE[v.change_type] ?? {
+              label: v.change_type,
+              variant: 'secondary' as const,
+            };
             const isSelected = selectedVersion === v.version_num;
             const isCurrent = v.version_num === versions[0]!.version_num;
 
@@ -74,13 +73,19 @@ export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
                 }`}
                 onClick={() => selectVersion(isSelected ? null : v.version_num)}
               >
-                <span className="font-mono text-xs text-shell/60 w-8 shrink-0">v{v.version_num}</span>
-                <Badge variant={badge.variant} className="shrink-0">{badge.label}</Badge>
+                <span className="font-mono text-xs text-shell/60 w-8 shrink-0">
+                  v{v.version_num}
+                </span>
+                <Badge variant={badge.variant} className="shrink-0">
+                  {badge.label}
+                </Badge>
                 <span className="text-xs text-shell/50 truncate flex-1">
                   {v.change_summary ?? formatTimestamp(v.created_at)}
                 </span>
                 {isCurrent && (
-                  <Badge variant="secondary" className="shrink-0">current</Badge>
+                  <Badge variant="secondary" className="shrink-0">
+                    current
+                  </Badge>
                 )}
               </button>
             );
@@ -110,11 +115,7 @@ export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
                 >
                   {isRollingBack ? 'Rolling back...' : 'Confirm'}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmRollback(null)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setConfirmRollback(null)}>
                   Cancel
                 </Button>
               </div>

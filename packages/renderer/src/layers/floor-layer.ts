@@ -1,9 +1,9 @@
 import { Container, Graphics } from 'pixi.js';
-import { LAYOUT } from '../tokens/layout.js';
 import { drawPixelGrid } from '../pixel/draw-pixel-grid.js';
-import { PX } from '../pixel/pixel-palette.js';
 import { FLOOR_TILE_A, FLOOR_TILE_B } from '../pixel/floor-tiles.js';
-import { PIXEL_DESK, PIXEL_MONITOR, PIXEL_CHAIR } from '../pixel/furniture-shapes.js';
+import { PIXEL_CHAIR, PIXEL_DESK, PIXEL_MONITOR } from '../pixel/furniture-shapes.js';
+import { PX } from '../pixel/pixel-palette.js';
+import { LAYOUT } from '../tokens/layout.js';
 
 export interface DeskPosition {
   x: number;
@@ -58,7 +58,11 @@ export class FloorLayer {
       { x: startX, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[0] },
       { x: startX + desk.width + desk.gap, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[1] },
       { x: startX, y: startY + desk.height + desk.gap, workstationId: DEFAULT_WORKSTATION_IDS[2] },
-      { x: startX + desk.width + desk.gap, y: startY + desk.height + desk.gap, workstationId: DEFAULT_WORKSTATION_IDS[3] },
+      {
+        x: startX + desk.width + desk.gap,
+        y: startY + desk.height + desk.gap,
+        workstationId: DEFAULT_WORKSTATION_IDS[3],
+      },
     ];
   }
 

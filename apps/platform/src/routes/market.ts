@@ -1,9 +1,16 @@
+import {
+  creators,
+  listingPreviews,
+  listingTags,
+  listings,
+  packageVersions,
+  reviews,
+} from '@aics/db-platform';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { eq, and, desc, inArray } from 'drizzle-orm';
-import { listings, creators, packageVersions, reviews, listingTags, listingPreviews } from '@aics/db-platform';
-import type { PlatformEnv } from '../types.js';
 import { searchListings } from '../services/search.js';
+import type { PlatformEnv } from '../types.js';
 
 const market = new Hono<PlatformEnv>();
 
@@ -16,8 +23,8 @@ market.get('/search', async (c) => {
     risk_class: c.req.query('risk_class'),
     tag: c.req.query('tag'),
     sort: c.req.query('sort'),
-    page: c.req.query('page') ? parseInt(c.req.query('page')!, 10) : undefined,
-    per_page: c.req.query('per_page') ? parseInt(c.req.query('per_page')!, 10) : undefined,
+    page: c.req.query('page') ? Number.parseInt(c.req.query('page')!, 10) : undefined,
+    per_page: c.req.query('per_page') ? Number.parseInt(c.req.query('per_page')!, 10) : undefined,
   };
 
   const result = await searchListings(db, params);
@@ -26,19 +33,25 @@ market.get('/search', async (c) => {
   const listingIds = result.items.map((row) => row.listings.listing_id);
 
   // Batch fetch latest active versions and tags in 2 queries instead of 2N
-  const [allVersions, allTags] = listingIds.length > 0
-    ? await Promise.all([
-        db
-          .select()
-          .from(packageVersions)
-          .where(and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')))
-          .orderBy(desc(packageVersions.published_at)),
-        db
-          .select({ listing_id: listingTags.listing_id, tag: listingTags.tag })
-          .from(listingTags)
-          .where(inArray(listingTags.listing_id, listingIds)),
-      ])
-    : [[], []];
+  const [allVersions, allTags] =
+    listingIds.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(packageVersions)
+            .where(
+              and(
+                inArray(packageVersions.listing_id, listingIds),
+                eq(packageVersions.status, 'active'),
+              ),
+            )
+            .orderBy(desc(packageVersions.published_at)),
+          db
+            .select({ listing_id: listingTags.listing_id, tag: listingTags.tag })
+            .from(listingTags)
+            .where(inArray(listingTags.listing_id, listingIds)),
+        ])
+      : [[], []];
 
   // Build lookup maps — for versions, keep only the first (latest) per listing
   const versionMap = new Map<string, (typeof allVersions)[number]>();
@@ -163,14 +176,19 @@ market.get('/listings/:listingId', async (c) => {
         }
       : undefined,
     requirements: {
-      required_capabilities: (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
+      required_capabilities:
+        (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
       required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
-      recommended_models: (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
+      recommended_models:
+        (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
     },
     permissions: {
-      risk_class: (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
-      declares_secrets: (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
-      filesystem_scope: (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
+      risk_class:
+        (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
+      declares_secrets:
+        (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
+      filesystem_scope:
+        (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
       network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
     },
     lineage: manifest?.lineage ?? undefined,
@@ -254,14 +272,19 @@ market.get('/listings/by-slug/:slug', async (c) => {
         }
       : undefined,
     requirements: {
-      required_capabilities: (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
+      required_capabilities:
+        (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
       required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
-      recommended_models: (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
+      recommended_models:
+        (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
     },
     permissions: {
-      risk_class: (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
-      declares_secrets: (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
-      filesystem_scope: (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
+      risk_class:
+        (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
+      declares_secrets:
+        (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
+      filesystem_scope:
+        (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
       network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
     },
     lineage: manifest?.lineage ?? undefined,

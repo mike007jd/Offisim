@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('../browser-mcp-client', () => ({
@@ -46,18 +46,15 @@ describe('TauriMcpClientFactory', () => {
       command: '/usr/bin/mcp',
     });
 
-    expect(invoke).toHaveBeenCalledWith(
-      'plugin:mcp_bridge|mcp_spawn',
-      expect.any(Object),
-    );
+    expect(invoke).toHaveBeenCalledWith('plugin:mcp_bridge|mcp_spawn', expect.any(Object));
     expect(conn.tools).toHaveLength(1);
     expect(conn.tools[0]!.name).toBe('read');
   });
 
   it('throws if stdio has no command', async () => {
-    await expect(
-      factory.createClient({ name: 'bad', transport: 'stdio' }),
-    ).rejects.toThrow('no command');
+    await expect(factory.createClient({ name: 'bad', transport: 'stdio' })).rejects.toThrow(
+      'no command',
+    );
   });
 
   it('callTool invokes Rust bridge mcp_call_tool', async () => {

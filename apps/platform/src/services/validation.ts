@@ -50,7 +50,8 @@ export function validateManifest(json: unknown): ValidationResult {
   // Warnings (advisory only — not schema errors)
   const manifest = json as Record<string, any>;
   if (!manifest.previews?.readme_path) warnings.push('No readme_path in previews');
-  if (!manifest.package?.summary) warnings.push('No package.summary — recommended for marketplace display');
+  if (!manifest.package?.summary)
+    warnings.push('No package.summary — recommended for marketplace display');
 
   return { valid: errors.length === 0, errors, warnings };
 }

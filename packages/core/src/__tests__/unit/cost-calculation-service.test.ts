@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CostCalculationService } from '../../runtime/cost-calculation-service.js';
-import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { DEFAULT_COST_RATES } from '../../runtime/default-cost-rates.js';
+import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { LlmCallRow } from '../../runtime/repositories.js';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ describe('CostCalculationService', () => {
         provider: 'openai',
         model: 'gpt-4o',
         input_tokens: 1_000_000, // 1M tokens
-        output_tokens: 500_000,  // 0.5M tokens
+        output_tokens: 500_000, // 0.5M tokens
       });
 
       const result = await service.calculateCallCost(call);
@@ -180,20 +180,24 @@ describe('CostCalculationService', () => {
         status: 'running',
       });
 
-      await repos.llmCalls.create(makeLlmCall({
-        provider: 'openai',
-        model: 'gpt-4o',
-        input_tokens: 1000,
-        output_tokens: 500,
-        created_at: '2026-03-12T10:00:00.000Z',
-      }));
-      await repos.llmCalls.create(makeLlmCall({
-        provider: 'openai',
-        model: 'gpt-4o',
-        input_tokens: 2000,
-        output_tokens: 1000,
-        created_at: '2026-03-12T11:00:00.000Z',
-      }));
+      await repos.llmCalls.create(
+        makeLlmCall({
+          provider: 'openai',
+          model: 'gpt-4o',
+          input_tokens: 1000,
+          output_tokens: 500,
+          created_at: '2026-03-12T10:00:00.000Z',
+        }),
+      );
+      await repos.llmCalls.create(
+        makeLlmCall({
+          provider: 'openai',
+          model: 'gpt-4o',
+          input_tokens: 2000,
+          output_tokens: 1000,
+          created_at: '2026-03-12T11:00:00.000Z',
+        }),
+      );
 
       const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
       const agg = await service.aggregateCosts('company-001', { groupBy: 'model' });
@@ -217,12 +221,16 @@ describe('CostCalculationService', () => {
         status: 'running',
       });
 
-      await repos.llmCalls.create(makeLlmCall({
-        created_at: '2026-03-11T10:00:00.000Z',
-      }));
-      await repos.llmCalls.create(makeLlmCall({
-        created_at: '2026-03-12T10:00:00.000Z',
-      }));
+      await repos.llmCalls.create(
+        makeLlmCall({
+          created_at: '2026-03-11T10:00:00.000Z',
+        }),
+      );
+      await repos.llmCalls.create(
+        makeLlmCall({
+          created_at: '2026-03-12T10:00:00.000Z',
+        }),
+      );
 
       const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
       const agg = await service.aggregateCosts('company-001', { groupBy: 'day' });
@@ -244,12 +252,16 @@ describe('CostCalculationService', () => {
         status: 'running',
       });
 
-      await repos.llmCalls.create(makeLlmCall({
-        created_at: '2026-03-10T10:00:00.000Z',
-      }));
-      await repos.llmCalls.create(makeLlmCall({
-        created_at: '2026-03-12T10:00:00.000Z',
-      }));
+      await repos.llmCalls.create(
+        makeLlmCall({
+          created_at: '2026-03-10T10:00:00.000Z',
+        }),
+      );
+      await repos.llmCalls.create(
+        makeLlmCall({
+          created_at: '2026-03-12T10:00:00.000Z',
+        }),
+      );
 
       const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
       const agg = await service.aggregateCosts('company-001', {
@@ -279,10 +291,12 @@ describe('CostCalculationService', () => {
         status: 'running',
       });
 
-      await repos.llmCalls.create(makeLlmCall({
-        provider: 'unknown-provider',
-        model: 'unknown-model',
-      }));
+      await repos.llmCalls.create(
+        makeLlmCall({
+          provider: 'unknown-provider',
+          model: 'unknown-model',
+        }),
+      );
 
       const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
       const agg = await service.aggregateCosts('company-001');

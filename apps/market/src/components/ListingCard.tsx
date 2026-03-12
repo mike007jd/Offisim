@@ -1,8 +1,8 @@
 import type { ListingSummary } from '@aics/registry-client';
+import { formatInstallCount, kindLabel } from '../lib/format';
+import { CreatorBadge } from './CreatorBadge';
 import { KindIcon } from './KindIcon';
 import { RatingStars } from './RatingStars';
-import { CreatorBadge } from './CreatorBadge';
-import { formatInstallCount, kindLabel } from '../lib/format';
 
 export function ListingCard({ listing }: { listing: ListingSummary }) {
   return (

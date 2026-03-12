@@ -41,29 +41,20 @@ describe('validateSkill', () => {
   });
 
   it('warns about unsupported OS when environment does not match', () => {
-    const result = validateSkill(
-      makeSkill({ metadata: { os: ['linux'] } }),
-      'web_limited',
-    );
+    const result = validateSkill(makeSkill({ metadata: { os: ['linux'] } }), 'web_limited');
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]!.type).toBe('unsupported_os');
   });
 
   it('no OS warning when os list is empty', () => {
-    const result = validateSkill(
-      makeSkill({ metadata: { os: [] } }),
-      'web_limited',
-    );
+    const result = validateSkill(makeSkill({ metadata: { os: [] } }), 'web_limited');
     expect(result.warnings).toHaveLength(0);
   });
 
   it('no OS warning in desktop environment (assumes correct OS)', () => {
-    const result = validateSkill(
-      makeSkill({ metadata: { os: ['linux', 'macos'] } }),
-      'desktop',
-    );
+    const result = validateSkill(makeSkill({ metadata: { os: ['linux', 'macos'] } }), 'desktop');
     // Desktop assumes OS matches — no warning
-    expect(result.warnings.filter(w => w.type === 'unsupported_os')).toHaveLength(0);
+    expect(result.warnings.filter((w) => w.type === 'unsupported_os')).toHaveLength(0);
   });
 
   it('accumulates all warnings from multiple requirement types', () => {

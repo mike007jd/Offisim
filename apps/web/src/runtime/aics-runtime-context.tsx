@@ -1,4 +1,9 @@
-import type { EmployeeVersionService, EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
+import type {
+  EmployeeVersionService,
+  EventBus,
+  McpServerConfig,
+  RuntimeRepositories,
+} from '@aics/core';
 import type { InstallService } from '@aics/install-core';
 import { createContext, useContext } from 'react';
 
@@ -7,7 +12,10 @@ export interface AicsRuntimeValue {
   isReady: boolean;
   isRunning: boolean;
   error: string | null;
-  sendMessage: (text: string, options?: { targetEmployeeId?: string }) => Promise<string | undefined>;
+  sendMessage: (
+    text: string,
+    options?: { targetEmployeeId?: string },
+  ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;
   clearError: () => void;
   /** Re-create runtime from current localStorage config. */

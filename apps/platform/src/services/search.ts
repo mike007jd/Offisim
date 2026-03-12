@@ -1,5 +1,5 @@
-import { eq, ilike, or, desc, sql, and, inArray, exists } from 'drizzle-orm';
-import { listings, creators, listingTags, packageVersions } from '@aics/db-platform';
+import { creators, listingTags, listings, packageVersions } from '@aics/db-platform';
+import { and, desc, eq, exists, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 
 export interface SearchFilters {
@@ -79,9 +79,7 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
     case 'relevance':
     default:
       // Simple relevance score: rating * ln(installs + 1)
-      orderBy = desc(
-        sql`${listings.rating_avg} * ln(${listings.install_count} + 1)`,
-      );
+      orderBy = desc(sql`${listings.rating_avg} * ln(${listings.install_count} + 1)`);
       break;
   }
 
@@ -94,10 +92,7 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
       .orderBy(orderBy)
       .limit(perPage)
       .offset(offset),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(listings)
-      .where(where),
+    db.select({ count: sql<number>`count(*)::int` }).from(listings).where(where),
   ]);
 
   const total = countResult[0]?.count ?? 0;

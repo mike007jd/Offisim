@@ -43,11 +43,17 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       {/* Backdrop click to close */}
-      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+      <div
+        className="absolute inset-0"
+        onClick={onClose}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+        role="presentation"
+      />
 
       <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         {/* Close button */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           aria-label="Close"
@@ -57,9 +63,7 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
 
         {/* Header */}
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Install &ldquo;{title}&rdquo;
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Install &ldquo;{title}&rdquo;</h2>
           <p className="mt-1 text-sm text-gray-500">
             This asset requires the AICS Desktop app to install.
           </p>
@@ -69,6 +73,7 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
         <div className="space-y-3">
           {/* Retry deep link */}
           <button
+            type="button"
             onClick={handleRetry}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
           >
@@ -78,6 +83,7 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
 
           {/* Copy link */}
           <button
+            type="button"
             onClick={handleCopy}
             className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-400"
           >
@@ -91,9 +97,7 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
 
         {/* Download section */}
         <div className="rounded-md bg-gray-50 p-4">
-          <p className="text-sm font-medium text-gray-900">
-            Don&apos;t have the AICS Desktop app?
-          </p>
+          <p className="text-sm font-medium text-gray-900">Don&apos;t have the AICS Desktop app?</p>
           <p className="mt-1 text-xs text-gray-500">
             Download the free desktop runtime to install and run AI company assets locally.
           </p>

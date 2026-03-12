@@ -156,13 +156,19 @@ export interface TaskRunRepository {
   findById(taskRunId: string): Promise<TaskRunRow | null>;
   findByThread(threadId: string): Promise<TaskRunRow[]>;
   updateStatus(taskRunId: string, status: string, outputJson?: string | null): Promise<void>;
-  findQueue(companyId: string, opts?: { statuses?: string[]; limit?: number }): Promise<TaskRunRow[]>;
+  findQueue(
+    companyId: string,
+    opts?: { statuses?: string[]; limit?: number },
+  ): Promise<TaskRunRow[]>;
   countByStatus(companyId: string): Promise<Record<string, number>>;
 }
 
 /** Updatable fields for an employee. */
 export type EmployeeUpdate = Partial<
-  Pick<EmployeeRow, 'name' | 'role_slug' | 'persona_json' | 'config_json' | 'enabled' | 'workstation_id'>
+  Pick<
+    EmployeeRow,
+    'name' | 'role_slug' | 'persona_json' | 'config_json' | 'enabled' | 'workstation_id'
+  >
 >;
 
 export interface EmployeeRepository {
@@ -260,7 +266,10 @@ export interface MemoryRepository {
     opts: { scope?: string; ownerId?: string; companyId: string; limit?: number },
   ): Promise<MemoryEntryRow[]>;
   delete(memoryId: string): Promise<void>;
-  findByOwner(ownerId: string, opts?: { category?: string; limit?: number }): Promise<MemoryEntryRow[]>;
+  findByOwner(
+    ownerId: string,
+    opts?: { category?: string; limit?: number },
+  ): Promise<MemoryEntryRow[]>;
   touchAccess(memoryId: string): Promise<void>;
 }
 

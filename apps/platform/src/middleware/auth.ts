@@ -14,9 +14,7 @@ import type { PlatformEnv } from '../types.js';
 const authMode = process.env.AICS_AUTH_MODE ?? 'dev';
 if (authMode !== 'dev') {
   console.warn(
-    `[auth] AICS_AUTH_MODE="${authMode}" but the current auth middleware only supports dev-mode ` +
-      `JWT parsing (no signature verification). Refusing to use insecure dev auth in non-dev mode. ` +
-      `Implement proper JWT validation before deploying.`,
+    `[auth] AICS_AUTH_MODE="${authMode}" but the current auth middleware only supports dev-mode JWT parsing (no signature verification). Refusing to use insecure dev auth in non-dev mode. Implement proper JWT validation before deploying.`,
   );
 }
 

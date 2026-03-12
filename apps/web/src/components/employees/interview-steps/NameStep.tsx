@@ -5,10 +5,22 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 
 const RANDOM_NAMES = [
-  'Alex Chen', 'Morgan Lee', 'Sam Rivera', 'Jordan Park',
-  'Riley Kim', 'Casey Nguyen', 'Quinn Taylor', 'Avery Zhang',
-  'Drew Patel', 'Blake Johnson', 'Robin Garcia', 'Sage Williams',
-  'Harper Jones', 'Emery Brown', 'Finley Davis', 'Rowan Miller',
+  'Alex Chen',
+  'Morgan Lee',
+  'Sam Rivera',
+  'Jordan Park',
+  'Riley Kim',
+  'Casey Nguyen',
+  'Quinn Taylor',
+  'Avery Zhang',
+  'Drew Patel',
+  'Blake Johnson',
+  'Robin Garcia',
+  'Sage Williams',
+  'Harper Jones',
+  'Emery Brown',
+  'Finley Davis',
+  'Rowan Miller',
 ];
 
 interface NameStepProps {

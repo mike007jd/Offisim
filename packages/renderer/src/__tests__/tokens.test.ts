@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { SCENE_COLORS, STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
-import { MOTION, MOTION_REDUCED, getMotionForTier, MOTION_TIER_A, MOTION_TIER_B, MOTION_TIER_C } from '../tokens/motion.js';
+import {
+  MOTION,
+  MOTION_REDUCED,
+  MOTION_TIER_A,
+  MOTION_TIER_B,
+  MOTION_TIER_C,
+  getMotionForTier,
+} from '../tokens/motion.js';
 
 describe('tokens/colors', () => {
   it('has a color for all 12 employee states', () => {

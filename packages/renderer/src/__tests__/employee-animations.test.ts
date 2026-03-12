@@ -27,13 +27,27 @@ vi.mock('pixi.js', () => {
     destroy() {}
   }
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    roundRect() { return this; }
-    rect() { return this; }
-    fill(_c?: unknown) { return this; }
-    stroke(_c?: unknown) { return this; }
-    cut() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    roundRect() {
+      return this;
+    }
+    rect() {
+      return this;
+    }
+    fill(_c?: unknown) {
+      return this;
+    }
+    stroke(_c?: unknown) {
+      return this;
+    }
+    cut() {
+      return this;
+    }
   }
   class MockText extends MockContainer {
     text = '';
@@ -74,8 +88,18 @@ const { MOTION } = await import('../tokens/motion.js');
 
 // All 12 employee states
 const ALL_STATES = [
-  'idle', 'assigned', 'thinking', 'searching', 'executing',
-  'meeting', 'blocked', 'waiting', 'reporting', 'success', 'failed', 'paused',
+  'idle',
+  'assigned',
+  'thinking',
+  'searching',
+  'executing',
+  'meeting',
+  'blocked',
+  'waiting',
+  'reporting',
+  'success',
+  'failed',
+  'paused',
 ] as const;
 
 // New states added in Chunk 3
@@ -153,10 +177,7 @@ describe('LobsterEntity — new state animations (Chunk 3)', () => {
     entity.setState('reporting');
 
     // Ring pulse for active states
-    expect(gsap.to).toHaveBeenCalledWith(
-      ring.scale,
-      expect.objectContaining({ repeat: -1 }),
-    );
+    expect(gsap.to).toHaveBeenCalledWith(ring.scale, expect.objectContaining({ repeat: -1 }));
   });
 
   it('setState("success") starts success animation (claws open via timeline)', () => {
@@ -311,9 +332,9 @@ describe('EmployeeEntity — new state animations (Chunk 3)', () => {
       entity.setState(state);
 
       // No repeat: -1 pulse should be set for idle/paused
-      const pulseCalls = vi.mocked(gsap.to).mock.calls.filter(
-        ([, opts]) => (opts as Record<string, unknown>).repeat === -1,
-      );
+      const pulseCalls = vi
+        .mocked(gsap.to)
+        .mock.calls.filter(([, opts]) => (opts as Record<string, unknown>).repeat === -1);
       expect(pulseCalls.length).toBe(0);
     }
   });

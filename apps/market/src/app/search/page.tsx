@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { getRegistryClient } from '../../lib/registry';
 import { ListingCard } from '../../components/ListingCard';
 import { SearchFilters } from '../../components/SearchFilters';
+import { getRegistryClient } from '../../lib/registry';
 
 interface Props {
   searchParams: Promise<Record<string, string | undefined>>;
@@ -27,7 +27,7 @@ export default async function SearchPage({ searchParams }: Props) {
       kind: params.kind as any,
       tag: params.tag,
       sort: (params.sort as any) ?? 'relevance',
-      page: params.page ? parseInt(params.page, 10) : 1,
+      page: params.page ? Number.parseInt(params.page, 10) : 1,
       per_page: 20,
     });
   } catch {

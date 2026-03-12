@@ -1,6 +1,6 @@
 import type { ListingSummary } from '@aics/registry-client';
-import { getRegistryClient } from '../lib/registry';
 import { ListingCard } from '../components/ListingCard';
+import { getRegistryClient } from '../lib/registry';
 
 export default async function Home() {
   let listings: ListingSummary[];

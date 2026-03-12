@@ -24,9 +24,13 @@ export function StatusBar({ modelName }: StatusBarProps) {
       </div>
       <div className="flex items-center gap-3 text-[10px] text-shell">
         {metrics.activeTaskCount > 0 && <span>⚡ {metrics.activeTaskCount} tasks</span>}
-        <span>👥 {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total}</span>
-        {(metrics.totalInputTokens + metrics.totalOutputTokens) > 0 && (
-          <span>TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}</span>
+        <span>
+          👥 {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total}
+        </span>
+        {metrics.totalInputTokens + metrics.totalOutputTokens > 0 && (
+          <span>
+            TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}
+          </span>
         )}
         {metrics.estimatedCostUsd > 0 && <span>~${metrics.estimatedCostUsd.toFixed(4)}</span>}
         {metrics.elapsedMs != null && <span>{(metrics.elapsedMs / 1000).toFixed(1)}s</span>}

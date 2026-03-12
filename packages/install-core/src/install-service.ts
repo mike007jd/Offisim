@@ -6,14 +6,14 @@
  */
 
 import type { InstallState } from '@aics/shared-types';
-import { checkCompatibility } from './compatibility-checker.js';
 import { resolveBindings } from './binding-resolver.js';
+import { checkCompatibility } from './compatibility-checker.js';
 import { createInstallPlan } from './install-planner.js';
 import { materialize } from './materializer.js';
 import type { MaterializeResult } from './materializer.js';
-import { parseSkill, SkillParseError } from './openclaw/skill-parser.js';
-import { validateSkill } from './openclaw/skill-validator.js';
+import { SkillParseError, parseSkill } from './openclaw/skill-parser.js';
 import { skillToManifest } from './openclaw/skill-to-manifest.js';
+import { validateSkill } from './openclaw/skill-validator.js';
 import type { SkillValidationResult } from './openclaw/types.js';
 import { isTerminalState, validateTransition } from './state-machine.js';
 import type {

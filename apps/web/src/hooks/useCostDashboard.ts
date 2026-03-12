@@ -64,12 +64,15 @@ export function useCostDashboard() {
 
   // Subscribe to llm.usage.recorded for live updates (debounced)
   useEffect(() => {
-    const unsub = eventBus.on('llm.usage.recorded', (_event: RuntimeEvent<LlmUsageRecordedPayload>) => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = setTimeout(() => {
-        refresh();
-      }, 500);
-    });
+    const unsub = eventBus.on(
+      'llm.usage.recorded',
+      (_event: RuntimeEvent<LlmUsageRecordedPayload>) => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(() => {
+          refresh();
+        }, 500);
+      },
+    );
 
     return () => {
       unsub();

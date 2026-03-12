@@ -8,14 +8,9 @@
  * For desktop/Tauri, stdio support can be added later via a Tauri shell command bridge.
  */
 
+import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import type {
-  McpClientFactory,
-  McpConnection,
-  McpServerConfig,
-  McpToolDef,
-} from '@aics/core';
 
 /**
  * McpClientFactory implementation for browser environments.
@@ -33,9 +28,7 @@ export class BrowserMcpClientFactory implements McpClientFactory {
     }
 
     if (!config.url) {
-      throw new Error(
-        `MCP server '${config.name}' requires a url for SSE transport.`,
-      );
+      throw new Error(`MCP server '${config.name}' requires a url for SSE transport.`);
     }
 
     const client = new Client(

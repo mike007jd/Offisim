@@ -46,7 +46,16 @@ export function createTestRuntime() {
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx, memoryService };
+  return {
+    graph,
+    orchestrationService,
+    repos,
+    eventBus,
+    gateway,
+    events,
+    runtimeCtx,
+    memoryService,
+  };
 }
 
 export function createTestRuntimeWithExtraEmployee() {
@@ -87,5 +96,14 @@ export function createTestRuntimeWithExtraEmployee() {
   const events: RuntimeEvent<any>[] = [];
   eventBus.on('', (e) => events.push(e));
 
-  return { graph, orchestrationService, repos, eventBus, gateway, events, runtimeCtx, memoryService };
+  return {
+    graph,
+    orchestrationService,
+    repos,
+    eventBus,
+    gateway,
+    events,
+    runtimeCtx,
+    memoryService,
+  };
 }

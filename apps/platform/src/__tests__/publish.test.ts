@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
-import type { PlatformEnv } from '../types.js';
-import { validateManifest } from '../services/validation.js';
-import { publish } from '../routes/publish.js';
+import { describe, expect, it, vi } from 'vitest';
 import { errorHandler } from '../middleware/error-handler.js';
+import { publish } from '../routes/publish.js';
+import { validateManifest } from '../services/validation.js';
+import type { PlatformEnv } from '../types.js';
 
 // ── Shared Test Data ──
 
@@ -439,10 +439,7 @@ describe('Publish Routes', () => {
     it('rejects manifest upload for already-submitted draft', async () => {
       const submittedDraft = { ...fakeDraft, status: 'submitted' };
 
-      const mockDb = createMockDb([
-        [fakeCreator],
-        [submittedDraft],
-      ]);
+      const mockDb = createMockDb([[fakeCreator], [submittedDraft]]);
       const app = createApp(mockDb);
 
       const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}/manifest`, {
@@ -472,7 +469,11 @@ describe('Publish Routes', () => {
         created_at: new Date(),
         completed_at: null,
       };
-      const completedJob = { ...fakeJob, status: 'completed', result: { outcome: 'approved', listing_id: LISTING_ID } };
+      const completedJob = {
+        ...fakeJob,
+        status: 'completed',
+        result: { outcome: 'approved', listing_id: LISTING_ID },
+      };
 
       const mockDb = createMockDb([
         // 1. creator lookup
@@ -521,10 +522,7 @@ describe('Publish Routes', () => {
     it('rejects submission of invalid draft', async () => {
       const invalidDraft = { ...fakeDraft, validation_state: 'invalid' };
 
-      const mockDb = createMockDb([
-        [fakeCreator],
-        [invalidDraft],
-      ]);
+      const mockDb = createMockDb([[fakeCreator], [invalidDraft]]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/publish/submit', {
@@ -558,10 +556,7 @@ describe('Publish Routes', () => {
     it('rejects re-submission of already submitted draft', async () => {
       const submittedDraft = { ...fakeDraft, validation_state: 'valid', status: 'submitted' };
 
-      const mockDb = createMockDb([
-        [fakeCreator],
-        [submittedDraft],
-      ]);
+      const mockDb = createMockDb([[fakeCreator], [submittedDraft]]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/publish/submit', {

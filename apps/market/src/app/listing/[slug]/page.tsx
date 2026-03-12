@@ -1,15 +1,15 @@
-import type { Metadata } from 'next';
 import type { ListingDetail } from '@aics/registry-client';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getRegistryClient } from '../../../lib/registry';
-import { KindIcon } from '../../../components/KindIcon';
-import { RatingStars } from '../../../components/RatingStars';
 import { CreatorBadge } from '../../../components/CreatorBadge';
 import { InstallButton } from '../../../components/InstallButton';
+import { KindIcon } from '../../../components/KindIcon';
 import { PermissionsPanel } from '../../../components/PermissionsPanel';
-import { VersionTable } from '../../../components/VersionTable';
+import { RatingStars } from '../../../components/RatingStars';
 import { ReviewList } from '../../../components/ReviewList';
-import { kindLabel, formatInstallCount } from '../../../lib/format';
+import { VersionTable } from '../../../components/VersionTable';
+import { formatInstallCount, kindLabel } from '../../../lib/format';
+import { getRegistryClient } from '../../../lib/registry';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -166,9 +166,7 @@ export default async function ListingPage({ params }: Props) {
                   {listing.lineage.origin_package_id && (
                     <p>
                       Derived from:{' '}
-                      <span className="font-mono text-xs">
-                        {listing.lineage.origin_package_id}
-                      </span>
+                      <span className="font-mono text-xs">{listing.lineage.origin_package_id}</span>
                     </p>
                   )}
                   {listing.lineage.forked_from_version && (

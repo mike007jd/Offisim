@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSkill, SkillParseError } from '../skill-parser.js';
+import { SkillParseError, parseSkill } from '../skill-parser.js';
 
 const MINIMAL_SKILL = `---
 name: test-skill

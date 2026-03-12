@@ -61,7 +61,10 @@ describe('skillToManifest', () => {
   });
 
   it('defaults license to "UNLICENSED" when not specified', () => {
-    const noLicense: ParsedSkill = { ...SKILL, metadata: { ...SKILL.metadata, license: undefined } };
+    const noLicense: ParsedSkill = {
+      ...SKILL,
+      metadata: { ...SKILL.metadata, license: undefined },
+    };
     const manifest = skillToManifest(noLicense);
     expect(manifest.package.license).toBe('UNLICENSED');
   });

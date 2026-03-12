@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { generateId } from '../../utils/generate-id.js';
 
 describe('generateId', () => {
@@ -24,7 +24,7 @@ describe('generateId', () => {
   it('does not contain raw 13-digit timestamp', () => {
     const id = generateId('t');
     const parts = id.split('-');
-    const hasRawTimestamp = parts.some(p => /^\d{13}$/.test(p));
+    const hasRawTimestamp = parts.some((p) => /^\d{13}$/.test(p));
     expect(hasRawTimestamp).toBe(false);
   });
 });

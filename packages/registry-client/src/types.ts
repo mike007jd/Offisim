@@ -191,6 +191,27 @@ export interface LibraryResponse {
   items: LibraryItem[];
 }
 
+// ── Install ──
+
+export interface InstallReceiptRequest {
+  listing_id: string;
+  package_version_id: string;
+  install_source: 'registry' | 'url' | 'file';
+}
+
+export interface InstallReceiptResponse {
+  install_receipt_id: string;
+  listing_id: string;
+  package_version_id: string;
+}
+
+export interface ArtifactDownloadInfo {
+  package_version_id: string;
+  artifact_url: string;
+  artifact_sha256: string | null;
+  artifact_size_bytes: number | null;
+}
+
 // ── Creator Profile (extension beyond OpenAPI — needed for market pages) ──
 
 export interface CreatorProfile extends CreatorSummary {

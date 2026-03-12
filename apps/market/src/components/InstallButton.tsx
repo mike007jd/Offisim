@@ -37,6 +37,7 @@ export function InstallButton({ listingId, version, title }: Props) {
   return (
     <>
       <button
+        type="button"
         onClick={handleInstall}
         className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
       >

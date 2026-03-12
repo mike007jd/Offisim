@@ -33,13 +33,25 @@ export function validateSkill(
     errors.push({ type: 'empty_name', detail: 'Skill name is required', severity: 'error' });
   }
   if (skill.name && skill.name.length > 128) {
-    errors.push({ type: 'name_too_long', detail: 'Skill name must be <= 128 characters', severity: 'error' });
+    errors.push({
+      type: 'name_too_long',
+      detail: 'Skill name must be <= 128 characters',
+      severity: 'error',
+    });
   }
   if (!skill.instructions || skill.instructions.trim().length === 0) {
-    errors.push({ type: 'empty_instructions', detail: 'Skill instructions are required', severity: 'error' });
+    errors.push({
+      type: 'empty_instructions',
+      detail: 'Skill instructions are required',
+      severity: 'error',
+    });
   }
   if (skill.instructions && skill.instructions.length > 512 * 1024) {
-    errors.push({ type: 'instructions_too_large', detail: 'Instructions exceed 512KB limit', severity: 'error' });
+    errors.push({
+      type: 'instructions_too_large',
+      detail: 'Instructions exceed 512KB limit',
+      severity: 'error',
+    });
   }
 
   // Soft warnings (existing logic preserved, add severity: 'warning')

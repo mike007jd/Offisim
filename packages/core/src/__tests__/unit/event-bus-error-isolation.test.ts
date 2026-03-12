@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 
 describe('EventBus error isolation', () => {
   it('continues dispatching when a handler throws', () => {
     const bus = new InMemoryEventBus();
-    const handler1 = vi.fn(() => { throw new Error('boom'); });
+    const handler1 = vi.fn(() => {
+      throw new Error('boom');
+    });
     const handler2 = vi.fn();
 
     bus.on('test', handler1);
@@ -18,7 +20,9 @@ describe('EventBus error isolation', () => {
   it('reports handler errors via console.error', () => {
     const bus = new InMemoryEventBus();
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    bus.on('test', () => { throw new Error('handler-fail'); });
+    bus.on('test', () => {
+      throw new Error('handler-fail');
+    });
     bus.emit({ type: 'test.event', payload: {}, timestamp: Date.now() } as any);
 
     expect(spy).toHaveBeenCalledWith(

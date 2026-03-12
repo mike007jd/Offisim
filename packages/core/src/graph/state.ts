@@ -60,7 +60,9 @@ export const AicsGraphAnnotation = Annotation.Root({
   // Thread tracking
   threadId: Annotation<string>,
   companyId: Annotation<string>,
-  entryMode: Annotation<'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat'>,
+  entryMode: Annotation<
+    'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat'
+  >,
 
   // Direct chat target
   targetEmployeeId: Annotation<string | null>({
@@ -141,7 +143,7 @@ export const AicsGraphAnnotation = Annotation.Root({
   // P2: Handoff guard rail counter (only employeeNode writes this)
   handoffCount: Annotation<number>({
     default: () => 0,
-    reducer: (_, b) => b,  // last-write-wins
+    reducer: (_, b) => b, // last-write-wins
   }),
 
   // P2: Meeting action items populated by meetingEndNode, read by bossSummaryNode

@@ -48,11 +48,21 @@ vi.mock('pixi.js', () => {
   }
 
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    rect() { return this; }
-    fill() { return this; }
-    stroke() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    rect() {
+      return this;
+    }
+    fill() {
+      return this;
+    }
+    stroke() {
+      return this;
+    }
   }
 
   return {
@@ -130,7 +140,10 @@ function createWorkstationBounds(): Map<string, WorkstationBounds> {
   ]);
 }
 
-function createPointerEvent(x: number, y: number): { global: { x: number; y: number }; stopPropagation: () => void } {
+function createPointerEvent(
+  x: number,
+  y: number,
+): { global: { x: number; y: number }; stopPropagation: () => void } {
   return {
     global: { x, y },
     stopPropagation: vi.fn(),
@@ -244,10 +257,7 @@ describe('InteractionController', () => {
       );
 
       // Move pointer
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(150, 150),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(150, 150));
 
       // Entity should follow pointer (with offset)
       expect(alice.container.x).toBe(150); // 150 + (100 - 100)
@@ -264,16 +274,10 @@ describe('InteractionController', () => {
       );
 
       // Move to center of ws-2 (300, 100)
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(300, 100),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(300, 100));
 
       // Drop
-      (stage as unknown as { emit: Function }).emit(
-        'pointerup',
-        createPointerEvent(300, 100),
-      );
+      (stage as unknown as { emit: Function }).emit('pointerup', createPointerEvent(300, 100));
 
       expect(onDrop).toHaveBeenCalledWith({
         entityId: 'emp-alice',
@@ -297,16 +301,10 @@ describe('InteractionController', () => {
       );
 
       // Move to empty area (500, 500) — outside all workstation bounds
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(500, 500),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(500, 500));
 
       // Drop in empty area
-      (stage as unknown as { emit: Function }).emit(
-        'pointerup',
-        createPointerEvent(500, 500),
-      );
+      (stage as unknown as { emit: Function }).emit('pointerup', createPointerEvent(500, 500));
 
       // Should NOT call onDrop
       expect(onDrop).not.toHaveBeenCalled();
@@ -347,16 +345,10 @@ describe('InteractionController', () => {
       );
 
       // Move away
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(500, 500),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(500, 500));
 
       // Drop in empty area
-      (stage as unknown as { emit: Function }).emit(
-        'pointerup',
-        createPointerEvent(500, 500),
-      );
+      (stage as unknown as { emit: Function }).emit('pointerup', createPointerEvent(500, 500));
 
       // Should snap immediately (no GSAP call for M2 duration=0)
       expect(alice.container.x).toBe(originalX);
@@ -382,10 +374,7 @@ describe('InteractionController', () => {
       );
 
       // Move to ws-2 area (center: 300, 100)
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(300, 100),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(300, 100));
 
       expect(onHighlight).toHaveBeenCalledWith('ws-2', true);
     });
@@ -400,16 +389,10 @@ describe('InteractionController', () => {
       );
 
       // Move to ws-2
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(300, 100),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(300, 100));
 
       // Move to ws-4
-      (stage as unknown as { emit: Function }).emit(
-        'pointermove',
-        createPointerEvent(300, 300),
-      );
+      (stage as unknown as { emit: Function }).emit('pointermove', createPointerEvent(300, 300));
 
       expect(onHighlight).toHaveBeenCalledWith('ws-2', false);
       expect(onHighlight).toHaveBeenCalledWith('ws-4', true);

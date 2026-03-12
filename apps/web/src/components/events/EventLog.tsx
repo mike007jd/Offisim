@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { ScrollArea } from '../ui/scroll-area';
 import { EventItem } from './EventItem';
@@ -19,14 +19,14 @@ export function EventLog() {
     if (bufferRef.current.length === 0) return;
     const batch = bufferRef.current;
     bufferRef.current = [];
-    setEvents(prev => [...prev, ...batch].slice(-MAX_EVENTS));
+    setEvents((prev) => [...prev, ...batch].slice(-MAX_EVENTS));
   }, []);
 
   useEffect(() => {
     bufferRef.current = [];
     setEvents([]);
 
-    const unsubs = EVENT_PREFIXES.map(prefix =>
+    const unsubs = EVENT_PREFIXES.map((prefix) =>
       eventBus.on(prefix, (event: RuntimeEvent) => {
         bufferRef.current.push(event);
         if (rafRef.current === null) {

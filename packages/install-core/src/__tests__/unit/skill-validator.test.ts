@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { validateSkill } from '../../openclaw/skill-validator.js';
 import type { ParsedSkill } from '../../openclaw/types.js';
 
@@ -19,7 +19,10 @@ describe('validateSkill', () => {
   });
 
   it('returns a missing_bin warning for each required binary', () => {
-    const skill: ParsedSkill = { ...baseSkill, requirements: { bins: ['node', 'git'], env: [], config: [] } };
+    const skill: ParsedSkill = {
+      ...baseSkill,
+      requirements: { bins: ['node', 'git'], env: [], config: [] },
+    };
     const result = validateSkill(skill, 'desktop');
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
@@ -114,7 +117,11 @@ describe('validateSkill', () => {
   it('returns empty name error with correct type and severity', () => {
     const skill: ParsedSkill = { ...baseSkill, name: '' };
     const result = validateSkill(skill, 'desktop');
-    expect(result.errors[0]!).toEqual({ type: 'empty_name', detail: 'Skill name is required', severity: 'error' });
+    expect(result.errors[0]!).toEqual({
+      type: 'empty_name',
+      detail: 'Skill name is required',
+      severity: 'error',
+    });
   });
 
   it('returns empty instructions error with correct type and severity', () => {

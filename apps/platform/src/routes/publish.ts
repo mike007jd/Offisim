@@ -4,14 +4,14 @@
  * and auto-moderation for the AICS marketplace.
  */
 
+import { creators, moderationJobs, publishDrafts } from '@aics/db-platform';
+import { and, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { eq, and, desc } from 'drizzle-orm';
-import { publishDrafts, creators, moderationJobs } from '@aics/db-platform';
 import { requireAuth } from '../middleware/auth.js';
 import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
-import { validateManifest } from '../services/validation.js';
 import { processModerationJob } from '../services/moderation.js';
+import { validateManifest } from '../services/validation.js';
 import type { PlatformEnv } from '../types.js';
 
 const publish = new Hono<PlatformEnv>();
@@ -26,14 +26,12 @@ publish.post('/drafts', async (c) => {
   const body = DraftCreateSchema.parse(await c.req.json());
 
   // Get creator for this user
-  const [creator] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
+  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
 
   if (!creator) {
-    throw new HTTPException(403, { message: 'User is not a registered creator. Create a creator profile first.' });
+    throw new HTTPException(403, {
+      message: 'User is not a registered creator. Create a creator profile first.',
+    });
   }
 
   const rows = await db
@@ -69,11 +67,7 @@ publish.get('/drafts', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
 
-  const [creator] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
+  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
 
   if (!creator) {
     throw new HTTPException(403, { message: 'Not a creator' });
@@ -107,18 +101,16 @@ publish.get('/drafts/:draftId', async (c) => {
   const userId = c.get('userId')!;
   const draftId = c.req.param('draftId');
 
-  const [creator] = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
+  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
 
   if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)))
+    .where(
+      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
+    )
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
@@ -153,11 +145,14 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)))
+    .where(
+      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
+    )
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
-  if (draft.status === 'submitted') throw new HTTPException(400, { message: 'Draft already submitted' });
+  if (draft.status === 'submitted')
+    throw new HTTPException(400, { message: 'Draft already submitted' });
 
   // Validate manifest
   const validation = validateManifest(body.manifest_json);
@@ -213,11 +208,17 @@ publish.post('/submit', async (c) => {
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(and(eq(publishDrafts.draft_id, body.draft_id), eq(publishDrafts.creator_id, creator.creator_id)))
+    .where(
+      and(
+        eq(publishDrafts.draft_id, body.draft_id),
+        eq(publishDrafts.creator_id, creator.creator_id),
+      ),
+    )
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
-  if (draft.status === 'submitted') throw new HTTPException(400, { message: 'Draft already submitted' });
+  if (draft.status === 'submitted')
+    throw new HTTPException(400, { message: 'Draft already submitted' });
   if (draft.validation_state !== 'valid') {
     throw new HTTPException(400, { message: 'Draft manifest must be valid before submission' });
   }

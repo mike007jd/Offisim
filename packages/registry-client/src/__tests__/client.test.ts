@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RegistryClient } from '../client.js';
 import { RegistryApiError } from '../errors.js';
 
@@ -38,10 +38,7 @@ describe('RegistryClient', () => {
 
     const result = await client.getListingDetail('abc');
     expect(result.listing_id).toBe('abc');
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${BASE}/v1/market/listings/abc`,
-      expect.any(Object),
-    );
+    expect(fetchMock).toHaveBeenCalledWith(`${BASE}/v1/market/listings/abc`, expect.any(Object));
   });
 
   it('includes auth header when token provided', async () => {
@@ -54,7 +51,9 @@ describe('RegistryClient', () => {
   });
 
   it('throws RegistryApiError on non-2xx', async () => {
-    const fetchMock = mockFetch(404, { error: { code: 'NOT_FOUND', message: 'Listing not found' } });
+    const fetchMock = mockFetch(404, {
+      error: { code: 'NOT_FOUND', message: 'Listing not found' },
+    });
     const client = new RegistryClient({ baseUrl: BASE, fetch: fetchMock });
 
     await expect(client.getListingDetail('missing')).rejects.toThrow(RegistryApiError);

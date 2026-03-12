@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('pixi.js', () => {
   class MockContainer {
@@ -7,22 +7,42 @@ vi.mock('pixi.js', () => {
     scale = { set: vi.fn(), x: 1, y: 1 };
     visible = true;
     alpha = 1;
-    addChild(c: unknown) { this.children.push(c); return c; }
+    addChild(c: unknown) {
+      this.children.push(c);
+      return c;
+    }
     destroy() {}
   }
   class MockGraphics extends MockContainer {
-    clear() { return this; }
-    circle() { return this; }
-    roundRect() { return this; }
-    rect() { return this; }
-    fill(_c?: unknown) { return this; }
-    stroke(_c?: unknown) { return this; }
-    cut() { return this; }
+    clear() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    roundRect() {
+      return this;
+    }
+    rect() {
+      return this;
+    }
+    fill(_c?: unknown) {
+      return this;
+    }
+    stroke(_c?: unknown) {
+      return this;
+    }
+    cut() {
+      return this;
+    }
   }
   return {
     Container: MockContainer,
     Graphics: MockGraphics,
-    Text: class extends MockContainer { text = ''; anchor = { set: vi.fn() }; },
+    Text: class extends MockContainer {
+      text = '';
+      anchor = { set: vi.fn() };
+    },
   };
 });
 
@@ -34,7 +54,7 @@ vi.mock('gsap', () => ({
 }));
 
 import { FLOOR_TILE_A, FLOOR_TILE_B } from '../pixel/floor-tiles.js';
-import { PIXEL_DESK, PIXEL_MONITOR, PIXEL_CHAIR } from '../pixel/furniture-shapes.js';
+import { PIXEL_CHAIR, PIXEL_DESK, PIXEL_MONITOR } from '../pixel/furniture-shapes.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

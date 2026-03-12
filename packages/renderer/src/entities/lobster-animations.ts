@@ -6,10 +6,7 @@ import type { MotionBucket } from '../tokens/motion.js';
  * Continuous idle bob — body container moves up/down by 1 logical pixel (3 screen px).
  * Returns a tween with yoyo + infinite repeat.
  */
-export function createIdleBob(
-  bodyContainer: Container,
-  motion: MotionBucket,
-): gsap.core.Tween {
+export function createIdleBob(bodyContainer: Container, motion: MotionBucket): gsap.core.Tween {
   if (motion.duration <= 0) {
     // Reduced motion: return a no-op tween
     return gsap.to(bodyContainer, { duration: 0 });
@@ -57,7 +54,11 @@ export function createThinkingAnimation(
   const tl = gsap.timeline({ repeat: -1, yoyo: true });
   tl.to(antennaL, { rotation: 0.15, duration: motion.duration * 0.4, ease: 'sine.inOut' }, 0);
   tl.to(antennaR, { rotation: -0.15, duration: motion.duration * 0.4, ease: 'sine.inOut' }, 0);
-  tl.to(eyesGfx, { y: eyesGfx.position.y - 2, duration: motion.duration * 0.5, ease: 'sine.inOut' }, 0);
+  tl.to(
+    eyesGfx,
+    { y: eyesGfx.position.y - 2, duration: motion.duration * 0.5, ease: 'sine.inOut' },
+    0,
+  );
   return tl;
 }
 
@@ -119,13 +120,11 @@ export function createBlockedAnimation(
 }
 
 /** ANIM-011: Waiting — subtle breathe, low energy */
-export function createWaitingAnimation(
-  body: Container,
-  motion: MotionBucket,
-): gsap.core.Tween {
+export function createWaitingAnimation(body: Container, motion: MotionBucket): gsap.core.Tween {
   if (motion.duration === 0) return gsap.to({}, { duration: 0 });
   return gsap.to(body.scale, {
-    x: 1.01, y: 1.01,
+    x: 1.01,
+    y: 1.01,
     duration: 1.5,
     ease: 'sine.inOut',
     yoyo: true,
@@ -134,10 +133,7 @@ export function createWaitingAnimation(
 }
 
 /** ANIM-012: Reporting — brief upward float */
-export function createReportingAnimation(
-  body: Container,
-  motion: MotionBucket,
-): gsap.core.Tween {
+export function createReportingAnimation(body: Container, motion: MotionBucket): gsap.core.Tween {
   if (motion.duration === 0) return gsap.to({}, { duration: 0 });
   return gsap.to(body, {
     y: body.position.y - 2,

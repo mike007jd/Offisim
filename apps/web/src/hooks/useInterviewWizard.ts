@@ -8,7 +8,15 @@ import type { EmployeeFormData } from './useEmployeeEditor';
 // Step definitions
 // ---------------------------------------------------------------------------
 
-export const WIZARD_STEPS = ['role', 'name', 'expertise', 'style', 'instructions', 'model', 'preview'] as const;
+export const WIZARD_STEPS = [
+  'role',
+  'name',
+  'expertise',
+  'style',
+  'instructions',
+  'model',
+  'preview',
+] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 /** Steps that can be skipped (optional content). */
@@ -28,7 +36,11 @@ export type WizardAction =
   | { type: 'next' }
   | { type: 'back' }
   | { type: 'goto'; step: number }
-  | { type: 'updateField'; key: keyof EmployeeFormData; value: EmployeeFormData[keyof EmployeeFormData] }
+  | {
+      type: 'updateField';
+      key: keyof EmployeeFormData;
+      value: EmployeeFormData[keyof EmployeeFormData];
+    }
   | { type: 'reset' };
 
 export const DEFAULT_WIZARD_FORM: EmployeeFormData = {
@@ -162,9 +174,12 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
     }
   }, [canSkip]);
 
-  const updateField = useCallback(<K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {
-    dispatch({ type: 'updateField', key, value });
-  }, []);
+  const updateField = useCallback(
+    <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {
+      dispatch({ type: 'updateField', key, value });
+    },
+    [],
+  );
 
   const reset = useCallback(() => {
     dispatch({ type: 'reset' });
@@ -196,7 +211,9 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
         config_json: configJson,
       });
 
-      eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug));
+      eventBus.emit(
+        employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug),
+      );
       await versionService?.createVersion(result.employee_id, 'create');
 
       dispatch({ type: 'reset' });

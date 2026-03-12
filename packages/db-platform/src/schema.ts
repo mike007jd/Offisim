@@ -160,6 +160,18 @@ export const userLibrary = pgTable('user_library', {
   install_receipt_id: text('install_receipt_id'),
 });
 
+export const installReceipts = pgTable('install_receipts', {
+  install_receipt_id: text('install_receipt_id').primaryKey(),
+  user_id: uuid('user_id').references(() => users.user_id, { onDelete: 'set null' }),
+  listing_id: uuid('listing_id').references(() => listings.listing_id, { onDelete: 'set null' }),
+  package_version_id: uuid('package_version_id').references(
+    () => packageVersions.package_version_id,
+    { onDelete: 'set null' },
+  ),
+  install_source: text('install_source').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const moderationFlags = pgTable('moderation_flags', {
   flag_id: uuid('flag_id').primaryKey().defaultRandom(),
   target_type: text('target_type').notNull(),

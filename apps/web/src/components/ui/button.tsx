@@ -16,10 +16,8 @@ const buttonVariants = cva(
           'border-2 border-ocean-light bg-transparent text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-mid',
         secondary:
           'border-2 border-ocean-light bg-ocean-mid text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-light',
-        ghost:
-          'border-2 border-transparent hover:bg-ocean-mid hover:border-ocean-light',
-        link:
-          'text-sea-blue underline-offset-4 hover:underline border-0',
+        ghost: 'border-2 border-transparent hover:bg-ocean-mid hover:border-ocean-light',
+        link: 'text-sea-blue underline-offset-4 hover:underline border-0',
       },
       size: {
         default: 'h-9 px-4 py-2',

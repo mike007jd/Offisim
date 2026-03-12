@@ -1,8 +1,8 @@
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult } from '../events/event-factories.js';
+import type { ToolDef } from '../llm/gateway.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
-import type { ToolDef } from '../llm/gateway.js';
 import { generateId } from '../utils/generate-id.js';
 
 /**
@@ -56,8 +56,14 @@ export class AuditingToolExecutor implements ToolExecutor {
     // Emit result event
     this.eventBus.emit(
       mcpToolResult(
-        this.companyId, serverName, call.name, call.employeeId ?? 'unknown',
-        auditId, response.success, latencyMs, response.error,
+        this.companyId,
+        serverName,
+        call.name,
+        call.employeeId ?? 'unknown',
+        auditId,
+        response.success,
+        latencyMs,
+        response.error,
       ),
     );
 
@@ -65,9 +71,15 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   private resolveServerName(toolName: string): string {
-    if ('getServerForTool' in this.inner
-        && typeof (this.inner as Record<string, unknown>).getServerForTool === 'function') {
-      return ((this.inner as { getServerForTool(n: string): string | undefined }).getServerForTool(toolName)) ?? toolName;
+    if (
+      'getServerForTool' in this.inner &&
+      typeof (this.inner as Record<string, unknown>).getServerForTool === 'function'
+    ) {
+      return (
+        (this.inner as { getServerForTool(n: string): string | undefined }).getServerForTool(
+          toolName,
+        ) ?? toolName
+      );
     }
     return toolName;
   }

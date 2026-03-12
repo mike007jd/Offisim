@@ -58,13 +58,14 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
 
       {/* Permissions */}
       <div className="border-2 border-ocean-light p-3 space-y-2">
-        <h4 className="text-xs font-medium text-ocean-light uppercase tracking-wide font-pixel-body">Permissions</h4>
+        <h4 className="text-xs font-medium text-ocean-light uppercase tracking-wide font-pixel-body">
+          Permissions
+        </h4>
 
         <div className="flex items-center gap-2 text-sm text-shell">
           <HardDrive className="h-3.5 w-3.5 shrink-0" />
           <span>
-            Filesystem:{' '}
-            <span className="text-sand font-medium">{perms.filesystem_scope}</span>
+            Filesystem: <span className="text-sand font-medium">{perms.filesystem_scope}</span>
           </span>
         </div>
 
@@ -79,9 +80,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
           <KeyRound className="h-3.5 w-3.5 shrink-0" />
           <span>
             Secrets:{' '}
-            <span className="text-sand font-medium">
-              {perms.declares_secrets ? 'Yes' : 'None'}
-            </span>
+            <span className="text-sand font-medium">{perms.declares_secrets ? 'Yes' : 'None'}</span>
           </span>
         </div>
 
@@ -89,9 +88,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
           <Shield className="h-3.5 w-3.5 shrink-0" />
           <span>
             Risk class:{' '}
-            <span className="text-sand font-medium">
-              {perms.risk_class.replace('_', ' ')}
-            </span>
+            <span className="text-sand font-medium">{perms.risk_class.replace('_', ' ')}</span>
           </span>
         </div>
       </div>

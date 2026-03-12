@@ -1,6 +1,10 @@
 import type { EventBus } from '../events/event-bus.js';
 import { employeeVersionCreated } from '../events/event-factories.js';
-import type { EmployeeRepository, EmployeeVersionRepository, EmployeeVersionRow } from './repositories.js';
+import type {
+  EmployeeRepository,
+  EmployeeVersionRepository,
+  EmployeeVersionRow,
+} from './repositories.js';
 
 export interface VersionDiff {
   field: string;

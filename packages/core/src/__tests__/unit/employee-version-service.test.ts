@@ -24,7 +24,7 @@ function makeEmployee(overrides: Partial<EmployeeRow> = {}): EmployeeRow {
 
 function createMockEmployeeRepo(employee: EmployeeRow | null = makeEmployee()): EmployeeRepository {
   // Use the passed object directly so external mutations are visible to findById
-  let current = employee;
+  const current = employee;
   return {
     create: vi.fn(),
     findById: vi.fn(async () => current),
@@ -230,8 +230,16 @@ describe('EmployeeVersionService', () => {
       const b = '{"role":"dev"}';
       const diffs = service.diffVersions(a, b);
       expect(diffs).toHaveLength(2);
-      expect(diffs.find((d) => d.field === 'name')).toEqual({ field: 'name', from: 'Alice', to: undefined });
-      expect(diffs.find((d) => d.field === 'role')).toEqual({ field: 'role', from: undefined, to: 'dev' });
+      expect(diffs.find((d) => d.field === 'name')).toEqual({
+        field: 'name',
+        from: 'Alice',
+        to: undefined,
+      });
+      expect(diffs.find((d) => d.field === 'role')).toEqual({
+        field: 'role',
+        from: undefined,
+        to: 'dev',
+      });
     });
 
     it('handles nested objects by stringifying them for comparison', () => {

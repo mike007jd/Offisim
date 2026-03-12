@@ -1,8 +1,8 @@
-import type { Container, FederatedPointerEvent } from 'pixi.js';
 import gsap from 'gsap';
+import type { Container, FederatedPointerEvent } from 'pixi.js';
 import type { SceneEntity, SceneEventBus } from '../core/types.js';
-import type { MotionTokens } from '../tokens/motion.js';
 import type { WorkstationBounds } from '../layers/floor-layer.js';
+import type { MotionTokens } from '../tokens/motion.js';
 
 /**
  * Result emitted when a drag-drop operation completes.

@@ -22,8 +22,8 @@ export function InstructionsStep({ formData, updateField }: InstructionsStepProp
         rows={6}
       />
       <p className="text-xs text-shell">
-        This is optional. Custom instructions shape how this employee behaves during tasks and conversations.
-        You can always edit these later.
+        This is optional. Custom instructions shape how this employee behaves during tasks and
+        conversations. You can always edit these later.
       </p>
     </div>
   );

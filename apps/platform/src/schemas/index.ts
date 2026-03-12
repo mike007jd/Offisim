@@ -19,11 +19,7 @@ export const VALID_KINDS = [
   'bundle',
 ] as const;
 
-export const VALID_RISK_CLASSES = [
-  'data_asset',
-  'logic_asset',
-  'privileged_asset',
-] as const;
+export const VALID_RISK_CLASSES = ['data_asset', 'logic_asset', 'privileged_asset'] as const;
 
 export const VALID_ENVIRONMENTS = ['desktop', 'docker', 'web_limited'] as const;
 
@@ -69,6 +65,17 @@ export const SubmitDraftSchema = z.object({
 });
 export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
 
+// ── Install: Receipt ──
+
+export const InstallReceiptSchema = z.object({
+  listing_id: z.string().min(1, 'listing_id is required'),
+  package_version_id: z.string().min(1, 'package_version_id is required'),
+  install_source: z.enum(['registry', 'url', 'file'], {
+    errorMap: () => ({ message: 'install_source must be registry, url, or file' }),
+  }),
+});
+export type InstallReceiptBody = z.infer<typeof InstallReceiptSchema>;
+
 // ── Manifest validation schema (replaces services/validation.ts if-checks) ──
 
 const packageSchema = z.object({
@@ -98,29 +105,37 @@ const compatibilitySchema = z.object({
     .min(1, 'Missing compatibility.supported_environments'),
 });
 
-const permissionsSchema = z.object({
-  risk_class: z.enum(VALID_RISK_CLASSES, {
-    errorMap: (_issue, ctx) => ({
-      message: `Invalid permissions.risk_class: ${ctx.data}`,
+const permissionsSchema = z
+  .object({
+    risk_class: z.enum(VALID_RISK_CLASSES, {
+      errorMap: (_issue, ctx) => ({
+        message: `Invalid permissions.risk_class: ${ctx.data}`,
+      }),
     }),
-  }),
-  declares_secrets: z.boolean({
-    required_error: 'permissions.declares_secrets must be boolean',
-    invalid_type_error: 'permissions.declares_secrets must be boolean',
-  }),
-}).passthrough();
+    declares_secrets: z.boolean({
+      required_error: 'permissions.declares_secrets must be boolean',
+      invalid_type_error: 'permissions.declares_secrets must be boolean',
+    }),
+  })
+  .passthrough();
 
-const integritySchema = z.object({
-  package_sha256: z.string({ required_error: 'Missing integrity.package_sha256' }).min(1, 'Missing integrity.package_sha256'),
-}).passthrough();
+const integritySchema = z
+  .object({
+    package_sha256: z
+      .string({ required_error: 'Missing integrity.package_sha256' })
+      .min(1, 'Missing integrity.package_sha256'),
+  })
+  .passthrough();
 
-export const ManifestSchema = z.object({
-  spec_version: z.string().min(1, 'Missing spec_version'),
-  package: packageSchema,
-  compatibility: compatibilitySchema,
-  requirements: z.record(z.unknown()),
-  permissions: permissionsSchema,
-  assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
-  integrity: integritySchema,
-  previews: z.record(z.unknown()).optional(),
-}).passthrough();
+export const ManifestSchema = z
+  .object({
+    spec_version: z.string().min(1, 'Missing spec_version'),
+    package: packageSchema,
+    compatibility: compatibilitySchema,
+    requirements: z.record(z.unknown()),
+    permissions: permissionsSchema,
+    assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
+    integrity: integritySchema,
+    previews: z.record(z.unknown()).optional(),
+  })
+  .passthrough();

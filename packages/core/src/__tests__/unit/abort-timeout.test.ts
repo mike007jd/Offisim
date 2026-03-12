@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { LlmRequest } from '../../llm/gateway.js';
 
 describe('LlmRequest signal support', () => {

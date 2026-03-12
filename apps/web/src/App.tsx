@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { AgentPanel } from './components/agents/AgentPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AgentPanel } from './components/agents/AgentPanel';
 import { ChatDrawer } from './components/chat/ChatDrawer';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { InstallDialog } from './components/install/InstallDialog';
@@ -33,18 +33,16 @@ export function App() {
     useCallback(
       ({ listing_id, version }) => {
         console.info('[deep-link] Install requested:', { listing_id, version });
-        addToast(`Installing package ${listing_id} v${version}...`, 'info');
-        // TODO: Fetch package manifest from registry and trigger installFlow
-        // e.g. registryClient.fetchPackage(listing_id, version)
-        //   .then(bytes => installFlow.startFileImport(new File([bytes], `${listing_id}.aicspkg`)))
+        addToast(`Fetching package ${listing_id} v${version}...`, 'info');
+        installFlow.startRegistryInstall(listing_id, version);
       },
-      [addToast],
+      [addToast, installFlow.startRegistryInstall],
     ),
   );
 
   // Resolve selected employee name for ChatPanel header
   const selectedEmployeeName = selectedEmployeeId
-    ? agents.get(selectedEmployeeId)?.name ?? null
+    ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
 
   function handleSaveConfig(config: ProviderConfig) {
@@ -55,42 +53,42 @@ export function App() {
   return (
     <ErrorBoundary>
       <>
-      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-      <AppLayout
-        header={
-          <Header
-            providerName={providerConfig?.model}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onFileImport={installFlow.startFileImport}
-          />
-        }
-        agentPanel={
-          <AgentPanel
-            onSelectEmployee={setSelectedEmployeeId}
-            selectedEmployeeId={selectedEmployeeId}
-          />
-        }
-        sceneCanvas={<SceneCanvas reducedMotion={reducedMotion} />}
-        chatDrawer={
-          <ChatDrawer>
-            <ChatPanel
+        <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+        <AppLayout
+          header={
+            <Header
+              providerName={providerConfig?.model}
               onOpenSettings={() => setSettingsOpen(true)}
-              selectedEmployeeId={selectedEmployeeId}
-              selectedEmployeeName={selectedEmployeeName}
-              onClearSelection={() => setSelectedEmployeeId(null)}
+              onFileImport={installFlow.startFileImport}
             />
-          </ChatDrawer>
-        }
-        eventLog={<RightSidebar />}
-        statusBar={<StatusBar modelName={providerConfig?.model} />}
-      />
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        onSave={handleSaveConfig}
-      />
-      <InstallDialog {...installFlow} />
-    </>
+          }
+          agentPanel={
+            <AgentPanel
+              onSelectEmployee={setSelectedEmployeeId}
+              selectedEmployeeId={selectedEmployeeId}
+            />
+          }
+          sceneCanvas={<SceneCanvas reducedMotion={reducedMotion} />}
+          chatDrawer={
+            <ChatDrawer>
+              <ChatPanel
+                onOpenSettings={() => setSettingsOpen(true)}
+                selectedEmployeeId={selectedEmployeeId}
+                selectedEmployeeName={selectedEmployeeName}
+                onClearSelection={() => setSelectedEmployeeId(null)}
+              />
+            </ChatDrawer>
+          }
+          eventLog={<RightSidebar />}
+          statusBar={<StatusBar modelName={providerConfig?.model} />}
+        />
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onSave={handleSaveConfig}
+        />
+        <InstallDialog {...installFlow} />
+      </>
     </ErrorBoundary>
   );
 }

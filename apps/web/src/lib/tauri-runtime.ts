@@ -14,10 +14,10 @@ import type { EventBus, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { COMPANY_ID, THREAD_ID } from './constants';
-import { TauriMcpClientFactory } from './tauri-mcp-client';
 import type { ProviderConfig } from './provider-config';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
+import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
 
@@ -98,7 +98,11 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
-    mcpToolExecutor, repos.mcpAudit, eventBus, COMPANY_ID, THREAD_ID,
+    mcpToolExecutor,
+    repos.mcpAudit,
+    eventBus,
+    COMPANY_ID,
+    THREAD_ID,
   );
 
   const runtimeCtx = createRuntimeContext({

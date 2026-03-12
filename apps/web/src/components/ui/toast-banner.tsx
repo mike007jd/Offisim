@@ -69,7 +69,11 @@ function ToastEntry({
   );
 }
 
-export function ToastBanner({ toasts, onDismiss, durationMs = DEFAULT_DURATION_MS }: ToastBannerProps) {
+export function ToastBanner({
+  toasts,
+  onDismiss,
+  durationMs = DEFAULT_DURATION_MS,
+}: ToastBannerProps) {
   if (toasts.length === 0) return null;
 
   return (
