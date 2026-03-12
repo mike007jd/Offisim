@@ -200,13 +200,13 @@ git commit -m "feat(core): add getServerForTool() to McpToolExecutor"
 ### Task 5: `mcp_audit_log` DB migration + Drizzle schema + repository
 
 **Files:**
-- Create: `Docs/03_migrations/aics_migrations_local_v0.1/006_mcp_audit_log.sql`
+- Create: `Docs/03_migrations/aics_migrations_local_v0.1/007_mcp_audit_log.sql`
 - Modify: `packages/db-local/src/schema.ts`
 - Modify: `packages/core/src/runtime/repositories.ts`
 
 - [ ] **Step 1: Create SQL migration**
 
-Create `Docs/03_migrations/aics_migrations_local_v0.1/006_mcp_audit_log.sql`:
+Create `Docs/03_migrations/aics_migrations_local_v0.1/007_mcp_audit_log.sql`:
 
 ```sql
 -- MCP tool call audit log (P3)
@@ -300,11 +300,13 @@ Add `mcpAudit: McpAuditRepository;` to the `RuntimeRepositories` interface (afte
 Run: `pnpm turbo run typecheck`
 Expected: May fail in files that construct RuntimeRepositories without `mcpAudit`. That's expected — will be fixed when memory implementations are updated.
 
-- [ ] **Step 5: Add memory implementation stub**
+- [ ] **Step 5: Add memory implementation**
 
-Find where other memory repositories are created (likely `packages/core/src/runtime/memory-repositories.ts` or similar) and add a `McpAuditRepository` memory implementation:
+In `packages/core/src/runtime/memory-repositories.ts`, add at the end of the file (after the last `Memory*Repository` class):
 
 ```typescript
+import type { McpAuditRepository, McpAuditRow, NewMcpAudit } from './repositories.js';
+
 export class MemoryMcpAuditRepository implements McpAuditRepository {
   private readonly rows: McpAuditRow[] = [];
 
@@ -319,19 +321,33 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
 }
 ```
 
-Wire it into wherever `RuntimeRepositories` is constructed for tests/browser.
+- [ ] **Step 6: Wire mcpAudit into all RuntimeRepositories construction sites**
 
-- [ ] **Step 6: Typecheck passes**
+There are 3 files that construct `RuntimeRepositories`:
+
+1. **`packages/core/src/__tests__/helpers/test-runtime.ts`** — test helper; add:
+   ```typescript
+   mcpAudit: new MemoryMcpAuditRepository(),
+   ```
+   Import `MemoryMcpAuditRepository` from `'../../runtime/memory-repositories.js'`.
+
+2. **`apps/web/src/runtime/AicsRuntimeProvider.tsx`** — browser runtime; add `mcpAudit: new MemoryMcpAuditRepository()` to the repos object in `initRuntime()`. (This will later be replaced with a real implementation in Chunk 3 Task 12.)
+
+3. **`apps/web/src/runtime/tauri-repos.ts`** — Tauri desktop runtime; add `mcpAudit: new MemoryMcpAuditRepository()` similarly. (Will be replaced with Drizzle-backed implementation in future if needed.)
+
+- [ ] **Step 7: Typecheck passes**
 
 Run: `pnpm turbo run typecheck`
 Expected: All 26 packages pass
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add Docs/03_migrations/ packages/db-local/src/schema.ts packages/core/src/runtime/repositories.ts
+git add Docs/03_migrations/ packages/db-local/src/schema.ts packages/core/src/runtime/repositories.ts packages/core/src/runtime/memory-repositories.ts packages/core/src/__tests__/helpers/test-runtime.ts apps/web/src/runtime/AicsRuntimeProvider.tsx apps/web/src/runtime/tauri-repos.ts
 git commit -m "feat: add mcp_audit_log table, Drizzle schema, and McpAuditRepository"
 ```
+
+> **Note:** Tauri desktop SQL migration for `mcp_audit_log` is handled in Chunk 2 Task 10 Step 3 (as `007_mcp_audit_log.sql`).
 
 ### Task 6: `AuditingToolExecutor` decorator
 
@@ -559,9 +575,11 @@ In `apps/desktop/src-tauri/Cargo.toml`, add to `[dependencies]`:
 ```toml
 tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros"] }
 thiserror = "1"
+rand = "0.8"
+libc = "0.2"
 ```
 
-Note: `serde` and `serde_json` already present.
+Note: `serde` and `serde_json` already present. `rand` is needed for health monitor jitter (Task 9). `libc` is needed for SIGTERM on Unix (Task 8).
 
 - [ ] **Step 2: Create types module**
 
@@ -703,16 +721,17 @@ use tauri::{
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-/// Registry of managed MCP processes, shared across commands.
+/// Temporary placeholder — ProcessRegistry moves to commands.rs in Task 10.
+/// Using tokio::sync::Mutex for async safety.
 pub struct ProcessRegistry {
-    // Will hold ManagedProcess entries in Task 8
-    pub servers: Mutex<HashMap<String, ()>>,
+    // Will hold ManagedProcess entries in Task 10
+    pub servers: tokio::sync::Mutex<HashMap<String, ()>>,
 }
 
 impl ProcessRegistry {
     pub fn new() -> Self {
         Self {
-            servers: Mutex::new(HashMap::new()),
+            servers: tokio::sync::Mutex::new(HashMap::new()),
         }
     }
 }
@@ -969,7 +988,9 @@ impl ManagedProcess {
     /// Perform MCP initialize handshake + tools/list.
     pub async fn initialize(&mut self) -> Result<(), McpBridgeError> {
         // 1. Send initialize request
+        // IMPORTANT: register BEFORE write_message to avoid race condition
         let init_id = self.tracker.next_id();
+        let rx = self.tracker.register(init_id);
         let init_req = JsonRpcMessage::request(init_id, "initialize", serde_json::json!({
             "protocolVersion": "2025-06-18",
             "capabilities": {},
@@ -982,7 +1003,6 @@ impl ManagedProcess {
             .map_err(|e| McpBridgeError::InitFailed(e.to_string()))?;
 
         // 2. Wait for initialize response (10s timeout)
-        let rx = self.tracker.register(init_id);
         let init_resp = timeout(Duration::from_secs(10), rx).await
             .map_err(|_| McpBridgeError::InitFailed("initialize timed out after 10s".into()))?
             .map_err(|_| McpBridgeError::InitFailed("channel closed".into()))?;
@@ -999,13 +1019,13 @@ impl ManagedProcess {
         write_message(&mut self.stdin, &init_notif).await
             .map_err(|e| McpBridgeError::InitFailed(e.to_string()))?;
 
-        // 4. List tools
+        // 4. List tools — register BEFORE write
         let tools_id = self.tracker.next_id();
+        let tools_rx = self.tracker.register(tools_id);
         let tools_req = JsonRpcMessage::request(tools_id, "tools/list", serde_json::json!({}));
         write_message(&mut self.stdin, &tools_req).await
             .map_err(|e| McpBridgeError::InitFailed(e.to_string()))?;
 
-        let tools_rx = self.tracker.register(tools_id);
         let tools_resp = timeout(Duration::from_secs(10), tools_rx).await
             .map_err(|_| McpBridgeError::InitFailed("tools/list timed out".into()))?
             .map_err(|_| McpBridgeError::InitFailed("channel closed".into()))?;
@@ -1034,7 +1054,9 @@ impl ManagedProcess {
             ));
         }
 
+        // Register BEFORE write to avoid race condition
         let call_id = self.tracker.next_id();
+        let rx = self.tracker.register(call_id);
         let req = JsonRpcMessage::request(call_id, "tools/call", serde_json::json!({
             "name": tool_name,
             "arguments": args,
@@ -1042,7 +1064,6 @@ impl ManagedProcess {
 
         write_message(&mut self.stdin, &req).await?;
 
-        let rx = self.tracker.register(call_id);
         let resp = timeout(Duration::from_secs(30), rx).await
             .map_err(|_| {
                 self.consecutive_failures += 1;
@@ -1062,14 +1083,30 @@ impl ManagedProcess {
         Ok(resp.result.unwrap_or(serde_json::Value::Null))
     }
 
-    /// Graceful shutdown: send close, wait, then kill.
+    /// Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
     pub async fn kill(&mut self) {
-        // Best-effort: try to close stdin to signal EOF
-        drop(self.stdin.get_ref());
-        // Wait up to 5s for process to exit
-        let _ = timeout(Duration::from_secs(5), self.child.wait()).await;
-        // Force kill if still alive
-        let _ = self.child.kill().await;
+        if let Some(pid) = self.child.id() {
+            // Try SIGTERM first (Unix only; on Windows, kill() is best-effort)
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::CommandExt;
+                let _ = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = self.child.kill().await;
+            }
+        }
+
+        // Wait up to 5s for process to exit gracefully
+        match timeout(Duration::from_secs(5), self.child.wait()).await {
+            Ok(_) => {}
+            Err(_) => {
+                // Force kill (SIGKILL on Unix, TerminateProcess on Windows)
+                let _ = self.child.kill().await;
+                let _ = self.child.wait().await;
+            }
+        }
         self.state = ProcessState::Dead;
     }
 }
@@ -1184,6 +1221,110 @@ pub fn is_process_alive(process: &mut ManagedProcess) -> bool {
         Err(_) => false,     // error checking
     }
 }
+
+/// Send MCP `ping` request and wait for response.
+/// Returns true if ping succeeds within timeout, false otherwise.
+pub async fn ping_check(process: &mut ManagedProcess, ping_timeout: Duration) -> bool {
+    let ping_id = process.tracker.next_id();
+    let rx = process.tracker.register(ping_id);
+    let ping_req = JsonRpcMessage::request(ping_id, "ping", serde_json::json!({}));
+
+    if write_message(&mut process.stdin, &ping_req).await.is_err() {
+        return false;
+    }
+
+    match timeout(ping_timeout, rx).await {
+        Ok(Ok(_)) => true,
+        _ => false,
+    }
+}
+
+/// Run health monitoring loop for a single server.
+/// Must be spawned as a tokio task; accesses the ProcessRegistry to check/update state.
+///
+/// State machine: Ready → (ping fail) → Unhealthy → (reconnect attempts) → Ready or Dead
+pub async fn health_monitor_loop(
+    server_name: String,
+    registry: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, ManagedProcess>>>,
+    config: HealthConfig,
+) {
+    let mut tick = interval(config.interval);
+    let mut consecutive_failures: u32 = 0;
+
+    loop {
+        tick.tick().await;
+
+        let mut servers = registry.lock().await;
+        let Some(process) = servers.get_mut(&server_name) else {
+            break; // Server removed, stop monitoring
+        };
+
+        // Signal 1: Process liveness
+        if !is_process_alive(process) {
+            eprintln!("[mcp_bridge] {} process exited", server_name);
+            process.state = ProcessState::Dead;
+            break;
+        }
+
+        // Signal 2: MCP ping
+        let ping_ok = ping_check(process, config.ping_timeout).await;
+
+        if ping_ok {
+            if process.state == ProcessState::Unhealthy {
+                eprintln!("[mcp_bridge] {} recovered", server_name);
+            }
+            process.state = ProcessState::Ready;
+            consecutive_failures = 0;
+            continue;
+        }
+
+        // Ping failed
+        consecutive_failures += 1;
+        process.state = ProcessState::Unhealthy;
+        process.consecutive_failures = consecutive_failures;
+        eprintln!("[mcp_bridge] {} ping failed (attempt {})", server_name, consecutive_failures);
+
+        if consecutive_failures >= config.max_retries {
+            eprintln!("[mcp_bridge] {} marked dead after {} failures", server_name, consecutive_failures);
+            process.state = ProcessState::Dead;
+            break;
+        }
+
+        // Attempt reconnect: kill old process, re-spawn
+        let old_config = process.config.clone();
+        drop(servers); // Release lock before async reconnect
+
+        let delay = backoff_delay(consecutive_failures - 1, config.base_delay, config.max_delay);
+        tokio::time::sleep(delay).await;
+
+        // Re-acquire lock and attempt respawn
+        let mut servers = registry.lock().await;
+        if let Some(mut old_process) = servers.remove(&server_name) {
+            old_process.kill().await;
+        }
+
+        match ManagedProcess::spawn(old_config.clone()).await {
+            Ok(mut new_process) => {
+                match new_process.initialize().await {
+                    Ok(()) => {
+                        eprintln!("[mcp_bridge] {} reconnected successfully", server_name);
+                        new_process.state = ProcessState::Ready;
+                        consecutive_failures = 0;
+                        servers.insert(server_name.clone(), new_process);
+                    }
+                    Err(e) => {
+                        eprintln!("[mcp_bridge] {} reconnect init failed: {}", server_name, e);
+                        // Process spawned but init failed; kill it
+                        new_process.kill().await;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[mcp_bridge] {} reconnect spawn failed: {}", server_name, e);
+            }
+        }
+    }
+}
 ```
 
 - [ ] **Step 2: Add to mod.rs**
@@ -1192,20 +1333,49 @@ pub fn is_process_alive(process: &mut ManagedProcess) -> bool {
 pub mod health;
 ```
 
-- [ ] **Step 3: Verify compiles**
+- [ ] **Step 3: Wire health monitor spawn into mcp_spawn command**
+
+In `commands.rs`, after inserting the new process into the registry in `mcp_spawn`, add:
+
+```rust
+    // Start health monitor for this server
+    let registry_arc = registry.inner().servers_arc();
+    let health_config = crate::mcp_bridge::health::HealthConfig::default();
+    tokio::spawn(crate::mcp_bridge::health::health_monitor_loop(
+        name.clone(), registry_arc, health_config,
+    ));
+```
+
+This requires `ProcessRegistry` to expose an `Arc` to its inner map. Update `ProcessRegistry`:
+
+```rust
+use std::sync::Arc;
+
+pub struct ProcessRegistry {
+    pub servers: Arc<Mutex<HashMap<String, ManagedProcess>>>,
+}
+
+impl ProcessRegistry {
+    pub fn new() -> Self {
+        Self { servers: Arc::new(Mutex::new(HashMap::new())) }
+    }
+    pub fn servers_arc(&self) -> Arc<Mutex<HashMap<String, ManagedProcess>>> {
+        Arc::clone(&self.servers)
+    }
+}
+```
+
+And update all `registry.servers.lock()` calls to `registry.servers.lock()` (no change needed — Arc<Mutex<_>> still has `.lock()`).
+
+- [ ] **Step 4: Verify compiles**
 
 Run: `cd apps/desktop/src-tauri && cargo check`
 
-Note: `rand` crate needs to be added to Cargo.toml:
-```toml
-rand = "0.8"
-```
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add apps/desktop/src-tauri/
-git commit -m "feat(desktop): add health monitor with exponential backoff"
+git commit -m "feat(desktop): add complete health monitor with ping, state machine, and auto-reconnect"
 ```
 
 ### Task 10: Tauri IPC commands
@@ -1223,9 +1393,11 @@ use crate::mcp_bridge::error::McpBridgeError;
 use crate::mcp_bridge::process_manager::ManagedProcess;
 use crate::mcp_bridge::types::*;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tauri::State;
 
+/// IMPORTANT: Uses tokio::sync::Mutex (NOT std::sync::Mutex) because
+/// ManagedProcess methods are async and we must not hold a std Mutex across .await.
 pub struct ProcessRegistry {
     pub servers: Mutex<HashMap<String, ManagedProcess>>,
 }
@@ -1247,7 +1419,7 @@ pub async fn mcp_spawn(
 
     // Kill existing if any
     {
-        let mut servers = registry.servers.lock().unwrap();
+        let mut servers = registry.servers.lock().await;
         if let Some(mut old) = servers.remove(&name) {
             tokio::spawn(async move { old.kill().await });
         }
@@ -1262,7 +1434,7 @@ pub async fn mcp_spawn(
         state: "ready".into(),
     };
 
-    registry.servers.lock().unwrap().insert(name, process);
+    registry.servers.lock().await.insert(name, process);
     Ok(result)
 }
 
@@ -1273,7 +1445,8 @@ pub async fn mcp_call_tool(
     args: serde_json::Value,
     registry: State<'_, ProcessRegistry>,
 ) -> Result<serde_json::Value, McpBridgeError> {
-    let mut servers = registry.servers.lock().unwrap();
+    // Lock the async Mutex — safe to hold across .await
+    let mut servers = registry.servers.lock().await;
     let process = servers.get_mut(&server)
         .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?;
     process.call_tool(&tool, args).await
@@ -1284,25 +1457,25 @@ pub async fn mcp_kill(
     server: String,
     registry: State<'_, ProcessRegistry>,
 ) -> Result<(), McpBridgeError> {
-    let mut servers = registry.servers.lock().unwrap();
+    let mut servers = registry.servers.lock().await;
     if let Some(mut process) = servers.remove(&server) {
         process.kill().await;
     }
     Ok(())
 }
 
-#[tauri::command]
-pub fn mcp_list_servers(
+#[tauri::command(async)]
+pub async fn mcp_list_servers(
     registry: State<'_, ProcessRegistry>,
-) -> Vec<McpServerStatus> {
-    let servers = registry.servers.lock().unwrap();
-    servers.iter().map(|(name, p)| McpServerStatus {
+) -> Result<Vec<McpServerStatus>, McpBridgeError> {
+    let servers = registry.servers.lock().await;
+    Ok(servers.iter().map(|(name, p)| McpServerStatus {
         name: name.clone(),
         state: p.state.to_string(),
         tool_count: p.tools.len() as u32,
         consecutive_failures: p.consecutive_failures,
         pid: p.child.id(),
-    }).collect()
+    }).collect())
 }
 
 #[tauri::command(async)]
@@ -1311,7 +1484,7 @@ pub async fn mcp_reconnect(
     registry: State<'_, ProcessRegistry>,
 ) -> Result<McpSpawnResult, McpBridgeError> {
     let config = {
-        let mut servers = registry.servers.lock().unwrap();
+        let mut servers = registry.servers.lock().await;
         let process = servers.remove(&server)
             .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?;
         let config = process.config.clone();
@@ -1371,7 +1544,7 @@ In `apps/desktop/src-tauri/src/lib.rs`, add migration version 7:
 Migration {
     version: 7,
     description: "mcp audit log",
-    sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/006_mcp_audit_log.sql"),
+    sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/007_mcp_audit_log.sql"),
     kind: MigrationKind::Up,
 },
 ```
@@ -1471,10 +1644,81 @@ export class TauriMcpClientFactory implements McpClientFactory {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Write unit test**
+
+Create `apps/web/src/__tests__/tauri-mcp-client.test.ts`:
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock @tauri-apps/api/core
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+}));
+
+// Mock browser-mcp-client
+vi.mock('../lib/browser-mcp-client', () => ({
+  BrowserMcpClientFactory: vi.fn().mockImplementation(() => ({
+    createClient: vi.fn().mockResolvedValue({
+      config: { name: 'sse-server', transport: 'sse', url: 'http://localhost' },
+      tools: [],
+      callTool: vi.fn(),
+      close: vi.fn(),
+    }),
+  })),
+}));
+
+import { invoke } from '@tauri-apps/api/core';
+import { TauriMcpClientFactory } from '../lib/tauri-mcp-client';
+
+describe('TauriMcpClientFactory', () => {
+  let factory: TauriMcpClientFactory;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    factory = new TauriMcpClientFactory();
+  });
+
+  it('delegates SSE transport to BrowserMcpClientFactory', async () => {
+    const conn = await factory.createClient({
+      name: 'sse-server', transport: 'sse', url: 'http://localhost:8080',
+    });
+    expect(conn.config.transport).toBe('sse');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('invokes Rust bridge for stdio transport', async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
+      server_name: 'my-mcp',
+      tools: [{ name: 'read', description: 'Read files', input_schema: {} }],
+      state: 'ready',
+    });
+
+    const conn = await factory.createClient({
+      name: 'my-mcp', transport: 'stdio', command: '/usr/bin/mcp',
+    });
+    expect(invoke).toHaveBeenCalledWith('plugin:mcp_bridge|mcp_spawn', expect.any(Object));
+    expect(conn.tools).toHaveLength(1);
+    expect(conn.tools[0]!.name).toBe('read');
+  });
+
+  it('throws if stdio has no command', async () => {
+    await expect(factory.createClient({
+      name: 'bad', transport: 'stdio',
+    })).rejects.toThrow('no command');
+  });
+});
+```
+
+- [ ] **Step 3: Run test**
+
+Run: `pnpm --filter @aics/web test -- --grep "TauriMcpClientFactory"`
+Expected: 3 tests PASS
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add apps/web/src/lib/tauri-mcp-client.ts
+git add apps/web/src/lib/tauri-mcp-client.ts apps/web/src/__tests__/tauri-mcp-client.test.ts
 git commit -m "feat(web): add TauriMcpClientFactory for stdio MCP via Rust bridge"
 ```
 
@@ -1483,9 +1727,16 @@ git commit -m "feat(web): add TauriMcpClientFactory for stdio MCP via Rust bridg
 **Files:**
 - Modify: `apps/web/src/runtime/AicsRuntimeProvider.tsx`
 
-- [ ] **Step 1: Import and swap factory**
+**Prerequisite:** Chunk 1 Task 5 must be complete — `repos.mcpAudit` field must exist on `RuntimeRepositories` and be wired in `AicsRuntimeProvider.tsx`.
 
-In `AicsRuntimeProvider.tsx`, around line 176-181, replace:
+- [ ] **Step 1: Import AuditingToolExecutor and swap factory**
+
+At the top of `AicsRuntimeProvider.tsx`, add:
+```typescript
+import { AuditingToolExecutor } from '@aics/core';
+```
+
+Around line 176-181, replace:
 
 ```typescript
   // --- MCP Tool Executor (real, SSE-only in browser) ---
@@ -1549,16 +1800,18 @@ git commit -m "feat(web): wire TauriMcpClientFactory + AuditingToolExecutor in r
 
 - [ ] **Step 1: Import isTauri and gate stdio option**
 
-Find the transport `<select>` or radio group in `McpConfigPanel.tsx`. Add:
+Find the transport selector in `McpConfigPanel.tsx`. The component uses shadcn/Radix `<Select>` + `<SelectItem>` (NOT native `<select>` + `<option>`). Add:
 
 ```typescript
 import { isTauri } from '../../runtime/env';
 
-// In the transport selector JSX:
-<option value="stdio" disabled={!isTauri()}>
+// In the transport selector JSX (inside <SelectContent>):
+<SelectItem value="stdio" disabled={!isTauri()}>
   Stdio (Local){!isTauri() ? ' — Desktop only' : ''}
-</option>
+</SelectItem>
 ```
+
+Note: `SelectItem` from shadcn/Radix supports the `disabled` prop natively.
 
 - [ ] **Step 2: Verify build**
 
@@ -1620,9 +1873,14 @@ git commit -m "feat(install-core): add RequiredMcp type to SkillRequirements"
 
 - [ ] **Step 1: Write failing test**
 
-In the existing skill-parser test file, add:
+Create `packages/install-core/src/__tests__/unit/skill-parser-mcps.test.ts` (new file — no existing skill-parser test file exists):
 
 ```typescript
+import { describe, it, expect } from 'vitest';
+import { parseSkill } from '../../openclaw/skill-parser.js';
+
+describe('parseSkill — required_mcps', () => {
+
 it('parses required-mcps from metadata', () => {
   const content = `---
 name: GitHub Assistant
@@ -1648,11 +1906,13 @@ Do stuff
   const result = parseSkill(content);
   expect(result.requirements.mcps).toBeUndefined();
 });
+
+}); // end describe
 ```
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `pnpm --filter @aics/install-core test -- --grep "required-mcps"`
+Run: `pnpm --filter @aics/install-core test -- --grep "required_mcps"`
 Expected: FAIL
 
 - [ ] **Step 3: Update extractRequirements**
@@ -1839,34 +2099,49 @@ git commit -m "feat(install-core): add missing_mcp warning in skill validator"
 
 ## Chunk 5: Verification
 
-### Task 18: Full typecheck + test suite
+### Task 18: Full verification suite
 
-- [ ] **Step 1: Full typecheck**
+- [ ] **Step 0: Verify clean working tree**
+
+Run: `git status`
+Expected: No untracked or unstaged changes from previous chunks.
+
+- [ ] **Step 1: Lint**
+
+Run: `pnpm turbo run lint`
+Expected: All packages pass (zero new lint errors)
+
+- [ ] **Step 2: Full typecheck**
 
 Run: `pnpm turbo run typecheck`
 Expected: All packages pass
 
-- [ ] **Step 2: Core tests**
+- [ ] **Step 3: Core tests**
 
 Run: `pnpm --filter @aics/core test`
-Expected: All pass (161+ existing + ~8 new)
+Expected: All pass (no regressions; new AuditingToolExecutor tests included)
 
-- [ ] **Step 3: Install-core tests**
+- [ ] **Step 4: Install-core tests**
 
 Run: `pnpm --filter @aics/install-core test`
-Expected: All pass (193+ existing + ~5 new)
+Expected: All pass (no regressions; new mcps parser + validator tests included)
 
-- [ ] **Step 4: Web build**
+- [ ] **Step 5: Web tests**
+
+Run: `pnpm --filter @aics/web test`
+Expected: All pass (includes TauriMcpClientFactory mock tests from Task 11)
+
+- [ ] **Step 6: Web build**
 
 Run: `pnpm --filter @aics/web build`
 Expected: Build succeeds
 
-- [ ] **Step 5: Rust build**
+- [ ] **Step 7: Rust build**
 
-Run: `cd apps/desktop/src-tauri && cargo build`
-Expected: Compiles
+Run: `cd apps/desktop/src-tauri && cargo check`
+Expected: Compiles (no unresolved imports for `tokio::process`, `libc`, etc.)
 
-- [ ] **Step 6: Tag**
+- [ ] **Step 8: Tag**
 
 ```bash
 git tag p3-mcp-full-experience
