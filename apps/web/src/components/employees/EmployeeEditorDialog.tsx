@@ -5,6 +5,15 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
+import { VersionHistoryTab } from './VersionHistoryTab';
+
+/** Available workstations matching FloorLayer's DEFAULT_WORKSTATION_IDS. */
+const WORKSTATION_OPTIONS = [
+  { value: 'ws-1', label: 'Workstation 1 (Top-Left)' },
+  { value: 'ws-2', label: 'Workstation 2 (Top-Right)' },
+  { value: 'ws-3', label: 'Workstation 3 (Bottom-Left)' },
+  { value: 'ws-4', label: 'Workstation 4 (Bottom-Right)' },
+];
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Product Manager' },
@@ -48,6 +57,9 @@ export function EmployeeEditorDialog({
             <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
             <TabsTrigger value="persona" className="flex-1">Persona</TabsTrigger>
             <TabsTrigger value="config" className="flex-1">Config</TabsTrigger>
+            {isEditMode && (
+              <TabsTrigger value="history" className="flex-1">History</TabsTrigger>
+            )}
           </TabsList>
 
           {/* Profile Tab */}
@@ -99,6 +111,29 @@ export function EmployeeEditorDialog({
                 >
                   {formData.enabled ? 'Enabled' : 'Disabled'}
                 </Button>
+              </div>
+
+              {/* Workstation assignment (accessibility fallback for drag-drop) */}
+              <div>
+                <label htmlFor="editor-workstation" className="text-sm text-shell mb-1 block">
+                  Assign Workstation
+                </label>
+                <Select
+                  value={formData.workstation_id ?? 'none'}
+                  onValueChange={(v) => updateField('workstation_id', v === 'none' ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {WORKSTATION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </TabsContent>
@@ -193,6 +228,13 @@ export function EmployeeEditorDialog({
               </div>
             </div>
           </TabsContent>
+
+          {/* History Tab (edit mode only) */}
+          {isEditMode && employeeId && (
+            <TabsContent value="history">
+              <VersionHistoryTab employeeId={employeeId} />
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Footer */}

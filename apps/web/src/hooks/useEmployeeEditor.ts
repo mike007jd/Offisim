@@ -1,6 +1,6 @@
 import type { EmployeeRow, EmployeeUpdate } from '@aics/core';
-import { employeeCreated, employeeDeleted, employeeUpdated } from '@aics/core';
-import { useCallback, useState } from 'react';
+import { EmployeeVersionService, employeeCreated, employeeDeleted, employeeUpdated, employeeWorkstationChanged } from '@aics/core';
+import { useCallback, useMemo, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
@@ -8,6 +8,7 @@ export interface EmployeeFormData {
   name: string;
   role_slug: string;
   enabled: boolean;
+  workstation_id: string | null;
   expertise: string;
   style: string;
   customInstructions: string;
@@ -20,6 +21,7 @@ const DEFAULT_FORM: EmployeeFormData = {
   name: '',
   role_slug: 'developer',
   enabled: true,
+  workstation_id: null,
   expertise: '',
   style: '',
   customInstructions: '',
@@ -63,6 +65,7 @@ function rowToFormData(row: EmployeeRow): EmployeeFormData {
     name: row.name,
     role_slug: row.role_slug,
     enabled: row.enabled === 1,
+    workstation_id: row.workstation_id,
     ...persona,
     ...config,
   };
@@ -88,6 +91,11 @@ export interface UseEmployeeEditorReturn {
 
 export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const { repos, eventBus } = useAicsRuntime();
+
+  const versionService = useMemo(() => {
+    if (!repos) return null;
+    return new EmployeeVersionService(repos.employeeVersions, repos.employees, eventBus);
+  }, [repos, eventBus]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -151,11 +159,24 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           name: formData.name,
           role_slug: formData.role_slug,
           enabled: formData.enabled ? 1 : 0,
+          workstation_id: formData.workstation_id,
           persona_json: personaJson,
           config_json: configJson,
         };
         await repos.employees.update(employeeId, patch);
         eventBus.emit(employeeUpdated(COMPANY_ID, employeeId, formData.name, formData.role_slug));
+
+        // Emit workstation change if it differs from original
+        if (formData.workstation_id !== originalData.workstation_id) {
+          eventBus.emit(employeeWorkstationChanged(
+            COMPANY_ID,
+            employeeId,
+            originalData.workstation_id,
+            formData.workstation_id,
+          ));
+        }
+        // Snapshot current state as a new version
+        await versionService?.createVersion(employeeId, 'update');
       } else {
         // Create new employee
         const result = await repos.employees.create({
@@ -168,6 +189,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           config_json: configJson,
         });
         eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug));
+        // Snapshot initial state as version 1
+        await versionService?.createVersion(result.employee_id, 'create');
       }
 
       setIsOpen(false);
@@ -178,7 +201,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     } finally {
       setIsSaving(false);
     }
-  }, [repos, eventBus, employeeId, formData]);
+  }, [repos, eventBus, versionService, employeeId, formData]);
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 

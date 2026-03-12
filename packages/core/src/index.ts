@@ -157,6 +157,11 @@ export {
 export { ExecutionTraceServiceImpl } from './services/execution-trace-service.js';
 export { ThreadForkServiceStub } from './services/thread-fork-service.js';
 export { OrchestrationService } from './services/orchestration-service.js';
+export { EmployeeVersionService } from './runtime/employee-version-service.js';
+export type { VersionDiff } from './runtime/employee-version-service.js';
+export { CostCalculationService } from './runtime/cost-calculation-service.js';
+export type { CostAggregate } from './runtime/cost-calculation-service.js';
+export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 
 // --- Runtime ---
 export { MockToolExecutor } from './runtime/tool-executor.js';
