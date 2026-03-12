@@ -44,6 +44,9 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
+  McpAuditRepository,
+  McpAuditRow,
+  NewMcpAudit,
 } from './repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -482,6 +485,20 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const mcpAudit: McpAuditRepository = {
+    async create(audit: NewMcpAudit) {
+      db.insert(schema.mcpAuditLog).values(audit).run();
+      return audit as McpAuditRow;
+    },
+    async listByThread(threadId) {
+      return db
+        .select()
+        .from(schema.mcpAuditLog)
+        .where(eq(schema.mcpAuditLog.thread_id, threadId))
+        .all() as McpAuditRow[];
+    },
+  };
+
   return {
     companies,
     threads,
@@ -494,6 +511,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     events,
     llmCalls,
     memories,
+    mcpAudit,
     installTransactions,
     installedPackages,
     installedAssets,

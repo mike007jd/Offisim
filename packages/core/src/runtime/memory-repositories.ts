@@ -14,12 +14,15 @@ import type {
   HandoffRepository,
   LlmCallRepository,
   LlmCallRow,
+  McpAuditRepository,
+  McpAuditRow,
   MeetingRepository,
   MeetingSessionRow,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
   NewLlmCall,
+  NewMcpAudit,
   NewMeetingSession,
   NewRuntimeEvent,
   NewTaskRun,
@@ -253,6 +256,8 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
 
   const installRepos = createMemoryInstallRepositories();
 
+  const mcpAudit = new MemoryMcpAuditRepository();
+
   return {
     companies,
     threads,
@@ -265,7 +270,21 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     events,
     llmCalls,
     memories,
+    mcpAudit,
     ...installRepos,
     seed,
   };
+}
+
+export class MemoryMcpAuditRepository implements McpAuditRepository {
+  private readonly rows: McpAuditRow[] = [];
+
+  async create(audit: NewMcpAudit): Promise<McpAuditRow> {
+    this.rows.push(audit);
+    return audit;
+  }
+
+  async listByThread(threadId: string): Promise<McpAuditRow[]> {
+    return this.rows.filter((r) => r.thread_id === threadId);
+  }
 }

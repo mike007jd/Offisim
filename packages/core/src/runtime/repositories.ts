@@ -261,6 +261,32 @@ export interface MemoryRepository {
   touchAccess(memoryId: string): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// MCP Audit
+// ---------------------------------------------------------------------------
+
+export interface McpAuditRow {
+  audit_id: string;
+  thread_id: string;
+  task_run_id: string | null;
+  employee_id: string;
+  server_name: string;
+  tool_name: string;
+  arguments_json: string;
+  result_json: string | null;
+  error: string | null;
+  latency_ms: number;
+  approved_by: string;
+  created_at: string;
+}
+
+export type NewMcpAudit = McpAuditRow;
+
+export interface McpAuditRepository {
+  create(audit: NewMcpAudit): Promise<McpAuditRow>;
+  listByThread(threadId: string): Promise<McpAuditRow[]>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -278,4 +304,5 @@ export interface RuntimeRepositories {
   installedAssets: InstalledAssetRepository;
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
+  mcpAudit: McpAuditRepository;
 }

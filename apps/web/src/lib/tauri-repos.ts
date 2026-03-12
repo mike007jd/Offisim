@@ -36,7 +36,7 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import { InMemoryMemoryRepository } from '@aics/core';
+import { InMemoryMemoryRepository, MemoryMcpAuditRepository } from '@aics/core';
 import * as schema from '@aics/db-local';
 import type {
   AssetBindingRow,
@@ -401,5 +401,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     assetBindings,
     // TODO(P3): Replace with Drizzle-backed Tauri memory repository once migration 005 is applied
     memories: new InMemoryMemoryRepository(),
+    // TODO(P3): Replace with Drizzle-backed Tauri MCP audit repository once migration 007 is applied
+    mcpAudit: new MemoryMcpAuditRepository(),
   };
 }

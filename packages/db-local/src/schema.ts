@@ -383,3 +383,34 @@ export const memoryEntries = sqliteTable(
     index('idx_memory_importance').on(table.importance),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// 007 — MCP audit log
+// ---------------------------------------------------------------------------
+
+export const mcpAuditLog = sqliteTable(
+  'mcp_audit_log',
+  {
+    audit_id: text('audit_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id),
+    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
+      onDelete: 'set null',
+    }),
+    employee_id: text('employee_id').notNull(),
+    server_name: text('server_name').notNull(),
+    tool_name: text('tool_name').notNull(),
+    arguments_json: text('arguments_json').notNull(),
+    result_json: text('result_json'),
+    error: text('error'),
+    latency_ms: integer('latency_ms').notNull(),
+    approved_by: text('approved_by').notNull().default('auto'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_mcp_audit_thread').on(table.thread_id),
+    index('idx_mcp_audit_employee').on(table.employee_id),
+    index('idx_mcp_audit_server').on(table.server_name),
+  ],
+);
