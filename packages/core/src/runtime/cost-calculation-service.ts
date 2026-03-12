@@ -1,3 +1,4 @@
+import { matchCostRate } from '../utils/glob-match.js';
 import type {
   LlmCallRepository,
   LlmCallRow,
@@ -229,8 +230,7 @@ export class CostCalculationService {
   }
 
   /**
-   * Match a cost rate from a pre-fetched array, using the same glob logic as
-   * {@link MemoryModelCostRateRepository.findByProviderModel}.
+   * Match a cost rate from a pre-fetched array using glob pattern matching.
    * Static so it can be tested independently of repository wiring.
    */
   static matchRate(
@@ -238,18 +238,7 @@ export class CostCalculationService {
     provider: string,
     model: string,
   ): ModelCostRateRow | null {
-    const matching = rates.filter((r) => {
-      if (r.provider !== provider) return false;
-      const regex = new RegExp(
-        '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
-        'i',
-      );
-      return regex.test(model);
-    });
-    if (matching.length === 0) return null;
-    // Prefer the most specific pattern (longest pattern string)
-    matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-    return matching[0]!;
+    return matchCostRate(rates, provider, model);
   }
 
   private resolveGroupKey(call: LlmCallRow, groupBy: 'model' | 'employee' | 'day'): string {

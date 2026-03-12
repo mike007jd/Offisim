@@ -1,5 +1,6 @@
 import {
   AuditingToolExecutor,
+  DEFAULT_COST_RATES,
   type InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
@@ -12,15 +13,13 @@ import {
 import type { EventBus, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { COMPANY_ID, THREAD_ID } from './constants';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import type { ProviderConfig } from './provider-config';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
-
-const COMPANY_ID = 'company-001';
-const THREAD_ID = 'thread-001';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
@@ -112,6 +111,9 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     threadId: THREAD_ID,
   });
 
+  // Seed default cost rates (idempotent — skips if rates already exist)
+  await seedCostRates(repos);
+
   // Install service — Drizzle-backed repos for persistent install state
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
@@ -125,4 +127,25 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   });
 
   return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
+}
+
+/**
+ * Seed default LLM cost rates into the Tauri runtime's persistent DB.
+ * Idempotent: skips if rates already exist.
+ */
+async function seedCostRates(repos: RuntimeRepositories): Promise<void> {
+  const existing = await repos.costRates.findAll();
+  if (existing.length > 0) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  for (const rate of DEFAULT_COST_RATES) {
+    await repos.costRates.create({
+      provider: rate.provider,
+      model_pattern: rate.model_pattern,
+      input_cost_per_mtok: rate.input_cost_per_mtok,
+      output_cost_per_mtok: rate.output_cost_per_mtok,
+      effective_from: today,
+      effective_until: null,
+    });
+  }
 }

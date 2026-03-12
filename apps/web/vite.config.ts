@@ -130,10 +130,9 @@ export default defineConfig({
     include: ['@aics/core', '@aics/shared-types'],
   },
   build: {
-    // vendor-llm chunk (OpenAI SDK + LangChain + zod) is ~966 KB minified.
-    // This is acceptable because it's loaded lazily on first chat, not on initial render.
-    // The main chunk is now ~598 KB which is well under the default 500 KB limit.
-    chunkSizeWarningLimit: 1000,
+    // vendor-llm (LLM SDKs) and vendor-pixi (PixiJS) are large but unavoidable.
+    // vendor-llm is lazy-loaded on first chat; vendor-pixi is needed for scene rendering.
+    chunkSizeWarningLimit: 1100,
     rollupOptions: {
       external: [
         'better-sqlite3',
@@ -143,16 +142,14 @@ export default defineConfig({
       ],
       output: {
         // ---------------------------------------------------------------------------
-        // Manual chunk splitting to reduce the main bundle from ~1.9 MB.
-        //
-        // Strategy:
-        //   vendor-react  — React core (rarely changes, long cache)
-        //   vendor-llm    — LLM SDKs + LangChain + zod (loaded on first chat)
-        //   vendor-install — fflate + ajv (loaded on first package import)
-        //
-        // PixiJS is NOT manually chunked — Vite's auto-splitting already produces
-        // granular renderer chunks (WebGL, WebGPU, Canvas, etc.) via pixi.js's
-        // own dynamic imports. Forcing them into one chunk would be worse.
+        // Manual chunk splitting strategy:
+        //   vendor-react   — React core (rarely changes, long cache)
+        //   vendor-llm     — LLM SDKs + LangChain + zod (lazy on first chat)
+        //   vendor-pixi    — PixiJS core (220 files, ~250 KB; renderer backends
+        //                    auto-split by Vite via pixi.js dynamic imports)
+        //   vendor-ui      — Radix primitives + lucide icons + animation helpers
+        //   vendor-install — fflate + ajv + gray-matter + js-yaml
+        //   vendor-drizzle — drizzle-orm (leaks via @aics/core barrel export)
         // ---------------------------------------------------------------------------
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return;
@@ -175,9 +172,38 @@ export default defineConfig({
             return 'vendor-llm';
           }
 
-          // Install stack — ZIP + JSON Schema validation
-          if (id.includes('/fflate/') || id.includes('/ajv/') || id.includes('/ajv-formats/')) {
+          // PixiJS core — the big renderer library
+          if (id.includes('/pixi.js/') || id.includes('/@pixi/')) {
+            return 'vendor-pixi';
+          }
+
+          // UI stack — icons, Radix primitives, scroll-lock, GSAP
+          if (
+            id.includes('/lucide-react/') ||
+            id.includes('/@radix-ui/') ||
+            id.includes('/react-remove-scroll') ||
+            id.includes('/use-callback-ref/') ||
+            id.includes('/use-sidecar/') ||
+            id.includes('/react-style-singleton/') ||
+            id.includes('/gsap/')
+          ) {
+            return 'vendor-ui';
+          }
+
+          // Install stack — ZIP + JSON Schema + frontmatter
+          if (
+            id.includes('/fflate/') ||
+            id.includes('/ajv/') ||
+            id.includes('/ajv-formats/') ||
+            id.includes('/gray-matter/') ||
+            id.includes('/js-yaml/')
+          ) {
             return 'vendor-install';
+          }
+
+          // Drizzle ORM — leaks via @aics/core barrel export, isolate it
+          if (id.includes('/drizzle-orm/')) {
+            return 'vendor-drizzle';
           }
         },
       },

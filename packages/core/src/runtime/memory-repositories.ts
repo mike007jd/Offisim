@@ -1,5 +1,6 @@
 import type { NewEmployee } from '@aics/install-core';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
+import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import type {
   CheckpointRepository,
@@ -367,19 +368,7 @@ export class MemoryModelCostRateRepository implements ModelCostRateRepository {
   }
 
   async findByProviderModel(provider: string, model: string): Promise<ModelCostRateRow | null> {
-    // Find the best matching rate using glob pattern matching
-    const matching = this.rows.filter((r) => {
-      if (r.provider !== provider) return false;
-      const regex = new RegExp(
-        '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
-        'i',
-      );
-      return regex.test(model);
-    });
-    if (matching.length === 0) return null;
-    // Prefer the most specific pattern (longest without wildcards)
-    matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-    return matching[0]!;
+    return matchCostRate(this.rows, provider, model);
   }
 
   async findAll(): Promise<ModelCostRateRow[]> {

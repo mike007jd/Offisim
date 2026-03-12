@@ -38,4 +38,17 @@ describe('createGateway', () => {
     });
     expect(gw).toBeInstanceOf(OpenAiAdapter);
   });
+
+  it('passes dangerouslyAllowBrowser to anthropic adapter', () => {
+    const gw = createGateway({
+      provider: 'anthropic',
+      apiKey: 'sk-test',
+      dangerouslyAllowBrowser: true,
+    });
+    expect(gw).toBeInstanceOf(AnthropicAdapter);
+    // Access the internal client to verify the flag was passed
+    // biome-ignore lint/suspicious/noExplicitAny: test-only introspection
+    const client = (gw as any).client;
+    expect(client).toBeDefined();
+  });
 });

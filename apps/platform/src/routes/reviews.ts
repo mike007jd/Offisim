@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { eq, and, sql } from 'drizzle-orm';
 import { reviews, listings } from '@aics/db-platform';
 import { requireAuth } from '../middleware/auth.js';
+import { ReviewCreateSchema } from '../schemas/index.js';
 import type { PlatformEnv } from '../types.js';
 
 const reviewsRoute = new Hono<PlatformEnv>();
@@ -11,23 +12,7 @@ const reviewsRoute = new Hono<PlatformEnv>();
 reviewsRoute.post('/', requireAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
-  const body = await c.req.json<{
-    listing_id: string;
-    rating: number;
-    title?: string;
-    body?: string;
-  }>();
-
-  // Validate rating range and integer type
-  if (
-    !body.listing_id ||
-    typeof body.rating !== 'number' ||
-    !Number.isInteger(body.rating) ||
-    body.rating < 1 ||
-    body.rating > 5
-  ) {
-    throw new HTTPException(400, { message: 'listing_id and rating (integer 1-5) are required' });
-  }
+  const body = ReviewCreateSchema.parse(await c.req.json());
 
   // Verify listing exists
   const [listing] = await db

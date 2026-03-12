@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { PlatformEnv } from '../types.js';
 import { reviewsRoute } from '../routes/reviews.js';
 import { optionalAuth } from '../middleware/auth.js';
+import { errorHandler } from '../middleware/error-handler.js';
 
 // ── Helpers ──
 
@@ -69,11 +70,7 @@ function createApp(mockDb: any) {
     await next();
   });
   app.use('*', optionalAuth);
-  // Error handler to return JSON errors
-  app.onError((err, c) => {
-    const status = 'status' in err && typeof err.status === 'number' ? err.status : 500;
-    return c.json({ error: { message: err.message } }, status as any);
-  });
+  app.onError(errorHandler);
   app.route('/v1/reviews', reviewsRoute);
   return app;
 }

@@ -1,7 +1,10 @@
 /**
  * Manifest validation service for the publishing workflow.
- * Validates package manifest JSON against AICS schema rules.
+ * Uses Zod ManifestSchema for structural validation,
+ * maps errors to stable human-readable messages.
  */
+
+import { ManifestSchema } from '../schemas/index.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -9,9 +12,16 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-const VALID_KINDS = ['employee', 'skill', 'sop', 'company_template', 'office_layout', 'bundle'];
-const VALID_RISK_CLASSES = ['data_asset', 'logic_asset', 'privileged_asset'];
-const VALID_ENVIRONMENTS = ['desktop', 'docker', 'web_limited'];
+/** Map top-level required field paths to legacy error messages */
+const TOP_LEVEL_LABELS: Record<string, string> = {
+  spec_version: 'Missing spec_version',
+  package: 'Missing package section',
+  compatibility: 'Missing compatibility section',
+  requirements: 'Missing requirements section',
+  permissions: 'Missing permissions section',
+  assets: 'Missing or invalid assets array',
+  integrity: 'Missing integrity section',
+};
 
 export function validateManifest(json: unknown): ValidationResult {
   const errors: string[] = [];
@@ -21,59 +31,24 @@ export function validateManifest(json: unknown): ValidationResult {
     return { valid: false, errors: ['Manifest must be a JSON object'], warnings: [] };
   }
 
-  const manifest = json as Record<string, any>;
+  const result = ManifestSchema.safeParse(json);
 
-  // Required top-level fields
-  if (!manifest.spec_version) errors.push('Missing spec_version');
-  if (!manifest.package) errors.push('Missing package section');
-  if (!manifest.compatibility) errors.push('Missing compatibility section');
-  if (!manifest.requirements) errors.push('Missing requirements section');
-  if (!manifest.permissions) errors.push('Missing permissions section');
-  if (!manifest.assets || !Array.isArray(manifest.assets)) errors.push('Missing or invalid assets array');
-  if (!manifest.integrity) errors.push('Missing integrity section');
+  if (!result.success) {
+    for (const issue of result.error.errors) {
+      const pathKey = issue.path[0] as string;
 
-  // Package fields
-  if (manifest.package) {
-    if (!manifest.package.id) errors.push('Missing package.id');
-    if (!manifest.package.kind || !VALID_KINDS.includes(manifest.package.kind)) {
-      errors.push(`Invalid package.kind: ${manifest.package.kind}`);
-    }
-    if (!manifest.package.version) errors.push('Missing package.version');
-    if (!manifest.package.title) errors.push('Missing package.title');
-    if (!manifest.package.license) errors.push('Missing package.license');
-  }
-
-  // Compatibility
-  if (manifest.compatibility) {
-    if (!manifest.compatibility.runtime_range) errors.push('Missing compatibility.runtime_range');
-    if (!manifest.compatibility.schema_version) errors.push('Missing compatibility.schema_version');
-    if (!Array.isArray(manifest.compatibility.supported_environments)) {
-      errors.push('Missing compatibility.supported_environments');
-    } else {
-      for (const env of manifest.compatibility.supported_environments) {
-        if (!VALID_ENVIRONMENTS.includes(env)) {
-          errors.push(`Invalid environment: ${env}`);
-        }
+      // Top-level "Required" → use readable label
+      if (issue.path.length === 1 && issue.message === 'Required' && TOP_LEVEL_LABELS[pathKey]) {
+        errors.push(TOP_LEVEL_LABELS[pathKey]);
+      } else {
+        // Custom messages from schema errorMaps / .min() / .boolean() are already correct
+        errors.push(issue.message);
       }
     }
   }
 
-  // Permissions
-  if (manifest.permissions) {
-    if (!manifest.permissions.risk_class || !VALID_RISK_CLASSES.includes(manifest.permissions.risk_class)) {
-      errors.push(`Invalid permissions.risk_class: ${manifest.permissions.risk_class}`);
-    }
-    if (typeof manifest.permissions.declares_secrets !== 'boolean') {
-      errors.push('permissions.declares_secrets must be boolean');
-    }
-  }
-
-  // Integrity
-  if (manifest.integrity) {
-    if (!manifest.integrity.package_sha256) errors.push('Missing integrity.package_sha256');
-  }
-
-  // Warnings
+  // Warnings (advisory only — not schema errors)
+  const manifest = json as Record<string, any>;
   if (!manifest.previews?.readme_path) warnings.push('No readme_path in previews');
   if (!manifest.package?.summary) warnings.push('No package.summary — recommended for marketplace display');
 

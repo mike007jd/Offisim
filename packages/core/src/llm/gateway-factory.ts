@@ -27,7 +27,10 @@ export interface GatewayConfig {
 export function createGateway(config: GatewayConfig): LlmGateway {
   switch (config.provider) {
     case 'anthropic':
-      return new AnthropicAdapter(config.apiKey, { retryConfig: config.retryConfig });
+      return new AnthropicAdapter(config.apiKey, {
+        retryConfig: config.retryConfig,
+        dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
+      });
     case 'openai':
       return new OpenAiAdapter(config.apiKey, {
         retryConfig: config.retryConfig,

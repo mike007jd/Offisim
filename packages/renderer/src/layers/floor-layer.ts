@@ -26,7 +26,7 @@ const TILE_SCREEN = 16 * PX; // 48
  * Default workstation IDs for the 2×2 desk grid.
  * Stable identifiers used for DB persistence and drag-drop targeting.
  */
-const DEFAULT_WORKSTATION_IDS = ['ws-1', 'ws-2', 'ws-3', 'ws-4'] as const;
+export const DEFAULT_WORKSTATION_IDS = ['ws-1', 'ws-2', 'ws-3', 'ws-4'] as const;
 
 /** Highlight color for drop-target feedback (amber-400). */
 const HIGHLIGHT_COLOR = 0xfbbf24;

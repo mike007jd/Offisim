@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { PlatformEnv } from '../types.js';
 import { validateManifest } from '../services/validation.js';
 import { publish } from '../routes/publish.js';
+import { errorHandler } from '../middleware/error-handler.js';
 
 // ── Shared Test Data ──
 
@@ -138,6 +139,7 @@ function createApp(mockDb: any) {
     }
     await next();
   });
+  app.onError(errorHandler);
   app.route('/v1/publish', publish);
   return app;
 }

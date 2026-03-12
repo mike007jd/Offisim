@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSTATION_IDS } from '@aics/renderer';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -7,13 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
-/** Available workstations matching FloorLayer's DEFAULT_WORKSTATION_IDS. */
-const WORKSTATION_OPTIONS = [
-  { value: 'ws-1', label: 'Workstation 1 (Top-Left)' },
-  { value: 'ws-2', label: 'Workstation 2 (Top-Right)' },
-  { value: 'ws-3', label: 'Workstation 3 (Bottom-Left)' },
-  { value: 'ws-4', label: 'Workstation 4 (Bottom-Right)' },
-];
+const POSITION_LABELS: Record<string, string> = {
+  'ws-1': 'Top-Left',
+  'ws-2': 'Top-Right',
+  'ws-3': 'Bottom-Left',
+  'ws-4': 'Bottom-Right',
+};
+const WORKSTATION_OPTIONS = DEFAULT_WORKSTATION_IDS.map((id, i) => ({
+  value: id,
+  label: `Workstation ${i + 1} (${POSITION_LABELS[id] ?? ''})`,
+}));
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Product Manager' },

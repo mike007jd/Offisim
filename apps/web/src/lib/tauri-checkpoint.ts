@@ -19,6 +19,23 @@ interface SerializedWriteRow {
   value: string;
 }
 
+/**
+ * Convert serialized output from `serde.dumpsTyped()` to a string for SQL storage.
+ *
+ * `JsonPlusSerializer.dumpsTyped()` returns `[type, Uint8Array]` where the
+ * Uint8Array is UTF-8 encoded JSON. tauri-plugin-sql (backed by sqlx) serializes
+ * JS values to JSON for IPC, so Uint8Array becomes `number[]` which sqlx does
+ * NOT interpret as a BLOB correctly. By converting to a string first, SQLite
+ * stores it as TEXT (dynamic typing) and returns it as a string on reads.
+ *
+ * `serde.loadsTyped()` accepts both `Uint8Array` and `string`, so strings work
+ * for both storage and retrieval.
+ */
+function ensureString(data: Uint8Array | string): string {
+  if (typeof data === 'string') return data;
+  return new TextDecoder().decode(data);
+}
+
 /** Shape of a checkpoint row returned from SQLite select. */
 interface CheckpointRow {
   thread_id: string;
@@ -251,7 +268,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     }
 
     const preparedCheckpoint = copyCheckpoint(checkpoint);
-    const [[type1, serializedCheckpoint], [type2, serializedMetadata]] = await Promise.all([
+    const [[type1, rawCheckpoint], [type2, rawMetadata]] = await Promise.all([
       this.serde.dumpsTyped(preparedCheckpoint),
       this.serde.dumpsTyped(metadata),
     ]);
@@ -259,6 +276,11 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     if (type1 !== type2) {
       throw new Error('Failed to serialize checkpoint and metadata to same type.');
     }
+
+    // Convert Uint8Array to string for tauri-plugin-sql IPC compatibility.
+    // SQLite stores TEXT in BLOB columns via dynamic typing; reads return strings.
+    const serializedCheckpoint = ensureString(rawCheckpoint);
+    const serializedMetadata = ensureString(rawMetadata);
 
     await db.execute(
       `INSERT OR REPLACE INTO checkpoints
@@ -296,7 +318,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
 
     const serialized = await Promise.all(
       writes.map(async (write, idx) => {
-        const [type, serializedValue] = await this.serde.dumpsTyped(write[1]);
+        const [type, rawValue] = await this.serde.dumpsTyped(write[1]);
         return [
           thread_id,
           checkpoint_ns,
@@ -305,7 +327,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
           idx,
           write[0],
           type,
-          serializedValue,
+          ensureString(rawValue),
         ];
       }),
     );

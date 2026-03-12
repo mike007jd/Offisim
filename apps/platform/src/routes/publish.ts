@@ -9,6 +9,7 @@ import { HTTPException } from 'hono/http-exception';
 import { eq, and, desc } from 'drizzle-orm';
 import { publishDrafts, creators, moderationJobs } from '@aics/db-platform';
 import { requireAuth } from '../middleware/auth.js';
+import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
 import { validateManifest } from '../services/validation.js';
 import { processModerationJob } from '../services/moderation.js';
 import type { PlatformEnv } from '../types.js';
@@ -22,16 +23,7 @@ publish.use('/*', requireAuth);
 publish.post('/drafts', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
-  const body = await c.req.json<{
-    kind: string;
-    listing_id?: string;
-    title: string;
-    summary?: string;
-  }>();
-
-  if (!body.kind || !body.title) {
-    throw new HTTPException(400, { message: 'kind and title are required' });
-  }
+  const body = DraftCreateSchema.parse(await c.req.json());
 
   // Get creator for this user
   const [creator] = await db
@@ -152,14 +144,7 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
   const draftId = c.req.param('draftId');
-  const body = await c.req.json<{
-    manifest_json: Record<string, unknown>;
-    artifact?: {
-      external_url?: string;
-      sha256?: string;
-      size_bytes?: number;
-    };
-  }>();
+  const body = ManifestUploadSchema.parse(await c.req.json());
 
   // Verify draft exists and belongs to this user's creator
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
@@ -220,9 +205,7 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
 publish.post('/submit', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
-  const body = await c.req.json<{ draft_id: string; submit_message?: string }>();
-
-  if (!body.draft_id) throw new HTTPException(400, { message: 'draft_id is required' });
+  const body = SubmitDraftSchema.parse(await c.req.json());
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
   if (!creator) throw new HTTPException(403, { message: 'Not a creator' });

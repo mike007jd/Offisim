@@ -25,5 +25,5 @@ export { InteractionController } from './interaction/interaction-controller.js';
 export type { DragResult } from './interaction/interaction-controller.js';
 
 // Layers
-export { FloorLayer } from './layers/floor-layer.js';
+export { DEFAULT_WORKSTATION_IDS, FloorLayer } from './layers/floor-layer.js';
 export type { DeskPosition, WorkstationBounds } from './layers/floor-layer.js';

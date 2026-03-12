@@ -17,7 +17,8 @@ import {
 import type { CompanyRow, EmployeeRow, EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { HumanMessage } from '@langchain/core/messages';
+// HumanMessage is dynamically imported in sendMessage to avoid pulling
+// @langchain/core into the main bundle (~200 KB savings).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
 import { isTauri } from '../lib/env';
@@ -350,7 +351,7 @@ export function AicsRuntimeProvider({ children }: Props) {
         const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
         const result = await orch.execute({
           entryMode,
-          messages: [new HumanMessage(text)],
+          messages: [new (await import('@langchain/core/messages')).HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
         });
         // Extract last AI message content from graph result

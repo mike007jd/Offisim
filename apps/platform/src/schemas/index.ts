@@ -1,0 +1,126 @@
+/**
+ * Zod request schemas for all Platform API POST/PUT endpoints.
+ *
+ * Each schema validates the request body shape and constraints.
+ * Routes call `schema.parse(body)` and let ZodError propagate
+ * to the global error handler for consistent 400 responses.
+ */
+
+import { z } from 'zod';
+
+// ── Shared enums ──
+
+export const VALID_KINDS = [
+  'employee',
+  'skill',
+  'sop',
+  'company_template',
+  'office_layout',
+  'bundle',
+] as const;
+
+export const VALID_RISK_CLASSES = [
+  'data_asset',
+  'logic_asset',
+  'privileged_asset',
+] as const;
+
+export const VALID_ENVIRONMENTS = ['desktop', 'docker', 'web_limited'] as const;
+
+// ── Review ──
+
+export const ReviewCreateSchema = z.object({
+  listing_id: z.string().min(1, 'listing_id is required'),
+  rating: z.number().int('rating must be an integer').min(1).max(5),
+  title: z.string().optional(),
+  body: z.string().optional(),
+});
+export type ReviewCreateBody = z.infer<typeof ReviewCreateSchema>;
+
+// ── Publish: Draft ──
+
+export const DraftCreateSchema = z.object({
+  kind: z.string().min(1, 'kind is required'),
+  title: z.string().min(1, 'title is required'),
+  summary: z.string().optional(),
+  listing_id: z.string().optional(),
+});
+export type DraftCreateBody = z.infer<typeof DraftCreateSchema>;
+
+// ── Publish: Manifest upload ──
+
+export const ManifestUploadSchema = z.object({
+  manifest_json: z.record(z.unknown()),
+  artifact: z
+    .object({
+      external_url: z.string().optional(),
+      sha256: z.string().optional(),
+      size_bytes: z.number().optional(),
+    })
+    .optional(),
+});
+export type ManifestUploadBody = z.infer<typeof ManifestUploadSchema>;
+
+// ── Publish: Submit ──
+
+export const SubmitDraftSchema = z.object({
+  draft_id: z.string().min(1, 'draft_id is required'),
+  submit_message: z.string().optional(),
+});
+export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
+
+// ── Manifest validation schema (replaces services/validation.ts if-checks) ──
+
+const packageSchema = z.object({
+  id: z.string().min(1, 'Missing package.id'),
+  kind: z.enum(VALID_KINDS, {
+    errorMap: (_issue, ctx) => ({
+      message: `Invalid package.kind: ${ctx.data}`,
+    }),
+  }),
+  version: z.string().min(1, 'Missing package.version'),
+  title: z.string().min(1, 'Missing package.title'),
+  license: z.string().min(1, 'Missing package.license'),
+  summary: z.string().optional(),
+});
+
+const compatibilitySchema = z.object({
+  runtime_range: z.string().min(1, 'Missing compatibility.runtime_range'),
+  schema_version: z.string().min(1, 'Missing compatibility.schema_version'),
+  supported_environments: z
+    .array(
+      z.enum(VALID_ENVIRONMENTS, {
+        errorMap: (_issue, ctx) => ({
+          message: `Invalid environment: ${ctx.data}`,
+        }),
+      }),
+    )
+    .min(1, 'Missing compatibility.supported_environments'),
+});
+
+const permissionsSchema = z.object({
+  risk_class: z.enum(VALID_RISK_CLASSES, {
+    errorMap: (_issue, ctx) => ({
+      message: `Invalid permissions.risk_class: ${ctx.data}`,
+    }),
+  }),
+  declares_secrets: z.boolean({
+    required_error: 'permissions.declares_secrets must be boolean',
+    invalid_type_error: 'permissions.declares_secrets must be boolean',
+  }),
+}).passthrough();
+
+const integritySchema = z.object({
+  package_sha256: z.string({ required_error: 'Missing integrity.package_sha256' }).min(1, 'Missing integrity.package_sha256'),
+}).passthrough();
+
+export const ManifestSchema = z.object({
+  spec_version: z.string().min(1, 'Missing spec_version'),
+  package: packageSchema,
+  compatibility: compatibilitySchema,
+  requirements: z.record(z.unknown()),
+  permissions: permissionsSchema,
+  assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
+  integrity: integritySchema,
+  previews: z.record(z.unknown()).optional(),
+}).passthrough();
