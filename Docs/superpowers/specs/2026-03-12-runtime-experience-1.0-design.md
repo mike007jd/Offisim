@@ -253,7 +253,7 @@ export interface UiSelectionPayload {
 }
 ```
 
-Note: `'ui.selection.changed'` already exists in EventFamily (events.ts line 34). Only the `UiSelectionPayload` interface needs to be added.
+Note: `'ui.selection.changed'` already exists in the `EventFamily` type union in `events.ts`. Only the `UiSelectionPayload` interface needs to be added.
 
 ---
 
