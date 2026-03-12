@@ -164,8 +164,8 @@ export class MemoryService {
         maxTokens: 1024,
       });
       rawResponse = response.content;
-    } catch {
-      // LLM failure during reflection is non-critical — skip silently
+    } catch (error) {
+      console.error(`[MemoryService] reflectAndRemember failed for employee "${employeeId}":`, error);
       return;
     }
 
@@ -178,15 +178,20 @@ export class MemoryService {
 
     // Create memory entries via shared method
     for (const mem of parsed.data.memories) {
-      await this.createMemory({
-        employeeId,
-        companyId,
-        scope: mem.scope,
-        category: mem.category,
-        content: mem.content,
-        importance: mem.importance,
-        threadId,
-      });
+      try {
+        await this.createMemory({
+          employeeId,
+          companyId,
+          scope: mem.scope,
+          category: mem.category,
+          content: mem.content,
+          importance: mem.importance,
+          threadId,
+        });
+      } catch (err) {
+        console.error(`[MemoryService] Failed to save memory for "${employeeId}":`, err);
+        // Continue saving other memories
+      }
     }
   }
 
