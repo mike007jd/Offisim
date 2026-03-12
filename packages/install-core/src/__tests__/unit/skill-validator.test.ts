@@ -24,9 +24,9 @@ describe('validateSkill', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(2);
-    expect(result.warnings[0].type).toBe('missing_bin');
-    expect(result.warnings[0].severity).toBe('warning');
-    expect(result.warnings[1].type).toBe('missing_bin');
+    expect(result.warnings[0]!.type).toBe('missing_bin');
+    expect(result.warnings[0]!.severity).toBe('warning');
+    expect(result.warnings[1]!.type).toBe('missing_bin');
   });
 
   it('returns a missing_env warning for each required env var', () => {
@@ -34,12 +34,12 @@ describe('validateSkill', () => {
       ...baseSkill,
       requirements: { bins: [], env: ['GITHUB_TOKEN', 'API_KEY'], config: [] },
     };
-    const result = validateSkill(skill, 'browser');
+    const result = validateSkill(skill, 'web_limited');
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(2);
-    expect(result.warnings[0].type).toBe('missing_env');
-    expect(result.warnings[0].severity).toBe('warning');
+    expect(result.warnings[0]!.type).toBe('missing_env');
+    expect(result.warnings[0]!.severity).toBe('warning');
   });
 
   it('returns a missing_config warning for each required config path', () => {
@@ -47,20 +47,20 @@ describe('validateSkill', () => {
       ...baseSkill,
       requirements: { bins: [], env: [], config: ['~/.config/tool.json'] },
     };
-    const result = validateSkill(skill, 'browser');
+    const result = validateSkill(skill, 'web_limited');
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
-    expect(result.warnings[0].type).toBe('missing_config');
+    expect(result.warnings[0]!.type).toBe('missing_config');
   });
 
   it('returns unsupported_os warning when OS specified and environment is not desktop', () => {
     const skill: ParsedSkill = { ...baseSkill, metadata: { os: ['linux'] } };
-    const result = validateSkill(skill, 'browser');
+    const result = validateSkill(skill, 'web_limited');
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].type).toBe('unsupported_os');
-    expect(result.warnings[0].severity).toBe('warning');
+    expect(result.warnings[0]!.type).toBe('unsupported_os');
+    expect(result.warnings[0]!.severity).toBe('warning');
   });
 
   it('does not warn about OS when environment is desktop', () => {
@@ -114,22 +114,22 @@ describe('validateSkill', () => {
   it('returns empty name error with correct type and severity', () => {
     const skill: ParsedSkill = { ...baseSkill, name: '' };
     const result = validateSkill(skill, 'desktop');
-    expect(result.errors[0]).toEqual({ type: 'empty_name', detail: 'Skill name is required', severity: 'error' });
+    expect(result.errors[0]!).toEqual({ type: 'empty_name', detail: 'Skill name is required', severity: 'error' });
   });
 
   it('returns empty instructions error with correct type and severity', () => {
     const skill: ParsedSkill = { ...baseSkill, instructions: '   ' };
     const result = validateSkill(skill, 'desktop');
     expect(result.valid).toBe(false);
-    expect(result.errors[0].type).toBe('empty_instructions');
-    expect(result.errors[0].severity).toBe('error');
+    expect(result.errors[0]!.type).toBe('empty_instructions');
+    expect(result.errors[0]!.severity).toBe('error');
   });
 
   it('returns name_too_long error when name exceeds 128 characters', () => {
     const skill: ParsedSkill = { ...baseSkill, name: 'A'.repeat(129) };
     const result = validateSkill(skill, 'desktop');
     expect(result.valid).toBe(false);
-    expect(result.errors[0].type).toBe('name_too_long');
+    expect(result.errors[0]!.type).toBe('name_too_long');
   });
 
   it('accumulates multiple errors', () => {

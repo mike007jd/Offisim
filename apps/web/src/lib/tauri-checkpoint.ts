@@ -333,13 +333,17 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
 
   async deleteThread(threadId: string): Promise<void> {
     const db = await getTauriDb();
-    await db.execute('BEGIN');
+    await db.execute('BEGIN IMMEDIATE');
     try {
       await db.execute('DELETE FROM checkpoints WHERE thread_id = $1', [threadId]);
       await db.execute('DELETE FROM writes WHERE thread_id = $1', [threadId]);
       await db.execute('COMMIT');
     } catch (e) {
-      await db.execute('ROLLBACK');
+      try {
+        await db.execute('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('ROLLBACK failed after deleteThread error:', rollbackErr);
+      }
       throw e;
     }
   }

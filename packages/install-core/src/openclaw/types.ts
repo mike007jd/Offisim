@@ -45,18 +45,18 @@ export interface SkillMetadata {
 }
 
 export interface SkillValidationIssue {
-  type: string;
-  detail: string;
-  severity: 'error' | 'warning';
+  readonly type: string;
+  readonly detail: string;
+  readonly severity: 'error' | 'warning';
 }
 
 /** Result of validating a skill's requirements. */
 export interface SkillValidationResult {
-  valid: boolean;
+  readonly valid: boolean;
   /** Hard errors that block installation */
-  errors: SkillValidationIssue[];
+  readonly errors: readonly SkillValidationIssue[];
   /** Soft warnings the user should review */
-  warnings: SkillValidationIssue[];
+  readonly warnings: readonly SkillValidationIssue[];
 }
 
 /** @deprecated Use SkillValidationIssue instead */
