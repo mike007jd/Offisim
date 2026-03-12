@@ -21,6 +21,9 @@ import type {
   LlmCallRow,
   MeetingRepository,
   MeetingSessionRow,
+  MemoryEntryCreate,
+  MemoryEntryRow,
+  MemoryRepository,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
@@ -36,7 +39,7 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import { InMemoryMemoryRepository, MemoryMcpAuditRepository } from '@aics/core';
+import { MemoryMcpAuditRepository } from '@aics/core';
 import * as schema from '@aics/db-local';
 import type {
   AssetBindingRow,
@@ -46,7 +49,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
 function now(): string {
@@ -384,6 +387,86 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  // --- Memory (async Drizzle-backed, mirrors core/drizzle-repositories.ts) ---
+
+  const memories: MemoryRepository = {
+    async create(entry: MemoryEntryCreate) {
+      const ts = now();
+      const row: MemoryEntryRow = {
+        memory_id: entry.memory_id,
+        company_id: entry.company_id,
+        scope: entry.scope,
+        owner_id: entry.owner_id,
+        category: entry.category,
+        content: entry.content,
+        importance: entry.importance,
+        source_thread_id: entry.source_thread_id ?? null,
+        source_task_run_id: entry.source_task_run_id ?? null,
+        created_at: ts,
+        accessed_at: ts,
+        access_count: 0,
+      };
+      await db.insert(schema.memoryEntries).values(row);
+      return row;
+    },
+    async findById(memoryId) {
+      const rows = await db
+        .select()
+        .from(schema.memoryEntries)
+        .where(eq(schema.memoryEntries.memory_id, memoryId));
+      return (rows[0] as MemoryEntryRow | undefined) ?? null;
+    },
+    async search(query, opts) {
+      const conditions = [eq(schema.memoryEntries.company_id, opts.companyId)];
+      if (opts.scope) conditions.push(eq(schema.memoryEntries.scope, opts.scope));
+      if (opts.ownerId) conditions.push(eq(schema.memoryEntries.owner_id, opts.ownerId));
+      const queryWords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3);
+      if (queryWords.length > 0) {
+        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`);
+      }
+      const limit = opts.limit ?? 10;
+      const rows = await db
+        .select()
+        .from(schema.memoryEntries)
+        .where(and(...conditions))
+        .orderBy(desc(schema.memoryEntries.importance))
+        .limit(limit * 5);
+      const filtered = (rows as MemoryEntryRow[]).filter((r) => {
+        const lower = r.content.toLowerCase();
+        return queryWords.some((w) => lower.includes(w));
+      });
+      return filtered.slice(0, limit);
+    },
+    async delete(memoryId) {
+      await db
+        .delete(schema.memoryEntries)
+        .where(eq(schema.memoryEntries.memory_id, memoryId));
+    },
+    async findByOwner(ownerId, opts) {
+      const conditions = [eq(schema.memoryEntries.owner_id, ownerId)];
+      if (opts?.category) conditions.push(eq(schema.memoryEntries.category, opts.category));
+      const rows = await db
+        .select()
+        .from(schema.memoryEntries)
+        .where(and(...conditions))
+        .orderBy(desc(schema.memoryEntries.importance))
+        .limit(opts?.limit ?? 50);
+      return rows as MemoryEntryRow[];
+    },
+    async touchAccess(memoryId) {
+      await db
+        .update(schema.memoryEntries)
+        .set({
+          accessed_at: now(),
+          access_count: sql`${schema.memoryEntries.access_count} + 1`,
+        })
+        .where(eq(schema.memoryEntries.memory_id, memoryId));
+    },
+  };
+
   return {
     companies,
     threads,
@@ -399,8 +482,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     installedPackages,
     installedAssets,
     assetBindings,
-    // TODO(P3): Replace with Drizzle-backed Tauri memory repository once migration 005 is applied
-    memories: new InMemoryMemoryRepository(),
+    memories,
     // TODO(P3): Replace with Drizzle-backed Tauri MCP audit repository once migration 007 is applied
     mcpAudit: new MemoryMcpAuditRepository(),
   };

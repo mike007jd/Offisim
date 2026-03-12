@@ -45,8 +45,8 @@ function buildMemoryTools(): ToolDef[] {
           },
           scope: {
             type: 'string',
-            enum: ['employee', 'team', 'company'],
-            description: 'Visibility scope (employee=personal, team=team-wide, company=company-wide)',
+            enum: ['employee', 'team'],
+            description: 'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for SOP/config.',
           },
           importance: {
             type: 'number',

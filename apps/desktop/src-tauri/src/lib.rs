@@ -67,6 +67,12 @@ CREATE TABLE IF NOT EXISTS writes (
             sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/007_mcp_audit_log.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "agent memory system",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/008_memory_system.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

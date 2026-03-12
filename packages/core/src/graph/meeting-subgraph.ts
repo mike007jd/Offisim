@@ -327,7 +327,9 @@ Do not include any text outside the JSON object.`;
         started_at: new Date().toISOString(),
       });
 
-      // Map dependsOnIndex to taskRunIds (resolved after all items are created in this loop)
+      // Map dependsOnIndex to taskRunIds.
+      // Current item's ID is already pushed at taskRunIds[length-1],
+      // so `idx < length-1` excludes self-reference while allowing all prior items.
       const dependsOn = item.dependsOnIndex
         .filter((idx) => idx >= 0 && idx < taskRunIds.length - 1)
         .map((idx) => taskRunIds[idx] ?? '')
