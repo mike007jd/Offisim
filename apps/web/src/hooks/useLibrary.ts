@@ -28,7 +28,7 @@ export function useLibrary(): UseLibraryReturn {
   }, [repos, eventBus]);
 
   const refresh = useCallback(async () => {
-    if (!repos) return;
+    if (!repos) { setLoading(false); return; }
     setLoading(true);
     try {
       const service = getService();

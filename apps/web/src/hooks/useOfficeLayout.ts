@@ -23,7 +23,7 @@ export function useOfficeLayout(): UseOfficeLayoutReturn {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!repos) return;
+    if (!repos) { setLoading(false); return; }
     setLoading(true);
     try {
       const all = await repos.officeLayouts.findByCompany(COMPANY_ID);
