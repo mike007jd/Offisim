@@ -349,6 +349,126 @@ export interface ModelCostRateRepository {
   upsert(rate: NewModelCostRate): Promise<ModelCostRateRow>;
 }
 
+// ---------------------------------------------------------------------------
+// SOP Templates
+// ---------------------------------------------------------------------------
+
+export interface SopTemplateRow {
+  sop_template_id: string;
+  company_id: string;
+  name: string;
+  description: string;
+  definition_json: string;
+  source_thread_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewSopTemplate = Omit<SopTemplateRow, 'created_at' | 'updated_at'>;
+
+export interface SopTemplateRepository {
+  create(template: NewSopTemplate): Promise<SopTemplateRow>;
+  findById(sopTemplateId: string): Promise<SopTemplateRow | null>;
+  findByCompany(companyId: string): Promise<SopTemplateRow[]>;
+  delete(sopTemplateId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Rack / Slot (MCP permissions)
+// ---------------------------------------------------------------------------
+
+export interface RackRow {
+  rack_id: string;
+  company_id: string;
+  provider_type: string;
+  label: string;
+  binding_profile_json: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewRack = Omit<RackRow, 'created_at' | 'updated_at'>;
+
+export interface SlotRow {
+  slot_id: string;
+  rack_id: string;
+  capability_name: string;
+  exposure_scope: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewSlot = Omit<SlotRow, 'created_at' | 'updated_at'>;
+
+export interface RackRepository {
+  create(rack: NewRack): Promise<RackRow>;
+  findById(rackId: string): Promise<RackRow | null>;
+  findByCompany(companyId: string): Promise<RackRow[]>;
+  updateStatus(rackId: string, status: string): Promise<void>;
+  delete(rackId: string): Promise<void>;
+}
+
+export interface SlotRepository {
+  create(slot: NewSlot): Promise<SlotRow>;
+  findByRack(rackId: string): Promise<SlotRow[]>;
+  updateStatus(slotId: string, status: string): Promise<void>;
+  delete(slotId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Library documents
+// ---------------------------------------------------------------------------
+
+export interface LibraryDocumentRow {
+  doc_id: string;
+  company_id: string;
+  title: string;
+  content_text: string;
+  source_type: string;
+  mime_type: string | null;
+  file_size: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewLibraryDocument = Omit<LibraryDocumentRow, 'created_at' | 'updated_at'>;
+
+export interface LibraryDocumentRepository {
+  create(doc: NewLibraryDocument): Promise<LibraryDocumentRow>;
+  findById(docId: string): Promise<LibraryDocumentRow | null>;
+  findByCompany(companyId: string): Promise<LibraryDocumentRow[]>;
+  search(companyId: string, query: string, opts?: { limit?: number }): Promise<LibraryDocumentRow[]>;
+  delete(docId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Office layouts
+// ---------------------------------------------------------------------------
+
+export interface OfficeLayoutRow {
+  layout_id: string;
+  company_id: string;
+  name: string;
+  layout_json: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewOfficeLayout = Omit<OfficeLayoutRow, 'created_at' | 'updated_at'>;
+
+export interface OfficeLayoutRepository {
+  create(layout: NewOfficeLayout): Promise<OfficeLayoutRow>;
+  findById(layoutId: string): Promise<OfficeLayoutRow | null>;
+  findByCompany(companyId: string): Promise<OfficeLayoutRow[]>;
+  findActive(companyId: string): Promise<OfficeLayoutRow | null>;
+  setActive(companyId: string, layoutId: string): Promise<void>;
+  update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>): Promise<void>;
+  delete(layoutId: string): Promise<void>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -369,4 +489,9 @@ export interface RuntimeRepositories {
   mcpAudit: McpAuditRepository;
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;
+  sopTemplates: SopTemplateRepository;
+  racks: RackRepository;
+  slots: SlotRepository;
+  libraryDocuments: LibraryDocumentRepository;
+  officeLayouts: OfficeLayoutRepository;
 }

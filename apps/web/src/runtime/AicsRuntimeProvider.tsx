@@ -16,7 +16,6 @@ import {
 } from '@aics/core';
 import type {
   CompanyRow,
-  EmployeeRow,
   EventBus,
   McpServerConfig,
   RuntimeRepositories,
@@ -90,56 +89,9 @@ async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>): 
     updated_at: now,
   };
 
-  const employees: EmployeeRow[] = [
-    {
-      employee_id: 'emp-alice',
-      company_id: COMPANY_ID,
-      source_asset_id: null,
-      source_package_id: null,
-      name: 'Alice',
-      role_slug: 'engineering_manager',
-      workstation_id: null,
-      persona_json: JSON.stringify({ expertise: 'engineering management', style: 'collaborative' }),
-      config_json: null,
-      enabled: 1,
-      created_at: now,
-      updated_at: now,
-    },
-    {
-      employee_id: 'emp-bob',
-      company_id: COMPANY_ID,
-      source_asset_id: null,
-      source_package_id: null,
-      name: 'Bob',
-      role_slug: 'developer',
-      workstation_id: null,
-      persona_json: JSON.stringify({
-        expertise: 'full-stack development',
-        style: 'detail-oriented',
-      }),
-      config_json: null,
-      enabled: 1,
-      created_at: now,
-      updated_at: now,
-    },
-    {
-      employee_id: 'emp-carol',
-      company_id: COMPANY_ID,
-      source_asset_id: null,
-      source_package_id: null,
-      name: 'Carol',
-      role_slug: 'designer',
-      workstation_id: null,
-      persona_json: JSON.stringify({ expertise: 'UI/UX design', style: 'creative' }),
-      config_json: null,
-      enabled: 1,
-      created_at: now,
-      updated_at: now,
-    },
-  ];
-
   repos.seed.companies([company]);
-  repos.seed.employees(employees);
+  // Employees are no longer hardcoded — the CompanyCreationWizard lets users
+  // pick a template on first run, which materializes employees + SOPs + layout.
 
   // Seed default cost rates — awaited so runtime is not considered ready
   // until rates are available for CostCalculationService (I8)

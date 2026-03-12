@@ -76,3 +76,5 @@ export type {
   ModelPolicyConfig,
   ResolvedModel,
 } from './models.js';
+
+export type { SopStep, SopDefinition } from './sop.js';

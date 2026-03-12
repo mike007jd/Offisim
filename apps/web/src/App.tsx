@@ -11,6 +11,7 @@ import { StatusBar } from './components/layout/StatusBar';
 import { SceneCanvas } from './components/scene/SceneCanvas';
 import { SettingsDialog } from './components/settings/SettingsDialog';
 import { ToastBanner, useToasts } from './components/ui/toast-banner';
+import { CompanyCreationWizard } from './components/onboarding/CompanyCreationWizard';
 import { useReducedMotion } from './hooks/use-reduced-motion';
 import { useDeepLinkInstall } from './hooks/useDeepLinkInstall';
 import { useInstallFlow } from './hooks/useInstallFlow';
@@ -88,6 +89,7 @@ export function App() {
           onSave={handleSaveConfig}
         />
         <InstallDialog {...installFlow} />
+        <CompanyCreationWizard />
       </>
     </ErrorBoundary>
   );

@@ -434,6 +434,21 @@ export const modelCostRates = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// 008 — SOP templates
+// ---------------------------------------------------------------------------
+
+export const sopTemplates = sqliteTable('sop_templates', {
+  sop_template_id: text('sop_template_id').primaryKey(),
+  company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  definition_json: text('definition_json').notNull(),
+  source_thread_id: text('source_thread_id'),
+  created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+// ---------------------------------------------------------------------------
 // 007 — MCP audit log
 // ---------------------------------------------------------------------------
 
@@ -462,4 +477,44 @@ export const mcpAuditLog = sqliteTable(
     index('idx_mcp_audit_employee').on(table.employee_id),
     index('idx_mcp_audit_server').on(table.server_name),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// 009 — Library documents
+// ---------------------------------------------------------------------------
+
+export const libraryDocuments = sqliteTable(
+  'library_documents',
+  {
+    doc_id: text('doc_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    content_text: text('content_text').notNull().default(''),
+    source_type: text('source_type').notNull().default('file'),
+    mime_type: text('mime_type'),
+    file_size: integer('file_size'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [index('idx_library_docs_company').on(table.company_id)],
+);
+
+// ---------------------------------------------------------------------------
+// 012 — Office layouts
+// ---------------------------------------------------------------------------
+
+export const officeLayouts = sqliteTable(
+  'office_layouts',
+  {
+    layout_id: text('layout_id').primaryKey(),
+    company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    layout_json: text('layout_json').notNull(),
+    is_active: integer('is_active').notNull().default(0),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [index('idx_office_layouts_company').on(table.company_id)],
 );

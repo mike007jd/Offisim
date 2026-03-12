@@ -35,3 +35,6 @@ export type { DragResult } from './interaction/interaction-controller.js';
 // Layers
 export { DEFAULT_WORKSTATION_IDS, FloorLayer } from './layers/floor-layer.js';
 export type { DeskPosition, WorkstationBounds } from './layers/floor-layer.js';
+
+// Layout config
+export { type LayoutConfig, type WorkstationConfig, LAYOUT_PRESETS, getPreset } from './types/layout-config.js';

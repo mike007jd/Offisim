@@ -666,6 +666,51 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  // Stub repositories — full Drizzle implementations pending
+  const notImpl = (name: string) => () => {
+    throw new Error(`${name}: Drizzle implementation not yet available`);
+  };
+
+  const sopTemplates: RuntimeRepositories['sopTemplates'] = {
+    create: notImpl('sopTemplates.create'),
+    findById: notImpl('sopTemplates.findById'),
+    findByCompany: notImpl('sopTemplates.findByCompany'),
+    delete: notImpl('sopTemplates.delete'),
+  };
+
+  const racks: RuntimeRepositories['racks'] = {
+    create: notImpl('racks.create'),
+    findById: notImpl('racks.findById'),
+    findByCompany: notImpl('racks.findByCompany'),
+    updateStatus: notImpl('racks.updateStatus'),
+    delete: notImpl('racks.delete'),
+  };
+
+  const slots: RuntimeRepositories['slots'] = {
+    create: notImpl('slots.create'),
+    findByRack: notImpl('slots.findByRack'),
+    updateStatus: notImpl('slots.updateStatus'),
+    delete: notImpl('slots.delete'),
+  };
+
+  const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
+    create: notImpl('libraryDocuments.create'),
+    findById: notImpl('libraryDocuments.findById'),
+    findByCompany: notImpl('libraryDocuments.findByCompany'),
+    search: notImpl('libraryDocuments.search'),
+    delete: notImpl('libraryDocuments.delete'),
+  };
+
+  const officeLayouts: RuntimeRepositories['officeLayouts'] = {
+    create: notImpl('officeLayouts.create'),
+    findById: notImpl('officeLayouts.findById'),
+    findByCompany: notImpl('officeLayouts.findByCompany'),
+    findActive: notImpl('officeLayouts.findActive'),
+    setActive: notImpl('officeLayouts.setActive'),
+    update: notImpl('officeLayouts.update'),
+    delete: notImpl('officeLayouts.delete'),
+  };
+
   return {
     companies,
     threads,
@@ -685,5 +730,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     assetBindings,
     employeeVersions,
     costRates,
+    sopTemplates,
+    racks,
+    slots,
+    libraryDocuments,
+    officeLayouts,
   };
 }

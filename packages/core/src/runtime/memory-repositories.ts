@@ -32,14 +32,29 @@ import type {
   NewMeetingSession,
   NewModelCostRate,
   NewRuntimeEvent,
+  NewSopTemplate,
   NewTaskRun,
   NewToolCall,
   RuntimeRepositories,
+  SopTemplateRepository,
+  SopTemplateRow,
   TaskRunRepository,
   TaskRunRow,
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
+  RackRepository,
+  RackRow,
+  NewRack,
+  SlotRepository,
+  SlotRow,
+  NewSlot,
+  LibraryDocumentRepository,
+  LibraryDocumentRow,
+  NewLibraryDocument,
+  OfficeLayoutRepository,
+  OfficeLayoutRow,
+  NewOfficeLayout,
 } from './repositories.js';
 
 function now(): string {
@@ -298,6 +313,11 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const mcpAudit = new MemoryMcpAuditRepository();
   const employeeVersions = new MemoryEmployeeVersionRepository();
   const costRates = new MemoryModelCostRateRepository();
+  const sopTemplates = new MemorySopTemplateRepository();
+  const racksRepo = new MemoryRackRepository();
+  const slotsRepo = new MemorySlotRepository();
+  const libraryDocuments = new MemoryLibraryDocumentRepository();
+  const officeLayouts = new MemoryOfficeLayoutRepository();
 
   return {
     companies,
@@ -314,6 +334,11 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     mcpAudit,
     employeeVersions,
     costRates,
+    sopTemplates,
+    racks: racksRepo,
+    slots: slotsRepo,
+    libraryDocuments,
+    officeLayouts,
     ...installRepos,
     seed,
   };
@@ -392,6 +417,148 @@ export class MemoryModelCostRateRepository implements ModelCostRateRepository {
       return updated;
     }
     return this.create(rate);
+  }
+}
+
+export class MemorySopTemplateRepository implements SopTemplateRepository {
+  private readonly store = new Map<string, SopTemplateRow>();
+
+  async create(template: NewSopTemplate): Promise<SopTemplateRow> {
+    const row: SopTemplateRow = {
+      ...template,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.store.set(row.sop_template_id, row);
+    return row;
+  }
+
+  async findById(sopTemplateId: string): Promise<SopTemplateRow | null> {
+    return this.store.get(sopTemplateId) ?? null;
+  }
+
+  async findByCompany(companyId: string): Promise<SopTemplateRow[]> {
+    return [...this.store.values()].filter((r) => r.company_id === companyId);
+  }
+
+  async delete(sopTemplateId: string): Promise<void> {
+    this.store.delete(sopTemplateId);
+  }
+}
+
+export class MemoryRackRepository implements RackRepository {
+  private readonly store = new Map<string, RackRow>();
+
+  async create(rack: NewRack): Promise<RackRow> {
+    const row: RackRow = { ...rack, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    this.store.set(row.rack_id, row);
+    return row;
+  }
+  async findById(rackId: string): Promise<RackRow | null> {
+    return this.store.get(rackId) ?? null;
+  }
+  async findByCompany(companyId: string): Promise<RackRow[]> {
+    return [...this.store.values()].filter((r) => r.company_id === companyId);
+  }
+  async updateStatus(rackId: string, status: string): Promise<void> {
+    const row = this.store.get(rackId);
+    if (row) this.store.set(rackId, { ...row, status, updated_at: new Date().toISOString() });
+  }
+  async delete(rackId: string): Promise<void> {
+    this.store.delete(rackId);
+  }
+}
+
+export class MemorySlotRepository implements SlotRepository {
+  private readonly store = new Map<string, SlotRow>();
+
+  async create(slot: NewSlot): Promise<SlotRow> {
+    const row: SlotRow = { ...slot, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    this.store.set(row.slot_id, row);
+    return row;
+  }
+  async findByRack(rackId: string): Promise<SlotRow[]> {
+    return [...this.store.values()].filter((s) => s.rack_id === rackId);
+  }
+  async updateStatus(slotId: string, status: string): Promise<void> {
+    const row = this.store.get(slotId);
+    if (row) this.store.set(slotId, { ...row, status, updated_at: new Date().toISOString() });
+  }
+  async delete(slotId: string): Promise<void> {
+    this.store.delete(slotId);
+  }
+}
+
+export class MemoryLibraryDocumentRepository implements LibraryDocumentRepository {
+  private readonly store = new Map<string, LibraryDocumentRow>();
+
+  async create(doc: NewLibraryDocument): Promise<LibraryDocumentRow> {
+    const row: LibraryDocumentRow = {
+      ...doc,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.store.set(row.doc_id, row);
+    return row;
+  }
+
+  async findById(docId: string): Promise<LibraryDocumentRow | null> {
+    return this.store.get(docId) ?? null;
+  }
+
+  async findByCompany(companyId: string): Promise<LibraryDocumentRow[]> {
+    return [...this.store.values()]
+      .filter((d) => d.company_id === companyId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async search(companyId: string, query: string, opts?: { limit?: number }): Promise<LibraryDocumentRow[]> {
+    const q = query.toLowerCase();
+    let results = [...this.store.values()].filter(
+      (d) =>
+        d.company_id === companyId &&
+        (d.title.toLowerCase().includes(q) || d.content_text.toLowerCase().includes(q)),
+    );
+    results.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (opts?.limit) results = results.slice(0, opts.limit);
+    return results;
+  }
+
+  async delete(docId: string): Promise<void> {
+    this.store.delete(docId);
+  }
+}
+
+export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
+  private readonly store = new Map<string, OfficeLayoutRow>();
+
+  async create(layout: NewOfficeLayout): Promise<OfficeLayoutRow> {
+    const row: OfficeLayoutRow = { ...layout, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    this.store.set(row.layout_id, row);
+    return row;
+  }
+  async findById(layoutId: string): Promise<OfficeLayoutRow | null> {
+    return this.store.get(layoutId) ?? null;
+  }
+  async findByCompany(companyId: string): Promise<OfficeLayoutRow[]> {
+    return [...this.store.values()].filter((l) => l.company_id === companyId);
+  }
+  async findActive(companyId: string): Promise<OfficeLayoutRow | null> {
+    return [...this.store.values()].find((l) => l.company_id === companyId && l.is_active === 1) ?? null;
+  }
+  async setActive(companyId: string, layoutId: string): Promise<void> {
+    for (const [id, row] of this.store.entries()) {
+      if (row.company_id === companyId) {
+        this.store.set(id, { ...row, is_active: id === layoutId ? 1 : 0, updated_at: new Date().toISOString() });
+      }
+    }
+  }
+  async update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>): Promise<void> {
+    const row = this.store.get(layoutId);
+    if (row) this.store.set(layoutId, { ...row, ...patch, updated_at: new Date().toISOString() });
+  }
+  async delete(layoutId: string): Promise<void> {
+    this.store.delete(layoutId);
   }
 }
 

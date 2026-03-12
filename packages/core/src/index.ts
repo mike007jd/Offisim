@@ -46,6 +46,21 @@ export type {
   ModelCostRateRow,
   NewModelCostRate,
   ModelCostRateRepository,
+  SopTemplateRow,
+  NewSopTemplate,
+  SopTemplateRepository,
+  RackRow,
+  NewRack,
+  RackRepository,
+  SlotRow,
+  NewSlot,
+  SlotRepository,
+  LibraryDocumentRow,
+  NewLibraryDocument,
+  LibraryDocumentRepository,
+  OfficeLayoutRow,
+  NewOfficeLayout,
+  OfficeLayoutRepository,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -88,6 +103,11 @@ export {
   MemoryMcpAuditRepository,
   MemoryEmployeeVersionRepository,
   MemoryModelCostRateRepository,
+  MemorySopTemplateRepository,
+  MemoryRackRepository,
+  MemorySlotRepository,
+  MemoryLibraryDocumentRepository,
+  MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
 export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
@@ -162,6 +182,13 @@ export { OrchestrationService } from './services/orchestration-service.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
+export { SopService } from './services/sop-service.js';
+export { RackSlotService } from './services/rack-slot-service.js';
+export type { RackWithSlots } from './services/rack-slot-service.js';
+export { LibraryService } from './services/library-service.js';
+export { CompanyTemplateService } from './services/company-template-service.js';
+export type { CompanyTemplate, CompanyTemplateEmployee } from './templates/index.js';
+export { listTemplates, getTemplate } from './templates/index.js';
 export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation-service.js';
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 

@@ -39,7 +39,14 @@ import type {
   ToolCallRepository,
   ToolCallRow,
 } from '@aics/core';
-import { MemoryMcpAuditRepository } from '@aics/core';
+import {
+  MemoryMcpAuditRepository,
+  MemorySopTemplateRepository,
+  MemoryRackRepository,
+  MemorySlotRepository,
+  MemoryLibraryDocumentRepository,
+  MemoryOfficeLayoutRepository,
+} from '@aics/core';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
@@ -648,5 +655,11 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     mcpAudit: new MemoryMcpAuditRepository(),
     employeeVersions,
     costRates,
+    // TODO(P3): Replace with Drizzle-backed repos once migrations 011-013 are applied
+    sopTemplates: new MemorySopTemplateRepository(),
+    racks: new MemoryRackRepository(),
+    slots: new MemorySlotRepository(),
+    libraryDocuments: new MemoryLibraryDocumentRepository(),
+    officeLayouts: new MemoryOfficeLayoutRepository(),
   };
 }
