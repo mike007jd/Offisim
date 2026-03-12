@@ -32,8 +32,11 @@ export function useStreamingContent(): { content: string; isStreaming: boolean }
 
   useEffect(() => {
     const unsub = eventBus.on('llm.stream.chunk', (event: RuntimeEvent<LlmStreamChunkPayload>) => {
-      accRef.current += event.payload.content;
-      setContent(accRef.current);
+      const chunk = event.payload?.content;
+      if (typeof chunk === 'string' && chunk.length > 0) {
+        accRef.current += chunk;
+        setContent(accRef.current);
+      }
     });
     return unsub;
   }, [eventBus]);
