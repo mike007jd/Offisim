@@ -130,10 +130,12 @@ When a session completes its assigned work (a plan, a phase, a feature), it must
 
 This ensures continuity across sessions. The `docs/plans/` directory is the persistent bridge between sessions — design docs and implementation plans live there.
 
-## Working style
+## AI development philosophy
 
-- Prefer small production-grade changes over broad speculative rewrites.
+- We are AI-first development. Build complete, production-grade features in one pass.
+- No phased rollouts, no multi-week plans. One session = one complete deliverable.
+- Target 1.0 production quality from the start, not incremental MVP.
+- Update contracts and code together — they ship as one unit.
 - Prefer direct edits over adding “temporary” parallel systems.
-- Prefer updating contracts and code together when behavior changes.
-- Prefer explicit trade-offs in comments / PR text over hidden cleverness.
+- Prefer explicit trade-offs over hidden cleverness.
 - If a generic web best practice conflicts with repo reality, **repo reality wins**.

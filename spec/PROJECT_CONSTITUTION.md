@@ -1,9 +1,22 @@
 # Project Constitution
 
-This repository follows a lightweight, AI-friendly workflow for building a production-grade product from the first real pass.
+This repository follows an AI-first, full-speed development workflow.
 
-The goal is not heavy process.
-The goal is rapid iteration without losing architectural discipline.
+We are AI-driven development. What used to take teams weeks takes us hours.
+Do not think in phases, sprints, or multi-week roadmaps.
+Think in sessions: one session, one production-ready deliverable.
+
+## AI Development Manifesto
+
+1. **Ship 1.0, not 0.1.** Every build targets production-grade completeness.
+   No "MVP scaffolding to polish later". No throwaway prototypes. Build it right, build it once.
+2. **No multi-phase fantasies.** There is no Phase 1 / Phase 2 / Phase 3.
+   There is only: build the complete thing now. If it's too big for one session, split by feature boundary, not by quality tier.
+3. **Go wide and deep in one pass.** AI can generate full features end-to-end.
+   Do not artificially constrain scope. If you can build the complete feature now, do it.
+4. **Speed is the default.** Do not hedge, do not add "we might need this later" abstractions.
+   Build exactly what is needed, at production quality, right now.
+5. **Validate as you go, not at the end.** But do not let validation become a bottleneck — fix and move on immediately.
 
 ## Non-negotiable principles
 
@@ -64,15 +77,12 @@ When a decision is ambiguous:
 
 ## Planning rule
 
-Use plans when the task is large enough to benefit from them.
+Plan by feature boundary, not by quality tier or time phase.
 
-For simple tasks:
-- keep planning light
-
-For larger tasks:
-- make a small milestone plan
-- implement one milestone at a time
-- validate after each milestone
+- Each feature is one complete deliverable. Build it end-to-end in one session.
+- Never plan like "Phase 1: basic layout, Phase 2: add logic, Phase 3: polish". That is wasted overhead.
+- If a feature is genuinely too large for one session, split into independent sub-features that each ship complete.
+- Always update contracts alongside code — they ship together.
 
 ## Document precedence
 
