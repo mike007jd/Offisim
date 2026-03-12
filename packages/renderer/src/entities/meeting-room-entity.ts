@@ -16,6 +16,8 @@ export class MeetingRoomEntity {
   private readonly motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
   /** Track active tweens for cleanup (matches EmployeeEntity pattern). */
   private activeTweens: gsap.core.Tween[] = [];
+  /** Amber glow overlay behind table for meeting state feedback (ANIM-016~019). */
+  private tableGlow: Graphics | null = null;
 
   constructor(motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>) {
     this.motion = motion;
@@ -66,12 +68,85 @@ export class MeetingRoomEntity {
     }
   }
 
+  /** ANIM-016: Meeting scheduled — soft glow tint */
+  showScheduled(): void {
+    this.container.visible = true;
+    this.container.scale.set(1);
+    this.container.alpha = 1;
+    // Add amber glow tint to table
+    if (!this.tableGlow) {
+      this.tableGlow = new Graphics();
+      this.tableGlow.roundRect(
+        -LAYOUT.meetingRoom.tableWidth / 2 - 4,
+        -LAYOUT.meetingRoom.tableHeight / 2 - 4,
+        LAYOUT.meetingRoom.tableWidth + 8,
+        LAYOUT.meetingRoom.tableHeight + 8,
+        LAYOUT.meetingRoom.tableCornerRadius,
+      );
+      this.tableGlow.fill({ color: 0xfbbf24, alpha: 0.15 });
+      this.container.addChildAt(this.tableGlow, 0);
+    }
+  }
+
+  /** ANIM-017: Gathering — increase glow */
+  showGathering(): void {
+    if (this.tableGlow) {
+      const { duration, ease } = this.motion.M2;
+      if (duration > 0) {
+        this.trackTween(gsap.to(this.tableGlow, { alpha: 0.3, duration, ease }));
+      } else {
+        this.tableGlow.alpha = 0.3;
+      }
+    }
+  }
+
+  /** ANIM-018: Active meeting — focus glow */
+  showActive(): void {
+    if (this.tableGlow) {
+      const { duration, ease } = this.motion.M2;
+      if (duration > 0) {
+        this.trackTween(gsap.to(this.tableGlow, { alpha: 0.4, duration, ease }));
+      } else {
+        this.tableGlow.alpha = 0.4;
+      }
+    }
+  }
+
+  /** ANIM-019: Meeting ended — fade glow */
+  showEnded(): void {
+    if (this.tableGlow) {
+      const { duration, ease } = this.motion.M2;
+      if (duration > 0) {
+        this.trackTween(gsap.to(this.tableGlow, {
+          alpha: 0,
+          duration,
+          ease,
+          onComplete: () => {
+            if (this.tableGlow) {
+              this.container.removeChild(this.tableGlow);
+              this.tableGlow.destroy();
+              this.tableGlow = null;
+            }
+          },
+        }));
+      } else if (this.tableGlow) {
+        this.container.removeChild(this.tableGlow);
+        this.tableGlow.destroy();
+        this.tableGlow = null;
+      }
+    }
+  }
+
   /** Kill all running GSAP tweens and destroy the container. */
   destroy(): void {
     for (const tw of this.activeTweens) {
       tw.kill();
     }
     this.activeTweens = [];
+    if (this.tableGlow) {
+      this.tableGlow.destroy();
+      this.tableGlow = null;
+    }
     this.container.destroy({ children: true });
   }
 

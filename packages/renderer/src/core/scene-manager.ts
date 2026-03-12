@@ -431,14 +431,47 @@ export class SceneManager {
       }),
     );
 
-    // Meeting state changes — show/hide meeting room
+    // Meeting state changes (ANIM-016~019)
     this.unsubscribers.push(
       this.eventBus.on('meeting.state.changed', (event) => {
-        const { next } = event.payload as MeetingStatePayload;
-        if (next === 'running') {
-          this.meetingRoom?.show();
-        } else if (next === 'completed') {
-          this.meetingRoom?.hide();
+        const { next, participantIds } = event.payload as MeetingStatePayload;
+        switch (next) {
+          case 'scheduled':
+            this.meetingRoom?.showScheduled();
+            break;
+          case 'gathering':
+            this.meetingRoom?.showGathering();
+            // ANIM-017: Route lines from participants to meeting room
+            if (this.layers && this.meetingRoom) {
+              for (const pid of participantIds) {
+                const entity = this.employeeEntities.get(pid);
+                if (entity) {
+                  const line = new RouteLineEntity(
+                    `meeting-${pid}`,
+                    STATE_COLORS.meeting,
+                    this.motion,
+                  );
+                  line.setEndpoints(
+                    entity.container.x, entity.container.y,
+                    this.meetingRoom.container.x, this.meetingRoom.container.y,
+                  );
+                  this.layers.semantic.addChild(line.container);
+                  this.routeLines.set(`meeting-${pid}`, line);
+                }
+              }
+            }
+            break;
+          case 'running':
+            this.meetingRoom?.showActive();
+            break;
+          case 'completed':
+          case 'cancelled':
+            this.meetingRoom?.showEnded();
+            // Remove meeting route lines
+            for (const pid of participantIds) {
+              this.removeRouteLine(`meeting-${pid}`);
+            }
+            break;
         }
       }),
     );
