@@ -2,9 +2,8 @@ import { RackSlotService } from '@aics/core';
 import type { RackWithSlots } from '@aics/core';
 import { useCallback, useEffect, useState } from 'react';
 
+import { COMPANY_ID } from '../lib/constants.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
-
-const COMPANY_ID = 'company-default';
 
 export interface UseRackSlotReturn {
   racks: RackWithSlots[];

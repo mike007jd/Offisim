@@ -1,4 +1,5 @@
 import type { EventBus } from '../events/event-bus.js';
+import { employeeCreated } from '../events/event-factories.js';
 import type {
   EmployeeRepository,
   OfficeLayoutRepository,
@@ -12,7 +13,7 @@ export class CompanyTemplateService {
     private readonly employeeRepo: EmployeeRepository,
     private readonly sopTemplateRepo: SopTemplateRepository,
     private readonly officeLayoutRepo: OfficeLayoutRepository,
-    _eventBus: EventBus,
+    private readonly eventBus: EventBus,
   ) {}
 
   /** List available built-in templates */
@@ -50,6 +51,9 @@ export class CompanyTemplateService {
         config_json: emp.config_json,
       });
       employeeIds.push(result.employee_id);
+
+      // Emit employee.created so SceneManager and UI hooks pick up the new employee
+      this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug));
     }
 
     // Create SOP templates

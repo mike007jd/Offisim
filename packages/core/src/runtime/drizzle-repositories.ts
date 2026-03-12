@@ -7,7 +7,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
@@ -44,9 +44,19 @@ import type {
   NewMcpAudit,
   NewMeetingSession,
   NewModelCostRate,
+  NewOfficeLayout,
+  NewRack,
   NewRuntimeEvent,
+  NewSlot,
+  NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  NewLibraryDocument,
+  LibraryDocumentRow,
+  OfficeLayoutRow,
+  RackRow,
+  SlotRow,
+  SopTemplateRow,
   RuntimeRepositories,
   TaskRunRepository,
   TaskRunRow,
@@ -666,49 +676,198 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
-  // Stub repositories — full Drizzle implementations pending
-  const notImpl = (name: string) => () => {
-    throw new Error(`${name}: Drizzle implementation not yet available`);
-  };
-
   const sopTemplates: RuntimeRepositories['sopTemplates'] = {
-    create: notImpl('sopTemplates.create'),
-    findById: notImpl('sopTemplates.findById'),
-    findByCompany: notImpl('sopTemplates.findByCompany'),
-    delete: notImpl('sopTemplates.delete'),
+    async create(template: NewSopTemplate) {
+      const ts = now();
+      const row: SopTemplateRow = { ...template, created_at: ts, updated_at: ts };
+      db.insert(schema.sopTemplates).values(row).run();
+      return row;
+    },
+    async findById(sopTemplateId) {
+      const rows = db
+        .select()
+        .from(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
+        .all();
+      return (rows[0] as SopTemplateRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.company_id, companyId))
+        .all() as SopTemplateRow[];
+    },
+    async delete(sopTemplateId) {
+      db.delete(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
+        .run();
+    },
   };
 
   const racks: RuntimeRepositories['racks'] = {
-    create: notImpl('racks.create'),
-    findById: notImpl('racks.findById'),
-    findByCompany: notImpl('racks.findByCompany'),
-    updateStatus: notImpl('racks.updateStatus'),
-    delete: notImpl('racks.delete'),
+    async create(rack: NewRack) {
+      const ts = now();
+      const row: RackRow = { ...rack, created_at: ts, updated_at: ts };
+      db.insert(schema.racks).values(row).run();
+      return row;
+    },
+    async findById(rackId) {
+      const rows = db
+        .select()
+        .from(schema.racks)
+        .where(eq(schema.racks.rack_id, rackId))
+        .all();
+      return (rows[0] as RackRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.racks)
+        .where(eq(schema.racks.company_id, companyId))
+        .all() as RackRow[];
+    },
+    async updateStatus(rackId, status) {
+      db.update(schema.racks)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.racks.rack_id, rackId))
+        .run();
+    },
+    async delete(rackId) {
+      db.delete(schema.racks).where(eq(schema.racks.rack_id, rackId)).run();
+    },
   };
 
   const slots: RuntimeRepositories['slots'] = {
-    create: notImpl('slots.create'),
-    findByRack: notImpl('slots.findByRack'),
-    updateStatus: notImpl('slots.updateStatus'),
-    delete: notImpl('slots.delete'),
+    async create(slot: NewSlot) {
+      const ts = now();
+      const row: SlotRow = { ...slot, created_at: ts, updated_at: ts };
+      db.insert(schema.slots).values(row).run();
+      return row;
+    },
+    async findByRack(rackId) {
+      return db
+        .select()
+        .from(schema.slots)
+        .where(eq(schema.slots.rack_id, rackId))
+        .all() as SlotRow[];
+    },
+    async updateStatus(slotId, status) {
+      db.update(schema.slots)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.slots.slot_id, slotId))
+        .run();
+    },
+    async delete(slotId) {
+      db.delete(schema.slots).where(eq(schema.slots.slot_id, slotId)).run();
+    },
   };
 
   const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
-    create: notImpl('libraryDocuments.create'),
-    findById: notImpl('libraryDocuments.findById'),
-    findByCompany: notImpl('libraryDocuments.findByCompany'),
-    search: notImpl('libraryDocuments.search'),
-    delete: notImpl('libraryDocuments.delete'),
+    async create(doc: NewLibraryDocument) {
+      const ts = now();
+      const row: LibraryDocumentRow = { ...doc, created_at: ts, updated_at: ts };
+      db.insert(schema.libraryDocuments).values(row).run();
+      return row;
+    },
+    async findById(docId) {
+      const rows = db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.doc_id, docId))
+        .all();
+      return (rows[0] as LibraryDocumentRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.company_id, companyId))
+        .all() as LibraryDocumentRow[];
+    },
+    async search(companyId, query, opts) {
+      const pattern = `%${query}%`;
+      const limit = opts?.limit ?? 20;
+      return db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(
+          and(
+            eq(schema.libraryDocuments.company_id, companyId),
+            or(
+              like(sql`lower(${schema.libraryDocuments.title})`, pattern.toLowerCase()),
+              like(sql`lower(${schema.libraryDocuments.content_text})`, pattern.toLowerCase()),
+            ),
+          ),
+        )
+        .limit(limit)
+        .all() as LibraryDocumentRow[];
+    },
+    async delete(docId) {
+      db.delete(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.doc_id, docId))
+        .run();
+    },
   };
 
   const officeLayouts: RuntimeRepositories['officeLayouts'] = {
-    create: notImpl('officeLayouts.create'),
-    findById: notImpl('officeLayouts.findById'),
-    findByCompany: notImpl('officeLayouts.findByCompany'),
-    findActive: notImpl('officeLayouts.findActive'),
-    setActive: notImpl('officeLayouts.setActive'),
-    update: notImpl('officeLayouts.update'),
-    delete: notImpl('officeLayouts.delete'),
+    async create(layout: NewOfficeLayout) {
+      const ts = now();
+      const row: OfficeLayoutRow = { ...layout, created_at: ts, updated_at: ts };
+      db.insert(schema.officeLayouts).values(row).run();
+      return row;
+    },
+    async findById(layoutId) {
+      const rows = db
+        .select()
+        .from(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.layout_id, layoutId))
+        .all();
+      return (rows[0] as OfficeLayoutRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.company_id, companyId))
+        .all() as OfficeLayoutRow[];
+    },
+    async findActive(companyId) {
+      const rows = db
+        .select()
+        .from(schema.officeLayouts)
+        .where(
+          and(
+            eq(schema.officeLayouts.company_id, companyId),
+            eq(schema.officeLayouts.is_active, 1),
+          ),
+        )
+        .all();
+      return (rows[0] as OfficeLayoutRow | undefined) ?? null;
+    },
+    async setActive(companyId, layoutId) {
+      // Deactivate all layouts for this company first
+      db.update(schema.officeLayouts)
+        .set({ is_active: 0, updated_at: now() })
+        .where(eq(schema.officeLayouts.company_id, companyId))
+        .run();
+      // Activate the target layout
+      db.update(schema.officeLayouts)
+        .set({ is_active: 1, updated_at: now() })
+        .where(eq(schema.officeLayouts.layout_id, layoutId))
+        .run();
+    },
+    async update(layoutId, patch) {
+      db.update(schema.officeLayouts)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.officeLayouts.layout_id, layoutId))
+        .run();
+    },
+    async delete(layoutId) {
+      db.delete(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.layout_id, layoutId))
+        .run();
+    },
   };
 
   return {

@@ -1,12 +1,13 @@
 import { SceneManager } from '@aics/renderer';
 import type { SceneEventBus } from '@aics/renderer';
 import { useEffect, useRef } from 'react';
+import { COMPANY_ID } from '../../lib/constants';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 
 export function useScene(reducedMotion = false) {
   const containerRef = useRef<HTMLDivElement>(null);
   const managerRef = useRef<SceneManager | null>(null);
-  const { eventBus } = useAicsRuntime();
+  const { eventBus, repos } = useAicsRuntime();
 
   // Create / destroy SceneManager when eventBus changes.
   // reducedMotion is NOT in the dep array — we update it via setter (I3).
@@ -21,6 +22,9 @@ export function useScene(reducedMotion = false) {
       // SceneEventBus is a structural subset of EventBus (only needs `on`).
       // The cast is safe because core's EventBus.on signature is compatible (I2).
       eventBus: eventBus as SceneEventBus,
+      // Start with no employees — real employees are loaded from repos in a
+      // separate useEffect (avoids hardcoded DEFAULT_EMPLOYEES).
+      employees: [],
       reducedMotion,
     });
 
@@ -66,6 +70,36 @@ export function useScene(reducedMotion = false) {
       managerRef.current.reducedMotion = reducedMotion;
     }
   }, [reducedMotion]);
+
+  // Populate scene with real employees from repos.
+  // When repos identity changes (reinitRuntime → new repos), clear old employees
+  // and re-populate from the new repos. SceneManager already subscribes to
+  // employee.created events for live additions, but the initial load from DB
+  // happens here.
+  useEffect(() => {
+    const manager = managerRef.current;
+    if (!manager || !repos) return;
+
+    let cancelled = false;
+
+    // Clear any existing employees from a previous runtime (reinit scenario).
+    // Uses the public removeEmployee() API — no new SceneManager method needed.
+    for (const id of manager.employeeIds) {
+      manager.removeEmployee(id);
+    }
+
+    // Load employees from the current repos
+    repos.employees.findByCompany(COMPANY_ID).then((rows) => {
+      if (cancelled) return;
+      for (const row of rows) {
+        manager.addEmployee(row.employee_id, row.name, 'employee');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [repos]);
 
   return { containerRef, managerRef };
 }

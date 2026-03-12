@@ -1,9 +1,12 @@
+import type { SopDefinition, SopStep } from '@aics/shared-types';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { GraphError } from '../errors.js';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { SopService } from '../services/sop-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 
@@ -98,6 +101,100 @@ function parsePmPlan(content: string): LlmPlan | null {
   return steps.length > 0 ? { summary: parsed.summary, steps } : null;
 }
 
+// ---------------------------------------------------------------------------
+// SOP-aware plan building
+// ---------------------------------------------------------------------------
+
+/**
+ * Match an SOP template by name against the user intent text.
+ * Case-insensitive substring match.
+ */
+export function matchSopTemplate(
+  templates: SopTemplateRow[],
+  intentText: string,
+): SopTemplateRow | null {
+  const lower = intentText.toLowerCase();
+  for (const t of templates) {
+    if (lower.includes(t.name.toLowerCase())) {
+      return t;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the best employee for a given SOP step's role_slug.
+ * Exact role_slug match first, then fall back to first available employee.
+ */
+export function findEmployeeForRole(
+  employees: EmployeeRow[],
+  roleSlug: string,
+): EmployeeRow | null {
+  const exact = employees.find((e) => e.role_slug === roleSlug && e.enabled === 1);
+  if (exact) return exact;
+  // Fallback: any enabled employee
+  return employees.find((e) => e.enabled === 1) ?? null;
+}
+
+/**
+ * Convert SOP execution batches into the LlmPlan structure.
+ * Each batch becomes a PlanStep; each SopStep in the batch becomes a task.
+ */
+export function sopBatchesToLlmPlan(
+  sopDef: SopDefinition,
+  batches: SopStep[][],
+  employees: EmployeeRow[],
+): LlmPlan {
+  const steps: LlmPlanStep[] = batches.map((batch, batchIndex) => ({
+    stepIndex: batchIndex,
+    description: batch.map((s) => s.label).join(' + '),
+    tasks: batch.map((sopStep) => {
+      const employee = findEmployeeForRole(employees, sopStep.role_slug);
+      return {
+        taskType: 'general',
+        employeeId: employee?.employee_id ?? '',
+        description: sopStep.instruction,
+        dependsOnStepOutput: batchIndex > 0,
+      };
+    }),
+  }));
+
+  return {
+    summary: `SOP: ${sopDef.name} — ${sopDef.description}`,
+    steps,
+  };
+}
+
+/**
+ * Attempt to build a plan from SOP templates. Returns null if no SOP matches.
+ * Exported for testability.
+ */
+export async function tryBuildSopPlan(
+  repos: RuntimeContext['repos'],
+  eventBus: RuntimeContext['eventBus'],
+  companyId: string,
+  intentText: string,
+  allEmployees: EmployeeRow[],
+): Promise<LlmPlan | null> {
+  const templates = await repos.sopTemplates.findByCompany(companyId);
+  if (templates.length === 0) return null;
+
+  const matched = matchSopTemplate(templates, intentText);
+  if (!matched) return null;
+
+  const sopDef: SopDefinition = JSON.parse(matched.definition_json);
+  const sopService = new SopService(repos.sopTemplates, eventBus);
+
+  // Validate before using
+  const validation = sopService.validateDefinition(sopDef);
+  if (!validation.valid) return null;
+
+  const batches = sopService.getExecutionOrder(sopDef);
+  if (batches.length === 0) return null;
+
+  return sopBatchesToLlmPlan(sopDef, batches, allEmployees);
+}
+
 export async function pmPlannerNode(
   state: AicsGraphState,
   config: RunnableConfig,
@@ -140,51 +237,66 @@ export async function pmPlannerNode(
     };
   }
 
-  const employeeList = validEmployees
-    .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
-    .join('\n');
+  // --- SOP-aware planning: check if intent references a known SOP template ---
+  const allEmployees = await repos.employees.findByCompany(companyId);
+  const allEnabled = allEmployees.filter((e) => e.enabled === 1);
 
-  const resolved = modelResolver.resolve(null, 'pm');
-
-  const llmResponse = await recordedLlmCall(
-    runtimeCtx,
-    {
-      messages: [
-        {
-          role: 'system',
-          content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
-        },
-        {
-          role: 'user',
-          content: `Intent: ${directive.intent}${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}`,
-        },
-      ],
-      model: resolved.model,
-      temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
-    },
-    { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
+  let plan: LlmPlan | null = await tryBuildSopPlan(
+    repos,
+    eventBus,
+    companyId,
+    directive.intent,
+    allEnabled,
   );
 
-  let plan = parsePmPlan(llmResponse.content);
-
-  // Fallback: single-step plan assigning all recommended employees
+  // --- Fallback to LLM planning if no SOP matched ---
   if (!plan) {
-    plan = {
-      summary: `Execute task: ${directive.intent}`,
-      steps: [
-        {
-          stepIndex: 0,
-          description: directive.intent,
-          tasks: validEmployees.map((e) => ({
-            taskType: 'general',
-            employeeId: e.employee_id,
+    const employeeList = validEmployees
+      .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
+      .join('\n');
+
+    const resolved = modelResolver.resolve(null, 'pm');
+
+    const llmResponse = await recordedLlmCall(
+      runtimeCtx,
+      {
+        messages: [
+          {
+            role: 'system',
+            content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+          },
+          {
+            role: 'user',
+            content: `Intent: ${directive.intent}${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}`,
+          },
+        ],
+        model: resolved.model,
+        temperature: resolved.temperature,
+        maxTokens: resolved.maxTokens,
+      },
+      { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
+    );
+
+    plan = parsePmPlan(llmResponse.content);
+
+    // Fallback: single-step plan assigning all recommended employees
+    if (!plan) {
+      plan = {
+        summary: `Execute task: ${directive.intent}`,
+        steps: [
+          {
+            stepIndex: 0,
             description: directive.intent,
-            dependsOnStepOutput: false,
-          })),
-        },
-      ],
-    };
+            tasks: validEmployees.map((e) => ({
+              taskType: 'general',
+              employeeId: e.employee_id,
+              description: directive.intent,
+              dependsOnStepOutput: false,
+            })),
+          },
+        ],
+      };
+    }
   }
 
   const planId = generateId('plan');
