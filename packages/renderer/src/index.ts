@@ -16,5 +16,6 @@ export type { MotionBucket } from './tokens/index.js';
 // Entity types — normal employees (human avatar) + OpenClaw agents (lobster)
 export { EmployeeEntity } from './entities/employee-entity.js';
 export { LobsterEntity } from './entities/lobster-entity.js';
+export { RouteLineEntity } from './entities/route-line-entity.js';
 export { drawPixelGrid, idToHue } from './pixel/draw-pixel-grid.js';
 export { PX, PIXEL_PALETTE } from './pixel/pixel-palette.js';

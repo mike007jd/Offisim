@@ -13,6 +13,8 @@ import gsap from 'gsap';
 import { Application, Container } from 'pixi.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
 import { LobsterEntity } from '../entities/lobster-entity.js';
+import { RouteLineEntity } from '../entities/route-line-entity.js';
+import { STATE_COLORS } from '../tokens/colors.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
 import { LAYOUT } from '../tokens/layout.js';
@@ -50,6 +52,8 @@ export class SceneManager {
   private nodeActiveEmployees: Map<string, string> = new Map();
   /** Track active MCP tool overlay timers per employee (for auto-clear). */
   private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Active route lines keyed by taskRunId (ANIM-004). */
+  private routeLines: Map<string, RouteLineEntity> = new Map();
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -278,6 +282,12 @@ export class SceneManager {
     }
     this.toolOverlayTimers.clear();
 
+    // Clean up route lines before entities (ANIM-004)
+    for (const line of this.routeLines.values()) {
+      line.destroy();
+    }
+    this.routeLines.clear();
+
     // Clean up entities — kill GSAP tweens before clearing (C2)
     for (const entity of this.employeeEntities.values()) {
       entity.destroy();
@@ -343,6 +353,24 @@ export class SceneManager {
         if (entity) {
           this.clearToolOverlayTimer(employeeId);
           entity.setTask(action === 'assigned' ? taskRunId : null);
+        }
+
+        // Route line management (ANIM-004)
+        if (action === 'assigned' && this.layers) {
+          // Create route from first entity (boss/manager) to assigned employee
+          const fromEntity = this.getRouteOrigin();
+          const toEntity = this.employeeEntities.get(employeeId);
+          if (fromEntity && toEntity) {
+            const line = new RouteLineEntity(taskRunId, STATE_COLORS.assigned, this.motion);
+            line.setEndpoints(
+              fromEntity.container.x, fromEntity.container.y,
+              toEntity.container.x, toEntity.container.y,
+            );
+            this.layers.semantic.addChild(line.container);
+            this.routeLines.set(taskRunId, line);
+          }
+        } else if (action === 'unassigned') {
+          this.removeRouteLine(taskRunId);
         }
       }),
     );
@@ -450,12 +478,62 @@ export class SceneManager {
       }),
     );
 
+    // Task state changes — route line cleanup + task echo (ANIM-004/015)
+    this.unsubscribers.push(
+      this.eventBus.on('task.state.changed', (event) => {
+        const payload = event.payload as import('@aics/shared-types').TaskStatePayload;
+        const { taskRunId, next } = payload;
+        if (next === 'completed' || next === 'failed' || next === 'cancelled') {
+          this.removeRouteLine(taskRunId);
+        }
+
+        // ANIM-015: Task echo — briefly highlight assigned employee
+        if (next === 'running' || next === 'completed') {
+          const employeeId = payload.employeeId;
+          if (employeeId) {
+            const entity = this.employeeEntities.get(employeeId);
+            if (entity) {
+              entity.setHighlight(true);
+              setTimeout(() => entity.setHighlight(false), 500);
+            }
+          }
+        }
+      }),
+    );
+
+    // Selection sync (ANIM-005) — panel -> scene
+    this.unsubscribers.push(
+      this.eventBus.on('ui.selection.changed', (event) => {
+        const payload = event.payload as import('@aics/shared-types').UiSelectionPayload;
+        if (payload.source === 'panel') {
+          // Highlight selected entity in scene
+          for (const [id, entity] of this.employeeEntities) {
+            entity.setHighlight(id === payload.entityId);
+          }
+        }
+      }),
+    );
+
     // Re-center on resize — store handler ref for cleanup (C1)
     if (this.app) {
       const handleResize = () => this.centerWorld();
       this.app.renderer.on('resize', handleResize);
       const renderer = this.app.renderer;
       this.unsubscribers.push(() => renderer.off('resize', handleResize));
+    }
+  }
+
+  /** Get the first entity in the map as route origin (boss/manager). */
+  private getRouteOrigin(): SceneEntity | undefined {
+    return this.employeeEntities.values().next().value;
+  }
+
+  /** Fade out and remove a route line by taskRunId. */
+  private removeRouteLine(taskRunId: string): void {
+    const line = this.routeLines.get(taskRunId);
+    if (line) {
+      this.routeLines.delete(taskRunId);
+      line.fadeOut();
     }
   }
 
