@@ -6,7 +6,7 @@
  */
 
 import matter from 'gray-matter';
-import type { ParsedSkill, SkillMetadata, SkillRequirements } from './types.js';
+import type { ParsedSkill, RequiredMcp, SkillMetadata, SkillRequirements } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Error
@@ -63,6 +63,18 @@ function extractRequirements(meta: Record<string, unknown>): SkillRequirements {
       : undefined,
     config: Array.isArray(requires.config)
       ? requires.config.filter((c): c is string => typeof c === 'string')
+      : undefined,
+    mcps: Array.isArray(requires.mcps)
+      ? requires.mcps
+          .filter((m): m is Record<string, unknown> => typeof m === 'object' && m !== null)
+          .map((m): RequiredMcp => ({
+            name: String(m.name ?? ''),
+            description: String(m.description ?? ''),
+            transport: (['stdio', 'sse', 'either'].includes(String(m.transport))
+              ? String(m.transport) as 'stdio' | 'sse' | 'either'
+              : 'either'),
+            registryUrl: typeof m['registry-url'] === 'string' ? m['registry-url'] : undefined,
+          }))
       : undefined,
   };
 }
