@@ -7,6 +7,9 @@ import { requestId } from './middleware/request-id.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { optionalAuth } from './middleware/auth.js';
 import { health } from './routes/health.js';
+import { market } from './routes/market.js';
+import { creatorsRoute } from './routes/creators.js';
+import { reviewsRoute } from './routes/reviews.js';
 
 const app = new Hono<PlatformEnv>();
 
@@ -22,8 +25,9 @@ app.onError(errorHandler);
 
 // Routes
 app.route('/', health);
-// Chunk B will add: app.route('/v1/market', market);
-// Chunk B will add: app.route('/v1', reviews);
+app.route('/v1/market', market);
+app.route('/v1/market/creators', creatorsRoute);
+app.route('/v1/reviews', reviewsRoute);
 // Chunk D will add: app.route('/v1/publish', publish);
 
 const port = parseInt(process.env.PORT ?? '4100', 10);
