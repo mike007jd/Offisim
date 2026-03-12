@@ -18,9 +18,15 @@ reviewsRoute.post('/', requireAuth, async (c) => {
     body?: string;
   }>();
 
-  // Validate rating range
-  if (!body.listing_id || !body.rating || body.rating < 1 || body.rating > 5) {
-    throw new HTTPException(400, { message: 'listing_id and rating (1-5) are required' });
+  // Validate rating range and integer type
+  if (
+    !body.listing_id ||
+    typeof body.rating !== 'number' ||
+    !Number.isInteger(body.rating) ||
+    body.rating < 1 ||
+    body.rating > 5
+  ) {
+    throw new HTTPException(400, { message: 'listing_id and rating (integer 1-5) are required' });
   }
 
   // Verify listing exists
@@ -62,6 +68,7 @@ reviewsRoute.post('/', requireAuth, async (c) => {
         rating: body.rating,
         title: body.title ?? null,
         body: body.body ?? null,
+        moderation_state: 'visible',
       })
       .returning();
   }

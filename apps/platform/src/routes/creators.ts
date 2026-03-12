@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { eq, desc } from 'drizzle-orm';
-import { creators, listings } from '@aics/db-platform';
+import { eq, desc, and, inArray } from 'drizzle-orm';
+import { creators, listings, packageVersions } from '@aics/db-platform';
 import type { PlatformEnv } from '../types.js';
 
 const creatorsRoute = new Hono<PlatformEnv>();
@@ -25,11 +25,32 @@ creatorsRoute.get('/:handle', async (c) => {
     .where(eq(listings.creator_id, creator.creator_id))
     .orderBy(desc(listings.updated_at));
 
-  return c.json({
+  // Batch fetch latest active versions for all listings
+  const listingIds = creatorListings.map((l) => l.listing_id);
+  const allVersions = listingIds.length > 0
+    ? await db
+        .select()
+        .from(packageVersions)
+        .where(and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')))
+        .orderBy(desc(packageVersions.published_at))
+    : [];
+
+  const versionMap = new Map<string, string>();
+  for (const v of allVersions) {
+    if (!versionMap.has(v.listing_id)) {
+      versionMap.set(v.listing_id, v.version);
+    }
+  }
+
+  const creatorSummary = {
     creator_id: creator.creator_id,
     handle: creator.handle,
     display_name: creator.display_name,
     verification_state: creator.verification_state,
+  };
+
+  return c.json({
+    ...creatorSummary,
     bio: creator.bio,
     website_url: creator.website_url,
     created_at: creator.created_at.toISOString(),
@@ -39,7 +60,9 @@ creatorsRoute.get('/:handle', async (c) => {
       kind: l.kind,
       title: l.title,
       summary: l.summary ?? '',
+      creator: creatorSummary,
       status: l.status,
+      latest_version: versionMap.get(l.listing_id) ?? '0.0.0',
       rating: l.rating_avg ?? 0,
       install_count: l.install_count ?? 0,
     })),

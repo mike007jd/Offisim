@@ -139,7 +139,7 @@ export interface PublishDraft {
   manifest_json?: Record<string, unknown>;
   validation_state: 'unknown' | 'valid' | 'invalid';
   validation_report?: Record<string, unknown>;
-  status: 'draft' | 'validated' | 'submitted' | 'rejected';
+  status: 'draft' | 'validated' | 'submitted' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
 }

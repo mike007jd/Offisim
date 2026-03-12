@@ -11,11 +11,20 @@ import { market } from './routes/market.js';
 import { creatorsRoute } from './routes/creators.js';
 import { reviewsRoute } from './routes/reviews.js';
 import { publish } from './routes/publish.js';
+import { meRoute } from './routes/me.js';
 
 const app = new Hono<PlatformEnv>();
 
-// Global middleware
-app.use('*', cors({ origin: '*' })); // Tighten in production
+// Global middleware — read allowed origins from env, fallback to '*' in dev
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : ['*'];
+app.use(
+  '*',
+  cors({
+    origin: corsOrigins.includes('*') ? '*' : corsOrigins,
+  }),
+);
 app.use('*', requestId);
 app.use('*', async (c, next) => {
   c.set('db', db);
@@ -30,6 +39,7 @@ app.route('/v1/market', market);
 app.route('/v1/market/creators', creatorsRoute);
 app.route('/v1/reviews', reviewsRoute);
 app.route('/v1/publish', publish);
+app.route('/v1/me', meRoute);
 
 const port = parseInt(process.env.PORT ?? '4100', 10);
 serve({ fetch: app.fetch, port }, () => {

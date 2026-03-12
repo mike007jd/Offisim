@@ -182,6 +182,97 @@ market.get('/listings/:listingId', async (c) => {
   });
 });
 
+// GET /v1/market/listings/by-slug/:slug
+market.get('/listings/by-slug/:slug', async (c) => {
+  const db = c.get('db');
+  const slug = c.req.param('slug');
+
+  const [row] = await db
+    .select()
+    .from(listings)
+    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
+    .where(eq(listings.slug, slug))
+    .limit(1);
+
+  if (!row) throw new HTTPException(404, { message: 'Listing not found' });
+
+  const listing = row.listings;
+  const creator = row.creators;
+  const listingId = listing.listing_id;
+
+  // Latest active version
+  const [latestVersion] = await db
+    .select()
+    .from(packageVersions)
+    .where(and(eq(packageVersions.listing_id, listingId), eq(packageVersions.status, 'active')))
+    .orderBy(desc(packageVersions.published_at))
+    .limit(1);
+
+  // Tags
+  const tags = await db
+    .select({ tag: listingTags.tag })
+    .from(listingTags)
+    .where(eq(listingTags.listing_id, listingId));
+
+  // Previews
+  const previews = await db
+    .select()
+    .from(listingPreviews)
+    .where(eq(listingPreviews.listing_id, listingId))
+    .orderBy(listingPreviews.sort_order);
+
+  const manifest = latestVersion?.manifest_json as Record<string, unknown> | undefined;
+
+  return c.json({
+    listing_id: listing.listing_id,
+    slug: listing.slug,
+    kind: listing.kind,
+    title: listing.title,
+    summary: listing.summary ?? '',
+    description: listing.description ?? '',
+    creator: {
+      creator_id: creator.creator_id,
+      handle: creator.handle,
+      display_name: creator.display_name,
+      verification_state: creator.verification_state,
+    },
+    status: listing.status,
+    latest_version: latestVersion?.version ?? '0.0.0',
+    rating: listing.rating_avg ?? 0,
+    install_count: listing.install_count ?? 0,
+    tags: tags.map((t) => t.tag),
+    version: latestVersion
+      ? {
+          package_id: latestVersion.package_id,
+          version: latestVersion.version,
+          runtime_range: latestVersion.runtime_range,
+          schema_version: latestVersion.schema_version,
+          environments: latestVersion.environments,
+          risk_class: latestVersion.risk_class,
+          published_at: latestVersion.published_at.toISOString(),
+          changelog: latestVersion.changelog,
+        }
+      : undefined,
+    requirements: {
+      required_capabilities: (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
+      required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
+      recommended_models: (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
+    },
+    permissions: {
+      risk_class: (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
+      declares_secrets: (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
+      filesystem_scope: (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
+      network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
+    },
+    lineage: manifest?.lineage ?? undefined,
+    previews: previews.map((p) => ({
+      kind: p.kind,
+      url: p.url,
+      alt: p.alt_text,
+    })),
+  });
+});
+
 // GET /v1/market/listings/:listingId/versions
 market.get('/listings/:listingId/versions', async (c) => {
   const db = c.get('db');

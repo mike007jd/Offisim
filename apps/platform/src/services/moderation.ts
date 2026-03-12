@@ -98,17 +98,19 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     status: 'active',
   });
 
-  // Update tags
-  if (manifest.package.tags && Array.isArray(manifest.package.tags)) {
-    for (const tag of manifest.package.tags) {
-      await db.insert(listingTags).values({ listing_id: listingId, tag }).onConflictDoNothing();
-    }
+  // Update tags (batch insert)
+  const tags: string[] = manifest.package.tags;
+  if (Array.isArray(tags) && tags.length > 0) {
+    await db
+      .insert(listingTags)
+      .values(tags.map((tag) => ({ listing_id: listingId, tag })))
+      .onConflictDoNothing();
   }
 
   // Mark draft as approved, job as completed
   await db
     .update(publishDrafts)
-    .set({ status: 'submitted', listing_id: listingId, updated_at: new Date() })
+    .set({ status: 'approved', listing_id: listingId, updated_at: new Date() })
     .where(eq(publishDrafts.draft_id, draft.draft_id));
 
   await db

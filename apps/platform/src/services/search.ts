@@ -1,5 +1,5 @@
-import { eq, ilike, or, desc, sql, and, inArray } from 'drizzle-orm';
-import { listings, creators, listingTags } from '@aics/db-platform';
+import { eq, ilike, or, desc, sql, and, inArray, exists } from 'drizzle-orm';
+import { listings, creators, listingTags, packageVersions } from '@aics/db-platform';
 import type { PlatformDb } from '../db.js';
 
 export interface SearchFilters {
@@ -23,12 +23,29 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
     conditions.push(eq(listings.kind, filters.kind));
   }
 
+  if (filters.risk_class) {
+    conditions.push(
+      exists(
+        db
+          .select({ x: sql`1` })
+          .from(packageVersions)
+          .where(
+            and(
+              eq(packageVersions.listing_id, listings.listing_id),
+              eq(packageVersions.risk_class, filters.risk_class),
+            ),
+          ),
+      ),
+    );
+  }
+
   if (filters.q) {
     const pattern = `%${filters.q}%`;
     conditions.push(
       or(
         ilike(listings.title, pattern),
         ilike(listings.summary, pattern),
+        ilike(creators.display_name, pattern),
       )!,
     );
   }
