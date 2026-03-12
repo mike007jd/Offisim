@@ -111,9 +111,8 @@ describe('LobsterEntity — new state animations (Chunk 3)', () => {
 
     entity.setState('blocked');
 
-    // createBlockedAnimation creates a timeline for jitter and calls gsap.to for claw folds
+    // createBlockedAnimation creates a timeline for jitter + claw folds (all via tl.to, no standalone gsap.to)
     expect(gsap.timeline).toHaveBeenCalled();
-    expect(gsap.to).toHaveBeenCalled();
   });
 
   it('setState("waiting") starts waiting breathe animation (gsap.to on scale)', () => {

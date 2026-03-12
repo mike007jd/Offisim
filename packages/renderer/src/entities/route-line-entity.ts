@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { Container, Graphics } from 'pixi.js';
-import type { MotionBucket } from '../tokens/motion.js';
+import { MIN_FADE_DURATION, type MotionBucket } from '../tokens/motion.js';
 
 /** Draw a dashed line manually (PixiJS 8 Graphics has no native dash support). */
 function drawDashedLine(
@@ -95,7 +95,7 @@ export class RouteLineEntity {
     if (duration > 0) {
       this.fadeTween = gsap.to(this.container, {
         alpha: 0,
-        duration: 0.5,
+        duration: Math.max(duration, MIN_FADE_DURATION),
         ease,
         onComplete: () => {
           this.destroy();

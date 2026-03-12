@@ -92,9 +92,9 @@ export function createSearchingAnimation(
   tl.to(eyes, { x: eyeBaseX - 4, duration: 0.6, ease: 'sine.inOut' });
   tl.to(eyes, { x: eyeBaseX + 4, duration: 1.2, ease: 'sine.inOut' });
   tl.to(eyes, { x: eyeBaseX, duration: 0.6, ease: 'sine.inOut' });
-  // Antennae lean forward
-  gsap.to(antennaL, { rotation: -0.15, duration: 0.4, ease: 'sine.out' });
-  gsap.to(antennaR, { rotation: 0.15, duration: 0.4, ease: 'sine.out' });
+  // Antennae lean forward (must be on timeline to avoid orphaned tweens on state switch)
+  tl.to(antennaL, { rotation: -0.15, duration: 0.4, ease: 'sine.out' }, 0);
+  tl.to(antennaR, { rotation: 0.15, duration: 0.4, ease: 'sine.out' }, 0);
   return tl;
 }
 
@@ -108,9 +108,9 @@ export function createBlockedAnimation(
   if (motion.duration === 0) return gsap.timeline();
   const tl = gsap.timeline({ repeat: -1 });
   const baseX = body.position.x;
-  // Claws fold inward (defensive)
-  gsap.to(clawL, { rotation: 0.3, duration: 0.3, ease: 'power2.out' });
-  gsap.to(clawR, { rotation: -0.3, duration: 0.3, ease: 'power2.out' });
+  // Claws fold inward (defensive) — must be on timeline to avoid orphaned tweens
+  tl.to(clawL, { rotation: 0.3, duration: 0.3, ease: 'power2.out' }, 0);
+  tl.to(clawR, { rotation: -0.3, duration: 0.3, ease: 'power2.out' }, 0);
   // Tiny jitter
   tl.to(body, { x: baseX + 1, duration: 0.15, ease: 'none' });
   tl.to(body, { x: baseX - 1, duration: 0.15, ease: 'none' });

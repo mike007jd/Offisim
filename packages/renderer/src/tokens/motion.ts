@@ -41,6 +41,9 @@ export const MOTION_TIER_B: MotionTokens = {
 
 export const MOTION_TIER_C: MotionTokens = MOTION_REDUCED;
 
+/** Minimum visible fade/dissolve duration — ensures animation is perceptible even at Tier C. */
+export const MIN_FADE_DURATION = 0.3;
+
 /** Get motion tokens for the given performance tier. */
 export function getMotionForTier(tier: PerformanceTier): MotionTokens {
   switch (tier) {

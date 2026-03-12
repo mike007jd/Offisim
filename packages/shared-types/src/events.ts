@@ -274,6 +274,14 @@ export interface DirectChatCompletedPayload {
   readonly threadId: string;
 }
 
+// --- Runtime Experience: Report State ---
+
+export interface ReportStatePayload {
+  readonly next: string;
+  readonly employeeId?: string;
+  readonly threadId?: string;
+}
+
 // --- Runtime Experience: UI Selection ---
 
 export interface UiSelectionPayload {

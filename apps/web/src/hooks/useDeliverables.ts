@@ -16,6 +16,8 @@ export function useDeliverables(): Deliverable[] {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
 
   useEffect(() => {
+    // Clear stale deliverables when eventBus changes (runtime reinit)
+    setDeliverables([]);
     const off = eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
       const { deliverableId, threadId, title, content, contributingEmployees, createdAt } = e.payload;
       setDeliverables((prev) => [

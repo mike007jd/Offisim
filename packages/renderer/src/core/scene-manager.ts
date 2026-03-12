@@ -7,6 +7,7 @@ import type {
   GraphNodeExitedPayload,
   McpToolCalledPayload,
   MeetingStatePayload,
+  ReportStatePayload,
   TaskAssignmentPayload,
 } from '@aics/shared-types';
 import gsap from 'gsap';
@@ -18,7 +19,7 @@ import { STATE_COLORS } from '../tokens/colors.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
 import { LAYOUT } from '../tokens/layout.js';
-import { getMotionForTier, type PerformanceTier, type MotionTokens } from '../tokens/motion.js';
+import { getMotionForTier, MIN_FADE_DURATION, type PerformanceTier, type MotionTokens } from '../tokens/motion.js';
 import type {
   EmployeeSeed,
   LayerName,
@@ -52,6 +53,8 @@ export class SceneManager {
   private nodeActiveEmployees: Map<string, string> = new Map();
   /** Track active MCP tool overlay timers per employee (for auto-clear). */
   private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Track highlight auto-clear timers (task echo, report highlight) for cleanup on destroy. */
+  private highlightTimers: Set<ReturnType<typeof setTimeout>> = new Set();
   /** Active route lines keyed by taskRunId (ANIM-004). */
   private routeLines: Map<string, RouteLineEntity> = new Map();
   private _performanceTier: PerformanceTier = 'A';
@@ -297,14 +300,22 @@ export class SceneManager {
     }
     this.toolOverlayTimers.clear();
 
+    // Clear highlight auto-clear timers (task echo, report highlight)
+    for (const timer of this.highlightTimers) {
+      clearTimeout(timer);
+    }
+    this.highlightTimers.clear();
+
     // Clean up route lines before entities (ANIM-004)
     for (const line of this.routeLines.values()) {
       line.destroy();
     }
     this.routeLines.clear();
 
-    // Clean up install ghost (ANIM-020)
+    // Clean up install ghost (ANIM-020) — kill dissolve tweens before destroy
     if (this.installGhost) {
+      gsap.killTweensOf(this.installGhost.container);
+      gsap.killTweensOf(this.installGhost.container.scale);
       this.installGhost.destroy();
       this.installGhost = null;
     }
@@ -561,8 +572,7 @@ export class SceneManager {
           if (employeeId) {
             const entity = this.employeeEntities.get(employeeId);
             if (entity) {
-              entity.setHighlight(true);
-              setTimeout(() => entity.setHighlight(false), 500);
+              this.flashHighlight(entity, 500);
             }
           }
         }
@@ -614,13 +624,12 @@ export class SceneManager {
     // Report state changes (ANIM-028, ANIM-031)
     this.unsubscribers.push(
       this.eventBus.on('report.state.changed', (event) => {
-        const payload = event.payload as { next: string; employeeId?: string };
+        const payload = event.payload as ReportStatePayload;
         if (payload.next === 'ready' && payload.employeeId) {
           // ANIM-028: Brief highlight on employee
           const entity = this.employeeEntities.get(payload.employeeId);
           if (entity) {
-            entity.setHighlight(true);
-            setTimeout(() => entity.setHighlight(false), 2000);
+            this.flashHighlight(entity, 2000);
           }
         }
       }),
@@ -646,6 +655,16 @@ export class SceneManager {
   /** Get the first entity in the map as route origin (boss/manager). */
   private getRouteOrigin(): SceneEntity | undefined {
     return this.employeeEntities.values().next().value;
+  }
+
+  /** Briefly highlight an entity and auto-clear after the given duration. */
+  private flashHighlight(entity: SceneEntity, durationMs: number): void {
+    entity.setHighlight(true);
+    const timer = setTimeout(() => {
+      this.highlightTimers.delete(timer);
+      if (!this._destroyed) entity.setHighlight(false);
+    }, durationMs);
+    this.highlightTimers.add(timer);
   }
 
   /** Fade out and remove a route line by taskRunId. */
@@ -715,9 +734,10 @@ export class SceneManager {
 
     const { duration, ease } = this.motion.M2;
     if (duration > 0) {
-      gsap.to(ghost.container, { alpha: 0, duration: 0.5, ease });
+      const dissolveDuration = Math.max(duration, MIN_FADE_DURATION);
+      gsap.to(ghost.container, { alpha: 0, duration: dissolveDuration, ease });
       gsap.to(ghost.container.scale, {
-        x: 0.8, y: 0.8, duration: 0.5, ease,
+        x: 0.8, y: 0.8, duration: dissolveDuration, ease,
         onComplete: () => {
           ghost.destroy();
         },
