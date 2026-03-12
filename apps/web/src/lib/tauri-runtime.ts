@@ -1,4 +1,5 @@
 import {
+  AuditingToolExecutor,
   type InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
@@ -11,7 +12,7 @@ import {
 import type { EventBus, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { BrowserMcpClientFactory } from './browser-mcp-client';
+import { TauriMcpClientFactory } from './tauri-mcp-client';
 import type { ProviderConfig } from './provider-config';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -89,19 +90,24 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   const checkpointer = new TauriCheckpointSaver();
   const graph = buildAicsGraph({ checkpointer });
 
-  // MCP tool executor — SSE-only for now (stdio needs Tauri shell plugin bridge)
+  // MCP tool executor — TauriMcpClientFactory supports both stdio (via Rust bridge) and SSE
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
     companyId: COMPANY_ID,
-    clientFactory: new BrowserMcpClientFactory(),
+    clientFactory: new TauriMcpClientFactory(),
   });
+
+  // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
+  const toolExecutor = new AuditingToolExecutor(
+    mcpToolExecutor, repos.mcpAudit, eventBus, COMPANY_ID, THREAD_ID,
+  );
 
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
     modelResolver,
-    toolExecutor: mcpToolExecutor,
+    toolExecutor,
     companyId: COMPANY_ID,
     threadId: THREAD_ID,
   });

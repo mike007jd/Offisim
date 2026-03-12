@@ -1,4 +1,5 @@
 import {
+  AuditingToolExecutor,
   InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
@@ -180,12 +181,17 @@ function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus
     clientFactory: new BrowserMcpClientFactory(),
   });
 
+  // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
+  const toolExecutor = new AuditingToolExecutor(
+    mcpToolExecutor, repos.mcpAudit, eventBus, COMPANY_ID, THREAD_ID,
+  );
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
     modelResolver,
-    toolExecutor: mcpToolExecutor,
+    toolExecutor,
     companyId: COMPANY_ID,
     threadId: THREAD_ID,
   });

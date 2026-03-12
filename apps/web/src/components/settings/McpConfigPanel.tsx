@@ -1,5 +1,6 @@
 import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core';
 import { useCallback, useEffect, useState } from 'react';
+import { isTauri } from '../../lib/env';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -181,7 +182,9 @@ export function McpConfigPanel() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="sse">SSE (browser-compatible)</SelectItem>
-                <SelectItem value="stdio">stdio (desktop only)</SelectItem>
+                <SelectItem value="stdio" disabled={!isTauri()}>
+                  Stdio (Local){!isTauri() ? ' \u2014 Desktop only' : ''}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
