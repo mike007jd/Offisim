@@ -1,3 +1,5 @@
+mod mcp_bridge;
+
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 fn migrations() -> Vec<Migration> {
@@ -72,6 +74,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_cors_fetch::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(mcp_bridge::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
