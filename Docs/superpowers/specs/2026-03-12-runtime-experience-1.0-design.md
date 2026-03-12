@@ -4,7 +4,7 @@
 >
 > **Scope:** TaskDashboard fixes, EventLog expansion, Layer architecture, LobsterEntity enablement, all P0/P1 animations from ANIMATION_BACKLOG, meeting scene integration, install trust feedback, report/delivery feedback, selection sync.
 >
-> **Non-scope:** Market website, model provider UI, MCP permission enforcement UI, aesthetic polish (user will tune later), P2/P3 backlog items.
+> **Non-scope:** Market website, model provider UI, MCP permission enforcement UI, aesthetic polish (user will tune later), P2/P3 backlog items, ANIM-036/ANIM-037 (marketplace DOM polish — deferred to market launch).
 >
 > **Reference docs:**
 > - `Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`
@@ -43,10 +43,33 @@ export interface PlanCreatedPayload {
 }
 ```
 
+**Updated factory signature:**
+
+```typescript
+// packages/core/src/events/event-factories.ts
+export function planCreated(
+  companyId: string,
+  planId: string,
+  threadId: string,
+  summary: string,                               // NEW
+  steps: ReadonlyArray<{
+    stepIndex: number;
+    description: string;
+    taskCount: number;
+    tasks: ReadonlyArray<{                        // NEW
+      taskRunId: string;
+      taskType: string;
+      description: string;
+      employeeId: string;
+    }>;
+  }>,
+): RuntimeEvent<PlanCreatedPayload>
+```
+
 **Core changes:**
 - `packages/shared-types/src/events.ts` — extend `PlanCreatedPayload`
-- `packages/core/src/events/event-factories.ts` — update `planCreated()` factory signature
-- `packages/core/src/agents/pm-planner-node.ts` — pass task details when emitting `plan.created`
+- `packages/core/src/events/event-factories.ts` — update `planCreated()` factory to accept `summary` and `steps[].tasks[]`
+- `packages/core/src/agents/pm-planner-node.ts` — pass task details when emitting `plan.created` (data already exists as `PlanTask[]` in the node's local state, just not forwarded to the event)
 
 **Web changes:**
 - `apps/web/src/hooks/useTaskDashboard.ts` — remove `placeholderTasks()`, use real task data from event
@@ -54,7 +77,7 @@ export interface PlanCreatedPayload {
 
 ### §1.3 Employee name resolution
 
-`TaskInfo.employeeName` is set to `employeeId` (line 257 in useTaskDashboard). The event doesn't carry names.
+`TaskInfo.employeeName` is set to `employeeId` (in the `task.assignment.changed` handler of useTaskDashboard). The event doesn't carry names.
 
 **Solution:** `useTaskDashboard` accepts an `agents: Map<string, AgentState>` parameter (from `useAgentStates`). The hook resolves `employeeName` via `agents.get(employeeId)?.name` on every state update. `TaskItem.tsx` displays the resolved name.
 
@@ -96,9 +119,24 @@ L7: bridgeContainer      — install review anchors, onboarding callouts (DOM-co
 
 **Implementation:**
 - `SceneManager.mount()` creates `this.layers: Record<string, Container>` — 8 PIXI.Container instances added in L0→L7 order
-- All existing `addChild` calls migrate to the correct layer (floor→L0, desk→L1, employee→L2, bubble→L5)
+- All existing `addChild` calls migrate to the correct layer
 - New entity types (route lines, install candidates) target their designated layer
 - `addToLayer(layerName, child)` utility method on SceneManager
+
+**Entity → layer mapping:**
+
+| Entity | Layer |
+|--------|-------|
+| FloorLayer (tiles, grid) | L0 floorContainer |
+| Desk graphics, chair, monitor | L1 furnitureContainer |
+| EmployeeEntity / LobsterEntity | L2 entityContainer |
+| MeetingRoomEntity (table, room area) | L1 furnitureContainer |
+| State rings, desk glows | L3 accentContainer |
+| RouteLineEntity | L4 semanticContainer |
+| Install ghost entity | L4 semanticContainer |
+| Task bubbles, report badges | L5 bubbleContainer |
+| Meeting focus glow, attention router | L6 focusContainer |
+| DOM-coordinated anchors | L7 bridgeContainer |
 
 ### §2.3 Entity style switch
 
@@ -166,7 +204,9 @@ Animations use existing token infrastructure: `STATE_COLORS`, `MOTION` buckets, 
 
 New entity class in `packages/renderer/src/entities/RouteLineEntity.ts`.
 
-**Visual:** Dashed line (PixiJS Graphics, dash pattern 8px/4px) connecting two entity positions. Color matches task state. Animated dash-offset via GSAP for "flowing" effect.
+**Visual:** Dashed line connecting two entity positions. Color matches task state.
+
+**Technical approach:** PixiJS `Graphics` does not natively animate dash-offset. Use frame-by-frame redraw: each GSAP tick calls `graphics.clear()` then redraws the dashed line with an incremented offset parameter. The dash pattern (8px on, 4px off) is calculated manually in a `drawDashedLine(from, to, dashLen, gapLen, offset)` utility. This is lightweight — one `clear()+lineTo()` per frame for active lines. Tier B: skip dash animation, draw static dashed line. Tier C: no route lines.
 
 **Lifecycle:**
 - Created on `task.assignment.changed` (action=assigned) — line from assigner entity to assignee entity
@@ -213,7 +253,7 @@ export interface UiSelectionPayload {
 }
 ```
 
-Add `'ui.selection.changed'` to EventFamily union.
+Note: `'ui.selection.changed'` already exists in EventFamily (events.ts line 34). Only the `UiSelectionPayload` interface needs to be added.
 
 ---
 
@@ -228,6 +268,8 @@ When install preview opens (`install.previewing`):
 - Ghost uses entityStyle but alpha=0.4, grayscale filter
 - Lives in L4 (semanticContainer) — visually "not yet installed"
 - Removed on install cancel or failure
+
+**Empty desk detection:** `SceneManager` maintains a `DESK_POSITIONS` array (currently 4 positions in FloorLayer). Compare against `employeeEntities` keys to find unoccupied positions: `DESK_POSITIONS.filter(pos => !occupiedPositions.has(pos.id))`. Take the first available, or if all occupied, place ghost at a temporary offset position.
 
 ### §6.2 DOM: Staged reveal (ANIM-021, ANIM-022, ANIM-023)
 
@@ -333,7 +375,29 @@ On file import via FileImportTrigger:
 
 ---
 
-## §10 Performance Tier System Completion (ANIM-034)
+## §10 Scene Attention Router (ANIM-032, P1)
+
+When a high-priority state exists (blocked employee, install failure, report review needed), the scene should draw user attention without a cinematic camera takeover.
+
+**Implementation:**
+- SceneManager maintains a priority queue of active "attention requests" keyed by `entityId`
+- Each attention request has a `priority` (from SCENE_STATE_MATRIX §12: destructive=5, install=4, report=3, active=2, ambient=1)
+- Only the highest-priority request gets the "dominant focus" treatment: a subtle spotlight glow (L6 focusContainer) centered on the entity, dimming other entities slightly (alpha 0.9)
+- If multiple equal-priority requests exist, the most recent one wins
+- Attention clears when the triggering state resolves (e.g., blocked → running)
+
+**Triggers:**
+- `employee.state.changed` to `blocked` or `failed` → priority 5
+- `install.state.changed` to `failed` or `rolled_back` → priority 5
+- `install.state.changed` to `awaiting_bindings` or `compatibility_checked` (fail) → priority 4
+- `report.state.changed` to `ready` → priority 3
+- All other active states → no attention request
+
+**Tier B:** Spotlight only (no dimming). **Tier C:** No attention routing.
+
+---
+
+## §11 Performance Tier System Completion (renumbered from §10) (ANIM-034)
 
 ### §10.1 Current state
 
@@ -342,7 +406,7 @@ On file import via FileImportTrigger:
 ### §10.2 Target: 3-tier system
 
 ```typescript
-// packages/renderer/src/tokens.ts
+// packages/renderer/src/tokens/motion.ts
 export type PerformanceTier = 'A' | 'B' | 'C';
 
 export const MOTION_TIER_A = MOTION;           // existing full motion
@@ -363,31 +427,43 @@ export const MOTION_TIER_C = MOTION_REDUCED;   // existing zero motion
 - Install materialization: simplified step change
 
 **Runtime detection:**
-- `runtime.performance.tier.changed` event (emitted by frame-rate monitor or user setting)
+- `runtime.performance.tier.changed` event emitted by either:
+  - **User setting** (manual toggle in Settings panel: Full/Reduced/Minimal) — persisted in localStorage
+  - **FrameRateMonitor** (optional, can be added post-1.0): sample FPS every 2s over a 10s window. Downgrade threshold: avg < 24fps for 3 consecutive samples → Tier B. Avg < 15fps → Tier C. Upgrade threshold: avg > 45fps for 5 samples → upgrade one tier. Hysteresis prevents flapping.
+- For 1.0: **user setting only** (manual tier selection). FrameRateMonitor is a future enhancement.
 - SceneManager stores `currentTier` and passes to all entity animation calls
 - Each animation function accepts `tier` parameter and selects appropriate token set
 
 ---
 
-## §11 New Events Summary
+## §12 New Events Summary
 
-New event types added to `packages/shared-types/src/events.ts`:
+New payload types added to `packages/shared-types/src/events.ts`:
 
-| Event | Payload | Purpose |
-|-------|---------|---------|
-| `ui.selection.changed` | `UiSelectionPayload` | Scene ↔ panel selection sync |
-| `ui.scene.task.echo` | `{ taskRunId: string }` | Task row ↔ world highlight echo |
+| Type | Purpose |
+|------|---------|
+| `UiSelectionPayload` | Scene ↔ panel selection sync payload |
+
+New EventFamily entries:
+
+| Event | Notes |
+|-------|-------|
+| `ui.scene.task.echo` | Task row ↔ world highlight echo (add to EventFamily union) |
+
+Note: `ui.selection.changed` already exists in EventFamily. No new entry needed.
 
 Modified events:
 | Event | Change |
 |-------|--------|
-| `plan.created` | Payload gains `summary` and `steps[].tasks[]` with full task details |
+| `plan.created` | `PlanCreatedPayload` gains `summary: string` and `steps[].tasks[]` with full task details |
+
+**Report/delivery event clarification:** The EventFamily includes `report.state.changed`. The spec uses shorthand like `report.ready`, `report.delivered`, `report.rejected` — these are **not** separate event types. They are matched via EventBus prefix matching on `report.` or by checking the payload's state field (e.g., `payload.next === 'ready'`). Same pattern applies to `install.previewing`, `install.materializing`, etc. — all are states within `install.state.changed`.
 
 All other animations are driven by **existing** events (`employee.state.changed`, `task.assignment.changed`, `meeting.state.changed`, `install.state.changed`, `report.state.changed`).
 
 ---
 
-## §12 File Impact Summary
+## §13 File Impact Summary
 
 ### shared-types
 - `events.ts` — extend PlanCreatedPayload, add UiSelectionPayload, add 2 EventFamily entries
@@ -398,11 +474,11 @@ All other animations are driven by **existing** events (`employee.state.changed`
 
 ### renderer
 - `scene-manager.ts` — layer architecture, entity style switch, route line management, selection sync, install ghost, meeting scene handlers
-- `entities/RouteLineEntity.ts` — NEW
-- `entities/LobsterEntity.ts` — add searching/blocked/waiting/reporting/success animations
-- `entities/EmployeeEntity.ts` — add searching/blocked/waiting/reporting/success animations
-- `entities/MeetingRoomEntity.ts` — extend with scheduled/gathering/active/ended states
-- `tokens.ts` — add PerformanceTier, MOTION_TIER_B, tier selection helper
+- `entities/route-line-entity.ts` — NEW
+- `entities/lobster-entity.ts` — add searching/blocked/waiting/reporting/success animations
+- `entities/employee-entity.ts` — add searching/blocked/waiting/reporting/success animations
+- `entities/meeting-room-entity.ts` — extend with scheduled/gathering/active/ended states
+- `tokens/motion.ts` — add PerformanceTier, MOTION_TIER_B, tier selection helper
 
 ### web (apps/web)
 - `hooks/useTaskDashboard.ts` — remove placeholder mechanism, accept agents param, use enriched payload
@@ -426,16 +502,16 @@ All other animations are driven by **existing** events (`employee.state.changed`
 
 ---
 
-## §13 Implementation Order
+## §14 Implementation Order
 
 Recommended chunk sequence (respecting dependencies):
 
-1. **Foundation** — shared-types events + core factory changes + layer architecture
-2. **TaskDashboard** — enriched payload + placeholder removal + name resolution + EventLog
-3. **Employee animations** — all missing state animations on both entity types
-4. **Route lines + selection sync** — RouteLineEntity + ANIM-005 bridge
-5. **Install trust feedback** — ghost entity + DOM transitions
-6. **Meeting scene** — MeetingRoomEntity extensions + gather/active/disperse
-7. **Report/delivery** — PitchHall animations + report zone cues
-8. **Performance tier** — 3-tier system + per-animation tier branching
+1. **Foundation** — shared-types events + core factory changes + layer architecture + entity style switch
+2. **TaskDashboard** — enriched payload + placeholder removal + name resolution + EventLog expansion
+3. **Employee animations** — all missing state animations on both entity types (ANIM-008/010/011/012/013)
+4. **Route lines + selection sync** — RouteLineEntity + ANIM-005 bridge + task echo (ANIM-015)
+5. **Install trust feedback** — ghost entity + DOM transitions (ANIM-020~026)
+6. **Meeting scene** — MeetingRoomEntity extensions + gather/active/disperse (ANIM-016~019)
+7. **Report/delivery + import** — PitchHall animations + report zone cues (ANIM-027~031)
+8. **Attention router + performance tier** — scene attention routing (ANIM-032) + 3-tier system (ANIM-034)
 9. **Verification** — full test suite + build + visual smoke test
