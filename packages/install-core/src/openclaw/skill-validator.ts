@@ -23,6 +23,7 @@ import type { ParsedSkill, SkillValidationIssue, SkillValidationResult } from '.
 export function validateSkill(
   skill: ParsedSkill,
   environment: SupportedEnvironment,
+  connectedMcpServers?: ReadonlySet<string>,
 ): SkillValidationResult {
   const errors: SkillValidationIssue[] = [];
   const warnings: SkillValidationIssue[] = [];
@@ -75,6 +76,19 @@ export function validateSkill(
       detail: `Skill targets OS: ${skill.metadata.os.join(', ')}. Running in ${environment} — OS compatibility unverified.`,
       severity: 'warning',
     });
+  }
+
+  // MCP server warnings
+  if (skill.requirements.mcps && connectedMcpServers) {
+    for (const mcp of skill.requirements.mcps) {
+      if (!connectedMcpServers.has(mcp.name)) {
+        warnings.push({
+          type: 'missing_mcp',
+          detail: `Skill requires MCP server "${mcp.name}" (${mcp.description}). Configure in Settings → MCP Servers.`,
+          severity: 'warning',
+        });
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors, warnings };

@@ -138,4 +138,40 @@ describe('validateSkill', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBe(2);
   });
+
+  it('returns missing_mcp warning for unconnected MCP server', () => {
+    const skill: ParsedSkill = {
+      ...baseSkill,
+      requirements: {
+        mcps: [{ name: 'github', description: 'GitHub API', transport: 'stdio' }],
+      },
+    };
+    const result = validateSkill(skill, 'desktop', new Set());
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]!.type).toBe('missing_mcp');
+    expect(result.warnings[0]!.severity).toBe('warning');
+  });
+
+  it('does not warn for connected MCP server', () => {
+    const skill: ParsedSkill = {
+      ...baseSkill,
+      requirements: {
+        mcps: [{ name: 'github', description: 'GitHub API', transport: 'stdio' }],
+      },
+    };
+    const result = validateSkill(skill, 'desktop', new Set(['github']));
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('skips MCP check when connectedMcpServers not provided', () => {
+    const skill: ParsedSkill = {
+      ...baseSkill,
+      requirements: {
+        mcps: [{ name: 'github', description: 'GitHub API', transport: 'stdio' }],
+      },
+    };
+    const result = validateSkill(skill, 'desktop');
+    expect(result.warnings).toHaveLength(0);
+  });
 });
