@@ -1,11 +1,48 @@
-import { useEffect, useRef } from 'react';
-import { useEventStream } from '../../runtime/use-event-stream';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RuntimeEvent } from '@aics/shared-types';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { ScrollArea } from '../ui/scroll-area';
 import { EventItem } from './EventItem';
 
+const EVENT_PREFIXES = ['graph.node.', 'plan.', 'task.', 'deliverable.'] as const;
+const MAX_EVENTS = 200;
+
 export function EventLog() {
-  const events = useEventStream('graph.node.');
+  const { eventBus } = useAicsRuntime();
+  const [events, setEvents] = useState<RuntimeEvent[]>([]);
+  const bufferRef = useRef<RuntimeEvent[]>([]);
+  const rafRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const flush = useCallback(() => {
+    rafRef.current = null;
+    if (bufferRef.current.length === 0) return;
+    const batch = bufferRef.current;
+    bufferRef.current = [];
+    setEvents(prev => [...prev, ...batch].slice(-MAX_EVENTS));
+  }, []);
+
+  useEffect(() => {
+    bufferRef.current = [];
+    setEvents([]);
+
+    const unsubs = EVENT_PREFIXES.map(prefix =>
+      eventBus.on(prefix, (event: RuntimeEvent) => {
+        bufferRef.current.push(event);
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(flush);
+        }
+      }),
+    );
+
+    return () => {
+      for (const unsub of unsubs) unsub();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [eventBus, flush]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: events array triggers scroll-to-bottom intentionally
   useEffect(() => {

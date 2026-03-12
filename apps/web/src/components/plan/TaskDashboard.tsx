@@ -1,8 +1,8 @@
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { TaskStepCard } from './TaskStepCard';
 
-export function TaskDashboard() {
-  const dashboard = useTaskDashboard();
+export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
+  const dashboard = useTaskDashboard(agents);
 
   if (!dashboard.planId) {
     return (

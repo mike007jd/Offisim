@@ -81,18 +81,6 @@ function calcStats(steps: DashboardStep[]) {
   return { total, completed, active, failed };
 }
 
-/** Create N placeholder tasks for a step. */
-function placeholderTasks(count: number): TaskInfo[] {
-  return Array.from({ length: count }, (_, i) => ({
-    taskRunId: `placeholder-${i}`,
-    employeeId: null,
-    employeeName: null,
-    taskType: 'pending',
-    description: `Task ${i + 1}`,
-    status: 'planned',
-  }));
-}
-
 /**
  * Find step & task index for a given taskRunId. Returns [-1, -1] if not found.
  */
@@ -111,10 +99,12 @@ function findTask(steps: DashboardStep[], taskRunId: string): [number, number] {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useTaskDashboard(): TaskDashboardState {
+export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDashboardState {
   const { eventBus } = useAicsRuntime();
   const [state, setState] = useState<InternalState>(INITIAL);
   const stateRef = useRef<InternalState>(INITIAL);
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
 
   const update = useCallback((fn: (prev: InternalState) => InternalState) => {
     setState((prev) => {
@@ -128,17 +118,24 @@ export function useTaskDashboard(): TaskDashboardState {
     stateRef.current = INITIAL;
     setState(INITIAL);
 
-    // plan.created — initialize steps with placeholder tasks
+    // plan.created — initialize steps with real task data from enriched payload
     const offCreated = eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
-      const { planId, steps } = e.payload;
+      const { planId, summary, steps } = e.payload;
       update(() => ({
         planId,
-        summary: `Plan ${planId}`,
+        summary: summary || `Plan ${planId}`,
         steps: steps.map((s) => ({
           stepIndex: s.stepIndex,
           description: s.description,
           status: 'pending' as const,
-          tasks: placeholderTasks(s.taskCount),
+          tasks: s.tasks.map((t) => ({
+            taskRunId: t.taskRunId,
+            employeeId: t.employeeId,
+            employeeName: agentsRef.current?.get(t.employeeId)?.name ?? null,
+            taskType: t.taskType,
+            description: t.description,
+            status: 'planned',
+          })),
           expanded: false,
         })),
         currentStepIndex: -1,
@@ -223,7 +220,7 @@ export function useTaskDashboard(): TaskDashboardState {
               const newTask: TaskInfo = {
                 taskRunId,
                 employeeId: employeeId ?? null,
-                employeeName: null,
+                employeeName: employeeId ? (agentsRef.current?.get(employeeId)?.name ?? employeeId) : null,
                 taskType: nextStatus,
                 description: taskRunId,
                 status: nextStatus,
@@ -251,10 +248,13 @@ export function useTaskDashboard(): TaskDashboardState {
           const assignStep = si >= 0 ? steps[si] : undefined;
           const assignTask = assignStep && ti >= 0 ? assignStep.tasks[ti] : undefined;
           if (assignStep && assignTask) {
+            const resolvedName = action === 'assigned'
+              ? agentsRef.current?.get(employeeId)?.name ?? employeeId
+              : null;
             assignStep.tasks[ti] = {
               ...assignTask,
               employeeId: action === 'assigned' ? employeeId : null,
-              employeeName: action === 'assigned' ? employeeId : null, // name unavailable from event
+              employeeName: resolvedName,
             };
           }
           return { ...prev, steps };
