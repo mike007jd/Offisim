@@ -40,3 +40,14 @@ export interface McpConnection {
 export interface McpClientFactory {
   createClient(config: McpServerConfig): Promise<McpConnection>;
 }
+
+/** P1: auto-approve all. P2 adds ask_first_time and always_ask enforcement. */
+export type ToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask';
+
+export interface ToolPermissionPolicy {
+  readonly defaultMode: ToolApprovalMode;
+  readonly overrides: ReadonlyArray<{
+    readonly pattern: string;
+    readonly mode: ToolApprovalMode;
+  }>;
+}
