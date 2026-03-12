@@ -310,7 +310,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       }),
     );
 
-    await db.execute('BEGIN');
+    await db.execute('BEGIN IMMEDIATE');
     try {
       for (const row of serialized) {
         await db.execute(
@@ -322,7 +322,11 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       }
       await db.execute('COMMIT');
     } catch (e) {
-      await db.execute('ROLLBACK');
+      try {
+        await db.execute('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('ROLLBACK failed after putWrites error:', rollbackErr);
+      }
       throw e;
     }
   }
