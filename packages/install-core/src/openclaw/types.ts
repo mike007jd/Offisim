@@ -44,13 +44,20 @@ export interface SkillMetadata {
   readonly allowedTools?: readonly string[];
 }
 
-/** Result of validating a skill's requirements. */
-export interface SkillValidationResult {
-  readonly valid: boolean;
-  readonly warnings: readonly SkillValidationWarning[];
+export interface SkillValidationIssue {
+  type: string;
+  detail: string;
+  severity: 'error' | 'warning';
 }
 
-export interface SkillValidationWarning {
-  readonly type: 'missing_bin' | 'missing_env' | 'missing_config' | 'unsupported_os';
-  readonly detail: string;
+/** Result of validating a skill's requirements. */
+export interface SkillValidationResult {
+  valid: boolean;
+  /** Hard errors that block installation */
+  errors: SkillValidationIssue[];
+  /** Soft warnings the user should review */
+  warnings: SkillValidationIssue[];
 }
+
+/** @deprecated Use SkillValidationIssue instead */
+export type SkillValidationWarning = SkillValidationIssue;
