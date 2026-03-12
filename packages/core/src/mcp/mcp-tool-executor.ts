@@ -146,6 +146,11 @@ export class McpToolExecutor implements ToolExecutor {
     this.toolServerMap.clear();
   }
 
+  /** Look up which server owns a given tool. Used by AuditingToolExecutor. */
+  getServerForTool(toolName: string): string | undefined {
+    return this.toolServerMap.get(toolName);
+  }
+
   /** Get the number of connected servers (useful for testing). */
   get serverCount(): number {
     return this.servers.size;
