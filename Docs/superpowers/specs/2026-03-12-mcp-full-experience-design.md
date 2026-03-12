@@ -251,11 +251,12 @@ struct HealthMonitor {
 }
 ```
 
-**Health detection** (dual signal):
+**Health detection** (triple signal):
 1. `child.try_wait()` — process liveness check (periodic, every `interval`)
-2. Tool call timeouts — if a call times out, increment `consecutive_failures`; 3 consecutive → Unhealthy
+2. MCP `ping` method — MCP spec (2025-06-18) defines a standard `{"method": "ping"}` request that returns `{"result": {}}`. Send periodically; timeout = Unhealthy.
+3. Tool call timeouts — if a call times out, increment `consecutive_failures`; 3 consecutive → Unhealthy
 
-No non-standard ping protocol. MCP spec does not define a ping method. Process liveness + call timeout is sufficient and spec-compliant.
+The `ping` method is part of the MCP specification's utility features (see [spec 2025-06-18 ping](https://github.com/modelcontextprotocol/specification/blob/main/docs/specification/2025-06-18/basic/utilities/ping.mdx)). Servers that don't implement it will return a JSON-RPC method-not-found error, which the health monitor treats as "alive but ping-unsupported" (falls back to signal 1+3 only).
 
 **Reconnect sequence:**
 
@@ -268,7 +269,11 @@ Failure → wait 16s (±jitter) → retry 5
 Failure → mark Dead, emit event to JS via Tauri event
 ```
 
-Each reconnect performs full MCP `initialize` handshake (capability exchange) and re-discovers tool list (server may have updated).
+Each reconnect performs the full MCP lifecycle sequence per spec:
+1. Send `initialize` request (protocolVersion, capabilities, clientInfo)
+2. Receive `initialize` response (server capabilities, serverInfo)
+3. Send `notifications/initialized` notification
+4. Send `tools/list` request to discover available tools
 
 ### 4.8 IPC Commands
 
@@ -375,7 +380,11 @@ const mcpToolExecutor = new McpToolExecutor({
 });
 ```
 
-### 5.5 Behavior Matrix
+### 5.5 Transport Note
+
+MCP spec (2025-06-18+) replaces "SSE" with "Streamable HTTP" as the remote transport. Our existing `BrowserMcpClientFactory` uses `@modelcontextprotocol/sdk`'s `SSEClientTransport` which is compatible. When upgrading the SDK in the future, the transport class name may change but the `McpClientFactory` interface abstracts this. No action needed for P1.
+
+### 5.6 Behavior Matrix
 
 | Scenario | Browser | Desktop (Tauri) |
 |----------|---------|-----------------|
@@ -384,7 +393,7 @@ const mcpToolExecutor = new McpToolExecutor({
 | Health monitoring | N/A | ✅ Rust health monitor |
 | Auto-reconnect | N/A | ✅ Exponential backoff |
 
-### 5.6 McpConfigPanel UI Fix
+### 5.7 McpConfigPanel UI Fix
 
 Disable stdio option in browser environment:
 
