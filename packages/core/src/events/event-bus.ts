@@ -26,7 +26,14 @@ export class InMemoryEventBus implements EventBus {
 
     for (const sub of this.subscriptions) {
       if (sub.prefix === '' || event.type.startsWith(sub.prefix)) {
-        sub.handler(event);
+        try {
+          sub.handler(event);
+        } catch (err) {
+          console.error(
+            `EventBus handler error on "${event.type}" (prefix: "${sub.prefix}"):`,
+            err,
+          );
+        }
         if (sub.once) {
           toRemove.push(sub);
         }
