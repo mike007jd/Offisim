@@ -44,6 +44,7 @@ export type EventFamily =
   | 'plan.completed'
   | 'mcp.server.connected'
   | 'mcp.tool.called'
+  | 'mcp.tool.result'
   | 'employee.installed'
   | 'employee.created'
   | 'employee.updated'
@@ -194,6 +195,16 @@ export interface McpToolCalledPayload {
   readonly serverName: string;
   readonly toolName: string;
   readonly employeeId: string;
+}
+
+export interface McpToolResultPayload {
+  readonly serverName: string;
+  readonly toolName: string;
+  readonly employeeId: string;
+  readonly toolCallId: string;
+  readonly success: boolean;
+  readonly latencyMs: number;
+  readonly error?: string;
 }
 
 // --- Employee CRUD Events ---

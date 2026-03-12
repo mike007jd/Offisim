@@ -42,6 +42,7 @@ export type {
   PlanCompletedPayload,
   McpServerConnectedPayload,
   McpToolCalledPayload,
+  McpToolResultPayload,
   EmployeeInstalledPayload,
   EmployeeCreatedPayload,
   EmployeeUpdatedPayload,
