@@ -61,6 +61,10 @@ export type {
   EmployeeWorkstationChangedPayload,
   EmployeeWorkstationDropRequestedPayload,
   EmployeeVersionCreatedPayload,
+  RackBoundPayload,
+  RackUnboundPayload,
+  SlotAssignedPayload,
+  SlotRemovedPayload,
   CostAggregatedPayload,
 } from './events.js';
 

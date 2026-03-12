@@ -1,4 +1,9 @@
 import type { EventBus } from '../events/event-bus.js';
+import {
+  rackBound,
+  rackUnbound,
+  slotAssigned,
+} from '../events/event-factories.js';
 import type {
   RackRepository,
   RackRow,
@@ -14,7 +19,7 @@ export class RackSlotService {
   constructor(
     private readonly rackRepo: RackRepository,
     private readonly slotRepo: SlotRepository,
-    _eventBus: EventBus,
+    private readonly eventBus: EventBus,
   ) {}
 
   async createRack(
@@ -40,12 +45,15 @@ export class RackSlotService {
   ): Promise<void> {
     const rack = await this.rackRepo.findById(rackId);
     if (!rack) throw new Error(`Rack not found: ${rackId}`);
-    // Update binding profile would need a repo update method — use status for now
     await this.rackRepo.updateStatus(rackId, 'bound');
+    this.eventBus.emit(rackBound(rack.company_id, rackId, rack.provider_type, rack.label));
   }
 
   async unbindRack(rackId: string): Promise<void> {
+    const rack = await this.rackRepo.findById(rackId);
+    if (!rack) throw new Error(`Rack not found: ${rackId}`);
     await this.rackRepo.updateStatus(rackId, 'unbound');
+    this.eventBus.emit(rackUnbound(rack.company_id, rackId));
   }
 
   async addSlot(
@@ -63,6 +71,7 @@ export class RackSlotService {
       exposure_scope: exposureScope,
       status: 'available',
     });
+    this.eventBus.emit(slotAssigned(rack.company_id, slotId, rackId, capabilityName, exposureScope));
     return slotId;
   }
 
@@ -92,7 +101,6 @@ export class RackSlotService {
   }
 
   async deleteRack(rackId: string): Promise<void> {
-    // Delete slots first
     const slots = await this.slotRepo.findByRack(rackId);
     for (const slot of slots) {
       await this.slotRepo.delete(slot.slot_id);

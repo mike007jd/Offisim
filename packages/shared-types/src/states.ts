@@ -68,4 +68,5 @@ export type RuntimeEntityType =
   | 'llm'
   | 'graph'
   | 'plan'
-  | 'mcp';
+  | 'mcp'
+  | 'company';

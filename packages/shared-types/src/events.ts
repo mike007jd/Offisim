@@ -62,6 +62,10 @@ export type EventFamily =
   | 'employee.workstation.changed'
   | 'employee.workstation.drop-requested'
   | 'employee.version.created'
+  | 'rack.bound'
+  | 'rack.unbound'
+  | 'slot.assigned'
+  | 'slot.removed'
   | 'cost.aggregated';
 
 // --- Typed event payloads ---
@@ -351,6 +355,30 @@ export interface EmployeeVersionCreatedPayload {
   readonly employeeId: string;
   readonly versionNum: number;
   readonly changeType: 'create' | 'update' | 'rollback';
+}
+
+// --- Runtime Completion: Rack/Slot Events ---
+
+export interface RackBoundPayload {
+  readonly rackId: string;
+  readonly providerType: string;
+  readonly label: string;
+}
+
+export interface RackUnboundPayload {
+  readonly rackId: string;
+}
+
+export interface SlotAssignedPayload {
+  readonly slotId: string;
+  readonly rackId: string;
+  readonly capabilityName: string;
+  readonly exposureScope: string;
+}
+
+export interface SlotRemovedPayload {
+  readonly slotId: string;
+  readonly rackId: string;
 }
 
 // --- Runtime Completion: Cost Aggregation ---

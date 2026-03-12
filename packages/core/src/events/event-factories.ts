@@ -28,6 +28,10 @@ import type {
   McpToolCalledPayload,
   McpToolResultPayload,
   MeetingActionCreatedPayload,
+  RackBoundPayload,
+  RackUnboundPayload,
+  SlotAssignedPayload,
+  SlotRemovedPayload,
   MeetingState,
   MeetingStatePayload,
   MemoryAccessedPayload,
@@ -687,5 +691,69 @@ export function employeeVersionCreated(
     companyId,
     timestamp: Date.now(),
     payload: { employeeId, versionNum, changeType },
+  };
+}
+
+// --- Rack/Slot Events ---
+
+export function rackBound(
+  companyId: string,
+  rackId: string,
+  providerType: string,
+  label: string,
+): RuntimeEvent<RackBoundPayload> {
+  return {
+    type: 'rack.bound',
+    entityId: rackId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: { rackId, providerType, label },
+  };
+}
+
+export function rackUnbound(
+  companyId: string,
+  rackId: string,
+): RuntimeEvent<RackUnboundPayload> {
+  return {
+    type: 'rack.unbound',
+    entityId: rackId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: { rackId },
+  };
+}
+
+export function slotAssigned(
+  companyId: string,
+  slotId: string,
+  rackId: string,
+  capabilityName: string,
+  exposureScope: string,
+): RuntimeEvent<SlotAssignedPayload> {
+  return {
+    type: 'slot.assigned',
+    entityId: slotId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: { slotId, rackId, capabilityName, exposureScope },
+  };
+}
+
+export function slotRemoved(
+  companyId: string,
+  slotId: string,
+  rackId: string,
+): RuntimeEvent<SlotRemovedPayload> {
+  return {
+    type: 'slot.removed',
+    entityId: slotId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: { slotId, rackId },
   };
 }

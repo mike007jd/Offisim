@@ -15,6 +15,7 @@ import type { LlmMessage, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { LibraryService } from '../services/library-service.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 
@@ -162,6 +163,19 @@ export async function employeeNode(
       }
     } catch {
       // Memory retrieval failure is non-critical
+    }
+  }
+
+  // --- Inject relevant library documents into system prompt ---
+  if (taskDescription && repos.libraryDocuments) {
+    try {
+      const libraryService = new LibraryService(repos.libraryDocuments, eventBus);
+      const librarySnippets = await libraryService.getRelevantSnippets(companyId, taskDescription);
+      if (librarySnippets) {
+        systemPrompt += `\n\n## Relevant company documents\n${librarySnippets}`;
+      }
+    } catch {
+      // Library retrieval failure is non-critical
     }
   }
 
