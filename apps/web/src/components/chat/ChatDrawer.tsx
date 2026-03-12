@@ -21,12 +21,14 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
       </button>
 
-      {/* Collapsible content area */}
+      {/* Collapsible content area — always rendered to preserve child state */}
       <div
         className="transition-[max-height] duration-300 ease-in-out overflow-hidden"
         style={{ maxHeight: open ? '50vh' : '0px' }}
       >
-        {open && <div className="h-[50vh] overflow-hidden">{children}</div>}
+        <div className={`h-[50vh] overflow-hidden${open ? '' : ' pointer-events-none'}`}>
+          {children}
+        </div>
       </div>
     </div>
   );
