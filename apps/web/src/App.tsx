@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AgentPanel } from './components/agents/AgentPanel';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatDrawer } from './components/chat/ChatDrawer';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { InstallDialog } from './components/install/InstallDialog';
@@ -35,7 +36,8 @@ export function App() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
+      <>
       <AppLayout
         header={
           <Header
@@ -71,5 +73,6 @@ export function App() {
       />
       <InstallDialog {...installFlow} />
     </>
+    </ErrorBoundary>
   );
 }
