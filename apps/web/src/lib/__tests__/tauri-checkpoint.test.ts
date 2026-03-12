@@ -72,10 +72,10 @@ describe('TauriCheckpointSaver', () => {
 
     await saver.putWrites(config, [['messages', { role: 'user', content: 'hello' }]], 'task-1');
 
-    // Expect BEGIN, INSERT, COMMIT
+    // Expect BEGIN IMMEDIATE, INSERT, COMMIT
     // biome-ignore lint/suspicious/noExplicitAny: mock call args inspection
     const sqls = mockExecute.mock.calls.map((c: any) => c[0]);
-    expect(sqls).toContain('BEGIN');
+    expect(sqls).toContain('BEGIN IMMEDIATE');
     expect(sqls).toContain('COMMIT');
     expect(sqls.some((s: string) => s.includes('INSERT OR REPLACE INTO writes'))).toBe(true);
   });
@@ -86,11 +86,11 @@ describe('TauriCheckpointSaver', () => {
 
     await saver.deleteThread('test-thread');
 
-    // Expect BEGIN, 2x DELETE, COMMIT
+    // Expect BEGIN IMMEDIATE, 2x DELETE, COMMIT
     expect(mockExecute).toHaveBeenCalledTimes(4);
     // biome-ignore lint/suspicious/noExplicitAny: mock call args inspection
     const sqls = mockExecute.mock.calls.map((c: any) => c[0]);
-    expect(sqls).toContain('BEGIN');
+    expect(sqls).toContain('BEGIN IMMEDIATE');
     expect(sqls).toContain('COMMIT');
     expect(sqls.some((s: string) => s.includes('DELETE FROM checkpoints'))).toBe(true);
     expect(sqls.some((s: string) => s.includes('DELETE FROM writes'))).toBe(true);
