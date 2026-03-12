@@ -11,7 +11,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/shared-types": "workspace:*"
+    "@aics/shared-types": "workspace:*",
+    "@aics/asset-schema": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.7.0", "vitest": "^3.0.0" }
 }

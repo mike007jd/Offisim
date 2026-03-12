@@ -11,14 +11,20 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "hono": "^4.7.0",
-    "@hono/node-server": "^1.14.0",
+    "@aics/asset-schema": "workspace:*",
     "@aics/db-platform": "workspace:*",
     "@aics/shared-types": "workspace:*",
-    "@aics/asset-schema": "workspace:*"
+    "@hono/node-server": "^1.14.0",
+    "drizzle-orm": "^0.39.3",
+    "hono": "^4.7.0",
+    "postgres": "^3.4.8",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/node": "25.3.5",
+    "drizzle-kit": "^0.30.6",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "tsx": "^4.19.0"
+    "vitest": "^3.2.4"
   }
 }
