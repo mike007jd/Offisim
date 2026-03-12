@@ -35,21 +35,25 @@ export async function recordedLlmCall(
     const response = await ctx.llmGateway.chat(request);
     const latencyMs = Date.now() - startedAt;
 
-    await ctx.repos.llmCalls.create({
-      llm_call_id: llmCallId,
-      thread_id: ctx.threadId,
-      task_run_id: meta.taskRunId ?? null,
-      node_name: meta.nodeName,
-      provider: meta.provider,
-      model: meta.model,
-      input_tokens: response.usage.inputTokens,
-      output_tokens: response.usage.outputTokens,
-      usage_raw_json: JSON.stringify(response.usage),
-      response_json: null,
-      latency_ms: latencyMs,
-      error_code: null,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await ctx.repos.llmCalls.create({
+        llm_call_id: llmCallId,
+        thread_id: ctx.threadId,
+        task_run_id: meta.taskRunId ?? null,
+        node_name: meta.nodeName,
+        provider: meta.provider,
+        model: meta.model,
+        input_tokens: response.usage.inputTokens,
+        output_tokens: response.usage.outputTokens,
+        usage_raw_json: JSON.stringify(response.usage),
+        response_json: null,
+        latency_ms: latencyMs,
+        error_code: null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbError) {
+      console.error('Failed to record successful LLM call to DB:', dbError);
+    }
 
     ctx.eventBus.emit(
       llmCallCompleted(
@@ -128,21 +132,25 @@ export async function recordedLlmStream(
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
 
-    await ctx.repos.llmCalls.create({
-      llm_call_id: llmCallId,
-      thread_id: ctx.threadId,
-      task_run_id: meta.taskRunId ?? null,
-      node_name: meta.nodeName,
-      provider: meta.provider,
-      model: meta.model,
-      input_tokens: result.usage.inputTokens,
-      output_tokens: result.usage.outputTokens,
-      usage_raw_json: JSON.stringify(result.usage),
-      response_json: null,
-      latency_ms: latencyMs,
-      error_code: null,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await ctx.repos.llmCalls.create({
+        llm_call_id: llmCallId,
+        thread_id: ctx.threadId,
+        task_run_id: meta.taskRunId ?? null,
+        node_name: meta.nodeName,
+        provider: meta.provider,
+        model: meta.model,
+        input_tokens: result.usage.inputTokens,
+        output_tokens: result.usage.outputTokens,
+        usage_raw_json: JSON.stringify(result.usage),
+        response_json: null,
+        latency_ms: latencyMs,
+        error_code: null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbError) {
+      console.error('Failed to record successful LLM stream to DB:', dbError);
+    }
 
     ctx.eventBus.emit(
       llmCallCompleted(
