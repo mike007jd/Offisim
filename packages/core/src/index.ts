@@ -147,6 +147,7 @@ export { MockToolExecutor } from './runtime/tool-executor.js';
 
 // --- MCP ---
 export { McpToolExecutor } from './mcp/mcp-tool-executor.js';
+export { AuditingToolExecutor } from './mcp/auditing-tool-executor.js';
 // NOTE: SdkClientFactory intentionally NOT in barrel — imports node:stream/child_process
 // which breaks browser builds. Use direct import in Node.js/Tauri environments:
 //   import { SdkClientFactory } from '@aics/core/dist/mcp/sdk-client-factory.js';
