@@ -9,13 +9,16 @@ export class AicsError extends Error {
   }
 }
 
+/** HTTP status codes that indicate a transient error worth retrying. */
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504, 529]);
+
 export class LlmError extends AicsError {
   constructor(
     message: string,
     public readonly provider: string,
     public readonly statusCode?: number,
   ) {
-    const recoverable = statusCode !== undefined && statusCode >= 429;
+    const recoverable = statusCode !== undefined && RETRYABLE_STATUS.has(statusCode);
     super(message, 'LLM_ERROR', recoverable);
     this.name = 'LlmError';
   }

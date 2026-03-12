@@ -33,6 +33,16 @@ describe('LlmError', () => {
     const err = new LlmError('unknown', 'openai');
     expect(err.recoverable).toBe(false);
   });
+
+  it('does not mark 431 as recoverable', () => {
+    const err = new LlmError('too large', 'test', 431);
+    expect(err.recoverable).toBe(false);
+  });
+
+  it('marks 529 as recoverable', () => {
+    const err = new LlmError('overloaded', 'test', 529);
+    expect(err.recoverable).toBe(true);
+  });
 });
 
 describe('GraphError', () => {
