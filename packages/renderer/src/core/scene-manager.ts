@@ -54,6 +54,11 @@ export class SceneManager {
   private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Active route lines keyed by taskRunId (ANIM-004). */
   private routeLines: Map<string, RouteLineEntity> = new Map();
+  /** Ghost entity shown during install preview (ANIM-020) */
+  private installGhost: SceneEntity | null = null;
+  /** Install transaction ID for the current ghost preview. Exposed for test/debug introspection. */
+  get installGhostTxnId(): string | null { return this._installGhostTxnId; }
+  private _installGhostTxnId: string | null = null;
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -288,6 +293,12 @@ export class SceneManager {
     }
     this.routeLines.clear();
 
+    // Clean up install ghost (ANIM-020)
+    if (this.installGhost) {
+      this.installGhost.destroy();
+      this.installGhost = null;
+    }
+
     // Clean up entities — kill GSAP tweens before clearing (C2)
     for (const entity of this.employeeEntities.values()) {
       entity.destroy();
@@ -514,6 +525,28 @@ export class SceneManager {
       }),
     );
 
+    // Install trust feedback (ANIM-020 through ANIM-026)
+    this.unsubscribers.push(
+      this.eventBus.on('install.state.changed', (event) => {
+        const payload = event.payload as import('@aics/shared-types').InstallStatePayload;
+        const { installTxnId, next } = payload;
+
+        if (next === 'compatibility_checked' || next === 'awaiting_confirmation') {
+          // ANIM-020: Show ghost at empty desk
+          this.showInstallGhost(installTxnId);
+        } else if (next === 'materializing') {
+          // ANIM-024: Increase ghost opacity
+          this.stepInstallGhostOpacity(0.7);
+        } else if (next === 'installed') {
+          // ANIM-025: Ghost becomes real — handled by employee.installed event
+          this.removeInstallGhost();
+        } else if (next === 'failed' || next === 'rolled_back' || next === 'cancelled') {
+          // ANIM-026: Ghost dissolves
+          this.dissolveInstallGhost();
+        }
+      }),
+    );
+
     // Re-center on resize — store handler ref for cleanup (C1)
     if (this.app) {
       const handleResize = () => this.centerWorld();
@@ -534,6 +567,76 @@ export class SceneManager {
     if (line) {
       this.routeLines.delete(taskRunId);
       line.fadeOut();
+    }
+  }
+
+  /** ANIM-020: Show semi-transparent ghost entity at empty desk */
+  private showInstallGhost(txnId: string): void {
+    if (this.installGhost || !this.layers || !this.floorLayer) return;
+
+    // Find unoccupied desk position
+    const deskPositions = this.floorLayer.getDeskPositions();
+    const occupiedPositions = new Set<number>();
+    for (const [, entity] of this.employeeEntities) {
+      for (let i = 0; i < deskPositions.length; i++) {
+        const pos = deskPositions[i]!;
+        if (Math.abs(entity.container.x - pos.x) < 10) {
+          occupiedPositions.add(i);
+        }
+      }
+    }
+    const emptyIdx = deskPositions.findIndex((_, i) => !occupiedPositions.has(i));
+    const pos = emptyIdx >= 0 ? deskPositions[emptyIdx]! : { x: LAYOUT.floor.width / 2, y: LAYOUT.floor.height / 2 };
+
+    const ghost = this.createEntity('ghost-preview', '?', this.entityStyle);
+    ghost.container.position.set(
+      pos.x,
+      pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
+    );
+    ghost.container.alpha = 0.4;
+
+    this.layers.semantic.addChild(ghost.container);
+    this.installGhost = ghost;
+    this._installGhostTxnId = txnId;
+  }
+
+  /** ANIM-024: Step ghost opacity during materialization */
+  private stepInstallGhostOpacity(target: number): void {
+    if (!this.installGhost) return;
+    const { duration, ease } = this.motion.M2;
+    if (duration > 0) {
+      gsap.to(this.installGhost.container, { alpha: target, duration, ease });
+    } else {
+      this.installGhost.container.alpha = target;
+    }
+  }
+
+  /** ANIM-025: Remove ghost (real entity added by employee.installed handler) */
+  private removeInstallGhost(): void {
+    if (!this.installGhost) return;
+    this.installGhost.destroy();
+    this.installGhost = null;
+    this._installGhostTxnId = null;
+  }
+
+  /** ANIM-026: Ghost dissolves with fade + shrink */
+  private dissolveInstallGhost(): void {
+    if (!this.installGhost) return;
+    const ghost = this.installGhost;
+    this.installGhost = null;
+    this._installGhostTxnId = null;
+
+    const { duration, ease } = this.motion.M2;
+    if (duration > 0) {
+      gsap.to(ghost.container, { alpha: 0, duration: 0.5, ease });
+      gsap.to(ghost.container.scale, {
+        x: 0.8, y: 0.8, duration: 0.5, ease,
+        onComplete: () => {
+          ghost.destroy();
+        },
+      });
+    } else {
+      ghost.destroy();
     }
   }
 

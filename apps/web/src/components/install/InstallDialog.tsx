@@ -3,6 +3,7 @@
  * based on the current install flow step.
  */
 
+import './install-animations.css';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import type { InstallFlowActions, InstallFlowState } from '../../hooks/useInstallFlow.js';
 import { Button } from '../ui/button';
