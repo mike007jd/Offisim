@@ -8,17 +8,43 @@ import { PIXEL_DESK, PIXEL_MONITOR, PIXEL_CHAIR } from '../pixel/furniture-shape
 export interface DeskPosition {
   x: number;
   y: number;
+  workstationId?: string;
+}
+
+/** Axis-aligned bounding box for workstation hit-testing. */
+export interface WorkstationBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /** Size of one tile in screen pixels (16 logical px * PX scale) */
 const TILE_SCREEN = 16 * PX; // 48
 
+/**
+ * Default workstation IDs for the 2×2 desk grid.
+ * Stable identifiers used for DB persistence and drag-drop targeting.
+ */
+const DEFAULT_WORKSTATION_IDS = ['ws-1', 'ws-2', 'ws-3', 'ws-4'] as const;
+
+/** Highlight color for drop-target feedback (amber-400). */
+const HIGHLIGHT_COLOR = 0xfbbf24;
+const HIGHLIGHT_ALPHA = 0.25;
+const HIGHLIGHT_BORDER_ALPHA = 0.6;
+
 export class FloorLayer {
   readonly container: Container;
+  /** Highlight overlay graphics keyed by workstationId. */
+  private highlights: Map<string, Graphics> = new Map();
+  /** Container for highlight overlays — added above floor but below furniture. */
+  private highlightContainer: Container;
 
   constructor() {
     this.container = new Container();
+    this.highlightContainer = new Container();
     this.drawFloor();
+    this.container.addChild(this.highlightContainer);
     this.drawDesks();
   }
 
@@ -29,11 +55,79 @@ export class FloorLayer {
     const startY = (floor.height - (2 * desk.height + desk.gap)) / 2 + desk.height / 2;
 
     return [
-      { x: startX, y: startY },
-      { x: startX + desk.width + desk.gap, y: startY },
-      { x: startX, y: startY + desk.height + desk.gap },
-      { x: startX + desk.width + desk.gap, y: startY + desk.height + desk.gap },
+      { x: startX, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[0] },
+      { x: startX + desk.width + desk.gap, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[1] },
+      { x: startX, y: startY + desk.height + desk.gap, workstationId: DEFAULT_WORKSTATION_IDS[2] },
+      { x: startX + desk.width + desk.gap, y: startY + desk.height + desk.gap, workstationId: DEFAULT_WORKSTATION_IDS[3] },
     ];
+  }
+
+  /**
+   * Get bounding boxes for all workstations, suitable for drag-drop hit-testing.
+   * Each box is centered on the desk and large enough to cover the desk + chair + monitor area.
+   */
+  getWorkstationBounds(): Map<string, WorkstationBounds> {
+    const { desk, employee } = LAYOUT;
+    const positions = this.getDeskPositions();
+    const result = new Map<string, WorkstationBounds>();
+
+    // Bounds are the desk area extended to include chair, monitor, and employee space
+    const halfW = Math.max(desk.width, employee.radius) + 10;
+    const halfH = desk.height / 2 + employee.radius + employee.labelOffsetY + 10;
+
+    for (const pos of positions) {
+      if (!pos.workstationId) continue;
+      result.set(pos.workstationId, {
+        x: pos.x - halfW,
+        y: pos.y - halfH,
+        width: halfW * 2,
+        height: halfH * 2,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Show or hide a highlight overlay on a workstation (for drop-target feedback).
+   * @param workstationId - The workstation to highlight
+   * @param on - Whether to show (true) or hide (false) the highlight
+   */
+  setWorkstationHighlight(workstationId: string, on: boolean): void {
+    const existing = this.highlights.get(workstationId);
+
+    if (!on) {
+      if (existing) {
+        this.highlightContainer.removeChild(existing);
+        existing.destroy();
+        this.highlights.delete(workstationId);
+      }
+      return;
+    }
+
+    // Already highlighted
+    if (existing) return;
+
+    const bounds = this.getWorkstationBounds().get(workstationId);
+    if (!bounds) return;
+
+    const gfx = new Graphics();
+    // Fill
+    gfx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+    gfx.fill({ color: HIGHLIGHT_COLOR, alpha: HIGHLIGHT_ALPHA });
+    // Border
+    gfx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+    gfx.stroke({ color: HIGHLIGHT_COLOR, alpha: HIGHLIGHT_BORDER_ALPHA, width: 2 });
+
+    this.highlightContainer.addChild(gfx);
+    this.highlights.set(workstationId, gfx);
+  }
+
+  /** Clear all workstation highlights. */
+  clearAllHighlights(): void {
+    for (const [id] of this.highlights) {
+      this.setWorkstationHighlight(id, false);
+    }
   }
 
   /**

@@ -3,6 +3,7 @@ import type {
   EmployeeDeletedPayload,
   EmployeeInstalledPayload,
   EmployeeStatePayload,
+  EmployeeWorkstationChangedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
   McpToolCalledPayload,
@@ -15,6 +16,7 @@ import { Application, Container, Graphics } from 'pixi.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
 import { LobsterEntity } from '../entities/lobster-entity.js';
 import { RouteLineEntity } from '../entities/route-line-entity.js';
+import { InteractionController } from '../interaction/interaction-controller.js';
 import { STATE_COLORS } from '../tokens/colors.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
@@ -61,6 +63,8 @@ export class SceneManager {
   /** Active attention requests keyed by entityId */
   private attentionRequests: Map<string, { priority: number; timestamp: number }> = new Map();
   private spotlightGfx: Graphics | null = null;
+  /** Interaction controller for drag-drop workstation assignment. */
+  private interactionController: InteractionController | null = null;
   /** Ghost entity shown during install preview (ANIM-020) */
   private installGhost: SceneEntity | null = null;
   /** Install transaction ID for the current ghost preview. Exposed for test/debug introspection. */
@@ -165,6 +169,25 @@ export class SceneManager {
       this.employeeEntities.set(emp.id, entity);
     });
 
+    // Set up drag-drop interaction controller
+    this.interactionController = new InteractionController(
+      app.stage,
+      this.employeeEntities,
+      this.floorLayer.getWorkstationBounds(),
+      this.eventBus,
+      this.motion,
+      (result) => {
+        if (result.targetWorkstationId) {
+          // Move entity to workstation position
+          this.moveEntityToWorkstation(result.entityId, result.targetWorkstationId);
+        }
+      },
+      (wsId, on) => {
+        this.floorLayer?.setWorkstationHighlight(wsId, on);
+      },
+    );
+    this.interactionController.enable();
+
     // Center the world
     this.centerWorld();
 
@@ -207,6 +230,9 @@ export class SceneManager {
 
     // Register in entity map
     this.employeeEntities.set(id, entity);
+
+    // Register with interaction controller for drag-drop
+    this.interactionController?.registerEntity(id, entity);
 
     // Entrance animation: scale-from-zero + fade-in using M1 (slow entrance)
     const { duration, ease } = this.motion.M1;
@@ -274,6 +300,38 @@ export class SceneManager {
     return true;
   }
 
+  /**
+   * Animate an entity to the specified workstation position using GSAP M1.
+   * Also emits `employee.workstation.changed` if fromWorkstationId differs.
+   */
+  moveEntityToWorkstation(entityId: string, workstationId: string): void {
+    if (!this.floorLayer) return;
+    const entity = this.employeeEntities.get(entityId);
+    if (!entity) return;
+
+    const positions = this.floorLayer.getDeskPositions();
+    const target = positions.find((p) => p.workstationId === workstationId);
+    if (!target) return;
+
+    const targetX = target.x;
+    const targetY = target.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8;
+
+    const { duration, ease } = this.motion.M1;
+    if (duration > 0) {
+      gsap.to(entity.container, {
+        x: targetX,
+        y: targetY,
+        alpha: 1,
+        duration,
+        ease,
+      });
+    } else {
+      entity.container.x = targetX;
+      entity.container.y = targetY;
+      entity.container.alpha = 1;
+    }
+  }
+
   /** Number of employee entities currently in the scene (for debug bridge). */
   get employeeCount(): number {
     return this.employeeEntities.size;
@@ -305,6 +363,12 @@ export class SceneManager {
       clearTimeout(timer);
     }
     this.highlightTimers.clear();
+
+    // Clean up interaction controller
+    if (this.interactionController) {
+      this.interactionController.destroy();
+      this.interactionController = null;
+    }
 
     // Clean up route lines before entities (ANIM-004)
     for (const line of this.routeLines.values()) {
@@ -553,7 +617,18 @@ export class SceneManager {
     this.unsubscribers.push(
       this.eventBus.on('employee.deleted', (event) => {
         const payload = event.payload as EmployeeDeletedPayload;
+        this.interactionController?.unregisterEntity(payload.employeeId);
         this.removeEmployee(payload.employeeId);
+      }),
+    );
+
+    // Employee workstation changed (remote trigger / DOM fallback)
+    this.unsubscribers.push(
+      this.eventBus.on('employee.workstation.changed', (event) => {
+        const payload = event.payload as EmployeeWorkstationChangedPayload;
+        if (payload.toWorkstationId) {
+          this.moveEntityToWorkstation(payload.employeeId, payload.toWorkstationId);
+        }
       }),
     );
 

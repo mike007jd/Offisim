@@ -14,6 +14,18 @@ vi.mock('pixi.js', () => {
     rotation = 0;
     x = 0;
     y = 0;
+    eventMode: string | undefined;
+    cursor: string | undefined;
+    private _listeners: Map<string, Set<Function>> = new Map();
+    on(event: string, handler: Function) {
+      if (!this._listeners.has(event)) this._listeners.set(event, new Set());
+      this._listeners.get(event)!.add(handler);
+      return this;
+    }
+    off(event: string, handler: Function) {
+      this._listeners.get(event)?.delete(handler);
+      return this;
+    }
     addChild(c: unknown) {
       this.children.push(c);
       return c;

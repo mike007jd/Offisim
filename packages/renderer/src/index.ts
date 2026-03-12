@@ -19,3 +19,11 @@ export { LobsterEntity } from './entities/lobster-entity.js';
 export { RouteLineEntity } from './entities/route-line-entity.js';
 export { drawPixelGrid, idToHue } from './pixel/draw-pixel-grid.js';
 export { PX, PIXEL_PALETTE } from './pixel/pixel-palette.js';
+
+// Interaction
+export { InteractionController } from './interaction/interaction-controller.js';
+export type { DragResult } from './interaction/interaction-controller.js';
+
+// Layers
+export { FloorLayer } from './layers/floor-layer.js';
+export type { DeskPosition, WorkstationBounds } from './layers/floor-layer.js';
