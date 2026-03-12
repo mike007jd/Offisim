@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SCENE_COLORS, STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
-import { MOTION, MOTION_REDUCED } from '../tokens/motion.js';
+import { MOTION, MOTION_REDUCED, getMotionForTier, MOTION_TIER_A, MOTION_TIER_B, MOTION_TIER_C } from '../tokens/motion.js';
 
 describe('tokens/colors', () => {
   it('has a color for all 12 employee states', () => {
@@ -46,6 +46,22 @@ describe('tokens/motion', () => {
     expect(MOTION_REDUCED.M1.duration).toBe(0);
     expect(MOTION_REDUCED.M2.duration).toBe(0);
     expect(MOTION_REDUCED.M3.duration).toBe(0.1);
+  });
+});
+
+describe('Performance Tiers', () => {
+  it('Tier A returns full motion', () => {
+    expect(getMotionForTier('A')).toBe(MOTION_TIER_A);
+  });
+
+  it('Tier B has shortened durations', () => {
+    expect(MOTION_TIER_B.M1.duration).toBe(0.2);
+    expect(MOTION_TIER_B.M2.duration).toBe(0.15);
+  });
+
+  it('Tier C returns zero motion', () => {
+    expect(getMotionForTier('C')).toBe(MOTION_TIER_C);
+    expect(MOTION_TIER_C.M1.duration).toBe(0);
   });
 });
 

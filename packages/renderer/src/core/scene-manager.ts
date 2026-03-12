@@ -10,7 +10,7 @@ import type {
   TaskAssignmentPayload,
 } from '@aics/shared-types';
 import gsap from 'gsap';
-import { Application, Container } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { EmployeeEntity } from '../entities/employee-entity.js';
 import { LobsterEntity } from '../entities/lobster-entity.js';
 import { RouteLineEntity } from '../entities/route-line-entity.js';
@@ -18,7 +18,7 @@ import { STATE_COLORS } from '../tokens/colors.js';
 import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { FloorLayer } from '../layers/floor-layer.js';
 import { LAYOUT } from '../tokens/layout.js';
-import { MOTION, MOTION_REDUCED, type MotionBucket } from '../tokens/motion.js';
+import { getMotionForTier, type PerformanceTier, type MotionTokens } from '../tokens/motion.js';
 import type {
   EmployeeSeed,
   LayerName,
@@ -54,6 +54,10 @@ export class SceneManager {
   private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Active route lines keyed by taskRunId (ANIM-004). */
   private routeLines: Map<string, RouteLineEntity> = new Map();
+  private _performanceTier: PerformanceTier = 'A';
+  /** Active attention requests keyed by entityId */
+  private attentionRequests: Map<string, { priority: number; timestamp: number }> = new Map();
+  private spotlightGfx: Graphics | null = null;
   /** Ghost entity shown during install preview (ANIM-020) */
   private installGhost: SceneEntity | null = null;
   /** Install transaction ID for the current ghost preview. Exposed for test/debug introspection. */
@@ -69,14 +73,20 @@ export class SceneManager {
     this.entityStyle = options.entityStyle ?? 'lobster';
   }
 
-  /** Get the active motion tokens (respects reduced-motion) */
-  get motion(): Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket> {
-    return this._reducedMotion ? MOTION_REDUCED : MOTION;
+  /** Get the active motion tokens (respects reduced-motion and performance tier) */
+  get motion(): MotionTokens {
+    if (this._reducedMotion) return getMotionForTier('C');
+    return getMotionForTier(this._performanceTier);
   }
 
   /** Update reduced-motion preference without rebuilding the scene (I3). */
   set reducedMotion(value: boolean) {
     this._reducedMotion = value;
+  }
+
+  /** Update performance tier without rebuilding scene. */
+  set performanceTier(tier: PerformanceTier) {
+    this._performanceTier = tier;
   }
 
   /**
@@ -314,6 +324,13 @@ export class SceneManager {
     this.floorLayer = null;
     this.layers = null;
 
+    // Clean up attention routing (ANIM-032)
+    this.attentionRequests.clear();
+    if (this.spotlightGfx) {
+      this.spotlightGfx.destroy();
+      this.spotlightGfx = null;
+    }
+
     // Destroy PixiJS app
     if (this.app) {
       this.app.destroy(true, { children: true });
@@ -351,6 +368,13 @@ export class SceneManager {
         if (entity) {
           entity.setState(next);
           entity.setHighlight(next !== 'idle');
+        }
+
+        // ANIM-032: Attention routing
+        if (next === 'blocked' || next === 'failed') {
+          this.requestAttention(employeeId, 5);
+        } else if (next === 'idle' || next === 'success') {
+          this.clearAttention(employeeId);
         }
       }),
     );
@@ -577,6 +601,13 @@ export class SceneManager {
           // ANIM-026: Ghost dissolves
           this.dissolveInstallGhost();
         }
+
+        // Attention routing for install failures
+        if (next === 'failed' || next === 'rolled_back') {
+          this.requestAttention(installTxnId, 5);
+        } else if (next === 'installed' || next === 'cancelled') {
+          this.clearAttention(installTxnId);
+        }
       }),
     );
 
@@ -592,6 +623,14 @@ export class SceneManager {
             setTimeout(() => entity.setHighlight(false), 2000);
           }
         }
+      }),
+    );
+
+    // Performance tier changes (ANIM-034)
+    this.unsubscribers.push(
+      this.eventBus.on('runtime.performance.tier.changed', (event) => {
+        const tier = (event.payload as { tier: PerformanceTier }).tier;
+        this._performanceTier = tier;
       }),
     );
 
@@ -695,6 +734,54 @@ export class SceneManager {
       clearTimeout(existing);
       this.toolOverlayTimers.delete(employeeId);
     }
+  }
+
+  /** Request scene attention for an entity (ANIM-032) */
+  private requestAttention(entityId: string, priority: number): void {
+    this.attentionRequests.set(entityId, { priority, timestamp: Date.now() });
+    this.updateSpotlight();
+  }
+
+  /** Clear attention for an entity */
+  private clearAttention(entityId: string): void {
+    this.attentionRequests.delete(entityId);
+    this.updateSpotlight();
+  }
+
+  /** Find highest-priority attention target and apply spotlight */
+  private updateSpotlight(): void {
+    if (!this.layers) return;
+
+    // Find highest priority (most recent if tied)
+    let best: { entityId: string; priority: number; timestamp: number } | null = null;
+    for (const [entityId, req] of this.attentionRequests) {
+      if (!best || req.priority > best.priority ||
+          (req.priority === best.priority && req.timestamp > best.timestamp)) {
+        best = { entityId, ...req };
+      }
+    }
+
+    // Clear existing spotlight
+    if (this.spotlightGfx) {
+      this.layers.focus.removeChild(this.spotlightGfx);
+      this.spotlightGfx.destroy();
+      this.spotlightGfx = null;
+    }
+
+    if (!best) return;
+
+    // Apply spotlight to winning entity
+    const entity = this.employeeEntities.get(best.entityId);
+    if (!entity) return;
+
+    // Tier C: no attention routing
+    if (this._performanceTier === 'C' || this._reducedMotion) return;
+
+    const gfx = new Graphics();
+    gfx.circle(entity.container.x, entity.container.y, LAYOUT.employee.radius + 20);
+    gfx.fill({ color: 0xfbbf24, alpha: this._performanceTier === 'B' ? 0.1 : 0.15 });
+    this.layers.focus.addChild(gfx);
+    this.spotlightGfx = gfx;
   }
 
   /**
