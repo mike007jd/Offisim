@@ -58,4 +58,25 @@ describe('teeStream', () => {
     const result = await teeStream(stream, () => {});
     expect(result.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
   });
+
+  it('continues streaming when onChunk throws', async () => {
+    const chunks: LlmStreamChunk[] = [
+      { content: 'a', done: false },
+      { content: 'b', done: false },
+      { content: 'c', usage: { inputTokens: 1, outputTokens: 3 }, done: true },
+    ];
+
+    async function* gen(): AsyncIterable<LlmStreamChunk> {
+      for (const c of chunks) yield c;
+    }
+
+    let callCount = 0;
+    const result = await teeStream(gen(), () => {
+      callCount++;
+      if (callCount === 2) throw new Error('handler boom');
+    });
+
+    expect(result.fullContent).toBe('abc');
+    expect(callCount).toBe(3);
+  });
 });

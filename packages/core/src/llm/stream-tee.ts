@@ -15,7 +15,11 @@ export async function teeStream(
   const toolCalls: ToolCallResult[] = [];
 
   for await (const chunk of stream) {
-    onChunk(chunk);
+    try {
+      onChunk(chunk);
+    } catch (err) {
+      console.error('teeStream onChunk error:', err);
+    }
     if (chunk.content) fullContent += chunk.content;
     if (chunk.toolCalls) toolCalls.push(...chunk.toolCalls);
     if (chunk.usage) usage = chunk.usage;
