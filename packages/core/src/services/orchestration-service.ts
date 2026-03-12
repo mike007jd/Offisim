@@ -73,10 +73,13 @@ export class OrchestrationService {
           }
         }
       }
-    } catch (err) {
-      const msg = lastNodeName ? `Node '${lastNodeName}' failed` : 'Graph streaming failed';
-      const wrapped = err instanceof Error ? err : new Error(String(err));
-      wrapped.message = `${msg}: ${wrapped.message}`;
+    } catch (error) {
+      const original = error instanceof Error ? error : new Error(String(error));
+      const contextMsg = lastNodeName
+        ? `Graph execution failed in node "${lastNodeName}": ${original.message}`
+        : `Graph execution failed: ${original.message}`;
+      const wrapped = new Error(contextMsg);
+      wrapped.cause = original;
       throw wrapped;
     }
 
