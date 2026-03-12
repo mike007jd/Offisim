@@ -580,6 +580,21 @@ export class SceneManager {
       }),
     );
 
+    // Report state changes (ANIM-028, ANIM-031)
+    this.unsubscribers.push(
+      this.eventBus.on('report.state.changed', (event) => {
+        const payload = event.payload as { next: string; employeeId?: string };
+        if (payload.next === 'ready' && payload.employeeId) {
+          // ANIM-028: Brief highlight on employee
+          const entity = this.employeeEntities.get(payload.employeeId);
+          if (entity) {
+            entity.setHighlight(true);
+            setTimeout(() => entity.setHighlight(false), 2000);
+          }
+        }
+      }),
+    );
+
     // Re-center on resize — store handler ref for cleanup (C1)
     if (this.app) {
       const handleResize = () => this.centerWorld();

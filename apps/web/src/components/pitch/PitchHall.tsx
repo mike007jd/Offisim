@@ -53,7 +53,7 @@ function DeliverableCard({ item }: { item: Deliverable }) {
   }, [item.content, item.title]);
 
   return (
-    <Card className="bg-ocean-deep/50 border-ocean-light">
+    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-ocean-deep/50 border-ocean-light">
       <CardHeader className="p-3 pb-1">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-xs text-pearl leading-snug">{item.title}</CardTitle>
