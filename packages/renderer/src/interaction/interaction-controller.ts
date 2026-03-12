@@ -180,14 +180,17 @@ export class InteractionController {
     const entity = this.entities.get(entityId);
     if (!entity) return;
 
-    const globalPos = e.global;
+    // Convert global pointer position to stage-local coordinates.
+    // Entities live inside worldContainer which has a position offset
+    // (from centerWorld), so we must use toLocal() for correct mapping.
+    const localPos = this.stage.toLocal(e.global);
     this.dragging = {
       entityId,
       entity,
       startX: entity.container.x,
       startY: entity.container.y,
-      offsetX: entity.container.x - globalPos.x,
-      offsetY: entity.container.y - globalPos.y,
+      offsetX: entity.container.x - localPos.x,
+      offsetY: entity.container.y - localPos.y,
     };
 
     entity.container.cursor = 'grabbing';
@@ -200,11 +203,11 @@ export class InteractionController {
     if (!this.dragging) return;
 
     const { entity, offsetX, offsetY } = this.dragging;
-    const globalPos = e.global;
+    const localPos = this.stage.toLocal(e.global);
 
-    // Update entity position (follow pointer with offset)
-    entity.container.x = globalPos.x + offsetX;
-    entity.container.y = globalPos.y + offsetY;
+    // Update entity position in stage-local coordinates (accounts for worldContainer offset)
+    entity.container.x = localPos.x + offsetX;
+    entity.container.y = localPos.y + offsetY;
 
     // Check workstation hover for highlight
     const wsId = this.findWorkstationAt(entity.container.x, entity.container.y);

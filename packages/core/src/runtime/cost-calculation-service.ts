@@ -102,7 +102,10 @@ export class CostCalculationService {
 
     if (filtered.length === 0) return [];
 
-    // 4. Group
+    // 4. Pre-fetch all cost rates once to avoid N+1 queries
+    const allRates = await this.costRateRepo.findAll();
+
+    // 5. Group
     const groupBy = opts.groupBy ?? 'model';
     const groups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
 
@@ -110,16 +113,21 @@ export class CostCalculationService {
       const key = this.resolveGroupKey(call, groupBy);
       const existing = groups.get(key) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
 
-      const cost = await this.calculateCallCost(call);
+      const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
+      const totalCost = rate
+        ? (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok +
+          (call.output_tokens / 1_000_000) * rate.output_cost_per_mtok
+        : 0;
+
       existing.inputTokens += call.input_tokens;
       existing.outputTokens += call.output_tokens;
-      existing.totalCost += cost.totalCost;
+      existing.totalCost += totalCost;
       existing.callCount += 1;
 
       groups.set(key, existing);
     }
 
-    // 5. Convert to array, sorted by totalCost descending
+    // 6. Convert to array, sorted by totalCost descending
     const result: CostAggregate[] = [];
     for (const [groupKey, data] of groups) {
       result.push({ groupKey, ...data });
@@ -127,6 +135,30 @@ export class CostCalculationService {
     result.sort((a, b) => b.totalCost - a.totalCost);
 
     return result;
+  }
+
+  /**
+   * Match a cost rate from a pre-fetched array, using the same glob logic as
+   * {@link MemoryModelCostRateRepository.findByProviderModel}.
+   * Static so it can be tested independently of repository wiring.
+   */
+  static matchRate(
+    rates: readonly ModelCostRateRow[],
+    provider: string,
+    model: string,
+  ): ModelCostRateRow | null {
+    const matching = rates.filter((r) => {
+      if (r.provider !== provider) return false;
+      const regex = new RegExp(
+        '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+        'i',
+      );
+      return regex.test(model);
+    });
+    if (matching.length === 0) return null;
+    // Prefer the most specific pattern (longest pattern string)
+    matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
+    return matching[0]!;
   }
 
   private resolveGroupKey(call: LlmCallRow, groupBy: 'model' | 'employee' | 'day'): string {

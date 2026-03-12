@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { AgentPanel } from './components/agents/AgentPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatDrawer } from './components/chat/ChatDrawer';
@@ -10,7 +10,9 @@ import { RightSidebar } from './components/layout/RightSidebar';
 import { StatusBar } from './components/layout/StatusBar';
 import { SceneCanvas } from './components/scene/SceneCanvas';
 import { SettingsDialog } from './components/settings/SettingsDialog';
+import { ToastBanner, useToasts } from './components/ui/toast-banner';
 import { useReducedMotion } from './hooks/use-reduced-motion';
+import { useDeepLinkInstall } from './hooks/useDeepLinkInstall';
 import { useInstallFlow } from './hooks/useInstallFlow';
 import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
 import { useAicsRuntime } from './runtime/aics-runtime-context';
@@ -24,6 +26,21 @@ export function App() {
   const reducedMotion = useReducedMotion();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
+  const { toasts, addToast, dismissToast } = useToasts();
+
+  // Deep link install handler — receives aics://install?listing_id=X&version=Y from Tauri shell
+  useDeepLinkInstall(
+    useCallback(
+      ({ listing_id, version }) => {
+        console.info('[deep-link] Install requested:', { listing_id, version });
+        addToast(`Installing package ${listing_id} v${version}...`, 'info');
+        // TODO: Fetch package manifest from registry and trigger installFlow
+        // e.g. registryClient.fetchPackage(listing_id, version)
+        //   .then(bytes => installFlow.startFileImport(new File([bytes], `${listing_id}.aicspkg`)))
+      },
+      [addToast],
+    ),
+  );
 
   // Resolve selected employee name for ChatPanel header
   const selectedEmployeeName = selectedEmployeeId
@@ -38,6 +55,7 @@ export function App() {
   return (
     <ErrorBoundary>
       <>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
       <AppLayout
         header={
           <Header

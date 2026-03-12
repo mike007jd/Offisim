@@ -41,6 +41,10 @@ vi.mock('pixi.js', () => {
       if (idx >= 0) this.children.splice(idx, 1);
     }
     destroy() {}
+    /** Identity transform — no offset in tests */
+    toLocal(pos: { x: number; y: number }) {
+      return { x: pos.x, y: pos.y };
+    }
   }
 
   class MockGraphics extends MockContainer {

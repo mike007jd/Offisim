@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { listings, creators, packageVersions, reviews, listingTags, listingPreviews } from '@aics/db-platform';
 import type { PlatformEnv } from '../types.js';
 import { searchListings } from '../services/search.js';
@@ -22,46 +22,67 @@ market.get('/search', async (c) => {
 
   const result = await searchListings(db, params);
 
-  // Transform joined rows into ListingSummary shape
-  const items = await Promise.all(
-    result.items.map(async (row) => {
-      const listing = row.listings;
-      const creator = row.creators;
+  // Collect all listing IDs for batch queries (avoids N+1)
+  const listingIds = result.items.map((row) => row.listings.listing_id);
 
-      // Get latest version
-      const [latestVersion] = await db
-        .select()
-        .from(packageVersions)
-        .where(and(eq(packageVersions.listing_id, listing.listing_id), eq(packageVersions.status, 'active')))
-        .orderBy(desc(packageVersions.published_at))
-        .limit(1);
+  // Batch fetch latest active versions and tags in 2 queries instead of 2N
+  const [allVersions, allTags] = listingIds.length > 0
+    ? await Promise.all([
+        db
+          .select()
+          .from(packageVersions)
+          .where(and(inArray(packageVersions.listing_id, listingIds), eq(packageVersions.status, 'active')))
+          .orderBy(desc(packageVersions.published_at)),
+        db
+          .select({ listing_id: listingTags.listing_id, tag: listingTags.tag })
+          .from(listingTags)
+          .where(inArray(listingTags.listing_id, listingIds)),
+      ])
+    : [[], []];
 
-      // Get tags
-      const tags = await db
-        .select({ tag: listingTags.tag })
-        .from(listingTags)
-        .where(eq(listingTags.listing_id, listing.listing_id));
+  // Build lookup maps — for versions, keep only the first (latest) per listing
+  const versionMap = new Map<string, (typeof allVersions)[number]>();
+  for (const v of allVersions) {
+    if (!versionMap.has(v.listing_id)) {
+      versionMap.set(v.listing_id, v);
+    }
+  }
 
-      return {
-        listing_id: listing.listing_id,
-        slug: listing.slug,
-        kind: listing.kind,
-        title: listing.title,
-        summary: listing.summary ?? '',
-        creator: {
-          creator_id: creator.creator_id,
-          handle: creator.handle,
-          display_name: creator.display_name,
-          verification_state: creator.verification_state,
-        },
-        status: listing.status,
-        latest_version: latestVersion?.version ?? '0.0.0',
-        rating: listing.rating_avg ?? 0,
-        install_count: listing.install_count ?? 0,
-        tags: tags.map((t) => t.tag),
-      };
-    }),
-  );
+  const tagMap = new Map<string, string[]>();
+  for (const t of allTags) {
+    const arr = tagMap.get(t.listing_id);
+    if (arr) {
+      arr.push(t.tag);
+    } else {
+      tagMap.set(t.listing_id, [t.tag]);
+    }
+  }
+
+  // Transform joined rows into ListingSummary shape (pure in-memory lookups)
+  const items = result.items.map((row) => {
+    const listing = row.listings;
+    const creator = row.creators;
+    const latestVersion = versionMap.get(listing.listing_id);
+
+    return {
+      listing_id: listing.listing_id,
+      slug: listing.slug,
+      kind: listing.kind,
+      title: listing.title,
+      summary: listing.summary ?? '',
+      creator: {
+        creator_id: creator.creator_id,
+        handle: creator.handle,
+        display_name: creator.display_name,
+        verification_state: creator.verification_state,
+      },
+      status: listing.status,
+      latest_version: latestVersion?.version ?? '0.0.0',
+      rating: listing.rating_avg ?? 0,
+      install_count: listing.install_count ?? 0,
+      tags: tagMap.get(listing.listing_id) ?? [],
+    };
+  });
 
   return c.json({
     items,

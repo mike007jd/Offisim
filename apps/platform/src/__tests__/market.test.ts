@@ -129,16 +129,16 @@ describe('Market Routes', () => {
   describe('GET /v1/market/search', () => {
     it('returns paginated results', async () => {
       // searchListings does 2 queries: items + count
-      // Then for each item: latestVersion query + tags query
+      // Then 2 batch queries: all versions + all tags
       const mockDb = createMockDb([
         // 1. items query (innerJoin result)
         [{ listings: fakeListing, creators: fakeCreator }],
         // 2. count query
         [{ count: 1 }],
-        // 3. latestVersion for item[0]
+        // 3. batch latestVersion for all items
         [fakeVersion],
-        // 4. tags for item[0]
-        [{ tag: 'automation' }],
+        // 4. batch tags for all items
+        [{ listing_id: LISTING_ID, tag: 'automation' }],
       ]);
       const app = createApp(mockDb);
 
