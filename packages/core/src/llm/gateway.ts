@@ -30,6 +30,10 @@ export interface LlmRequest {
   readonly temperature?: number;
   readonly maxTokens?: number;
   readonly tools?: readonly ToolDef[];
+  /** AbortSignal for cancellation. */
+  readonly signal?: AbortSignal;
+  /** Request timeout in milliseconds. Default: 60000 for chat, 120000 for stream. */
+  readonly timeoutMs?: number;
 }
 
 export interface LlmResponse {

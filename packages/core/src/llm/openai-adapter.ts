@@ -107,13 +107,16 @@ export class OpenAiAdapter implements LlmGateway {
 
   private async doChat(request: LlmRequest): Promise<LlmResponse> {
     try {
-      const response = await this.client.chat.completions.create({
-        model: request.model,
-        max_tokens: request.maxTokens ?? 4096,
-        temperature: request.temperature,
-        messages: mapMessages(request.messages),
-        tools: mapToolDefs(request.tools),
-      });
+      const response = await this.client.chat.completions.create(
+        {
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          temperature: request.temperature,
+          messages: mapMessages(request.messages),
+          tools: mapToolDefs(request.tools),
+        },
+        { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
+      );
 
       return this.mapResponse(response);
     } catch (error: unknown) {
@@ -131,17 +134,20 @@ export class OpenAiAdapter implements LlmGateway {
 
   private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
     try {
-      const stream = await this.client.chat.completions.create({
-        model: request.model,
-        max_tokens: request.maxTokens ?? 4096,
-        temperature: request.temperature,
-        messages: mapMessages(request.messages),
-        tools: mapToolDefs(request.tools),
-        stream: true,
-        // stream_options.include_usage is an OpenAI extension;
-        // not all compat endpoints support it. When omitted, usage will be undefined.
-        ...(this.isCompat ? {} : { stream_options: { include_usage: true } }),
-      });
+      const stream = await this.client.chat.completions.create(
+        {
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          temperature: request.temperature,
+          messages: mapMessages(request.messages),
+          tools: mapToolDefs(request.tools),
+          stream: true,
+          // stream_options.include_usage is an OpenAI extension;
+          // not all compat endpoints support it. When omitted, usage will be undefined.
+          ...(this.isCompat ? {} : { stream_options: { include_usage: true } }),
+        },
+        { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
+      );
 
       const self = this;
       async function* generate(): AsyncGenerator<LlmStreamChunk> {

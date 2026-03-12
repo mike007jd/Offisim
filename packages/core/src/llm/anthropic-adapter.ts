@@ -100,14 +100,17 @@ export class AnthropicAdapter implements LlmGateway {
     const systemText = systemMessages.map((m) => m.content).join('\n');
 
     try {
-      const response = await this.client.messages.create({
-        model: request.model,
-        max_tokens: request.maxTokens ?? 4096,
-        temperature: request.temperature,
-        system: systemText || undefined,
-        messages: mapMessages(request.messages),
-        tools: mapToolDefs(request.tools),
-      });
+      const response = await this.client.messages.create(
+        {
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          temperature: request.temperature,
+          system: systemText || undefined,
+          messages: mapMessages(request.messages),
+          tools: mapToolDefs(request.tools),
+        },
+        { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
+      );
 
       return this.mapResponse(response);
     } catch (error: unknown) {
@@ -128,14 +131,17 @@ export class AnthropicAdapter implements LlmGateway {
     const systemText = systemMessages.map((m) => m.content).join('\n');
 
     try {
-      const stream = this.client.messages.stream({
-        model: request.model,
-        max_tokens: request.maxTokens ?? 4096,
-        temperature: request.temperature,
-        system: systemText || undefined,
-        messages: mapMessages(request.messages),
-        tools: mapToolDefs(request.tools),
-      });
+      const stream = this.client.messages.stream(
+        {
+          model: request.model,
+          max_tokens: request.maxTokens ?? 4096,
+          temperature: request.temperature,
+          system: systemText || undefined,
+          messages: mapMessages(request.messages),
+          tools: mapToolDefs(request.tools),
+        },
+        { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
+      );
 
       const self = this;
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
