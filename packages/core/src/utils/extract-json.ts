@@ -4,12 +4,13 @@
  * Handles multiple LLM output formats:
  * 1. Raw JSON (starts with `{` or `[`)
  * 2. Markdown code blocks (```json ... ```)
- * 3. JSON embedded in natural language (regex extraction)
+ * 3. Balanced-brace extraction from natural language (non-greedy, handles nesting + string escapes)
  *
  * @returns The parsed object, or `null` if extraction/parsing fails.
  */
 export function extractJsonFromLlm<T = unknown>(text: string): T | null {
   const trimmed = text.trim();
+  if (!trimmed) return null;
 
   // 1. Direct JSON
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -30,15 +31,48 @@ export function extractJsonFromLlm<T = unknown>(text: string): T | null {
     }
   }
 
-  // 3. Embedded JSON object
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (jsonMatch?.[0]) {
-    try {
-      return JSON.parse(jsonMatch[0]) as T;
-    } catch {
-      // Fall through
+  // 3. Balanced-brace extraction (non-greedy, handles nested + string escapes)
+  return (
+    extractBalanced<T>(trimmed, '{', '}') ?? extractBalanced<T>(trimmed, '[', ']')
+  );
+}
+
+function extractBalanced<T>(text: string, open: string, close: string): T | null {
+  const start = text.indexOf(open);
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === open) depth++;
+    else if (ch === close) {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, i + 1)) as T;
+        } catch {
+          return null;
+        }
+      }
     }
   }
-
   return null;
 }
