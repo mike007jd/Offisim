@@ -1,7 +1,7 @@
 # P3: MCP Full Experience Design — Desktop stdio Bridge + Audit + Permissions
 
 > **Date**: 2026-03-12
-> **Status**: Approved (rev 2 — post spec-review fixes)
+> **Status**: Approved (rev 3 — all spec-review issues resolved)
 > **Scope**: Production-grade MCP experience for AICS 1.0 Desktop runtime
 
 ---
@@ -398,8 +398,8 @@ Disable stdio option in browser environment:
 
 ## 6. Layer 3: Core (Unchanged Behavior)
 
-No modifications to behavior or interfaces:
-- `McpToolExecutor` class — no new deps, no new methods
+No modifications to core behavior or interfaces:
+- `McpToolExecutor` class — one additive method: `getServerForTool(toolName: string): string | undefined` (returns the owning server name from internal `toolServerMap`). No behavior change to existing methods.
 - `McpClientFactory` / `McpConnection` / `McpToolDef` interfaces — untouched
 - `ToolExecutor` interface (`tool-executor.ts`) — untouched
 - Employee-node tool loop — untouched
@@ -562,10 +562,11 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   private resolveServerName(toolName: string): string {
-    // McpToolExecutor maintains toolServerMap internally;
-    // since we wrap ToolExecutor (not McpToolExecutor), we record the tool name.
-    // If inner is McpToolExecutor, we can cast to access the server name.
-    // Fallback: use tool name as identifier.
+    // McpToolExecutor exposes getServerForTool() (added in this spec).
+    // AuditingToolExecutor checks if inner has the method.
+    if ('getServerForTool' in this.inner && typeof (this.inner as any).getServerForTool === 'function') {
+      return (this.inner as any).getServerForTool(toolName) ?? toolName;
+    }
     return toolName;
   }
 }
@@ -704,12 +705,12 @@ export interface RequiredMcp {
   readonly registryUrl?: string;
 }
 
-// Add to SkillRequirements:
+// Add to SkillRequirements (preserving existing optional pattern):
 export interface SkillRequirements {
-  readonly bins: readonly string[];
-  readonly env: readonly string[];
-  readonly config: readonly string[];
-  readonly mcps: readonly RequiredMcp[];  // NEW
+  readonly bins?: readonly string[];       // unchanged (optional)
+  readonly env?: readonly string[];        // unchanged (optional)
+  readonly config?: readonly string[];     // unchanged (optional)
+  readonly mcps?: readonly RequiredMcp[];  // NEW (optional, matching existing pattern)
 }
 ```
 
@@ -719,19 +720,19 @@ In `packages/install-core/src/openclaw/skill-parser.ts`, extract `required-mcps`
 
 ### 9.4 skill-to-manifest Mapping
 
+The manifest schema (`aics_manifest.schema.json`) defines `required_mcps` as `readonly string[]` (name-only, max 80 chars). This is a cross-ecosystem contract and must not be changed for a single feature.
+
 In `packages/install-core/src/openclaw/skill-to-manifest.ts` (L73-76), replace hardcoded `required_mcps: []`:
 
 ```typescript
 requirements: {
   required_capabilities: [],
-  required_mcps: parsed.requirements.mcps.map(m => ({
-    name: m.name,
-    description: m.description,
-    transport: m.transport,
-    registry_url: m.registryUrl,
-  })),
+  // Manifest schema: string[] (name-only). Rich metadata stays in ParsedSkill.
+  required_mcps: (parsed.requirements.mcps ?? []).map(m => m.name),
 },
 ```
+
+The richer `RequiredMcp` metadata (description, transport, registryUrl) lives only in `ParsedSkill.requirements.mcps` and is used by `skill-validator.ts` at install time. The manifest carries just the server names for registry/search purposes.
 
 ### 9.5 Install-time Validation
 
@@ -804,7 +805,8 @@ Install result page renders MCP warnings with actionable links:
 | 5 | `packages/shared-types/src/events.ts` | +McpToolResultPayload, +`mcp.tool.result` |
 | 6 | `packages/core/src/events/event-factories.ts` | +mcpToolResult factory |
 | 7 | `packages/core/src/mcp/types.ts` | +ToolApprovalMode, +ToolPermissionPolicy (types only) |
-| 8 | `packages/core/src/runtime/repositories.ts` | +McpAuditRow, +McpAuditRepository |
+| 8 | `packages/core/src/mcp/mcp-tool-executor.ts` | +getServerForTool() public method (additive only) |
+| 9 | `packages/core/src/runtime/repositories.ts` | +McpAuditRow, +McpAuditRepository, add mcpAudit to RuntimeRepositories |
 | 9 | `packages/db-local/src/schema.ts` | +mcpAuditLog table |
 | 10 | `packages/install-core/src/openclaw/types.ts` | +RequiredMcp, extend SkillRequirements |
 
@@ -850,7 +852,7 @@ Install result page renders MCP warnings with actionable links:
 
 ---
 
-## Appendix: Spec Review Issues Addressed (rev 2)
+## Appendix: Spec Review Issues Addressed (rev 2 + rev 3)
 
 | ID | Issue | Resolution |
 |----|-------|------------|
@@ -868,3 +870,13 @@ Install result page renders MCP warnings with actionable links:
 | S3 | String errors in Rust | thiserror enum `McpBridgeError` |
 | S4 | connectedServers data source | Optional parameter on validateSkill() |
 | S5 | Windows graceful shutdown | Documented: TerminateProcess, macOS/Linux primary |
+
+**Rev 3 fixes (from re-review):**
+
+| ID | Issue | Resolution |
+|----|-------|------------|
+| NEW-C1 | `skill-to-manifest` produces objects but schema expects `string[]` | Map to `m.name` only; rich metadata stays in ParsedSkill |
+| I-NEW-1 | SkillRequirements removes optionality (breaking) | All fields remain optional (`?`) matching existing pattern |
+| I-NEW-2 | `resolveServerName` returns tool name, not server name | Add `getServerForTool()` method to McpToolExecutor |
+| I-NEW-3 | `McpToolResultPayload.serverName` cascading wrong name | Fixed via `getServerForTool()` |
+| S-NEW-1 | `mcpAudit` not shown added to RuntimeRepositories | Explicitly noted in modified files table |
