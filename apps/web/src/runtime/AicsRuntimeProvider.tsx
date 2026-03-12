@@ -1,5 +1,6 @@
 import {
   AuditingToolExecutor,
+  DEFAULT_COST_RATES,
   InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
@@ -131,6 +132,32 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
 
   repos.seed.companies([company]);
   repos.seed.employees(employees);
+
+  // Seed default cost rates (idempotent — skip if rates already exist)
+  seedCostRates(repos).catch((err) => {
+    console.warn('[seedCompany] Failed to seed cost rates:', err);
+  });
+}
+
+/**
+ * Seed default LLM cost rates into the cost_rates repository.
+ * Idempotent: skips seeding if rates already exist.
+ */
+async function seedCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
+  const existing = await repos.costRates.findAll();
+  if (existing.length > 0) return;
+
+  const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  for (const rate of DEFAULT_COST_RATES) {
+    await repos.costRates.create({
+      provider: rate.provider,
+      model_pattern: rate.model_pattern,
+      input_cost_per_mtok: rate.input_cost_per_mtok,
+      output_cost_per_mtok: rate.output_cost_per_mtok,
+      effective_from: now,
+      effective_until: null,
+    });
+  }
 }
 
 const IS_DEV = import.meta.env.DEV;

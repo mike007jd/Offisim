@@ -165,6 +165,7 @@ export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 
 // --- Runtime ---
 export { MockToolExecutor } from './runtime/tool-executor.js';
+export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 
 // --- MCP ---
 export { McpToolExecutor } from './mcp/mcp-tool-executor.js';
