@@ -15,7 +15,17 @@ import {
 import { STATE_COLORS } from '../tokens/colors.js';
 import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
-import { createIdleBob, createClawWiggle, createThinkingAnimation, createWorkingAnimation } from './lobster-animations.js';
+import {
+  createIdleBob,
+  createClawWiggle,
+  createThinkingAnimation,
+  createWorkingAnimation,
+  createSearchingAnimation,
+  createBlockedAnimation,
+  createWaitingAnimation,
+  createReportingAnimation,
+  createSuccessAnimation,
+} from './lobster-animations.js';
 
 /**
  * Pixel-art lobster employee entity.
@@ -249,22 +259,36 @@ export class LobsterEntity {
     // --- Body part animations based on state ---
     this.stopBodyAnimations();
 
-    if (isActiveState(next)) {
-      // Idle bob for all active states
-      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
-
-      if (next === 'thinking' || next === 'searching') {
-        // Thinking: antenna wiggle + eye shift + gentle claw wiggle
-        this.bodyAnimTweens.push(createThinkingAnimation(this.antennaL, this.antennaR, this.eyesGfx, this.motion.M1));
-        this.bodyAnimTweens.push(createClawWiggle(this.clawL, this.clawR, this.motion.M1));
-      } else if (next === 'executing') {
-        // Working: fast claw wiggle
-        this.bodyAnimTweens.push(createWorkingAnimation(this.clawL, this.clawR, this.motion.M1));
-      }
-    } else if (next === 'idle' || next === 'paused') {
+    if (next === 'idle' || next === 'paused' || next === 'meeting') {
       // Gentle idle bob only
       this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+    } else if (next === 'thinking') {
+      // Thinking: idle bob + antenna wiggle + eye shift + gentle claw wiggle
+      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+      this.bodyAnimTweens.push(createThinkingAnimation(this.antennaL, this.antennaR, this.eyesGfx, this.motion.M1));
+      this.bodyAnimTweens.push(createClawWiggle(this.clawL, this.clawR, this.motion.M1));
+    } else if (next === 'searching') {
+      // ANIM-008: Searching — idle bob + eye scan + antennae forward
+      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+      this.bodyAnimTweens.push(createSearchingAnimation(this.eyesGfx, this.antennaL, this.antennaR, this.motion.M1));
+    } else if (next === 'executing') {
+      // Working: idle bob + fast claw wiggle
+      this.bodyAnimTweens.push(createIdleBob(this.container, this.motion.M1));
+      this.bodyAnimTweens.push(createWorkingAnimation(this.clawL, this.clawR, this.motion.M1));
+    } else if (next === 'blocked') {
+      // ANIM-010: Blocked — defensive claws + jitter (no idle bob — stalled)
+      this.bodyAnimTweens.push(createBlockedAnimation(this.clawL, this.clawR, this.container, this.motion.M1));
+    } else if (next === 'waiting' || next === 'assigned') {
+      // ANIM-011: Waiting — subtle breathe
+      this.bodyAnimTweens.push(createWaitingAnimation(this.container, this.motion.M1));
+    } else if (next === 'reporting') {
+      // ANIM-012: Reporting — upward float
+      this.bodyAnimTweens.push(createReportingAnimation(this.container, this.motion.M1));
+    } else if (next === 'success') {
+      // ANIM-013: Success — claws open wide briefly
+      this.bodyAnimTweens.push(createSuccessAnimation(this.clawL, this.clawR, this.motion.M1));
     }
+    // 'failed': no body animations (shake already handled in transition section above)
   }
 
   /** Set or clear the current task */
@@ -375,7 +399,9 @@ export class LobsterEntity {
   }
 }
 
-const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set(['thinking', 'searching', 'executing']);
+const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set([
+  'thinking', 'searching', 'executing', 'reporting',
+]);
 
 function isActiveState(state: EmployeeState): boolean {
   return ACTIVE_STATES.has(state);

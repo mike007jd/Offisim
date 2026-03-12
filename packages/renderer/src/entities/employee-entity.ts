@@ -149,16 +149,34 @@ export class EmployeeEntity {
       }
     }
 
-    // Start continuous pulse for active work states
-    if (isActiveState(next) && this.motion.M1.duration > 0) {
-      this.pulseTween = gsap.to(this.ring.scale, {
-        x: 1.08,
-        y: 1.08,
-        duration: this.motion.M1.duration,
-        ease: 'sine.inOut',
-        yoyo: true,
-        repeat: -1,
-      });
+    // Start continuous animation for non-idle/paused/failed/success states
+    if (this.motion.M1.duration > 0) {
+      if (next === 'searching') {
+        // ANIM-008: Fast scanning pulse
+        this.pulseTween = gsap.to(this.ring.scale, {
+          x: 1.05, y: 1.05, duration: 0.3, ease: 'sine.inOut', yoyo: true, repeat: -1,
+        });
+      } else if (next === 'waiting' || next === 'assigned') {
+        // ANIM-011: Very slow breathe
+        this.pulseTween = gsap.to(this.ring.scale, {
+          x: 1.01, y: 1.01, duration: 1.5, ease: 'sine.inOut', yoyo: true, repeat: -1,
+        });
+      } else if (next === 'reporting') {
+        // ANIM-012: Reporting pulse
+        this.pulseTween = gsap.to(this.ring.scale, {
+          x: 1.06, y: 1.06, duration: this.motion.M1.duration, ease: 'sine.inOut', yoyo: true, repeat: -1,
+        });
+      } else if (isActiveState(next)) {
+        // Existing: active work states (thinking, executing)
+        this.pulseTween = gsap.to(this.ring.scale, {
+          x: 1.08,
+          y: 1.08,
+          duration: this.motion.M1.duration,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: -1,
+        });
+      }
     }
   }
 
@@ -250,7 +268,7 @@ export class EmployeeEntity {
   }
 }
 
-const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set(['thinking', 'searching', 'executing']);
+const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set(['thinking', 'searching', 'executing', 'reporting']);
 
 function isActiveState(state: EmployeeState): boolean {
   return ACTIVE_STATES.has(state);
