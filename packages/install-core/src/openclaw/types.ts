@@ -20,6 +20,13 @@ export interface ParsedSkill {
   readonly metadata: SkillMetadata;
 }
 
+export interface RequiredMcp {
+  readonly name: string;
+  readonly description: string;
+  readonly transport: 'stdio' | 'sse' | 'either';
+  readonly registryUrl?: string;
+}
+
 export interface SkillRequirements {
   /** Required binaries (e.g. ["node", "git"]). */
   readonly bins?: readonly string[];
@@ -27,6 +34,8 @@ export interface SkillRequirements {
   readonly env?: readonly string[];
   /** Required config file paths. */
   readonly config?: readonly string[];
+  /** Required MCP servers. */
+  readonly mcps?: readonly RequiredMcp[];
 }
 
 export interface SkillMetadata {
