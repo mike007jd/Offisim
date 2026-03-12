@@ -1,4 +1,4 @@
-import type { EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
+import type { EmployeeVersionService, EventBus, McpServerConfig, RuntimeRepositories } from '@aics/core';
 import type { InstallService } from '@aics/install-core';
 import { createContext, useContext } from 'react';
 
@@ -16,6 +16,11 @@ export interface AicsRuntimeValue {
   installService: InstallService | null;
   /** Runtime repositories — null when runtime is not yet ready. */
   repos: RuntimeRepositories | null;
+  /**
+   * Shared EmployeeVersionService instance — created once per runtime lifecycle
+   * to avoid duplicating stateless service instances across hooks.
+   */
+  employeeVersionService: EmployeeVersionService | null;
   /** Connect an MCP server. Returns tool count on success; throws on failure. */
   connectMcpServer: (config: McpServerConfig) => Promise<number>;
   /** Disconnect an MCP server by name. */

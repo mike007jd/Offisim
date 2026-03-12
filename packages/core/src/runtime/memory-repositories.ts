@@ -274,6 +274,10 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     async findByThread(threadId) {
       return [...llmCallsMap.values()].filter((c) => c.thread_id === threadId);
     },
+    async findByThreadIds(threadIds) {
+      const idSet = new Set(threadIds);
+      return [...llmCallsMap.values()].filter((c) => c.thread_id !== null && idSet.has(c.thread_id));
+    },
     async findByTaskRun(taskRunId) {
       return [...llmCallsMap.values()].filter((c) => c.task_run_id === taskRunId);
     },

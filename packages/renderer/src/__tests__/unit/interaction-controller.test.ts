@@ -101,6 +101,7 @@ function createMockEntity(id: string, x = 100, y = 100): SceneEntity {
 function createMockEventBus(): SceneEventBus {
   return {
     on: vi.fn(() => () => {}),
+    emit: vi.fn(),
   };
 }
 

@@ -1,6 +1,7 @@
 import {
   AuditingToolExecutor,
   DEFAULT_COST_RATES,
+  EmployeeVersionService,
   InMemoryEventBus,
   McpToolExecutor,
   ModelResolver,
@@ -69,7 +70,7 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   };
 }
 
-function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
+async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>): Promise<void> {
   const now = new Date().toISOString();
 
   const company: CompanyRow = {
@@ -133,10 +134,9 @@ function seedCompany(repos: ReturnType<typeof createMemoryRepositories>) {
   repos.seed.companies([company]);
   repos.seed.employees(employees);
 
-  // Seed default cost rates (idempotent — skip if rates already exist)
-  seedCostRates(repos).catch((err) => {
-    console.warn('[seedCompany] Failed to seed cost rates:', err);
-  });
+  // Seed default cost rates — awaited so runtime is not considered ready
+  // until rates are available for CostCalculationService (I8)
+  await seedCostRates(repos);
 }
 
 /**
@@ -170,9 +170,9 @@ const IS_DEV = import.meta.env.DEV;
  *   bus ensures UI hooks always subscribe to the same instance, avoiding the
  *   "EventBus churn" problem during initialization.
  */
-function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus): RuntimeBundle {
+async function createBrowserRuntime(config: ProviderConfig, eventBus: InMemoryEventBus): Promise<RuntimeBundle> {
   const repos = createMemoryRepositories();
-  seedCompany(repos);
+  await seedCompany(repos);
 
   // In dev mode, route LLM calls through Vite proxy to avoid CORS.
   // The proxy reads the real target from X-LLM-Base-URL header.
@@ -266,7 +266,7 @@ export function AicsRuntimeProvider({ children }: Props) {
   // ---------------------------------------------------------------------------
   const eventBusRef = useRef(new InMemoryEventBus());
 
-  // Async runtime init (for Tauri mode)
+  // Async runtime init (Tauri + browser modes — both async due to seedCostRates)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
     if (!config) return null;
@@ -274,47 +274,39 @@ export function AicsRuntimeProvider({ children }: Props) {
     const eventBus = eventBusRef.current;
 
     if (isTauri()) {
-      setIsInitializing(true);
-      try {
-        const { createTauriRuntime } = await import('../lib/tauri-runtime');
-        const runtime = await createTauriRuntime(config, eventBus);
-        runtimeRef.current = runtime;
-        return runtime;
-      } finally {
-        setIsInitializing(false);
-      }
+      const { createTauriRuntime } = await import('../lib/tauri-runtime');
+      const runtime = await createTauriRuntime(config, eventBus);
+      runtimeRef.current = runtime;
+      return runtime;
     }
 
-    // Browser mode — synchronous
-    const runtime = createBrowserRuntime(config, eventBus);
+    // Browser mode — async due to seedCostRates (I8)
+    const runtime = await createBrowserRuntime(config, eventBus);
     runtimeRef.current = runtime;
     return runtime;
   }, []);
 
-  function getOrCreateRuntime(): RuntimeBundle | null {
-    if (runtimeRef.current) return runtimeRef.current;
-
-    if (isTauri()) {
-      // Tauri: async init handled by useEffect / sendMessage
-      return null;
-    }
-
-    // Browser: sync init
-    const config = loadProviderConfig();
-    if (!config) return null;
-    runtimeRef.current = createBrowserRuntime(config, eventBusRef.current);
-    return runtimeRef.current;
+  function getRuntime(): RuntimeBundle | null {
+    return runtimeRef.current ?? null;
   }
 
-  // Initialize Tauri runtime on mount / reinit
+  // Initialize runtime on mount / reinit (both Tauri and browser modes)
   // biome-ignore lint/correctness/useExhaustiveDependencies: version is intentional — reinitRuntime() bumps it to force re-init
   useEffect(() => {
-    if (isTauri() && !runtimeRef.current) {
-      initPromiseRef.current = initRuntime().catch((err) => {
-        console.error('[TauriRuntime] init failed:', err);
-        setError(err instanceof Error ? err.message : String(err));
-        return null;
-      });
+    if (!runtimeRef.current && !initPromiseRef.current) {
+      setIsInitializing(true);
+      initPromiseRef.current = initRuntime()
+        .then((runtime) => {
+          // Trigger re-render so useMemo picks up the runtime
+          setIsInitializing(false);
+          return runtime;
+        })
+        .catch((err) => {
+          console.error('[Runtime] init failed:', err);
+          setError(err instanceof Error ? err.message : String(err));
+          setIsInitializing(false);
+          return null;
+        });
     }
   }, [initRuntime, version]);
 
@@ -330,23 +322,18 @@ export function AicsRuntimeProvider({ children }: Props) {
 
   const lastFailedMessageRef = useRef<{ text: string; targetEmployeeId?: string } | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getOrCreateRuntime is a render-scoped function that reads refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getRuntime is a render-scoped function that reads refs
   const sendMessage = useCallback(
     async (text: string, options?: { targetEmployeeId?: string }): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
 
-      // For Tauri: wait for async init if in progress
-      if (!runtime && isTauri()) {
+      // Wait for async init if in progress (both Tauri and browser modes)
+      if (!runtime) {
         if (initPromiseRef.current) {
           runtime = await initPromiseRef.current;
         } else {
           runtime = await initRuntime();
         }
-      }
-
-      // For Browser: sync init
-      if (!runtime) {
-        runtime = getOrCreateRuntime();
       }
 
       if (!runtime) {
@@ -461,14 +448,12 @@ export function AicsRuntimeProvider({ children }: Props) {
     }
   }, [version]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getOrCreateRuntime is a render-scoped function
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getRuntime is a render-scoped function
   const value = useMemo<AicsRuntimeValue>(() => {
-    // NOTE: getOrCreateRuntime() lazily initializes the browser runtime and
-    // assigns to runtimeRef. This is intentional — scene/event hooks need
-    // the EventBus from the first render. The runtimeRef guard makes this
-    // idempotent (safe under StrictMode). In Tauri mode it returns null
-    // (async init handled by useEffect above).
-    const runtime = getOrCreateRuntime();
+    // Runtime initialization is async (both browser and Tauri). On first render
+    // getRuntime() returns null. The useEffect above kicks off initRuntime(),
+    // which sets runtimeRef.current and bumps version to trigger a re-render.
+    const runtime = getRuntime();
 
     // Always use the stable shared EventBus — never create a temporary one.
     // This is the same instance passed to createBrowserRuntime / createTauriRuntime,
@@ -491,6 +476,11 @@ export function AicsRuntimeProvider({ children }: Props) {
       };
     }
 
+    // Create shared EmployeeVersionService once per runtime lifecycle (I6)
+    const employeeVersionService = runtime?.repos
+      ? new EmployeeVersionService(runtime.repos.employeeVersions, runtime.repos.employees, eventBus)
+      : null;
+
     return {
       eventBus,
       isReady: runtime !== null && !isInitializing,
@@ -502,6 +492,7 @@ export function AicsRuntimeProvider({ children }: Props) {
       reinitRuntime,
       installService: runtime?.installService ?? null,
       repos: runtime?.repos ?? null,
+      employeeVersionService,
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,

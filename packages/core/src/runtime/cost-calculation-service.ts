@@ -18,6 +18,19 @@ export interface CostAggregate {
 }
 
 /**
+ * Dashboard summary returned by {@link CostCalculationService.getDashboardSummary}.
+ * Computes total, today, by-model, and by-employee breakdowns in a single data pass.
+ */
+export interface DashboardSummary {
+  totalCost: number;
+  todayCost: number;
+  totalCalls: number;
+  todayCalls: number;
+  byModel: CostAggregate[];
+  byEmployee: CostAggregate[];
+}
+
+/**
  * Service for computing LLM usage costs.
  *
  * Reads cost rates from {@link ModelCostRateRepository} and LLM call history
@@ -70,7 +83,7 @@ export class CostCalculationService {
   /**
    * Aggregate costs across all LLM calls for a company.
    *
-   * Joins company → threads → llm_calls, then groups by the requested dimension.
+   * Uses batch `findByThreadIds` to avoid N+1 per-thread queries.
    */
   async aggregateCosts(
     companyId: string,
@@ -84,12 +97,9 @@ export class CostCalculationService {
     const threads = await this.threadRepo.findByCompany(companyId);
     if (threads.length === 0) return [];
 
-    // 2. Fetch all LLM calls across those threads
-    const allCalls: LlmCallRow[] = [];
-    for (const thread of threads) {
-      const calls = await this.llmCallRepo.findByThread(thread.thread_id);
-      allCalls.push(...calls);
-    }
+    // 2. Batch-fetch all LLM calls across those threads (single query)
+    const threadIds = threads.map((t) => t.thread_id);
+    const allCalls = await this.llmCallRepo.findByThreadIds(threadIds);
 
     // 3. Apply time filters
     let filtered = allCalls;
@@ -135,6 +145,87 @@ export class CostCalculationService {
     result.sort((a, b) => b.totalCost - a.totalCost);
 
     return result;
+  }
+
+  /**
+   * Compute a full dashboard summary in ONE data pass.
+   *
+   * Fetches threads + calls + rates once, then computes total, today,
+   * by-model, and by-employee aggregations without redundant queries.
+   */
+  async getDashboardSummary(companyId: string): Promise<DashboardSummary> {
+    const threads = await this.threadRepo.findByCompany(companyId);
+    if (threads.length === 0) {
+      return { totalCost: 0, todayCost: 0, totalCalls: 0, todayCalls: 0, byModel: [], byEmployee: [] };
+    }
+
+    const threadIds = threads.map((t) => t.thread_id);
+    const allCalls = await this.llmCallRepo.findByThreadIds(threadIds);
+    if (allCalls.length === 0) {
+      return { totalCost: 0, todayCost: 0, totalCalls: 0, todayCalls: 0, byModel: [], byEmployee: [] };
+    }
+
+    const allRates = await this.costRateRepo.findAll();
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const todayPrefix = `${today}T`;
+
+    let totalCost = 0;
+    let todayCost = 0;
+    let totalCalls = 0;
+    let todayCalls = 0;
+    const modelGroups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
+    const employeeGroups = new Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>();
+
+    for (const call of allCalls) {
+      const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
+      const cost = rate
+        ? (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok +
+          (call.output_tokens / 1_000_000) * rate.output_cost_per_mtok
+        : 0;
+
+      totalCost += cost;
+      totalCalls += 1;
+
+      if (call.created_at >= todayPrefix) {
+        todayCost += cost;
+        todayCalls += 1;
+      }
+
+      // By model
+      const modelKey = `${call.provider}/${call.model}`;
+      const mg = modelGroups.get(modelKey) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
+      mg.inputTokens += call.input_tokens;
+      mg.outputTokens += call.output_tokens;
+      mg.totalCost += cost;
+      mg.callCount += 1;
+      modelGroups.set(modelKey, mg);
+
+      // By employee (node_name)
+      const eg = employeeGroups.get(call.node_name) ?? { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 };
+      eg.inputTokens += call.input_tokens;
+      eg.outputTokens += call.output_tokens;
+      eg.totalCost += cost;
+      eg.callCount += 1;
+      employeeGroups.set(call.node_name, eg);
+    }
+
+    const toAggArray = (groups: Map<string, { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }>): CostAggregate[] => {
+      const arr: CostAggregate[] = [];
+      for (const [groupKey, data] of groups) {
+        arr.push({ groupKey, ...data });
+      }
+      arr.sort((a, b) => b.totalCost - a.totalCost);
+      return arr;
+    };
+
+    return {
+      totalCost,
+      todayCost,
+      totalCalls,
+      todayCalls,
+      byModel: toAggArray(modelGroups),
+      byEmployee: toAggArray(employeeGroups),
+    };
   }
 
   /**

@@ -1,5 +1,5 @@
-import { EmployeeVersionService, employeeCreated } from '@aics/core';
-import { useCallback, useMemo, useReducer, useState } from 'react';
+import { employeeCreated } from '@aics/core';
+import { useCallback, useReducer, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
@@ -131,17 +131,13 @@ export interface UseInterviewWizardReturn {
   updateField: <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => void;
   reset: () => void;
   canSkip: boolean;
+  dispatch: React.Dispatch<WizardAction>;
 }
 
 export function useInterviewWizard(): UseInterviewWizardReturn {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const versionService = useMemo(() => {
-    if (!repos) return null;
-    return new EmployeeVersionService(repos.employeeVersions, repos.employees, eventBus);
-  }, [repos, eventBus]);
 
   const currentStepName = WIZARD_STEPS[state.currentStep] as WizardStep;
   const canProceed = isStepValid(state.currentStep, state.formData);
@@ -224,5 +220,6 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
     updateField,
     reset,
     canSkip,
+    dispatch,
   };
 }

@@ -32,6 +32,8 @@ export type SceneLayers = Record<LayerName, Container>;
 export interface SceneEventBus {
   // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   on(prefix: string, handler: (event: RuntimeEvent<any>) => void): () => void;
+  // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
+  emit(event: RuntimeEvent<any>): void;
 }
 
 // ---------------------------------------------------------------------------

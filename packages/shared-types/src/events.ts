@@ -60,7 +60,9 @@ export type EventFamily =
   | 'memory.created'
   | 'memory.accessed'
   | 'employee.workstation.changed'
-  | 'employee.version.created';
+  | 'employee.workstation.drop-requested'
+  | 'employee.version.created'
+  | 'cost.aggregated';
 
 // --- Typed event payloads ---
 
@@ -340,8 +342,23 @@ export interface EmployeeWorkstationChangedPayload {
   readonly toWorkstationId: string | null;
 }
 
+export interface EmployeeWorkstationDropRequestedPayload {
+  readonly employeeId: string;
+  readonly targetWorkstationId: string;
+}
+
 export interface EmployeeVersionCreatedPayload {
   readonly employeeId: string;
   readonly versionNum: number;
   readonly changeType: 'create' | 'update' | 'rollback';
+}
+
+// --- Runtime Completion: Cost Aggregation ---
+
+export interface CostAggregatedPayload {
+  readonly companyId: string;
+  readonly totalCost: number;
+  readonly todayCost: number;
+  readonly totalCalls: number;
+  readonly todayCalls: number;
 }

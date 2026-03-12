@@ -23,7 +23,8 @@ const INITIAL_SUMMARY: CostSummary = {
  * Provides aggregated cost data from LLM call history.
  *
  * Refreshes on mount and whenever an `llm.usage.recorded` event fires.
- * Uses {@link CostCalculationService} for rate lookups and aggregation.
+ * Uses {@link CostCalculationService.getDashboardSummary} for a single-pass
+ * aggregation instead of 3 separate queries.
  */
 export function useCostDashboard() {
   const { repos, eventBus } = useAicsRuntime();
@@ -38,22 +39,17 @@ export function useCostDashboard() {
     if (!repos) return;
 
     const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     try {
-      const [allAgg, todayAgg, modelAgg] = await Promise.all([
-        service.aggregateCosts(COMPANY_ID),
-        service.aggregateCosts(COMPANY_ID, { from: `${today}T00:00:00.000Z` }),
-        service.aggregateCosts(COMPANY_ID, { groupBy: 'model' }),
-      ]);
+      const dashboard = await service.getDashboardSummary(COMPANY_ID);
 
-      const totalCost = allAgg.reduce((sum, a) => sum + a.totalCost, 0);
-      const totalCalls = allAgg.reduce((sum, a) => sum + a.callCount, 0);
-      const todayCost = todayAgg.reduce((sum, a) => sum + a.totalCost, 0);
-      const todayCalls = todayAgg.reduce((sum, a) => sum + a.callCount, 0);
-
-      setSummary({ totalCost, todayCost, totalCalls, todayCalls });
-      setByModel(modelAgg);
+      setSummary({
+        totalCost: dashboard.totalCost,
+        todayCost: dashboard.todayCost,
+        totalCalls: dashboard.totalCalls,
+        todayCalls: dashboard.todayCalls,
+      });
+      setByModel(dashboard.byModel);
     } catch (err) {
       console.error('[useCostDashboard] aggregation failed:', err);
     } finally {

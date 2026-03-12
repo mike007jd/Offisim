@@ -217,6 +217,7 @@ export interface EventRepository {
 export interface LlmCallRepository {
   create(call: NewLlmCall): Promise<LlmCallRow>;
   findByThread(threadId: string): Promise<LlmCallRow[]>;
+  findByThreadIds(threadIds: string[]): Promise<LlmCallRow[]>;
   findByTaskRun(taskRunId: string): Promise<LlmCallRow[]>;
 }
 
@@ -293,11 +294,13 @@ export interface McpAuditRepository {
 // Employee version history
 // ---------------------------------------------------------------------------
 
+export type EmployeeVersionChangeType = 'create' | 'update' | 'rollback';
+
 export interface EmployeeVersionRow {
   version_id: string;
   employee_id: string;
   version_num: number;
-  change_type: string;
+  change_type: EmployeeVersionChangeType;
   snapshot_json: string;
   change_summary: string | null;
   created_by: string;

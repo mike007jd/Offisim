@@ -81,10 +81,11 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
               <button
                 key={stepName}
                 type="button"
-                onClick={() => wizard.state.completedSteps.has(idx) || idx === state.currentStep
-                  ? undefined
-                  : undefined
-                }
+                onClick={() => {
+                  if (state.completedSteps.has(idx) && idx !== state.currentStep) {
+                    wizard.dispatch({ type: 'goto', step: idx });
+                  }
+                }}
                 className={cn(
                   'w-2 h-2 rounded-full transition-colors',
                   idx === state.currentStep

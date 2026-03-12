@@ -126,6 +126,12 @@ function createMockEventBus(): SceneEventBus & { fire: (event: RuntimeEvent<any>
       };
     },
     // biome-ignore lint/suspicious/noExplicitAny: test mock fires generic events
+    emit(event: RuntimeEvent<any>) {
+      for (const { prefix, handler } of handlers) {
+        if (event.type.startsWith(prefix)) handler(event);
+      }
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: test mock fires generic events
     fire(event: RuntimeEvent<any>) {
       for (const { prefix, handler } of handlers) {
         if (event.type.startsWith(prefix)) handler(event);

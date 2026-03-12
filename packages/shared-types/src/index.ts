@@ -59,7 +59,9 @@ export type {
   MemoryCreatedPayload,
   MemoryAccessedPayload,
   EmployeeWorkstationChangedPayload,
+  EmployeeWorkstationDropRequestedPayload,
   EmployeeVersionCreatedPayload,
+  CostAggregatedPayload,
 } from './events.js';
 
 export type {

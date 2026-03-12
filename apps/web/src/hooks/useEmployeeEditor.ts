@@ -1,6 +1,6 @@
 import type { EmployeeRow, EmployeeUpdate } from '@aics/core';
-import { EmployeeVersionService, employeeCreated, employeeDeleted, employeeUpdated, employeeWorkstationChanged } from '@aics/core';
-import { useCallback, useMemo, useState } from 'react';
+import { employeeCreated, employeeDeleted, employeeUpdated, employeeWorkstationChanged } from '@aics/core';
+import { useCallback, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
@@ -90,12 +90,7 @@ export interface UseEmployeeEditorReturn {
 }
 
 export function useEmployeeEditor(): UseEmployeeEditorReturn {
-  const { repos, eventBus } = useAicsRuntime();
-
-  const versionService = useMemo(() => {
-    if (!repos) return null;
-    return new EmployeeVersionService(repos.employeeVersions, repos.employees, eventBus);
-  }, [repos, eventBus]);
+  const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
 
   const [isOpen, setIsOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);

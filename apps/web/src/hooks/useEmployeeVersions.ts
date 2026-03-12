@@ -1,6 +1,5 @@
 import type { EmployeeVersionRow, VersionDiff } from '@aics/core';
-import { EmployeeVersionService } from '@aics/core';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface UseEmployeeVersionsReturn {
@@ -15,12 +14,7 @@ export interface UseEmployeeVersionsReturn {
 }
 
 export function useEmployeeVersions(employeeId: string | null): UseEmployeeVersionsReturn {
-  const { repos, eventBus } = useAicsRuntime();
-
-  const versionService = useMemo(() => {
-    if (!repos) return null;
-    return new EmployeeVersionService(repos.employeeVersions, repos.employees, eventBus);
-  }, [repos, eventBus]);
+  const { employeeVersionService: versionService } = useAicsRuntime();
 
   const [versions, setVersions] = useState<EmployeeVersionRow[]>([]);
   const [loading, setLoading] = useState(false);

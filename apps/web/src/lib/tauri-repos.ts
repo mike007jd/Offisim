@@ -41,8 +41,14 @@ import type {
 } from '@aics/core';
 import {
   MemoryMcpAuditRepository,
-  MemoryEmployeeVersionRepository,
-  MemoryModelCostRateRepository,
+} from '@aics/core';
+import type {
+  EmployeeVersionRepository,
+  EmployeeVersionRow,
+  NewEmployeeVersion,
+  ModelCostRateRepository,
+  ModelCostRateRow,
+  NewModelCostRate,
 } from '@aics/core';
 import * as schema from '@aics/db-local';
 import type {
@@ -53,7 +59,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
 function now(): string {
@@ -144,40 +150,51 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
         .where(eq(schema.taskRuns.task_run_id, id));
     },
-    // TODO(runtime-completion): Replace with Drizzle-backed query joining through graph_threads
     async findQueue(companyId, opts) {
-      // For now, fetch all task runs and filter in memory
-      const threads = await db
-        .select()
+      const threadRows = await db
+        .select({ thread_id: schema.graphThreads.thread_id })
         .from(schema.graphThreads)
         .where(eq(schema.graphThreads.company_id, companyId));
-      const threadIds = new Set(threads.map((t) => t.thread_id));
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return [];
 
-      let allRuns = (await db.select().from(schema.taskRuns)) as TaskRunRow[];
-      allRuns = allRuns.filter((r) => threadIds.has(r.thread_id));
-
-      if (opts?.statuses) {
-        const statuses = new Set(opts.statuses);
-        allRuns = allRuns.filter((r) => statuses.has(r.status));
+      const conditions = [inArray(schema.taskRuns.thread_id, threadIds)];
+      if (opts?.statuses && opts.statuses.length > 0) {
+        conditions.push(inArray(schema.taskRuns.status, opts.statuses));
       }
-      allRuns.sort((a, b) => b.started_at.localeCompare(a.started_at));
-      if (opts?.limit) allRuns = allRuns.slice(0, opts.limit);
-      return allRuns;
-    },
-    // TODO(runtime-completion): Replace with Drizzle-backed GROUP BY query
-    async countByStatus(companyId) {
-      const threads = await db
+
+      let query = db
         .select()
+        .from(schema.taskRuns)
+        .where(and(...conditions))
+        .orderBy(desc(schema.taskRuns.started_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return (await query) as TaskRunRow[];
+    },
+    async countByStatus(companyId) {
+      const threadRows = await db
+        .select({ thread_id: schema.graphThreads.thread_id })
         .from(schema.graphThreads)
         .where(eq(schema.graphThreads.company_id, companyId));
-      const threadIds = new Set(threads.map((t) => t.thread_id));
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return {};
 
-      const allRuns = (await db.select().from(schema.taskRuns)) as TaskRunRow[];
+      const rows = await db
+        .select({
+          status: schema.taskRuns.status,
+          cnt: sql<number>`COUNT(*)`,
+        })
+        .from(schema.taskRuns)
+        .where(inArray(schema.taskRuns.thread_id, threadIds))
+        .groupBy(schema.taskRuns.status);
+
       const counts: Record<string, number> = {};
-      for (const r of allRuns) {
-        if (threadIds.has(r.thread_id)) {
-          counts[r.status] = (counts[r.status] ?? 0) + 1;
-        }
+      for (const r of rows) {
+        counts[r.status] = r.cnt;
       }
       return counts;
     },
@@ -326,6 +343,13 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .select()
         .from(schema.llmCalls)
         .where(eq(schema.llmCalls.thread_id, threadId))) as LlmCallRow[];
+    },
+    async findByThreadIds(threadIds) {
+      if (threadIds.length === 0) return [];
+      return (await db
+        .select()
+        .from(schema.llmCalls)
+        .where(inArray(schema.llmCalls.thread_id, threadIds))) as LlmCallRow[];
     },
     async findByTaskRun(taskRunId) {
       return (await db
@@ -508,6 +532,104 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const employeeVersions: EmployeeVersionRepository = {
+    async create(version: NewEmployeeVersion) {
+      const row: EmployeeVersionRow = {
+        ...version,
+        version_id: crypto.randomUUID(),
+        created_at: now(),
+      };
+      await db.insert(schema.employeeVersions).values(row);
+      return row;
+    },
+    async findByEmployee(employeeId, opts) {
+      let query = db
+        .select()
+        .from(schema.employeeVersions)
+        .where(eq(schema.employeeVersions.employee_id, employeeId))
+        .orderBy(desc(schema.employeeVersions.version_num));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as EmployeeVersionRow[];
+    },
+    async findByVersion(employeeId, versionNum) {
+      const rows = await db
+        .select()
+        .from(schema.employeeVersions)
+        .where(
+          and(
+            eq(schema.employeeVersions.employee_id, employeeId),
+            eq(schema.employeeVersions.version_num, versionNum),
+          ),
+        );
+      return (rows[0] as EmployeeVersionRow | undefined) ?? null;
+    },
+    async getLatestVersionNum(employeeId) {
+      const rows = await db
+        .select({ maxVer: sql<number>`MAX(${schema.employeeVersions.version_num})` })
+        .from(schema.employeeVersions)
+        .where(eq(schema.employeeVersions.employee_id, employeeId));
+      return (rows[0] as { maxVer: number | null } | undefined)?.maxVer ?? 0;
+    },
+  };
+
+  const costRates: ModelCostRateRepository = {
+    async create(rate: NewModelCostRate) {
+      const row: ModelCostRateRow = {
+        ...rate,
+        rate_id: crypto.randomUUID(),
+        created_at: now(),
+      };
+      await db.insert(schema.modelCostRates).values(row);
+      return row;
+    },
+    async findByProviderModel(provider, model) {
+      const rows = (await db
+        .select()
+        .from(schema.modelCostRates)
+        .where(eq(schema.modelCostRates.provider, provider))) as ModelCostRateRow[];
+      const matching = rows.filter((r) => {
+        const regex = new RegExp(
+          '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+          'i',
+        );
+        return regex.test(model);
+      });
+      if (matching.length === 0) return null;
+      matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
+      return matching[0]!;
+    },
+    async findAll() {
+      return (await db.select().from(schema.modelCostRates)) as ModelCostRateRow[];
+    },
+    async upsert(rate: NewModelCostRate) {
+      const existing = (await db
+        .select()
+        .from(schema.modelCostRates)
+        .where(
+          and(
+            eq(schema.modelCostRates.provider, rate.provider),
+            eq(schema.modelCostRates.model_pattern, rate.model_pattern),
+            eq(schema.modelCostRates.effective_from, rate.effective_from),
+          ),
+        )) as ModelCostRateRow[];
+      if (existing.length > 0) {
+        const row = existing[0]!;
+        await db
+          .update(schema.modelCostRates)
+          .set({
+            input_cost_per_mtok: rate.input_cost_per_mtok,
+            output_cost_per_mtok: rate.output_cost_per_mtok,
+            effective_until: rate.effective_until,
+          })
+          .where(eq(schema.modelCostRates.rate_id, row.rate_id));
+        return { ...row, ...rate };
+      }
+      return this.create(rate);
+    },
+  };
+
   return {
     companies,
     threads,
@@ -526,8 +648,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     memories,
     // TODO(P3): Replace with Drizzle-backed Tauri MCP audit repository once migration 007 is applied
     mcpAudit: new MemoryMcpAuditRepository(),
-    // TODO(runtime-completion): Replace with Drizzle-backed Tauri repos once migrations 009/010 are verified
-    employeeVersions: new MemoryEmployeeVersionRepository(),
-    costRates: new MemoryModelCostRateRepository(),
+    employeeVersions,
+    costRates,
   };
 }

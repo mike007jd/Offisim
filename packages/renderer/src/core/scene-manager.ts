@@ -178,8 +178,20 @@ export class SceneManager {
       this.motion,
       (result) => {
         if (result.targetWorkstationId) {
-          // Move entity to workstation position
+          // Move entity to workstation position visually
           this.moveEntityToWorkstation(result.entityId, result.targetWorkstationId);
+          // Emit event so the web layer can persist via WorkstationAssignmentService (I7)
+          this.eventBus.emit({
+            type: 'employee.workstation.drop-requested',
+            entityId: result.entityId,
+            entityType: 'employee',
+            companyId: '',
+            timestamp: Date.now(),
+            payload: {
+              employeeId: result.entityId,
+              targetWorkstationId: result.targetWorkstationId,
+            },
+          });
         }
       },
       (wsId, on) => {

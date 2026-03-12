@@ -7,21 +7,19 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
-import {
-  MemoryEmployeeVersionRepository,
-  MemoryModelCostRateRepository,
-} from './memory-repositories.js';
 import type {
   CheckpointRepository,
   CompanyRepository,
   EmployeeRepository,
   EmployeeRow,
+  EmployeeVersionRepository,
+  EmployeeVersionRow,
   EventRepository,
   GraphCheckpointRow,
   GraphThreadRow,
@@ -34,11 +32,15 @@ import type {
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
+  ModelCostRateRepository,
+  ModelCostRateRow,
+  NewEmployeeVersion,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
   NewLlmCall,
   NewMeetingSession,
+  NewModelCostRate,
   NewRuntimeEvent,
   NewTaskRun,
   NewToolCall,
@@ -145,38 +147,56 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .where(eq(schema.taskRuns.task_run_id, id))
         .run();
     },
-    // TODO(runtime-completion): Optimize with proper SQL JOIN instead of in-memory filter
     async findQueue(companyId, opts) {
+      // Get thread IDs for the company
       const threadRows = db
-        .select()
+        .select({ thread_id: schema.graphThreads.thread_id })
         .from(schema.graphThreads)
         .where(eq(schema.graphThreads.company_id, companyId))
         .all();
-      const threadIds = new Set(threadRows.map((t) => t.thread_id));
-      let allRuns = db.select().from(schema.taskRuns).all() as TaskRunRow[];
-      allRuns = allRuns.filter((r) => threadIds.has(r.thread_id));
-      if (opts?.statuses) {
-        const statuses = new Set(opts.statuses);
-        allRuns = allRuns.filter((r) => statuses.has(r.status));
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return [];
+
+      // Build conditions: thread_id IN (...) + optional status filter
+      const conditions = [inArray(schema.taskRuns.thread_id, threadIds)];
+      if (opts?.statuses && opts.statuses.length > 0) {
+        conditions.push(inArray(schema.taskRuns.status, opts.statuses));
       }
-      allRuns.sort((a, b) => b.started_at.localeCompare(a.started_at));
-      if (opts?.limit) allRuns = allRuns.slice(0, opts.limit);
-      return allRuns;
+
+      let query = db
+        .select()
+        .from(schema.taskRuns)
+        .where(and(...conditions))
+        .orderBy(desc(schema.taskRuns.started_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return query.all() as TaskRunRow[];
     },
-    // TODO(runtime-completion): Optimize with SQL GROUP BY
     async countByStatus(companyId) {
       const threadRows = db
-        .select()
+        .select({ thread_id: schema.graphThreads.thread_id })
         .from(schema.graphThreads)
         .where(eq(schema.graphThreads.company_id, companyId))
         .all();
-      const threadIds = new Set(threadRows.map((t) => t.thread_id));
-      const allRuns = db.select().from(schema.taskRuns).all() as TaskRunRow[];
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return {};
+
+      const rows = db
+        .select({
+          status: schema.taskRuns.status,
+          cnt: sql<number>`COUNT(*)`,
+        })
+        .from(schema.taskRuns)
+        .where(inArray(schema.taskRuns.thread_id, threadIds))
+        .groupBy(schema.taskRuns.status)
+        .all();
+
       const counts: Record<string, number> = {};
-      for (const r of allRuns) {
-        if (threadIds.has(r.thread_id)) {
-          counts[r.status] = (counts[r.status] ?? 0) + 1;
-        }
+      for (const r of rows) {
+        counts[r.status] = r.cnt;
       }
       return counts;
     },
@@ -329,6 +349,14 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .select()
         .from(schema.llmCalls)
         .where(eq(schema.llmCalls.thread_id, threadId))
+        .all() as LlmCallRow[];
+    },
+    async findByThreadIds(threadIds) {
+      if (threadIds.length === 0) return [];
+      return db
+        .select()
+        .from(schema.llmCalls)
+        .where(inArray(schema.llmCalls.thread_id, threadIds))
         .all() as LlmCallRow[];
     },
     async findByTaskRun(taskRunId) {
@@ -538,6 +566,108 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const employeeVersions: EmployeeVersionRepository = {
+    async create(version: NewEmployeeVersion) {
+      const row: EmployeeVersionRow = {
+        ...version,
+        version_id: crypto.randomUUID(),
+        created_at: now(),
+      };
+      db.insert(schema.employeeVersions).values(row).run();
+      return row;
+    },
+    async findByEmployee(employeeId, opts) {
+      let query = db
+        .select()
+        .from(schema.employeeVersions)
+        .where(eq(schema.employeeVersions.employee_id, employeeId))
+        .orderBy(desc(schema.employeeVersions.version_num));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as EmployeeVersionRow[];
+    },
+    async findByVersion(employeeId, versionNum) {
+      const rows = db
+        .select()
+        .from(schema.employeeVersions)
+        .where(
+          and(
+            eq(schema.employeeVersions.employee_id, employeeId),
+            eq(schema.employeeVersions.version_num, versionNum),
+          ),
+        )
+        .all();
+      return (rows[0] as EmployeeVersionRow | undefined) ?? null;
+    },
+    async getLatestVersionNum(employeeId) {
+      const rows = db
+        .select({ maxVer: sql<number>`MAX(${schema.employeeVersions.version_num})` })
+        .from(schema.employeeVersions)
+        .where(eq(schema.employeeVersions.employee_id, employeeId))
+        .all();
+      return (rows[0] as { maxVer: number | null } | undefined)?.maxVer ?? 0;
+    },
+  };
+
+  const costRates: ModelCostRateRepository = {
+    async create(rate: NewModelCostRate) {
+      const row: ModelCostRateRow = {
+        ...rate,
+        rate_id: crypto.randomUUID(),
+        created_at: now(),
+      };
+      db.insert(schema.modelCostRates).values(row).run();
+      return row;
+    },
+    async findByProviderModel(provider, model) {
+      const rows = db
+        .select()
+        .from(schema.modelCostRates)
+        .where(eq(schema.modelCostRates.provider, provider))
+        .all() as ModelCostRateRow[];
+      const matching = rows.filter((r) => {
+        const regex = new RegExp(
+          '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+          'i',
+        );
+        return regex.test(model);
+      });
+      if (matching.length === 0) return null;
+      matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
+      return matching[0]!;
+    },
+    async findAll() {
+      return db.select().from(schema.modelCostRates).all() as ModelCostRateRow[];
+    },
+    async upsert(rate: NewModelCostRate) {
+      const existing = db
+        .select()
+        .from(schema.modelCostRates)
+        .where(
+          and(
+            eq(schema.modelCostRates.provider, rate.provider),
+            eq(schema.modelCostRates.model_pattern, rate.model_pattern),
+            eq(schema.modelCostRates.effective_from, rate.effective_from),
+          ),
+        )
+        .all() as ModelCostRateRow[];
+      if (existing.length > 0) {
+        const row = existing[0]!;
+        db.update(schema.modelCostRates)
+          .set({
+            input_cost_per_mtok: rate.input_cost_per_mtok,
+            output_cost_per_mtok: rate.output_cost_per_mtok,
+            effective_until: rate.effective_until,
+          })
+          .where(eq(schema.modelCostRates.rate_id, row.rate_id))
+          .run();
+        return { ...row, ...rate };
+      }
+      return this.create(rate);
+    },
+  };
+
   return {
     companies,
     threads,
@@ -555,8 +685,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     installedPackages,
     installedAssets,
     assetBindings,
-    // TODO(runtime-completion): Replace with Drizzle-backed implementations
-    employeeVersions: new MemoryEmployeeVersionRepository(),
-    costRates: new MemoryModelCostRateRepository(),
+    employeeVersions,
+    costRates,
   };
 }
