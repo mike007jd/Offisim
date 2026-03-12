@@ -394,6 +394,10 @@ export async function employeeNode(
       );
     }
 
+    if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
+      console.warn(`[employee-node] Tool loop hit max ${MAX_TOOL_ROUNDS} rounds for ${employee.name}`);
+    }
+
     // Update task run to completed
     if (taskRunId) {
       await repos.taskRuns.updateStatus(
