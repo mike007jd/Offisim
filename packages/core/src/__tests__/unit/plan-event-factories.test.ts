@@ -10,8 +10,16 @@ import {
 
 describe('plan event factories', () => {
   it('planCreated produces correct event', () => {
-    const e = planCreated('co1', 'plan-1', 'th-1', [
-      { stepIndex: 0, description: 'research', taskCount: 2 },
+    const e = planCreated('co1', 'plan-1', 'th-1', 'Research summary', [
+      {
+        stepIndex: 0,
+        description: 'research',
+        taskCount: 2,
+        tasks: [
+          { taskRunId: 'tr-1', taskType: 'research', description: 'Do research', employeeId: 'emp-1' },
+          { taskRunId: 'tr-2', taskType: 'writing', description: 'Write report', employeeId: 'emp-2' },
+        ],
+      },
     ]);
     expect(e.type).toBe('plan.created');
     expect(e.entityType).toBe('plan');
@@ -19,6 +27,7 @@ describe('plan event factories', () => {
     expect(e.companyId).toBe('co1');
     expect(e.threadId).toBe('th-1');
     expect(e.payload.planId).toBe('plan-1');
+    expect(e.payload.summary).toBe('Research summary');
     expect(e.payload.steps).toHaveLength(1);
     expect(e.payload.steps[0]?.taskCount).toBe(2);
   });

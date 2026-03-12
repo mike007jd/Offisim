@@ -2,6 +2,25 @@ import type { Container } from 'pixi.js';
 import type { EmployeeState, RuntimeEvent } from '@aics/shared-types';
 
 /**
+ * Named scene layers (z-order L0–L7).
+ * Per SCENE_STATE_MATRIX §4.
+ */
+export const LAYER_NAMES = [
+  'floor',       // L0: floor tiles, room boundaries
+  'furniture',   // L1: desks, chairs, monitors, racks
+  'entity',      // L2: employee avatars
+  'accent',      // L3: halos, desk glows, state rings
+  'semantic',    // L4: route lines, install candidates
+  'bubble',      // L5: task bubbles, report markers
+  'focus',       // L6: spotlight, attention router
+  'bridge',      // L7: DOM-coordinated anchors
+] as const;
+
+export type LayerName = (typeof LAYER_NAMES)[number];
+
+export type SceneLayers = Record<LayerName, Container>;
+
+/**
  * Lightweight event bus interface for the renderer.
  * Renderer depends on @aics/shared-types only — the bridge from @aics/core EventBus
  * is provided by the React integration layer.
@@ -81,6 +100,11 @@ export interface SceneManagerOptions {
    * Defaults to DEFAULT_NODE_VISUAL_MAP if not provided.
    */
   nodeVisualMap?: Record<string, NodeVisualMapping>;
+  /**
+   * Default entity style for createEntity() when no per-seed entityType is specified.
+   * Defaults to 'lobster'.
+   */
+  entityStyle?: SceneEntityType;
 }
 
 /** Default employee seeds */

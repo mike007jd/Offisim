@@ -51,6 +51,7 @@ export type {
   DeliverableCreatedPayload,
   DirectChatStartedPayload,
   DirectChatCompletedPayload,
+  UiSelectionPayload,
   MeetingActionCreatedPayload,
   HandoffInitiatedPayload,
   HandoffCompletedPayload,

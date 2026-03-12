@@ -32,6 +32,7 @@ export type EventFamily =
   | 'report.state.changed'
   | 'runtime.performance.tier.changed'
   | 'ui.selection.changed'
+  | 'ui.scene.task.echo'
   | 'llm.call.started'
   | 'llm.call.completed'
   | 'llm.usage.recorded'
@@ -162,10 +163,17 @@ export interface EmployeeInstalledPayload {
 export interface PlanCreatedPayload {
   readonly planId: string;
   readonly threadId: string;
+  readonly summary: string;
   readonly steps: ReadonlyArray<{
     readonly stepIndex: number;
     readonly description: string;
     readonly taskCount: number;
+    readonly tasks: ReadonlyArray<{
+      readonly taskRunId: string;
+      readonly taskType: string;
+      readonly description: string;
+      readonly employeeId: string;
+    }>;
   }>;
 }
 
@@ -264,6 +272,14 @@ export interface DirectChatCompletedPayload {
   readonly employeeId: string;
   readonly employeeName: string;
   readonly threadId: string;
+}
+
+// --- Runtime Experience: UI Selection ---
+
+export interface UiSelectionPayload {
+  readonly entityId: string | null;
+  readonly entityType: 'employee' | 'meeting' | 'install';
+  readonly source: 'scene' | 'panel';
 }
 
 // --- P2: Meeting Action, Handoff, Memory Events ---

@@ -273,6 +273,7 @@ export function planCreated(
   companyId: string,
   planId: string,
   threadId: string,
+  summary: string,
   steps: PlanCreatedPayload['steps'],
 ): RuntimeEvent<PlanCreatedPayload> {
   return {
@@ -282,7 +283,7 @@ export function planCreated(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { planId, threadId, steps },
+    payload: { planId, threadId, summary, steps },
   };
 }
 

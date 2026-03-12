@@ -240,10 +240,19 @@ export async function pmPlannerNode(
       companyId,
       planId,
       threadId,
+      plan.summary,
       planSteps.map((s) => ({
         stepIndex: s.stepIndex,
         description: s.description,
         taskCount: s.tasks.length,
+        tasks: s.tasks.map((t) => ({
+          // taskRunId is always set by generateId() above — planSteps only contain
+          // tasks created in this function where taskRunId is assigned before push
+          taskRunId: t.taskRunId!,
+          taskType: t.taskType,
+          description: t.description,
+          employeeId: t.employeeId,
+        })),
       })),
     ),
   );

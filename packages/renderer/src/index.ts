@@ -8,6 +8,8 @@ export type {
   EmployeeSeed,
   NodeVisualMapping,
 } from './core/types.js';
+export { LAYER_NAMES } from './core/types.js';
+export type { LayerName, SceneLayers } from './core/types.js';
 export { STATE_COLORS, MOTION, LAYOUT } from './tokens/index.js';
 export type { MotionBucket } from './tokens/index.js';
 

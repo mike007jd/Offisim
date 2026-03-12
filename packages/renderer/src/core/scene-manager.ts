@@ -19,13 +19,15 @@ import { LAYOUT } from '../tokens/layout.js';
 import { MOTION, MOTION_REDUCED, type MotionBucket } from '../tokens/motion.js';
 import type {
   EmployeeSeed,
+  LayerName,
   NodeVisualMapping,
   SceneEntity,
   SceneEntityType,
   SceneEventBus,
   SceneManagerOptions,
+  SceneLayers,
 } from './types.js';
-import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP } from './types.js';
+import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP, LAYER_NAMES } from './types.js';
 
 export class SceneManager {
   private app: Application | null = null;
@@ -37,6 +39,8 @@ export class SceneManager {
   /** Guard against async mount completing after destroy (React StrictMode). */
   private _destroyed = false;
 
+  private layers: SceneLayers | null = null;
+  private readonly entityStyle: SceneEntityType;
   private floorLayer: FloorLayer | null = null;
   private meetingRoom: MeetingRoomEntity | null = null;
   /** All scene entities keyed by employee ID — uses SceneEntity interface (EmployeeEntity or LobsterEntity). */
@@ -53,6 +57,7 @@ export class SceneManager {
     this.employees = options.employees ?? DEFAULT_EMPLOYEES;
     this._reducedMotion = options.reducedMotion ?? false;
     this.nodeVisualMap = options.nodeVisualMap ?? DEFAULT_NODE_VISUAL_MAP;
+    this.entityStyle = options.entityStyle ?? 'lobster';
   }
 
   /** Get the active motion tokens (respects reduced-motion) */
@@ -70,7 +75,7 @@ export class SceneManager {
    * - 'employee' (default): EmployeeEntity — standard human-like avatar
    * - 'lobster': LobsterEntity — pixel lobster for OpenClaw agents
    */
-  private createEntity(id: string, name: string, entityType: SceneEntityType = 'employee'): SceneEntity {
+  private createEntity(id: string, name: string, entityType: SceneEntityType = this.entityStyle): SceneEntity {
     if (entityType === 'lobster') {
       return new LobsterEntity(id, name, this.motion);
     }
@@ -104,19 +109,28 @@ export class SceneManager {
     const worldContainer = new Container();
     app.stage.addChild(worldContainer);
 
-    // Floor layer
-    this.floorLayer = new FloorLayer();
-    worldContainer.addChild(this.floorLayer.container);
+    // Create 8 named layers (L0–L7) and add them to worldContainer in order
+    const layersObj = {} as Record<string, Container>;
+    for (const name of LAYER_NAMES) {
+      const layer = new Container();
+      layersObj[name] = layer;
+      worldContainer.addChild(layer);
+    }
+    this.layers = layersObj as SceneLayers;
 
-    // Meeting room entity (centered below desks)
+    // Floor layer — placed in L0 (floor)
+    this.floorLayer = new FloorLayer();
+    this.layers.floor.addChild(this.floorLayer.container);
+
+    // Meeting room entity — placed in L1 (furniture)
     this.meetingRoom = new MeetingRoomEntity(this.motion);
     this.meetingRoom.container.position.set(
       LAYOUT.floor.width / 2,
       LAYOUT.floor.height - LAYOUT.floor.padding - LAYOUT.meetingRoom.bottomOffset,
     );
-    worldContainer.addChild(this.meetingRoom.container);
+    this.layers.furniture.addChild(this.meetingRoom.container);
 
-    // Employee entities — create based on entityType (default: 'employee')
+    // Employee entities — placed in L2 (entity)
     const deskPositions = this.floorLayer.getDeskPositions();
     this.employees.forEach((emp, i) => {
       const pos = deskPositions[i % deskPositions.length]!;
@@ -125,7 +139,7 @@ export class SceneManager {
         pos.x,
         pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
       );
-      worldContainer.addChild(entity.container);
+      this.layers!.entity.addChild(entity.container);
       this.employeeEntities.set(emp.id, entity);
     });
 
@@ -148,7 +162,7 @@ export class SceneManager {
    */
   addEmployee(id: string, name: string, entityType: SceneEntityType = 'lobster'): boolean {
     // Guard: scene must be mounted
-    if (!this.app || !this.floorLayer) return false;
+    if (!this.app || !this.floorLayer || !this.layers) return false;
     // Guard: no duplicate ids
     if (this.employeeEntities.has(id)) return false;
 
@@ -166,9 +180,8 @@ export class SceneManager {
     entity.container.scale.set(0);
     entity.container.alpha = 0;
 
-    // Add to world container (first child of stage)
-    const world = this.app.stage.children[0] as Container;
-    world.addChild(entity.container);
+    // Add to entity layer (L2)
+    this.layers.entity.addChild(entity.container);
 
     // Register in entity map
     this.employeeEntities.set(id, entity);
@@ -278,12 +291,23 @@ export class SceneManager {
       this.meetingRoom = null;
     }
     this.floorLayer = null;
+    this.layers = null;
 
     // Destroy PixiJS app
     if (this.app) {
       this.app.destroy(true, { children: true });
       this.app = null;
     }
+  }
+
+  /**
+   * Add a display object to a named layer.
+   * @returns true if the layer exists and the child was added, false if not mounted.
+   */
+  addToLayer(layer: LayerName, child: Container): boolean {
+    if (!this.layers) return false;
+    this.layers[layer].addChild(child);
+    return true;
   }
 
   /** Center the world container in the viewport */
