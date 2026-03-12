@@ -10,6 +10,7 @@ import { health } from './routes/health.js';
 import { market } from './routes/market.js';
 import { creatorsRoute } from './routes/creators.js';
 import { reviewsRoute } from './routes/reviews.js';
+import { publish } from './routes/publish.js';
 
 const app = new Hono<PlatformEnv>();
 
@@ -28,7 +29,7 @@ app.route('/', health);
 app.route('/v1/market', market);
 app.route('/v1/market/creators', creatorsRoute);
 app.route('/v1/reviews', reviewsRoute);
-// Chunk D will add: app.route('/v1/publish', publish);
+app.route('/v1/publish', publish);
 
 const port = parseInt(process.env.PORT ?? '4100', 10);
 serve({ fetch: app.fetch, port }, () => {
