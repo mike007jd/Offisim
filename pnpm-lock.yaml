@@ -29,6 +29,9 @@ importers:
       '@aics/registry-client':
         specifier: workspace:*
         version: link:../../packages/registry-client
+      '@aics/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
       '@aics/ui-market':
         specifier: workspace:*
         version: link:../../packages/ui-market
@@ -127,6 +130,9 @@ importers:
       '@aics/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@aics/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
       '@aics/ui-office':
         specifier: workspace:*
         version: link:../../packages/ui-office
@@ -418,23 +424,65 @@ importers:
 
   packages/ui-market:
     dependencies:
+      '@aics/registry-client':
+        specifier: workspace:*
+        version: link:../registry-client
       '@aics/ui-core':
         specifier: workspace:*
         version: link:../ui-core
+      lucide-react:
+        specifier: ^0.468.0
+        version: 0.468.0(react@19.2.4)
+      next:
+        specifier: ^15.0.0
+        version: 15.5.12(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
     devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
 
   packages/ui-office:
     dependencies:
+      '@aics/asset-schema':
+        specifier: workspace:*
+        version: link:../asset-schema
+      '@aics/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aics/install-core':
+        specifier: workspace:*
+        version: link:../install-core
+      '@aics/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@aics/shared-types':
         specifier: workspace:*
         version: link:../shared-types
       '@aics/ui-core':
         specifier: workspace:*
         version: link:../ui-core
+      lucide-react:
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
     devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
