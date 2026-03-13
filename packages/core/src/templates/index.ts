@@ -1,5 +1,7 @@
 import type { SopDefinition } from '@aics/shared-types';
 
+import { contentStudioTemplate } from './content-studio.js';
+import { productTeamTemplate } from './product-team.js';
 import { rdCompanyTemplate } from './rd-company.js';
 
 export interface CompanyTemplateEmployee {
@@ -19,7 +21,7 @@ export interface CompanyTemplate {
   layoutPreset: string;
 }
 
-const TEMPLATES: CompanyTemplate[] = [rdCompanyTemplate];
+const TEMPLATES: CompanyTemplate[] = [rdCompanyTemplate, contentStudioTemplate, productTeamTemplate];
 
 export function listTemplates(): CompanyTemplate[] {
   return TEMPLATES;
