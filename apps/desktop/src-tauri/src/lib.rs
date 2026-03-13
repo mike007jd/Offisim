@@ -86,6 +86,24 @@ CREATE TABLE IF NOT EXISTS writes (
             sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/010_model_cost_rates.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "sop templates and steps",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/011_sop_templates.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "office layouts",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/012_office_layouts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "library documents",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/013_library_documents.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
