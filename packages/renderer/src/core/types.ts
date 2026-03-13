@@ -42,13 +42,13 @@ export interface SceneEventBus {
 
 /**
  * Visual entity type determines which renderer class to use.
- * - 'employee': standard human-like avatar (EmployeeEntity — circle + initial)
- * - 'lobster': pixel-art lobster (LobsterEntity — OpenClaw imported agent)
+ * - 'employee': Q-version human puppet (EmployeePuppet)
+ * - 'lobster': vector lobster puppet (LobsterPuppet — OpenClaw imported agent)
  */
 export type SceneEntityType = 'employee' | 'lobster';
 
 /**
- * Common interface for all scene entities (EmployeeEntity, LobsterEntity, etc.).
+ * Common interface for all scene entities.
  * SceneManager operates on this interface — it doesn't care which visual class
  * is underneath.
  */
@@ -67,10 +67,16 @@ export interface EmployeeSeed {
   readonly name: string;
   /**
    * Which visual entity to render for this employee.
-   * - 'employee' (default): standard avatar — for company's own employees
-   * - 'lobster': pixel lobster — for OpenClaw imported agents
+   * - 'employee' (default): Q-version human puppet
+   * - 'lobster': vector lobster puppet (OpenClaw imported agents only)
    */
   readonly entityType?: SceneEntityType;
+  /** Role slug for department zone assignment */
+  readonly roleSlug?: string;
+  /** Character appearance config (for EmployeePuppet customization) */
+  readonly characterConfig?: import('../puppet/types.js').CharacterConfig;
+  /** Assigned workstation ID (null = rest area) */
+  readonly workstationId?: string | null;
 }
 
 /**
@@ -104,7 +110,7 @@ export interface SceneManagerOptions {
   nodeVisualMap?: Record<string, NodeVisualMapping>;
   /**
    * Default entity style for createEntity() when no per-seed entityType is specified.
-   * Defaults to 'lobster'.
+   * Defaults to 'employee'. Use 'lobster' only for OpenClaw imported agents.
    */
   entityStyle?: SceneEntityType;
 }

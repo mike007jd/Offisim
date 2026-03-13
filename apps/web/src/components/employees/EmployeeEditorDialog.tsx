@@ -1,4 +1,4 @@
-import { DEFAULT_WORKSTATION_IDS } from '@aics/renderer';
+import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -8,15 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
-const POSITION_LABELS: Record<string, string> = {
-  'ws-1': 'Top-Left',
-  'ws-2': 'Top-Right',
-  'ws-3': 'Bottom-Left',
-  'ws-4': 'Bottom-Right',
-};
-const WORKSTATION_OPTIONS = DEFAULT_WORKSTATION_IDS.map((id, i) => ({
+// Generate workstation options from the default floor plan
+const _defaultPlan = computeFloorPlan(RD_COMPANY_ZONES, new Map());
+const WORKSTATION_OPTIONS = Array.from(_defaultPlan.allWorkstations.entries()).map(([id], i) => ({
   value: id,
-  label: `Workstation ${i + 1} (${POSITION_LABELS[id] ?? ''})`,
+  label: `Workstation ${i + 1}`,
 }));
 
 const ROLE_OPTIONS = [

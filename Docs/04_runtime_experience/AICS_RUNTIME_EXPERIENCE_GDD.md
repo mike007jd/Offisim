@@ -557,27 +557,125 @@ Presentation:
 The office should use **program art** / procedural art wherever possible,
 not as a cheap fallback but as a coherent style choice.
 
-### 13.1 Why procedural art fits AICS
+### 13.1 Art system: Modular Paper Doll Puppet
+
+**All characters (employees + lobster/OpenClaw agents) use a modular puppet system.**
+
+The puppet system draws characters from composable body parts using PixiJS Graphics API,
+with each part as a Container with a pivot point (joint). Animation is driven by GSAP
+timelines manipulating joint rotations, positions, and scales.
+
+This approach was chosen because:
+
+- LLM/AI code generates geometric shapes well (circles, rounded rects, bezier curves)
+- LLM/AI code generates pixel art poorly (requires exact pixel placement)
+- SVG/vector primitives are text-representable → AI can iterate on them
+- Color customization is trivial (change fill parameters)
+- Skeletal animation reuses one rig across many appearances
+
+#### 13.1.1 Character style: Q-version (Chibi)
+
+- head:body ratio ≈ 1:1 to 1:1.2
+- simplified joints (no elbows/knees — upper limbs connect directly to hands/feet)
+- exaggerated expressions and gestures
+- readable at small scene scale (20-40px logical height)
+- stylized, not cartoonish — soft industrial / productive aesthetic
+
+#### 13.1.2 Employee puppet anatomy
+
+```
+CharacterPuppet extends Container
+├─ head (Container, pivot: neck)
+│   ├─ face (Graphics - circle/oval, skinColor)
+│   ├─ eyes (Graphics - dots/ovals, state-reactive)
+│   ├─ hair (Graphics - shape varies by hairStyle, hairColor)
+│   └─ mouth (Graphics - expression changes by state)
+├─ body (Container)
+│   ├─ torso (Graphics - rounded rect, clothingColor)
+│   └─ arms × 2 (Container, pivot: shoulder)
+│       ├─ upperArm (Graphics, skinColor)
+│       └─ hand (Graphics, skinColor)
+└─ legs × 2 (Container, pivot: hip)
+    ├─ thigh (Graphics, clothingColor)
+    └─ foot (Graphics)
+```
+
+#### 13.1.3 Lobster puppet anatomy (OpenClaw agents)
+
+```
+LobsterPuppet extends Container
+├─ body (oval carapace, brandColor)
+├─ claws × 2 (Container, pivot: shoulder joint)
+│   ├─ arm (Graphics)
+│   └─ pincer (Graphics, open/close rotation)
+├─ antennae × 2 (Container, sway animation)
+├─ legs × 6 (Container, walking cycle)
+├─ tail (fan shape, bounce)
+└─ eyes × 2 (on stalks, lookAt rotation)
+```
+
+#### 13.1.4 Character customization (CharacterConfig)
+
+```
+CharacterConfig {
+  skinColor: hex       — skin tone
+  hairColor: hex       — hair color
+  hairStyle: enum      — short | long | ponytail | curly | bald | bob | spiky | braids
+  clothingColor: hex   — primary clothing color
+  clothingAccent: hex  — secondary clothing color
+  bodyType: enum       — normal | slim | stocky
+  gender: enum         — neutral | masculine | feminine
+}
+```
+
+The employee creation wizard generates a CharacterConfig.
+Each config produces a visually unique puppet sharing the same animation rig.
+
+#### 13.1.5 Animation states (shared across employee + lobster puppets)
+
+| State | Key motion | Loop? |
+|-------|-----------|-------|
+| idle | micro-breathing (Y amplitude), blink, subtle hand sway | loop |
+| walking | leg alternation, arm swing, body bob | loop |
+| sitting | legs bent, hands on desk, slight forward lean | static+breathing |
+| working | sitting + typing motion (arm micro-oscillation) | loop |
+| thinking | hand on chin, slow head tilt, slow blink | loop |
+| talking | mouth open/close, gesture arms | loop |
+| resting | body leaned back, eyes half-closed, arms down | loop |
+| searching | hand shading eyes, body slight turn | loop |
+| reporting | holding document, facing camera | static |
+| excited | jump bounce, arms raised | play-once |
+| blocked | body slump, hand on forehead, red overlay | static |
+| success | arms up celebration, green flash | play-once |
+| failed | head down, shoulders slumped | static |
+| paused | frozen pose, grey desaturation | static |
+
+Each state = one GSAP Timeline operating on joint rotations/positions.
+State transitions use crossfade (kill old timeline, start new with ease-in).
+
+### 13.2 Why procedural art fits AICS
 
 - it scales with generated/installed assets
 - it keeps the runtime responsive to live state
 - it supports local-first customization
 - it avoids needing handcrafted art for every employee/package variation
+- puppet rigs animate without sprite sheets or external art tools
 
-### 13.2 Procedural art targets
+### 13.3 Procedural art targets
 
 Good candidates for procedural generation:
 
-- employee avatars / silhouettes
-- desk props
+- **employee puppets** — modular body parts, color-customizable
+- **lobster puppets** — OpenClaw agent brand representation
+- desk props and furniture (geometric shapes)
 - screen content hints
-- room accents
+- room accents and zone decorations (bookshelves, sofas, plants)
 - company theme variants
 - package materialization effects
 - state rings / pulses / badges
 - simple report artifact treatments
 
-### 13.3 Procedural art limits
+### 13.4 Procedural art limits
 
 Do not generate art that creates noise or undermines legibility.
 
@@ -587,16 +685,18 @@ Avoid:
 - random decoration with no semantic meaning
 - visually unique effects for every single asset without category rules
 - heavy shader tricks that hurt readability or performance
+- pixel art (AI generates it poorly; use vector/geometric primitives instead)
 
-### 13.4 Style direction
+### 13.5 Style direction
 
 Recommended aesthetic:
 
-- crisp 2D
-- stylized, not cartoonish
-- soft industrial / productive / operational
+- crisp 2D vector / geometric primitives
+- Q-version (chibi) character proportions
+- soft industrial / productive / operational palette
 - readable from zoomed-out overview and mid zoom
 - limited palette variance with semantic accents
+- color-differentiated department zones
 
 ---
 

@@ -13,16 +13,20 @@ import type {
 } from '@aics/shared-types';
 import gsap from 'gsap';
 import { Application, Container, Graphics } from 'pixi.js';
-import { EmployeeEntity } from '../entities/employee-entity.js';
-import { LobsterEntity } from '../entities/lobster-entity.js';
-import { MeetingRoomEntity } from '../entities/meeting-room-entity.js';
 import { RouteLineEntity } from '../entities/route-line-entity.js';
+import { CameraController } from '../interaction/camera-controller.js';
 import { InteractionController } from '../interaction/interaction-controller.js';
 import { FloorLayer } from '../layers/floor-layer.js';
+import { computeFloorPlan, type OfficeFloorPlan } from '../layout/zone-layout-engine.js';
+import { EmployeePuppet } from '../puppet/employee-puppet.js';
+import { LobsterPuppet } from '../puppet/lobster-puppet.js';
+import type { CharacterConfig } from '../puppet/types.js';
+import { DEFAULT_CHARACTER_CONFIGS, PUPPET } from '../puppet/types.js';
 import { STATE_COLORS } from '../tokens/colors.js';
-import { LAYOUT } from '../tokens/layout.js';
+import { resolveEmployeeDepartment, RD_COMPANY_ZONES } from '../tokens/departments.js';
 import {
   MIN_FADE_DURATION,
+  type MotionBucket,
   type MotionTokens,
   type PerformanceTier,
   getMotionForTier,
@@ -39,6 +43,9 @@ import type {
 } from './types.js';
 import { DEFAULT_EMPLOYEES, DEFAULT_NODE_VISUAL_MAP, LAYER_NAMES } from './types.js';
 
+/** Puppet Y offset above workstation center (body center sits above desk). */
+const PUPPET_Y_OFFSET = -(PUPPET.body.height / 2 + PUPPET.head.radius + 8);
+
 export class SceneManager {
   private app: Application | null = null;
   private readonly container: HTMLElement;
@@ -46,33 +53,24 @@ export class SceneManager {
   private readonly employees: EmployeeSeed[];
   private readonly nodeVisualMap: Record<string, NodeVisualMapping>;
   private _reducedMotion: boolean;
-  /** Guard against async mount completing after destroy (React StrictMode). */
   private _destroyed = false;
 
   private layers: SceneLayers | null = null;
   private readonly entityStyle: SceneEntityType;
   private floorLayer: FloorLayer | null = null;
-  private meetingRoom: MeetingRoomEntity | null = null;
-  /** All scene entities keyed by employee ID — uses SceneEntity interface (EmployeeEntity or LobsterEntity). */
+  private floorPlan: OfficeFloorPlan | null = null;
+  private camera: CameraController | null = null;
   private employeeEntities: Map<string, SceneEntity> = new Map();
   private unsubscribers: (() => void)[] = [];
-  /** Track which employees were activated by graph node events (for revert on exit). */
   private nodeActiveEmployees: Map<string, string> = new Map();
-  /** Track active MCP tool overlay timers per employee (for auto-clear). */
   private toolOverlayTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  /** Track highlight auto-clear timers (task echo, report highlight) for cleanup on destroy. */
   private highlightTimers: Set<ReturnType<typeof setTimeout>> = new Set();
-  /** Active route lines keyed by taskRunId (ANIM-004). */
   private routeLines: Map<string, RouteLineEntity> = new Map();
   private _performanceTier: PerformanceTier = 'A';
-  /** Active attention requests keyed by entityId */
   private attentionRequests: Map<string, { priority: number; timestamp: number }> = new Map();
   private spotlightGfx: Graphics | null = null;
-  /** Interaction controller for drag-drop workstation assignment. */
   private interactionController: InteractionController | null = null;
-  /** Ghost entity shown during install preview (ANIM-020) */
   private installGhost: SceneEntity | null = null;
-  /** Install transaction ID for the current ghost preview. Exposed for test/debug introspection. */
   get installGhostTxnId(): string | null {
     return this._installGhostTxnId;
   }
@@ -84,39 +82,41 @@ export class SceneManager {
     this.employees = options.employees ?? DEFAULT_EMPLOYEES;
     this._reducedMotion = options.reducedMotion ?? false;
     this.nodeVisualMap = options.nodeVisualMap ?? DEFAULT_NODE_VISUAL_MAP;
-    this.entityStyle = options.entityStyle ?? 'lobster';
+    this.entityStyle = options.entityStyle ?? 'employee';
   }
 
-  /** Get the active motion tokens (respects reduced-motion and performance tier) */
   get motion(): MotionTokens {
     if (this._reducedMotion) return getMotionForTier('C');
     return getMotionForTier(this._performanceTier);
   }
 
-  /** Update reduced-motion preference without rebuilding the scene (I3). */
   set reducedMotion(value: boolean) {
     this._reducedMotion = value;
   }
 
-  /** Update performance tier without rebuilding scene. */
   set performanceTier(tier: PerformanceTier) {
     this._performanceTier = tier;
   }
 
-  /**
-   * Create the correct entity type based on the entityType discriminator.
-   * - 'employee' (default): EmployeeEntity — standard human-like avatar
-   * - 'lobster': LobsterEntity — pixel lobster for OpenClaw agents
-   */
+  /** Create the correct puppet type based on the entityType discriminator. */
   private createEntity(
     id: string,
     name: string,
     entityType: SceneEntityType = this.entityStyle,
+    characterConfig?: CharacterConfig,
   ): SceneEntity {
+    const motionSet = {
+      M0: this.motion.M0,
+      M1: this.motion.M1,
+      M2: this.motion.M2,
+      M3: this.motion.M3,
+    } as Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
+
     if (entityType === 'lobster') {
-      return new LobsterEntity(id, name, this.motion);
+      return new LobsterPuppet(id, name, motionSet);
     }
-    return new EmployeeEntity(id, name, this.motion);
+    const config = characterConfig ?? this.getDefaultCharacterConfig(id);
+    return new EmployeePuppet(id, name, motionSet, config);
   }
 
   /** Mount the PixiJS application into the container */
@@ -126,14 +126,12 @@ export class SceneManager {
     const app = new Application();
     await app.init({
       resizeTo: this.container,
-      background: 0x1a1c2c, // ocean-deep — matches pixel floor tile base
+      background: 0x111827,
       antialias: true,
       resolution: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) ?? 1,
       autoDensity: true,
     });
 
-    // If destroy() was called while init was in-flight (React StrictMode),
-    // discard the freshly-created app and bail out.
     if (this._destroyed) {
       app.destroy(true);
       return;
@@ -142,11 +140,13 @@ export class SceneManager {
     this.container.appendChild(app.canvas as HTMLCanvasElement);
     this.app = app;
 
-    // Build scene graph
+    // ── Compute floor plan from employees ──
+    const employeeCounts = this.computeDepartmentCounts();
+    this.floorPlan = computeFloorPlan(RD_COMPANY_ZONES, employeeCounts);
+
+    // ── Build scene graph ──
     const worldContainer = new Container();
     app.stage.addChild(worldContainer);
-
-    // Create 8 named layers (L0–L7) and add them to worldContainer in order
     const layersObj = {} as Record<string, Container>;
     for (const name of LAYER_NAMES) {
       const layer = new Container();
@@ -155,32 +155,43 @@ export class SceneManager {
     }
     this.layers = layersObj as SceneLayers;
 
-    // Floor layer — placed in L0 (floor)
-    this.floorLayer = new FloorLayer();
+    // ── Floor layer (L0) ──
+    this.floorLayer = new FloorLayer(this.floorPlan);
     this.layers.floor.addChild(this.floorLayer.container);
 
-    // Meeting room entity — placed in L1 (furniture)
-    this.meetingRoom = new MeetingRoomEntity(this.motion);
-    this.meetingRoom.container.position.set(
-      LAYOUT.floor.width / 2,
-      LAYOUT.floor.height - LAYOUT.floor.padding - LAYOUT.meetingRoom.bottomOffset,
-    );
-    this.layers.furniture.addChild(this.meetingRoom.container);
-
-    // Employee entities — placed in L2 (entity)
-    const deskPositions = this.floorLayer.getDeskPositions();
-    this.employees.forEach((emp, i) => {
-      const pos = deskPositions[i % deskPositions.length]!;
-      const entity = this.createEntity(emp.id, emp.name, emp.entityType);
-      entity.container.position.set(
-        pos.x,
-        pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
-      );
-      this.layers!.entity.addChild(entity.container);
-      this.employeeEntities.set(emp.id, entity);
+    // ── Camera controller ──
+    this.camera = new CameraController({
+      stage: app.stage,
+      world: worldContainer,
+      floorWidth: this.floorPlan.totalWidth,
+      floorHeight: this.floorPlan.totalHeight,
     });
 
-    // Set up drag-drop interaction controller
+    // ── Employee entities (L2) ──
+    let configIdx = 0;
+    for (const emp of this.employees) {
+      const wsId = emp.workstationId ?? this.findAvailableWorkstation(emp.roleSlug);
+      const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
+
+      const entity = this.createEntity(emp.id, emp.name, emp.entityType, emp.characterConfig);
+      if (pos) {
+        entity.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
+      } else {
+        const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
+        if (restZone) {
+          entity.container.position.set(
+            restZone.x + restZone.width / 2 + configIdx * 40,
+            restZone.y + restZone.height / 2,
+          );
+        }
+      }
+
+      this.layers.entity.addChild(entity.container);
+      this.employeeEntities.set(emp.id, entity);
+      configIdx++;
+    }
+
+    // ── Interaction controller ──
     this.interactionController = new InteractionController(
       app.stage,
       this.employeeEntities,
@@ -189,9 +200,7 @@ export class SceneManager {
       this.motion,
       (result) => {
         if (result.targetWorkstationId) {
-          // Move entity to workstation position visually
           this.moveEntityToWorkstation(result.entityId, result.targetWorkstationId);
-          // Emit event so the web layer can persist via WorkstationAssignmentService (I7)
           this.eventBus.emit({
             type: 'employee.workstation.drop-requested',
             entityId: result.entityId,
@@ -211,68 +220,54 @@ export class SceneManager {
     );
     this.interactionController.enable();
 
-    // Center the world
-    this.centerWorld();
+    // ── Camera: fit to view + attach events ──
+    const { width, height } = app.screen;
+    this.camera.fitToView(width, height);
+    this.attachCameraEvents(app);
 
-    // Subscribe to events
     this.subscribeEvents();
   }
 
-  /**
-   * Add a new employee to the scene at the next available desk position.
-   * Plays a scale-from-zero + fade-in entrance animation.
-   * Called after package materialization creates a new employee.
-   *
-   * @param entityType - Which visual entity to use. Defaults to 'lobster' for
-   *   installed employees (they come from packages, typically OpenClaw).
-   * @returns true if the employee was added, false if the scene is not mounted
-   *          or an employee with the same id already exists.
-   */
-  addEmployee(id: string, name: string, entityType: SceneEntityType = 'lobster'): boolean {
-    // Guard: scene must be mounted
-    if (!this.app || !this.floorLayer || !this.layers) return false;
-    // Guard: no duplicate ids
+  addEmployee(
+    id: string,
+    name: string,
+    entityType: SceneEntityType = 'employee',
+    roleSlug?: string,
+    characterConfig?: CharacterConfig,
+  ): boolean {
+    if (!this.app || !this.floorLayer || !this.layers || !this.floorPlan) return false;
     if (this.employeeEntities.has(id)) return false;
 
-    const deskPositions = this.floorLayer.getDeskPositions();
-    const posIndex = this.employeeEntities.size % deskPositions.length;
-    const pos = deskPositions[posIndex]!;
+    // Try to place in matching department zone first, then any free desk
+    const wsId = roleSlug
+      ? this.findAvailableWorkstation(roleSlug) ?? this.findUnoccupiedWorkstation()
+      : this.findUnoccupiedWorkstation();
+    const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
 
-    const entity = this.createEntity(id, name, entityType);
-    entity.container.position.set(
-      pos.x,
-      pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
-    );
+    const entity = this.createEntity(id, name, entityType, characterConfig);
+    if (pos) {
+      entity.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
+    } else {
+      const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
+      if (restZone) {
+        entity.container.position.set(
+          restZone.x + restZone.width / 2,
+          restZone.y + restZone.height / 2,
+        );
+      }
+    }
 
-    // Start invisible and scaled to zero for entrance animation
     entity.container.scale.set(0);
     entity.container.alpha = 0;
-
-    // Add to entity layer (L2)
     this.layers.entity.addChild(entity.container);
-
-    // Register in entity map
     this.employeeEntities.set(id, entity);
-
-    // Register with interaction controller for drag-drop
     this.interactionController?.registerEntity(id, entity);
 
-    // Entrance animation: scale-from-zero + fade-in using M1 (slow entrance)
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container.scale, {
-        x: 1,
-        y: 1,
-        duration,
-        ease,
-      });
-      gsap.to(entity.container, {
-        alpha: 1,
-        duration,
-        ease,
-      });
+      gsap.to(entity.container.scale, { x: 1, y: 1, duration, ease });
+      gsap.to(entity.container, { alpha: 1, duration, ease });
     } else {
-      // Reduced-motion: snap to final state
       entity.container.scale.set(1);
       entity.container.alpha = 1;
     }
@@ -280,74 +275,43 @@ export class SceneManager {
     return true;
   }
 
-  /**
-   * Remove an employee from the scene with a scale-to-zero + fade-out exit animation.
-   * Called when an employee is deleted (UI or rollback).
-   *
-   * @returns true if the employee was found and removed, false otherwise.
-   */
   removeEmployee(id: string): boolean {
     const entity = this.employeeEntities.get(id);
     if (!entity) return false;
-
-    // Clear any pending MCP tool overlay timer
     this.clearToolOverlayTimer(id);
-
-    // Remove from map immediately (prevents duplicate removal)
     this.employeeEntities.delete(id);
 
-    // Exit animation: scale-to-zero + fade-out using M1 (slow exit)
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container.scale, {
-        x: 0,
-        y: 0,
-        duration,
-        ease,
-      });
+      gsap.to(entity.container.scale, { x: 0, y: 0, duration, ease });
       gsap.to(entity.container, {
-        alpha: 0,
-        duration,
-        ease,
+        alpha: 0, duration, ease,
         onComplete: () => {
           entity.destroy();
           entity.container.destroy({ children: true });
         },
       });
     } else {
-      // Reduced-motion: destroy immediately
       entity.destroy();
       entity.container.destroy({ children: true });
     }
-
     return true;
   }
 
-  /**
-   * Animate an entity to the specified workstation position using GSAP M1.
-   * Also emits `employee.workstation.changed` if fromWorkstationId differs.
-   */
   moveEntityToWorkstation(entityId: string, workstationId: string): void {
-    if (!this.floorLayer) return;
+    if (!this.floorPlan) return;
     const entity = this.employeeEntities.get(entityId);
     if (!entity) return;
 
-    const positions = this.floorLayer.getDeskPositions();
-    const target = positions.find((p) => p.workstationId === workstationId);
-    if (!target) return;
+    const pos = this.floorPlan.allWorkstations.get(workstationId);
+    if (!pos) return;
 
-    const targetX = target.x;
-    const targetY = target.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8;
+    const targetX = pos.x;
+    const targetY = pos.y + PUPPET_Y_OFFSET;
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container, {
-        x: targetX,
-        y: targetY,
-        alpha: 1,
-        duration,
-        ease,
-      });
+      gsap.to(entity.container, { x: targetX, y: targetY, alpha: 1, duration, ease });
     } else {
       entity.container.x = targetX;
       entity.container.y = targetY;
@@ -355,51 +319,33 @@ export class SceneManager {
     }
   }
 
-  /** Number of employee entities currently in the scene (for debug bridge). */
   get employeeCount(): number {
     return this.employeeEntities.size;
   }
 
-  /** IDs of all employee entities in the scene (for debug bridge). */
   get employeeIds(): string[] {
     return [...this.employeeEntities.keys()];
   }
 
-  /** Destroy the PixiJS application and clean up */
   destroy(): void {
     this._destroyed = true;
 
-    // Unsubscribe all event listeners (EventBus + renderer resize)
-    for (const unsub of this.unsubscribers) {
-      unsub();
-    }
+    for (const unsub of this.unsubscribers) unsub();
     this.unsubscribers = [];
 
-    // Clear all pending MCP tool overlay timers
-    for (const timer of this.toolOverlayTimers.values()) {
-      clearTimeout(timer);
-    }
+    for (const timer of this.toolOverlayTimers.values()) clearTimeout(timer);
     this.toolOverlayTimers.clear();
-
-    // Clear highlight auto-clear timers (task echo, report highlight)
-    for (const timer of this.highlightTimers) {
-      clearTimeout(timer);
-    }
+    for (const timer of this.highlightTimers) clearTimeout(timer);
     this.highlightTimers.clear();
 
-    // Clean up interaction controller
     if (this.interactionController) {
       this.interactionController.destroy();
       this.interactionController = null;
     }
 
-    // Clean up route lines before entities (ANIM-004)
-    for (const line of this.routeLines.values()) {
-      line.destroy();
-    }
+    for (const line of this.routeLines.values()) line.destroy();
     this.routeLines.clear();
 
-    // Clean up install ghost (ANIM-020) — kill dissolve tweens before destroy
     if (this.installGhost) {
       gsap.killTweensOf(this.installGhost.container);
       gsap.killTweensOf(this.installGhost.container.scale);
@@ -407,58 +353,136 @@ export class SceneManager {
       this.installGhost = null;
     }
 
-    // Clean up entities — kill GSAP tweens before clearing (C2)
-    for (const entity of this.employeeEntities.values()) {
-      entity.destroy();
-    }
+    for (const entity of this.employeeEntities.values()) entity.destroy();
     this.employeeEntities.clear();
     this.nodeActiveEmployees.clear();
 
-    // Clean up meeting room
-    if (this.meetingRoom) {
-      this.meetingRoom.destroy();
-      this.meetingRoom = null;
-    }
     this.floorLayer = null;
+    this.floorPlan = null;
+    this.camera = null;
     this.layers = null;
 
-    // Clean up attention routing (ANIM-032)
     this.attentionRequests.clear();
     if (this.spotlightGfx) {
       this.spotlightGfx.destroy();
       this.spotlightGfx = null;
     }
 
-    // Destroy PixiJS app
     if (this.app) {
       this.app.destroy(true, { children: true });
       this.app = null;
     }
   }
 
-  /**
-   * Add a display object to a named layer.
-   * @returns true if the layer exists and the child was added, false if not mounted.
-   */
   addToLayer(layer: LayerName, child: Container): boolean {
     if (!this.layers) return false;
     this.layers[layer].addChild(child);
     return true;
   }
 
-  /** Center the world container in the viewport */
-  private centerWorld(): void {
-    if (!this.app) return;
-    const world = this.app.stage.children[0] as Container;
-    const { width, height } = this.app.screen;
-    const floorW = LAYOUT.floor.width;
-    const floorH = LAYOUT.floor.height;
-    world.position.set((width - floorW) / 2, (height - floorH) / 2);
+  // ── Camera events ────────────────────────────────────────────────
+
+  private attachCameraEvents(app: Application): void {
+    const canvas = app.canvas as HTMLCanvasElement;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      this.camera?.onWheel(e, app.screen.width, app.screen.height);
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    this.unsubscribers.push(() => canvas.removeEventListener('wheel', onWheel));
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        this.camera?.onPanStart(e.clientX, e.clientY);
+      }
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      this.camera?.onPanMove(e.clientX, e.clientY);
+    };
+    const onMouseUp = () => {
+      this.camera?.onPanEnd();
+    };
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    this.unsubscribers.push(() => {
+      canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('mouseup', onMouseUp);
+    });
+
+    const handleResize = () => {
+      this.camera?.fitToView(app.screen.width, app.screen.height);
+    };
+    app.renderer.on('resize', handleResize);
+    const renderer = app.renderer;
+    this.unsubscribers.push(() => renderer.off('resize', handleResize));
   }
 
-  /** Subscribe to runtime events */
+  // ── Helpers ──────────────────────────────────────────────────────
+
+  private computeDepartmentCounts(): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const emp of this.employees) {
+      const deptId = emp.roleSlug ? resolveEmployeeDepartment(emp.roleSlug) : null;
+      const zoneId = deptId ? `zone-${deptId}` : 'zone-dev';
+      counts.set(zoneId, (counts.get(zoneId) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private findAvailableWorkstation(roleSlug?: string): string | null {
+    if (!this.floorPlan) return null;
+    const deptId = roleSlug ? resolveEmployeeDepartment(roleSlug) : null;
+    const zoneId = deptId ? `zone-${deptId}` : 'zone-dev';
+
+    const zone = this.floorPlan.zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return null;
+
+    const occupied = new Set<string>();
+    for (const entity of this.employeeEntities.values()) {
+      for (const ws of zone.workstations) {
+        if (Math.abs(entity.container.x - ws.x) < 5 && Math.abs(entity.container.y - (ws.y + PUPPET_Y_OFFSET)) < 5) {
+          occupied.add(ws.workstationId);
+        }
+      }
+    }
+
+    const available = zone.workstations.find((ws) => !occupied.has(ws.workstationId));
+    return available?.workstationId ?? zone.workstations[0]?.workstationId ?? null;
+  }
+
+  private findUnoccupiedWorkstation(): string | null {
+    if (!this.floorPlan) return null;
+
+    const allDesks = this.floorPlan.zones.flatMap((z) => z.workstations);
+    const occupied = new Set<string>();
+
+    for (const entity of this.employeeEntities.values()) {
+      for (const desk of allDesks) {
+        if (Math.abs(entity.container.x - desk.x) < 5 && Math.abs(entity.container.y - (desk.y + PUPPET_Y_OFFSET)) < 5) {
+          occupied.add(desk.workstationId);
+        }
+      }
+    }
+
+    return allDesks.find((d) => !occupied.has(d.workstationId))?.workstationId ?? null;
+  }
+
+  private getDefaultCharacterConfig(id: string): CharacterConfig {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash * 31 + id.charCodeAt(i)) | 0;
+    }
+    const idx = Math.abs(hash) % DEFAULT_CHARACTER_CONFIGS.length;
+    return DEFAULT_CHARACTER_CONFIGS[idx]!;
+  }
+
+  // ── Event subscriptions ──────────────────────────────────────────
+
   private subscribeEvents(): void {
-    // Employee state changes — also drive highlight from state (I6)
     this.unsubscribers.push(
       this.eventBus.on('employee.state.changed', (event) => {
         const { employeeId, next } = event.payload as EmployeeStatePayload;
@@ -467,8 +491,6 @@ export class SceneManager {
           entity.setState(next);
           entity.setHighlight(next !== 'idle');
         }
-
-        // ANIM-032: Attention routing
         if (next === 'blocked' || next === 'failed') {
           this.requestAttention(employeeId, 5);
         } else if (next === 'idle' || next === 'success') {
@@ -477,8 +499,6 @@ export class SceneManager {
       }),
     );
 
-    // Task assignment changes (I6: use typed payload)
-    // Also clears any pending MCP tool overlay timer for the employee.
     this.unsubscribers.push(
       this.eventBus.on('task.assignment.changed', (event) => {
         const { employeeId, action, taskRunId } = event.payload as TaskAssignmentPayload;
@@ -487,19 +507,14 @@ export class SceneManager {
           this.clearToolOverlayTimer(employeeId);
           entity.setTask(action === 'assigned' ? taskRunId : null);
         }
-
-        // Route line management (ANIM-004)
         if (action === 'assigned' && this.layers) {
-          // Create route from first entity (boss/manager) to assigned employee
           const fromEntity = this.getRouteOrigin();
           const toEntity = this.employeeEntities.get(employeeId);
           if (fromEntity && toEntity) {
             const line = new RouteLineEntity(taskRunId, STATE_COLORS.assigned, this.motion);
             line.setEndpoints(
-              fromEntity.container.x,
-              fromEntity.container.y,
-              toEntity.container.x,
-              toEntity.container.y,
+              fromEntity.container.x, fromEntity.container.y,
+              toEntity.container.x, toEntity.container.y,
             );
             this.layers.semantic.addChild(line.container);
             this.routeLines.set(taskRunId, line);
@@ -510,12 +525,9 @@ export class SceneManager {
       }),
     );
 
-    // Graph node entered — map node to employee, set visual state + highlight
     this.unsubscribers.push(
       this.eventBus.on('graph.node.entered', (event) => {
         const { nodeName } = event.payload as GraphNodeEnteredPayload;
-
-        // Try static node → employee mapping first
         const mapping = this.nodeVisualMap[nodeName];
         if (mapping) {
           const entity = this.employeeEntities.get(mapping.employeeId);
@@ -525,19 +537,15 @@ export class SceneManager {
             this.nodeActiveEmployees.set(nodeName, mapping.employeeId);
           }
         } else {
-          // Fallback: word-boundary match for future per-employee nodes (e.g. "alice_work")
           const match = this.findEmployeeForNode(nodeName);
           if (match) match.setHighlight(true);
         }
       }),
     );
 
-    // Graph node exited — revert mapped employee to idle, clear highlight
     this.unsubscribers.push(
       this.eventBus.on('graph.node.exited', (event) => {
         const { nodeName } = event.payload as GraphNodeExitedPayload;
-
-        // Revert node-mapped employee to idle
         const employeeId = this.nodeActiveEmployees.get(nodeName);
         if (employeeId) {
           const entity = this.employeeEntities.get(employeeId);
@@ -547,7 +555,6 @@ export class SceneManager {
           }
           this.nodeActiveEmployees.delete(nodeName);
         } else {
-          // Fallback: clear all highlights (for non-mapped nodes)
           for (const entity of this.employeeEntities.values()) {
             entity.setHighlight(false);
           }
@@ -555,65 +562,40 @@ export class SceneManager {
       }),
     );
 
-    // Meeting state changes (ANIM-016~019)
     this.unsubscribers.push(
       this.eventBus.on('meeting.state.changed', (event) => {
         const { next, participantIds } = event.payload as MeetingStatePayload;
-        switch (next) {
-          case 'scheduled':
-            this.meetingRoom?.showScheduled();
-            break;
-          case 'gathering':
-            this.meetingRoom?.showGathering();
-            // ANIM-017: Route lines from participants to meeting room
-            if (this.layers && this.meetingRoom) {
-              for (const pid of participantIds) {
-                const entity = this.employeeEntities.get(pid);
-                if (entity) {
-                  const line = new RouteLineEntity(
-                    `meeting-${pid}`,
-                    STATE_COLORS.meeting,
-                    this.motion,
-                  );
-                  line.setEndpoints(
-                    entity.container.x,
-                    entity.container.y,
-                    this.meetingRoom.container.x,
-                    this.meetingRoom.container.y,
-                  );
-                  this.layers.semantic.addChild(line.container);
-                  this.routeLines.set(`meeting-${pid}`, line);
-                }
+        if (next === 'gathering' && this.layers && this.floorPlan) {
+          const meetingZone = this.floorPlan.zones.find((z) => z.type === 'meeting_room');
+          if (meetingZone) {
+            const mtgCx = meetingZone.x + meetingZone.width / 2;
+            const mtgCy = meetingZone.y + meetingZone.height / 2;
+            for (const pid of participantIds) {
+              const entity = this.employeeEntities.get(pid);
+              if (entity) {
+                const line = new RouteLineEntity(`meeting-${pid}`, STATE_COLORS.meeting, this.motion);
+                line.setEndpoints(entity.container.x, entity.container.y, mtgCx, mtgCy);
+                this.layers.semantic.addChild(line.container);
+                this.routeLines.set(`meeting-${pid}`, line);
               }
             }
-            break;
-          case 'running':
-            this.meetingRoom?.showActive();
-            break;
-          case 'completed':
-          case 'cancelled':
-            this.meetingRoom?.showEnded();
-            // Remove meeting route lines
-            for (const pid of participantIds) {
-              this.removeRouteLine(`meeting-${pid}`);
-            }
-            break;
+          }
+        }
+        if (next === 'completed' || next === 'cancelled') {
+          for (const pid of participantIds) {
+            this.removeRouteLine(`meeting-${pid}`);
+          }
         }
       }),
     );
 
-    // MCP tool call — show tool name in employee bubble with auto-clear
     this.unsubscribers.push(
       this.eventBus.on('mcp.tool.called', (event) => {
         const payload = event.payload as McpToolCalledPayload;
         const entity = this.employeeEntities.get(payload.employeeId);
         if (entity) {
-          // Clear any existing tool overlay timer for this employee
           this.clearToolOverlayTimer(payload.employeeId);
-
           entity.setTask(`🔧 ${payload.toolName}`);
-
-          // Auto-clear after 3s — the next state or task event will override anyway
           const timer = setTimeout(() => {
             this.toolOverlayTimers.delete(payload.employeeId);
             entity.setTask(null);
@@ -623,24 +605,20 @@ export class SceneManager {
       }),
     );
 
-    // Employee installed — add new employee to scene as lobster (from package)
     this.unsubscribers.push(
       this.eventBus.on('employee.installed', (event) => {
         const payload = event.payload as EmployeeInstalledPayload;
-        // Installed employees default to 'lobster' — they come from packages (OpenClaw)
         this.addEmployee(payload.employeeId, payload.name, 'lobster');
       }),
     );
 
-    // Employee created (UI) — add new employee to scene as human avatar
     this.unsubscribers.push(
       this.eventBus.on('employee.created', (event) => {
         const payload = event.payload as EmployeeCreatedPayload;
-        this.addEmployee(payload.employeeId, payload.name, 'employee');
+        this.addEmployee(payload.employeeId, payload.name, 'employee', payload.roleSlug);
       }),
     );
 
-    // Employee deleted — remove from scene with exit animation
     this.unsubscribers.push(
       this.eventBus.on('employee.deleted', (event) => {
         const payload = event.payload as EmployeeDeletedPayload;
@@ -649,7 +627,6 @@ export class SceneManager {
       }),
     );
 
-    // Employee workstation changed (remote trigger / DOM fallback)
     this.unsubscribers.push(
       this.eventBus.on('employee.workstation.changed', (event) => {
         const payload = event.payload as EmployeeWorkstationChangedPayload;
@@ -659,7 +636,6 @@ export class SceneManager {
       }),
     );
 
-    // Task state changes — route line cleanup + task echo (ANIM-004/015)
     this.unsubscribers.push(
       this.eventBus.on('task.state.changed', (event) => {
         const payload = event.payload as import('@aics/shared-types').TaskStatePayload;
@@ -667,26 +643,17 @@ export class SceneManager {
         if (next === 'completed' || next === 'failed' || next === 'cancelled') {
           this.removeRouteLine(taskRunId);
         }
-
-        // ANIM-015: Task echo — briefly highlight assigned employee
-        if (next === 'running' || next === 'completed') {
-          const employeeId = payload.employeeId;
-          if (employeeId) {
-            const entity = this.employeeEntities.get(employeeId);
-            if (entity) {
-              this.flashHighlight(entity, 500);
-            }
-          }
+        if ((next === 'running' || next === 'completed') && payload.employeeId) {
+          const entity = this.employeeEntities.get(payload.employeeId);
+          if (entity) this.flashHighlight(entity, 500);
         }
       }),
     );
 
-    // Selection sync (ANIM-005) — panel -> scene
     this.unsubscribers.push(
       this.eventBus.on('ui.selection.changed', (event) => {
         const payload = event.payload as import('@aics/shared-types').UiSelectionPayload;
         if (payload.source === 'panel') {
-          // Highlight selected entity in scene
           for (const [id, entity] of this.employeeEntities) {
             entity.setHighlight(id === payload.entityId);
           }
@@ -694,27 +661,19 @@ export class SceneManager {
       }),
     );
 
-    // Install trust feedback (ANIM-020 through ANIM-026)
     this.unsubscribers.push(
       this.eventBus.on('install.state.changed', (event) => {
         const payload = event.payload as import('@aics/shared-types').InstallStatePayload;
         const { installTxnId, next } = payload;
-
         if (next === 'compatibility_checked' || next === 'awaiting_confirmation') {
-          // ANIM-020: Show ghost at empty desk
           this.showInstallGhost(installTxnId);
         } else if (next === 'materializing') {
-          // ANIM-024: Increase ghost opacity
           this.stepInstallGhostOpacity(0.7);
         } else if (next === 'installed') {
-          // ANIM-025: Ghost becomes real — handled by employee.installed event
           this.removeInstallGhost();
         } else if (next === 'failed' || next === 'rolled_back' || next === 'cancelled') {
-          // ANIM-026: Ghost dissolves
           this.dissolveInstallGhost();
         }
-
-        // Attention routing for install failures
         if (next === 'failed' || next === 'rolled_back') {
           this.requestAttention(installTxnId, 5);
         } else if (next === 'installed' || next === 'cancelled') {
@@ -723,43 +682,28 @@ export class SceneManager {
       }),
     );
 
-    // Report state changes (ANIM-028, ANIM-031)
     this.unsubscribers.push(
       this.eventBus.on('report.state.changed', (event) => {
         const payload = event.payload as ReportStatePayload;
         if (payload.next === 'ready' && payload.employeeId) {
-          // ANIM-028: Brief highlight on employee
           const entity = this.employeeEntities.get(payload.employeeId);
-          if (entity) {
-            this.flashHighlight(entity, 2000);
-          }
+          if (entity) this.flashHighlight(entity, 2000);
         }
       }),
     );
 
-    // Performance tier changes (ANIM-034)
     this.unsubscribers.push(
       this.eventBus.on('runtime.performance.tier.changed', (event) => {
         const tier = (event.payload as { tier: PerformanceTier }).tier;
         this._performanceTier = tier;
       }),
     );
-
-    // Re-center on resize — store handler ref for cleanup (C1)
-    if (this.app) {
-      const handleResize = () => this.centerWorld();
-      this.app.renderer.on('resize', handleResize);
-      const renderer = this.app.renderer;
-      this.unsubscribers.push(() => renderer.off('resize', handleResize));
-    }
   }
 
-  /** Get the first entity in the map as route origin (boss/manager). */
   private getRouteOrigin(): SceneEntity | undefined {
     return this.employeeEntities.values().next().value;
   }
 
-  /** Briefly highlight an entity and auto-clear after the given duration. */
   private flashHighlight(entity: SceneEntity, durationMs: number): void {
     entity.setHighlight(true);
     const timer = setTimeout(() => {
@@ -769,7 +713,6 @@ export class SceneManager {
     this.highlightTimers.add(timer);
   }
 
-  /** Fade out and remove a route line by taskRunId. */
   private removeRouteLine(taskRunId: string): void {
     const line = this.routeLines.get(taskRunId);
     if (line) {
@@ -778,32 +721,18 @@ export class SceneManager {
     }
   }
 
-  /** ANIM-020: Show semi-transparent ghost entity at empty desk */
   private showInstallGhost(txnId: string): void {
-    if (this.installGhost || !this.layers || !this.floorLayer) return;
+    if (this.installGhost || !this.layers || !this.floorPlan) return;
 
-    // Find unoccupied desk position
-    const deskPositions = this.floorLayer.getDeskPositions();
-    const occupiedPositions = new Set<number>();
-    for (const [, entity] of this.employeeEntities) {
-      for (let i = 0; i < deskPositions.length; i++) {
-        const pos = deskPositions[i]!;
-        if (Math.abs(entity.container.x - pos.x) < 10) {
-          occupiedPositions.add(i);
-        }
-      }
-    }
-    const emptyIdx = deskPositions.findIndex((_, i) => !occupiedPositions.has(i));
-    const pos =
-      emptyIdx >= 0
-        ? deskPositions[emptyIdx]!
-        : { x: LAYOUT.floor.width / 2, y: LAYOUT.floor.height / 2 };
+    const wsId = this.findUnoccupiedWorkstation();
+    const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
 
     const ghost = this.createEntity('ghost-preview', '?', this.entityStyle);
-    ghost.container.position.set(
-      pos.x,
-      pos.y - LAYOUT.desk.height / 2 - LAYOUT.employee.radius - 8,
-    );
+    if (pos) {
+      ghost.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
+    } else {
+      ghost.container.position.set(this.floorPlan.totalWidth / 2, this.floorPlan.totalHeight / 2);
+    }
     ghost.container.alpha = 0.4;
 
     this.layers.semantic.addChild(ghost.container);
@@ -811,7 +740,6 @@ export class SceneManager {
     this._installGhostTxnId = txnId;
   }
 
-  /** ANIM-024: Step ghost opacity during materialization */
   private stepInstallGhostOpacity(target: number): void {
     if (!this.installGhost) return;
     const { duration, ease } = this.motion.M2;
@@ -822,7 +750,6 @@ export class SceneManager {
     }
   }
 
-  /** ANIM-025: Remove ghost (real entity added by employee.installed handler) */
   private removeInstallGhost(): void {
     if (!this.installGhost) return;
     this.installGhost.destroy();
@@ -830,7 +757,6 @@ export class SceneManager {
     this._installGhostTxnId = null;
   }
 
-  /** ANIM-026: Ghost dissolves with fade + shrink */
   private dissolveInstallGhost(): void {
     if (!this.installGhost) return;
     const ghost = this.installGhost;
@@ -842,20 +768,14 @@ export class SceneManager {
       const dissolveDuration = Math.max(duration, MIN_FADE_DURATION);
       gsap.to(ghost.container, { alpha: 0, duration: dissolveDuration, ease });
       gsap.to(ghost.container.scale, {
-        x: 0.8,
-        y: 0.8,
-        duration: dissolveDuration,
-        ease,
-        onComplete: () => {
-          ghost.destroy();
-        },
+        x: 0.8, y: 0.8, duration: dissolveDuration, ease,
+        onComplete: () => ghost.destroy(),
       });
     } else {
       ghost.destroy();
     }
   }
 
-  /** Clear and remove a pending MCP tool overlay timer for the given employee. */
   private clearToolOverlayTimer(employeeId: string): void {
     const existing = this.toolOverlayTimers.get(employeeId);
     if (existing !== undefined) {
@@ -864,35 +784,26 @@ export class SceneManager {
     }
   }
 
-  /** Request scene attention for an entity (ANIM-032) */
   private requestAttention(entityId: string, priority: number): void {
     this.attentionRequests.set(entityId, { priority, timestamp: Date.now() });
     this.updateSpotlight();
   }
 
-  /** Clear attention for an entity */
   private clearAttention(entityId: string): void {
     this.attentionRequests.delete(entityId);
     this.updateSpotlight();
   }
 
-  /** Find highest-priority attention target and apply spotlight */
   private updateSpotlight(): void {
     if (!this.layers) return;
 
-    // Find highest priority (most recent if tied)
     let best: { entityId: string; priority: number; timestamp: number } | null = null;
     for (const [entityId, req] of this.attentionRequests) {
-      if (
-        !best ||
-        req.priority > best.priority ||
-        (req.priority === best.priority && req.timestamp > best.timestamp)
-      ) {
+      if (!best || req.priority > best.priority || (req.priority === best.priority && req.timestamp > best.timestamp)) {
         best = { entityId, ...req };
       }
     }
 
-    // Clear existing spotlight
     if (this.spotlightGfx) {
       this.layers.focus.removeChild(this.spotlightGfx);
       this.spotlightGfx.destroy();
@@ -900,31 +811,21 @@ export class SceneManager {
     }
 
     if (!best) return;
-
-    // Apply spotlight to winning entity
     const entity = this.employeeEntities.get(best.entityId);
     if (!entity) return;
-
-    // Tier C: no attention routing
     if (this._performanceTier === 'C' || this._reducedMotion) return;
 
     const gfx = new Graphics();
-    gfx.circle(entity.container.x, entity.container.y, LAYOUT.employee.radius + 20);
+    gfx.circle(entity.container.x, entity.container.y, 40);
     gfx.fill({ color: 0xfbbf24, alpha: this._performanceTier === 'B' ? 0.1 : 0.15 });
     this.layers.focus.addChild(gfx);
     this.spotlightGfx = gfx;
   }
 
-  /**
-   * Map a graph node name to an employee entity.
-   * Uses word-boundary matching to avoid substring collisions (I5).
-   * E.g. "alice_work" matches "emp-alice" but "alice2_work" does not match "emp-alice".
-   */
   private findEmployeeForNode(nodeName: string): SceneEntity | undefined {
     const lower = nodeName.toLowerCase();
     for (const [id, entity] of this.employeeEntities) {
       const name = id.replace('emp-', '');
-      // Word-boundary match: name must be delimited by start/end or non-alpha chars
       const pattern = new RegExp(`(?:^|[^a-z])${name}(?:$|[^a-z])`);
       if (pattern.test(lower)) return entity;
     }

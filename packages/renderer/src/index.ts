@@ -13,17 +13,16 @@ export type { LayerName, SceneLayers } from './core/types.js';
 export {
   STATE_COLORS,
   MOTION,
-  LAYOUT,
   MOTION_TIER_A,
   MOTION_TIER_B,
   MOTION_TIER_C,
   getMotionForTier,
-  AVATAR,
-  FURNITURE,
-  STATE_BADGE,
   EMPLOYEE_STATE_SIGNALS,
   SIGNAL_PRIORITY_ORDER,
   resolveCompetingSignals,
+  RD_COMPANY_DEPARTMENTS,
+  RD_COMPANY_ZONES,
+  resolveEmployeeDepartment,
 } from './tokens/index.js';
 export type {
   MotionBucket,
@@ -32,14 +31,24 @@ export type {
   SceneSignalType,
   SignalPriority,
   StateSignal,
+  DepartmentConfig,
+  ZoneConfig,
+  ZoneType,
 } from './tokens/index.js';
 
-// Entity types — normal employees (human avatar) + OpenClaw agents (lobster)
-export { EmployeeEntity } from './entities/employee-entity.js';
-export { LobsterEntity } from './entities/lobster-entity.js';
+// Puppet system — modular paper-doll characters
+export { EmployeePuppet } from './puppet/employee-puppet.js';
+export { LobsterPuppet } from './puppet/lobster-puppet.js';
+export { BasePuppet } from './puppet/base-puppet.js';
+export type { CharacterConfig, PuppetAnimState, HairStyle, BodyType, GenderPresentation } from './puppet/types.js';
+export { DEFAULT_CHARACTER_CONFIGS, PUPPET } from './puppet/types.js';
+
+// Layout engine
+export { computeFloorPlan, computeRestAreaSeats } from './layout/zone-layout-engine.js';
+export type { OfficeFloorPlan, ZoneBounds, DeskPosition, FloorPlanOptions } from './layout/zone-layout-engine.js';
+
+// Entities
 export { RouteLineEntity } from './entities/route-line-entity.js';
-export { drawPixelGrid, idToHue } from './pixel/draw-pixel-grid.js';
-export { PX, PIXEL_PALETTE } from './pixel/pixel-palette.js';
 
 // Animations
 export { AmbientSystem } from './animations/ambient-system.js';
@@ -47,10 +56,22 @@ export { AmbientSystem } from './animations/ambient-system.js';
 // Interaction
 export { InteractionController } from './interaction/interaction-controller.js';
 export type { DragResult } from './interaction/interaction-controller.js';
+export { CameraController } from './interaction/camera-controller.js';
+export type { CameraControllerOptions } from './interaction/camera-controller.js';
 
 // Layers
-export { DEFAULT_WORKSTATION_IDS, FloorLayer } from './layers/floor-layer.js';
-export type { DeskPosition, WorkstationBounds } from './layers/floor-layer.js';
+export { FloorLayer } from './layers/floor-layer.js';
+export type { WorkstationBounds } from './layers/floor-layer.js';
 
-// Layout config
-export { type LayoutConfig, type WorkstationConfig, LAYOUT_PRESETS, getPreset } from './types/layout-config.js';
+// Shapes
+export {
+  drawDesk,
+  drawChair,
+  drawMonitor,
+  drawBookshelf,
+  drawReadingTable,
+  drawSofa,
+  drawCoffeeTable,
+  drawPlant,
+  drawVendingMachine,
+} from './shapes/furniture.js';

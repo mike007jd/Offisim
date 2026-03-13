@@ -1,15 +1,23 @@
-import { Container, Graphics } from 'pixi.js';
-import { drawPixelGrid } from '../pixel/draw-pixel-grid.js';
-import { FLOOR_TILE_A, FLOOR_TILE_B } from '../pixel/floor-tiles.js';
-import { PIXEL_CHAIR, PIXEL_DESK, PIXEL_MONITOR } from '../pixel/furniture-shapes.js';
-import { PX } from '../pixel/pixel-palette.js';
-import { LAYOUT } from '../tokens/layout.js';
+// ── Floor layer ──────────────────────────────────────────────────────
+// Draws the full R&D office floor plan from a computed OfficeFloorPlan.
+// Uses vector furniture shapes — no pixel art.
 
-export interface DeskPosition {
-  x: number;
-  y: number;
-  workstationId?: string;
-}
+import { Container, Graphics, Text } from 'pixi.js';
+import type { OfficeFloorPlan, ZoneBounds, DeskPosition } from '../layout/zone-layout-engine.js';
+import {
+  drawDesk,
+  drawChair,
+  drawMonitor,
+  drawBookshelf,
+  drawReadingTable,
+  drawSofa,
+  drawCoffeeTable,
+  drawPlant,
+  drawVendingMachine,
+} from '../shapes/furniture.js';
+
+/** Re-export DeskPosition for backward compat with InteractionController */
+export type { DeskPosition } from '../layout/zone-layout-engine.js';
 
 /** Axis-aligned bounding box for workstation hit-testing. */
 export interface WorkstationBounds {
@@ -19,84 +27,54 @@ export interface WorkstationBounds {
   height: number;
 }
 
-/** Size of one tile in screen pixels (16 logical px * PX scale) */
-const TILE_SCREEN = 16 * PX; // 48
-
-/**
- * Default workstation IDs for the 2×2 desk grid.
- * Stable identifiers used for DB persistence and drag-drop targeting.
- */
-export const DEFAULT_WORKSTATION_IDS = ['ws-1', 'ws-2', 'ws-3', 'ws-4'] as const;
-
 /** Highlight color for drop-target feedback (amber-400). */
 const HIGHLIGHT_COLOR = 0xfbbf24;
 const HIGHLIGHT_ALPHA = 0.25;
 const HIGHLIGHT_BORDER_ALPHA = 0.6;
 
+/** Workstation hit-test area around each desk center. */
+const WS_HALF_W = 35;
+const WS_HALF_H = 30;
+
 export class FloorLayer {
   readonly container: Container;
-  /** Highlight overlay graphics keyed by workstationId. */
+  private readonly plan: OfficeFloorPlan;
   private highlights: Map<string, Graphics> = new Map();
-  /** Container for highlight overlays — added above floor but below furniture. */
   private highlightContainer: Container;
 
-  constructor() {
+  constructor(plan: OfficeFloorPlan) {
+    this.plan = plan;
     this.container = new Container();
     this.highlightContainer = new Container();
+
     this.drawFloor();
+    this.drawZoneBorders();
+    this.drawZoneLabels();
     this.container.addChild(this.highlightContainer);
     this.drawDesks();
+    this.drawFunctionalZones();
   }
 
-  /** Get desk center positions for placing employees */
+  /** Get desk positions from the floor plan. */
   getDeskPositions(): DeskPosition[] {
-    const { floor, desk } = LAYOUT;
-    const startX = (floor.width - (2 * desk.width + desk.gap)) / 2 + desk.width / 2;
-    const startY = (floor.height - (2 * desk.height + desk.gap)) / 2 + desk.height / 2;
-
-    return [
-      { x: startX, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[0] },
-      { x: startX + desk.width + desk.gap, y: startY, workstationId: DEFAULT_WORKSTATION_IDS[1] },
-      { x: startX, y: startY + desk.height + desk.gap, workstationId: DEFAULT_WORKSTATION_IDS[2] },
-      {
-        x: startX + desk.width + desk.gap,
-        y: startY + desk.height + desk.gap,
-        workstationId: DEFAULT_WORKSTATION_IDS[3],
-      },
-    ];
+    return this.plan.zones.flatMap((z) => z.workstations);
   }
 
-  /**
-   * Get bounding boxes for all workstations, suitable for drag-drop hit-testing.
-   * Each box is centered on the desk and large enough to cover the desk + chair + monitor area.
-   */
+  /** Get workstation bounds for drag-drop hit-testing. */
   getWorkstationBounds(): Map<string, WorkstationBounds> {
-    const { desk, employee } = LAYOUT;
-    const positions = this.getDeskPositions();
     const result = new Map<string, WorkstationBounds>();
-
-    // Bounds are the desk area extended to include chair, monitor, and employee space
-    const halfW = Math.max(desk.width, employee.radius) + 10;
-    const halfH = desk.height / 2 + employee.radius + employee.labelOffsetY + 10;
-
-    for (const pos of positions) {
-      if (!pos.workstationId) continue;
-      result.set(pos.workstationId, {
-        x: pos.x - halfW,
-        y: pos.y - halfH,
-        width: halfW * 2,
-        height: halfH * 2,
+    for (const [wsId, pos] of this.plan.allWorkstations) {
+      result.set(wsId, {
+        x: pos.x - WS_HALF_W,
+        y: pos.y - WS_HALF_H,
+        width: WS_HALF_W * 2,
+        height: WS_HALF_H * 2,
       });
     }
-
     return result;
   }
 
-  /**
-   * Show or hide a highlight overlay on a workstation (for drop-target feedback).
-   * @param workstationId - The workstation to highlight
-   * @param on - Whether to show (true) or hide (false) the highlight
-   */
+  /** Show or hide a highlight overlay on a workstation (for drop-target feedback). */
   setWorkstationHighlight(workstationId: string, on: boolean): void {
     const existing = this.highlights.get(workstationId);
 
@@ -108,18 +86,14 @@ export class FloorLayer {
       }
       return;
     }
-
-    // Already highlighted
     if (existing) return;
 
     const bounds = this.getWorkstationBounds().get(workstationId);
     if (!bounds) return;
 
     const gfx = new Graphics();
-    // Fill
     gfx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
     gfx.fill({ color: HIGHLIGHT_COLOR, alpha: HIGHLIGHT_ALPHA });
-    // Border
     gfx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
     gfx.stroke({ color: HIGHLIGHT_COLOR, alpha: HIGHLIGHT_BORDER_ALPHA, width: 2 });
 
@@ -134,51 +108,200 @@ export class FloorLayer {
     }
   }
 
-  /**
-   * Draw a checkerboard pixel-art floor using alternating tile patterns.
-   * Covers the full floor area (800×500) with 48px tiles.
-   */
+  /** Get zone bounds by zoneId (for camera focusZone). */
+  getZoneBounds(zoneId: string): ZoneBounds | undefined {
+    return this.plan.zones.find((z) => z.zoneId === zoneId);
+  }
+
+  // ── Private drawing methods ──────────────────────────────────────
+
+  /** Draw zone backgrounds as colored rectangles. */
   private drawFloor(): void {
-    const { width, height } = LAYOUT.floor;
-    const cols = Math.ceil(width / TILE_SCREEN);
-    const rows = Math.ceil(height / TILE_SCREEN);
     const g = new Graphics();
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const tile = (r + c) % 2 === 0 ? FLOOR_TILE_A : FLOOR_TILE_B;
-        drawPixelGrid(g, tile, c * TILE_SCREEN, r * TILE_SCREEN);
-      }
+    // Overall background
+    g.rect(0, 0, this.plan.totalWidth, this.plan.totalHeight);
+    g.fill(0x111827);
+
+    // Zone floors
+    for (const zone of this.plan.zones) {
+      g.roundRect(zone.x, zone.y, zone.width, zone.height, 6);
+      g.fill(zone.floorColor);
     }
 
     this.container.addChild(g);
   }
 
-  /**
-   * Draw pixel furniture at each desk position:
-   * desk surface + monitor on top + chair in front (below desk).
-   */
+  /** Draw subtle zone borders. */
+  private drawZoneBorders(): void {
+    const g = new Graphics();
+    for (const zone of this.plan.zones) {
+      g.roundRect(zone.x, zone.y, zone.width, zone.height, 6);
+      g.stroke({ color: 0xffffff, alpha: 0.08, width: 1 });
+    }
+    this.container.addChild(g);
+  }
+
+  /** Draw zone labels (English abbreviation at top-left of each zone). */
+  private drawZoneLabels(): void {
+    for (const zone of this.plan.zones) {
+      const label = new Text({
+        text: zone.labelEn,
+        style: {
+          fontSize: 11,
+          fill: 0xffffff,
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 'bold',
+          letterSpacing: 1.5,
+        },
+      });
+      label.alpha = 0.4;
+      label.position.set(zone.x + 8, zone.y + 6);
+      this.container.addChild(label);
+
+      // Chinese label below
+      const subLabel = new Text({
+        text: zone.label,
+        style: {
+          fontSize: 8,
+          fill: 0xffffff,
+          fontFamily: 'system-ui, sans-serif',
+        },
+      });
+      subLabel.alpha = 0.25;
+      subLabel.position.set(zone.x + 8, zone.y + 20);
+      this.container.addChild(subLabel);
+    }
+  }
+
+  /** Draw desks at each workstation position (department zones). */
   private drawDesks(): void {
-    const positions = this.getDeskPositions();
+    for (const zone of this.plan.zones) {
+      if (zone.type !== 'department') continue;
 
-    for (const pos of positions) {
-      const g = new Graphics();
+      for (const ws of zone.workstations) {
+        // Desk
+        const deskGfx = new Graphics();
+        drawDesk(deskGfx, 50, 28, 0x5c4033);
+        deskGfx.position.set(ws.x, ws.y);
+        this.container.addChild(deskGfx);
 
-      // Desk: center the pixel desk grid on the desk position
-      const deskW = PIXEL_DESK[0]!.length * PX;
-      const deskH = PIXEL_DESK.length * PX;
-      drawPixelGrid(g, PIXEL_DESK, pos.x - deskW / 2, pos.y - deskH / 2);
+        // Monitor on desk
+        const monGfx = new Graphics();
+        drawMonitor(monGfx, 22, 18);
+        monGfx.position.set(ws.x, ws.y - 18);
+        this.container.addChild(monGfx);
 
-      // Monitor: centered horizontally on desk, placed at the top edge of the desk
-      const monW = PIXEL_MONITOR[0]!.length * PX;
-      const monH = PIXEL_MONITOR.length * PX;
-      drawPixelGrid(g, PIXEL_MONITOR, pos.x - monW / 2, pos.y - deskH / 2 - monH + 2 * PX);
+        // Chair behind desk
+        const chairGfx = new Graphics();
+        drawChair(chairGfx, 20, 22, 0x2d3748);
+        chairGfx.position.set(ws.x, ws.y + 22);
+        this.container.addChild(chairGfx);
+      }
+    }
+  }
 
-      // Chair: centered horizontally, placed just below the desk
-      const chairW = PIXEL_CHAIR[0]!.length * PX;
-      drawPixelGrid(g, PIXEL_CHAIR, pos.x - chairW / 2, pos.y + deskH / 2 + PX);
+  /** Draw functional zone furniture (library, rest area, meeting room). */
+  private drawFunctionalZones(): void {
+    for (const zone of this.plan.zones) {
+      switch (zone.type) {
+        case 'library':
+          this.drawLibraryFurniture(zone);
+          break;
+        case 'rest_area':
+          this.drawRestAreaFurniture(zone);
+          break;
+        case 'meeting_room':
+          this.drawMeetingFurniture(zone);
+          break;
+      }
+    }
+  }
 
-      this.container.addChild(g);
+  /** Draw bookshelves and reading tables in the library zone. */
+  private drawLibraryFurniture(zone: ZoneBounds): void {
+    const cx = zone.x + zone.width / 2;
+    const cy = zone.y + zone.height / 2;
+
+    // Bookshelves along the top
+    const shelfCount = Math.max(2, Math.floor(zone.width / 60));
+    const shelfGap = (zone.width - 40) / shelfCount;
+    for (let i = 0; i < shelfCount; i++) {
+      const shelfGfx = new Graphics();
+      drawBookshelf(shelfGfx, 30, 40);
+      shelfGfx.position.set(zone.x + 20 + i * shelfGap + shelfGap / 2, zone.y + 50);
+      this.container.addChild(shelfGfx);
+    }
+
+    // Reading table in center
+    const tableGfx = new Graphics();
+    drawReadingTable(tableGfx, 36, 20, 0x6b5b3a);
+    tableGfx.position.set(cx, cy + 15);
+    this.container.addChild(tableGfx);
+
+    // Plant in corner
+    const plantGfx = new Graphics();
+    drawPlant(plantGfx, 14, 22);
+    plantGfx.position.set(zone.x + zone.width - 20, zone.y + zone.height - 20);
+    this.container.addChild(plantGfx);
+  }
+
+  /** Draw sofas, coffee table, and vending machine in rest area. */
+  private drawRestAreaFurniture(zone: ZoneBounds): void {
+    const cx = zone.x + zone.width / 2;
+    const cy = zone.y + zone.height / 2;
+
+    // Sofa
+    const sofaGfx = new Graphics();
+    drawSofa(sofaGfx, 44, 22, 0x6b21a8);
+    sofaGfx.position.set(cx - 30, cy);
+    this.container.addChild(sofaGfx);
+
+    // Coffee table
+    const tableGfx = new Graphics();
+    drawCoffeeTable(tableGfx, 24, 16, 0x78350f);
+    tableGfx.position.set(cx + 20, cy);
+    this.container.addChild(tableGfx);
+
+    // Vending machine
+    const vendGfx = new Graphics();
+    drawVendingMachine(vendGfx, 18, 32);
+    vendGfx.position.set(zone.x + zone.width - 25, zone.y + 50);
+    this.container.addChild(vendGfx);
+
+    // Plant
+    const plantGfx = new Graphics();
+    drawPlant(plantGfx, 14, 22);
+    plantGfx.position.set(zone.x + 20, zone.y + zone.height - 20);
+    this.container.addChild(plantGfx);
+  }
+
+  /** Draw a conference table and chairs in the meeting room zone. */
+  private drawMeetingFurniture(zone: ZoneBounds): void {
+    const cx = zone.x + zone.width / 2;
+    const cy = zone.y + zone.height / 2;
+
+    // Large conference table
+    const tableGfx = new Graphics();
+    tableGfx.roundRect(-50, -30, 100, 60, 8);
+    tableGfx.fill(0x4a3728);
+    tableGfx.position.set(cx, cy);
+    this.container.addChild(tableGfx);
+
+    // Chairs around table (6)
+    const chairPositions = [
+      { x: cx - 35, y: cy - 40 },
+      { x: cx, y: cy - 40 },
+      { x: cx + 35, y: cy - 40 },
+      { x: cx - 35, y: cy + 40 },
+      { x: cx, y: cy + 40 },
+      { x: cx + 35, y: cy + 40 },
+    ];
+    for (const pos of chairPositions) {
+      const cGfx = new Graphics();
+      drawChair(cGfx, 16, 18, 0x374151);
+      cGfx.position.set(pos.x, pos.y);
+      this.container.addChild(cGfx);
     }
   }
 }

@@ -1,23 +1,29 @@
-import { LAYOUT_PRESETS } from '@aics/renderer';
-import { useState } from 'react';
+import { RD_COMPANY_ZONES } from '@aics/renderer';
 
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 
-const presetNames = Object.keys(LAYOUT_PRESETS);
-
+/** Display the zone-based office layout configuration. */
 export function OfficeEditor() {
   const { layouts, activeLayout, loading, createLayout, setActive, deleteLayout } =
     useOfficeLayout();
-  const [selectedPreset, setSelectedPreset] = useState('2x2');
 
   if (loading) {
     return <div className="p-3 text-sm text-zinc-400">Loading layouts...</div>;
   }
 
   const handleCreate = async () => {
-    const preset = LAYOUT_PRESETS[selectedPreset];
-    if (!preset) return;
-    const id = await createLayout(`${selectedPreset} Layout`, JSON.stringify(preset));
+    // Create a zone-based R&D office layout
+    const config = {
+      type: 'zone-layout',
+      zones: RD_COMPANY_ZONES.map((z) => ({
+        zoneId: z.zoneId,
+        type: z.type,
+        label: z.label,
+        labelEn: z.labelEn,
+        minSlots: z.minSlots,
+      })),
+    };
+    const id = await createLayout('R&D Office', JSON.stringify(config));
     await setActive(id);
   };
 
@@ -25,19 +31,11 @@ export function OfficeEditor() {
     <div className="flex flex-col gap-3 p-3">
       <h3 className="text-sm font-semibold text-zinc-200">Office Layout</h3>
 
-      {/* Create from preset */}
+      {/* Create zone layout */}
       <div className="flex items-center gap-2">
-        <select
-          value={selectedPreset}
-          onChange={(e) => setSelectedPreset(e.target.value)}
-          className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
-        >
-          {presetNames.map((name) => (
-            <option key={name} value={name}>
-              {name} ({LAYOUT_PRESETS[name]!.workstations.length} workstations)
-            </option>
-          ))}
-        </select>
+        <span className="flex-1 text-sm text-zinc-400">
+          R&D Office ({RD_COMPANY_ZONES.length} zones: DEV, PROD, ART, LIB, REST, MTG)
+        </span>
         <button
           type="button"
           onClick={handleCreate}
@@ -54,13 +52,13 @@ export function OfficeEditor() {
         <div className="flex flex-col gap-2">
           {layouts.map((layout) => {
             const isActive = activeLayout?.layout_id === layout.layout_id;
-            let config: { gridCols?: number; gridRows?: number; workstations?: unknown[] } = {};
+            let config: { type?: string; zones?: unknown[] } = {};
             try {
               config = JSON.parse(layout.layout_json);
             } catch {
               /* ignore */
             }
-            const wsCount = Array.isArray(config.workstations) ? config.workstations.length : 0;
+            const zoneCount = Array.isArray(config.zones) ? config.zones.length : 0;
 
             return (
               <div
@@ -73,7 +71,7 @@ export function OfficeEditor() {
                   <div>
                     <span className="text-sm font-medium text-zinc-200">{layout.name}</span>
                     <span className="ml-2 text-xs text-zinc-500">
-                      {config.gridCols}x{config.gridRows} · {wsCount} workstations
+                      {zoneCount} zones
                     </span>
                   </div>
                   <div className="flex items-center gap-1">

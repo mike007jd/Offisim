@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { SCENE_COLORS, STATE_COLORS } from '../tokens/colors.js';
-import { LAYOUT } from '../tokens/layout.js';
 import {
   MOTION,
   MOTION_REDUCED,
@@ -72,14 +71,12 @@ describe('Performance Tiers', () => {
   });
 });
 
-describe('tokens/layout', () => {
-  it('floor dimensions are reasonable', () => {
-    expect(LAYOUT.floor.width).toBeGreaterThan(0);
-    expect(LAYOUT.floor.height).toBeGreaterThan(0);
-  });
-
-  it('desk fits within floor', () => {
-    const totalDeskWidth = LAYOUT.desk.width * 2 + LAYOUT.desk.gap;
-    expect(totalDeskWidth).toBeLessThan(LAYOUT.floor.width);
+describe('tokens/departments', () => {
+  it('resolves known role slugs', async () => {
+    const { resolveEmployeeDepartment } = await import('../tokens/departments.js');
+    expect(resolveEmployeeDepartment('developer')).toBe('dev');
+    expect(resolveEmployeeDepartment('pm')).toBe('product');
+    expect(resolveEmployeeDepartment('designer')).toBe('art');
+    expect(resolveEmployeeDepartment('unknown')).toBeNull();
   });
 });

@@ -1,0 +1,360 @@
+// ── Zone Layout Engine ──────────────────────────────────────────────
+// Pure algorithm module — NO PixiJS / GSAP dependencies.
+// Computes an OfficeFloorPlan from zone configs and employee counts.
+// The office is one floor divided into typed zones arranged in rows.
+
+import type { ZoneConfig } from '../tokens/departments.js';
+
+// ── Public types ────────────────────────────────────────────────────
+
+export interface DeskPosition {
+  workstationId: string;
+  x: number;
+  y: number;
+  zoneId: string;
+}
+
+export interface ZoneBounds {
+  zoneId: string;
+  type: 'department' | 'library' | 'rest_area' | 'meeting_room';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floorColor: number;
+  label: string;
+  labelEn: string;
+  workstations: DeskPosition[];
+}
+
+export interface OfficeFloorPlan {
+  totalWidth: number;
+  totalHeight: number;
+  zones: ZoneBounds[];
+  /** All workstations keyed by workstationId */
+  allWorkstations: Map<string, DeskPosition>;
+}
+
+export interface FloorPlanOptions {
+  /** Padding between zones (default: 20) */
+  zonePadding?: number;
+  /** Gap between desks within a zone (default: 80) */
+  deskGap?: number;
+  /** Desk width (default: 50) */
+  deskWidth?: number;
+  /** Desk height (default: 30) */
+  deskHeight?: number;
+  /** Floor margin (default: 30) */
+  margin?: number;
+}
+
+// ── Defaults ────────────────────────────────────────────────────────
+
+const DEFAULT_OPTIONS: Required<FloorPlanOptions> = {
+  zonePadding: 20,
+  deskGap: 80,
+  deskWidth: 50,
+  deskHeight: 30,
+  margin: 30,
+};
+
+/** Label header height inside each zone */
+const ZONE_HEADER_HEIGHT = 30;
+
+/** Minimum non-department zone dimension */
+const MIN_UTILITY_WIDTH = 200;
+const MIN_UTILITY_HEIGHT = 120;
+
+/** Floor width constraints */
+const MIN_FLOOR_WIDTH = 800;
+const MAX_FLOOR_WIDTH = 2400;
+
+// ── Core layout algorithm ───────────────────────────────────────────
+
+/**
+ * Compute the full office floor plan.
+ *
+ * Layout rows:
+ *   Row 1: Department zones side by side (sorted by slot count, largest left)
+ *   Row 2: Library + Rest Area side by side
+ *   Row 3: Meeting Room (full width, centered)
+ */
+export function computeFloorPlan(
+  zones: readonly ZoneConfig[],
+  employeeCounts: Map<string, number>,
+  options?: FloorPlanOptions,
+): OfficeFloorPlan {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  // ── Classify zones by type ──────────────────────────────────────
+  const departmentZones = zones.filter((z) => z.type === 'department');
+  const libraryZone = zones.find((z) => z.type === 'library');
+  const restZone = zones.find((z) => z.type === 'rest_area');
+  const meetingZone = zones.find((z) => z.type === 'meeting_room');
+
+  // ── Step 1: Compute slot counts for departments ─────────────────
+  const slotMap = new Map<string, number>();
+  for (const dz of departmentZones) {
+    const count = employeeCounts.get(dz.zoneId) ?? 0;
+    // 20% headroom, but never below minSlots
+    const slots = Math.max(dz.minSlots, Math.ceil(count * 1.2));
+    slotMap.set(dz.zoneId, slots);
+  }
+
+  // Sort departments by slot count descending (largest left)
+  const sortedDepts = [...departmentZones].sort(
+    (a, b) => (slotMap.get(b.zoneId) ?? 0) - (slotMap.get(a.zoneId) ?? 0),
+  );
+
+  // ── Step 2: Compute each department zone's internal dimensions ──
+  interface DeptLayout {
+    zone: ZoneConfig;
+    slots: number;
+    cols: number;
+    rows: number;
+    width: number;
+    height: number;
+  }
+
+  const deptLayouts: DeptLayout[] = sortedDepts.map((zone) => {
+    const slots = slotMap.get(zone.zoneId) ?? zone.minSlots;
+    return computeDeptZoneLayout(zone, slots, opts);
+  });
+
+  // ── Step 3: Arrange Row 1 (departments) ─────────────────────────
+  const row1Width = deptLayouts.reduce((sum, d) => sum + d.width, 0)
+    + Math.max(0, deptLayouts.length - 1) * opts.zonePadding;
+  const row1Height = deptLayouts.length > 0
+    ? Math.max(...deptLayouts.map((d) => d.height))
+    : 0;
+
+  // ── Step 4: Arrange Row 2 (Library + Rest Area) ─────────────────
+  // These zones share the row, each gets half the available width
+  const hasRow2 = libraryZone || restZone;
+  const row2Zones = [libraryZone, restZone].filter(Boolean) as ZoneConfig[];
+
+  // ── Step 5: Determine total floor width ─────────────────────────
+  const rawFloorWidth = Math.max(row1Width, MIN_FLOOR_WIDTH);
+  const floorContentWidth = Math.min(rawFloorWidth, MAX_FLOOR_WIDTH);
+
+  // Row 2 dimensions
+  const row2Count = row2Zones.length;
+  const row2ZoneWidth = row2Count > 0
+    ? (floorContentWidth - (row2Count - 1) * opts.zonePadding) / row2Count
+    : 0;
+  const row2Height = hasRow2
+    ? Math.max(MIN_UTILITY_HEIGHT, MIN_UTILITY_HEIGHT)
+    : 0;
+
+  // Row 3 (meeting room)
+  const row3Height = meetingZone ? MIN_UTILITY_HEIGHT : 0;
+
+  // ── Step 6: Compute total dimensions ────────────────────────────
+  const rowCount = [row1Height > 0, hasRow2, !!meetingZone].filter(Boolean).length;
+  const interRowPadding = Math.max(0, rowCount - 1) * opts.zonePadding;
+
+  const totalWidth = floorContentWidth + 2 * opts.margin;
+  const totalHeight =
+    row1Height + row2Height + row3Height + interRowPadding + 2 * opts.margin;
+
+  // ── Step 7: Place zones and generate workstations ───────────────
+  const result: ZoneBounds[] = [];
+  const allWorkstations = new Map<string, DeskPosition>();
+
+  // -- Row 1: Departments --
+  let cursorX = opts.margin;
+  const row1Y = opts.margin;
+
+  for (const dl of deptLayouts) {
+    const workstations = generateDeskGrid(
+      dl.zone.zoneId,
+      cursorX,
+      row1Y,
+      dl.slots,
+      dl.cols,
+      opts,
+    );
+
+    result.push({
+      zoneId: dl.zone.zoneId,
+      type: 'department',
+      x: cursorX,
+      y: row1Y,
+      width: dl.width,
+      height: dl.height,
+      floorColor: dl.zone.floorColor,
+      label: dl.zone.label,
+      labelEn: dl.zone.labelEn,
+      workstations,
+    });
+
+    for (const ws of workstations) {
+      allWorkstations.set(ws.workstationId, ws);
+    }
+
+    cursorX += dl.width + opts.zonePadding;
+  }
+
+  // -- Row 2: Library + Rest Area --
+  if (hasRow2) {
+    const row2Y = row1Y + row1Height + (row1Height > 0 ? opts.zonePadding : 0);
+    let row2CursorX = opts.margin;
+
+    for (const z of row2Zones) {
+      const zoneWidth = Math.max(MIN_UTILITY_WIDTH, row2ZoneWidth);
+      result.push({
+        zoneId: z.zoneId,
+        type: z.type as ZoneBounds['type'],
+        x: row2CursorX,
+        y: row2Y,
+        width: zoneWidth,
+        height: row2Height,
+        floorColor: z.floorColor,
+        label: z.label,
+        labelEn: z.labelEn,
+        workstations: [], // utility zones have no permanent workstations
+      });
+
+      row2CursorX += zoneWidth + opts.zonePadding;
+    }
+  }
+
+  // -- Row 3: Meeting Room (centered) --
+  if (meetingZone) {
+    const row3Y = opts.margin
+      + row1Height
+      + (row1Height > 0 ? opts.zonePadding : 0)
+      + row2Height
+      + (hasRow2 ? opts.zonePadding : 0);
+
+    const meetingWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.6);
+    const meetingX = opts.margin + (floorContentWidth - meetingWidth) / 2;
+
+    result.push({
+      zoneId: meetingZone.zoneId,
+      type: 'meeting_room',
+      x: meetingX,
+      y: row3Y,
+      width: meetingWidth,
+      height: row3Height,
+      floorColor: meetingZone.floorColor,
+      label: meetingZone.label,
+      labelEn: meetingZone.labelEn,
+      workstations: [],
+    });
+  }
+
+  return {
+    totalWidth,
+    totalHeight,
+    zones: result,
+    allWorkstations,
+  };
+}
+
+// ── Rest area seat computation ──────────────────────────────────────
+
+/**
+ * Generate temporary seat positions inside a rest area zone.
+ * Uses a relaxed grid with larger spacing for informal seating.
+ */
+export function computeRestAreaSeats(
+  zone: ZoneBounds,
+  count: number,
+): DeskPosition[] {
+  if (count <= 0) return [];
+
+  const seatGap = 100; // larger spacing than desks
+  const seatSize = 40;
+  const padding = 20;
+  const headerOffset = ZONE_HEADER_HEIGHT;
+
+  const usableWidth = zone.width - 2 * padding;
+  const cols = Math.max(1, Math.floor(usableWidth / (seatSize + seatGap)));
+  const seats: DeskPosition[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+
+    const x = zone.x + padding + col * (seatSize + seatGap) + seatSize / 2;
+    const y = zone.y + headerOffset + padding + row * (seatSize + seatGap) + seatSize / 2;
+
+    // Only place seats that fit within the zone
+    if (x + seatSize / 2 > zone.x + zone.width || y + seatSize / 2 > zone.y + zone.height) {
+      break;
+    }
+
+    seats.push({
+      workstationId: `seat-${zone.zoneId}-${i}`,
+      x,
+      y,
+      zoneId: zone.zoneId,
+    });
+  }
+
+  return seats;
+}
+
+// ── Internal helpers ────────────────────────────────────────────────
+
+/**
+ * Compute internal grid dimensions for a department zone.
+ */
+function computeDeptZoneLayout(
+  zone: ZoneConfig,
+  slots: number,
+  opts: Required<FloorPlanOptions>,
+) {
+  const cellWidth = opts.deskWidth + opts.deskGap;
+  const cellHeight = opts.deskHeight + opts.deskGap;
+
+  // Zone should be wide enough for at least 2 desks side-by-side,
+  // or enough to hold half the slots per row (roughly 2-row layout).
+  const rawWidth = Math.max(
+    2 * cellWidth,
+    Math.ceil(slots / 2) * cellWidth,
+  );
+  const width = rawWidth;
+
+  const cols = Math.max(1, Math.floor(width / cellWidth));
+  const rows = Math.max(1, Math.ceil(slots / cols));
+  const height = rows * cellHeight + ZONE_HEADER_HEIGHT;
+
+  return { zone, slots, cols, rows, width, height };
+}
+
+/**
+ * Generate a grid of desk positions within a zone.
+ * Desks are placed below the header, centered within each cell.
+ */
+function generateDeskGrid(
+  zoneId: string,
+  zoneX: number,
+  zoneY: number,
+  slots: number,
+  cols: number,
+  opts: Required<FloorPlanOptions>,
+): DeskPosition[] {
+  const cellWidth = opts.deskWidth + opts.deskGap;
+  const cellHeight = opts.deskHeight + opts.deskGap;
+  const desks: DeskPosition[] = [];
+
+  for (let i = 0; i < slots; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+
+    // Position = zone origin + cell offset + half-desk centering
+    const x = zoneX + col * cellWidth + opts.deskGap / 2 + opts.deskWidth / 2;
+    const y = zoneY + ZONE_HEADER_HEIGHT + row * cellHeight + opts.deskGap / 2 + opts.deskHeight / 2;
+
+    desks.push({
+      workstationId: `ws-${zoneId}-${i}`,
+      x,
+      y,
+      zoneId,
+    });
+  }
+
+  return desks;
+}

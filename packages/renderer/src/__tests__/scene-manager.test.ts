@@ -42,27 +42,20 @@ vi.mock('pixi.js', () => {
   }
 
   class MockGraphics extends MockContainer {
-    clear() {
-      return this;
-    }
-    circle() {
-      return this;
-    }
-    roundRect() {
-      return this;
-    }
-    rect() {
-      return this;
-    }
-    fill() {
-      return this;
-    }
-    stroke() {
-      return this;
-    }
-    cut() {
-      return this;
-    }
+    clear() { return this; }
+    circle() { return this; }
+    roundRect() { return this; }
+    rect() { return this; }
+    ellipse() { return this; }
+    moveTo() { return this; }
+    lineTo() { return this; }
+    quadraticCurveTo() { return this; }
+    bezierCurveTo() { return this; }
+    closePath() { return this; }
+    arc() { return this; }
+    fill() { return this; }
+    stroke() { return this; }
+    cut() { return this; }
   }
 
   class MockText extends MockContainer {
@@ -83,7 +76,7 @@ vi.mock('pixi.js', () => {
 
   class MockApplication {
     stage = new MockContainer();
-    canvas = { style: {} };
+    canvas = { style: {}, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     screen = { width: 800, height: 600 };
     renderer = mockRenderer;
     async init() {}
@@ -104,16 +97,24 @@ vi.mock('gsap', () => {
     return { kill: vi.fn(), vars: {} };
   }
   function makeTimeline() {
-    const tl = {
+    const tl: Record<string, unknown> = {
       to: vi.fn(() => tl),
+      set: vi.fn(() => tl),
+      fromTo: vi.fn(() => tl),
+      call: vi.fn(() => tl),
+      addLabel: vi.fn(() => tl),
+      add: vi.fn(() => tl),
       kill: vi.fn(),
       vars: {},
+      repeat: vi.fn(() => tl),
+      yoyo: vi.fn(() => tl),
     };
     return tl;
   }
   return {
     default: {
       to: vi.fn(() => makeTween()),
+      set: vi.fn(() => makeTween()),
       fromTo: vi.fn(() => makeTween()),
       timeline: vi.fn(() => makeTimeline()),
     },
@@ -308,7 +309,7 @@ describe('SceneManager', () => {
   });
 
   describe('entity types', () => {
-    it('default employees use EmployeeEntity (human avatar)', async () => {
+    it('default employees use EmployeePuppet (human avatar)', async () => {
       const sm = new SceneManager({
         container,
         eventBus,
@@ -329,7 +330,7 @@ describe('SceneManager', () => {
       );
     });
 
-    it('lobster entityType creates LobsterEntity', async () => {
+    it('lobster entityType creates LobsterPuppet', async () => {
       const sm = new SceneManager({
         container,
         eventBus,
@@ -383,33 +384,33 @@ describe('SceneManager', () => {
       expect(sm.addEmployee('emp-new', 'NewGuy')).toBe(false);
     });
 
-    it('adds a lobster entity by default (installed = OpenClaw)', async () => {
+    it('adds an employee puppet by default', async () => {
       const sm = new SceneManager({ container, eventBus });
       await sm.mount();
 
       const initialCount = sm.employeeCount;
-      const result = sm.addEmployee('claw-new', 'NewLobster');
+      const result = sm.addEmployee('emp-new', 'NewEmployee');
       expect(result).toBe(true);
       expect(sm.employeeCount).toBe(initialCount + 1);
-      expect(sm.employeeIds).toContain('claw-new');
+      expect(sm.employeeIds).toContain('emp-new');
 
-      // Lobster entity should respond to state events
+      // Employee puppet should respond to state events
       eventBus.fire(
         makeEvent('employee.state.changed', {
-          employeeId: 'claw-new',
+          employeeId: 'emp-new',
           prev: 'idle',
           next: 'thinking',
         }),
       );
     });
 
-    it('adds an employee entity when entityType is employee', async () => {
+    it('adds a lobster puppet when entityType is lobster', async () => {
       const sm = new SceneManager({ container, eventBus });
       await sm.mount();
 
-      const result = sm.addEmployee('emp-dave', 'Dave', 'employee');
+      const result = sm.addEmployee('claw-dave', 'Dave', 'lobster');
       expect(result).toBe(true);
-      expect(sm.employeeIds).toContain('emp-dave');
+      expect(sm.employeeIds).toContain('claw-dave');
 
       eventBus.fire(
         makeEvent('employee.state.changed', {

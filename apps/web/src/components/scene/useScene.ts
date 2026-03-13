@@ -92,7 +92,25 @@ export function useScene(reducedMotion = false) {
     repos.employees.findByCompany(COMPANY_ID).then((rows) => {
       if (cancelled) return;
       for (const row of rows) {
-        manager.addEmployee(row.employee_id, row.name, 'employee');
+        // Extract characterConfig from persona_json if present
+        let characterConfig: Record<string, unknown> | undefined;
+        if (row.persona_json) {
+          try {
+            const persona = JSON.parse(row.persona_json);
+            if (persona.characterConfig) {
+              characterConfig = persona.characterConfig;
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+        }
+        manager.addEmployee(
+          row.employee_id,
+          row.name,
+          'employee',
+          row.role_slug ?? undefined,
+          characterConfig as import('@aics/renderer').CharacterConfig | undefined,
+        );
       }
     });
 

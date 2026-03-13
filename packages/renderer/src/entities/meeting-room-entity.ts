@@ -1,7 +1,17 @@
 import gsap from 'gsap';
 import { Container, Graphics } from 'pixi.js';
-import { LAYOUT } from '../tokens/layout.js';
 import type { MotionBucket } from '../tokens/motion.js';
+
+/** Meeting room layout constants (self-contained — no external LAYOUT dependency). */
+const MEETING = {
+  tableWidth: 100,
+  tableHeight: 60,
+  tableCornerRadius: 8,
+  chairRadius: 8,
+  chairSideX: 65,
+  chairInnerX: 30,
+  chairInnerY: 45,
+} as const;
 
 /**
  * PixiJS entity representing a meeting room.
@@ -14,9 +24,7 @@ export class MeetingRoomEntity {
   private readonly table: Graphics;
   private readonly chairs: Graphics[];
   private readonly motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
-  /** Track active tweens for cleanup (matches EmployeeEntity pattern). */
   private activeTweens: gsap.core.Tween[] = [];
-  /** Amber glow overlay behind table for meeting state feedback (ANIM-016~019). */
   private tableGlow: Graphics | null = null;
 
   constructor(motion: Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>) {
@@ -24,13 +32,11 @@ export class MeetingRoomEntity {
     this.container = new Container();
     this.container.visible = false;
 
-    // Build table + chairs visuals
     this.table = this.buildTable();
     this.chairs = this.buildChairs();
     this.container.addChild(this.table, ...this.chairs);
   }
 
-  /** Show the meeting room with scale-from-zero + fade-in entrance animation. */
   show(): void {
     this.container.visible = true;
     this.container.scale.set(0);
@@ -46,19 +52,14 @@ export class MeetingRoomEntity {
     }
   }
 
-  /** Hide the meeting room with scale-to-zero + fade-out exit animation. */
   hide(): void {
     const { duration, ease } = this.motion.M2;
     if (duration > 0) {
       this.trackTween(gsap.to(this.container.scale, { x: 0, y: 0, duration, ease }));
       this.trackTween(
         gsap.to(this.container, {
-          alpha: 0,
-          duration,
-          ease,
-          onComplete: () => {
-            this.container.visible = false;
-          },
+          alpha: 0, duration, ease,
+          onComplete: () => { this.container.visible = false; },
         }),
       );
     } else {
@@ -68,27 +69,24 @@ export class MeetingRoomEntity {
     }
   }
 
-  /** ANIM-016: Meeting scheduled — soft glow tint */
   showScheduled(): void {
     this.container.visible = true;
     this.container.scale.set(1);
     this.container.alpha = 1;
-    // Add amber glow tint to table
     if (!this.tableGlow) {
       this.tableGlow = new Graphics();
       this.tableGlow.roundRect(
-        -LAYOUT.meetingRoom.tableWidth / 2 - 4,
-        -LAYOUT.meetingRoom.tableHeight / 2 - 4,
-        LAYOUT.meetingRoom.tableWidth + 8,
-        LAYOUT.meetingRoom.tableHeight + 8,
-        LAYOUT.meetingRoom.tableCornerRadius,
+        -MEETING.tableWidth / 2 - 4,
+        -MEETING.tableHeight / 2 - 4,
+        MEETING.tableWidth + 8,
+        MEETING.tableHeight + 8,
+        MEETING.tableCornerRadius,
       );
       this.tableGlow.fill({ color: 0xfbbf24, alpha: 0.15 });
       this.container.addChildAt(this.tableGlow, 0);
     }
   }
 
-  /** ANIM-017: Gathering — increase glow */
   showGathering(): void {
     if (this.tableGlow) {
       const { duration, ease } = this.motion.M2;
@@ -100,7 +98,6 @@ export class MeetingRoomEntity {
     }
   }
 
-  /** ANIM-018: Active meeting — focus glow */
   showActive(): void {
     if (this.tableGlow) {
       const { duration, ease } = this.motion.M2;
@@ -112,16 +109,13 @@ export class MeetingRoomEntity {
     }
   }
 
-  /** ANIM-019: Meeting ended — fade glow */
   showEnded(): void {
     if (this.tableGlow) {
       const { duration, ease } = this.motion.M2;
       if (duration > 0) {
         this.trackTween(
           gsap.to(this.tableGlow, {
-            alpha: 0,
-            duration,
-            ease,
+            alpha: 0, duration, ease,
             onComplete: () => {
               if (this.tableGlow) {
                 this.container.removeChild(this.tableGlow);
@@ -139,11 +133,8 @@ export class MeetingRoomEntity {
     }
   }
 
-  /** Kill all running GSAP tweens and destroy the container. */
   destroy(): void {
-    for (const tw of this.activeTweens) {
-      tw.kill();
-    }
+    for (const tw of this.activeTweens) tw.kill();
     this.activeTweens = [];
     if (this.tableGlow) {
       this.tableGlow.destroy();
@@ -152,7 +143,6 @@ export class MeetingRoomEntity {
     this.container.destroy({ children: true });
   }
 
-  /** Track a tween and auto-remove on completion (same pattern as EmployeeEntity). */
   private trackTween(tw: gsap.core.Tween): void {
     this.activeTweens.push(tw);
     const origOnComplete = tw.vars.onComplete;
@@ -164,15 +154,15 @@ export class MeetingRoomEntity {
   }
 
   private buildTable(): Graphics {
-    const { tableWidth: w, tableHeight: h, tableCornerRadius: r } = LAYOUT.meetingRoom;
+    const { tableWidth: w, tableHeight: h, tableCornerRadius: r } = MEETING;
     const g = new Graphics();
     g.roundRect(-w / 2, -h / 2, w, h, r);
-    g.fill({ color: 0x5c6370 }); // Dark gray table
+    g.fill({ color: 0x5c6370 });
     return g;
   }
 
   private buildChairs(): Graphics[] {
-    const { chairSideX, chairInnerX, chairInnerY, chairRadius } = LAYOUT.meetingRoom;
+    const { chairSideX, chairInnerX, chairInnerY, chairRadius } = MEETING;
     const positions = [
       { x: -chairSideX, y: 0 },
       { x: chairSideX, y: 0 },
@@ -184,7 +174,7 @@ export class MeetingRoomEntity {
     return positions.map((pos) => {
       const g = new Graphics();
       g.circle(pos.x, pos.y, chairRadius);
-      g.fill({ color: 0x3e4451 }); // Darker chair
+      g.fill({ color: 0x3e4451 });
       return g;
     });
   }
