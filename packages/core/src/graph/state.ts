@@ -33,6 +33,7 @@ export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
   constraints?: string;
+  sopTemplateId?: string;  // explicit SOP selection — bypasses substring matching
 }
 
 export interface StepTaskOutput {

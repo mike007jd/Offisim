@@ -18,8 +18,21 @@ export {
   MOTION_TIER_B,
   MOTION_TIER_C,
   getMotionForTier,
+  AVATAR,
+  FURNITURE,
+  STATE_BADGE,
+  EMPLOYEE_STATE_SIGNALS,
+  SIGNAL_PRIORITY_ORDER,
+  resolveCompetingSignals,
 } from './tokens/index.js';
-export type { MotionBucket, PerformanceTier, MotionTokens } from './tokens/index.js';
+export type {
+  MotionBucket,
+  PerformanceTier,
+  MotionTokens,
+  SceneSignalType,
+  SignalPriority,
+  StateSignal,
+} from './tokens/index.js';
 
 // Entity types — normal employees (human avatar) + OpenClaw agents (lobster)
 export { EmployeeEntity } from './entities/employee-entity.js';
@@ -27,6 +40,9 @@ export { LobsterEntity } from './entities/lobster-entity.js';
 export { RouteLineEntity } from './entities/route-line-entity.js';
 export { drawPixelGrid, idToHue } from './pixel/draw-pixel-grid.js';
 export { PX, PIXEL_PALETTE } from './pixel/pixel-palette.js';
+
+// Animations
+export { AmbientSystem } from './animations/ambient-system.js';
 
 // Interaction
 export { InteractionController } from './interaction/interaction-controller.js';

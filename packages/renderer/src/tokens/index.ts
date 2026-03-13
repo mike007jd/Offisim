@@ -11,3 +11,12 @@ export {
   type MotionTokens,
 } from './motion.js';
 export { LAYOUT } from './layout.js';
+export { AVATAR, FURNITURE, STATE_BADGE } from './procedural-art.js';
+export {
+  EMPLOYEE_STATE_SIGNALS,
+  SIGNAL_PRIORITY_ORDER,
+  resolveCompetingSignals,
+  type SceneSignalType,
+  type SignalPriority,
+  type StateSignal,
+} from './state-feedback-matrix.js';

@@ -1,6 +1,46 @@
 import type { EventBus } from '../events/event-bus.js';
 import type { LibraryDocumentRepository, LibraryDocumentRow } from '../runtime/repositories.js';
 
+/** Score a document's relevance to a multi-keyword query */
+export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): number {
+  let score = 0;
+  const titleLower = doc.title.toLowerCase();
+  const contentLower = doc.content_text.toLowerCase();
+  for (const kw of keywords) {
+    if (titleLower.includes(kw)) score += 3; // title match worth 3x
+    // Count occurrences in content
+    let idx = 0;
+    while ((idx = contentLower.indexOf(kw, idx)) !== -1) {
+      score += 1;
+      idx += kw.length;
+    }
+  }
+  return score;
+}
+
+/** Extract a snippet around the first keyword match in content */
+export function extractRelevantSnippet(
+  content: string,
+  keywords: string[],
+  maxLen: number = 500,
+): string {
+  const contentLower = content.toLowerCase();
+  // Find position of first keyword match
+  let bestPos = 0;
+  for (const kw of keywords) {
+    const pos = contentLower.indexOf(kw);
+    if (pos >= 0) {
+      bestPos = pos;
+      break;
+    }
+  }
+  // Center snippet around match
+  const start = Math.max(0, bestPos - Math.floor(maxLen / 2));
+  const end = Math.min(content.length, start + maxLen);
+  const snippet = content.slice(start, end);
+  return (start > 0 ? '...' : '') + snippet + (end < content.length ? '...' : '');
+}
+
 export class LibraryService {
   constructor(
     private readonly libraryRepo: LibraryDocumentRepository,
@@ -46,43 +86,51 @@ export class LibraryService {
 
   /**
    * Get relevant snippets for a query — used by employee-node for document-augmented responses.
-   * Returns concatenated matching document excerpts up to maxChars.
+   * Splits query into keywords, scores documents by title (3x) + content (1x) match weight,
+   * sorts by relevance, and extracts snippets centered around keyword matches.
    */
   async getRelevantSnippets(
     companyId: string,
     query: string,
     maxChars: number = 4000,
   ): Promise<string> {
-    const docs = await this.libraryRepo.search(companyId, query, { limit: 5 });
+    const keywords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((k) => k.length >= 2);
+    if (keywords.length === 0) return '';
+
+    // Fetch candidates by searching each keyword individually for wider recall
+    const seen = new Set<string>();
+    const docs: LibraryDocumentRow[] = [];
+    for (const kw of keywords) {
+      const results = await this.libraryRepo.search(companyId, kw, { limit: 20 });
+      for (const doc of results) {
+        if (!seen.has(doc.doc_id)) {
+          seen.add(doc.doc_id);
+          docs.push(doc);
+        }
+      }
+    }
     if (docs.length === 0) return '';
 
-    const snippets: string[] = [];
-    let totalChars = 0;
+    // Score, filter, and rank by relevance
+    const scored = docs
+      .map((doc) => ({ doc, score: scoreDocument(doc, keywords) }))
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
 
-    for (const doc of docs) {
-      const excerpt = this.extractRelevantExcerpt(doc.content_text, query, 500);
-      const snippet = `[${doc.title}]\n${excerpt}`;
-      if (totalChars + snippet.length > maxChars) break;
-      snippets.push(snippet);
-      totalChars += snippet.length;
+    if (scored.length === 0) return '';
+
+    // Build result with keyword-centered snippets
+    let result = '';
+    for (const { doc } of scored) {
+      const snippet = extractRelevantSnippet(doc.content_text, keywords);
+      const entry = `[${doc.title}]\n${snippet}\n\n---\n\n`;
+      if (result.length + entry.length > maxChars) break;
+      result += entry;
     }
-
-    return snippets.join('\n\n---\n\n');
-  }
-
-  private extractRelevantExcerpt(content: string, query: string, maxLen: number): string {
-    const q = query.toLowerCase();
-    const idx = content.toLowerCase().indexOf(q);
-    if (idx === -1) {
-      // No exact match — return beginning
-      return content.slice(0, maxLen) + (content.length > maxLen ? '...' : '');
-    }
-    // Center the excerpt around the match
-    const start = Math.max(0, idx - Math.floor(maxLen / 2));
-    const end = Math.min(content.length, start + maxLen);
-    let excerpt = content.slice(start, end);
-    if (start > 0) excerpt = '...' + excerpt;
-    if (end < content.length) excerpt = excerpt + '...';
-    return excerpt;
+    return result.trim();
   }
 }

@@ -488,6 +488,49 @@ describe('pmPlannerNode — SOP integration', () => {
     expect(result.taskPlan!.summary).toMatch(/^SOP:/);
   });
 
+  it('uses explicit sopTemplateId without needing intent substring match', async () => {
+    // Intent does NOT mention the SOP name — but sopTemplateId is set explicitly
+    const state = makeState({
+      messages: [new HumanMessage('Do something unrelated')],
+      managerDirective: {
+        intent: 'Do something unrelated',
+        recommendedEmployees: ['e-res-1', 'e-wrt-1', 'e-rev-1'],
+        sopTemplateId: 'sopt-1',
+      },
+    });
+
+    const result = await pmPlannerNode(state, config);
+
+    expect(result.taskPlan).not.toBeNull();
+    expect(result.taskPlan!.summary).toMatch(/^SOP:/);
+    expect(result.taskPlan!.summary).toContain('Content Pipeline');
+    expect(result.taskPlan!.steps).toHaveLength(3);
+
+    // Verify role assignments from the SOP
+    expect(result.taskPlan!.steps[0]!.tasks[0]!.employeeId).toBe('e-res-1');
+    expect(result.taskPlan!.steps[1]!.tasks[0]!.employeeId).toBe('e-wrt-1');
+    expect(result.taskPlan!.steps[2]!.tasks[0]!.employeeId).toBe('e-rev-1');
+  });
+
+  it('falls back to substring matching when sopTemplateId is invalid', async () => {
+    // sopTemplateId points to a nonexistent template, but intent matches by substring
+    const state = makeState({
+      messages: [new HumanMessage('Run the Content Pipeline')],
+      managerDirective: {
+        intent: 'Run the Content Pipeline',
+        recommendedEmployees: ['e-res-1', 'e-wrt-1', 'e-rev-1'],
+        sopTemplateId: 'nonexistent-id',
+      },
+    });
+
+    const result = await pmPlannerNode(state, config);
+
+    // Should still find the SOP via substring fallback
+    expect(result.taskPlan).not.toBeNull();
+    expect(result.taskPlan!.summary).toMatch(/^SOP:/);
+    expect(result.taskPlan!.summary).toContain('Content Pipeline');
+  });
+
   it('falls through to LLM planning when intent does not reference SOP', async () => {
     gateway.pushResponse({
       content: JSON.stringify({

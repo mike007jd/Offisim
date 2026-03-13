@@ -241,13 +241,36 @@ export async function pmPlannerNode(
   const allEmployees = await repos.employees.findByCompany(companyId);
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
 
-  let plan: LlmPlan | null = await tryBuildSopPlan(
-    repos,
-    eventBus,
-    companyId,
-    directive.intent,
-    allEnabled,
-  );
+  let plan: LlmPlan | null = null;
+
+  // Explicit SOP selection takes priority over substring matching
+  if (directive.sopTemplateId) {
+    const template = await repos.sopTemplates.findById(directive.sopTemplateId);
+    if (template) {
+      try {
+        const sopDef: SopDefinition = JSON.parse(template.definition_json);
+        const sopService = new SopService(repos.sopTemplates, eventBus);
+        const validation = sopService.validateDefinition(sopDef);
+        if (validation.valid) {
+          const batches = sopService.getExecutionOrder(sopDef);
+          if (batches.length > 0) {
+            plan = sopBatchesToLlmPlan(sopDef, batches, allEnabled);
+          }
+        }
+      } catch { /* fall through to tryBuildSopPlan */ }
+    }
+  }
+
+  // Fall back to substring matching if no explicit SOP
+  if (!plan) {
+    plan = await tryBuildSopPlan(
+      repos,
+      eventBus,
+      companyId,
+      directive.intent,
+      allEnabled,
+    );
+  }
 
   // --- Fallback to LLM planning if no SOP matched ---
   if (!plan) {
