@@ -21,8 +21,8 @@ export interface CameraControllerOptions {
 
 export class CameraController {
   private readonly world: Container;
-  private readonly floorWidth: number;
-  private readonly floorHeight: number;
+  private _floorWidth: number;
+  private _floorHeight: number;
   private readonly minZoom: number;
   private readonly maxZoom: number;
 
@@ -42,8 +42,8 @@ export class CameraController {
 
   constructor(options: CameraControllerOptions) {
     this.world = options.world;
-    this.floorWidth = options.floorWidth;
-    this.floorHeight = options.floorHeight;
+    this._floorWidth = options.floorWidth;
+    this._floorHeight = options.floorHeight;
     this.minZoom = options.minZoom ?? 0.3;
     this.maxZoom = options.maxZoom ?? 2.0;
   }
@@ -63,6 +63,14 @@ export class CameraController {
     return this._panY;
   }
 
+  /** Update floor dimensions (e.g. after rebuildLayout). */
+  set floorWidth(value: number) {
+    this._floorWidth = value;
+  }
+  set floorHeight(value: number) {
+    this._floorHeight = value;
+  }
+
   /** Whether a GSAP animation is currently in progress. */
   get isAnimating(): boolean {
     return this._activeTween !== null && this._activeTween.isActive();
@@ -72,12 +80,12 @@ export class CameraController {
   fitToView(viewportWidth: number, viewportHeight: number): void {
     const padX = 40;
     const padY = 40;
-    const scaleX = (viewportWidth - padX * 2) / this.floorWidth;
-    const scaleY = (viewportHeight - padY * 2) / this.floorHeight;
+    const scaleX = (viewportWidth - padX * 2) / this._floorWidth;
+    const scaleY = (viewportHeight - padY * 2) / this._floorHeight;
     this._scale = this.clampScale(Math.min(scaleX, scaleY));
 
-    this._panX = (viewportWidth - this.floorWidth * this._scale) / 2;
-    this._panY = (viewportHeight - this.floorHeight * this._scale) / 2;
+    this._panX = (viewportWidth - this._floorWidth * this._scale) / 2;
+    this._panY = (viewportHeight - this._floorHeight * this._scale) / 2;
 
     this.applyTransform();
   }
@@ -196,11 +204,11 @@ export class CameraController {
   ): void {
     if (positions.length === 0) {
       const targetScale = this.computeFitScale(
-        this.floorWidth, this.floorHeight,
+        this._floorWidth, this._floorHeight,
         viewportWidth, viewportHeight, 40,
       );
-      const targetPanX = (viewportWidth - this.floorWidth * targetScale) / 2;
-      const targetPanY = (viewportHeight - this.floorHeight * targetScale) / 2;
+      const targetPanX = (viewportWidth - this._floorWidth * targetScale) / 2;
+      const targetPanY = (viewportHeight - this._floorHeight * targetScale) / 2;
       this.animateTo(targetScale, targetPanX, targetPanY, duration);
       return;
     }
@@ -242,12 +250,12 @@ export class CameraController {
   ): void {
     const padX = 40;
     const padY = 40;
-    const scaleX = (viewportWidth - padX * 2) / this.floorWidth;
-    const scaleY = (viewportHeight - padY * 2) / this.floorHeight;
+    const scaleX = (viewportWidth - padX * 2) / this._floorWidth;
+    const scaleY = (viewportHeight - padY * 2) / this._floorHeight;
     const targetScale = this.clampScale(Math.min(scaleX, scaleY));
 
-    const targetPanX = (viewportWidth - this.floorWidth * targetScale) / 2;
-    const targetPanY = (viewportHeight - this.floorHeight * targetScale) / 2;
+    const targetPanX = (viewportWidth - this._floorWidth * targetScale) / 2;
+    const targetPanY = (viewportHeight - this._floorHeight * targetScale) / 2;
 
     this.animateTo(targetScale, targetPanX, targetPanY, duration);
   }
@@ -283,8 +291,8 @@ export class CameraController {
 
   /** Clamp pan so the floor doesn't fly off-screen entirely. */
   private clampPan(viewportWidth: number, viewportHeight: number): void {
-    const worldW = this.floorWidth * this._scale;
-    const worldH = this.floorHeight * this._scale;
+    const worldW = this._floorWidth * this._scale;
+    const worldH = this._floorHeight * this._scale;
     const margin = 100;
     this._panX = Math.max(-worldW + margin, Math.min(viewportWidth - margin, this._panX));
     this._panY = Math.max(-worldH + margin, Math.min(viewportHeight - margin, this._panY));

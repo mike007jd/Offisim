@@ -59,12 +59,17 @@ export class InteractionController {
   constructor(
     private readonly stage: Container,
     private readonly entities: Map<string, SceneEntity>,
-    private readonly workstationBounds: Map<string, WorkstationBounds>,
+    private _workstationBounds: Map<string, WorkstationBounds>,
     _eventBus: SceneEventBus,
     private readonly motion: MotionTokens,
     private readonly onDrop: (result: DragResult) => void,
     private readonly onHighlight?: (workstationId: string, on: boolean) => void,
   ) {}
+
+  /** Update workstation bounds (e.g. after rebuildLayout). */
+  set workstationBounds(bounds: Map<string, WorkstationBounds>) {
+    this._workstationBounds = bounds;
+  }
 
   /** Whether drag-drop is currently enabled. */
   get enabled(): boolean {
@@ -271,7 +276,7 @@ export class InteractionController {
 
   /** Find the workstation whose bounds contain the given point. */
   private findWorkstationAt(x: number, y: number): string | null {
-    for (const [wsId, bounds] of this.workstationBounds) {
+    for (const [wsId, bounds] of this._workstationBounds) {
       if (
         x >= bounds.x &&
         x <= bounds.x + bounds.width &&

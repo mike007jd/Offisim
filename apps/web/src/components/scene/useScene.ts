@@ -112,6 +112,11 @@ export function useScene(reducedMotion = false) {
           characterConfig as import('@aics/renderer').CharacterConfig | undefined,
         );
       }
+      // Recompute floor plan now that all employees are loaded — zone sizes
+      // are based on actual department counts instead of the empty initial set.
+      if (rows.length > 0) {
+        manager.rebuildLayout();
+      }
     });
 
     return () => {

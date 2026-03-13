@@ -82,6 +82,10 @@ export class SceneManager {
   private seatAssignments: Map<number, string> = new Map();
   /** Set of workstation IDs currently occupied by entities */
   private occupiedDeskIndices: Set<string> = new Set();
+  /** Stored role slugs per employee for layout recomputation */
+  private employeeRoleSlugs: Map<string, string | undefined> = new Map();
+  /** Debounce timer for rebuildLayout after batch employee additions via events */
+  private _rebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -284,6 +288,7 @@ export class SceneManager {
     entity.container.alpha = 0;
     this.layers.entity.addChild(entity.container);
     this.employeeEntities.set(id, entity);
+    this.employeeRoleSlugs.set(id, roleSlug);
     this.interactionController?.registerEntity(id, entity);
 
     if (pos) {
@@ -310,6 +315,7 @@ export class SceneManager {
     if (!entity) return false;
     this.clearToolOverlayTimer(id);
     this.employeeEntities.delete(id);
+    this.employeeRoleSlugs.delete(id);
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
@@ -418,8 +424,127 @@ export class SceneManager {
     return [...this.employeeEntities.keys()];
   }
 
+  /**
+   * Recompute the floor plan based on current employees and reposition everyone.
+   *
+   * Call this after a batch of addEmployee() calls to ensure zone sizes
+   * match the actual department head counts. Without this, zones use the
+   * counts from mount() time (which may be 0 if employees were loaded async).
+   */
+  /**
+   * Schedule a debounced rebuildLayout. Multiple rapid employee additions
+   * (e.g. from template materialization) coalesce into a single rebuild.
+   */
+  private scheduleRebuild(): void {
+    if (this._rebuildTimer) clearTimeout(this._rebuildTimer);
+    this._rebuildTimer = setTimeout(() => {
+      this._rebuildTimer = null;
+      this.rebuildLayout();
+    }, 100);
+  }
+
+  rebuildLayout(): void {
+    if (!this.app || !this.layers || this._destroyed) return;
+
+    // 1. Recompute department counts from current entities
+    const counts = new Map<string, number>();
+    for (const [, roleSlug] of this.employeeRoleSlugs) {
+      const deptId = roleSlug ? resolveEmployeeDepartment(roleSlug) : null;
+      const zoneId = deptId ? `zone-${deptId}` : 'zone-dev';
+      counts.set(zoneId, (counts.get(zoneId) ?? 0) + 1);
+    }
+
+    // 2. Recompute floor plan
+    this.floorPlan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+
+    // 3. Rebuild floor layer (L0)
+    if (this.floorLayer) {
+      this.layers.floor.removeChild(this.floorLayer.container);
+      this.floorLayer.container.destroy({ children: true });
+    }
+    this.floorLayer = new FloorLayer(this.floorPlan);
+    this.layers.floor.addChild(this.floorLayer.container);
+
+    // 4. Recompute rest area seats
+    this.restAreaSeats = [];
+    this.seatAssignments.clear();
+    const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
+    if (restZone) {
+      const seatCount = Math.max(4, this.employeeEntities.size);
+      this.restAreaSeats = computeRestAreaSeats(restZone, seatCount);
+    }
+
+    // 5. Reposition all employees into their correct workstations.
+    //    Use explicit occupancy tracking (not position-based detection) to avoid
+    //    cascading desk-stealing when departments are placed sequentially.
+    const occupied = new Set<string>();
+    const overflowIds: string[] = [];
+
+    // Group employees by department zone so each dept fills its own zone first
+    const byZone = new Map<string, string[]>();
+    for (const [id] of this.employeeEntities) {
+      const roleSlug = this.employeeRoleSlugs.get(id);
+      const deptId = roleSlug ? resolveEmployeeDepartment(roleSlug) : null;
+      const zoneId = deptId ? `zone-${deptId}` : 'zone-dev';
+      if (!byZone.has(zoneId)) byZone.set(zoneId, []);
+      byZone.get(zoneId)!.push(id);
+    }
+
+    // Place each department's employees into their zone's workstations
+    for (const [zoneId, ids] of byZone) {
+      const zone = this.floorPlan.zones.find((z) => z.zoneId === zoneId);
+      if (!zone) {
+        overflowIds.push(...ids);
+        continue;
+      }
+      for (const id of ids) {
+        const ws = zone.workstations.find((w) => !occupied.has(w.workstationId));
+        if (ws) {
+          occupied.add(ws.workstationId);
+          const entity = this.employeeEntities.get(id)!;
+          entity.container.position.set(ws.x, ws.y + PUPPET_Y_OFFSET);
+        } else {
+          overflowIds.push(id);
+        }
+      }
+    }
+
+    // Overflow → try any remaining desk, then rest area
+    for (const id of overflowIds) {
+      const allDesks = this.floorPlan.zones.flatMap((z) => z.workstations);
+      const freeDsk = allDesks.find((w) => !occupied.has(w.workstationId));
+      if (freeDsk) {
+        occupied.add(freeDsk.workstationId);
+        const entity = this.employeeEntities.get(id)!;
+        entity.container.position.set(freeDsk.x, freeDsk.y + PUPPET_Y_OFFSET);
+      } else {
+        this.assignToRestArea(id);
+      }
+    }
+
+    // 6. Update camera + interaction controller
+    if (this.camera) {
+      this.camera.floorWidth = this.floorPlan.totalWidth;
+      this.camera.floorHeight = this.floorPlan.totalHeight;
+      const { width, height } = this.app.screen;
+      this.camera.fitToView(width, height);
+    }
+    if (this.interactionController && this.floorLayer) {
+      this.interactionController.workstationBounds = this.floorLayer.getWorkstationBounds();
+      if (restZone) {
+        this.interactionController.restAreaBounds = {
+          x: restZone.x, y: restZone.y, width: restZone.width, height: restZone.height,
+        };
+      }
+    }
+  }
+
   destroy(): void {
     this._destroyed = true;
+    if (this._rebuildTimer) {
+      clearTimeout(this._rebuildTimer);
+      this._rebuildTimer = null;
+    }
 
     for (const unsub of this.unsubscribers) unsub();
     this.unsubscribers = [];
@@ -704,6 +829,7 @@ export class SceneManager {
       this.eventBus.on('employee.installed', (event) => {
         const payload = event.payload as EmployeeInstalledPayload;
         this.addEmployee(payload.employeeId, payload.name, 'lobster');
+        this.scheduleRebuild();
       }),
     );
 
@@ -711,6 +837,7 @@ export class SceneManager {
       this.eventBus.on('employee.created', (event) => {
         const payload = event.payload as EmployeeCreatedPayload;
         this.addEmployee(payload.employeeId, payload.name, 'employee', payload.roleSlug);
+        this.scheduleRebuild();
       }),
     );
 
