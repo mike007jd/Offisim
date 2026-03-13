@@ -29,7 +29,7 @@ import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
 import { COMPANY_ID, THREAD_ID } from '../lib/constants';
 import { isTauri } from '../lib/env';
 import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
-import { AicsRuntimeContext, type AicsRuntimeValue } from './aics-runtime-context';
+import { AicsRuntimeContext, type AicsRuntimeValue } from '@aics/ui-office';
 
 type RuntimeBundle = {
   eventBus: InMemoryEventBus;

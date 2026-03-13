@@ -1,14 +1,8 @@
 import type { ListingDetail } from '@aics/registry-client';
+import { CreatorBadge, InstallButton, KindIcon, PermissionsPanel, RatingStars, ReviewList, VersionTable } from '@aics/ui-market';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { CreatorBadge } from '../../../components/CreatorBadge';
-import { InstallButton } from '../../../components/InstallButton';
-import { KindIcon } from '../../../components/KindIcon';
-import { PermissionsPanel } from '../../../components/PermissionsPanel';
-import { RatingStars } from '../../../components/RatingStars';
-import { ReviewList } from '../../../components/ReviewList';
-import { VersionTable } from '../../../components/VersionTable';
-import { formatInstallCount, kindLabel } from '../../../lib/format';
+import { formatInstallCount, kindLabel } from '@aics/ui-market';
 import { getRegistryClient } from '../../../lib/registry';
 
 interface Props {

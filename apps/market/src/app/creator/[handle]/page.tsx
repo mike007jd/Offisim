@@ -1,8 +1,8 @@
 import type { CreatorProfile } from '@aics/registry-client';
+import { ListingCard } from '@aics/ui-market';
 import { Globe, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ListingCard } from '../../../components/ListingCard';
 import { getRegistryClient } from '../../../lib/registry';
 
 interface Props {

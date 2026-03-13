@@ -1,23 +1,25 @@
 import { useCallback, useState } from 'react';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { AgentPanel } from './components/agents/AgentPanel';
-import { ChatDrawer } from './components/chat/ChatDrawer';
-import { ChatPanel } from './components/chat/ChatPanel';
-import { InstallDialog } from './components/install/InstallDialog';
-import { AppLayout } from './components/layout/AppLayout';
-import { Header } from './components/layout/Header';
-import { RightSidebar } from './components/layout/RightSidebar';
-import { StatusBar } from './components/layout/StatusBar';
-import { SceneCanvas } from './components/scene/SceneCanvas';
-import { SettingsDialog } from './components/settings/SettingsDialog';
-import { ToastBanner, useToasts } from './components/ui/toast-banner';
-import { CompanyCreationWizard } from './components/onboarding/CompanyCreationWizard';
-import { useReducedMotion } from './hooks/use-reduced-motion';
-import { useDeepLinkInstall } from './hooks/useDeepLinkInstall';
-import { useInstallFlow } from './hooks/useInstallFlow';
-import { type ProviderConfig, loadProviderConfig } from './lib/provider-config';
-import { useAicsRuntime } from './runtime/aics-runtime-context';
-import { useAgentStates } from './runtime/use-agent-states';
+import { ToastBanner, useToasts } from '@aics/ui-core';
+import {
+  AgentPanel,
+  AppLayout,
+  ChatDrawer,
+  ChatPanel,
+  CompanyCreationWizard,
+  ErrorBoundary,
+  Header,
+  InstallDialog,
+  RightSidebar,
+  SceneCanvas,
+  SettingsDialog,
+  StatusBar,
+  useAicsRuntime,
+  useAgentStates,
+  useDeepLinkInstall,
+  useInstallFlow,
+  useReducedMotion,
+} from '@aics/ui-office';
+import { type ProviderConfig, loadProviderConfig } from '@aics/ui-office';
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);

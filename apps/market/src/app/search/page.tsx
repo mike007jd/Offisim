@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
+import { ListingCard, SearchFilters } from '@aics/ui-market';
 import { Suspense } from 'react';
-import { ListingCard } from '../../components/ListingCard';
-import { SearchFilters } from '../../components/SearchFilters';
 import { getRegistryClient } from '../../lib/registry';
 
 interface Props {

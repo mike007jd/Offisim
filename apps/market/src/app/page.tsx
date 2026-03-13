@@ -1,5 +1,5 @@
 import type { ListingSummary } from '@aics/registry-client';
-import { ListingCard } from '../components/ListingCard';
+import { ListingCard } from '@aics/ui-market';
 import { getRegistryClient } from '../lib/registry';
 
 export default async function Home() {

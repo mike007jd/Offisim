@@ -5,8 +5,8 @@ import {
   initialWizardState,
   isStepValid,
   wizardReducer,
-} from '../../hooks/useInterviewWizard';
-import type { WizardAction, WizardState } from '../../hooks/useInterviewWizard';
+} from '@aics/ui-office';
+import type { WizardAction, WizardState } from '@aics/ui-office';
 
 // ---------------------------------------------------------------------------
 // Helper
