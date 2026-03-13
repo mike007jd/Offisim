@@ -1,4 +1,6 @@
 import type {
+  EmployeeCreatedPayload,
+  EmployeeDeletedPayload,
   EmployeeStatePayload,
   LlmCallCompletedPayload,
   LlmUsageRecordedPayload,
@@ -173,6 +175,39 @@ export function useDashboardMetrics(): DashboardMetrics {
       }));
     });
 
+    // --- Employee creation (register with initial 'idle' state for total count) ---
+    const unsubCreated = eventBus.on(
+      'employee.created',
+      (event: RuntimeEvent<EmployeeCreatedPayload>) => {
+        const states = employeeStatesRef.current;
+        states.set(event.payload.employeeId, 'idle');
+
+        updateMetrics((prev) => ({
+          ...prev,
+          employeeUtilization: { active: prev.employeeUtilization.active, total: states.size },
+        }));
+      },
+    );
+
+    // --- Employee deletion ---
+    const unsubDeleted = eventBus.on(
+      'employee.deleted',
+      (event: RuntimeEvent<EmployeeDeletedPayload>) => {
+        const states = employeeStatesRef.current;
+        states.delete(event.payload.employeeId);
+
+        let active = 0;
+        for (const state of states.values()) {
+          if (state !== 'idle') active++;
+        }
+
+        updateMetrics((prev) => ({
+          ...prev,
+          employeeUtilization: { active, total: states.size },
+        }));
+      },
+    );
+
     // --- Employee utilization (prefix match on 'employee.state.') ---
     const unsubEmployee = eventBus.on(
       'employee.state.',
@@ -198,6 +233,8 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubLlm();
       unsubUsage();
       unsubTask();
+      unsubCreated();
+      unsubDeleted();
       unsubEmployee();
     };
   }, [eventBus, updateMetrics]);

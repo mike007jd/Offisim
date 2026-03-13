@@ -426,16 +426,16 @@ export function AicsRuntimeProvider({ children }: Props) {
     // Expose debug bridge in dev mode (E2E smoke tests).
     // Always set — even before runtime is ready — so tests can access the
     // EventBus for subscription-based assertions during async init.
-    // getSceneState starts with dummy values — SceneCanvas/useScene will
-    // override it once the SceneManager is mounted.
+    // Preserve existing getSceneState if SceneManager already mounted it.
     if (import.meta.env.DEV) {
+      const existingGetSceneState = window.__AICS_DEBUG__?.getSceneState;
       window.__AICS_DEBUG__ = {
         eventBus,
         installService: runtime?.installService ?? null,
-        getSceneState: () => ({
+        getSceneState: existingGetSceneState ?? (() => ({
           employeeCount: 0,
           employeeIds: [] as string[],
-        }),
+        })),
       };
     }
 

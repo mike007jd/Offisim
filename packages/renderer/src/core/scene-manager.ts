@@ -424,6 +424,20 @@ export class SceneManager {
     return [...this.employeeEntities.keys()];
   }
 
+  /** Debug helper — returns position and role of each employee entity. */
+  get employeeDebugInfo(): Array<{ id: string; x: number; y: number; roleSlug: string | undefined }> {
+    const result: Array<{ id: string; x: number; y: number; roleSlug: string | undefined }> = [];
+    for (const [id, entity] of this.employeeEntities) {
+      result.push({
+        id,
+        x: Math.round(entity.container.x),
+        y: Math.round(entity.container.y),
+        roleSlug: this.employeeRoleSlugs.get(id),
+      });
+    }
+    return result;
+  }
+
   /**
    * Recompute the floor plan based on current employees and reposition everyone.
    *

@@ -787,4 +787,101 @@ describe('SceneManager', () => {
       expect(sm.restAreaSeatCount).toBe(0);
     });
   });
+
+  describe('rebuildLayout', () => {
+    it('repositions employees to correct department zones after rebuild', async () => {
+      // Start with empty employees — initial floor plan has minSlots=2 per zone.
+      const sm = new SceneManager({ container, eventBus, employees: [] });
+      await sm.mount();
+
+      // Add R&D company employees with role slugs
+      const rdEmployees = [
+        { id: 'dev-1', name: 'Dev1', role: 'developer' },
+        { id: 'dev-2', name: 'Dev2', role: 'frontend' },
+        { id: 'dev-3', name: 'Dev3', role: 'backend' },
+        { id: 'dev-4', name: 'Dev4', role: 'fullstack' },
+        { id: 'prod-1', name: 'PM1', role: 'pm' },
+        { id: 'prod-2', name: 'Analyst1', role: 'analyst' },
+        { id: 'art-1', name: 'Designer1', role: 'designer' },
+        { id: 'art-2', name: 'UIDesigner1', role: 'ui_designer' },
+      ];
+
+      for (const emp of rdEmployees) {
+        sm.addEmployee(emp.id, emp.name, 'employee', emp.role);
+      }
+
+      // Before rebuildLayout, some employees may be in wrong zones or rest area
+      // because initial floor plan had only 2 slots per zone.
+
+      // Now rebuild — should recompute floor plan with correct counts and reposition.
+      sm.rebuildLayout();
+
+      // After rebuild, NO employee should be in rest area — all 8 fit in their zones:
+      // zone-dev: 4 employees, ceil(4*1.2) = 5 workstations
+      // zone-product: 2 employees, ceil(2*1.2) = 3 workstations
+      // zone-art: 2 employees, ceil(2*1.2) = 3 workstations
+      for (const emp of rdEmployees) {
+        expect(sm.isInRestArea(emp.id)).toBe(false);
+      }
+
+      // All 8 employees still present
+      expect(sm.employeeCount).toBe(8);
+    });
+
+    it('employee.created events trigger scheduled rebuild', async () => {
+      vi.useFakeTimers();
+      const sm = new SceneManager({ container, eventBus, employees: [] });
+      await sm.mount();
+
+      // Fire employee.created events (simulates materializeTemplate)
+      for (let i = 0; i < 4; i++) {
+        eventBus.fire(
+          makeEvent('employee.created', {
+            employeeId: `dev-${i}`,
+            name: `Dev${i}`,
+            roleSlug: 'developer',
+          }),
+        );
+      }
+
+      // Before debounce fires, all 4 may not be in correct positions
+      expect(sm.employeeCount).toBe(4);
+
+      // Advance timer past 100ms debounce
+      vi.advanceTimersByTime(150);
+
+      // After rebuildLayout, all should be in zone-dev (not rest area)
+      for (let i = 0; i < 4; i++) {
+        expect(sm.isInRestArea(`dev-${i}`)).toBe(false);
+      }
+
+      vi.useRealTimers();
+    });
+
+    it('ART employees are placed in zone-art after rebuild', async () => {
+      const sm = new SceneManager({ container, eventBus, employees: [] });
+      await sm.mount();
+
+      // Add 2 ART employees
+      sm.addEmployee('art-1', 'Designer', 'employee', 'designer');
+      sm.addEmployee('art-2', 'UIDesigner', 'employee', 'ui_designer');
+
+      sm.rebuildLayout();
+
+      // Both should NOT be in rest area
+      expect(sm.isInRestArea('art-1')).toBe(false);
+      expect(sm.isInRestArea('art-2')).toBe(false);
+
+      // Both should have non-zero positions (placed at workstations)
+      const debugInfo = sm.employeeDebugInfo;
+      const art1 = debugInfo.find((e) => e.id === 'art-1');
+      const art2 = debugInfo.find((e) => e.id === 'art-2');
+      expect(art1).toBeDefined();
+      expect(art2).toBeDefined();
+      // Positions should be > 0 (workstation coordinates are always positive)
+      expect(art1!.x).toBeGreaterThan(0);
+      expect(art1!.y).not.toBe(0);
+      expect(art2!.x).toBeGreaterThan(0);
+    });
+  });
 });

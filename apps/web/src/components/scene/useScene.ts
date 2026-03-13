@@ -40,6 +40,7 @@ export function useScene(reducedMotion = false) {
             window.__AICS_DEBUG__.getSceneState = () => ({
               employeeCount: manager.employeeCount,
               employeeIds: manager.employeeIds,
+              employeeDebugInfo: manager.employeeDebugInfo,
             });
           }
         }

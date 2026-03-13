@@ -47,7 +47,7 @@ export const RD_COMPANY_DEPARTMENTS: readonly DepartmentConfig[] = [
     label: '美术部门',
     labelEn: 'ART',
     roleSlugs: ['designer', 'artist', 'ui_designer', 'ux_designer'],
-    floorColor: 0x5c3a2a,
+    floorColor: 0x6b4530,
     accentColor: 0xf77622,
   },
 ] as const;
