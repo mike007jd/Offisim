@@ -17,7 +17,7 @@ import { RouteLineEntity } from '../entities/route-line-entity.js';
 import { CameraController } from '../interaction/camera-controller.js';
 import { InteractionController } from '../interaction/interaction-controller.js';
 import { FloorLayer } from '../layers/floor-layer.js';
-import { computeFloorPlan, type OfficeFloorPlan } from '../layout/zone-layout-engine.js';
+import { computeFloorPlan, computeRestAreaSeats, type OfficeFloorPlan } from '../layout/zone-layout-engine.js';
 import { EmployeePuppet } from '../puppet/employee-puppet.js';
 import { LobsterPuppet } from '../puppet/lobster-puppet.js';
 import type { CharacterConfig } from '../puppet/types.js';
@@ -75,6 +75,13 @@ export class SceneManager {
     return this._installGhostTxnId;
   }
   private _installGhostTxnId: string | null = null;
+
+  /** Rest area seats computed from floor plan */
+  private restAreaSeats: Array<{ x: number; y: number }> = [];
+  /** Seat index → employeeId for rest area occupancy tracking */
+  private seatAssignments: Map<number, string> = new Map();
+  /** Set of workstation IDs currently occupied by entities */
+  private occupiedDeskIndices: Set<string> = new Set();
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -167,8 +174,15 @@ export class SceneManager {
       floorHeight: this.floorPlan.totalHeight,
     });
 
+    // ── Compute rest area seats (before placing entities so assignToRestArea works) ──
+    const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
+    if (restZone) {
+      const seatCount = Math.max(4, this.employees.length);
+      this.restAreaSeats = computeRestAreaSeats(restZone, seatCount);
+    }
+
     // ── Employee entities (L2) ──
-    let configIdx = 0;
+    const overflowIds: string[] = [];
     for (const emp of this.employees) {
       const wsId = emp.workstationId ?? this.findAvailableWorkstation(emp.roleSlug);
       const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
@@ -177,18 +191,16 @@ export class SceneManager {
       if (pos) {
         entity.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
       } else {
-        const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
-        if (restZone) {
-          entity.container.position.set(
-            restZone.x + restZone.width / 2 + configIdx * 40,
-            restZone.y + restZone.height / 2,
-          );
-        }
+        overflowIds.push(emp.id);
       }
 
       this.layers.entity.addChild(entity.container);
       this.employeeEntities.set(emp.id, entity);
-      configIdx++;
+    }
+
+    // ── Assign overflow employees to rest area seats ──
+    for (const id of overflowIds) {
+      this.assignToRestArea(id);
     }
 
     // ── Interaction controller ──
@@ -212,6 +224,19 @@ export class SceneManager {
               targetWorkstationId: result.targetWorkstationId,
             },
           });
+        } else if (result.droppedInRestArea) {
+          this.assignToRestArea(result.entityId);
+          this.eventBus.emit({
+            type: 'employee.workstation.drop-requested',
+            entityId: result.entityId,
+            entityType: 'employee',
+            companyId: '',
+            timestamp: Date.now(),
+            payload: {
+              employeeId: result.entityId,
+              targetWorkstationId: null,
+            },
+          });
         }
       },
       (wsId, on) => {
@@ -219,6 +244,16 @@ export class SceneManager {
       },
     );
     this.interactionController.enable();
+
+    // Set rest area bounds for interaction controller
+    if (restZone && this.interactionController) {
+      this.interactionController.restAreaBounds = {
+        x: restZone.x,
+        y: restZone.y,
+        width: restZone.width,
+        height: restZone.height,
+      };
+    }
 
     // ── Camera: fit to view + attach events ──
     const { width, height } = app.screen;
@@ -245,23 +280,18 @@ export class SceneManager {
     const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
 
     const entity = this.createEntity(id, name, entityType, characterConfig);
-    if (pos) {
-      entity.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
-    } else {
-      const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
-      if (restZone) {
-        entity.container.position.set(
-          restZone.x + restZone.width / 2,
-          restZone.y + restZone.height / 2,
-        );
-      }
-    }
-
     entity.container.scale.set(0);
     entity.container.alpha = 0;
     this.layers.entity.addChild(entity.container);
     this.employeeEntities.set(id, entity);
     this.interactionController?.registerEntity(id, entity);
+
+    if (pos) {
+      entity.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
+    } else {
+      // No workstation available → assign to rest area seat
+      this.assignToRestArea(id);
+    }
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
@@ -319,6 +349,67 @@ export class SceneManager {
     }
   }
 
+  /** Assign an employee to the next free rest-area seat. */
+  assignToRestArea(entityId: string): void {
+    const entity = this.employeeEntities.get(entityId);
+    if (!entity || this.restAreaSeats.length === 0) return;
+
+    // Remove from any current seat
+    this.removeFromRestArea(entityId);
+
+    // Find first free seat
+    const seatIdx = this.restAreaSeats.findIndex((_, i) => !this.seatAssignments.has(i));
+    if (seatIdx < 0) return;
+
+    const seat = this.restAreaSeats[seatIdx]!;
+    this.seatAssignments.set(seatIdx, entityId);
+
+    const { duration, ease } = this.motion.M1;
+    if (duration > 0) {
+      gsap.to(entity.container, { x: seat.x, y: seat.y + PUPPET_Y_OFFSET, alpha: 1, duration, ease });
+    } else {
+      entity.container.x = seat.x;
+      entity.container.y = seat.y + PUPPET_Y_OFFSET;
+      entity.container.alpha = 1;
+    }
+  }
+
+  /** Remove an employee from rest area tracking. */
+  removeFromRestArea(entityId: string): void {
+    for (const [idx, id] of this.seatAssignments) {
+      if (id === entityId) {
+        this.seatAssignments.delete(idx);
+        break;
+      }
+    }
+  }
+
+  /** Check if an employee is in the rest area. */
+  isInRestArea(entityId: string): boolean {
+    for (const id of this.seatAssignments.values()) {
+      if (id === entityId) return true;
+    }
+    return false;
+  }
+
+  /** Number of rest area seats available. */
+  get restAreaSeatCount(): number {
+    return this.restAreaSeats.length;
+  }
+
+  /** Number of occupied rest area seats. */
+  get restAreaOccupiedCount(): number {
+    return this.seatAssignments.size;
+  }
+
+  /** Get the bounding box of the rest area zone, if it exists. */
+  getRestAreaBounds(): { x: number; y: number; width: number; height: number } | null {
+    if (!this.floorPlan) return null;
+    const restZone = this.floorPlan.zones.find((z) => z.type === 'rest_area');
+    if (!restZone) return null;
+    return { x: restZone.x, y: restZone.y, width: restZone.width, height: restZone.height };
+  }
+
   get employeeCount(): number {
     return this.employeeEntities.size;
   }
@@ -357,6 +448,10 @@ export class SceneManager {
     this.employeeEntities.clear();
     this.nodeActiveEmployees.clear();
 
+    this.restAreaSeats = [];
+    this.seatAssignments.clear();
+    this.occupiedDeskIndices.clear();
+
     this.floorLayer = null;
     this.floorPlan = null;
     this.camera = null;
@@ -387,7 +482,7 @@ export class SceneManager {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      this.camera?.onWheel(e, app.screen.width, app.screen.height);
+      this.camera?.onWheel(e.deltaY, e.offsetX, e.offsetY, app.screen.width, app.screen.height);
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     this.unsubscribers.push(() => canvas.removeEventListener('wheel', onWheel));
@@ -399,7 +494,7 @@ export class SceneManager {
       }
     };
     const onMouseMove = (e: MouseEvent) => {
-      this.camera?.onPanMove(e.clientX, e.clientY);
+      this.camera?.onPanMove(e.clientX, e.clientY, app.screen.width, app.screen.height);
     };
     const onMouseUp = () => {
       this.camera?.onPanEnd();
@@ -451,7 +546,7 @@ export class SceneManager {
     }
 
     const available = zone.workstations.find((ws) => !occupied.has(ws.workstationId));
-    return available?.workstationId ?? zone.workstations[0]?.workstationId ?? null;
+    return available?.workstationId ?? null;
   }
 
   private findUnoccupiedWorkstation(): string | null {

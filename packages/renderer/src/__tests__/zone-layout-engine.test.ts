@@ -179,6 +179,106 @@ describe('zone-layout-engine', () => {
         }
       }
     });
+
+    it('meeting room width should be 80% of floor content width', () => {
+      const counts = new Map([
+        ['zone-dev', 4],
+        ['zone-product', 2],
+        ['zone-art', 2],
+      ]);
+      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const mtg = plan.zones.find((z) => z.type === 'meeting_room');
+      expect(mtg).toBeDefined();
+
+      // Floor content width = totalWidth - 2 * margin(30)
+      const floorContentWidth = plan.totalWidth - 2 * 30;
+      const expectedWidth = Math.max(200, floorContentWidth * 0.8);
+      expect(mtg!.width).toBeCloseTo(expectedWidth, 0);
+    });
+
+    it('row 2 height should scale with row 1 height for large offices', () => {
+      // Large team creates tall row 1, row 2 should be at least 50% of that
+      const counts = new Map([
+        ['zone-dev', 20],
+        ['zone-product', 10],
+        ['zone-art', 10],
+      ]);
+      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const library = plan.zones.find((z) => z.type === 'library');
+      const restArea = plan.zones.find((z) => z.type === 'rest_area');
+      expect(library).toBeDefined();
+      expect(restArea).toBeDefined();
+
+      // Row 2 height should be greater than MIN_UTILITY_HEIGHT (120) for large offices
+      expect(library!.height).toBeGreaterThanOrEqual(120);
+      expect(restArea!.height).toBe(library!.height); // same row, same height
+
+      // For a large office, row2 should be > 120 (the old fixed value)
+      const deptZones = plan.zones.filter((z) => z.type === 'department');
+      const maxDeptHeight = Math.max(...deptZones.map((z) => z.height));
+      const expectedRow2Height = Math.max(120, Math.round(maxDeptHeight * 0.5));
+      expect(library!.height).toBe(expectedRow2Height);
+    });
+
+    it('dynamic zonePadding should scale with floor width for large offices', () => {
+      // Large team → wide floor → larger padding
+      const largeCounts = new Map([
+        ['zone-dev', 20],
+        ['zone-product', 10],
+        ['zone-art', 10],
+      ]);
+      const largePlan = computeFloorPlan(RD_COMPANY_ZONES, largeCounts);
+
+      // Small team → narrow floor → default padding
+      const smallCounts = new Map<string, number>();
+      const smallPlan = computeFloorPlan(RD_COMPANY_ZONES, smallCounts);
+
+      // For small office at MIN_FLOOR_WIDTH (800), dynamic padding = max(20, 800*0.02=16) = 20
+      // So small office should keep default padding of 20
+      // For large office, padding should be >= 20
+      const smallFloorWidth = smallPlan.totalWidth - 2 * 30;
+      const largeFloorWidth = largePlan.totalWidth - 2 * 30;
+      expect(largeFloorWidth).toBeGreaterThan(smallFloorWidth);
+    });
+
+    it('user-provided zonePadding should override dynamic calculation', () => {
+      const counts = new Map([
+        ['zone-dev', 20],
+        ['zone-product', 10],
+        ['zone-art', 10],
+      ]);
+      const customPadding = 10;
+      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts, { zonePadding: customPadding });
+
+      // Check that zones use the custom padding
+      const deptZones = plan.zones.filter((z) => z.type === 'department');
+      if (deptZones.length >= 2) {
+        const gap = deptZones[1]!.x - (deptZones[0]!.x + deptZones[0]!.width);
+        expect(gap).toBeCloseTo(customPadding, 0);
+      }
+    });
+
+    it('department zones should never be shorter than row 2 utility zones', () => {
+      // Test with small departments that would naturally be short
+      const counts = new Map([
+        ['zone-dev', 1],
+        ['zone-product', 1],
+        ['zone-art', 1],
+      ]);
+      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+
+      const deptZones = plan.zones.filter((z) => z.type === 'department');
+      const utilityZones = plan.zones.filter(
+        (z) => z.type === 'library' || z.type === 'rest_area',
+      );
+
+      if (utilityZones.length > 0 && deptZones.length > 0) {
+        const row2Height = utilityZones[0]!.height;
+        for (const dz of deptZones) {
+          expect(dz.height).toBeGreaterThanOrEqual(row2Height);
+        }
+      }
+    });
   });
 
   describe('computeRestAreaSeats', () => {

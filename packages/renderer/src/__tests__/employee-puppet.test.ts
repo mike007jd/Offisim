@@ -38,6 +38,7 @@ vi.mock('pixi.js', () => {
     lineTo() { return this; }
     bezierCurveTo() { return this; }
     arc() { return this; }
+    closePath() { return this; }
   }
   class MockText extends MockContainer {
     text = '';
@@ -139,10 +140,10 @@ describe('EmployeePuppet', () => {
   // 1. Constructor creates puppet with correct body parts
   // ------------------------------------------------------------------
   describe('constructor + buildBody', () => {
-    it('creates a container with ring, body, nameLabel, and taskBubble as children', () => {
+    it('creates a container with ring, body, nameLabel, badgeContainer, and taskBubble as children', () => {
       const puppet = makePuppet();
-      // BasePuppet.constructor adds: ring, body, nameLabel, taskBubble = 4 children on container
-      expect(puppet.container.children.length).toBe(4);
+      // BasePuppet.constructor adds: ring, body, nameLabel, badgeContainer, taskBubble = 5 children on container
+      expect(puppet.container.children.length).toBe(5);
     });
 
     it('body container has legs, torso, arms, head, and blockedOverlay', () => {
@@ -237,8 +238,8 @@ describe('EmployeePuppet', () => {
   describe('setTask', () => {
     it('shows task bubble when task is set, hides when null', () => {
       const puppet = makePuppet();
-      // taskBubble is the last child (index 3)
-      const taskBubble = puppet.container.children[3] as { visible: boolean };
+      // taskBubble is the last child (index 4, after badgeContainer)
+      const taskBubble = puppet.container.children[4] as { visible: boolean };
 
       expect(taskBubble.visible).toBe(false);
 
@@ -254,7 +255,7 @@ describe('EmployeePuppet', () => {
       puppet.setTask('this-is-a-very-long-task-name-that-should-be-truncated');
       // The task text is inside taskBubble → taskText
       // biome-ignore lint/suspicious/noExplicitAny: mock access
-      const taskBubble = puppet.container.children[3] as any;
+      const taskBubble = puppet.container.children[4] as any;
       // After setTask, bg is inserted at index 0, taskText moves to index 1
       const taskText = taskBubble.children[1];
       expect(taskText.text.length).toBeLessThanOrEqual(16);
@@ -290,6 +291,156 @@ describe('EmployeePuppet', () => {
 
       puppet.setHighlight(true);
       expect(gsap.to).not.toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 4b. State-feedback-matrix badge integration
+  // ------------------------------------------------------------------
+  describe('badge from state-feedback-matrix', () => {
+    function getBadgeContainer(puppet: InstanceType<typeof EmployeePuppet>) {
+      // badgeContainer is at index 3 (ring=0, body=1, nameLabel=2, badge=3, taskBubble=4)
+      return puppet.container.children[3] as { visible: boolean; children: unknown[] };
+    }
+
+    it('idle state has no badge (badgeContainer hidden)', () => {
+      const puppet = makePuppet();
+      puppet.setState('thinking'); // go to non-idle first
+      puppet.setState('idle');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(false);
+    });
+
+    it('thinking state shows thought badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('thinking');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+      // Badge has bg circle + icon graphics = 2 children
+      expect(badge.children.length).toBe(2);
+    });
+
+    it('searching state shows search badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('searching');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('executing state shows bolt badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('executing');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('blocked state shows alert badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('blocked');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('waiting state shows clock badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('waiting');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('reporting state shows document badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('reporting');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('success state shows check badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('success');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('failed state shows x badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('failed');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('paused state shows pause badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('paused');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+    });
+
+    it('meeting state has no badge (only route_line + ambient_dim)', () => {
+      const puppet = makePuppet();
+      puppet.setState('meeting');
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(false);
+    });
+
+    it('state transition clears old badge before showing new one', () => {
+      const puppet = makePuppet();
+      puppet.setState('thinking'); // thought badge
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+      const thinkingChildCount = badge.children.length;
+
+      puppet.setState('blocked'); // alert badge
+      expect(badge.visible).toBe(true);
+      // Children count should remain 2 (bg + icon), not accumulate
+      expect(badge.children.length).toBe(thinkingChildCount);
+    });
+
+    it('transitioning from badge state to idle clears badge', () => {
+      const puppet = makePuppet();
+      puppet.setState('executing'); // bolt badge
+      const badge = getBadgeContainer(puppet);
+      expect(badge.visible).toBe(true);
+
+      puppet.setState('idle');
+      expect(badge.visible).toBe(false);
+      expect(badge.children.length).toBe(0);
+    });
+
+    it('pulse parameters come from state-feedback-matrix config', () => {
+      const puppet = makePuppet();
+      vi.clearAllMocks();
+
+      puppet.setState('searching');
+      // searching has: amplitude: 1.05, period: 300
+      // period 300ms → duration 0.3s
+      expect(gsap.to).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          x: 1.05,
+          y: 1.05,
+          duration: 0.3,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: -1,
+        }),
+      );
+    });
+
+    it('assigned state uses matrix pulse: amplitude 1.03, period 2000ms', () => {
+      const puppet = makePuppet();
+      vi.clearAllMocks();
+
+      puppet.setState('assigned');
+      // assigned has: amplitude: 1.03, period: 2000
+      expect(gsap.to).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          x: 1.03,
+          y: 1.03,
+          duration: 2,
+        }),
+      );
     });
   });
 

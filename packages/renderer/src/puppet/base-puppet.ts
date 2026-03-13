@@ -9,6 +9,7 @@ import { STATE_COLORS } from '../tokens/colors.js';
 import type { MotionBucket } from '../tokens/motion.js';
 import type { SceneEntity } from '../core/types.js';
 import type { PuppetAnimState } from './types.js';
+import { EMPLOYEE_STATE_SIGNALS } from '../tokens/state-feedback-matrix.js';
 
 /** Motion tokens (4 buckets from performance tier) */
 export type MotionTokenSet = Record<'M0' | 'M1' | 'M2' | 'M3', MotionBucket>;
@@ -56,6 +57,8 @@ export abstract class BasePuppet implements SceneEntity {
   private readonly taskText: Text;
   private taskBubbleBg: Graphics | null = null;
 
+  // ── Badge ──
+  private readonly badgeContainer: Container;
   // ── Name label ──
   protected readonly nameLabel: Text;
 
@@ -85,6 +88,12 @@ export abstract class BasePuppet implements SceneEntity {
     this.nameLabel.anchor.set(0.5, 0);
     this.nameLabel.position.set(0, 22);
     this.container.addChild(this.nameLabel);
+
+    // Badge container (hidden by default, top-right)
+    this.badgeContainer = new Container();
+    this.badgeContainer.position.set(12, -20);
+    this.badgeContainer.visible = false;
+    this.container.addChild(this.badgeContainer);
 
     // Task bubble (hidden by default)
     this.taskBubble = new Container();
@@ -122,8 +131,14 @@ export abstract class BasePuppet implements SceneEntity {
     this.stopPulse();
     this.stopAnimation();
 
+    // Clear existing badge
+    this.clearBadge();
+
     // Redraw state ring
     this.drawRing(color);
+
+    // Resolve signals from state-feedback-matrix
+    const signals = EMPLOYEE_STATE_SIGNALS[next] ?? [];
 
     // Transition effects
     const { duration, ease } = this.motion.M2;
@@ -155,18 +170,38 @@ export abstract class BasePuppet implements SceneEntity {
       }
     }
 
-    // Start ring pulse for active states
-    if (this.motion.M1.duration > 0) {
-      const pulseConfig = this.getPulseConfig(next);
-      if (pulseConfig) {
-        this.pulseTween = gsap.to(this.ring.scale, {
-          x: pulseConfig.scale,
-          y: pulseConfig.scale,
-          duration: pulseConfig.duration,
-          ease: 'sine.inOut',
-          yoyo: true,
-          repeat: -1,
-        });
+    // Apply signals from state-feedback-matrix
+    for (const signal of signals) {
+      switch (signal.type) {
+        case 'ring_pulse': {
+          if (this.motion.M1.duration > 0 && signal.config) {
+            const amplitude = (signal.config.amplitude as number) ?? 1.05;
+            const period = (signal.config.period as number) ?? 1000;
+            this.pulseTween = gsap.to(this.ring.scale, {
+              x: amplitude,
+              y: amplitude,
+              duration: period / 1000,
+              ease: 'sine.inOut',
+              yoyo: true,
+              repeat: -1,
+            });
+          }
+          break;
+        }
+        case 'badge': {
+          if (signal.config) {
+            const icon = signal.config.icon as string;
+            if (icon) {
+              this.drawBadgeIcon(icon);
+              this.badgeContainer.visible = true;
+            }
+          }
+          break;
+        }
+        // ring_color: already handled above via drawRing
+        // route_line, room_glow, ambient_dim: handled by SceneManager, not puppet
+        default:
+          break;
       }
     }
 
@@ -265,15 +300,111 @@ export abstract class BasePuppet implements SceneEntity {
     this.taskBubbleBg = bg;
   }
 
-  private getPulseConfig(state: EmployeeState): { scale: number; duration: number } | null {
-    switch (state) {
-      case 'searching': return { scale: 1.05, duration: 0.3 };
-      case 'waiting':
-      case 'assigned': return { scale: 1.01, duration: 1.5 };
-      case 'reporting': return { scale: 1.06, duration: this.motion.M1.duration };
-      case 'thinking':
-      case 'executing': return { scale: 1.08, duration: this.motion.M1.duration };
-      default: return null;
+  private clearBadge(): void {
+    // Remove all children (bg circle + icon graphics)
+    while (this.badgeContainer.children.length > 0) {
+      const child = this.badgeContainer.children[0] as Graphics;
+      this.badgeContainer.removeChild(child);
+      child.destroy();
     }
+    this.badgeContainer.visible = false;
+  }
+
+  private drawBadgeIcon(icon: string): void {
+    this.clearBadge();
+    const bg = new Graphics();
+    bg.circle(0, 0, 7);
+    bg.fill({ color: 0xffffff, alpha: 0.95 });
+
+    const g = new Graphics();
+    switch (icon) {
+      case 'thought':
+        // Small cloud: 3 overlapping circles
+        g.circle(-2, 1, 2.5);
+        g.circle(1.5, 0, 3);
+        g.circle(-1, -2, 2);
+        g.fill(0x94a3b8);
+        break;
+      case 'search':
+        // Magnifying glass: circle + line
+        g.circle(-1, -1, 3);
+        g.stroke({ color: 0x475569, width: 1.2 });
+        g.moveTo(1.5, 1.5);
+        g.lineTo(4, 4);
+        g.stroke({ color: 0x475569, width: 1.2 });
+        break;
+      case 'bolt':
+        // Lightning bolt: triangle fold
+        g.moveTo(0, -4);
+        g.lineTo(-2, 0);
+        g.lineTo(1, 0);
+        g.lineTo(-1, 4);
+        g.lineTo(3, -1);
+        g.lineTo(0, -1);
+        g.fill(0xeab308);
+        break;
+      case 'alert':
+        // Exclamation in triangle
+        g.moveTo(0, -4);
+        g.lineTo(-3.5, 3);
+        g.lineTo(3.5, 3);
+        g.fill(0xef4444);
+        g.rect(-0.5, -2, 1, 3);
+        g.fill(0xffffff);
+        g.circle(0, 2.5, 0.6);
+        g.fill(0xffffff);
+        break;
+      case 'clock':
+        // Clock: circle + two hands
+        g.circle(0, 0, 3.5);
+        g.stroke({ color: 0x475569, width: 1 });
+        g.moveTo(0, 0);
+        g.lineTo(0, -2);
+        g.stroke({ color: 0x475569, width: 1 });
+        g.moveTo(0, 0);
+        g.lineTo(2, 0.5);
+        g.stroke({ color: 0x475569, width: 0.8 });
+        break;
+      case 'document':
+        // File with folded corner
+        g.rect(-2.5, -3.5, 5, 7);
+        g.fill(0x64748b);
+        g.moveTo(2.5, -3.5);
+        g.lineTo(2.5, -1.5);
+        g.lineTo(0.5, -1.5);
+        g.fill(0x94a3b8);
+        break;
+      case 'check':
+        // Checkmark
+        g.moveTo(-3, 0);
+        g.lineTo(-1, 2.5);
+        g.lineTo(3, -2.5);
+        g.stroke({ color: 0x22c55e, width: 1.5 });
+        break;
+      case 'x':
+        // X mark
+        g.moveTo(-2.5, -2.5);
+        g.lineTo(2.5, 2.5);
+        g.stroke({ color: 0xef4444, width: 1.5 });
+        g.moveTo(2.5, -2.5);
+        g.lineTo(-2.5, 2.5);
+        g.stroke({ color: 0xef4444, width: 1.5 });
+        break;
+      case 'pause':
+        // Two vertical bars
+        g.rect(-2.5, -2.5, 2, 5);
+        g.fill(0x94a3b8);
+        g.rect(0.5, -2.5, 2, 5);
+        g.fill(0x94a3b8);
+        break;
+      default:
+        // Fallback: simple dot
+        g.circle(0, 0, 2);
+        g.fill(0x94a3b8);
+        break;
+    }
+
+    this.badgeContainer.addChild(bg);
+    this.badgeContainer.addChild(g);
   }
 }

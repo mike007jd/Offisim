@@ -113,9 +113,9 @@ describe('LobsterPuppet', () => {
       expect(body.children.length).toBe(14);
     });
 
-    it('container has 4 top-level children: ring, body, nameLabel, taskBubble', () => {
+    it('container has 5 top-level children: ring, body, nameLabel, badgeContainer, taskBubble', () => {
       const puppet = new LobsterPuppet('lob-1', 'Crawly', MOTION);
-      expect(puppet.container.children.length).toBe(4);
+      expect(puppet.container.children.length).toBe(5);
     });
   });
 
@@ -400,8 +400,8 @@ describe('LobsterPuppet', () => {
   describe('setTask', () => {
     it('setTask shows task bubble, setTask(null) hides it', () => {
       const puppet = new LobsterPuppet('lob-1', 'Crawly', MOTION);
-      // taskBubble is the last child (index 3)
-      const taskBubble = puppet.container.children[3] as { visible: boolean };
+      // taskBubble is the last child (index 4, after badgeContainer)
+      const taskBubble = puppet.container.children[4] as { visible: boolean };
 
       expect(taskBubble.visible).toBe(false);
 

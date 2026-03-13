@@ -11,6 +11,8 @@ import type { MotionTokens } from '../tokens/motion.js';
 export interface DragResult {
   entityId: string;
   targetWorkstationId: string | null;
+  /** True when the entity was dropped inside the rest area bounds (and not on a workstation). */
+  droppedInRestArea?: boolean;
 }
 
 /** Internal state tracked during an active drag. */
@@ -43,6 +45,8 @@ export class InteractionController {
   private _enabled = false;
   /** Currently highlighted workstation (for clearing on move). */
   private hoveredWorkstation: string | null = null;
+  /** Optional bounding box of the rest area zone (for drop detection). */
+  restAreaBounds: { x: number; y: number; width: number; height: number } | null = null;
   /** Bound handlers — stored for cleanup. */
   private boundHandlers = {
     pointerMove: (e: FederatedPointerEvent) => this.handlePointerMove(e),
@@ -238,11 +242,17 @@ export class InteractionController {
     }
 
     if (targetWs) {
-      // Successful drop — notify callback
+      // Successful drop on workstation — notify callback
       entity.container.cursor = 'grab';
       entity.container.alpha = 1;
       this.dragging = null;
       this.onDrop({ entityId, targetWorkstationId: targetWs });
+    } else if (this.isInRestArea(entity.container.x, entity.container.y)) {
+      // Dropped in rest area — notify callback
+      entity.container.cursor = 'grab';
+      entity.container.alpha = 1;
+      this.dragging = null;
+      this.onDrop({ entityId, targetWorkstationId: null, droppedInRestArea: true });
     } else {
       // No valid target — snap back
       this.snapBack();
@@ -272,6 +282,13 @@ export class InteractionController {
       }
     }
     return null;
+  }
+
+  /** Check if a point is within the rest area bounds. */
+  private isInRestArea(x: number, y: number): boolean {
+    if (!this.restAreaBounds) return false;
+    const b = this.restAreaBounds;
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
   }
 
   /** Cancel drag and snap entity back to original position. */

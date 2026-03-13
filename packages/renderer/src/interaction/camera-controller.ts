@@ -37,6 +37,9 @@ export class CameraController {
   private panStartWorldX = 0;
   private panStartWorldY = 0;
 
+  /** Currently active GSAP tween (killed before starting a new one) */
+  private _activeTween: gsap.core.Tween | null = null;
+
   constructor(options: CameraControllerOptions) {
     this.world = options.world;
     this.floorWidth = options.floorWidth;
@@ -60,41 +63,47 @@ export class CameraController {
     return this._panY;
   }
 
-  /** Fit the entire floor into the viewport */
-  fitToView(viewportWidth: number, viewportHeight: number): void {
-    const scaleX = viewportWidth / this.floorWidth;
-    const scaleY = viewportHeight / this.floorHeight;
-    this._scale = Math.min(scaleX, scaleY, this.maxZoom);
-    this._scale = Math.max(this._scale, this.minZoom);
+  /** Whether a GSAP animation is currently in progress. */
+  get isAnimating(): boolean {
+    return this._activeTween !== null && this._activeTween.isActive();
+  }
 
-    // Center the floor in the viewport
+  /** Fit the entire floor into the viewport with padding */
+  fitToView(viewportWidth: number, viewportHeight: number): void {
+    const padX = 40;
+    const padY = 40;
+    const scaleX = (viewportWidth - padX * 2) / this.floorWidth;
+    const scaleY = (viewportHeight - padY * 2) / this.floorHeight;
+    this._scale = this.clampScale(Math.min(scaleX, scaleY));
+
     this._panX = (viewportWidth - this.floorWidth * this._scale) / 2;
     this._panY = (viewportHeight - this.floorHeight * this._scale) / 2;
 
     this.applyTransform();
   }
 
-  /** Handle mouse wheel zoom (around cursor position) */
-  onWheel(e: WheelEvent, _viewportWidth: number, _viewportHeight: number): void {
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(this._scale * zoomFactor, this.minZoom), this.maxZoom);
+  /** Handle mouse wheel zoom (zooms toward pointer position) */
+  onWheel(
+    deltaY: number,
+    pointerX: number,
+    pointerY: number,
+    viewportWidth: number,
+    viewportHeight: number,
+  ): void {
+    const zoomFactor = deltaY > 0 ? 0.9 : 1.1;
+    const newScale = this.clampScale(this._scale * zoomFactor);
 
     if (newScale === this._scale) return;
 
-    // Zoom toward mouse position
-    const mouseX = e.offsetX;
-    const mouseY = e.offsetY;
-
-    // World position under mouse before zoom
-    const worldX = (mouseX - this._panX) / this._scale;
-    const worldY = (mouseY - this._panY) / this._scale;
+    // Zoom toward pointer: keep the world point under the pointer fixed
+    const worldX = (pointerX - this._panX) / this._scale;
+    const worldY = (pointerY - this._panY) / this._scale;
 
     this._scale = newScale;
+    this._panX = pointerX - worldX * this._scale;
+    this._panY = pointerY - worldY * this._scale;
 
-    // Adjust pan so the same world point stays under cursor
-    this._panX = mouseX - worldX * this._scale;
-    this._panY = mouseY - worldY * this._scale;
-
+    this.clampPan(viewportWidth, viewportHeight);
     this.applyTransform();
   }
 
@@ -107,11 +116,12 @@ export class CameraController {
     this.panStartWorldY = this._panY;
   }
 
-  /** Move during pan */
-  onPanMove(screenX: number, screenY: number): void {
+  /** Continue a pan gesture. */
+  onPanMove(screenX: number, screenY: number, viewportWidth: number, viewportHeight: number): void {
     if (!this.isPanning) return;
     this._panX = this.panStartWorldX + (screenX - this.panStartX);
     this._panY = this.panStartWorldY + (screenY - this.panStartY);
+    this.clampPan(viewportWidth, viewportHeight);
     this.applyTransform();
   }
 
@@ -120,33 +130,25 @@ export class CameraController {
     this.isPanning = false;
   }
 
-  /** Smoothly pan to center a zone in the viewport */
+  /** Animate the camera to center on a zone's bounding box. */
   focusZone(
     bounds: { x: number; y: number; width: number; height: number },
     viewportWidth: number,
     viewportHeight: number,
     duration = 0.5,
   ): void {
-    // Calculate scale to fit zone with padding
     const padding = 40;
     const scaleX = (viewportWidth - padding * 2) / bounds.width;
     const scaleY = (viewportHeight - padding * 2) / bounds.height;
-    const targetScale = Math.min(scaleX, scaleY, this.maxZoom);
+    const targetScale = this.clampScale(Math.min(scaleX, scaleY));
 
-    // Calculate pan to center the zone
-    const zoneCenterX = bounds.x + bounds.width / 2;
-    const zoneCenterY = bounds.y + bounds.height / 2;
-    const targetPanX = viewportWidth / 2 - zoneCenterX * targetScale;
-    const targetPanY = viewportHeight / 2 - zoneCenterY * targetScale;
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
 
-    gsap.to(this, {
-      _scale: targetScale,
-      _panX: targetPanX,
-      _panY: targetPanY,
-      duration,
-      ease: 'power2.out',
-      onUpdate: () => this.applyTransform(),
-    });
+    const targetPanX = viewportWidth / 2 - centerX * targetScale;
+    const targetPanY = viewportHeight / 2 - centerY * targetScale;
+
+    this.animateTo(targetScale, targetPanX, targetPanY, duration);
   }
 
   /** Convert screen coordinates to world coordinates */
@@ -165,9 +167,182 @@ export class CameraController {
     };
   }
 
+  /**
+   * Smoothly zoom and pan to center on a single employee position.
+   * Zooms to at least 1.2x (or the current scale if already higher).
+   */
+  focusEmployee(
+    position: { x: number; y: number },
+    viewportWidth: number,
+    viewportHeight: number,
+    duration = 0.4,
+  ): void {
+    const targetScale = this.clampScale(Math.max(1.2, this._scale));
+    const targetPanX = viewportWidth / 2 - position.x * targetScale;
+    const targetPanY = viewportHeight / 2 - position.y * targetScale;
+
+    this.animateTo(targetScale, targetPanX, targetPanY, duration);
+  }
+
+  /**
+   * Adjust the viewport to contain all given employee positions with padding.
+   * If positions is empty, falls back to fitToView behavior.
+   */
+  fitAllEmployees(
+    positions: Array<{ x: number; y: number }>,
+    viewportWidth: number,
+    viewportHeight: number,
+    duration = 0.5,
+  ): void {
+    if (positions.length === 0) {
+      const targetScale = this.computeFitScale(
+        this.floorWidth, this.floorHeight,
+        viewportWidth, viewportHeight, 40,
+      );
+      const targetPanX = (viewportWidth - this.floorWidth * targetScale) / 2;
+      const targetPanY = (viewportHeight - this.floorHeight * targetScale) / 2;
+      this.animateTo(targetScale, targetPanX, targetPanY, duration);
+      return;
+    }
+
+    let minX = positions[0]!.x;
+    let minY = positions[0]!.y;
+    let maxX = positions[0]!.x;
+    let maxY = positions[0]!.y;
+
+    for (const pos of positions) {
+      if (pos.x < minX) minX = pos.x;
+      if (pos.y < minY) minY = pos.y;
+      if (pos.x > maxX) maxX = pos.x;
+      if (pos.y > maxY) maxY = pos.y;
+    }
+
+    const padding = 60;
+    const bboxWidth = maxX - minX + padding * 2;
+    const bboxHeight = maxY - minY + padding * 2;
+
+    const targetScale = this.computeFitScale(
+      Math.max(bboxWidth, 1), Math.max(bboxHeight, 1),
+      viewportWidth, viewportHeight, 0,
+    );
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const targetPanX = viewportWidth / 2 - centerX * targetScale;
+    const targetPanY = viewportHeight / 2 - centerY * targetScale;
+
+    this.animateTo(targetScale, targetPanX, targetPanY, duration);
+  }
+
+  /** Smoothly reset the camera to the fitToView state. */
+  resetView(
+    viewportWidth: number,
+    viewportHeight: number,
+    duration = 0.5,
+  ): void {
+    const padX = 40;
+    const padY = 40;
+    const scaleX = (viewportWidth - padX * 2) / this.floorWidth;
+    const scaleY = (viewportHeight - padY * 2) / this.floorHeight;
+    const targetScale = this.clampScale(Math.min(scaleX, scaleY));
+
+    const targetPanX = (viewportWidth - this.floorWidth * targetScale) / 2;
+    const targetPanY = (viewportHeight - this.floorHeight * targetScale) / 2;
+
+    this.animateTo(targetScale, targetPanX, targetPanY, duration);
+  }
+
+  /** Smoothly zoom to a target scale level, keeping a specific world point centered. */
+  zoomTo(
+    targetScale: number,
+    centerWorldX: number,
+    centerWorldY: number,
+    viewportWidth: number,
+    viewportHeight: number,
+    duration = 0.4,
+  ): void {
+    const clamped = this.clampScale(targetScale);
+    const targetPanX = viewportWidth / 2 - centerWorldX * clamped;
+    const targetPanY = viewportHeight / 2 - centerWorldY * clamped;
+
+    this.animateTo(clamped, targetPanX, targetPanY, duration);
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────
+
   /** Apply current transform to the world container */
   private applyTransform(): void {
     this.world.scale.set(this._scale);
     this.world.position.set(this._panX, this._panY);
+  }
+
+  /** Clamp scale to [minZoom, maxZoom]. */
+  private clampScale(s: number): number {
+    return Math.min(this.maxZoom, Math.max(this.minZoom, s));
+  }
+
+  /** Clamp pan so the floor doesn't fly off-screen entirely. */
+  private clampPan(viewportWidth: number, viewportHeight: number): void {
+    const worldW = this.floorWidth * this._scale;
+    const worldH = this.floorHeight * this._scale;
+    const margin = 100;
+    this._panX = Math.max(-worldW + margin, Math.min(viewportWidth - margin, this._panX));
+    this._panY = Math.max(-worldH + margin, Math.min(viewportHeight - margin, this._panY));
+  }
+
+  /** Compute fit scale for a given content size within a viewport, with padding. */
+  private computeFitScale(
+    contentWidth: number,
+    contentHeight: number,
+    viewportWidth: number,
+    viewportHeight: number,
+    padding: number,
+  ): number {
+    const scaleX = (viewportWidth - padding * 2) / contentWidth;
+    const scaleY = (viewportHeight - padding * 2) / contentHeight;
+    return this.clampScale(Math.min(scaleX, scaleY));
+  }
+
+  /**
+   * Kill any running camera animation and animate to target state.
+   * Updates internal _scale/_panX/_panY as the tween progresses.
+   */
+  private animateTo(
+    targetScale: number,
+    targetPanX: number,
+    targetPanY: number,
+    duration: number,
+  ): void {
+    if (this._activeTween) {
+      this._activeTween.kill();
+      this._activeTween = null;
+    }
+
+    if (duration <= 0) {
+      this._scale = targetScale;
+      this._panX = targetPanX;
+      this._panY = targetPanY;
+      this.applyTransform();
+      return;
+    }
+
+    const proxy = { scale: this._scale, panX: this._panX, panY: this._panY };
+
+    this._activeTween = gsap.to(proxy, {
+      scale: targetScale,
+      panX: targetPanX,
+      panY: targetPanY,
+      duration,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        this._scale = proxy.scale;
+        this._panX = proxy.panX;
+        this._panY = proxy.panY;
+        this.applyTransform();
+      },
+      onComplete: () => {
+        this._activeTween = null;
+      },
+    });
   }
 }

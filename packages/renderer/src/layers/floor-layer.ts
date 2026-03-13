@@ -3,6 +3,7 @@
 // Uses vector furniture shapes — no pixel art.
 
 import { Container, Graphics, Text } from 'pixi.js';
+import gsap from 'gsap';
 import type { OfficeFloorPlan, ZoneBounds, DeskPosition } from '../layout/zone-layout-engine.js';
 import {
   drawDesk,
@@ -32,6 +33,11 @@ const HIGHLIGHT_COLOR = 0xfbbf24;
 const HIGHLIGHT_ALPHA = 0.25;
 const HIGHLIGHT_BORDER_ALPHA = 0.6;
 
+/** Meeting active overlay color (amber-300). */
+const MEETING_ACTIVE_COLOR = 0xfcd34d;
+/** Meeting scheduled border color (amber-400). */
+const MEETING_SCHEDULED_COLOR = 0xfbbf24;
+
 /** Workstation hit-test area around each desk center. */
 const WS_HALF_W = 35;
 const WS_HALF_H = 30;
@@ -41,6 +47,14 @@ export class FloorLayer {
   private readonly plan: OfficeFloorPlan;
   private highlights: Map<string, Graphics> = new Map();
   private highlightContainer: Container;
+  /** Meeting active glow overlays keyed by zoneId. */
+  private meetingOverlays: Map<string, Graphics> = new Map();
+  /** Meeting scheduled border overlays keyed by zoneId. */
+  private meetingScheduledOverlays: Map<string, Graphics> = new Map();
+  /** GSAP tweens for meeting overlays, keyed by zoneId, for cleanup. */
+  private meetingTweens: Map<string, gsap.core.Tween[]> = new Map();
+  /** Registered zone bounds for meeting rooms, keyed by zoneId. */
+  private meetingZones: Map<string, ZoneBounds> = new Map();
 
   constructor(plan: OfficeFloorPlan) {
     this.plan = plan;
@@ -105,6 +119,116 @@ export class FloorLayer {
   clearAllHighlights(): void {
     for (const [id] of this.highlights) {
       this.setWorkstationHighlight(id, false);
+    }
+  }
+
+  /**
+   * Register a meeting room zone so that overlay methods can look up its bounds.
+   * Falls back to floor plan zones if not explicitly registered.
+   */
+  registerMeetingZone(zoneId: string, bounds: ZoneBounds): void {
+    this.meetingZones.set(zoneId, bounds);
+  }
+
+  /**
+   * Show a pulsing glow overlay on a meeting room zone to indicate an active meeting.
+   * Uses GSAP alpha breathing animation (0.05 ~ 0.15).
+   */
+  showMeetingActive(zoneId: string): void {
+    if (this.meetingOverlays.has(zoneId)) return;
+
+    const zone = this.meetingZones.get(zoneId)
+      ?? this.plan.zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+
+    const gfx = new Graphics();
+    const radius = Math.round(Math.min(zone.width, zone.height) * 0.04);
+    gfx.roundRect(zone.x, zone.y, zone.width, zone.height, radius);
+    gfx.fill({ color: MEETING_ACTIVE_COLOR, alpha: 1 });
+    gfx.alpha = 0.05;
+
+    this.highlightContainer.addChild(gfx);
+    this.meetingOverlays.set(zoneId, gfx);
+
+    // Breathing animation
+    const tw = gsap.to(gfx, {
+      alpha: 0.15,
+      duration: 1.5,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: -1,
+    });
+    this.storeMeetingTween(zoneId, tw);
+  }
+
+  /** Remove the active meeting glow overlay. */
+  hideMeetingActive(zoneId: string): void {
+    this.killMeetingTweens(zoneId);
+    const gfx = this.meetingOverlays.get(zoneId);
+    if (gfx) {
+      this.highlightContainer.removeChild(gfx);
+      gfx.destroy();
+      this.meetingOverlays.delete(zoneId);
+    }
+  }
+
+  /**
+   * Show a dashed-border blink effect on a meeting room zone to indicate
+   * a meeting is about to start.
+   */
+  showMeetingScheduled(zoneId: string): void {
+    if (this.meetingScheduledOverlays.has(zoneId)) return;
+
+    const zone = this.meetingZones.get(zoneId)
+      ?? this.plan.zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+
+    const gfx = new Graphics();
+    const radius = Math.round(Math.min(zone.width, zone.height) * 0.04);
+    gfx.roundRect(zone.x + 1, zone.y + 1, zone.width - 2, zone.height - 2, radius);
+    gfx.stroke({ color: MEETING_SCHEDULED_COLOR, alpha: 0.6, width: 2 });
+    gfx.alpha = 0.4;
+
+    this.highlightContainer.addChild(gfx);
+    this.meetingScheduledOverlays.set(zoneId, gfx);
+
+    // Blink animation
+    const tw = gsap.to(gfx, {
+      alpha: 1,
+      duration: 0.8,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: -1,
+    });
+    this.storeMeetingTween(zoneId, tw);
+  }
+
+  /** Remove the scheduled meeting border overlay. */
+  hideMeetingScheduled(zoneId: string): void {
+    const gfx = this.meetingScheduledOverlays.get(zoneId);
+    if (gfx) {
+      // Kill tweens associated with this specific overlay
+      const tweens = this.meetingTweens.get(zoneId);
+      if (tweens) {
+        const remaining: gsap.core.Tween[] = [];
+        for (const tw of tweens) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const targets = (tw as any)._targets ?? [(tw as any)._target];
+          if (targets && targets.includes(gfx)) {
+            tw.kill();
+          } else {
+            remaining.push(tw);
+          }
+        }
+        if (remaining.length > 0) {
+          this.meetingTweens.set(zoneId, remaining);
+        } else {
+          this.meetingTweens.delete(zoneId);
+        }
+      }
+      this.highlightContainer.removeChild(gfx);
+      gfx.destroy();
+      this.meetingScheduledOverlays.delete(zoneId);
     }
   }
 
@@ -274,6 +398,20 @@ export class FloorLayer {
     drawPlant(plantGfx, 14, 22);
     plantGfx.position.set(zone.x + 20, zone.y + zone.height - 20);
     this.container.addChild(plantGfx);
+  }
+
+  private storeMeetingTween(zoneId: string, tw: gsap.core.Tween): void {
+    const arr = this.meetingTweens.get(zoneId) ?? [];
+    arr.push(tw);
+    this.meetingTweens.set(zoneId, arr);
+  }
+
+  private killMeetingTweens(zoneId: string): void {
+    const tweens = this.meetingTweens.get(zoneId);
+    if (tweens) {
+      for (const tw of tweens) tw.kill();
+      this.meetingTweens.delete(zoneId);
+    }
   }
 
   /** Draw a conference table and chairs in the meeting room zone. */

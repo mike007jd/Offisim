@@ -49,6 +49,8 @@ export type { OfficeFloorPlan, ZoneBounds, DeskPosition, FloorPlanOptions } from
 
 // Entities
 export { RouteLineEntity } from './entities/route-line-entity.js';
+export { MeetingRoomEntity } from './entities/meeting-room-entity.js';
+export { LibraryZoneEntity } from './entities/library-zone-entity.js';
 
 // Animations
 export { AmbientSystem } from './animations/ambient-system.js';

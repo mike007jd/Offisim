@@ -84,7 +84,8 @@ export function computeFloorPlan(
   employeeCounts: Map<string, number>,
   options?: FloorPlanOptions,
 ): OfficeFloorPlan {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const userOpts = options ?? {};
+  const opts = { ...DEFAULT_OPTIONS, ...userOpts };
 
   // ── Classify zones by type ──────────────────────────────────────
   const departmentZones = zones.filter((z) => z.type === 'department');
@@ -137,25 +138,42 @@ export function computeFloorPlan(
   const rawFloorWidth = Math.max(row1Width, MIN_FLOOR_WIDTH);
   const floorContentWidth = Math.min(rawFloorWidth, MAX_FLOOR_WIDTH);
 
-  // Row 2 dimensions
+  // ── Step 5b: Apply dynamic zonePadding if user didn't override ─
+  if (userOpts.zonePadding === undefined) {
+    opts.zonePadding = Math.max(DEFAULT_OPTIONS.zonePadding, Math.round(floorContentWidth * 0.02));
+  }
+
+  // Row 2 dimensions — height scales with row 1
   const row2Count = row2Zones.length;
   const row2ZoneWidth = row2Count > 0
     ? (floorContentWidth - (row2Count - 1) * opts.zonePadding) / row2Count
     : 0;
   const row2Height = hasRow2
-    ? Math.max(MIN_UTILITY_HEIGHT, MIN_UTILITY_HEIGHT)
+    ? Math.max(MIN_UTILITY_HEIGHT, Math.round(row1Height * 0.5))
+    : 0;
+
+  // ── Step 5c: Ensure department zones are at least as tall as row2 ─
+  // Avoid departments being shorter than utility zones
+  if (row2Height > 0 && row1Height < row2Height) {
+    for (const dl of deptLayouts) {
+      dl.height = Math.max(dl.height, row2Height);
+    }
+  }
+  // Recompute row1Height after potential adjustment
+  const finalRow1Height = deptLayouts.length > 0
+    ? Math.max(...deptLayouts.map((d) => d.height))
     : 0;
 
   // Row 3 (meeting room)
   const row3Height = meetingZone ? MIN_UTILITY_HEIGHT : 0;
 
   // ── Step 6: Compute total dimensions ────────────────────────────
-  const rowCount = [row1Height > 0, hasRow2, !!meetingZone].filter(Boolean).length;
+  const rowCount = [finalRow1Height > 0, hasRow2, !!meetingZone].filter(Boolean).length;
   const interRowPadding = Math.max(0, rowCount - 1) * opts.zonePadding;
 
   const totalWidth = floorContentWidth + 2 * opts.margin;
   const totalHeight =
-    row1Height + row2Height + row3Height + interRowPadding + 2 * opts.margin;
+    finalRow1Height + row2Height + row3Height + interRowPadding + 2 * opts.margin;
 
   // ── Step 7: Place zones and generate workstations ───────────────
   const result: ZoneBounds[] = [];
@@ -197,7 +215,7 @@ export function computeFloorPlan(
 
   // -- Row 2: Library + Rest Area --
   if (hasRow2) {
-    const row2Y = row1Y + row1Height + (row1Height > 0 ? opts.zonePadding : 0);
+    const row2Y = row1Y + finalRow1Height + (finalRow1Height > 0 ? opts.zonePadding : 0);
     let row2CursorX = opts.margin;
 
     for (const z of row2Zones) {
@@ -222,12 +240,12 @@ export function computeFloorPlan(
   // -- Row 3: Meeting Room (centered) --
   if (meetingZone) {
     const row3Y = opts.margin
-      + row1Height
-      + (row1Height > 0 ? opts.zonePadding : 0)
+      + finalRow1Height
+      + (finalRow1Height > 0 ? opts.zonePadding : 0)
       + row2Height
       + (hasRow2 ? opts.zonePadding : 0);
 
-    const meetingWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.6);
+    const meetingWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.8);
     const meetingX = opts.margin + (floorContentWidth - meetingWidth) / 2;
 
     result.push({
