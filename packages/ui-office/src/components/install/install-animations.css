@@ -1,0 +1,90 @@
+/* ANIM-021: Manifest review row reveal */
+@keyframes reveal-row {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.manifest-row-reveal {
+  animation: reveal-row 0.3s ease-out both;
+}
+
+/* Stagger: each child delays 50ms more */
+.manifest-row-reveal:nth-child(1) {
+  animation-delay: 0ms;
+}
+.manifest-row-reveal:nth-child(2) {
+  animation-delay: 50ms;
+}
+.manifest-row-reveal:nth-child(3) {
+  animation-delay: 100ms;
+}
+.manifest-row-reveal:nth-child(4) {
+  animation-delay: 150ms;
+}
+.manifest-row-reveal:nth-child(5) {
+  animation-delay: 200ms;
+}
+.manifest-row-reveal:nth-child(6) {
+  animation-delay: 250ms;
+}
+.manifest-row-reveal:nth-child(7) {
+  animation-delay: 300ms;
+}
+.manifest-row-reveal:nth-child(8) {
+  animation-delay: 350ms;
+}
+
+/* ANIM-022: Compatibility verdict emphasis */
+[data-verdict="fail"] {
+  border-color: var(--lobster-red, #ef4444) !important;
+  animation: verdict-pulse 0.5s ease-in-out 2;
+}
+
+[data-verdict="pass"] .verdict-icon {
+  animation: fade-in 0.3s ease-out both;
+}
+
+@keyframes verdict-pulse {
+  0%,
+  100% {
+    border-color: var(--lobster-red, #ef4444);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ANIM-023: Binding required state */
+.binding-required {
+  border: 1px dashed var(--sand, #d4a76a);
+  background-color: rgba(212, 167, 106, 0.1);
+}
+
+.binding-required-badge {
+  animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

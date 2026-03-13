@@ -1,2 +1,84 @@
-// @aics/ui-office — stub, Phase 2 implements
-export {};
+// Components
+export * from './components/ErrorBoundary.js';
+export * from './components/agents/AgentCard.js';
+export * from './components/agents/AgentPanel.js';
+export * from './components/chat/ChatDrawer.js';
+export * from './components/chat/ChatInput.js';
+export * from './components/chat/ChatPanel.js';
+export * from './components/chat/MessageBubble.js';
+export * from './components/chat/StreamingBubble.js';
+export * from './components/dashboard/BossDashboard.js';
+export * from './components/dashboard/CompanyStatusCard.js';
+export * from './components/dashboard/CostByModelCard.js';
+export * from './components/dashboard/CostOverviewCard.js';
+export * from './components/dashboard/RecentActivityCard.js';
+export * from './components/dashboard/TaskQueueCard.js';
+export * from './components/employees/EmployeeEditorDialog.js';
+export * from './components/employees/InterviewWizard.js';
+export * from './components/employees/VersionDiffTable.js';
+export * from './components/employees/VersionHistoryTab.js';
+export * from './components/employees/interview-steps/ExpertiseStep.js';
+export * from './components/employees/interview-steps/HRPrompt.js';
+export * from './components/employees/interview-steps/InstructionsStep.js';
+export * from './components/employees/interview-steps/ModelStep.js';
+export * from './components/employees/interview-steps/NameStep.js';
+export * from './components/employees/interview-steps/PreviewStep.js';
+export * from './components/employees/interview-steps/RoleStep.js';
+export * from './components/employees/interview-steps/StyleStep.js';
+export * from './components/error/EmptyState.js';
+export * from './components/error/ErrorBanner.js';
+export * from './components/events/EventItem.js';
+export * from './components/events/EventLog.js';
+export * from './components/install/BindingForm.js';
+export * from './components/install/FileImportTrigger.js';
+export * from './components/install/InstallDialog.js';
+export * from './components/install/InstallProgress.js';
+export * from './components/install/ManifestReview.js';
+export * from './components/install/SkillReview.js';
+export * from './components/layout/AppLayout.js';
+export * from './components/layout/Header.js';
+export * from './components/layout/RightSidebar.js';
+export * from './components/layout/StatusBar.js';
+export * from './components/library/Library.js';
+export * from './components/office/OfficeEditor.js';
+export * from './components/onboarding/CompanyCreationWizard.js';
+export * from './components/onboarding/TemplateCard.js';
+export * from './components/pitch/PitchHall.js';
+export * from './components/plan/TaskDashboard.js';
+export * from './components/plan/TaskItem.js';
+export * from './components/plan/TaskStepCard.js';
+export * from './components/scene/SceneCanvas.js';
+export * from './components/scene/useScene.js';
+export * from './components/server-room/ServerRoom.js';
+export * from './components/settings/McpConfigPanel.js';
+export * from './components/settings/SettingsDialog.js';
+export * from './components/settings/provider-presets.js';
+
+// Hooks
+export * from './hooks/use-reduced-motion.js';
+export * from './hooks/useCompanyCreation.js';
+export * from './hooks/useCostDashboard.js';
+export * from './hooks/useDashboardMetrics.js';
+export * from './hooks/useDeepLinkInstall.js';
+export * from './hooks/useDeliverables.js';
+export * from './hooks/useEmployeeEditor.js';
+export * from './hooks/useEmployeeVersions.js';
+export * from './hooks/useErrorTracking.js';
+export * from './hooks/useInstallFlow.js';
+export * from './hooks/useInterviewWizard.js';
+export * from './hooks/useLibrary.js';
+export * from './hooks/useOfficeLayout.js';
+export * from './hooks/useRackSlot.js';
+export * from './hooks/useTaskDashboard.js';
+export * from './hooks/useTaskQueue.js';
+
+// Lib
+export * from './lib/constants.js';
+export * from './lib/env.js';
+export * from './lib/provider-config.js';
+
+// Runtime
+export * from './runtime/aics-runtime-context.js';
+export * from './runtime/use-agent-states.js';
+export * from './runtime/use-event-stream.js';
+export * from './runtime/use-streaming-content.js';

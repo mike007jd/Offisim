@@ -3,15 +3,27 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@aics/asset-schema": "workspace:*",
+    "@aics/core": "workspace:*",
+    "@aics/install-core": "workspace:*",
+    "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
-    "@aics/ui-core": "workspace:*"
+    "@aics/ui-core": "workspace:*",
+    "lucide-react": "^0.577.0"
   },
-  "devDependencies": { "typescript": "^5.7.0" }
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
 }
