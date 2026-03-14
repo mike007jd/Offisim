@@ -1,5 +1,8 @@
 // Components
 export * from './components/ErrorBoundary.js';
+export * from './components/company/CompanyEditor.js';
+export * from './components/company/PolicyEditor.js';
+export * from './components/company/ZoneEditor.js';
 export * from './components/agents/AgentCard.js';
 export * from './components/agents/AgentPanel.js';
 export * from './components/chat/ChatDrawer.js';
@@ -61,6 +64,7 @@ export * from './components/settings/provider-presets.js';
 
 // Hooks
 export * from './hooks/use-reduced-motion.js';
+export * from './hooks/useCompanyEditor.js';
 export * from './hooks/useCompanyCreation.js';
 export * from './hooks/useCostDashboard.js';
 export * from './hooks/useDashboardMetrics.js';
