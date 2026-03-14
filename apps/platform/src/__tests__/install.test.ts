@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { optionalAuth } from '../middleware/auth.js';
 import { errorHandler } from '../middleware/error-handler.js';
+import { _resetRateLimitStore } from '../middleware/rate-limit.js';
 import { installRoute } from '../routes/install.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -34,6 +35,11 @@ function createChainableMock(resolveValue: unknown) {
   return new Proxy({}, handler);
 }
 
+/**
+ * Creates a mock DB that supports both direct queries and transactions.
+ * For transaction support, the `transaction` method calls the callback with the
+ * same mock db (the tx object behaves identically to db).
+ */
 function createMockDb(results: unknown[][]) {
   let callIndex = 0;
   const handler: ProxyHandler<object> = {
@@ -42,6 +48,12 @@ function createMockDb(results: unknown[][]) {
         const idx = callIndex++;
         const resolveValue = results[idx] ?? [];
         return vi.fn(() => createChainableMock(resolveValue));
+      }
+      if (prop === 'transaction') {
+        // transaction(async (tx) => ...) — tx uses the same mock
+        return vi.fn(async (cb: (tx: any) => Promise<unknown>) => {
+          return cb(new Proxy({}, handler));
+        });
       }
       return vi.fn();
     },
@@ -70,6 +82,11 @@ const authHeaders = {
 // ── Tests ──
 
 describe('Install Route', () => {
+  // Reset rate limiter state between tests
+  afterEach(() => {
+    _resetRateLimitStore();
+  });
+
   describe('POST /v1/install/receipts', () => {
     it('requires authentication', async () => {
       const mockDb = createMockDb([]);
@@ -120,9 +137,12 @@ describe('Install Route', () => {
       expect(body.error.details[0].message).toContain('install_source');
     });
 
-    it('creates receipt and increments install_count', async () => {
-      // insert receipt (no-op return), update listing count (no-op return)
-      const mockDb = createMockDb([[], []]);
+    it('creates receipt and returns recorded status for new install', async () => {
+      // Transaction: insert receipt returns rows (new), then update listing count
+      const mockDb = createMockDb([
+        [{ install_receipt_id: `rcpt_${USER_ID}_${LISTING_ID}_${VERSION_ID}` }], // insert returning
+        [], // update listing count
+      ]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/install/receipts', {
@@ -140,6 +160,29 @@ describe('Install Route', () => {
       expect(body.install_receipt_id).toContain(USER_ID);
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.package_version_id).toBe(VERSION_ID);
+      expect(body.status).toBe('recorded');
+    });
+
+    it('returns already_exists for duplicate receipt (idempotent)', async () => {
+      // Transaction: insert receipt returns empty (conflict/duplicate)
+      const mockDb = createMockDb([
+        [], // insert returning is empty (ON CONFLICT DO NOTHING)
+      ]);
+      const app = createApp(mockDb);
+
+      const res = await app.request('/v1/install/receipts', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          listing_id: LISTING_ID,
+          package_version_id: VERSION_ID,
+          install_source: 'registry',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, any>;
+      expect(body.status).toBe('already_exists');
     });
   });
 

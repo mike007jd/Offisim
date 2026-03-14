@@ -23,9 +23,10 @@ const installRoute = new Hono<PlatformEnv>();
  * POST /v1/install/receipts — Record an install receipt.
  *
  * Called by the local runtime after a successful install to:
- * 1. Create an install_receipt record
- * 2. Increment the listing's install_count
- * 3. Link the receipt to the user's library entry (if exists)
+ * 1. Create an install_receipt record (idempotent via ON CONFLICT DO NOTHING)
+ * 2. Increment the listing's install_count ONLY if the receipt was actually inserted
+ *
+ * Uses a transaction to guarantee atomicity — no count drift on concurrent requests.
  */
 installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
   const db = c.get('db');
@@ -35,30 +36,42 @@ installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
   // Generate a receipt ID (deterministic for idempotency: user + listing + version)
   const receiptId = `rcpt_${userId}_${body.listing_id}_${body.package_version_id}`;
 
-  // Upsert receipt (idempotent — re-installing same version is a no-op)
-  await db
-    .insert(installReceipts)
-    .values({
-      install_receipt_id: receiptId,
-      user_id: userId,
-      listing_id: body.listing_id,
-      package_version_id: body.package_version_id,
-      install_source: body.install_source,
-    })
-    .onConflictDoNothing();
+  // Use transaction to guarantee atomicity of receipt insert + count increment
+  const result = await db.transaction(async (tx) => {
+    // Upsert receipt — ON CONFLICT DO NOTHING returns 0 rows if duplicate
+    const inserted = await tx
+      .insert(installReceipts)
+      .values({
+        install_receipt_id: receiptId,
+        user_id: userId,
+        listing_id: body.listing_id,
+        package_version_id: body.package_version_id,
+        install_source: body.install_source,
+      })
+      .onConflictDoNothing()
+      .returning({ install_receipt_id: installReceipts.install_receipt_id });
 
-  // Increment install_count on the listing
-  await db
-    .update(listings)
-    .set({
-      install_count: sql`COALESCE(${listings.install_count}, 0) + 1`,
-    })
-    .where(eq(listings.listing_id, body.listing_id));
+    if (inserted.length > 0) {
+      // Receipt was actually inserted (not a duplicate) — increment count
+      await tx
+        .update(listings)
+        .set({
+          install_count: sql`COALESCE(${listings.install_count}, 0) + 1`,
+        })
+        .where(eq(listings.listing_id, body.listing_id));
+
+      return 'recorded' as const;
+    }
+
+    // Duplicate receipt — no count increment
+    return 'already_exists' as const;
+  });
 
   return c.json({
     install_receipt_id: receiptId,
     listing_id: body.listing_id,
     package_version_id: body.package_version_id,
+    status: result,
   });
 });
 
