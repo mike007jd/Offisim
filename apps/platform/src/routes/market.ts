@@ -3,6 +3,7 @@ import {
   listingPreviews,
   listingTags,
   listings,
+  packageLineage,
   packageVersions,
   reviews,
 } from '@aics/db-platform';
@@ -368,6 +369,154 @@ market.get('/listings/:listingId/reviews', async (c) => {
       updated_at: r.updated_at.toISOString(),
     })),
   });
+});
+
+// GET /v1/market/listings/:listingId/forks — listings that forked from this one
+market.get('/listings/:listingId/forks', async (c) => {
+  const db = c.get('db');
+  const listingId = c.req.param('listingId');
+
+  // Verify listing exists
+  const [listing] = await db
+    .select({ listing_id: listings.listing_id })
+    .from(listings)
+    .where(eq(listings.listing_id, listingId))
+    .limit(1);
+
+  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+
+  // Find all package versions whose lineage points to this listing
+  const lineageRows = await db
+    .select({
+      lineage_id: packageLineage.lineage_id,
+      package_version_id: packageLineage.package_version_id,
+      forked_from_version: packageLineage.forked_from_version,
+    })
+    .from(packageLineage)
+    .where(eq(packageLineage.origin_listing_id, listingId));
+
+  if (lineageRows.length === 0) {
+    return c.json({ forks: [] });
+  }
+
+  // Get the corresponding listings via packageVersions
+  const versionIds = lineageRows.map((r) => r.package_version_id);
+  const forkVersions = await db
+    .select()
+    .from(packageVersions)
+    .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
+    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
+    .where(inArray(packageVersions.package_version_id, versionIds));
+
+  const forks = forkVersions.map((row) => ({
+    listingId: row.listings.listing_id,
+    title: row.listings.title,
+    slug: row.listings.slug,
+    creatorHandle: row.creators.handle,
+    version: row.package_versions.version,
+    forkedAt: row.package_versions.published_at.toISOString(),
+  }));
+
+  return c.json({ forks });
+});
+
+// GET /v1/market/listings/:listingId/lineage — full lineage chain (ancestors + descendants)
+market.get('/listings/:listingId/lineage', async (c) => {
+  const db = c.get('db');
+  const listingId = c.req.param('listingId');
+
+  // Verify listing exists
+  const [listing] = await db
+    .select({ listing_id: listings.listing_id })
+    .from(listings)
+    .where(eq(listings.listing_id, listingId))
+    .limit(1);
+
+  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+
+  // Ancestors: walk origin_listing_id chain upward (max 10 levels)
+  const ancestors: Array<{ listingId: string; title: string; slug: string; version: string }> = [];
+  let currentId: string | null = listingId;
+  const visited = new Set<string>();
+
+  for (let depth = 0; depth < 10 && currentId; depth++) {
+    visited.add(currentId);
+
+    // Find lineage pointing FROM versions of currentId
+    const [lineageRow] = await db
+      .select({
+        origin_listing_id: packageLineage.origin_listing_id,
+      })
+      .from(packageLineage)
+      .innerJoin(
+        packageVersions,
+        eq(packageLineage.package_version_id, packageVersions.package_version_id),
+      )
+      .where(eq(packageVersions.listing_id, currentId))
+      .limit(1);
+
+    if (!lineageRow?.origin_listing_id || visited.has(lineageRow.origin_listing_id)) break;
+
+    const [ancestorRow] = await db
+      .select()
+      .from(listings)
+      .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
+      .where(eq(listings.listing_id, lineageRow.origin_listing_id))
+      .limit(1);
+
+    if (!ancestorRow) break;
+
+    // Get latest version
+    const [latestV] = await db
+      .select({ version: packageVersions.version })
+      .from(packageVersions)
+      .where(
+        and(
+          eq(packageVersions.listing_id, lineageRow.origin_listing_id),
+          eq(packageVersions.status, 'active'),
+        ),
+      )
+      .orderBy(desc(packageVersions.published_at))
+      .limit(1);
+
+    ancestors.push({
+      listingId: ancestorRow.listings.listing_id,
+      title: ancestorRow.listings.title,
+      slug: ancestorRow.listings.slug,
+      version: latestV?.version ?? '0.0.0',
+    });
+
+    currentId = lineageRow.origin_listing_id;
+  }
+
+  // Descendants: find all listings whose lineage points to this listing (1 level)
+  const lineageRows = await db
+    .select({ package_version_id: packageLineage.package_version_id })
+    .from(packageLineage)
+    .where(eq(packageLineage.origin_listing_id, listingId));
+
+  const descendants: Array<{ listingId: string; title: string; slug: string; version: string }> =
+    [];
+
+  if (lineageRows.length > 0) {
+    const versionIds = lineageRows.map((r) => r.package_version_id);
+    const descRows = await db
+      .select()
+      .from(packageVersions)
+      .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
+      .where(inArray(packageVersions.package_version_id, versionIds));
+
+    for (const row of descRows) {
+      descendants.push({
+        listingId: row.listings.listing_id,
+        title: row.listings.title,
+        slug: row.listings.slug,
+        version: row.package_versions.version,
+      });
+    }
+  }
+
+  return c.json({ ancestors, descendants });
 });
 
 export { market };
