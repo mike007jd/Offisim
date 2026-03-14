@@ -121,13 +121,21 @@ export default defineConfig({
     port: 5173,
   },
   resolve: {
-    alias: {
-      'node:async_hooks': path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
-      'better-sqlite3': path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
-    },
+    alias: [
+      { find: 'node:async_hooks', replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts') },
+      { find: 'better-sqlite3', replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts') },
+      // Redirect bare `@aics/core` imports (from @aics/ui-office compiled output)
+      // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
+      // from being pulled into the initial bundle via ui-office's static imports.
+      // Heavy runtime modules (graph, LLM, MCP) use direct @aics/core/dist/ path
+      // imports in browser-runtime.ts and tauri-runtime.ts to bypass this alias.
+      // Uses regex with exact match ($ anchor) so @aics/core/browser, @aics/core/dist/...
+      // are NOT affected.
+      { find: /^@aics\/core$/, replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js') },
+    ],
   },
   optimizeDeps: {
-    include: ['@aics/core', '@aics/shared-types'],
+    include: ['@aics/core', '@aics/core/browser', '@aics/shared-types'],
   },
   build: {
     // vendor-llm (LLM SDKs) and vendor-pixi (PixiJS) are large but unavoidable.

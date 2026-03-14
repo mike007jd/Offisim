@@ -1,4 +1,4 @@
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core';
+import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core/browser';
 /**
  * MCP client factory for Tauri desktop environment.
  *

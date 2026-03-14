@@ -38,7 +38,7 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-} from '@aics/core';
+} from '@aics/core/browser';
 import {
   MemoryMcpAuditRepository,
   MemorySopTemplateRepository,
@@ -46,7 +46,7 @@ import {
   MemorySlotRepository,
   MemoryLibraryDocumentRepository,
   MemoryOfficeLayoutRepository,
-} from '@aics/core';
+} from '@aics/core/browser';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
@@ -54,7 +54,7 @@ import type {
   ModelCostRateRow,
   NewEmployeeVersion,
   NewModelCostRate,
-} from '@aics/core';
+} from '@aics/core/browser';
 import * as schema from '@aics/db-local';
 import type {
   AssetBindingRow,

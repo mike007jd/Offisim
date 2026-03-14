@@ -1,30 +1,42 @@
+/**
+ * Browser-mode runtime factory.
+ *
+ * This module is dynamically imported (like tauri-runtime.ts) so that heavy
+ * dependencies (@aics/core full barrel — LangGraph, OpenAI SDK, etc.) are
+ * code-split into a separate chunk and not included in the initial bundle.
+ */
+
+// Browser-safe imports — lightweight, no LLM/graph deps
+import {
+  DEFAULT_COST_RATES,
+  bindingStateChanged,
+  createMemoryRepositories,
+  installStateChanged,
+} from '@aics/core/browser';
+import type {
+  CompanyRow,
+  EventBus,
+  InMemoryEventBus,
+  RuntimeRepositories,
+} from '@aics/core/browser';
 // Heavy imports — direct dist paths to bypass the @aics/core barrel alias.
+// These modules pull in @langchain/langgraph, openai SDK, etc.
 import { buildAicsGraph } from '@aics/core/dist/graph/main-graph.js';
+import { createMemoryCheckpointSaver } from '@aics/core/dist/graph/checkpoint-saver.js';
 import { createGateway } from '@aics/core/dist/llm/gateway-factory.js';
 import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
 import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
-import {
-  DEFAULT_COST_RATES,
-  bindingStateChanged,
-  installStateChanged,
-} from '@aics/core/browser';
-import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { COMPANY_ID, THREAD_ID, type ProviderConfig } from '@aics/ui-office';
-import { TauriCheckpointSaver } from './tauri-checkpoint';
-import { createTauriDrizzleDb } from './tauri-drizzle';
-import { TauriMcpClientFactory } from './tauri-mcp-client';
-import { createTauriRepositories } from './tauri-repos';
-import { seedTauriDb } from './tauri-seed';
+import { BrowserMcpClientFactory } from './browser-mcp-client';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
 // ---------------------------------------------------------------------------
 
-/** Adapts RuntimeRepositories to InstallRepositories (structurally identical). */
 function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositories {
   return {
     installTransactions: repos.installTransactions,
@@ -35,7 +47,6 @@ function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositor
   };
 }
 
-/** Adapts the core EventBus to InstallEventEmitter. */
 function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   return {
     emitInstallState(companyId, txnId, prev, next, packageId, errorCode) {
@@ -49,32 +60,76 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   };
 }
 
+async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>): Promise<void> {
+  const now = new Date().toISOString();
+
+  const company: CompanyRow = {
+    company_id: COMPANY_ID,
+    name: 'AICS Demo Company',
+    status: 'active',
+    workspace_root: null,
+    default_model_policy_json: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  repos.seed.companies([company]);
+  await seedCostRates(repos);
+}
+
+async function seedCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
+  const existing = await repos.costRates.findAll();
+  if (existing.length > 0) return;
+
+  const now = new Date().toISOString().slice(0, 10);
+  for (const rate of DEFAULT_COST_RATES) {
+    await repos.costRates.create({
+      provider: rate.provider,
+      model_pattern: rate.model_pattern,
+      input_cost_per_mtok: rate.input_cost_per_mtok,
+      output_cost_per_mtok: rate.output_cost_per_mtok,
+      effective_from: now,
+      effective_until: null,
+    });
+  }
+}
+
+const IS_DEV = import.meta.env.DEV;
+
+export type RuntimeBundle = {
+  eventBus: InMemoryEventBus;
+  graph: ReturnType<typeof buildAicsGraph>;
+  runtimeCtx: ReturnType<typeof createRuntimeContext>;
+  installService: InstallService | null;
+  mcpToolExecutor: McpToolExecutor | null;
+  repos: RuntimeRepositories;
+};
+
 /**
- * Create the full runtime stack for Tauri desktop mode.
+ * Create the browser-mode runtime stack.
  *
- * Differences from browser mode:
- * 1. Repos: Drizzle sqlite-proxy → persistent SQLite (not memory)
- * 2. Checkpointer: TauriCheckpointSaver → persistent (not MemorySaver)
- * 3. Gateway: Direct API calls, no Vite proxy (tauri-plugin-cors-fetch handles CORS)
- * 4. DB seed: Run once on first launch
- *
- * @param config - Provider configuration (API key, model, etc.)
- * @param eventBus - Shared EventBus instance from the Provider. Using a shared
- *   bus avoids the "EventBus churn" problem where async init would create a
- *   different bus than what UI hooks subscribe to.
+ * @param config - Provider configuration
+ * @param eventBus - Shared EventBus instance from the Provider.
  */
-export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus) {
-  await seedTauriDb();
+export async function createBrowserRuntime(
+  config: ProviderConfig,
+  eventBus: InMemoryEventBus,
+): Promise<RuntimeBundle> {
+  const repos = createMemoryRepositories();
+  await seedCompany(repos);
 
-  const db = createTauriDrizzleDb();
-  const repos = createTauriRepositories(db);
+  const proxyBaseURL =
+    IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
+  const proxyHeaders =
+    IS_DEV && config.baseURL
+      ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
+      : config.defaultHeaders;
 
-  // No proxy needed — tauri-plugin-cors-fetch hooks fetch() transparently
   const gateway = createGateway({
     provider: config.provider,
     apiKey: config.apiKey,
-    baseURL: config.baseURL,
-    defaultHeaders: config.defaultHeaders,
+    baseURL: proxyBaseURL ?? config.baseURL,
+    defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
   });
 
@@ -85,17 +140,15 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     maxTokens: 4096,
   });
 
-  const checkpointer = new TauriCheckpointSaver();
+  const checkpointer = createMemoryCheckpointSaver();
   const graph = buildAicsGraph({ checkpointer });
 
-  // MCP tool executor — TauriMcpClientFactory supports both stdio (via Rust bridge) and SSE
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
     companyId: COMPANY_ID,
-    clientFactory: new TauriMcpClientFactory(),
+    clientFactory: new BrowserMcpClientFactory(),
   });
 
-  // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
     mcpToolExecutor,
     repos.mcpAudit,
@@ -114,10 +167,6 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     threadId: THREAD_ID,
   });
 
-  // Seed default cost rates (idempotent — skips if rates already exist)
-  await seedCostRates(repos);
-
-  // Install service — Drizzle-backed repos for persistent install state
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
@@ -130,25 +179,4 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   });
 
   return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
-}
-
-/**
- * Seed default LLM cost rates into the Tauri runtime's persistent DB.
- * Idempotent: skips if rates already exist.
- */
-async function seedCostRates(repos: RuntimeRepositories): Promise<void> {
-  const existing = await repos.costRates.findAll();
-  if (existing.length > 0) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  for (const rate of DEFAULT_COST_RATES) {
-    await repos.costRates.create({
-      provider: rate.provider,
-      model_pattern: rate.model_pattern,
-      input_cost_per_mtok: rate.input_cost_per_mtok,
-      output_cost_per_mtok: rate.output_cost_per_mtok,
-      effective_from: today,
-      effective_until: null,
-    });
-  }
 }

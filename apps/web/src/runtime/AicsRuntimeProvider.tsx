@@ -1,205 +1,11 @@
 import {
-  AuditingToolExecutor,
-  DEFAULT_COST_RATES,
   EmployeeVersionService,
   InMemoryEventBus,
-  McpToolExecutor,
-  ModelResolver,
-  OrchestrationService,
-  bindingStateChanged,
-  buildAicsGraph,
-  createGateway,
-  createMemoryCheckpointSaver,
-  createMemoryRepositories,
-  createRuntimeContext,
-  installStateChanged,
-} from '@aics/core';
-import type {
-  CompanyRow,
-  EventBus,
-  McpServerConfig,
-  RuntimeRepositories,
-} from '@aics/core';
-import { InstallService } from '@aics/install-core';
-import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-// HumanMessage is dynamically imported in sendMessage to avoid pulling
-// @langchain/core into the main bundle (~200 KB savings).
+} from '@aics/core/browser';
+import type { McpServerConfig } from '@aics/core/browser';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
-import { AicsRuntimeContext, type AicsRuntimeValue, COMPANY_ID, THREAD_ID, isTauri, type ProviderConfig, loadProviderConfig } from '@aics/ui-office';
-
-type RuntimeBundle = {
-  eventBus: InMemoryEventBus;
-  graph: ReturnType<typeof buildAicsGraph>;
-  runtimeCtx: ReturnType<typeof createRuntimeContext>;
-  installService: InstallService | null;
-  mcpToolExecutor: McpToolExecutor | null;
-  repos: RuntimeRepositories;
-};
-
-// ---------------------------------------------------------------------------
-// Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
-// ---------------------------------------------------------------------------
-
-/**
- * Adapts RuntimeRepositories (from @aics/core) to InstallRepositories
- * (from @aics/install-core). The interface shapes are structurally identical,
- * so this is a simple projection.
- */
-function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositories {
-  return {
-    installTransactions: repos.installTransactions,
-    installedPackages: repos.installedPackages,
-    installedAssets: repos.installedAssets,
-    assetBindings: repos.assetBindings,
-    employees: repos.employees,
-  };
-}
-
-/**
- * Adapts the core EventBus to InstallEventEmitter. Each method constructs
- * the appropriate RuntimeEvent via event-factory helpers and emits it.
- */
-function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
-  return {
-    emitInstallState(companyId, txnId, prev, next, packageId, errorCode) {
-      eventBus.emit(
-        installStateChanged(companyId, txnId, prev, next, undefined, packageId, errorCode),
-      );
-    },
-    emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
-      eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
-    },
-  };
-}
-
-async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>): Promise<void> {
-  const now = new Date().toISOString();
-
-  const company: CompanyRow = {
-    company_id: COMPANY_ID,
-    name: 'AICS Demo Company',
-    status: 'active',
-    workspace_root: null,
-    default_model_policy_json: null,
-    created_at: now,
-    updated_at: now,
-  };
-
-  repos.seed.companies([company]);
-  // Employees are no longer hardcoded — the CompanyCreationWizard lets users
-  // pick a template on first run, which materializes employees + SOPs + layout.
-
-  // Seed default cost rates — awaited so runtime is not considered ready
-  // until rates are available for CostCalculationService (I8)
-  await seedCostRates(repos);
-}
-
-/**
- * Seed default LLM cost rates into the cost_rates repository.
- * Idempotent: skips seeding if rates already exist.
- */
-async function seedCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
-  const existing = await repos.costRates.findAll();
-  if (existing.length > 0) return;
-
-  const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  for (const rate of DEFAULT_COST_RATES) {
-    await repos.costRates.create({
-      provider: rate.provider,
-      model_pattern: rate.model_pattern,
-      input_cost_per_mtok: rate.input_cost_per_mtok,
-      output_cost_per_mtok: rate.output_cost_per_mtok,
-      effective_from: now,
-      effective_until: null,
-    });
-  }
-}
-
-const IS_DEV = import.meta.env.DEV;
-
-/**
- * Create the browser-mode runtime stack.
- *
- * @param config - Provider configuration
- * @param eventBus - Shared EventBus instance from the Provider. Using a shared
- *   bus ensures UI hooks always subscribe to the same instance, avoiding the
- *   "EventBus churn" problem during initialization.
- */
-async function createBrowserRuntime(
-  config: ProviderConfig,
-  eventBus: InMemoryEventBus,
-): Promise<RuntimeBundle> {
-  const repos = createMemoryRepositories();
-  await seedCompany(repos);
-
-  // In dev mode, route LLM calls through Vite proxy to avoid CORS.
-  // The proxy reads the real target from X-LLM-Base-URL header.
-  const proxyBaseURL =
-    IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
-  const proxyHeaders =
-    IS_DEV && config.baseURL
-      ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
-      : config.defaultHeaders;
-
-  const gateway = createGateway({
-    provider: config.provider,
-    apiKey: config.apiKey,
-    baseURL: proxyBaseURL ?? config.baseURL,
-    defaultHeaders: proxyHeaders,
-    dangerouslyAllowBrowser: true,
-  });
-
-  const modelResolver = new ModelResolver(null, {
-    provider: config.provider,
-    model: config.model,
-    temperature: 0.7,
-    maxTokens: 4096,
-  });
-
-  const checkpointer = createMemoryCheckpointSaver();
-  const graph = buildAicsGraph({ checkpointer });
-
-  // --- MCP Tool Executor (real, SSE-only in browser) ---
-  const mcpToolExecutor = new McpToolExecutor({
-    eventBus,
-    companyId: COMPANY_ID,
-    clientFactory: new BrowserMcpClientFactory(),
-  });
-
-  // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
-  const toolExecutor = new AuditingToolExecutor(
-    mcpToolExecutor,
-    repos.mcpAudit,
-    eventBus,
-    COMPANY_ID,
-    THREAD_ID,
-  );
-
-  const runtimeCtx = createRuntimeContext({
-    repos,
-    eventBus,
-    llmGateway: gateway,
-    modelResolver,
-    toolExecutor,
-    companyId: COMPANY_ID,
-    threadId: THREAD_ID,
-  });
-
-  // --- Install Service ---
-  const installService = new InstallService({
-    repos: createInstallReposAdapter(repos),
-    events: createEventEmitterAdapter(eventBus),
-    companyId: COMPANY_ID,
-    environment: {
-      runtimeVersion: '0.1.0',
-      environment: 'desktop',
-      schemaVersion: '2026-03',
-    },
-  });
-
-  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
-}
+import { AicsRuntimeContext, type AicsRuntimeValue, isTauri, loadProviderConfig } from '@aics/ui-office';
+import type { RuntimeBundle } from '../lib/browser-runtime';
 
 interface Props {
   children: React.ReactNode;
@@ -243,7 +49,8 @@ export function AicsRuntimeProvider({ children }: Props) {
       return runtime;
     }
 
-    // Browser mode — async due to seedCostRates (I8)
+    // Browser mode — dynamically import to code-split heavy deps (LangGraph, OpenAI SDK, etc.)
+    const { createBrowserRuntime } = await import('../lib/browser-runtime');
     const runtime = await createBrowserRuntime(config, eventBus);
     runtimeRef.current = runtime;
     return runtime;
@@ -309,11 +116,17 @@ export function AicsRuntimeProvider({ children }: Props) {
       lastFailedMessageRef.current = null;
 
       try {
+        // Dynamically import OrchestrationService + HumanMessage to keep them
+        // out of the initial bundle (~200 KB+ savings combined).
+        const [{ OrchestrationService }, { HumanMessage }] = await Promise.all([
+          import('@aics/core/dist/services/orchestration-service.js'),
+          import('@langchain/core/messages'),
+        ]);
         const entryMode = options?.targetEmployeeId ? 'direct_chat' : 'boss_chat';
         const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
         const result = await orch.execute({
           entryMode,
-          messages: [new (await import('@langchain/core/messages')).HumanMessage(text)],
+          messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
         });
         // Extract last AI message content from graph result

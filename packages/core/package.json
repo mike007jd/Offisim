@@ -11,7 +11,16 @@
     "./drizzle": {
       "types": "./dist/drizzle.d.ts",
       "import": "./dist/drizzle.js"
-    }
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./events": {
+      "types": "./dist/events/event-factories.d.ts",
+      "import": "./dist/events/event-factories.js"
+    },
+    "./dist/*": "./dist/*"
   },
   "sideEffects": false,
   "scripts": {
