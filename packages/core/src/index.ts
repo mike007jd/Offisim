@@ -173,6 +173,15 @@ export {
   memoryAccessed,
   employeeWorkstationChanged,
   employeeVersionCreated,
+  rackBound,
+  rackUnbound,
+  slotAssigned,
+  slotRemoved,
+  hrAssessmentStarted,
+  hrAssessmentCompleted,
+  hrRecommendation,
+  notificationCreated,
+  notificationDismissed,
 } from './events/event-factories.js';
 
 // --- Logger ---
@@ -190,6 +199,7 @@ export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
+export { NotificationBridge } from './services/notification-bridge.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
 export type { CompanyTemplate, CompanyTemplateEmployee } from './templates/index.js';
 export { listTemplates, getTemplate } from './templates/index.js';
