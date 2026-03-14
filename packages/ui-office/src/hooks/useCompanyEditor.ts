@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ZoneConfig } from '../components/company/ZoneEditor';
 import type { CompanyPolicy } from '../components/company/PolicyEditor';
 import { DEFAULT_COMPANY_POLICY } from '../components/company/PolicyEditor';
@@ -121,10 +121,13 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
     void load();
   }, [isOpen, repos]);
 
-  const isDirty =
-    JSON.stringify(company) !== JSON.stringify(originalCompany) ||
-    JSON.stringify(zones) !== JSON.stringify(originalZones) ||
-    JSON.stringify(policy) !== JSON.stringify(originalPolicy);
+  const isDirty = useMemo(
+    () =>
+      JSON.stringify(company) !== JSON.stringify(originalCompany) ||
+      JSON.stringify(zones) !== JSON.stringify(originalZones) ||
+      JSON.stringify(policy) !== JSON.stringify(originalPolicy),
+    [company, originalCompany, zones, originalZones, policy, originalPolicy],
+  );
 
   const updateCompanyName = useCallback((name: string) => {
     setCompany((prev) => (prev ? { ...prev, name } : { name, description: '' }));

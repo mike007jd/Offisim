@@ -2,6 +2,7 @@
 
 import type { PublishDraft } from '@aics/registry-client';
 import { KindIcon } from './KindIcon.js';
+import { formatDate } from '../lib/format.js';
 
 const STATUS_BADGE: Record<
   PublishDraft['status'],
@@ -22,11 +23,7 @@ export interface DraftCardProps {
 export function DraftCard({ draft, onDelete }: DraftCardProps) {
   const badge = STATUS_BADGE[draft.status];
   const title = draft.title?.trim() || 'Untitled Draft';
-  const createdAt = new Date(draft.created_at).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const createdAt = formatDate(draft.created_at);
 
   function handleDelete() {
     if (window.confirm(`Delete draft "${title}"? This cannot be undone.`)) {

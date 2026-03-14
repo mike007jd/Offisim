@@ -20,18 +20,15 @@ const TYPE_PREFIX_MAP: Record<string, string[]> = {
   Install: ['install.'],
 };
 
-/** Determine a display level from event topic */
+/** Determine a display level from event topic only — no payload serialization */
 export type EventDisplayLevel = 'Info' | 'Warning' | 'Error';
 
 export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
   const topic = event.type.toLowerCase();
-  const payloadStr = JSON.stringify(event.payload).toLowerCase();
   if (
     topic.includes('failed') ||
     topic.includes('error') ||
-    topic.includes('rolled_back') ||
-    payloadStr.includes('"error"') ||
-    payloadStr.includes('"failed"')
+    topic.includes('rolled_back')
   ) {
     return 'Error';
   }
@@ -44,6 +41,8 @@ export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
   }
   return 'Info';
 }
+
+type EnrichedEvent = { event: RuntimeEvent; level: EventDisplayLevel; employeeId: string | null };
 
 /** Extract an employeeId from the event payload if present */
 function extractEmployeeId(event: RuntimeEvent): string | null {
@@ -107,32 +106,33 @@ export function EventLog() {
     }
   }, [events]);
 
-  /** Filtered events — computed in useMemo to avoid re-render on every new event */
-  const filteredEvents = useMemo(() => {
+  /** Filtered events — computed in useMemo to avoid re-render on every new event.
+   *  Returns enriched tuples so level and employeeId are computed only once per event. */
+  const filteredEvents = useMemo((): EnrichedEvent[] => {
     const { types, levels, search } = filters;
     const selectedType = types[0] ?? 'All';
     const prefixes = TYPE_PREFIX_MAP[selectedType] ?? [];
     const searchLower = search.toLowerCase();
 
-    return events.filter((event) => {
+    const result: EnrichedEvent[] = [];
+    for (const event of events) {
       // Type filter
       if (prefixes.length > 0 && !prefixes.some((p) => event.type.startsWith(p))) {
-        return false;
+        continue;
       }
 
-      // Level filter
+      // Level filter — computed once here, reused in render
       const level = getEventLevel(event);
-      if (!levels.includes(level)) return false;
+      if (!levels.includes(level)) continue;
 
-      // Search filter
-      if (searchLower) {
-        const haystack =
-          event.type.toLowerCase() + ' ' + JSON.stringify(event.payload).toLowerCase();
-        if (!haystack.includes(searchLower)) return false;
+      // Search filter — type string only, no payload serialization
+      if (searchLower && !event.type.toLowerCase().includes(searchLower)) {
+        continue;
       }
 
-      return true;
-    });
+      result.push({ event, level, employeeId: extractEmployeeId(event) });
+    }
+    return result;
   }, [events, filters]);
 
   const handleEmployeeClick = useCallback(
@@ -162,9 +162,7 @@ export function EventLog() {
               {events.length === 0 ? 'No events yet' : 'No events match filters'}
             </div>
           ) : (
-            filteredEvents.map((event, i) => {
-              const level = getEventLevel(event);
-              const employeeId = extractEmployeeId(event);
+            filteredEvents.map(({ event, level, employeeId }, i) => {
               const rowStyle = LEVEL_ROW_STYLES[level];
               const clickable = employeeId !== null;
 

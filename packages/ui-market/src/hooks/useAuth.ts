@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { PLATFORM_API_URL } from '../lib/config.js';
 
-const PLATFORM_URL = process.env.NEXT_PUBLIC_PLATFORM_URL ?? 'http://localhost:4100';
+const PLATFORM_URL = PLATFORM_API_URL;
 const STORAGE_KEY = 'aics-auth-token';
 
 export interface AuthUser {

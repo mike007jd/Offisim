@@ -74,6 +74,8 @@ export class SceneManager {
   private interactionController: InteractionController | null = null;
   /** Active install ghost entities keyed by installTxnId */
   private installGhosts: Map<string, InstallGhostEntity> = new Map();
+  /** Pending settle timers keyed by installTxnId — cleared on destroy */
+  private _settleTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private _selectedEmployeeId: string | null = null;
 
   /** Rest area seats computed from floor plan */
@@ -663,6 +665,11 @@ export class SceneManager {
     for (const line of this.routeLines.values()) line.destroy();
     this.routeLines.clear();
 
+    for (const [, timerId] of this._settleTimers) {
+      clearTimeout(timerId);
+    }
+    this._settleTimers.clear();
+
     for (const ghost of this.installGhosts.values()) {
       ghost.destroy();
     }
@@ -1105,7 +1112,11 @@ export class SceneManager {
     ghost.settleAsInstalled();
     // Remove from scene after settle animation completes (M1 duration)
     const dur = this.motion.M1.duration > 0 ? this.motion.M1.duration : 0.6;
-    setTimeout(() => ghost.destroy(), (dur + 0.2) * 1000);
+    const timerId = setTimeout(() => {
+      this._settleTimers.delete(txnId);
+      ghost.destroy();
+    }, (dur + 0.2) * 1000);
+    this._settleTimers.set(txnId, timerId);
   }
 
   private failInstallGhost(txnId: string): void {

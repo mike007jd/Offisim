@@ -2,11 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CreatorNav, LoginDialog, useAuthContext } from '@aics/ui-market';
+import { CreatorNav, LoginDialog, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
+import { RegistryClient } from '@aics/registry-client';
 import type { MyCreatorProfile } from '@aics/registry-client';
-
-const PLATFORM_API_URL =
-  process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? process.env.NEXT_PUBLIC_PLATFORM_URL ?? 'http://localhost:4100';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, token, isLoading, logout, registerCreator } = useAuthContext();
@@ -29,11 +27,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     setProfileLoading(true);
-    fetch(`${PLATFORM_API_URL}/v1/publish/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data: { creator: MyCreatorProfile | null }) => {
+    new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token })
+      .getMyCreatorProfile()
+      .then((data) => {
         setCreatorProfile(data.creator);
       })
       .catch(() => {
@@ -49,10 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       await registerCreator(handle.trim(), user?.displayName ?? handle.trim(), bio.trim() || undefined);
       // Re-fetch profile after registration
-      const res = await fetch(`${PLATFORM_API_URL}/v1/publish/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = (await res.json()) as { creator: MyCreatorProfile | null };
+      const data = await new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token ?? '' }).getMyCreatorProfile();
       setCreatorProfile(data.creator);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : 'Registration failed');

@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { getField } from '../lib/manifest-utils.js';
 
 export interface ManifestEditorProps {
   manifest: Record<string, unknown>;
   onChange: (manifest: Record<string, unknown>) => void;
 }
+
+const inputCls =
+  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
 
 const ASSET_KINDS = [
   'employee',
@@ -23,15 +27,6 @@ const FILESYSTEM_SCOPES = ['none', 'workspace', 'project', 'custom_path'] as con
 const NETWORK_SCOPES = ['none', 'limited', 'unrestricted'] as const;
 
 const ENVIRONMENTS = ['desktop', 'docker', 'web_limited'] as const;
-
-function getField(manifest: Record<string, unknown>, ...path: string[]): unknown {
-  let cur: unknown = manifest;
-  for (const key of path) {
-    if (cur == null || typeof cur !== 'object') return undefined;
-    cur = (cur as Record<string, unknown>)[key];
-  }
-  return cur;
-}
 
 function setField(
   manifest: Record<string, unknown>,
@@ -90,7 +85,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
   const bool = (v: unknown): boolean => v === true;
 
-  const environments = (getField(manifest, 'compatibility', 'supported_environments') ??
+  const environments = (getField(manifest, ['compatibility', 'supported_environments']) ??
     []) as string[];
 
   function toggleEnvironment(env: string) {
@@ -138,7 +133,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                   Kind
                 </label>
                 <select
-                  value={str(getField(manifest, 'package', 'kind'))}
+                  value={str(getField(manifest, ['package', 'kind']))}
                   onChange={(e) => set(e.target.value, 'package', 'kind')}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -154,40 +149,40 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'package', 'title'))}
+                  value={str(getField(manifest, ['package', 'title']))}
                   onChange={(e) => set(e.target.value, 'package', 'title')}
                   placeholder="My Asset"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Summary</label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'package', 'summary'))}
+                  value={str(getField(manifest, ['package', 'summary']))}
                   onChange={(e) => set(e.target.value, 'package', 'summary')}
                   placeholder="One-line description"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Version</label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'package', 'version'))}
+                  value={str(getField(manifest, ['package', 'version']))}
                   onChange={(e) => set(e.target.value, 'package', 'version')}
                   placeholder="1.0.0"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">License</label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'package', 'license'))}
+                  value={str(getField(manifest, ['package', 'license']))}
                   onChange={(e) => set(e.target.value, 'package', 'license')}
                   placeholder="MIT"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
             </div>
@@ -205,10 +200,10 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 </label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'compatibility', 'runtime_range'))}
+                  value={str(getField(manifest, ['compatibility', 'runtime_range']))}
                   onChange={(e) => set(e.target.value, 'compatibility', 'runtime_range')}
                   placeholder=">=0.1.0"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
@@ -241,7 +236,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Risk Class</label>
                 <select
-                  value={str(getField(manifest, 'permissions', 'risk_class'))}
+                  value={str(getField(manifest, ['permissions', 'risk_class']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'risk_class')}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -258,7 +253,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                   Filesystem Scope
                 </label>
                 <select
-                  value={str(getField(manifest, 'permissions', 'filesystem_scope'))}
+                  value={str(getField(manifest, ['permissions', 'filesystem_scope']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'filesystem_scope')}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -275,7 +270,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                   Network Scope
                 </label>
                 <select
-                  value={str(getField(manifest, 'permissions', 'network_scope'))}
+                  value={str(getField(manifest, ['permissions', 'network_scope']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'network_scope')}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -290,7 +285,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
               <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
-                  checked={bool(getField(manifest, 'permissions', 'declares_secrets'))}
+                  checked={bool(getField(manifest, ['permissions', 'declares_secrets']))}
                   onChange={(e) => set(e.target.checked, 'permissions', 'declares_secrets')}
                   className="rounded border-gray-300"
                 />
@@ -309,10 +304,10 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Source URL</label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'distribution', 'source_url'))}
+                  value={str(getField(manifest, ['distribution', 'source_url']))}
                   onChange={(e) => set(e.target.value, 'distribution', 'source_url')}
                   placeholder="https://github.com/…"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
@@ -321,7 +316,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 </label>
                 <input
                   type="text"
-                  value={str(getField(manifest, 'integrity', 'package_sha256'))}
+                  value={str(getField(manifest, ['integrity', 'package_sha256']))}
                   onChange={(e) => set(e.target.value, 'integrity', 'package_sha256')}
                   placeholder="sha256 hex string"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"

@@ -1,12 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DashboardStats, DraftCard, ListingCard, useAuthContext } from '@aics/ui-market';
+import { DashboardStats, DraftCard, ListingCard, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
 import type { PublishDraft, ListingSummary } from '@aics/registry-client';
 import { RegistryClient } from '@aics/registry-client';
-
-const PLATFORM_API_URL =
-  process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? process.env.NEXT_PUBLIC_PLATFORM_URL ?? 'http://localhost:4100';
 
 function getClient(token: string) {
   return new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token });

@@ -153,12 +153,18 @@ export class AttentionSystem {
     this._recomputeFocus();
   }
 
-  /** Clear attention for a specific id. */
+  /** Clear all active attention requests in one pass (single _recomputeFocus call). */
   clearAttention(): void {
-    // Clear all
-    for (const id of this.requests.keys()) {
-      this.clearAttentionById(id);
+    if (this.requests.size === 0) return;
+    for (const [id] of this.requests) {
+      const timer = this.clearTimers.get(id);
+      if (timer != null) {
+        clearTimeout(timer);
+        this.clearTimers.delete(id);
+      }
     }
+    this.requests.clear();
+    this._recomputeFocus();
   }
 
   // ── Internal ─────────────────────────────────────────────────────

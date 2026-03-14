@@ -6,13 +6,7 @@ import { useAuthContext } from './AuthProvider.js';
 import { ManifestEditor } from './ManifestEditor.js';
 import { ValidationPanel, validateManifestClient } from './ValidationPanel.js';
 import { PublishPreview, type PublishPreviewDraft } from './PublishPreview.js';
-
-const PLATFORM_API_URL =
-  typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_PLATFORM_API_URL ??
-      process.env.NEXT_PUBLIC_PLATFORM_URL ??
-      'http://localhost:4100')
-    : 'http://localhost:4100';
+import { PLATFORM_API_URL } from '../lib/config.js';
 
 const ASSET_KINDS = [
   { value: 'employee', label: 'Employee' },

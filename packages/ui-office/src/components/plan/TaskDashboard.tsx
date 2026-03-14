@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { TaskStepCard } from './TaskStepCard';
@@ -12,6 +12,12 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
   const [stepFilter, setStepFilter] = useState<number | null>(null);
   /** Ref to the scroll container for programmatic scrolling on scene.employee.selected */
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Stable refs so the event-bus subscription doesn't resubscribe on every steps/toggle change
+  const stepsRef = useRef(dashboard.steps);
+  stepsRef.current = dashboard.steps;
+  const toggleStepRef = useRef(dashboard.toggleStep);
+  toggleStepRef.current = dashboard.toggleStep;
 
   // ── ANIM-015: task row click → emit ui.task.focused → scene flash ──
   const handleTaskClick = useCallback(
@@ -43,13 +49,16 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       const { employeeId } = event.payload as { employeeId: string };
       if (!employeeId || !scrollContainerRef.current) return;
 
+      const steps = stepsRef.current;
+      const toggleStep = toggleStepRef.current;
+
       // Find a task with this employeeId
-      for (const step of dashboard.steps) {
+      for (const step of steps) {
         const task = step.tasks.find((t) => t.employeeId === employeeId);
         if (task) {
           // Expand step if not already expanded
           if (!step.expanded) {
-            dashboard.toggleStep(step.stepIndex);
+            toggleStep(step.stepIndex);
           }
           // Scroll to the task row (uses data-task-run-id attribute)
           // Give React a tick to expand before scrolling
@@ -64,7 +73,7 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
         }
       }
     });
-  }, [eventBus, dashboard.steps, dashboard.toggleStep]);
+  }, [eventBus]);
 
   const handleSegmentClick = useCallback((stepIndex: number | null) => {
     setStepFilter(stepIndex);
@@ -77,6 +86,38 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
     }
   }, [dashboard]);
 
+  // Build step segments for StepProgressBar — memoized before early return (hooks must not be conditional)
+  const segments = useMemo((): StepProgressSegment[] =>
+    dashboard.steps.map((step) => {
+      let status: StepProgressSegment['status'];
+      if (step.status === 'completed') {
+        status = 'completed';
+      } else if (step.status === 'active') {
+        status = 'active';
+      } else {
+        const hasFailed = step.tasks.some(
+          (t) => t.status === 'failed' || t.status === 'cancelled',
+        );
+        status = hasFailed ? 'failed' : 'pending';
+      }
+      return {
+        index: step.stepIndex,
+        description: step.description,
+        status,
+        taskCount: step.tasks.length,
+      };
+    }),
+  [dashboard.steps]);
+
+  // Filter steps if a segment is selected — memoized before early return
+  const visibleSteps = useMemo(
+    () =>
+      stepFilter !== null
+        ? dashboard.steps.filter((s) => s.stepIndex === stepFilter)
+        : dashboard.steps,
+    [dashboard.steps, stepFilter],
+  );
+
   if (!dashboard.planId) {
     return (
       <div className="flex items-center justify-center p-6 text-sm text-shell">No active plan</div>
@@ -85,34 +126,6 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
   const pct =
     dashboard.stats.total > 0 ? (dashboard.stats.completed / dashboard.stats.total) * 100 : 0;
-
-  // Build step segments for StepProgressBar
-  const segments: StepProgressSegment[] = dashboard.steps.map((step) => {
-    let status: StepProgressSegment['status'];
-    if (step.status === 'completed') {
-      status = 'completed';
-    } else if (step.status === 'active') {
-      status = 'active';
-    } else {
-      // Check if any task failed
-      const hasFailed = step.tasks.some(
-        (t) => t.status === 'failed' || t.status === 'cancelled',
-      );
-      status = hasFailed ? 'failed' : 'pending';
-    }
-    return {
-      index: step.stepIndex,
-      description: step.description,
-      status,
-      taskCount: step.tasks.length,
-    };
-  });
-
-  // Filter steps if a segment is selected
-  const visibleSteps =
-    stepFilter !== null
-      ? dashboard.steps.filter((s) => s.stepIndex === stepFilter)
-      : dashboard.steps;
 
   return (
     <div ref={scrollContainerRef} className="flex flex-col gap-2 p-3">
