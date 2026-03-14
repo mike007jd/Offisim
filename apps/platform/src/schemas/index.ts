@@ -78,6 +78,24 @@ export const InstallReceiptSchema = z.object({
 });
 export type InstallReceiptBody = z.infer<typeof InstallReceiptSchema>;
 
+// ── Report ──
+
+export const VALID_REPORT_REASONS = [
+  'spam',
+  'malicious_code',
+  'copyright',
+  'misleading',
+  'other',
+] as const;
+
+export const ReportCreateSchema = z.object({
+  reason: z.enum(VALID_REPORT_REASONS, {
+    errorMap: () => ({ message: 'reason must be one of: spam, malicious_code, copyright, misleading, other' }),
+  }),
+  details: z.string().max(1000).optional(),
+});
+export type ReportCreateBody = z.infer<typeof ReportCreateSchema>;
+
 // ── Search Params ──
 
 export const SearchParamsSchema = z.object({

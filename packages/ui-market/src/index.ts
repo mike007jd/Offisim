@@ -19,5 +19,6 @@ export * from './components/ManifestEditor.js';
 export * from './components/PublishPreview.js';
 export * from './components/PublishWizard.js';
 export * from './components/ValidationPanel.js';
+export * from './components/ReportDialog.js';
 export * from './lib/format.js';
 export * from './lib/config.js';

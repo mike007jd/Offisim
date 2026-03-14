@@ -3,6 +3,7 @@ import {
   listingPreviews,
   listingTags,
   listings,
+  moderationFlags,
   packageLineage,
   packageVersions,
   reviews,
@@ -10,8 +11,9 @@ import {
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { SearchParamsSchema } from '../schemas/index.js';
+import { ReportCreateSchema, SearchParamsSchema } from '../schemas/index.js';
 import { searchListings } from '../services/search.js';
+import { requireAuth } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
 const market = new Hono<PlatformEnv>();
@@ -369,6 +371,65 @@ market.get('/listings/:listingId/reviews', async (c) => {
       updated_at: r.updated_at.toISOString(),
     })),
   });
+});
+
+// POST /v1/market/listings/:listingId/reports — report a listing
+market.post('/listings/:listingId/reports', requireAuth, async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId')!;
+  const listingId = c.req.param('listingId');
+  const body = ReportCreateSchema.parse(await c.req.json());
+
+  // Verify listing exists
+  const [listing] = await db
+    .select({ listing_id: listings.listing_id })
+    .from(listings)
+    .where(eq(listings.listing_id, listingId))
+    .limit(1);
+
+  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+
+  // Check for existing report from this user on this listing (rate limit: 1 per user per listing)
+  const [existing] = await db
+    .select({ flag_id: moderationFlags.flag_id })
+    .from(moderationFlags)
+    .where(
+      and(
+        eq(moderationFlags.target_type, 'listing'),
+        eq(moderationFlags.target_id, listingId),
+        eq(moderationFlags.reporter_user_id, userId),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    throw new HTTPException(409, { message: 'You have already reported this listing' });
+  }
+
+  const rows = await db
+    .insert(moderationFlags)
+    .values({
+      target_type: 'listing',
+      target_id: listingId,
+      reporter_user_id: userId,
+      reason: body.reason,
+      details: body.details ?? null,
+      status: 'open',
+    })
+    .returning();
+
+  const flag = rows[0]!;
+  return c.json(
+    {
+      flag_id: flag.flag_id,
+      target_type: flag.target_type,
+      target_id: flag.target_id,
+      reason: flag.reason,
+      status: flag.status,
+      created_at: flag.created_at.toISOString(),
+    },
+    201,
+  );
 });
 
 // GET /v1/market/listings/:listingId/forks — listings that forked from this one
