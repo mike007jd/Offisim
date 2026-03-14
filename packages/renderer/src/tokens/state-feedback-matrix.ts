@@ -5,6 +5,8 @@
  * Used by the renderer to decide which visual feedback to apply.
  */
 
+import type { EmployeeState } from '@aics/shared-types';
+
 /** Signal types available in the scene */
 export type SceneSignalType =
   | 'ring_color' // state ring color change
@@ -32,7 +34,7 @@ export interface StateSignal {
  * Each employee state maps to an ordered array of scene signals.
  * Higher priority signals take precedence when states compete.
  */
-export const EMPLOYEE_STATE_SIGNALS: Record<string, StateSignal[]> = {
+export const EMPLOYEE_STATE_SIGNALS: Record<EmployeeState, StateSignal[]> = {
   idle: [{ type: 'ring_color', priority: 'ambient', durationMs: 0 }],
   assigned: [
     { type: 'ring_color', priority: 'low', durationMs: 0 },
