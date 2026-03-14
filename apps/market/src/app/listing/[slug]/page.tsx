@@ -1,3 +1,5 @@
+export const revalidate = 300;
+
 import type { ListingDetail } from '@aics/registry-client';
 import { CreatorBadge, InstallButton, KindIcon, PermissionsPanel, RatingStars, ReviewList, VersionTable } from '@aics/ui-market';
 import type { Metadata } from 'next';

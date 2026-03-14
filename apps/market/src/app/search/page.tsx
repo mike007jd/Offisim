@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import { ListingCard, SearchFilters } from '@aics/ui-market';
 import { Suspense } from 'react';

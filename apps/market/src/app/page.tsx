@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import type { ListingSummary } from '@aics/registry-client';
 import { ListingCard } from '@aics/ui-market';
 import { getRegistryClient } from '../lib/registry';

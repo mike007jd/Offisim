@@ -1,3 +1,5 @@
+export const revalidate = 300;
+
 import type { CreatorProfile } from '@aics/registry-client';
 import { ListingCard } from '@aics/ui-market';
 import { Globe, ShieldCheck } from 'lucide-react';
