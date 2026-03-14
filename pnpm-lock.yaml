@@ -87,6 +87,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.5
+      jose:
+        specifier: ^6.2.1
+        version: 6.2.1
       postgres:
         specifier: ^3.4.8
         version: 3.4.8
