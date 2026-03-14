@@ -8,7 +8,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 
 interface BossDecision {
-  action: 'delegate' | 'direct_reply' | 'meeting';
+  action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess';
   reason?: string;
   reply?: string;
 }
@@ -18,7 +18,7 @@ const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordinator of
 Analyze the user's message and decide how to handle it. Respond with JSON only:
 
 {
-  "action": "delegate" | "direct_reply" | "meeting",
+  "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess",
   "reason": "brief explanation",
   "reply": "only if action is direct_reply"
 }
@@ -26,14 +26,15 @@ Analyze the user's message and decide how to handle it. Respond with JSON only:
 Rules:
 - "delegate": for tasks requiring employee work (coding, design, analysis, etc.)
 - "direct_reply": for simple greetings, status questions, or things you can answer directly
-- "meeting": when the user explicitly asks for a team meeting or discussion`;
+- "meeting": when the user explicitly asks for a team meeting or discussion
+- "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")`;
 
 function parseBossDecision(content: string): BossDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
   if (!parsed) return null;
 
   const action = parsed.action;
-  if (action === 'delegate' || action === 'direct_reply' || action === 'meeting') {
+  if (action === 'delegate' || action === 'direct_reply' || action === 'meeting' || action === 'hire_or_assess') {
     return {
       action,
       reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
@@ -46,11 +47,16 @@ function parseBossDecision(content: string): BossDecision | null {
 function mapActionToRoute(action: BossDecision['action']): AicsGraphState['routeDecision'] {
   switch (action) {
     case 'delegate':
+    case 'hire_or_assess':
       return 'delegate_manager';
     case 'direct_reply':
       return 'direct_reply';
     case 'meeting':
       return 'start_meeting';
+    default: {
+      const _exhaustive: never = action;
+      return _exhaustive;
+    }
   }
 }
 

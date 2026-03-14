@@ -13,16 +13,18 @@ interface LlmAssignment {
 }
 
 interface ManagerDecision {
+  intent: 'work' | 'hire' | 'assess_team';
   assignments: LlmAssignment[];
 }
 
 const MANAGER_SYSTEM_PROMPT = `You are the Manager AI — responsible for task splitting and employee assignment.
 
-Given the user's request and available employees, decide which employees should work on which tasks.
+Given the user's request and available employees, decide how to handle it.
 
 Respond with JSON only:
 
 {
+  "intent": "work" | "hire" | "assess_team",
   "assignments": [
     {
       "taskType": "code" | "design" | "analysis" | "review" | "general",
@@ -33,13 +35,29 @@ Respond with JSON only:
 }
 
 Rules:
-- Assign tasks to the most appropriate employee based on their role
+- "intent" classifies the request:
+  - "hire": the user wants to recruit, hire, or add new team members (e.g. "hire a designer", "we need more people", "recruit an analyst")
+  - "assess_team": the user wants to evaluate the current team composition, identify skill gaps, or review staffing (e.g. "what roles are we missing", "assess our team", "team strengths and weaknesses")
+  - "work": for all other tasks requiring employee work (coding, design, analysis, etc.)
+- For "hire" or "assess_team" intents, the "assignments" array can be empty
+- For "work" intent, assign tasks to the most appropriate employee based on their role
 - Split complex requests into sub-tasks if needed
 - Each assignment must reference a valid employee ID`;
 
+const VALID_INTENTS = new Set(['work', 'hire', 'assess_team']);
+
 function parseManagerDecision(content: string): ManagerDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
-  if (!parsed || !Array.isArray(parsed.assignments)) return null;
+  if (!parsed) return null;
+
+  const intent = typeof parsed.intent === 'string' && VALID_INTENTS.has(parsed.intent)
+    ? (parsed.intent as ManagerDecision['intent'])
+    : 'work';
+
+  // For hire/assess_team, assignments can be empty
+  if (!Array.isArray(parsed.assignments)) {
+    return intent !== 'work' ? { intent, assignments: [] } : null;
+  }
 
   const assignments: LlmAssignment[] = [];
   for (const a of parsed.assignments) {
@@ -54,7 +72,11 @@ function parseManagerDecision(content: string): ManagerDecision | null {
     }
   }
 
-  return assignments.length > 0 ? { assignments } : null;
+  if (intent !== 'work') {
+    return { intent, assignments };
+  }
+
+  return assignments.length > 0 ? { intent, assignments } : null;
 }
 
 /**
@@ -117,6 +139,7 @@ export async function managerNode(
   // Fallback: assign to first available employee
   if (!decision && nonManagerEmployees.length > 0) {
     decision = {
+      intent: 'work',
       assignments: [
         {
           taskType: 'general',
@@ -132,11 +155,14 @@ export async function managerNode(
     throw new GraphError('No employees available for assignment', 'manager');
   }
 
+  // Map intent to constraints for routing (hire/assess_team → HR node)
+  const constraints = decision.intent !== 'work' ? decision.intent : undefined;
+
   return {
     managerDirective: {
       intent: userContent,
       recommendedEmployees: decision.assignments.map((a) => a.employeeId),
-      constraints: undefined,
+      constraints,
     },
   };
 }
