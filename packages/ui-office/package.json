@@ -13,6 +13,7 @@
     "@aics/asset-schema": "workspace:*",
     "@aics/core": "workspace:*",
     "@aics/install-core": "workspace:*",
+    "@aics/registry-client": "workspace:*",
     "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
     "@aics/ui-core": "workspace:*",

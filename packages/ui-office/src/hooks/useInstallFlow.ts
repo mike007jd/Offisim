@@ -9,6 +9,7 @@
 import { employeeInstalled } from '@aics/core';
 import type { BindingConfirmation, InstallPlan, SkillValidationResult } from '@aics/install-core';
 import { readPackageFile } from '@aics/install-core';
+import { RegistryApiError, RegistryClient } from '@aics/registry-client';
 import { useCallback, useRef, useState } from 'react';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
@@ -195,8 +196,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   /**
    * Start install from a marketplace deep link.
-   * Fetches artifact download info from the platform API, downloads the package,
-   * and feeds it into the standard file import flow.
+   * Uses RegistryClient to fetch listing/version/download info, downloads the
+   * package artifact, and feeds it into the standard file import flow.
    */
   const startRegistryInstall = useCallback(
     (listingId: string, version: string) => {
@@ -210,47 +211,35 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       txnIdRef.current = null;
 
       (async () => {
-        try {
-          // 1. Get listing detail to find the package version ID
-          const platformUrl =
-            import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
-          const detailRes = await fetch(`${platformUrl}/v1/market/listings/${listingId}`);
-          if (!detailRes.ok) {
-            throw new Error(`Failed to fetch listing: ${detailRes.statusText}`);
-          }
-          const detail = await detailRes.json();
+        const platformUrl =
+          import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
+        const client = new RegistryClient({ baseUrl: platformUrl });
 
-          // 2. Find matching version or use latest
-          const versionsRes = await fetch(
-            `${platformUrl}/v1/market/listings/${listingId}/versions`,
-          );
-          const versionsData = await versionsRes.json();
-          const versions = versionsData.versions ?? [];
+        try {
+          // 1. Get listing detail (provides slug for filename)
+          const detail = await client.getListingDetail(listingId);
+
+          // 2. List versions and find the requested one (or fall back to latest)
+          const versionsResponse = await client.listListingVersions(listingId);
+          const versions = versionsResponse.versions;
           const matchedVersion =
-            versions.find((v: { version: string }) => v.version === version) ??
-            versions[0];
+            versions.find((v) => v.version === version) ?? versions[0];
 
           if (!matchedVersion) {
-            throw new Error(`No version ${version} found for listing ${listingId}`);
-          }
-
-          // 3. Get artifact download URL
-          const downloadRes = await fetch(
-            `${platformUrl}/v1/install/download/${matchedVersion.package_version_id ?? matchedVersion.package_id}`,
-          );
-          if (!downloadRes.ok) {
-            // Fallback: show review with metadata only (no binary yet)
-            // This handles the case where artifact isn't uploaded to registry yet
-            setPlan(MOCK_INSTALL_PLAN);
-            setStep('review');
+            setStep('error');
+            setError(`Version ${version} not found for listing ${listingId}`);
             return;
           }
-          const downloadInfo = await downloadRes.json();
+
+          // 3. Get artifact download info
+          const downloadInfo = await client.getArtifactDownloadInfo(matchedVersion.package_id);
 
           // 4. Download the actual artifact
           const artifactRes = await fetch(downloadInfo.artifact_url);
           if (!artifactRes.ok) {
-            throw new Error(`Failed to download artifact: ${artifactRes.statusText}`);
+            setStep('error');
+            setError(`Failed to download package: ${artifactRes.statusText}`);
+            return;
           }
           const blob = await artifactRes.blob();
 
@@ -263,8 +252,21 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           setIsOpen(false);
           startFileImport(file);
         } catch (err) {
+          if (err instanceof RegistryApiError) {
+            if (err.status === 404) {
+              setError('Listing not found — it may have been removed from the marketplace');
+            } else if (err.status === 410) {
+              setError('Version not available — this version has been retired');
+            } else {
+              setError(`Registry error (${err.code}): ${err.message}`);
+            }
+          } else if (err instanceof TypeError) {
+            // fetch() throws TypeError on network failure
+            setError('Network error — check your connection and try again');
+          } else {
+            setError(err instanceof Error ? err.message : String(err));
+          }
           setStep('error');
-          setError(err instanceof Error ? err.message : String(err));
         }
       })();
     },
