@@ -8,6 +8,7 @@ import {
   listingTags,
   listings,
   moderationJobs,
+  packageLineage,
   packageVersions,
   publishDrafts,
 } from '@aics/db-platform';
@@ -92,7 +93,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   }
 
   // Create package version
-  await db.insert(packageVersions).values({
+  const versionRows = await db.insert(packageVersions).values({
     listing_id: listingId,
     package_id: manifest.package.id,
     version: manifest.package.version,
@@ -104,7 +105,46 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     artifact_url: draft.artifact_id ?? undefined,
     changelog: manifest.package.summary,
     status: 'active',
-  });
+  }).returning();
+  const versionId = versionRows[0]!.package_version_id;
+
+  // Write lineage record if manifest contains lineage info
+  const lineage = manifest.lineage as
+    | { origin_listing_id?: string; origin_package_id?: string; forked_from_version?: string }
+    | undefined;
+  if (lineage?.origin_listing_id || lineage?.origin_package_id) {
+    // Validate origin_listing_id exists if provided
+    if (lineage.origin_listing_id) {
+      const [originListing] = await db
+        .select({ listing_id: listings.listing_id })
+        .from(listings)
+        .where(eq(listings.listing_id, lineage.origin_listing_id))
+        .limit(1);
+      if (!originListing) {
+        // Reject — dangling lineage reference
+        await db
+          .update(moderationJobs)
+          .set({
+            status: 'completed',
+            result: { outcome: 'rejected', reason: 'Lineage origin_listing_id does not exist' },
+            completed_at: new Date(),
+          })
+          .where(eq(moderationJobs.job_id, jobId));
+        await db
+          .update(publishDrafts)
+          .set({ status: 'rejected', updated_at: new Date() })
+          .where(eq(publishDrafts.draft_id, draft.draft_id));
+        return;
+      }
+    }
+
+    await db.insert(packageLineage).values({
+      package_version_id: versionId,
+      origin_listing_id: lineage.origin_listing_id ?? null,
+      origin_package_id: lineage.origin_package_id ?? null,
+      forked_from_version: lineage.forked_from_version ?? null,
+    });
+  }
 
   // Update tags (batch insert)
   const tags: string[] = manifest.package.tags;
