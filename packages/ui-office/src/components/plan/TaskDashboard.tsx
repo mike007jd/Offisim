@@ -1,8 +1,28 @@
+import { useCallback, useState } from 'react';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { TaskStepCard } from './TaskStepCard';
+import { StepProgressBar } from '../dashboard/StepProgressBar';
+import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [stepFilter, setStepFilter] = useState<number | null>(null);
+
+  const handleTaskClick = useCallback((taskRunId: string) => {
+    setExpandedTaskId((prev) => (prev === taskRunId ? null : taskRunId));
+  }, []);
+
+  const handleSegmentClick = useCallback((stepIndex: number | null) => {
+    setStepFilter(stepIndex);
+    // When filtering to a step, auto-expand it
+    if (stepIndex !== null) {
+      const step = dashboard.steps.find((s) => s.stepIndex === stepIndex);
+      if (step && !step.expanded) {
+        dashboard.toggleStep(stepIndex);
+      }
+    }
+  }, [dashboard]);
 
   if (!dashboard.planId) {
     return (
@@ -12,6 +32,34 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
   const pct =
     dashboard.stats.total > 0 ? (dashboard.stats.completed / dashboard.stats.total) * 100 : 0;
+
+  // Build step segments for StepProgressBar
+  const segments: StepProgressSegment[] = dashboard.steps.map((step) => {
+    let status: StepProgressSegment['status'];
+    if (step.status === 'completed') {
+      status = 'completed';
+    } else if (step.status === 'active') {
+      status = 'active';
+    } else {
+      // Check if any task failed
+      const hasFailed = step.tasks.some(
+        (t) => t.status === 'failed' || t.status === 'cancelled',
+      );
+      status = hasFailed ? 'failed' : 'pending';
+    }
+    return {
+      index: step.stepIndex,
+      description: step.description,
+      status,
+      taskCount: step.tasks.length,
+    };
+  });
+
+  // Filter steps if a segment is selected
+  const visibleSteps =
+    stepFilter !== null
+      ? dashboard.steps.filter((s) => s.stepIndex === stepFilter)
+      : dashboard.steps;
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -26,14 +74,43 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Numeric progress bar */}
       <div className="h-1.5 w-full rounded-full bg-ocean-mid/30">
         <div className="h-full rounded-full bg-koi transition-all" style={{ width: `${pct}%` }} />
       </div>
 
+      {/* Step progress bar (segmented) */}
+      {segments.length > 0 && (
+        <StepProgressBar
+          steps={segments}
+          activeFilter={stepFilter}
+          onSegmentClick={handleSegmentClick}
+        />
+      )}
+
+      {/* Filter badge */}
+      {stepFilter !== null && (
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-shell">Filtered: Step {stepFilter + 1}</span>
+          <button
+            type="button"
+            className="text-[10px] text-koi hover:underline"
+            onClick={() => setStepFilter(null)}
+          >
+            clear
+          </button>
+        </div>
+      )}
+
       {/* Steps */}
-      {dashboard.steps.map((step) => (
-        <TaskStepCard key={step.stepIndex} step={step} onToggle={dashboard.toggleStep} />
+      {visibleSteps.map((step) => (
+        <TaskStepCard
+          key={step.stepIndex}
+          step={step}
+          onToggle={dashboard.toggleStep}
+          expandedTaskId={expandedTaskId}
+          onTaskClick={handleTaskClick}
+        />
       ))}
     </div>
   );

@@ -1,5 +1,6 @@
 import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { cn } from '@aics/ui-core';
+import { TaskDetailPanel } from '../dashboard/TaskDetailPanel';
 
 // ---------------------------------------------------------------------------
 // Status → badge colour mapping
@@ -25,19 +26,56 @@ function statusBadgeColor(status: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function TaskItem({ task }: { task: TaskInfo }) {
+export function TaskItem({
+  task,
+  expandedTaskId,
+  onTaskClick,
+}: {
+  task: TaskInfo;
+  expandedTaskId?: string | null;
+  onTaskClick?: (taskRunId: string) => void;
+}) {
+  const isExpanded = expandedTaskId === task.taskRunId;
+
   return (
-    <li
-      className={cn(
-        'flex items-center gap-2 text-[10px] transition-colors duration-500',
-        task.status === 'running' && 'border-l-2 border-koi pl-1',
-      )}
-    >
-      <span className={cn('rounded px-1 py-0.5', statusBadgeColor(task.status))}>
-        {task.status}
-      </span>
-      <span className="text-koi">{task.employeeName ?? task.employeeId ?? 'Unassigned'}</span>
-      <span className="truncate text-shell">{task.description || task.taskType}</span>
+    <li className="flex flex-col">
+      <button
+        type="button"
+        className={cn(
+          'flex w-full items-center gap-2 text-left text-[10px] transition-colors duration-500',
+          'rounded px-1 py-0.5 hover:bg-ocean-mid/20',
+          task.status === 'running' && 'border-l-2 border-koi pl-1',
+          isExpanded && 'bg-ocean-mid/10',
+          onTaskClick ? 'cursor-pointer' : 'cursor-default',
+        )}
+        onClick={() => onTaskClick?.(task.taskRunId)}
+      >
+        <span className={cn('shrink-0 rounded px-1 py-0.5', statusBadgeColor(task.status))}>
+          {task.status}
+        </span>
+        <span className="shrink-0 text-koi">{task.employeeName ?? task.employeeId ?? 'Unassigned'}</span>
+        <span className="truncate text-shell">{task.description || task.taskType}</span>
+      </button>
+
+      {/* Inline detail panel with CSS transition */}
+      <div
+        className={cn(
+          'transition-all duration-200 ease-in-out overflow-hidden',
+          isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0',
+        )}
+      >
+        {isExpanded && (
+          <TaskDetailPanel
+            task={{
+              taskRunId: task.taskRunId,
+              description: task.description,
+              employeeName: task.employeeName ?? undefined,
+              taskType: task.taskType,
+              status: task.status,
+            }}
+          />
+        )}
+      </div>
     </li>
   );
 }

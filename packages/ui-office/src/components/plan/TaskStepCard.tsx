@@ -25,9 +25,13 @@ function statusColor(status: 'pending' | 'active' | 'completed'): string {
 export function TaskStepCard({
   step,
   onToggle,
+  expandedTaskId,
+  onTaskClick,
 }: {
   step: DashboardStep;
   onToggle: (i: number) => void;
+  expandedTaskId?: string | null;
+  onTaskClick?: (taskRunId: string) => void;
 }) {
   return (
     <div className="rounded border border-ocean-mid/20 bg-ocean-deep/50">
@@ -52,7 +56,12 @@ export function TaskStepCard({
       {step.expanded && step.tasks.length > 0 && (
         <ul className="border-t border-ocean-mid/10 px-2 py-1 space-y-1">
           {step.tasks.map((task) => (
-            <TaskItem key={task.taskRunId} task={task} />
+            <TaskItem
+              key={task.taskRunId}
+              task={task}
+              expandedTaskId={expandedTaskId}
+              onTaskClick={onTaskClick}
+            />
           ))}
         </ul>
       )}
