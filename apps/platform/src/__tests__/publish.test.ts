@@ -491,8 +491,8 @@ describe('Publish Routes', () => {
         [{ ...validDraft, status: 'submitted', manifest_json: validManifest }],
         // 7. insert listing (new listing)
         [{ listing_id: LISTING_ID }],
-        // 8. insert package version
-        [],
+        // 8. insert package version (now returns via .returning())
+        [{ package_version_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' }],
         // 9. update draft with listing_id
         [],
         // 10. update moderation job completed
