@@ -2,6 +2,9 @@ import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
 import { GraphError } from '../errors.js';
+import { Logger } from '../services/logger.js';
+
+const logger = new Logger('employee');
 import {
   employeeStateChanged,
   graphNodeEntered,
@@ -414,9 +417,7 @@ export async function employeeNode(
     }
 
     if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
-      console.warn(
-        `[employee-node] Tool loop hit max ${MAX_TOOL_ROUNDS} rounds for ${employee.name}`,
-      );
+      logger.warn(`Tool loop hit max ${MAX_TOOL_ROUNDS} rounds`, { employeeName: employee.name });
     }
 
     // Update task run to completed

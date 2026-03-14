@@ -175,6 +175,10 @@ export {
   employeeVersionCreated,
 } from './events/event-factories.js';
 
+// --- Logger ---
+export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
+export type { LogLevel, LogEntry } from './services/logger.js';
+
 // --- Services ---
 export { ExecutionTraceServiceImpl } from './services/execution-trace-service.js';
 export { ThreadForkServiceStub } from './services/thread-fork-service.js';

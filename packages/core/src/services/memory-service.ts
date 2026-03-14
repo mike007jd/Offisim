@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import type { EventBus } from '../events/event-bus.js';
+import { Logger } from './logger.js';
+
+const logger = new Logger('memory');
 import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
@@ -165,10 +168,7 @@ export class MemoryService {
       });
       rawResponse = response.content;
     } catch (error) {
-      console.error(
-        `[MemoryService] reflectAndRemember failed for employee "${employeeId}":`,
-        error,
-      );
+      logger.error('reflectAndRemember failed', error, { employeeId });
       return;
     }
 
@@ -192,7 +192,7 @@ export class MemoryService {
           threadId,
         });
       } catch (err) {
-        console.error(`[MemoryService] Failed to save memory for "${employeeId}":`, err);
+        logger.error('Failed to save memory', err, { employeeId });
         // Continue saving other memories
       }
     }

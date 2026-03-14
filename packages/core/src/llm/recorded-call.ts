@@ -1,5 +1,8 @@
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { Logger } from '../services/logger.js';
+
+const logger = new Logger('llm');
 import { generateId } from '../utils/generate-id.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import type { TeeResult } from './stream-tee.js';
@@ -52,7 +55,7 @@ export async function recordedLlmCall(
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.error('Failed to record successful LLM call to DB:', dbError);
+      logger.error('Failed to record successful LLM call to DB', dbError, { llmCallId });
     }
 
     ctx.eventBus.emit(
@@ -100,7 +103,7 @@ export async function recordedLlmCall(
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.error('Failed to record LLM error to DB:', dbError);
+      logger.error('Failed to record LLM error to DB', dbError, { llmCallId });
     }
 
     throw error;
@@ -149,7 +152,7 @@ export async function recordedLlmStream(
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.error('Failed to record successful LLM stream to DB:', dbError);
+      logger.error('Failed to record successful LLM stream to DB', dbError, { llmCallId });
     }
 
     ctx.eventBus.emit(
@@ -197,7 +200,7 @@ export async function recordedLlmStream(
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.error('Failed to record LLM error to DB:', dbError);
+      logger.error('Failed to record LLM error to DB', dbError, { llmCallId });
     }
 
     throw error;

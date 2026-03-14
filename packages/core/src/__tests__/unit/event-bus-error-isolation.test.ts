@@ -1,8 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
+import { setLogHandler, resetLogHandler, type LogEntry } from '../../services/logger.js';
 
 describe('EventBus error isolation', () => {
+  afterEach(() => {
+    resetLogHandler();
+  });
+
   it('continues dispatching when a handler throws', () => {
+    setLogHandler(() => {}); // suppress log output in test
     const bus = new InMemoryEventBus();
     const handler1 = vi.fn(() => {
       throw new Error('boom');
@@ -17,22 +23,24 @@ describe('EventBus error isolation', () => {
     expect(handler2).toHaveBeenCalled();
   });
 
-  it('reports handler errors via console.error', () => {
+  it('reports handler errors via Logger', () => {
+    const logged: LogEntry[] = [];
+    setLogHandler((entry) => logged.push(entry));
+
     const bus = new InMemoryEventBus();
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     bus.on('test', () => {
       throw new Error('handler-fail');
     });
     bus.emit({ type: 'test.event', payload: {}, timestamp: Date.now() } as any);
 
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('EventBus handler error'),
-      expect.any(Error),
-    );
-    spy.mockRestore();
+    expect(logged).toHaveLength(1);
+    expect(logged[0]!.level).toBe('error');
+    expect(logged[0]!.category).toBe('event-bus');
+    expect(logged[0]!.message).toContain('Handler error');
   });
 
   it('still cleans up once() subscriptions when handler throws', () => {
+    setLogHandler(() => {}); // suppress log output in test
     const bus = new InMemoryEventBus();
     let callCount = 0;
     bus.once('test', () => {

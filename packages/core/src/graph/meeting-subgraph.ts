@@ -7,9 +7,12 @@ import { meetingActionCreated, meetingStateChanged } from '../events/event-facto
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { Logger } from '../services/logger.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import type { AicsGraphState, MeetingActionItem } from './state.js';
+
+const logger = new Logger('meeting');
 
 const MAX_TURNS = 10;
 
@@ -295,9 +298,7 @@ Do not include any text outside the JSON object.`;
     // Parse JSON from response (handles markdown code blocks and embedded JSON)
     const parsed = extractJsonFromLlm(response.content);
     if (!parsed) {
-      console.warn(
-        '[meetingEndNode] Failed to extract JSON from LLM response, falling back to empty action items',
-      );
+      logger.warn('Failed to extract JSON from LLM response, falling back to empty action items');
       return [];
     }
 
@@ -305,10 +306,7 @@ Do not include any text outside the JSON object.`;
     const zodSchema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
     const result = zodSchema.safeParse(parsed);
     if (!result.success) {
-      console.warn(
-        '[meetingEndNode] Zod validation failed, falling back to empty action items:',
-        result.error.message,
-      );
+      logger.warn('Zod validation failed, falling back to empty action items', { zodError: result.error.message });
       return [];
     }
 
@@ -357,7 +355,7 @@ Do not include any text outside the JSON object.`;
 
     return actionItems;
   } catch (error) {
-    console.warn('[meetingEndNode] Action item extraction failed, falling back to empty:', error);
+    logger.warn('Action item extraction failed, falling back to empty', { error: String(error) });
     return [];
   }
 }

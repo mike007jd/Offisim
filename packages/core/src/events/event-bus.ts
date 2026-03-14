@@ -1,4 +1,7 @@
 import type { RuntimeEvent } from '@aics/shared-types';
+import { Logger } from '../services/logger.js';
+
+const logger = new Logger('event-bus');
 
 // biome-ignore lint/suspicious/noExplicitAny: EventHandler must accept RuntimeEvent with any payload type; interfaces lack index signatures so RuntimeEvent<SomePayload> is not assignable to RuntimeEvent<Record<string, unknown>>
 export type EventHandler = (event: RuntimeEvent<any>) => void;
@@ -29,9 +32,10 @@ export class InMemoryEventBus implements EventBus {
         try {
           sub.handler(event);
         } catch (err) {
-          console.error(
-            `EventBus handler error on "${event.type}" (prefix: "${sub.prefix}"):`,
+          logger.error(
+            `Handler error on "${event.type}" (prefix: "${sub.prefix}")`,
             err,
+            { eventType: event.type, prefix: sub.prefix },
           );
         }
         if (sub.once) {

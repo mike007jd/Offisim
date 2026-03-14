@@ -1,5 +1,8 @@
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult } from '../events/event-factories.js';
+import { Logger } from '../services/logger.js';
+
+const logger = new Logger('mcp');
 import type { ToolDef } from '../llm/gateway.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
@@ -50,7 +53,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       };
       await this.auditRepo.create(audit);
     } catch (dbError) {
-      console.error('Failed to record MCP audit:', dbError);
+      logger.error('Failed to record MCP audit', dbError, { auditId, toolName: call.name });
     }
 
     // Emit result event

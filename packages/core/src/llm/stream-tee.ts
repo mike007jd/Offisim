@@ -1,4 +1,7 @@
+import { Logger } from '../services/logger.js';
 import type { LlmStreamChunk, LlmUsage, ToolCallResult } from './gateway.js';
+
+const logger = new Logger('llm');
 
 export interface TeeResult {
   fullContent: string;
@@ -18,7 +21,7 @@ export async function teeStream(
     try {
       onChunk(chunk);
     } catch (err) {
-      console.error('teeStream onChunk error:', err);
+      logger.error('teeStream onChunk error', err);
     }
     if (chunk.content) fullContent += chunk.content;
     if (chunk.toolCalls) toolCalls.push(...chunk.toolCalls);
