@@ -51,9 +51,15 @@ export type { OfficeFloorPlan, ZoneBounds, DeskPosition, FloorPlanOptions } from
 export { RouteLineEntity } from './entities/route-line-entity.js';
 export { MeetingRoomEntity } from './entities/meeting-room-entity.js';
 export { LibraryZoneEntity } from './entities/library-zone-entity.js';
+export { InstallGhostEntity } from './entities/install-ghost-entity.js';
+export type { InstallGhostConfig } from './entities/install-ghost-entity.js';
 
 // Animations
 export { AmbientSystem } from './animations/ambient-system.js';
+
+// Systems
+export { AttentionSystem } from './systems/attention-system.js';
+export type { AttentionEvent } from './systems/attention-system.js';
 
 // Interaction
 export { InteractionController } from './interaction/interaction-controller.js';
