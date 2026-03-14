@@ -1,0 +1,161 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { CreatorNav, LoginDialog, useAuthContext } from '@aics/ui-market';
+import type { MyCreatorProfile } from '@aics/registry-client';
+
+const PLATFORM_API_URL =
+  process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? process.env.NEXT_PUBLIC_PLATFORM_URL ?? 'http://localhost:4100';
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, token, isLoading, logout, registerCreator } = useAuthContext();
+  const pathname = usePathname();
+
+  const [creatorProfile, setCreatorProfile] = useState<MyCreatorProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Register creator form state
+  const [handle, setHandle] = useState('');
+  const [bio, setBio] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  // Fetch creator profile once we have a token
+  useEffect(() => {
+    if (!token) {
+      setCreatorProfile(null);
+      return;
+    }
+    setProfileLoading(true);
+    fetch(`${PLATFORM_API_URL}/v1/publish/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: { creator: MyCreatorProfile | null }) => {
+        setCreatorProfile(data.creator);
+      })
+      .catch(() => {
+        setProfileError('Failed to load creator profile.');
+      })
+      .finally(() => setProfileLoading(false));
+  }, [token]);
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setRegisterError(null);
+    setRegistering(true);
+    try {
+      await registerCreator(handle.trim(), user?.displayName ?? handle.trim(), bio.trim() || undefined);
+      // Re-fetch profile after registration
+      const res = await fetch(`${PLATFORM_API_URL}/v1/publish/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json()) as { creator: MyCreatorProfile | null };
+      setCreatorProfile(data.creator);
+    } catch (err) {
+      setRegisterError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  // Show login overlay if not authenticated
+  if (!isLoading && !user) {
+    return (
+      <div className="relative min-h-[60vh]">
+        <div className="flex items-center justify-center py-24 text-gray-400">
+          Sign in to access your creator dashboard.
+        </div>
+        <LoginDialog />
+      </div>
+    );
+  }
+
+  // Still loading auth or profile
+  if (isLoading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <span className="text-sm text-gray-400">Loading…</span>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-red-500">{profileError}</p>
+      </div>
+    );
+  }
+
+  // Logged in but not a creator — show registration form
+  if (user && !creatorProfile) {
+    return (
+      <div className="mx-auto max-w-sm py-16">
+        <h1 className="mb-2 text-xl font-bold text-gray-900">Become a Creator</h1>
+        <p className="mb-6 text-sm text-gray-500">
+          Register a creator profile to publish listings on the AICS marketplace.
+        </p>
+        <form onSubmit={handleRegister} className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="creator-handle" className="mb-1 block text-sm font-medium text-gray-700">
+              Handle
+            </label>
+            <input
+              id="creator-handle"
+              type="text"
+              required
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="your-handle"
+              disabled={registering}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label htmlFor="creator-bio" className="mb-1 block text-sm font-medium text-gray-700">
+              Bio (optional)
+            </label>
+            <textarea
+              id="creator-bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell the community about yourself…"
+              rows={3}
+              disabled={registering}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            />
+          </div>
+          {registerError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+              {registerError}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={registering || !handle.trim()}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {registering ? 'Registering…' : 'Register as Creator'}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      {creatorProfile && (
+        <CreatorNav
+          displayName={creatorProfile.display_name}
+          handle={creatorProfile.handle}
+          activePath={pathname}
+          onLogout={logout}
+        />
+      )}
+      <main className="min-w-0 flex-1 px-8 py-8">{children}</main>
+    </div>
+  );
+}

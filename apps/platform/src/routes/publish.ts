@@ -19,6 +19,30 @@ const publish = new Hono<PlatformEnv>();
 // All publish routes require auth
 publish.use('/*', requireAuth);
 
+// GET /v1/publish/me — get the authenticated user's creator profile (null if not a creator)
+publish.get('/me', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId')!;
+
+  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
+
+  if (!creator) {
+    return c.json({ creator: null });
+  }
+
+  return c.json({
+    creator: {
+      creator_id: creator.creator_id,
+      handle: creator.handle,
+      display_name: creator.display_name,
+      bio: creator.bio,
+      website_url: creator.website_url,
+      verification_state: creator.verification_state,
+      created_at: creator.created_at.toISOString(),
+    },
+  });
+});
+
 // POST /v1/publish/drafts — create a new draft
 publish.post('/drafts', async (c) => {
   const db = c.get('db');
@@ -66,6 +90,13 @@ publish.post('/drafts', async (c) => {
 publish.get('/drafts', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
+  const statusFilter = c.req.query('status') as
+    | 'draft'
+    | 'validated'
+    | 'submitted'
+    | 'approved'
+    | 'rejected'
+    | undefined;
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
 
@@ -73,10 +104,17 @@ publish.get('/drafts', async (c) => {
     throw new HTTPException(403, { message: 'Not a creator' });
   }
 
+  const whereClause = statusFilter
+    ? and(
+        eq(publishDrafts.creator_id, creator.creator_id),
+        eq(publishDrafts.status, statusFilter),
+      )
+    : eq(publishDrafts.creator_id, creator.creator_id);
+
   const drafts = await db
     .select()
     .from(publishDrafts)
-    .where(eq(publishDrafts.creator_id, creator.creator_id))
+    .where(whereClause)
     .orderBy(desc(publishDrafts.updated_at));
 
   return c.json({

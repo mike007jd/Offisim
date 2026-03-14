@@ -8,7 +8,10 @@ import type {
   InstallReceiptResponse,
   LibraryParams,
   LibraryResponse,
+  ListDraftsParams,
+  ListDraftsResponse,
   ListingDetail,
+  MyCreatorResponse,
   PublishDraft,
   PublishSubmitRequest,
   PutDraftManifestRequest,
@@ -83,6 +86,17 @@ export class RegistryClient {
 
   async submitPublishDraft(req: PublishSubmitRequest): Promise<SubmitResponse> {
     return this.post<SubmitResponse>('/v1/publish/submit', req);
+  }
+
+  async listMyDrafts(params?: ListDraftsParams): Promise<ListDraftsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    const query = qs.toString();
+    return this.get<ListDraftsResponse>(`/v1/publish/drafts${query ? `?${query}` : ''}`);
+  }
+
+  async getMyCreatorProfile(): Promise<MyCreatorResponse> {
+    return this.get<MyCreatorResponse>('/v1/publish/me');
   }
 
   async upsertReview(req: CreateReviewRequest): Promise<Review> {

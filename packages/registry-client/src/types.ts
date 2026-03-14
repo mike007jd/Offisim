@@ -136,12 +136,37 @@ export interface PublishDraft {
   creator_id: string;
   listing_id?: string | null;
   artifact_id?: string | null;
+  kind?: string;
+  title?: string | null;
+  summary?: string | null;
   manifest_json?: Record<string, unknown>;
   validation_state: 'unknown' | 'valid' | 'invalid';
   validation_report?: Record<string, unknown>;
   status: 'draft' | 'validated' | 'submitted' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
+}
+
+export interface ListDraftsParams {
+  status?: PublishDraft['status'];
+}
+
+export interface ListDraftsResponse {
+  drafts: PublishDraft[];
+}
+
+export interface MyCreatorProfile {
+  creator_id: string;
+  handle: string;
+  display_name: string;
+  bio?: string | null;
+  website_url?: string | null;
+  verification_state: 'unverified' | 'verified' | 'trusted';
+  created_at: string;
+}
+
+export interface MyCreatorResponse {
+  creator: MyCreatorProfile | null;
 }
 
 export interface CreateDraftRequest {
