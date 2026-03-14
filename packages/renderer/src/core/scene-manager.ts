@@ -88,6 +88,8 @@ export class SceneManager {
   private employeeRoleSlugs: Map<string, string | undefined> = new Map();
   /** Debounce timer for rebuildLayout after batch employee additions via events */
   private _rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Tracked GSAP tweens created by SceneManager (killed on destroy) */
+  private managedTweens: gsap.core.Tween[] = [];
 
   constructor(options: SceneManagerOptions) {
     this.container = options.container;
@@ -317,8 +319,8 @@ export class SceneManager {
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container.scale, { x: 1, y: 1, duration, ease });
-      gsap.to(entity.container, { alpha: 1, duration, ease });
+      this.trackManagedTween(gsap.to(entity.container.scale, { x: 1, y: 1, duration, ease }));
+      this.trackManagedTween(gsap.to(entity.container, { alpha: 1, duration, ease }));
     } else {
       entity.container.scale.set(1);
       entity.container.alpha = 1;
@@ -336,14 +338,14 @@ export class SceneManager {
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container.scale, { x: 0, y: 0, duration, ease });
-      gsap.to(entity.container, {
+      this.trackManagedTween(gsap.to(entity.container.scale, { x: 0, y: 0, duration, ease }));
+      this.trackManagedTween(gsap.to(entity.container, {
         alpha: 0, duration, ease,
         onComplete: () => {
           entity.destroy();
           entity.container.destroy({ children: true });
         },
-      });
+      }));
     } else {
       entity.destroy();
       entity.container.destroy({ children: true });
@@ -364,7 +366,7 @@ export class SceneManager {
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container, { x: targetX, y: targetY, alpha: 1, duration, ease });
+      this.trackManagedTween(gsap.to(entity.container, { x: targetX, y: targetY, alpha: 1, duration, ease }));
     } else {
       entity.container.x = targetX;
       entity.container.y = targetY;
@@ -389,7 +391,7 @@ export class SceneManager {
 
     const { duration, ease } = this.motion.M1;
     if (duration > 0) {
-      gsap.to(entity.container, { x: seat.x, y: seat.y + PUPPET_Y_OFFSET, alpha: 1, duration, ease });
+      this.trackManagedTween(gsap.to(entity.container, { x: seat.x, y: seat.y + PUPPET_Y_OFFSET, alpha: 1, duration, ease }));
     } else {
       entity.container.x = seat.x;
       entity.container.y = seat.y + PUPPET_Y_OFFSET;
@@ -674,6 +676,9 @@ export class SceneManager {
       ghost.destroy();
     }
     this.installGhosts.clear();
+
+    for (const tw of this.managedTweens) tw.kill();
+    this.managedTweens = [];
 
     for (const entity of this.employeeEntities.values()) entity.destroy();
     this.employeeEntities.clear();
@@ -1171,6 +1176,15 @@ export class SceneManager {
     gfx.fill({ color: 0xfbbf24, alpha: this._performanceTier === 'B' ? 0.1 : 0.15 });
     this.layers.focus.addChild(gfx);
     this.spotlightGfx = gfx;
+  }
+
+  /** Track a GSAP tween so it's killed on destroy(). Auto-removes on completion. */
+  private trackManagedTween(tw: gsap.core.Tween): void {
+    this.managedTweens.push(tw);
+    tw.eventCallback('onComplete', () => {
+      const idx = this.managedTweens.indexOf(tw);
+      if (idx >= 0) this.managedTweens.splice(idx, 1);
+    });
   }
 
   private findEmployeeForNode(nodeName: string): SceneEntity | undefined {

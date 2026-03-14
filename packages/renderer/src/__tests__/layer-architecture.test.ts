@@ -95,7 +95,7 @@ vi.mock('pixi.js', () => {
 // Mock gsap
 vi.mock('gsap', () => {
   function makeTween() {
-    return { kill: vi.fn(), vars: {} };
+    return { kill: vi.fn(), vars: {}, eventCallback: vi.fn() };
   }
   function makeTimeline() {
     const tl: Record<string, unknown> = {
@@ -107,6 +107,7 @@ vi.mock('gsap', () => {
       add: vi.fn(() => tl),
       kill: vi.fn(),
       vars: {},
+      eventCallback: vi.fn(),
       repeat: vi.fn(() => tl),
       yoyo: vi.fn(() => tl),
     };

@@ -47,6 +47,8 @@ export abstract class BasePuppet implements SceneEntity {
   private animTimeline: gsap.core.Timeline | null = null;
   /** One-shot transition tweens */
   private activeTweens: gsap.core.Tween[] = [];
+  /** Fire-and-forget timelines (e.g. flashHighlight) */
+  private activeTimelines: gsap.core.Timeline[] = [];
 
   // ── State ring ──
   private readonly ring: Graphics;
@@ -271,6 +273,13 @@ export abstract class BasePuppet implements SceneEntity {
     const ringAlpha = this.ring.alpha;
     tl.to(this.ring, { alpha: 1, duration: halfDur * 0.6, ease: 'power2.out' }, 0);
     tl.to(this.ring, { alpha: ringAlpha, duration: halfDur * 1.4, ease: 'power2.in' }, halfDur * 0.6);
+
+    // Track the flash timeline so it's killed on destroy()
+    this.activeTimelines.push(tl);
+    tl.eventCallback('onComplete', () => {
+      const idx = this.activeTimelines.indexOf(tl);
+      if (idx >= 0) this.activeTimelines.splice(idx, 1);
+    });
   }
 
   destroy(): void {
@@ -278,6 +287,8 @@ export abstract class BasePuppet implements SceneEntity {
     this.stopAnimation();
     for (const tw of this.activeTweens) tw.kill();
     this.activeTweens = [];
+    for (const tl of this.activeTimelines) tl.kill();
+    this.activeTimelines = [];
   }
 
   // ── Private helpers ──
@@ -299,12 +310,10 @@ export abstract class BasePuppet implements SceneEntity {
 
   protected trackTween(tw: gsap.core.Tween): void {
     this.activeTweens.push(tw);
-    const origOnComplete = tw.vars.onComplete;
-    tw.vars.onComplete = () => {
+    tw.eventCallback('onComplete', () => {
       const idx = this.activeTweens.indexOf(tw);
       if (idx >= 0) this.activeTweens.splice(idx, 1);
-      if (origOnComplete) origOnComplete();
-    };
+    });
   }
 
   private drawRing(color: number): void {

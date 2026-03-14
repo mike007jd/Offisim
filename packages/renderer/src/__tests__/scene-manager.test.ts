@@ -129,7 +129,7 @@ vi.mock('pixi.js', () => {
 // Mock gsap — return unique tween objects with vars for trackTween compatibility
 vi.mock('gsap', () => {
   function makeTween() {
-    return { kill: vi.fn(), vars: {} };
+    return { kill: vi.fn(), vars: {}, eventCallback: vi.fn() };
   }
   function makeTimeline() {
     const tl = {
@@ -137,6 +137,7 @@ vi.mock('gsap', () => {
       set: vi.fn(() => tl),
       kill: vi.fn(),
       vars: {},
+      eventCallback: vi.fn(),
     };
     return tl;
   }

@@ -44,6 +44,8 @@ interface DragState {
 export class InteractionController {
   private dragging: DragState | null = null;
   private _enabled = false;
+  /** Active snap-back tween — killed on next drag start or destroy. */
+  private snapBackTween: gsap.core.Tween | null = null;
   /** Currently highlighted workstation (for clearing on move). */
   private hoveredWorkstation: string | null = null;
   /** Optional bounding box of the rest area zone (for drop detection). */
@@ -150,6 +152,10 @@ export class InteractionController {
   /** Full cleanup — disable + release references. */
   destroy(): void {
     this.disable();
+    if (this.snapBackTween) {
+      this.snapBackTween.kill();
+      this.snapBackTween = null;
+    }
   }
 
   /**
@@ -196,6 +202,12 @@ export class InteractionController {
 
     const entity = this.entities.get(entityId);
     if (!entity) return;
+
+    // Kill any in-progress snap-back tween from a previous drag
+    if (this.snapBackTween) {
+      this.snapBackTween.kill();
+      this.snapBackTween = null;
+    }
 
     // Convert global pointer position to stage-local coordinates.
     // Entities live inside worldContainer which has a position offset
@@ -354,12 +366,15 @@ export class InteractionController {
     entity.container.cursor = 'grab';
 
     if (duration > 0) {
-      gsap.to(entity.container, {
+      this.snapBackTween = gsap.to(entity.container, {
         x: startX,
         y: startY,
         alpha: 1,
         duration,
         ease,
+        onComplete: () => {
+          this.snapBackTween = null;
+        },
       });
     } else {
       // Reduced motion: snap immediately
