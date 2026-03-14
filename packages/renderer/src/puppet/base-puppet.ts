@@ -240,6 +240,39 @@ export abstract class BasePuppet implements SceneEntity {
     }
   }
 
+  /**
+   * Flash-highlight: brief attention pulse (800ms), fire-and-forget.
+   * - Container scale: 1 → 1.15 → 1
+   * - Ring alpha: pulses to 1 (fully opaque) then back to its prior value
+   * Used when a task row is clicked in the TaskDashboard (ANIM-015).
+   */
+  flashHighlight(): void {
+    const tl = gsap.timeline();
+    const totalDuration = 0.8;
+    const halfDur = totalDuration / 2;
+
+    // Capture current scale so we restore correctly even if setHighlight() is active
+    const baseScale = this.highlighted ? 1.1 : 1.0;
+
+    // Scale pop: baseScale → 1.15 → baseScale
+    tl.fromTo(
+      this.container.scale,
+      { x: baseScale, y: baseScale },
+      { x: 1.15, y: 1.15, duration: halfDur, ease: 'back.out(2)' },
+      0,
+    );
+    tl.to(
+      this.container.scale,
+      { x: baseScale, y: baseScale, duration: halfDur, ease: 'power2.inOut' },
+      halfDur,
+    );
+
+    // Ring alpha pulse: current alpha → 1 → current alpha
+    const ringAlpha = this.ring.alpha;
+    tl.to(this.ring, { alpha: 1, duration: halfDur * 0.6, ease: 'power2.out' }, 0);
+    tl.to(this.ring, { alpha: ringAlpha, duration: halfDur * 1.4, ease: 'power2.in' }, halfDur * 0.6);
+  }
+
   destroy(): void {
     this.stopPulse();
     this.stopAnimation();

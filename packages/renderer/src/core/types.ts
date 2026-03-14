@@ -58,6 +58,11 @@ export interface SceneEntity {
   setState(next: EmployeeState): void;
   setTask(taskId: string | null): void;
   setHighlight(on: boolean): void;
+  /**
+   * Brief attention pulse (800ms), fire-and-forget.
+   * Triggered by UI task row click (ANIM-015).
+   */
+  flashHighlight(): void;
   destroy(): void;
 }
 

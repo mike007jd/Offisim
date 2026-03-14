@@ -66,6 +66,8 @@ export type {
   SlotAssignedPayload,
   SlotRemovedPayload,
   CostAggregatedPayload,
+  UiTaskFocusedPayload,
+  SceneEmployeeSelectedPayload,
 } from './events.js';
 
 export type {

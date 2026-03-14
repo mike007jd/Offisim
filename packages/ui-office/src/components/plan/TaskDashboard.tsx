@@ -1,17 +1,70 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { TaskStepCard } from './TaskStepCard';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
 import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
+  const { eventBus } = useAicsRuntime();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [stepFilter, setStepFilter] = useState<number | null>(null);
+  /** Ref to the scroll container for programmatic scrolling on scene.employee.selected */
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleTaskClick = useCallback((taskRunId: string) => {
-    setExpandedTaskId((prev) => (prev === taskRunId ? null : taskRunId));
-  }, []);
+  // ── ANIM-015: task row click → emit ui.task.focused → scene flash ──
+  const handleTaskClick = useCallback(
+    (taskRunId: string) => {
+      setExpandedTaskId((prev) => (prev === taskRunId ? null : taskRunId));
+
+      // Find the task across all steps to get its employeeId
+      for (const step of dashboard.steps) {
+        const task = step.tasks.find((t) => t.taskRunId === taskRunId);
+        if (task?.employeeId) {
+          eventBus.emit({
+            type: 'ui.task.focused',
+            entityId: task.employeeId,
+            entityType: 'employee',
+            companyId: '',
+            timestamp: Date.now(),
+            payload: { employeeId: task.employeeId, taskRunId },
+          });
+          break;
+        }
+      }
+    },
+    [dashboard.steps, eventBus],
+  );
+
+  // ── ANIM-015: scene.employee.selected → scroll to that employee's active task ──
+  useEffect(() => {
+    return eventBus.on('scene.employee.selected', (event) => {
+      const { employeeId } = event.payload as { employeeId: string };
+      if (!employeeId || !scrollContainerRef.current) return;
+
+      // Find a task with this employeeId
+      for (const step of dashboard.steps) {
+        const task = step.tasks.find((t) => t.employeeId === employeeId);
+        if (task) {
+          // Expand step if not already expanded
+          if (!step.expanded) {
+            dashboard.toggleStep(step.stepIndex);
+          }
+          // Scroll to the task row (uses data-task-run-id attribute)
+          // Give React a tick to expand before scrolling
+          setTimeout(() => {
+            const el = scrollContainerRef.current?.querySelector(
+              `[data-task-run-id="${task.taskRunId}"]`,
+            );
+            el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setExpandedTaskId(task.taskRunId);
+          }, 50);
+          break;
+        }
+      }
+    });
+  }, [eventBus, dashboard.steps, dashboard.toggleStep]);
 
   const handleSegmentClick = useCallback((stepIndex: number | null) => {
     setStepFilter(stepIndex);
@@ -62,7 +115,7 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       : dashboard.steps;
 
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div ref={scrollContainerRef} className="flex flex-col gap-2 p-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-pearl">Plan Progress</h3>

@@ -32,7 +32,9 @@ export type EventFamily =
   | 'report.state.changed'
   | 'runtime.performance.tier.changed'
   | 'ui.selection.changed'
+  | 'ui.task.focused'
   | 'ui.scene.task.echo'
+  | 'scene.employee.selected'
   | 'llm.call.started'
   | 'llm.call.completed'
   | 'llm.usage.recorded'
@@ -389,4 +391,19 @@ export interface CostAggregatedPayload {
   readonly todayCost: number;
   readonly totalCalls: number;
   readonly todayCalls: number;
+}
+
+// --- ANIM-015: Task Row ↔ World Echo ---
+
+/** Emitted by TaskDashboard when a task row is clicked — scene reacts. */
+export interface UiTaskFocusedPayload {
+  readonly employeeId: string;
+  readonly taskRunId: string;
+}
+
+/** Emitted by SceneManager when an employee is clicked — UI reacts. */
+export interface SceneEmployeeSelectedPayload {
+  readonly employeeId: string;
+  /** Source of the selection — always 'scene' for this event. */
+  readonly source: 'scene';
 }

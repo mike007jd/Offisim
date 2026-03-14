@@ -41,6 +41,7 @@ export function TaskItem({
     <li className="flex flex-col">
       <button
         type="button"
+        data-task-run-id={task.taskRunId}
         className={cn(
           'flex w-full items-center gap-2 text-left text-[10px] transition-colors duration-500',
           'rounded px-1 py-0.5 hover:bg-ocean-mid/20',
