@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, PlusCircle, User } from 'lucide-react';
+import { Clock, LayoutDashboard, PlusCircle, User } from 'lucide-react';
 
 export interface CreatorNavProps {
   displayName: string;
@@ -52,6 +52,12 @@ export function CreatorNav({ displayName, handle, activePath, onLogout }: Creato
           label="New Listing"
           icon={<PlusCircle size={16} />}
           active={activePath === '/dashboard/publish'}
+        />
+        <NavLink
+          href="/dashboard/history"
+          label="History"
+          icon={<Clock size={16} />}
+          active={activePath === '/dashboard/history'}
         />
         <NavLink
           href={`/creator/${handle}`}
