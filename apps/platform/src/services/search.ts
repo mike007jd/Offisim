@@ -14,7 +14,7 @@ export interface SearchFilters {
 
 export async function searchListings(db: PlatformDb, filters: SearchFilters) {
   const page = Math.max(1, filters.page ?? 1);
-  const perPage = Math.min(50, Math.max(1, filters.per_page ?? 20));
+  const perPage = Math.min(100, Math.max(1, filters.per_page ?? 20));
   const offset = (page - 1) * perPage;
 
   const conditions = [eq(listings.status, 'listed')];

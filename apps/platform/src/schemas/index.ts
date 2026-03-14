@@ -67,14 +67,29 @@ export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
 
 // ── Install: Receipt ──
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const InstallReceiptSchema = z.object({
-  listing_id: z.string().min(1, 'listing_id is required'),
-  package_version_id: z.string().min(1, 'package_version_id is required'),
+  listing_id: z.string().min(1, 'listing_id is required').regex(UUID_REGEX, 'listing_id must be a valid UUID'),
+  package_version_id: z.string().min(1, 'package_version_id is required').regex(UUID_REGEX, 'package_version_id must be a valid UUID'),
   install_source: z.enum(['registry', 'url', 'file'], {
     errorMap: () => ({ message: 'install_source must be registry, url, or file' }),
   }),
 });
 export type InstallReceiptBody = z.infer<typeof InstallReceiptSchema>;
+
+// ── Search Params ──
+
+export const SearchParamsSchema = z.object({
+  q: z.string().optional(),
+  kind: z.string().optional(),
+  risk_class: z.string().optional(),
+  tag: z.string().optional(),
+  sort: z.string().optional(),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  per_page: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type SearchParams = z.infer<typeof SearchParamsSchema>;
 
 // ── Manifest validation schema (replaces services/validation.ts if-checks) ──
 
@@ -105,37 +120,35 @@ const compatibilitySchema = z.object({
     .min(1, 'Missing compatibility.supported_environments'),
 });
 
-const permissionsSchema = z
-  .object({
-    risk_class: z.enum(VALID_RISK_CLASSES, {
-      errorMap: (_issue, ctx) => ({
-        message: `Invalid permissions.risk_class: ${ctx.data}`,
-      }),
+const permissionsSchema = z.object({
+  risk_class: z.enum(VALID_RISK_CLASSES, {
+    errorMap: (_issue, ctx) => ({
+      message: `Invalid permissions.risk_class: ${ctx.data}`,
     }),
-    declares_secrets: z.boolean({
-      required_error: 'permissions.declares_secrets must be boolean',
-      invalid_type_error: 'permissions.declares_secrets must be boolean',
-    }),
-  })
-  .passthrough();
+  }),
+  declares_secrets: z.boolean({
+    required_error: 'permissions.declares_secrets must be boolean',
+    invalid_type_error: 'permissions.declares_secrets must be boolean',
+  }),
+  filesystem_scope: z.string().optional(),
+  network_scope: z.string().optional(),
+});
 
-const integritySchema = z
-  .object({
-    package_sha256: z
-      .string({ required_error: 'Missing integrity.package_sha256' })
-      .min(1, 'Missing integrity.package_sha256'),
-  })
-  .passthrough();
+const integritySchema = z.object({
+  package_sha256: z
+    .string({ required_error: 'Missing integrity.package_sha256' })
+    .min(1, 'Missing integrity.package_sha256'),
+  file_hashes: z.record(z.string()).optional(),
+});
 
-export const ManifestSchema = z
-  .object({
-    spec_version: z.string().min(1, 'Missing spec_version'),
-    package: packageSchema,
-    compatibility: compatibilitySchema,
-    requirements: z.record(z.unknown()),
-    permissions: permissionsSchema,
-    assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
-    integrity: integritySchema,
-    previews: z.record(z.unknown()).optional(),
-  })
-  .passthrough();
+export const ManifestSchema = z.object({
+  spec_version: z.string().min(1, 'Missing spec_version'),
+  package: packageSchema,
+  compatibility: compatibilitySchema,
+  requirements: z.record(z.unknown()),
+  permissions: permissionsSchema,
+  assets: z.array(z.record(z.unknown())).min(1, 'Missing or invalid assets array'),
+  integrity: integritySchema,
+  previews: z.record(z.unknown()).optional(),
+  lineage: z.record(z.unknown()).optional(),
+});

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
+import { errorHandler } from '../middleware/error-handler.js';
 import { creatorsRoute } from '../routes/creators.js';
 import { market } from '../routes/market.js';
 import type { PlatformEnv } from '../types.js';
@@ -123,6 +124,7 @@ function createApp(mockDb: any) {
     c.set('requestId', 'test-req-id');
     await next();
   });
+  app.onError(errorHandler);
   app.route('/v1/market', market);
   app.route('/v1/market/creators', creatorsRoute);
   return app;
@@ -176,26 +178,39 @@ describe('Market Routes', () => {
       expect(body.total).toBe(0);
     });
 
-    it('clamps per_page to max 50', async () => {
-      const mockDb = createMockDb([[], [{ count: 0 }]]);
+    it('rejects per_page above 100 with validation error', async () => {
+      const mockDb = createMockDb([]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/market/search?per_page=999');
-      expect(res.status).toBe(200);
-
-      const body = (await res.json()) as any;
-      expect(body.per_page).toBe(50);
+      expect(res.status).toBe(400);
     });
 
-    it('clamps per_page to min 1', async () => {
-      const mockDb = createMockDb([[], [{ count: 0 }]]);
+    it('rejects per_page below 1 with validation error', async () => {
+      const mockDb = createMockDb([]);
       const app = createApp(mockDb);
 
       const res = await app.request('/v1/market/search?per_page=0');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects negative page with validation error', async () => {
+      const mockDb = createMockDb([]);
+      const app = createApp(mockDb);
+
+      const res = await app.request('/v1/market/search?page=-1');
+      expect(res.status).toBe(400);
+    });
+
+    it('accepts valid per_page=100', async () => {
+      const mockDb = createMockDb([[], [{ count: 0 }]]);
+      const app = createApp(mockDb);
+
+      const res = await app.request('/v1/market/search?per_page=100');
       expect(res.status).toBe(200);
 
       const body = (await res.json()) as any;
-      expect(body.per_page).toBe(1);
+      expect(body.per_page).toBe(100);
     });
   });
 

@@ -9,6 +9,7 @@ import {
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { SearchParamsSchema } from '../schemas/index.js';
 import { searchListings } from '../services/search.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -17,15 +18,18 @@ const market = new Hono<PlatformEnv>();
 // GET /v1/market/search
 market.get('/search', async (c) => {
   const db = c.get('db');
-  const params = {
+  const rawParams = {
     q: c.req.query('q'),
     kind: c.req.query('kind'),
     risk_class: c.req.query('risk_class'),
     tag: c.req.query('tag'),
     sort: c.req.query('sort'),
-    page: c.req.query('page') ? Number.parseInt(c.req.query('page')!, 10) : undefined,
-    per_page: c.req.query('per_page') ? Number.parseInt(c.req.query('per_page')!, 10) : undefined,
+    page: c.req.query('page'),
+    per_page: c.req.query('per_page'),
   };
+
+  // Validate and clamp pagination params via Zod schema
+  const params = SearchParamsSchema.parse(rawParams);
 
   const result = await searchListings(db, params);
 
