@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { db } from './db.js';
 import { optionalAuth } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { generalRateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
 import { authRoute } from './routes/auth.js';
 import { creatorsRoute } from './routes/creators.js';
@@ -57,6 +58,7 @@ app.use(
   }),
 );
 app.use('*', requestId);
+app.use('*', generalRateLimit);
 app.use('*', async (c, next) => {
   c.set('db', db);
   await next();

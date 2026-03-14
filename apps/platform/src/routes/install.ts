@@ -13,6 +13,7 @@ import { installReceipts, listings, packageVersions } from '@aics/db-platform';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { requireAuth } from '../middleware/auth.js';
+import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -26,7 +27,7 @@ const installRoute = new Hono<PlatformEnv>();
  * 2. Increment the listing's install_count
  * 3. Link the receipt to the user's library entry (if exists)
  */
-installRoute.post('/receipts', requireAuth, async (c) => {
+installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
   const body = InstallReceiptSchema.parse(await c.req.json());

@@ -9,6 +9,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { requireAuth } from '../middleware/auth.js';
+import { publishRateLimit } from '../middleware/rate-limit.js';
 import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
 import { processModerationJob } from '../services/moderation.js';
 import { validateManifest } from '../services/validation.js';
@@ -16,7 +17,8 @@ import type { PlatformEnv } from '../types.js';
 
 const publish = new Hono<PlatformEnv>();
 
-// All publish routes require auth
+// All publish routes require auth and are rate-limited
+publish.use('/*', publishRateLimit);
 publish.use('/*', requireAuth);
 
 // GET /v1/publish/me — get the authenticated user's creator profile (null if not a creator)
