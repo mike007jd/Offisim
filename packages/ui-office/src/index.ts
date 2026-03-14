@@ -44,6 +44,8 @@ export * from './components/install/InstallProgress.js';
 export * from './components/install/ManifestReview.js';
 export * from './components/install/SkillReview.js';
 export * from './components/layout/AppLayout.js';
+export * from './components/notifications/NotificationCard.js';
+export * from './components/notifications/NotificationCenter.js';
 export * from './components/layout/Header.js';
 export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
@@ -80,6 +82,7 @@ export * from './hooks/useLibrary.js';
 export * from './hooks/useOfficeLayout.js';
 export * from './hooks/useRackSlot.js';
 export * from './hooks/useTaskDashboard.js';
+export * from './hooks/useNotifications.js';
 export * from './hooks/useTaskQueue.js';
 
 // Lib
