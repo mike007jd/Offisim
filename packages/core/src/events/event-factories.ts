@@ -18,6 +18,9 @@ import type {
   GraphNodeExitedPayload,
   HandoffCompletedPayload,
   HandoffInitiatedPayload,
+  HrAssessmentCompletedPayload,
+  HrAssessmentStartedPayload,
+  HrRecommendationPayload,
   InstallState,
   InstallStatePayload,
   LlmCallCompletedPayload,
@@ -28,6 +31,8 @@ import type {
   McpToolCalledPayload,
   McpToolResultPayload,
   MeetingActionCreatedPayload,
+  NotificationDismissedPayload,
+  NotificationPayload,
   RackBoundPayload,
   RackUnboundPayload,
   SlotAssignedPayload,
@@ -755,5 +760,106 @@ export function slotRemoved(
     companyId,
     timestamp: Date.now(),
     payload: { slotId, rackId },
+  };
+}
+
+// --- HR Agent Events ---
+
+export function hrAssessmentStarted(
+  companyId: string,
+  action: 'hire' | 'assess_team',
+  threadId: string,
+): RuntimeEvent<HrAssessmentStartedPayload> {
+  return {
+    type: 'hr.assessment.started',
+    entityId: companyId,
+    entityType: 'company',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { action, threadId },
+  };
+}
+
+export function hrAssessmentCompleted(
+  companyId: string,
+  action: 'hire' | 'assess_team',
+  assessment: string,
+  threadId: string,
+): RuntimeEvent<HrAssessmentCompletedPayload> {
+  return {
+    type: 'hr.assessment.completed',
+    entityId: companyId,
+    entityType: 'company',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { action, assessment, threadId },
+  };
+}
+
+export function hrRecommendation(
+  companyId: string,
+  recommendation: string,
+  suggestedRoles: string[],
+  threadId: string,
+): RuntimeEvent<HrRecommendationPayload> {
+  return {
+    type: 'hr.recommendation',
+    entityId: companyId,
+    entityType: 'company',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { recommendation, suggestedRoles, threadId },
+  };
+}
+
+// --- Notification System Events ---
+
+export function notificationCreated(
+  companyId: string,
+  notificationId: string,
+  level: NotificationPayload['level'],
+  title: string,
+  message: string,
+  source: NotificationPayload['source'],
+  opts?: {
+    actionUrl?: string;
+    employeeId?: string;
+    dismissable?: boolean;
+  },
+): RuntimeEvent<NotificationPayload> {
+  return {
+    type: 'notification.created',
+    entityId: notificationId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: {
+      notificationId,
+      level,
+      title,
+      message,
+      source,
+      actionUrl: opts?.actionUrl,
+      employeeId: opts?.employeeId,
+      dismissable: opts?.dismissable ?? true,
+      timestamp: Date.now(),
+    },
+  };
+}
+
+export function notificationDismissed(
+  companyId: string,
+  notificationId: string,
+): RuntimeEvent<NotificationDismissedPayload> {
+  return {
+    type: 'notification.dismissed',
+    entityId: notificationId,
+    entityType: 'company',
+    companyId,
+    timestamp: Date.now(),
+    payload: { notificationId },
   };
 }

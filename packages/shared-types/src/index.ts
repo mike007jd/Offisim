@@ -68,6 +68,11 @@ export type {
   CostAggregatedPayload,
   UiTaskFocusedPayload,
   SceneEmployeeSelectedPayload,
+  HrAssessmentStartedPayload,
+  HrAssessmentCompletedPayload,
+  HrRecommendationPayload,
+  NotificationPayload,
+  NotificationDismissedPayload,
 } from './events.js';
 
 export type {

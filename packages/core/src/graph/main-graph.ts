@@ -6,6 +6,7 @@ import { bossSummaryNode } from '../agents/boss-summary-node.js';
 import { employeeDirectSetupNode } from '../agents/employee-direct-setup-node.js';
 import { employeeNode } from '../agents/employee-node.js';
 import { errorHandlerNode } from '../agents/error-handler-node.js';
+import { hrNode } from '../agents/hr-node.js';
 import { managerNode } from '../agents/manager-node.js';
 import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
@@ -39,6 +40,14 @@ function routeFromBoss(state: AicsGraphState): string {
     default:
       return 'manager';
   }
+}
+
+function routeFromManager(state: AicsGraphState): string {
+  // If the manager directive indicates a hiring or team assessment intent, route to HR
+  if (state.managerDirective?.constraints === 'hire' || state.managerDirective?.constraints === 'assess_team') {
+    return 'hr';
+  }
+  return 'pm_planner';
 }
 
 function routeFromPm(state: AicsGraphState): string {
@@ -145,6 +154,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('step_advance', (state, config) => stepAdvanceNode(state, config))
     .addNode('employee_direct_setup', (state, config) => employeeDirectSetupNode(state, config))
     .addNode('error_handler', (state, config) => errorHandlerNode(state, config))
+    .addNode('hr', (state, config) => hrNode(state, config))
     .addNode('boss_summary', (state, config) => bossSummaryNode(state, config))
     .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
     .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
@@ -156,7 +166,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
       'error_handler',
       'meeting_start',
     ])
-    .addEdge('manager', 'pm_planner')
+    .addConditionalEdges('manager', routeFromManager, ['pm_planner', 'hr'])
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])
     .addEdge('step_dispatcher', 'employee')
     .addConditionalEdges('employee', routeFromEmployee, [
@@ -170,6 +180,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addEdge('meeting_start', 'participant_turn')
     .addConditionalEdges('participant_turn', meetingTurnCheck, ['participant_turn', 'meeting_end'])
     .addEdge('meeting_end', 'boss_summary')
+    .addEdge('hr', 'boss_summary')
     .addEdge('error_handler', 'boss_summary')
     .addEdge('boss_summary', END);
 

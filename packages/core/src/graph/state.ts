@@ -152,6 +152,12 @@ export const AicsGraphAnnotation = Annotation.Root({
     default: () => [],
     reducer: (_, b) => b,
   }),
+
+  // HR assessment output — populated by hrNode, consumed by bossSummaryNode
+  hrAssessment: Annotation<string | null>({
+    default: () => null,
+    reducer: (_, v) => v,
+  }),
 });
 
 export type AicsGraphState = typeof AicsGraphAnnotation.State;

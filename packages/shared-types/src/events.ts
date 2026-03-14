@@ -68,7 +68,12 @@ export type EventFamily =
   | 'rack.unbound'
   | 'slot.assigned'
   | 'slot.removed'
-  | 'cost.aggregated';
+  | 'cost.aggregated'
+  | 'hr.assessment.started'
+  | 'hr.assessment.completed'
+  | 'hr.recommendation'
+  | 'notification.created'
+  | 'notification.dismissed';
 
 // --- Typed event payloads ---
 
@@ -406,4 +411,41 @@ export interface SceneEmployeeSelectedPayload {
   readonly employeeId: string;
   /** Source of the selection — always 'scene' for this event. */
   readonly source: 'scene';
+}
+
+// --- HR Agent Events ---
+
+export interface HrAssessmentStartedPayload {
+  readonly action: 'hire' | 'assess_team';
+  readonly threadId: string;
+}
+
+export interface HrAssessmentCompletedPayload {
+  readonly action: 'hire' | 'assess_team';
+  readonly assessment: string;
+  readonly threadId: string;
+}
+
+export interface HrRecommendationPayload {
+  readonly recommendation: string;
+  readonly suggestedRoles: readonly string[];
+  readonly threadId: string;
+}
+
+// --- Notification System ---
+
+export interface NotificationPayload {
+  readonly notificationId: string;
+  readonly level: 'info' | 'success' | 'warning' | 'error';
+  readonly title: string;
+  readonly message: string;
+  readonly source: 'runtime' | 'market' | 'install' | 'hr';
+  readonly actionUrl?: string;
+  readonly employeeId?: string;
+  readonly dismissable: boolean;
+  readonly timestamp: number;
+}
+
+export interface NotificationDismissedPayload {
+  readonly notificationId: string;
 }
