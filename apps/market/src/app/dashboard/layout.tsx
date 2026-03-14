@@ -58,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isLoading && !user) {
     return (
       <div className="relative min-h-[60vh]">
-        <div className="flex items-center justify-center py-24 text-gray-400">
+        <div className="flex items-center justify-center py-24 text-[var(--text-muted)]">
           Sign in to access your creator dashboard.
         </div>
         <LoginDialog />
@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-400">Loading…</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading…</span>
       </div>
     );
   }
@@ -87,13 +87,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (user && !creatorProfile) {
     return (
       <div className="mx-auto max-w-sm py-16">
-        <h1 className="mb-2 text-xl font-bold text-gray-900">Become a Creator</h1>
-        <p className="mb-6 text-sm text-gray-500">
+        <h1 className="mb-2 text-xl font-bold text-[var(--text-primary)]">Become a Creator</h1>
+        <p className="mb-6 text-sm text-[var(--text-muted)]">
           Register a creator profile to publish listings on the AICS marketplace.
         </p>
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="creator-handle" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="creator-handle" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
               Handle
             </label>
             <input
@@ -104,11 +104,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onChange={(e) => setHandle(e.target.value)}
               placeholder="your-handle"
               disabled={registering}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
           <div>
-            <label htmlFor="creator-bio" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="creator-bio" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
               Bio (optional)
             </label>
             <textarea
@@ -118,11 +118,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               placeholder="Tell the community about yourself…"
               rows={3}
               disabled={registering}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
           {registerError && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+            <p role="alert" className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
               {registerError}
             </p>
           )}

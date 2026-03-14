@@ -12,8 +12,16 @@ interface Props {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams;
   const q = params.q;
+  const title = q ? `"${q}" — Search` : 'Browse Assets';
+  const description = q
+    ? `Search results for "${q}" on AICS Talent Market.`
+    : 'Browse AI company employees, skills, SOPs, and templates.';
   return {
-    title: q ? `"${q}" — Search` : 'Browse Assets',
+    title,
+    description,
+    alternates: { canonical: '/search' },
+    openGraph: { title: `${title} — AICS Talent Market`, description },
+    twitter: { card: 'summary', title, description },
   };
 }
 
@@ -38,21 +46,21 @@ export default async function SearchPage({ searchParams }: Props) {
   const totalPages = Math.ceil(result.total / result.per_page);
 
   return (
-    <div className="mx-auto max-w-content px-6 py-8">
+    <div className="mx-auto max-w-content px-6 py-10">
       {/* Search bar */}
-      <form method="get" action="/search" className="mb-6">
-        <div className="flex gap-2">
+      <form method="get" action="/search" className="mb-8">
+        <div className="flex gap-3">
           <input
             type="search"
             name="q"
             defaultValue={params.q ?? ''}
             placeholder="Search employees, skills, SOPs..."
-            className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 rounded-xl border border-[var(--border-bright)] bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]/50 transition-colors"
             aria-label="Search assets"
           />
           <button
             type="submit"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
           >
             Search
           </button>
@@ -64,7 +72,7 @@ export default async function SearchPage({ searchParams }: Props) {
         <Suspense fallback={null}>
           <SearchFilters />
         </Suspense>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-[var(--text-muted)]">
           {result.total} {result.total === 1 ? 'result' : 'results'}
         </span>
       </div>
@@ -80,7 +88,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <nav className="mt-8 flex justify-center gap-2" aria-label="Pagination">
+            <nav className="mt-10 flex justify-center gap-2" aria-label="Pagination">
               {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => {
                 const qs = new URLSearchParams();
                 if (params.q) qs.set('q', params.q);
@@ -91,10 +99,10 @@ export default async function SearchPage({ searchParams }: Props) {
                   <a
                     key={p}
                     href={`/search?${qs}`}
-                    className={`rounded px-3 py-1 text-sm ${
+                    className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
                       p === result.page
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-bright)]'
                     }`}
                   >
                     {p}
@@ -105,8 +113,14 @@ export default async function SearchPage({ searchParams }: Props) {
           )}
         </>
       ) : (
-        <div className="rounded-lg border border-gray-200 py-12 text-center">
-          <p className="text-gray-500">No assets found matching your criteria.</p>
+        <div className="card rounded-xl py-16 text-center">
+          <p className="text-[var(--text-muted)]">No assets found matching your criteria.</p>
+          <a
+            href="/search"
+            className="mt-4 inline-block text-sm text-[var(--accent-indigo)] hover:underline"
+          >
+            Clear filters
+          </a>
         </div>
       )}
     </div>

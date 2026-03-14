@@ -1,18 +1,225 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ */
+/* Design System: AICS Talent Market — "Digital Talent Agency"        */
+/* Dark theme with luminous gradients, depth, and bold typography.     */
+/* ------------------------------------------------------------------ */
+
 :root {
-  --surface: #ffffff;
-  --surface-elevated: #f8f9fa;
-  --border: #e2e8f0;
-  --muted: #64748b;
-  --accent: #2563eb;
-  --success: #16a34a;
-  --warning: #d97706;
-  --destructive: #dc2626;
+  /* Surfaces */
+  --bg-base: #030712;
+  --bg-surface: #0a0f1e;
+  --bg-card: #111827;
+  --bg-elevated: #1a2036;
+  --bg-input: #0f1629;
+
+  /* Borders */
+  --border: #1e293b;
+  --border-bright: #334155;
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Accents */
+  --accent-indigo: #818cf8;
+  --accent-blue: #60a5fa;
+  --accent-amber: #fbbf24;
+  --accent-emerald: #34d399;
+  --accent-rose: #fb7185;
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(
+    135deg,
+    #0f0c29 0%,
+    #1a1145 25%,
+    #0c1445 50%,
+    #0a1628 75%,
+    #030712 100%
+  );
+
+  --gradient-glow: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 30%),
+    rgba(99, 102, 241, 0.08) 0%,
+    transparent 60%
+  );
 }
 
+/* ------------------------------------------------------------------ */
+/* Base                                                               */
+/* ------------------------------------------------------------------ */
+
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  color: #0f172a;
-  background: var(--surface);
+  font-family: var(--font-body), system-ui, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+::selection {
+  background: rgba(129, 140, 248, 0.3);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
+/* Typography                                                         */
+/* ------------------------------------------------------------------ */
+
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero mesh gradient background                                      */
+/* ------------------------------------------------------------------ */
+
+.hero-gradient {
+  background: var(--gradient-hero);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 40%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(139, 92, 246, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.hero-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='1' cy='1' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards                                                              */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--border-bright);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.05);
+  transform: translateY(-2px);
+}
+
+.card-glow:hover {
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(99, 102, 241, 0.06);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stat counter shimmer                                               */
+/* ------------------------------------------------------------------ */
+
+.stat-value {
+  background: linear-gradient(135deg, #f1f5f9, #818cf8, #f1f5f9);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ------------------------------------------------------------------ */
+/* Animations                                                         */
+/* ------------------------------------------------------------------ */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out both;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+
+/* ------------------------------------------------------------------ */
+/* Kind badges                                                        */
+/* ------------------------------------------------------------------ */
+
+.badge-employee { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.badge-skill { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+.badge-sop { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.badge-company_template { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.badge-office_layout { background: rgba(34, 211, 238, 0.15); color: #22d3ee; }
+.badge-bundle { background: rgba(251, 113, 133, 0.15); color: #fb7185; }
+
+/* ------------------------------------------------------------------ */
+/* Section divider glow                                               */
+/* ------------------------------------------------------------------ */
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-bright) 20%,
+    rgba(99, 102, 241, 0.3) 50%,
+    var(--border-bright) 80%,
+    transparent
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbar                                                          */
+/* ------------------------------------------------------------------ */
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

@@ -489,6 +489,9 @@ importers:
       '@aics/install-core':
         specifier: workspace:*
         version: link:../install-core
+      '@aics/registry-client':
+        specifier: workspace:*
+        version: link:../registry-client
       '@aics/renderer':
         specifier: workspace:*
         version: link:../renderer

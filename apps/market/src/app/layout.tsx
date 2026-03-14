@@ -1,42 +1,87 @@
 import type { Metadata } from 'next';
+import { Syne, Outfit } from 'next/font/google';
 import { AuthProvider } from '@aics/ui-market';
+import { SITE_URL } from '../lib/url';
+import { siteJsonLd } from '../lib/jsonld';
+import { MarketNav } from './MarketNav';
 import './globals.css';
 
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
+});
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
+});
+
+const description =
+  'Browse, discover, and install AI company employees, skills, SOPs, and templates for AI Company Simulator.';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     template: '%s — AICS Talent Market',
     default: 'AICS Talent Market — Discover AI Company Assets',
   },
-  description:
-    'Browse, discover, and install AI company employees, skills, SOPs, and templates for AI Company Simulator.',
+  description,
+  openGraph: {
+    type: 'website',
+    siteName: 'AICS Talent Market',
+    locale: 'en_US',
+    description,
+  },
+  twitter: {
+    card: 'summary',
+    title: 'AICS Talent Market',
+    description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+  alternates: { canonical: '/' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-white antialiased">
+    <html lang="en" className={`${syne.variable} ${outfit.variable}`}>
+      <body className="min-h-screen antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd()) }}
+        />
         <AuthProvider>
-        <header className="border-b border-gray-200">
-          <nav className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
-            <a href="/" className="text-lg font-semibold text-gray-900">
-              AICS Talent Market
-            </a>
-            <div className="flex items-center gap-6">
-              <a href="/search" className="text-sm text-gray-600 hover:text-gray-900">
-                Browse
-              </a>
-              <a href="/about" className="text-sm text-gray-600 hover:text-gray-900">
-                About
-              </a>
+          <MarketNav />
+          <main>{children}</main>
+          <footer className="border-t border-[var(--border)]">
+            <div className="mx-auto max-w-content px-6 py-12">
+              <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
+                <div>
+                  <span className="font-display text-lg font-bold tracking-tight text-[var(--text-primary)]">
+                    AICS
+                  </span>
+                  <span className="ml-1 text-sm text-[var(--text-muted)]">Talent Market</span>
+                </div>
+                <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
+                  <a href="/search" className="hover:text-[var(--text-secondary)] transition-colors">
+                    Browse
+                  </a>
+                  <a href="/dashboard" className="hover:text-[var(--text-secondary)] transition-colors">
+                    Creators
+                  </a>
+                  <span className="text-[var(--border-bright)]">·</span>
+                  <span>Open Source Runtime + Talent Market</span>
+                </div>
+              </div>
             </div>
-          </nav>
-        </header>
-        <main>{children}</main>
-        <footer className="mt-16 border-t border-gray-200 py-8">
-          <div className="mx-auto max-w-content px-6 text-center text-sm text-gray-500">
-            AI Company Simulator — Open Source Runtime + Talent Market
-          </div>
-        </footer>
+          </footer>
         </AuthProvider>
       </body>
     </html>
