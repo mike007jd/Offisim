@@ -1,4 +1,4 @@
-import type { CompanyTemplate } from '@aics/core';
+import type { CompanyTemplate } from '@aics/core/browser';
 
 interface TemplateCardProps {
   template: CompanyTemplate;

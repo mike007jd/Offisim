@@ -3,7 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./scene": { "types": "./dist/scene.d.ts", "default": "./dist/scene.js" }
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json && cp src/components/install/install-animations.css dist/components/install/",
     "typecheck": "tsc --noEmit",

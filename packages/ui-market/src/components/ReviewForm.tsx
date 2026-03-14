@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { PLATFORM_API_URL } from '../lib/config.js';
+import { useAuthContext } from './AuthProvider.js';
 
 export interface ReviewFormProps {
   listingId: string;
-  authToken: string | null;
+  authToken?: string | null;
 }
 
 function StarSelector({
@@ -43,13 +44,15 @@ function StarSelector({
 }
 
 export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
+  const auth = useAuthContext();
+  const token = authToken ?? auth.token;
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!authToken) {
+  if (!token) {
     return (
       <p className="text-sm text-gray-400 italic">
         Sign in to leave a review.
@@ -78,7 +81,7 @@ export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           listing_id: listingId,

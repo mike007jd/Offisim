@@ -1,4 +1,4 @@
-import type { EmployeeVersionRow, VersionDiff } from '@aics/core';
+import type { EmployeeVersionRow, VersionDiff } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 

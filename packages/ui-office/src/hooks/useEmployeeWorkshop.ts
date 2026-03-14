@@ -1,5 +1,5 @@
-import type { EmployeeRow, EmployeeUpdate } from '@aics/core';
-import { employeeUpdated } from '@aics/core';
+import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
+import { employeeUpdated } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';

@@ -1,4 +1,4 @@
-import type { EventBus } from '@aics/core';
+import type { EventBus } from '@aics/core/browser';
 import type { InstallService } from '@aics/install-core';
 
 export interface AicsDebugBridge {

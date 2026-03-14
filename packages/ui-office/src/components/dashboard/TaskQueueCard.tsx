@@ -1,5 +1,5 @@
 import { Badge, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger, type BadgeProps } from '@aics/ui-core';
-import type { TaskRunRow } from '@aics/core';
+import type { TaskRunRow } from '@aics/core/browser';
 import type { TaskQueueState } from '../../hooks/useTaskQueue';
 
 const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {

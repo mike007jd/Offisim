@@ -1,4 +1,4 @@
-import type { OfficeLayoutRow } from '@aics/core';
+import type { OfficeLayoutRow } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { COMPANY_ID } from '../lib/constants.js';

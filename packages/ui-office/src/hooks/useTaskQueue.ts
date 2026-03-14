@@ -1,4 +1,4 @@
-import type { TaskRunRow } from '@aics/core';
+import type { TaskRunRow } from '@aics/core/browser';
 import type { RuntimeEvent, TaskStatePayload } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';

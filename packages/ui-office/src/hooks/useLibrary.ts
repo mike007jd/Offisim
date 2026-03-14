@@ -1,5 +1,5 @@
-import { LibraryService } from '@aics/core';
-import type { LibraryDocumentRow } from '@aics/core';
+import { LibraryService } from '@aics/core/browser';
+import type { LibraryDocumentRow } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { COMPANY_ID } from '../lib/constants.js';

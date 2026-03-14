@@ -1,5 +1,5 @@
-import { RackSlotService } from '@aics/core';
-import type { RackWithSlots } from '@aics/core';
+import { RackSlotService } from '@aics/core/browser';
+import type { RackWithSlots } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { COMPANY_ID } from '../lib/constants.js';

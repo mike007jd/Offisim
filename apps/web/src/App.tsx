@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useState } from 'react';
 import { ToastBanner, useToasts } from '@aics/ui-core';
 import {
   AgentPanel,
@@ -11,7 +11,6 @@ import {
   InstallDialog,
   type ProviderConfig,
   RightSidebar,
-  SceneCanvas,
   SettingsDialog,
   StatusBar,
   loadProviderConfig,
@@ -21,6 +20,11 @@ import {
   useInstallFlow,
   useReducedMotion,
 } from '@aics/ui-office';
+
+/** Lazy-loaded SceneCanvas — keeps PixiJS + GSAP (~504KB) out of the initial bundle */
+const SceneCanvas = React.lazy(() =>
+  import('@aics/ui-office/scene').then((m) => ({ default: m.SceneCanvas })),
+);
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -72,7 +76,15 @@ export function App() {
               selectedEmployeeId={selectedEmployeeId}
             />
           }
-          sceneCanvas={<SceneCanvas reducedMotion={reducedMotion} />}
+          sceneCanvas={
+            <Suspense
+              fallback={
+                <div className="h-full w-full bg-ocean-deep animate-pulse" />
+              }
+            >
+              <SceneCanvas reducedMotion={reducedMotion} />
+            </Suspense>
+          }
           chatDrawer={
             <ChatDrawer>
               <ChatPanel

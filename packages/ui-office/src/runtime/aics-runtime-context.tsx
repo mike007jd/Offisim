@@ -3,7 +3,7 @@ import type {
   EventBus,
   McpServerConfig,
   RuntimeRepositories,
-} from '@aics/core';
+} from '@aics/core/browser';
 import type { InstallService } from '@aics/install-core';
 import { createContext, useContext } from 'react';
 

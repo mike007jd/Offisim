@@ -10,7 +10,7 @@ Production-oriented architecture for the open-source runtime, marketplace websit
 | **Desktop Framework** | Tauri 2.x                                      |
 | **Agent Runtime**     | LangGraph.js                                   |
 
-| 本次修订重点 / 修正架构中心：以 runtime / registry / install protocol 三层为核心，不再把市场误写成运行时主体。 / 将本地存储按环境拆分：Desktop 与 Web 分别采用不同 persistence path，但共享 repository 抽象。 / 补齐 runtime persistence、package manifest、public/private API 边界、worker/job 层。 / 明确多 Agent 协作是产品核心；模型/provider/agent runtime 由用户本地运行时解析，市场资产只提供员工层的可选推荐信息。 / 统一关键决策：Auth.js、Next.js 16 App Router、public-read/private-write market API、client/server PDF 分工、1.0 无任意安装脚本。 |
+| 本次修订重点 / 修正架构中心：以 runtime / registry / install protocol 三层为核心，不再把市场误写成运行时主体。 / 将本地存储按环境拆分：Desktop 与 Web 分别采用不同 persistence path，但共享 repository 抽象。 / 补齐 runtime persistence、package manifest、public/private API 边界、worker/job 层。 / 明确多 Agent 协作是产品核心；模型/provider/agent runtime 由用户本地运行时解析，市场资产只提供员工层的可选推荐信息。 / 统一关键决策：Auth.js、Next.js 15.2 App Router、public-read/private-write market API、client/server PDF 分工、1.0 无任意安装脚本。 |
 |----|
 
 **Contents**
@@ -125,7 +125,7 @@ Production-oriented architecture for the open-source runtime, marketplace websit
 | Rendering | 2D office scene, procedural art, bubbles, drag & drop, scene performance | PixiJS 8 + React 19 |
 | UI Core | Shared design primitives and read-only components | React 19 + Tailwind CSS 4 + shadcn/ui |
 | UI Office | Editors, runtime panels, dashboard, installation dialogs | React 19 + Zustand + TanStack Query |
-| UI Market | Marketplace website components adapted to App Router | Next.js 16 App Router |
+| UI Market | Marketplace website components adapted to App Router | Next.js 15.2 App Router |
 | Agent Runtime | Manager/PM routing, DAG execution, meetings, interrupts | LangGraph.js |
 | LLM Gateway | Provider abstraction, rate limiting, streaming, failover | OpenAI-compatible adapter + provider SDKs |
 | MCP Adapter | External tool access, seat-based permissions, editor MCP servers | Model Context Protocol SDK |
@@ -379,7 +379,7 @@ Office Editor MCP and Employee Editor MCP are desktop-first features. They may r
 
 ## **9.1 Next.js Surface**
 
-The market site stays a distinct Next.js 16 App Router application optimized for public discovery, SEO, and shareable detail pages.
+The market site stays a distinct Next.js 15.2 App Router application optimized for public discovery, SEO, and shareable detail pages.
 
 | **Route** | **Rendering mode** | **Notes** |
 |:---|:---|:---|
@@ -449,7 +449,7 @@ The market site stays a distinct Next.js 16 App Router application optimized for
 | Package manager | pnpm workspace        |
 | Web build       | Vite 7 for apps/web   |
 | Desktop build   | Tauri CLI 2.x         |
-| Market build    | Next.js 16 App Router |
+| Market build    | Next.js 15.2 App Router |
 | Testing         | Vitest + Playwright   |
 | Lint / format   | Biome                 |
 | Versioning      | Changesets            |

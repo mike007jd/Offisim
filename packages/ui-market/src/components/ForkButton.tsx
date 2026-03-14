@@ -1,15 +1,20 @@
 'use client';
 
+import { useAuthContext } from './AuthProvider.js';
+
 export interface ForkButtonProps {
   listingId: string;
   version: string;
   forkCount: number;
-  authToken: string | null;
+  authToken?: string | null;
 }
 
 export function ForkButton({ listingId, version, forkCount, authToken }: ForkButtonProps) {
+  const auth = useAuthContext();
+  const token = authToken ?? auth.token;
+
   function handleClick() {
-    if (!authToken) {
+    if (!token) {
       // Trigger login prompt by scrolling up or showing message
       alert('Please sign in to fork this asset.');
       return;

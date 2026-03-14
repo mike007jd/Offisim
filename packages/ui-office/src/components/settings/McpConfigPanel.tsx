@@ -1,5 +1,5 @@
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aics/ui-core';
-import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core';
+import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { isTauri } from '../../lib/env';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';

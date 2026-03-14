@@ -6,7 +6,7 @@
  * so the renderer (SceneManager) can add them to the scene.
  */
 
-import { employeeInstalled } from '@aics/core';
+import { employeeInstalled } from '@aics/core/browser';
 import type { BindingConfirmation, InstallPlan, SkillValidationResult } from '@aics/install-core';
 import { readPackageFile } from '@aics/install-core';
 import { RegistryApiError, RegistryClient } from '@aics/registry-client';

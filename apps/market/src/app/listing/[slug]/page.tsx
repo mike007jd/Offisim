@@ -134,7 +134,6 @@ export default async function ListingPage({ params }: Props) {
               listingId={listing.listing_id}
               version={listing.version?.version ?? listing.latest_version}
               forkCount={forksData.forks.length}
-              authToken={null}
             />
             <InstallButton
               listingId={listing.listing_id}
@@ -254,7 +253,7 @@ export default async function ListingPage({ params }: Props) {
             <h2 className="mb-3 font-display text-lg font-bold text-[var(--text-primary)]">
               Write a Review
             </h2>
-            <ReviewForm listingId={listing.listing_id} authToken={null} />
+            <ReviewForm listingId={listing.listing_id} />
           </section>
         </div>
 
@@ -281,7 +280,7 @@ export default async function ListingPage({ params }: Props) {
 
           {/* Report */}
           <div className="card p-5">
-            <ReportDialog listingId={listing.listing_id} authToken={null} />
+            <ReportDialog listingId={listing.listing_id} />
           </div>
         </div>
       </div>

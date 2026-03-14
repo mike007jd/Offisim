@@ -1,5 +1,5 @@
-import { CompanyTemplateService, listTemplates } from '@aics/core';
-import type { CompanyTemplate } from '@aics/core';
+import { CompanyTemplateService, listTemplates } from '@aics/core/browser';
+import type { CompanyTemplate } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { COMPANY_ID } from '../lib/constants.js';

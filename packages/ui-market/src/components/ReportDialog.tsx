@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PLATFORM_API_URL } from '../lib/config.js';
+import { useAuthContext } from './AuthProvider.js';
 
 const REPORT_REASONS = [
   { value: 'spam', label: 'Spam' },
@@ -13,10 +14,12 @@ const REPORT_REASONS = [
 
 export interface ReportDialogProps {
   listingId: string;
-  authToken: string | null;
+  authToken?: string | null;
 }
 
 export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
+  const auth = useAuthContext();
+  const token = authToken ?? auth.token;
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>('');
   const [details, setDetails] = useState('');
@@ -24,7 +27,7 @@ export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!authToken) return null;
+  if (!token) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +42,7 @@ export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ reason, details: details.trim() || undefined }),
         },

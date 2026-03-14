@@ -1,4 +1,4 @@
-import { employeeCreated } from '@aics/core';
+import { employeeCreated } from '@aics/core/browser';
 import { useCallback, useReducer, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';

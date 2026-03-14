@@ -1,4 +1,4 @@
-import type { EmployeeUpdate, EmployeeRow } from '@aics/core';
+import type { EmployeeUpdate, EmployeeRow } from '@aics/core/browser';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
