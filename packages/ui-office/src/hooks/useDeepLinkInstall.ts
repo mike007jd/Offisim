@@ -37,7 +37,8 @@ export function useDeepLinkInstall(onInstallRequest: DeepLinkHandler): void {
   useEffect(() => {
     if (!isTauri()) return;
 
-    let unlisten: (() => void) | undefined;
+    let mounted = true;
+    const unlistenRef: { current: (() => void) | undefined } = { current: undefined };
 
     // Dynamically import Tauri event API (tree-shaken in browser builds)
     import('@tauri-apps/api/event')
@@ -52,14 +53,20 @@ export function useDeepLinkInstall(onInstallRequest: DeepLinkHandler): void {
         });
       })
       .then((unlistenFn) => {
-        unlisten = unlistenFn;
+        if (!mounted) {
+          // Component unmounted before the Promise resolved — clean up immediately
+          unlistenFn();
+        } else {
+          unlistenRef.current = unlistenFn;
+        }
       })
       .catch((err) => {
         console.error('[useDeepLinkInstall] Failed to register listener:', err);
       });
 
     return () => {
-      unlisten?.();
+      mounted = false;
+      unlistenRef.current?.();
     };
   }, []); // Empty deps — subscribe once, handler ref keeps it fresh
 }

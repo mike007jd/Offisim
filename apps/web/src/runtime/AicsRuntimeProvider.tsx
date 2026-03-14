@@ -26,10 +26,7 @@ import type { InstallEventEmitter, InstallRepositories } from '@aics/install-cor
 // @langchain/core into the main bundle (~200 KB savings).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMcpClientFactory } from '../lib/browser-mcp-client';
-import { COMPANY_ID, THREAD_ID } from '../lib/constants';
-import { isTauri } from '../lib/env';
-import { type ProviderConfig, loadProviderConfig } from '../lib/provider-config';
-import { AicsRuntimeContext, type AicsRuntimeValue } from '@aics/ui-office';
+import { AicsRuntimeContext, type AicsRuntimeValue, COMPANY_ID, THREAD_ID, isTauri, type ProviderConfig, loadProviderConfig } from '@aics/ui-office';
 
 type RuntimeBundle = {
   eventBus: InMemoryEventBus;

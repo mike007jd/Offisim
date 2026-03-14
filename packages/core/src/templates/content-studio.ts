@@ -108,7 +108,7 @@ export const contentStudioTemplate: CompanyTemplate = {
       sop_id: 'sop-content-pipeline',
       name: 'Content Pipeline',
       description: 'Research-draft-review-optimize pipeline for AI content production',
-      created_at: new Date().toISOString(),
+      created_at: '2025-01-01T00:00:00.000Z',
       steps: [
         {
           step_id: 'research',

@@ -13,8 +13,7 @@ import {
 import type { EventBus, RuntimeRepositories } from '@aics/core';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { COMPANY_ID, THREAD_ID } from './constants';
-import type { ProviderConfig } from './provider-config';
+import { COMPANY_ID, THREAD_ID, type ProviderConfig } from '@aics/ui-office';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriMcpClientFactory } from './tauri-mcp-client';

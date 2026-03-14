@@ -108,7 +108,7 @@ export const productTeamTemplate: CompanyTemplate = {
       sop_id: 'sop-build-cycle',
       name: 'Build Cycle',
       description: 'Specify-design-implement-review pipeline for spec-driven AI development',
-      created_at: new Date().toISOString(),
+      created_at: '2025-01-01T00:00:00.000Z',
       steps: [
         {
           step_id: 'specify',

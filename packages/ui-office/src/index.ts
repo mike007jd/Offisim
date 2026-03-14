@@ -82,3 +82,6 @@ export * from './runtime/aics-runtime-context.js';
 export * from './runtime/use-agent-states.js';
 export * from './runtime/use-event-stream.js';
 export * from './runtime/use-streaming-content.js';
+
+// Types
+export type { AicsDebugBridge } from './types/global.js';

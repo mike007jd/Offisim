@@ -9,17 +9,18 @@ import {
   ErrorBoundary,
   Header,
   InstallDialog,
+  type ProviderConfig,
   RightSidebar,
   SceneCanvas,
   SettingsDialog,
   StatusBar,
+  loadProviderConfig,
   useAicsRuntime,
   useAgentStates,
   useDeepLinkInstall,
   useInstallFlow,
   useReducedMotion,
 } from '@aics/ui-office';
-import { type ProviderConfig, loadProviderConfig } from '@aics/ui-office';
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
