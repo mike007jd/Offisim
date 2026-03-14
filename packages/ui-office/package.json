@@ -16,6 +16,7 @@
     "@aics/registry-client": "workspace:*",
     "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
+    "@aics/doc-engine": "workspace:*",
     "@aics/ui-core": "workspace:*",
     "lucide-react": "^0.577.0"
   },

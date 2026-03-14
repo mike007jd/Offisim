@@ -1,6 +1,36 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
+import {
+  type ExportFormat,
+  type ExportableDocument,
+  exportDocument,
+} from '@aics/doc-engine';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@aics/ui-core';
 import { useCallback, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
+  { value: 'docx', label: 'DOCX' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'pptx', label: 'PPTX' },
+  { value: 'csv', label: 'CSV' },
+  { value: 'html', label: 'HTML' },
+  { value: 'txt', label: 'TXT' },
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,12 +51,25 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max) + '...';
 }
 
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ---------------------------------------------------------------------------
 // DeliverableCard
 // ---------------------------------------------------------------------------
 
 function DeliverableCard({ item }: { item: Deliverable }) {
   const [copied, setCopied] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
+  const [exporting, setExporting] = useState(false);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -38,17 +81,25 @@ function DeliverableCard({ item }: { item: Deliverable }) {
     }
   }, [item.content]);
 
-  const handleDownload = useCallback(() => {
-    const blob = new Blob([item.content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${item.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [item.content, item.title]);
+  const handleDownload = useCallback(async () => {
+    setExporting(true);
+    try {
+      const doc: ExportableDocument = {
+        title: item.title,
+        content: item.content,
+        contributors: item.contributingEmployees.map((e) => ({
+          name: e.employeeName,
+        })),
+        createdAt: item.createdAt,
+      };
+      const result = await exportDocument(doc, selectedFormat);
+      triggerDownload(result.blob, result.filename);
+    } catch (err) {
+      console.error('[PitchHall] Export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [item, selectedFormat]);
 
   return (
     <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-ocean-deep/50 border-ocean-light">
@@ -71,7 +122,7 @@ function DeliverableCard({ item }: { item: Deliverable }) {
         <p className="font-pixel-mono text-[11px] text-shell/80 leading-relaxed whitespace-pre-wrap break-words">
           {truncate(item.content, 200)}
         </p>
-        <div className="flex gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2">
           <Button
             variant="ghost"
             size="sm"
@@ -80,13 +131,29 @@ function DeliverableCard({ item }: { item: Deliverable }) {
           >
             {copied ? 'Copied!' : 'Copy'}
           </Button>
+          <Select
+            value={selectedFormat}
+            onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
+          >
+            <SelectTrigger className="h-6 w-[72px] text-[10px] text-shell/70 border-shell/20 bg-transparent">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMAT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-[10px]">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-[10px] text-shell/70 hover:text-pearl"
             onClick={handleDownload}
+            disabled={exporting}
           >
-            Download
+            {exporting ? 'Exporting...' : 'Download'}
           </Button>
         </div>
       </CardContent>
