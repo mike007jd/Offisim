@@ -2,12 +2,15 @@ import { RegistryApiError } from './errors.js';
 import type {
   ArtifactDownloadInfo,
   CreateDraftRequest,
+  CreateReportRequest,
   CreateReviewRequest,
   CreatorProfile,
+  ForksResponse,
   InstallReceiptRequest,
   InstallReceiptResponse,
   LibraryParams,
   LibraryResponse,
+  LineageResponse,
   ListDraftsParams,
   ListDraftsResponse,
   ListingDetail,
@@ -15,6 +18,7 @@ import type {
   PublishDraft,
   PublishSubmitRequest,
   PutDraftManifestRequest,
+  ReportResponse,
   Review,
   ReviewListResponse,
   SearchParams,
@@ -72,6 +76,18 @@ export class RegistryClient {
 
   async getCreatorProfile(handle: string): Promise<CreatorProfile> {
     return this.get<CreatorProfile>(`/v1/market/creators/${handle}`);
+  }
+
+  async getListingForks(listingId: string): Promise<ForksResponse> {
+    return this.get<ForksResponse>(`/v1/market/listings/${listingId}/forks`);
+  }
+
+  async getListingLineage(listingId: string): Promise<LineageResponse> {
+    return this.get<LineageResponse>(`/v1/market/listings/${listingId}/lineage`);
+  }
+
+  async reportListing(listingId: string, req: CreateReportRequest): Promise<ReportResponse> {
+    return this.post<ReportResponse>(`/v1/market/listings/${listingId}/reports`, req);
   }
 
   // ── Authenticated endpoints ──

@@ -237,6 +237,49 @@ export interface ArtifactDownloadInfo {
   artifact_size_bytes: number | null;
 }
 
+// ── Fork / Lineage ──
+
+export interface ForkSummary {
+  listingId: string;
+  title: string;
+  slug: string;
+  creatorHandle: string;
+  version: string;
+  forkedAt: string;
+}
+
+export interface ForksResponse {
+  forks: ForkSummary[];
+}
+
+export interface LineageNode {
+  listingId: string;
+  title: string;
+  slug: string;
+  version: string;
+}
+
+export interface LineageResponse {
+  ancestors: LineageNode[];
+  descendants: LineageNode[];
+}
+
+// ── Report ──
+
+export interface CreateReportRequest {
+  reason: 'spam' | 'malicious_code' | 'copyright' | 'misleading' | 'other';
+  details?: string;
+}
+
+export interface ReportResponse {
+  flag_id: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+}
+
 // ── Creator Profile (extension beyond OpenAPI — needed for market pages) ──
 
 export interface CreatorProfile extends CreatorSummary {
