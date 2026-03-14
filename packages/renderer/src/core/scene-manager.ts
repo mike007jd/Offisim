@@ -13,6 +13,7 @@ import type {
 } from '@aics/shared-types';
 import gsap from 'gsap';
 import { Application, Container, Graphics } from 'pixi.js';
+import { InstallGhostEntity } from '../entities/install-ghost-entity.js';
 import { RouteLineEntity } from '../entities/route-line-entity.js';
 import { CameraController } from '../interaction/camera-controller.js';
 import { InteractionController } from '../interaction/interaction-controller.js';
@@ -22,10 +23,10 @@ import { EmployeePuppet } from '../puppet/employee-puppet.js';
 import { LobsterPuppet } from '../puppet/lobster-puppet.js';
 import type { CharacterConfig } from '../puppet/types.js';
 import { DEFAULT_CHARACTER_CONFIGS, PUPPET } from '../puppet/types.js';
+import { AttentionSystem } from '../systems/attention-system.js';
 import { STATE_COLORS } from '../tokens/colors.js';
 import { resolveEmployeeDepartment, RD_COMPANY_ZONES } from '../tokens/departments.js';
 import {
-  MIN_FADE_DURATION,
   type MotionBucket,
   type MotionTokens,
   type PerformanceTier,
@@ -69,12 +70,11 @@ export class SceneManager {
   private _performanceTier: PerformanceTier = 'A';
   private attentionRequests: Map<string, { priority: number; timestamp: number }> = new Map();
   private spotlightGfx: Graphics | null = null;
+  private attentionSystem: AttentionSystem | null = null;
   private interactionController: InteractionController | null = null;
-  private installGhost: SceneEntity | null = null;
-  get installGhostTxnId(): string | null {
-    return this._installGhostTxnId;
-  }
-  private _installGhostTxnId: string | null = null;
+  /** Active install ghost entities keyed by installTxnId */
+  private installGhosts: Map<string, InstallGhostEntity> = new Map();
+  private _selectedEmployeeId: string | null = null;
 
   /** Rest area seats computed from floor plan */
   private restAreaSeats: Array<{ x: number; y: number }> = [];
@@ -246,6 +246,12 @@ export class SceneManager {
       (wsId, on) => {
         this.floorLayer?.setWorkstationHighlight(wsId, on);
       },
+      (entityId) => {
+        this.selectEmployee(entityId);
+      },
+      () => {
+        this.deselectAll();
+      },
     );
     this.interactionController.enable();
 
@@ -263,6 +269,15 @@ export class SceneManager {
     const { width, height } = app.screen;
     this.camera.fitToView(width, height);
     this.attachCameraEvents(app);
+
+    // ── AttentionSystem ──
+    this.attentionSystem = new AttentionSystem(
+      this.eventBus,
+      () => this.layers,
+      () => this.employeeEntities,
+      this.motion,
+    );
+    this.attentionSystem.activate();
 
     this.subscribeEvents();
   }
@@ -424,6 +439,78 @@ export class SceneManager {
     return [...this.employeeEntities.keys()];
   }
 
+  /** Currently selected employee ID, or null if nothing is selected. */
+  get selectedEmployeeId(): string | null {
+    return this._selectedEmployeeId;
+  }
+
+  /**
+   * Select an employee programmatically (reverse direction: DOM → scene).
+   * Focuses the camera on the employee, draws a selection ring, and emits
+   * `ui.selection.changed` with `source: 'panel'` so the DOM panel updates too.
+   */
+  selectEmployee(employeeId: string): void {
+    const entity = this.employeeEntities.get(employeeId);
+    if (!entity) return;
+
+    // Clear previous selection ring (if any)
+    if (this._selectedEmployeeId && this._selectedEmployeeId !== employeeId) {
+      const prev = this.employeeEntities.get(this._selectedEmployeeId);
+      if (prev) prev.setHighlight(false);
+    }
+
+    this._selectedEmployeeId = employeeId;
+    entity.setHighlight(true);
+
+    // Focus camera on the employee
+    if (this.camera && this.app) {
+      this.camera.focusEmployee(
+        { x: entity.container.x, y: entity.container.y },
+        this.app.screen.width,
+        this.app.screen.height,
+      );
+    }
+
+    // Emit selection event (source: 'scene') so DOM panels can react
+    this.eventBus.emit({
+      type: 'ui.selection.changed',
+      entityId: employeeId,
+      entityType: 'employee',
+      companyId: '',
+      timestamp: Date.now(),
+      payload: {
+        entityId: employeeId,
+        entityType: 'employee',
+        source: 'scene',
+      } satisfies import('@aics/shared-types').UiSelectionPayload,
+    });
+  }
+
+  /**
+   * Deselect all employees.
+   * Clears selection rings and emits `ui.selection.changed` with `entityId: null`.
+   */
+  deselectAll(): void {
+    if (this._selectedEmployeeId) {
+      const prev = this.employeeEntities.get(this._selectedEmployeeId);
+      if (prev) prev.setHighlight(false);
+    }
+    this._selectedEmployeeId = null;
+
+    this.eventBus.emit({
+      type: 'ui.selection.changed',
+      entityId: '',
+      entityType: 'employee',
+      companyId: '',
+      timestamp: Date.now(),
+      payload: {
+        entityId: null,
+        entityType: 'employee',
+        source: 'scene',
+      } satisfies import('@aics/shared-types').UiSelectionPayload,
+    });
+  }
+
   /** Debug helper — returns position and role of each employee entity. */
   get employeeDebugInfo(): Array<{ id: string; x: number; y: number; roleSlug: string | undefined }> {
     const result: Array<{ id: string; x: number; y: number; roleSlug: string | undefined }> = [];
@@ -576,12 +663,10 @@ export class SceneManager {
     for (const line of this.routeLines.values()) line.destroy();
     this.routeLines.clear();
 
-    if (this.installGhost) {
-      gsap.killTweensOf(this.installGhost.container);
-      gsap.killTweensOf(this.installGhost.container.scale);
-      this.installGhost.destroy();
-      this.installGhost = null;
+    for (const ghost of this.installGhosts.values()) {
+      ghost.destroy();
     }
+    this.installGhosts.clear();
 
     for (const entity of this.employeeEntities.values()) entity.destroy();
     this.employeeEntities.clear();
@@ -600,6 +685,11 @@ export class SceneManager {
     if (this.spotlightGfx) {
       this.spotlightGfx.destroy();
       this.spotlightGfx = null;
+    }
+
+    if (this.attentionSystem) {
+      this.attentionSystem.deactivate();
+      this.attentionSystem = null;
     }
 
     if (this.app) {
@@ -889,9 +979,22 @@ export class SceneManager {
     this.unsubscribers.push(
       this.eventBus.on('ui.selection.changed', (event) => {
         const payload = event.payload as import('@aics/shared-types').UiSelectionPayload;
+        // Only react to panel-initiated selections (scene-initiated ones are emitted by us)
         if (payload.source === 'panel') {
+          this._selectedEmployeeId = payload.entityId;
           for (const [id, entity] of this.employeeEntities) {
             entity.setHighlight(id === payload.entityId);
+          }
+          // Focus camera on selected employee if one is selected
+          if (payload.entityId) {
+            const entity = this.employeeEntities.get(payload.entityId);
+            if (entity && this.camera && this.app) {
+              this.camera.focusEmployee(
+                { x: entity.container.x, y: entity.container.y },
+                this.app.screen.width,
+                this.app.screen.height,
+              );
+            }
           }
         }
       }),
@@ -904,17 +1007,25 @@ export class SceneManager {
         if (next === 'compatibility_checked' || next === 'awaiting_confirmation') {
           this.showInstallGhost(installTxnId);
         } else if (next === 'materializing') {
-          this.stepInstallGhostOpacity(0.7);
+          // Ghost already visible; update progress to show activity started
+          this.updateInstallGhostProgress(installTxnId, 0.1);
         } else if (next === 'installed') {
-          this.removeInstallGhost();
+          this.settleInstallGhost(installTxnId);
         } else if (next === 'failed' || next === 'rolled_back' || next === 'cancelled') {
-          this.dissolveInstallGhost();
+          this.failInstallGhost(installTxnId);
         }
         if (next === 'failed' || next === 'rolled_back') {
           this.requestAttention(installTxnId, 5);
         } else if (next === 'installed' || next === 'cancelled') {
           this.clearAttention(installTxnId);
         }
+      }),
+    );
+
+    this.unsubscribers.push(
+      this.eventBus.on('install.progress', (event) => {
+        const payload = event.payload as { installTxnId: string; fraction: number };
+        this.updateInstallGhostProgress(payload.installTxnId, payload.fraction);
       }),
     );
 
@@ -932,6 +1043,17 @@ export class SceneManager {
       this.eventBus.on('runtime.performance.tier.changed', (event) => {
         const tier = (event.payload as { tier: PerformanceTier }).tier;
         this._performanceTier = tier;
+      }),
+    );
+
+    // ANIM-015: task row click → scene flash highlight on target employee
+    this.unsubscribers.push(
+      this.eventBus.on('ui.task.focused', (event) => {
+        const payload = event.payload as import('@aics/shared-types').UiTaskFocusedPayload;
+        const entity = this.employeeEntities.get(payload.employeeId);
+        if (entity) {
+          entity.flashHighlight();
+        }
       }),
     );
   }
@@ -958,58 +1080,40 @@ export class SceneManager {
   }
 
   private showInstallGhost(txnId: string): void {
-    if (this.installGhost || !this.layers || !this.floorPlan) return;
+    if (this.installGhosts.has(txnId) || !this.layers || !this.floorPlan) return;
 
     const wsId = this.findUnoccupiedWorkstation();
     const pos = wsId ? this.floorPlan.allWorkstations.get(wsId) : null;
 
-    const ghost = this.createEntity('ghost-preview', '?', this.entityStyle);
-    if (pos) {
-      ghost.container.position.set(pos.x, pos.y + PUPPET_Y_OFFSET);
-    } else {
-      ghost.container.position.set(this.floorPlan.totalWidth / 2, this.floorPlan.totalHeight / 2);
-    }
-    ghost.container.alpha = 0.4;
+    const x = pos ? pos.x : this.floorPlan.totalWidth / 2;
+    const y = pos ? pos.y + PUPPET_Y_OFFSET : this.floorPlan.totalHeight / 2;
 
+    const ghost = new InstallGhostEntity({ x, y });
     this.layers.semantic.addChild(ghost.container);
-    this.installGhost = ghost;
-    this._installGhostTxnId = txnId;
+    this.installGhosts.set(txnId, ghost);
   }
 
-  private stepInstallGhostOpacity(target: number): void {
-    if (!this.installGhost) return;
-    const { duration, ease } = this.motion.M2;
-    if (duration > 0) {
-      gsap.to(this.installGhost.container, { alpha: target, duration, ease });
-    } else {
-      this.installGhost.container.alpha = target;
-    }
+  private updateInstallGhostProgress(txnId: string, fraction: number): void {
+    const ghost = this.installGhosts.get(txnId);
+    if (ghost) ghost.setProgress(fraction);
   }
 
-  private removeInstallGhost(): void {
-    if (!this.installGhost) return;
-    this.installGhost.destroy();
-    this.installGhost = null;
-    this._installGhostTxnId = null;
+  private settleInstallGhost(txnId: string): void {
+    const ghost = this.installGhosts.get(txnId);
+    if (!ghost) return;
+    this.installGhosts.delete(txnId);
+    ghost.settleAsInstalled();
+    // Remove from scene after settle animation completes (M1 duration)
+    const dur = this.motion.M1.duration > 0 ? this.motion.M1.duration : 0.6;
+    setTimeout(() => ghost.destroy(), (dur + 0.2) * 1000);
   }
 
-  private dissolveInstallGhost(): void {
-    if (!this.installGhost) return;
-    const ghost = this.installGhost;
-    this.installGhost = null;
-    this._installGhostTxnId = null;
-
-    const { duration, ease } = this.motion.M2;
-    if (duration > 0) {
-      const dissolveDuration = Math.max(duration, MIN_FADE_DURATION);
-      gsap.to(ghost.container, { alpha: 0, duration: dissolveDuration, ease });
-      gsap.to(ghost.container.scale, {
-        x: 0.8, y: 0.8, duration: dissolveDuration, ease,
-        onComplete: () => ghost.destroy(),
-      });
-    } else {
-      ghost.destroy();
-    }
+  private failInstallGhost(txnId: string): void {
+    const ghost = this.installGhosts.get(txnId);
+    if (!ghost) return;
+    this.installGhosts.delete(txnId);
+    // failAndRemove() handles its own cleanup and destroy()
+    ghost.failAndRemove();
   }
 
   private clearToolOverlayTimer(employeeId: string): void {

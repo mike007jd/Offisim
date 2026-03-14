@@ -1,6 +1,6 @@
 import { SceneManager } from '@aics/renderer';
 import type { SceneEventBus } from '@aics/renderer';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { COMPANY_ID } from '../../lib/constants';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 
@@ -8,6 +8,7 @@ export function useScene(reducedMotion = false) {
   const containerRef = useRef<HTMLDivElement>(null);
   const managerRef = useRef<SceneManager | null>(null);
   const { eventBus, repos } = useAicsRuntime();
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   // Create / destroy SceneManager when eventBus changes.
   // reducedMotion is NOT in the dep array — we update it via setter (I3).
@@ -72,6 +73,19 @@ export function useScene(reducedMotion = false) {
     }
   }, [reducedMotion]);
 
+  // Listen for scene-initiated selection events and sync to React state.
+  // This is the scene→DOM direction of the bidirectional sync bridge.
+  useEffect(() => {
+    if (!eventBus) return;
+    const unsub = (eventBus as SceneEventBus).on('ui.selection.changed', (event) => {
+      const payload = event.payload as { entityId: string | null; source: string };
+      if (payload.source === 'scene') {
+        setSelectedEmployeeId(payload.entityId);
+      }
+    });
+    return unsub;
+  }, [eventBus]);
+
   // Populate scene with real employees from repos.
   // When repos identity changes (reinitRuntime → new repos), clear old employees
   // and re-populate from the new repos. SceneManager already subscribes to
@@ -125,5 +139,5 @@ export function useScene(reducedMotion = false) {
     };
   }, [repos]);
 
-  return { containerRef, managerRef };
+  return { containerRef, managerRef, selectedEmployeeId };
 }

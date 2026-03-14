@@ -34,6 +34,7 @@ interface DragState {
  * - `pointerdown` on entity → begin drag, capture offset
  * - `pointermove` on stage → update entity position, highlight workstation hover
  * - `pointerup` → if over valid workstation emit drop; else GSAP snap-back (M2)
+ * - `pointerup` without movement → treated as a click, fires onSelect callback
  * - `Escape` key → cancel drag, snap-back
  *
  * PixiJS 8 specifics:
@@ -52,9 +53,12 @@ export class InteractionController {
     pointerMove: (e: FederatedPointerEvent) => this.handlePointerMove(e),
     pointerUp: (e: FederatedPointerEvent) => this.handlePointerUp(e),
     keyDown: (e: KeyboardEvent) => this.handleKeyDown(e),
+    stagePointerDown: () => this.handleStagePointerDown(),
   };
   /** Per-entity pointerdown handlers for cleanup. */
   private entityHandlers: Map<string, (e: FederatedPointerEvent) => void> = new Map();
+  /** Whether the current pointerdown originated on an entity (vs background). */
+  private pointerDownOnEntity = false;
 
   constructor(
     private readonly stage: Container,
@@ -64,6 +68,8 @@ export class InteractionController {
     private readonly motion: MotionTokens,
     private readonly onDrop: (result: DragResult) => void,
     private readonly onHighlight?: (workstationId: string, on: boolean) => void,
+    private readonly onSelect?: (entityId: string) => void,
+    private readonly onDeselect?: () => void,
   ) {}
 
   /** Update workstation bounds (e.g. after rebuildLayout). */
@@ -101,6 +107,7 @@ export class InteractionController {
     this.stage.on('pointermove', this.boundHandlers.pointerMove);
     this.stage.on('pointerup', this.boundHandlers.pointerUp);
     this.stage.on('pointerupoutside', this.boundHandlers.pointerUp);
+    this.stage.on('pointerdown', this.boundHandlers.stagePointerDown);
 
     // Keyboard escape
     if (typeof globalThis.addEventListener === 'function') {
@@ -132,6 +139,7 @@ export class InteractionController {
     this.stage.off('pointermove', this.boundHandlers.pointerMove);
     this.stage.off('pointerup', this.boundHandlers.pointerUp);
     this.stage.off('pointerupoutside', this.boundHandlers.pointerUp);
+    this.stage.off('pointerdown', this.boundHandlers.stagePointerDown);
 
     // Remove keyboard handler
     if (typeof globalThis.removeEventListener === 'function') {
@@ -202,10 +210,25 @@ export class InteractionController {
       offsetY: entity.container.y - localPos.y,
     };
 
+    // Track that this pointerdown hit an entity (so stage pointerdown won't deselect)
+    this.pointerDownOnEntity = true;
+
     entity.container.cursor = 'grabbing';
     entity.container.alpha = 0.8;
 
     e.stopPropagation();
+  }
+
+  /**
+   * Called on stage pointerdown (background click — not on an entity).
+   * If not on an entity, signal deselection.
+   */
+  private handleStagePointerDown(): void {
+    if (!this.pointerDownOnEntity) {
+      this.onDeselect?.();
+    }
+    // Reset flag — will be set again if next pointerdown hits an entity
+    this.pointerDownOnEntity = false;
   }
 
   private handlePointerMove(e: FederatedPointerEvent): void {
@@ -237,7 +260,7 @@ export class InteractionController {
   private handlePointerUp(_e: FederatedPointerEvent): void {
     if (!this.dragging) return;
 
-    const { entityId, entity } = this.dragging;
+    const { entityId, entity, startX, startY } = this.dragging;
     const targetWs = this.findWorkstationAt(entity.container.x, entity.container.y);
 
     // Clear highlight
@@ -246,7 +269,20 @@ export class InteractionController {
       this.hoveredWorkstation = null;
     }
 
-    if (targetWs) {
+    // Detect click: pointer released very close to start position → select
+    const dx = Math.abs(entity.container.x - startX);
+    const dy = Math.abs(entity.container.y - startY);
+    const isClick = dx < 4 && dy < 4;
+
+    if (isClick) {
+      // Snap back to original position (no drag occurred)
+      entity.container.cursor = 'grab';
+      entity.container.alpha = 1;
+      entity.container.x = startX;
+      entity.container.y = startY;
+      this.dragging = null;
+      this.onSelect?.(entityId);
+    } else if (targetWs) {
       // Successful drop on workstation — notify callback
       entity.container.cursor = 'grab';
       entity.container.alpha = 1;
