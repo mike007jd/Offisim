@@ -15,16 +15,45 @@ import { publish } from './routes/publish.js';
 import { reviewsRoute } from './routes/reviews.js';
 import type { PlatformEnv } from './types.js';
 
+// ── CORS configuration ──
+
+const nodeEnv = process.env.NODE_ENV ?? 'development';
+const rawCorsOrigins = process.env.CORS_ORIGINS?.trim();
+
+const DEV_DEFAULT_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:1420',
+];
+
+let corsOrigins: string[];
+
+if (rawCorsOrigins) {
+  // Explicit whitelist provided — use it
+  corsOrigins = rawCorsOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+} else if (nodeEnv === 'production') {
+  // Production without explicit CORS_ORIGINS — refuse to start with wildcard
+  console.error(
+    '[startup] FATAL: CORS_ORIGINS is not set in production. ' +
+      'Refusing to start with wildcard CORS. ' +
+      'Set CORS_ORIGINS to a comma-separated list of allowed origins.',
+  );
+  process.exit(1);
+} else {
+  // Development default — common local dev ports
+  corsOrigins = DEV_DEFAULT_ORIGINS;
+}
+
+console.log(`[startup] CORS origins: ${corsOrigins.join(', ')}`);
+
 const app = new Hono<PlatformEnv>();
 
-// Global middleware — read allowed origins from env, fallback to '*' in dev
-const corsOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-  : ['*'];
+// Global middleware
 app.use(
   '*',
   cors({
-    origin: corsOrigins.includes('*') ? '*' : corsOrigins,
+    origin: corsOrigins,
+    credentials: true,
   }),
 );
 app.use('*', requestId);
