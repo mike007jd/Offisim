@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { AuthProvider } from '@aics/ui-market';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-white antialiased">
+        <AuthProvider>
         <header className="border-b border-gray-200">
           <nav className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
             <a href="/" className="text-lg font-semibold text-gray-900">
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             AI Company Simulator — Open Source Runtime + Talent Market
           </div>
         </footer>
+        </AuthProvider>
       </body>
     </html>
   );

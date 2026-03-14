@@ -1,3 +1,6 @@
+export * from './components/AuthProvider.js';
+export * from './components/LoginDialog.js';
+export * from './hooks/useAuth.js';
 export * from './components/CreatorBadge.js';
 export * from './components/InstallButton.js';
 export * from './components/InstallModal.js';

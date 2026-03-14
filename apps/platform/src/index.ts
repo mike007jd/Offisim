@@ -5,6 +5,7 @@ import { db } from './db.js';
 import { optionalAuth } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestId } from './middleware/request-id.js';
+import { authRoute } from './routes/auth.js';
 import { creatorsRoute } from './routes/creators.js';
 import { health } from './routes/health.js';
 import { installRoute } from './routes/install.js';
@@ -36,6 +37,7 @@ app.onError(errorHandler);
 
 // Routes
 app.route('/', health);
+app.route('/v1/auth', authRoute);
 app.route('/v1/market', market);
 app.route('/v1/market/creators', creatorsRoute);
 app.route('/v1/reviews', reviewsRoute);
