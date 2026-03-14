@@ -109,7 +109,7 @@ export {
   MemoryLibraryDocumentRepository,
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
-export { createDrizzleRepositories } from './runtime/drizzle-repositories.js';
+// Drizzle repositories: import from '@aics/core/drizzle'
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export {
   MemoryInstallTransactionRepository,
