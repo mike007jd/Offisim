@@ -1,6 +1,6 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
+import { LayoutDashboard } from 'lucide-react';
 import { useAgentStates } from '../../runtime/use-agent-states';
-import { BossDashboard } from '../dashboard/BossDashboard';
 import { EventLog } from '../events/EventLog';
 import { Library } from '../library/Library';
 import { OfficeEditor } from '../office/OfficeEditor';
@@ -8,25 +8,40 @@ import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 import { ServerRoom } from '../server-room/ServerRoom';
 
-export function RightSidebar() {
+interface RightSidebarProps {
+  /** Callback to open the full-screen Boss Dashboard overlay. */
+  onOpenDashboard?: () => void;
+}
+
+export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
   const agents = useAgentStates();
 
   return (
     <Tabs defaultValue="tasks" className="flex h-full flex-col">
       <TabsList className="mx-3 mt-2 shrink-0 flex-wrap">
         <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
         <TabsTrigger value="outputs">Outputs</TabsTrigger>
         <TabsTrigger value="events">Events</TabsTrigger>
         <TabsTrigger value="office">Office</TabsTrigger>
         <TabsTrigger value="server-room">Server Room</TabsTrigger>
         <TabsTrigger value="library">Library</TabsTrigger>
       </TabsList>
+
+      {/* Dashboard quick-toggle button — opens full-screen overlay */}
+      <div className="mx-3 mt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 text-xs text-shell/80 hover:text-pearl border-ocean-light"
+          onClick={onOpenDashboard}
+        >
+          <LayoutDashboard className="h-3.5 w-3.5" />
+          Boss Dashboard
+        </Button>
+      </div>
+
       <TabsContent value="tasks" className="min-h-0 flex-1 overflow-y-auto">
         <TaskDashboard agents={agents} />
-      </TabsContent>
-      <TabsContent value="dashboard" className="min-h-0 flex-1 overflow-y-auto">
-        <BossDashboard agents={agents} />
       </TabsContent>
       <TabsContent value="outputs" className="min-h-0 flex-1 overflow-y-auto">
         <PitchHall />
