@@ -1,7 +1,9 @@
 import { Button, ScrollArea } from '@aics/ui-core';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
@@ -33,8 +35,18 @@ export function ChatPanel({
   selectedEmployeeName,
   onClearSelection,
 }: ChatPanelProps) {
-  const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError } = useAicsRuntime();
+  const {
+    sendMessage,
+    retryLastMessage,
+    isRunning,
+    isReady,
+    error,
+    clearError,
+    connectedMcpServers,
+  } = useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
+  const errorHistory = useErrorTracking();
+  const agents = useAgentStates();
 
   // Per-target message history: null key = boss chat, employeeId = direct chat
   const [messagesByTarget, setMessagesByTarget] = useState<Map<string | null, ChatMessage[]>>(
@@ -120,8 +132,38 @@ export function ChatPanel({
     lastStreamRef.current = '';
   }
 
+  // Swap person: re-send the last failed message targeting a different employee
+  function handleSwapPerson(employeeId: string) {
+    // Find the last user message to re-send
+    const allMessages = messagesByTarget.get(errorTargetRef.current) ?? [];
+    const lastUserMsg = [...allMessages].reverse().find((m) => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    clearError();
+    lastStreamRef.current = '';
+
+    // Send to the selected employee
+    addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
+    sendMessage(lastUserMsg.content, { targetEmployeeId: employeeId }).then((response) => {
+      const finalContent = lastStreamRef.current || response;
+      if (finalContent) {
+        addMessage(employeeId, { id: genMsgId(), role: 'assistant', content: finalContent });
+      }
+      lastStreamRef.current = '';
+    });
+  }
+
+  // Swap model: open settings so user can change provider/model, then retry
+  function handleSwapModel() {
+    onOpenSettings();
+  }
+
   const showEmpty = messages.length === 0 && !isStreaming;
   const isDirectChat = !!selectedEmployeeId;
+
+  // Derive employee names for EmptyState
+  const employeeNames = [...agents.values()].map((a) => a.name);
+  const hasMcpTools = connectedMcpServers.size > 0;
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -141,7 +183,17 @@ export function ChatPanel({
           </span>
         </div>
       )}
-      {error && <ErrorBanner message={error} onDismiss={clearError} onRetry={handleRetry} />}
+      {error && (
+        <ErrorBanner
+          message={error}
+          onDismiss={clearError}
+          onRetry={handleRetry}
+          employees={agents}
+          onSwapPerson={handleSwapPerson}
+          onSwapModel={handleSwapModel}
+          errorHistory={errorHistory}
+        />
+      )}
       {showEmpty ? (
         isDirectChat ? (
           <div className="flex flex-1 items-center justify-center p-4">
@@ -152,7 +204,13 @@ export function ChatPanel({
             </p>
           </div>
         ) : (
-          <EmptyState isConfigured={isReady} onOpenSettings={onOpenSettings} />
+          <EmptyState
+            isConfigured={isReady}
+            onOpenSettings={onOpenSettings}
+            onSendPrompt={handleSend}
+            hasMcpTools={hasMcpTools}
+            employeeNames={employeeNames}
+          />
         )
       ) : (
         <ScrollArea className="flex-1">
