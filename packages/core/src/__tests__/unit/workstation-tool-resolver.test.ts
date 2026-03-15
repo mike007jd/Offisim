@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { ToolDef } from '../../llm/gateway.js';
 import {
   MemoryRackRepository,
