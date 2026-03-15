@@ -19,6 +19,7 @@ import type {
   InstalledPackageRepository,
   LlmCallRepository,
   LlmCallRow,
+  McpAuditRow,
   MeetingRepository,
   MeetingSessionRow,
   MemoryEntryCreate,
@@ -28,24 +29,27 @@ import type {
   NewGraphThread,
   NewHandoffEvent,
   NewLlmCall,
+  NewMcpAudit,
   NewMeetingSession,
   NewRuntimeEvent,
   NewTaskRun,
   NewToolCall,
+  NewSopTemplate,
+  NewRack,
+  NewSlot,
+  NewLibraryDocument,
+  NewOfficeLayout,
   RuntimeRepositories,
+  SopTemplateRow,
+  RackRow,
+  SlotRow,
+  LibraryDocumentRow,
+  OfficeLayoutRow,
   TaskRunRepository,
   TaskRunRow,
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-} from '@aics/core/browser';
-import {
-  MemoryMcpAuditRepository,
-  MemorySopTemplateRepository,
-  MemoryRackRepository,
-  MemorySlotRepository,
-  MemoryLibraryDocumentRepository,
-  MemoryOfficeLayoutRepository,
 } from '@aics/core/browser';
 import type {
   EmployeeVersionRepository,
@@ -64,7 +68,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
 function now(): string {
@@ -635,6 +639,214 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  // --- MCP audit log (Drizzle-backed, migration 007) ---
+
+  const mcpAudit: RuntimeRepositories['mcpAudit'] = {
+    async create(audit: NewMcpAudit) {
+      await db.insert(schema.mcpAuditLog).values(audit);
+      return audit as McpAuditRow;
+    },
+    async listByThread(threadId) {
+      return (await db
+        .select()
+        .from(schema.mcpAuditLog)
+        .where(eq(schema.mcpAuditLog.thread_id, threadId))) as McpAuditRow[];
+    },
+  };
+
+  // --- SOP templates (Drizzle-backed, migration 011) ---
+
+  const sopTemplates: RuntimeRepositories['sopTemplates'] = {
+    async create(template: NewSopTemplate) {
+      const ts = now();
+      const row: SopTemplateRow = { ...template, created_at: ts, updated_at: ts };
+      await db.insert(schema.sopTemplates).values(row);
+      return row;
+    },
+    async findById(sopTemplateId) {
+      const rows = await db
+        .select()
+        .from(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
+      return (rows[0] as SopTemplateRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.company_id, companyId))) as SopTemplateRow[];
+    },
+    async delete(sopTemplateId) {
+      await db
+        .delete(schema.sopTemplates)
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
+    },
+  };
+
+  // --- Racks (Drizzle-backed, migration 001 — core tables) ---
+
+  const racks: RuntimeRepositories['racks'] = {
+    async create(rack: NewRack) {
+      const ts = now();
+      const row: RackRow = { ...rack, created_at: ts, updated_at: ts };
+      await db.insert(schema.racks).values(row);
+      return row;
+    },
+    async findById(rackId) {
+      const rows = await db
+        .select()
+        .from(schema.racks)
+        .where(eq(schema.racks.rack_id, rackId));
+      return (rows[0] as RackRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.racks)
+        .where(eq(schema.racks.company_id, companyId))) as RackRow[];
+    },
+    async updateStatus(rackId, status) {
+      await db
+        .update(schema.racks)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.racks.rack_id, rackId));
+    },
+    async delete(rackId) {
+      await db.delete(schema.racks).where(eq(schema.racks.rack_id, rackId));
+    },
+  };
+
+  // --- Slots (Drizzle-backed, migration 001 — core tables) ---
+
+  const slots: RuntimeRepositories['slots'] = {
+    async create(slot: NewSlot) {
+      const ts = now();
+      const row: SlotRow = { ...slot, created_at: ts, updated_at: ts };
+      await db.insert(schema.slots).values(row);
+      return row;
+    },
+    async findByRack(rackId) {
+      return (await db
+        .select()
+        .from(schema.slots)
+        .where(eq(schema.slots.rack_id, rackId))) as SlotRow[];
+    },
+    async updateStatus(slotId, status) {
+      await db
+        .update(schema.slots)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.slots.slot_id, slotId));
+    },
+    async delete(slotId) {
+      await db.delete(schema.slots).where(eq(schema.slots.slot_id, slotId));
+    },
+  };
+
+  // --- Library documents (Drizzle-backed, migration 013) ---
+
+  const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
+    async create(doc: NewLibraryDocument) {
+      const ts = now();
+      const row: LibraryDocumentRow = { ...doc, created_at: ts, updated_at: ts };
+      await db.insert(schema.libraryDocuments).values(row);
+      return row;
+    },
+    async findById(docId) {
+      const rows = await db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.doc_id, docId));
+      return (rows[0] as LibraryDocumentRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.company_id, companyId))) as LibraryDocumentRow[];
+    },
+    async search(companyId, query, opts) {
+      const pattern = `%${query}%`;
+      const limit = opts?.limit ?? 20;
+      return (await db
+        .select()
+        .from(schema.libraryDocuments)
+        .where(
+          and(
+            eq(schema.libraryDocuments.company_id, companyId),
+            or(
+              like(sql`lower(${schema.libraryDocuments.title})`, pattern.toLowerCase()),
+              like(sql`lower(${schema.libraryDocuments.content_text})`, pattern.toLowerCase()),
+            ),
+          ),
+        )
+        .limit(limit)) as LibraryDocumentRow[];
+    },
+    async delete(docId) {
+      await db
+        .delete(schema.libraryDocuments)
+        .where(eq(schema.libraryDocuments.doc_id, docId));
+    },
+  };
+
+  // --- Office layouts (Drizzle-backed, migration 012) ---
+
+  const officeLayouts: RuntimeRepositories['officeLayouts'] = {
+    async create(layout: NewOfficeLayout) {
+      const ts = now();
+      const row: OfficeLayoutRow = { ...layout, created_at: ts, updated_at: ts };
+      await db.insert(schema.officeLayouts).values(row);
+      return row;
+    },
+    async findById(layoutId: string) {
+      const rows = await db
+        .select()
+        .from(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.layout_id, layoutId));
+      return (rows[0] as OfficeLayoutRow | undefined) ?? null;
+    },
+    async findByCompany(companyId: string) {
+      return (await db
+        .select()
+        .from(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.company_id, companyId))) as OfficeLayoutRow[];
+    },
+    async findActive(companyId: string) {
+      const rows = await db
+        .select()
+        .from(schema.officeLayouts)
+        .where(
+          and(
+            eq(schema.officeLayouts.company_id, companyId),
+            eq(schema.officeLayouts.is_active, 1),
+          ),
+        );
+      return (rows[0] as OfficeLayoutRow | undefined) ?? null;
+    },
+    async setActive(companyId: string, layoutId: string) {
+      // Deactivate all layouts for this company first
+      await db
+        .update(schema.officeLayouts)
+        .set({ is_active: 0, updated_at: now() })
+        .where(eq(schema.officeLayouts.company_id, companyId));
+      // Activate the target layout
+      await db
+        .update(schema.officeLayouts)
+        .set({ is_active: 1, updated_at: now() })
+        .where(eq(schema.officeLayouts.layout_id, layoutId));
+    },
+    async update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>) {
+      await db
+        .update(schema.officeLayouts)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.officeLayouts.layout_id, layoutId));
+    },
+    async delete(layoutId: string) {
+      await db
+        .delete(schema.officeLayouts)
+        .where(eq(schema.officeLayouts.layout_id, layoutId));
+    },
+  };
+
   return {
     companies,
     threads,
@@ -651,15 +863,13 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     installedAssets,
     assetBindings,
     memories,
-    // TODO(P3): Replace with Drizzle-backed Tauri MCP audit repository once migration 007 is applied
-    mcpAudit: new MemoryMcpAuditRepository(),
+    mcpAudit,
     employeeVersions,
     costRates,
-    // TODO(P3): Replace with Drizzle-backed repos once migrations 011-013 are applied
-    sopTemplates: new MemorySopTemplateRepository(),
-    racks: new MemoryRackRepository(),
-    slots: new MemorySlotRepository(),
-    libraryDocuments: new MemoryLibraryDocumentRepository(),
-    officeLayouts: new MemoryOfficeLayoutRepository(),
+    sopTemplates,
+    racks,
+    slots,
+    libraryDocuments,
+    officeLayouts,
   };
 }
