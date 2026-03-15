@@ -1,10 +1,20 @@
 import type { EventBus } from '../events/event-bus.js';
+import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
 import type { RuntimeRepositories } from './repositories.js';
 import type { ToolExecutor } from './tool-executor.js';
+
+/**
+ * Mutable container for meeting interrupts.
+ * Set by boss via OrchestrationService.interruptMeeting(),
+ * consumed by participantTurnNode after each LLM turn.
+ */
+export interface MeetingInterruptBox {
+  pending: MeetingInterrupt | null;
+}
 
 export interface RuntimeContext {
   readonly repos: RuntimeRepositories;
@@ -15,9 +25,10 @@ export interface RuntimeContext {
   readonly companyId: string;
   readonly threadId: string;
   readonly memoryService?: MemoryService;
-  /** PRD 2.3: Workstation-scoped tool resolver. When present, employees
-   *  only see MCP tools from racks bound to their assigned workstation. */
+  /** PRD 2.3: Workstation-scoped tool resolver. */
   readonly workstationToolResolver?: WorkstationToolResolver;
+  /** Mutable box for boss meeting interrupts. Nodes read + clear this. */
+  readonly meetingInterruptBox: MeetingInterruptBox;
 }
 
 export function createRuntimeContext(deps: {
@@ -30,6 +41,11 @@ export function createRuntimeContext(deps: {
   threadId: string;
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
+  meetingInterruptBox?: MeetingInterruptBox;
 }): RuntimeContext {
-  return Object.freeze(deps);
+  const { meetingInterruptBox, ...rest } = deps;
+  return Object.freeze({
+    ...rest,
+    meetingInterruptBox: meetingInterruptBox ?? { pending: null },
+  });
 }

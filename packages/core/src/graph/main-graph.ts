@@ -15,6 +15,9 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import {
   meetingEndNode,
+  meetingInjectNode,
+  meetingPausedNode,
+  meetingResumeNode,
   meetingStartNode,
   meetingTurnCheck,
   participantTurnNode,
@@ -24,6 +27,13 @@ import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './sta
 function routeFromStart(state: AicsGraphState): string {
   if (state.entryMode === 'direct_chat' && state.targetEmployeeId) {
     return 'employee_direct_setup';
+  }
+  // Resume a paused meeting — meetingId present + meetingInterrupt indicates resume/end
+  if (state.entryMode === 'meeting' && state.meetingId && state.meetingInterrupt) {
+    if (state.meetingInterrupt.type === 'end') {
+      return 'meeting_end';
+    }
+    return 'meeting_resume';
   }
   return 'boss';
 }
@@ -159,7 +169,15 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
     .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
     .addNode('meeting_end', (state, config) => meetingEndNode(state, config))
-    .addConditionalEdges('__start__', routeFromStart, ['boss', 'employee_direct_setup'])
+    .addNode('meeting_paused', (state, config) => meetingPausedNode(state, config))
+    .addNode('meeting_resume', (state, config) => meetingResumeNode(state, config))
+    .addNode('meeting_inject', (state, config) => meetingInjectNode(state, config))
+    .addConditionalEdges('__start__', routeFromStart, [
+      'boss',
+      'employee_direct_setup',
+      'meeting_resume',
+      'meeting_end',
+    ])
     .addConditionalEdges('boss', routeFromBoss, [
       'manager',
       'boss_summary',
@@ -178,7 +196,15 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addEdge('step_advance', 'step_dispatcher')
     .addEdge('employee_direct_setup', 'employee')
     .addEdge('meeting_start', 'participant_turn')
-    .addConditionalEdges('participant_turn', meetingTurnCheck, ['participant_turn', 'meeting_end'])
+    .addConditionalEdges('participant_turn', meetingTurnCheck, [
+      'participant_turn',
+      'meeting_end',
+      'meeting_paused',
+      'meeting_inject',
+    ])
+    .addEdge('meeting_paused', END)
+    .addEdge('meeting_resume', 'participant_turn')
+    .addEdge('meeting_inject', 'participant_turn')
     .addEdge('meeting_end', 'boss_summary')
     .addEdge('hr', 'boss_summary')
     .addEdge('error_handler', 'boss_summary')

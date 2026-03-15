@@ -1,7 +1,7 @@
 // @aics/core — Phase 6 Install Pipeline
 
 // --- Types ---
-export type { RuntimeContext } from './runtime/runtime-context.js';
+export type { RuntimeContext, MeetingInterruptBox } from './runtime/runtime-context.js';
 export type {
   RuntimeRepositories,
   CompanyRow,
@@ -249,7 +249,12 @@ export {
   participantTurnNode,
   meetingTurnCheck,
   meetingEndNode,
+  meetingPausedNode,
+  meetingResumeNode,
+  meetingResumeCheck,
+  meetingInjectNode,
 } from './graph/meeting-subgraph.js';
+export type { MeetingInterrupt, MeetingInterruptType } from './graph/state.js';
 
 // --- Errors ---
 export { AicsError, LlmError, GraphError, DataError } from './errors.js';

@@ -186,7 +186,16 @@ export async function participantTurnNode(
   const nextParticipantId =
     turnState.participantIds[nextParticipantIndex] ?? turnState.participantIds[0]!;
 
+  // Check if boss sent a meeting interrupt while the LLM call was running
+  const interruptBox = runtimeCtx.meetingInterruptBox;
+  const pendingInterrupt = interruptBox.pending;
+  if (pendingInterrupt) {
+    // Consume the interrupt so it's not processed again
+    interruptBox.pending = null;
+  }
+
   return {
+    meetingInterrupt: pendingInterrupt ?? null,
     pendingAssignments: [
       {
         taskType: MEETING_STATE_TASK_TYPE,
@@ -200,8 +209,23 @@ export async function participantTurnNode(
 
 /**
  * Turn check — decides if meeting should continue or end.
+ * Now checks for boss interrupts before proceeding to next turn.
  */
 export function meetingTurnCheck(state: AicsGraphState): string {
+  // Check for boss interrupt first
+  if (state.meetingInterrupt) {
+    switch (state.meetingInterrupt.type) {
+      case 'pause':
+        return 'meeting_paused';
+      case 'end':
+        return 'meeting_end';
+      case 'inject':
+        return 'meeting_inject';
+      default:
+        break;
+    }
+  }
+
   const turnState = parseMeetingTurnState(state);
 
   // End if max turns reached or if all participants have spoken at least once
@@ -216,6 +240,150 @@ export function meetingTurnCheck(state: AicsGraphState): string {
   }
 
   return 'participant_turn';
+}
+
+/**
+ * Meeting paused — persists state and waits for boss to resume or end.
+ * The graph uses LangGraph's checkpoint to persist the paused state.
+ * The boss can later send a resume or end command via OrchestrationService.
+ */
+export async function meetingPausedNode(
+  state: AicsGraphState,
+  config: RunnableConfig,
+): Promise<Partial<AicsGraphState>> {
+  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
+  if (!runtimeCtx) {
+    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_paused');
+  }
+
+  const { repos, eventBus, companyId, threadId } = runtimeCtx;
+  const turnState = parseMeetingTurnState(state);
+
+  if (state.meetingId) {
+    await repos.meetings.updateStatus(state.meetingId, 'paused');
+    eventBus.emit(
+      meetingStateChanged(
+        companyId,
+        state.meetingId,
+        'running',
+        'paused',
+        turnState.participantIds,
+        threadId,
+      ),
+    );
+  }
+
+  logger.info('Meeting paused by boss', { meetingId: state.meetingId });
+
+  return {
+    meetingInterrupt: null, // Clear the interrupt after handling
+    messages: [
+      new AIMessage({
+        content: `[Meeting] Paused by boss after ${turnState.transcript.length} contributions. Waiting for resume or end command.`,
+      }),
+    ],
+  };
+}
+
+/**
+ * Resume check — called after meeting_paused when the boss sends a command.
+ * Routes to participant_turn (resume) or meeting_end (end).
+ */
+export function meetingResumeCheck(state: AicsGraphState): string {
+  if (state.meetingInterrupt?.type === 'end') {
+    return 'meeting_end';
+  }
+  // Default: resume the meeting
+  return 'meeting_resume';
+}
+
+/**
+ * Meeting resume — restores meeting to running state and continues turns.
+ */
+export async function meetingResumeNode(
+  state: AicsGraphState,
+  config: RunnableConfig,
+): Promise<Partial<AicsGraphState>> {
+  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
+  if (!runtimeCtx) {
+    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_resume');
+  }
+
+  const { repos, eventBus, companyId, threadId } = runtimeCtx;
+  const turnState = parseMeetingTurnState(state);
+
+  if (state.meetingId) {
+    await repos.meetings.updateStatus(state.meetingId, 'running');
+    eventBus.emit(
+      meetingStateChanged(
+        companyId,
+        state.meetingId,
+        'paused',
+        'running',
+        turnState.participantIds,
+        threadId,
+      ),
+    );
+  }
+
+  logger.info('Meeting resumed by boss', { meetingId: state.meetingId });
+
+  return {
+    meetingInterrupt: null, // Clear the interrupt
+    messages: [
+      new AIMessage({
+        content: `[Meeting] Resumed by boss. Continuing discussion.`,
+      }),
+    ],
+  };
+}
+
+/**
+ * Meeting inject — boss comment gets injected into the meeting transcript as a turn.
+ */
+export async function meetingInjectNode(
+  state: AicsGraphState,
+  config: RunnableConfig,
+): Promise<Partial<AicsGraphState>> {
+  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
+  if (!runtimeCtx) {
+    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_inject');
+  }
+
+  const bossComment = state.meetingInterrupt?.bossComment ?? '(No comment provided)';
+  const turnState = parseMeetingTurnState(state);
+
+  // Inject boss comment into the transcript
+  const updatedTranscript = [...turnState.transcript, `[Boss]: ${bossComment}`];
+
+  const updatedTurnState: MeetingTurnState = {
+    ...turnState,
+    transcript: updatedTranscript,
+  };
+
+  const nextParticipantId =
+    turnState.participantIds[turnState.participantIndex] ?? turnState.participantIds[0]!;
+
+  logger.info('Boss injected comment into meeting', {
+    meetingId: state.meetingId,
+    comment: bossComment,
+  });
+
+  return {
+    meetingInterrupt: null, // Clear the interrupt after handling
+    pendingAssignments: [
+      {
+        taskType: MEETING_STATE_TASK_TYPE,
+        employeeId: nextParticipantId,
+        inputJson: updatedTurnState as unknown as Record<string, unknown>,
+      },
+    ],
+    messages: [
+      new AIMessage({
+        content: `[Boss]: ${bossComment}`,
+      }),
+    ],
+  };
 }
 
 /**

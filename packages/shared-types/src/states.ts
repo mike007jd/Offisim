@@ -51,6 +51,7 @@ export type MeetingState =
   | 'scheduled'
   | 'gathering'
   | 'running'
+  | 'paused'
   | 'waiting'
   | 'completed'
   | 'cancelled';
