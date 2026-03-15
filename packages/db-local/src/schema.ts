@@ -7,7 +7,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // 001 — Core tables
@@ -68,6 +68,22 @@ export const slots = sqliteTable('slots', {
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 });
+
+export const workstationRacks = sqliteTable(
+  'workstation_racks',
+  {
+    workstation_id: text('workstation_id')
+      .notNull()
+      .references(() => workstations.workstation_id, { onDelete: 'cascade' }),
+    rack_id: text('rack_id')
+      .notNull()
+      .references(() => racks.rack_id, { onDelete: 'cascade' }),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workstation_id, table.rack_id] }),
+  ],
+);
 
 export const employees = sqliteTable(
   'employees',

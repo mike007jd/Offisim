@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS slots (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workstation_racks (
+  workstation_id TEXT NOT NULL REFERENCES workstations(workstation_id) ON DELETE CASCADE,
+  rack_id TEXT NOT NULL REFERENCES racks(rack_id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (workstation_id, rack_id)
+);
+
 CREATE TABLE IF NOT EXISTS employees (
   employee_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,

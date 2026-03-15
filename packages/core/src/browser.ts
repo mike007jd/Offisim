@@ -64,6 +64,9 @@ export type {
   SlotRow,
   NewSlot,
   SlotRepository,
+  WorkstationRackRow,
+  NewWorkstationRack,
+  WorkstationRackRepository,
   LibraryDocumentRow,
   NewLibraryDocument,
   LibraryDocumentRepository,
@@ -114,6 +117,7 @@ export type {
 } from './mcp/types.js';
 export type { LogLevel, LogEntry } from './services/logger.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
+export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
 
 // --- Events (lightweight, no heavy deps) ---
 export { InMemoryEventBus } from './events/event-bus.js';
@@ -163,6 +167,7 @@ export {
   MemorySopTemplateRepository,
   MemoryRackRepository,
   MemorySlotRepository,
+  MemoryWorkstationRackRepository,
   MemoryLibraryDocumentRepository,
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
@@ -185,6 +190,7 @@ export { CompanyTemplateService } from './services/company-template-service.js';
 export { listTemplates, getTemplate } from './templates/index.js';
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
+export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 
 // --- Logger ---
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
@@ -198,4 +204,4 @@ export { globToRegex, matchCostRate } from './utils/glob-match.js';
 export { AicsError, LlmError, GraphError, DataError } from './errors.js';
 
 // --- Runtime (browser-safe parts) ---
-export { MockToolExecutor } from './runtime/tool-executor.js';
+export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';

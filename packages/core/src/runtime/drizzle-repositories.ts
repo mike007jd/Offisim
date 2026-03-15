@@ -63,6 +63,7 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
+  WorkstationRackRow,
 } from './repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -763,6 +764,38 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const workstationRacks: RuntimeRepositories['workstationRacks'] = {
+    async create(binding) {
+      const row = { ...binding, created_at: now() };
+      db.insert(schema.workstationRacks).values(row).run();
+      return row;
+    },
+    async findByWorkstation(workstationId) {
+      return db
+        .select()
+        .from(schema.workstationRacks)
+        .where(eq(schema.workstationRacks.workstation_id, workstationId))
+        .all() as WorkstationRackRow[];
+    },
+    async findByRack(rackId) {
+      return db
+        .select()
+        .from(schema.workstationRacks)
+        .where(eq(schema.workstationRacks.rack_id, rackId))
+        .all() as WorkstationRackRow[];
+    },
+    async delete(workstationId, rackId) {
+      db.delete(schema.workstationRacks)
+        .where(
+          and(
+            eq(schema.workstationRacks.workstation_id, workstationId),
+            eq(schema.workstationRacks.rack_id, rackId),
+          ),
+        )
+        .run();
+    },
+  };
+
   const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
     async create(doc: NewLibraryDocument) {
       const ts = now();
@@ -892,6 +925,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     sopTemplates,
     racks,
     slots,
+    workstationRacks,
     libraryDocuments,
     officeLayouts,
   };

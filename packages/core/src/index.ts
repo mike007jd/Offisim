@@ -55,6 +55,9 @@ export type {
   SlotRow,
   NewSlot,
   SlotRepository,
+  WorkstationRackRow,
+  NewWorkstationRack,
+  WorkstationRackRepository,
   LibraryDocumentRow,
   NewLibraryDocument,
   LibraryDocumentRepository,
@@ -78,6 +81,7 @@ export type {
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
+export { WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 export type {
   AicsGraphState,
   PendingAssignment,
@@ -106,6 +110,7 @@ export {
   MemorySopTemplateRepository,
   MemoryRackRepository,
   MemorySlotRepository,
+  MemoryWorkstationRackRepository,
   MemoryLibraryDocumentRepository,
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
@@ -198,6 +203,8 @@ export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
+export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
+export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
 export { LibraryService } from './services/library-service.js';
 export { NotificationBridge } from './services/notification-bridge.js';
 export { CompanyTemplateService } from './services/company-template-service.js';

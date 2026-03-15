@@ -418,6 +418,29 @@ export interface SlotRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Workstation-Rack bindings (PRD 2.3: desk-scoped MCP permissions)
+// ---------------------------------------------------------------------------
+
+export interface WorkstationRackRow {
+  workstation_id: string;
+  rack_id: string;
+  created_at: string;
+}
+
+export type NewWorkstationRack = Omit<WorkstationRackRow, 'created_at'>;
+
+export interface WorkstationRackRepository {
+  /** Bind a rack to a workstation. */
+  create(binding: NewWorkstationRack): Promise<WorkstationRackRow>;
+  /** Get all rack IDs bound to a workstation. */
+  findByWorkstation(workstationId: string): Promise<WorkstationRackRow[]>;
+  /** Get all workstation IDs that reference a rack. */
+  findByRack(rackId: string): Promise<WorkstationRackRow[]>;
+  /** Remove a binding. */
+  delete(workstationId: string, rackId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Library documents
 // ---------------------------------------------------------------------------
 
@@ -492,6 +515,7 @@ export interface RuntimeRepositories {
   sopTemplates: SopTemplateRepository;
   racks: RackRepository;
   slots: SlotRepository;
+  workstationRacks: WorkstationRackRepository;
   libraryDocuments: LibraryDocumentRepository;
   officeLayouts: OfficeLayoutRepository;
 }
