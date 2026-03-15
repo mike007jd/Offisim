@@ -72,6 +72,34 @@ export type { CameraControllerOptions } from './interaction/camera-controller.js
 export { FloorLayer } from './layers/floor-layer.js';
 export type { WorkstationBounds } from './layers/floor-layer.js';
 
+// Editor — 2D spatial office layout editor
+export {
+  OfficeEditorController,
+  EditorGrid,
+  GRID_SIZE,
+  SelectionHandler,
+  ZoneTool,
+  DeskTool,
+  RoomTool,
+  DEFAULT_ROOM_SIZES,
+  ROOM_LABELS,
+  THEME_PALETTES,
+  ZONE_TYPE_COLORS,
+  DEPT_COLORS,
+} from './editor/index.js';
+export type {
+  EditorTool,
+  RoomType,
+  OfficeTheme,
+  EditorZone,
+  EditorDesk,
+  EditorRoom,
+  OfficeTemplate,
+  EditorSelection,
+  EditorStateSnapshot,
+  ResizeCorner,
+} from './editor/index.js';
+
 // Shapes
 export {
   drawDesk,
