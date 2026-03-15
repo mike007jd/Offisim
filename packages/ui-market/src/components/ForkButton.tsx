@@ -6,7 +6,6 @@ export interface ForkButtonProps {
   listingId: string;
   version: string;
   forkCount: number;
-  authToken?: string | null;
 }
 
 export function ForkButton({ listingId, version, forkCount }: ForkButtonProps) {

@@ -3,7 +3,7 @@
 import { Download, MonitorDown, Package } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { InstallModal } from './InstallModal.js';
-import { PLATFORM_API_URL } from '../lib/config.js';
+import { downloadArtifact } from '../lib/download-artifact.js';
 
 type InstallState = 'idle' | 'opening' | 'downloading' | 'error';
 
@@ -51,29 +51,7 @@ export function InstallButton({ listingId, version, packageVersionId, title }: P
 
     setState('downloading');
     try {
-      const res = await fetch(
-        `${PLATFORM_API_URL}/v1/install/download/${encodeURIComponent(packageVersionId)}`,
-        { credentials: 'include' },
-      );
-
-      if (!res.ok) {
-        throw new Error(`Download failed: ${res.status}`);
-      }
-
-      const data = (await res.json()) as { artifact_url?: string };
-      if (!data.artifact_url) {
-        throw new Error('No artifact available for this version');
-      }
-
-      // Trigger browser download via the artifact URL
-      const a = document.createElement('a');
-      a.href = data.artifact_url;
-      a.download = '';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
+      await downloadArtifact(packageVersionId);
       setState('idle');
     } catch (err) {
       console.error('[InstallButton] Download error:', err);

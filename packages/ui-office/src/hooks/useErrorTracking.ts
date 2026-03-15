@@ -12,11 +12,11 @@ export interface TrackedError {
   taskRunId?: string;
 }
 
+const MAX_ERROR_HISTORY = 100;
+
 /**
  * Accumulates structured error events from the EventBus.
- *
- * TODO(P2): Wire this into a UI component (e.g., EventLog error tab or StatusBar error indicator)
- * to display error history. Currently this hook is defined but not consumed.
+ * Capped at {@link MAX_ERROR_HISTORY} entries to prevent unbounded growth.
  */
 export function useErrorTracking(): TrackedError[] {
   const { eventBus } = useAicsRuntime();
@@ -25,18 +25,13 @@ export function useErrorTracking(): TrackedError[] {
   useEffect(() => {
     const off = eventBus.on('error.occurred', (e: RuntimeEvent<ErrorOccurredPayload>) => {
       const { errorCode, message, recoverable, nodeName, employeeId, taskRunId } = e.payload;
-      setErrors((prev) => [
-        ...prev,
-        {
-          errorCode,
-          message,
-          recoverable,
-          nodeName,
-          timestamp: e.timestamp,
-          employeeId,
-          taskRunId,
-        },
-      ]);
+      setErrors((prev) => {
+        const next = [
+          ...prev,
+          { errorCode, message, recoverable, nodeName, timestamp: e.timestamp, employeeId, taskRunId },
+        ];
+        return next.length > MAX_ERROR_HISTORY ? next.slice(-MAX_ERROR_HISTORY) : next;
+      });
     });
     return off;
   }, [eventBus]);

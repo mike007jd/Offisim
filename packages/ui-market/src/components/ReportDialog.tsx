@@ -14,10 +14,9 @@ const REPORT_REASONS = [
 
 export interface ReportDialogProps {
   listingId: string;
-  authToken?: string | null;
 }
 
-export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
+export function ReportDialog({ listingId }: ReportDialogProps) {
   const auth = useAuthContext();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>('');
@@ -26,7 +25,7 @@ export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!auth.user && !authToken) return null;
+  if (!auth.user) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,13 +34,11 @@ export function ReportDialog({ listingId, authToken }: ReportDialogProps) {
     setError(null);
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const res = await fetch(
         `${PLATFORM_API_URL}/v1/market/listings/${listingId}/reports`,
         {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ reason, details: details.trim() || undefined }),
         },

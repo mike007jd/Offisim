@@ -6,7 +6,6 @@ import { useAuthContext } from './AuthProvider.js';
 
 export interface ReviewFormProps {
   listingId: string;
-  authToken?: string | null;
 }
 
 function StarSelector({
@@ -43,7 +42,7 @@ function StarSelector({
   );
 }
 
-export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
+export function ReviewForm({ listingId }: ReviewFormProps) {
   const auth = useAuthContext();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -51,7 +50,7 @@ export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!auth.user && !authToken) {
+  if (!auth.user) {
     return (
       <p className="text-sm text-gray-400 italic">
         Sign in to leave a review.
@@ -76,11 +75,9 @@ export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
     setError(null);
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const res = await fetch(`${PLATFORM_API_URL}/v1/reviews`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           listing_id: listingId,

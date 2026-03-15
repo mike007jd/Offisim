@@ -2,6 +2,7 @@ import { createMiddleware } from 'hono/factory';
 import { eq } from 'drizzle-orm';
 import { apiTokens, users } from '@aics/db-platform';
 import { auth } from '../auth.js';
+import { sha256 } from '../lib/crypto.js';
 import type { PlatformEnv } from '../types.js';
 
 /**
@@ -12,17 +13,6 @@ import type { PlatformEnv } from '../types.js';
  * 2. Better Auth session (cookie or Bearer token via bearer plugin)
  * 3. Unauthenticated — request continues without userId/userEmail
  */
-
-/**
- * SHA-256 hash a string and return hex digest.
- */
-async function sha256(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   const authHeader = c.req.header('authorization');

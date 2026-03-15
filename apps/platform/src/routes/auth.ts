@@ -2,6 +2,7 @@ import { creators, users, apiTokens } from '@aics/db-platform';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { sha256 } from '../lib/crypto.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -71,17 +72,6 @@ authRoute.post('/register-creator', requireAuth, async (c) => {
 });
 
 // ── API Token Management ──
-
-/**
- * SHA-256 hash a string and return hex digest.
- */
-async function sha256(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 /**
  * Generate a random API token with aics_ prefix.

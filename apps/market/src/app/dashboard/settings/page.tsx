@@ -101,7 +101,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-400">Loading...</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading...</span>
       </div>
     );
   }
@@ -109,16 +109,16 @@ export default function SettingsPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage your API tokens for CLI and programmatic access.</p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">Manage your API tokens for CLI and programmatic access.</p>
       </div>
 
       {/* Create new token */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Create API Token</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">Create API Token</h2>
         <form onSubmit={handleCreate} className="flex flex-col gap-3 max-w-md">
           <div>
-            <label htmlFor="token-name" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="token-name" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
               Token name
             </label>
             <input
@@ -129,11 +129,11 @@ export default function SettingsPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. CI/CD, CLI"
               disabled={creating}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
           <div>
-            <label htmlFor="token-expires" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="token-expires" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
               Expires in (days, optional)
             </label>
             <input
@@ -145,7 +145,7 @@ export default function SettingsPage() {
               onChange={(e) => setExpiresInDays(e.target.value ? Number(e.target.value) : '')}
               placeholder="Leave empty for no expiry"
               disabled={creating}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
           {error && (
@@ -156,7 +156,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={creating || !name.trim()}
-            className="w-fit rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-fit rounded-md bg-[var(--accent-indigo)] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating ? 'Creating...' : 'Create Token'}
           </button>
@@ -168,7 +168,7 @@ export default function SettingsPage() {
               Token created. Copy it now -- you will not be able to see it again.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-white px-3 py-2 text-xs font-mono text-gray-900 border border-green-200 break-all">
+              <code className="flex-1 rounded bg-white px-3 py-2 text-xs font-mono text-[var(--text-primary)] border border-green-200 break-all">
                 {newToken}
               </code>
               <button
@@ -185,14 +185,14 @@ export default function SettingsPage() {
 
       {/* Token list */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Active Tokens</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">Active Tokens</h2>
         {tokens.length === 0 ? (
-          <p className="text-sm text-gray-500">No API tokens yet.</p>
+          <p className="text-sm text-[var(--text-muted)]">No API tokens yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)]">
                   <th className="pb-2 font-medium">Name</th>
                   <th className="pb-2 font-medium">Prefix</th>
                   <th className="pb-2 font-medium">Created</th>
@@ -203,18 +203,18 @@ export default function SettingsPage() {
               </thead>
               <tbody>
                 {tokens.map((t) => (
-                  <tr key={t.token_id} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{t.name}</td>
+                  <tr key={t.token_id} className="border-b border-[var(--border)]">
+                    <td className="py-2 pr-4 font-medium text-[var(--text-primary)]">{t.name}</td>
                     <td className="py-2 pr-4">
-                      <code className="text-xs text-gray-600">{t.token_prefix}...</code>
+                      <code className="text-xs text-[var(--text-muted)]">{t.token_prefix}...</code>
                     </td>
-                    <td className="py-2 pr-4 text-gray-500">
+                    <td className="py-2 pr-4 text-[var(--text-muted)]">
                       {new Date(t.created_at).toLocaleDateString()}
                     </td>
-                    <td className="py-2 pr-4 text-gray-500">
+                    <td className="py-2 pr-4 text-[var(--text-muted)]">
                       {t.last_used_at ? new Date(t.last_used_at).toLocaleDateString() : 'Never'}
                     </td>
-                    <td className="py-2 pr-4 text-gray-500">
+                    <td className="py-2 pr-4 text-[var(--text-muted)]">
                       {t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="py-2">

@@ -2,7 +2,7 @@
 
 import { Copy, Download, ExternalLink, Package, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { PLATFORM_API_URL } from '../lib/config.js';
+import { downloadArtifact } from '../lib/download-artifact.js';
 
 interface Props {
   listingId: string;
@@ -47,21 +47,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
     if (!packageVersionId) return;
     setDownloading(true);
     try {
-      const res = await fetch(
-        `${PLATFORM_API_URL}/v1/install/download/${encodeURIComponent(packageVersionId)}`,
-        { credentials: 'include' },
-      );
-      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-      const data = (await res.json()) as { artifact_url?: string };
-      if (!data.artifact_url) throw new Error('No artifact available');
-
-      const a = document.createElement('a');
-      a.href = data.artifact_url;
-      a.download = '';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      await downloadArtifact(packageVersionId);
     } catch (err) {
       console.error('[InstallModal] Download error:', err);
     } finally {

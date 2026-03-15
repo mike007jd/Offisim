@@ -13,7 +13,6 @@ export interface AuthUser {
 
 export interface AuthState {
   user: AuthUser | null;
-  token: string | null;
   isLoading: boolean;
 }
 
@@ -39,10 +38,6 @@ export function useAuth(): UseAuthResult {
         image: sessionData.user.image,
       }
     : null;
-
-  // Better Auth uses cookies for session, so no raw token is needed for browser requests.
-  // For backwards compatibility, we expose null. API requests use credentials: 'include'.
-  const token: string | null = null;
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await signIn.email({ email, password });
@@ -97,7 +92,6 @@ export function useAuth(): UseAuthResult {
 
   return {
     user,
-    token,
     isLoading: isPending,
     login,
     register,
