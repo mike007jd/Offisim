@@ -6,18 +6,18 @@ import { RegistryClient } from '@aics/registry-client';
 import type { LibraryItem } from '@aics/registry-client';
 
 export default function HistoryPage() {
-  const { token } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) {
+    if (authLoading || !user) {
       setLoading(false);
       return;
     }
 
-    const client = new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token });
+    const client = new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' });
     client
       .getMyLibrary()
       .then((data) => {
@@ -31,7 +31,7 @@ export default function HistoryPage() {
         setError(err instanceof Error ? err.message : 'Failed to load history');
       })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [user, authLoading]);
 
   if (loading) {
     return (

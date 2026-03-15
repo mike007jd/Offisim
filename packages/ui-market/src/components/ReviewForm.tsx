@@ -45,14 +45,13 @@ function StarSelector({
 
 export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
   const auth = useAuthContext();
-  const token = authToken ?? auth.token;
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!token) {
+  if (!auth.user && !authToken) {
     return (
       <p className="text-sm text-gray-400 italic">
         Sign in to leave a review.
@@ -77,12 +76,12 @@ export function ReviewForm({ listingId, authToken }: ReviewFormProps) {
     setError(null);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const res = await fetch(`${PLATFORM_API_URL}/v1/reviews`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           listing_id: listingId,
           rating,

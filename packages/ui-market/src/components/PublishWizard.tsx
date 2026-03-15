@@ -195,12 +195,12 @@ export interface PublishWizardProps {
 }
 
 export function PublishWizard({ onComplete }: PublishWizardProps) {
-  const { token } = useAuthContext();
+  const { user } = useAuthContext();
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
 
   function getClient(): RegistryClient {
-    if (!token) throw new Error('Not authenticated');
-    return new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token });
+    if (!user) throw new Error('Not authenticated');
+    return new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' });
   }
 
   function parsedTags(): string[] {

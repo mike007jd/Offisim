@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // ── 001: Auth and Creators ──
 
@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   avatar_url: text('avatar_url'),
   auth_provider: text('auth_provider').notNull(),
   auth_subject: text('auth_subject').notNull(),
+  /** Links to Better Auth "user".id for session-based auth */
+  ba_user_id: text('ba_user_id').unique(),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -169,6 +171,78 @@ export const installReceipts = pgTable('install_receipts', {
     { onDelete: 'set null' },
   ),
   install_source: text('install_source').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ── 005: Better Auth tables ──
+// Better Auth manages these tables automatically via its adapter.
+// We define them here for Drizzle type-safety and query access.
+
+export const baUser = pgTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  image: text('image'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const baSession = pgTable('session', {
+  id: text('id').primaryKey(),
+  expiresAt: timestamp('expires_at').notNull(),
+  token: text('token').notNull().unique(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  userId: text('user_id')
+    .notNull()
+    .references(() => baUser.id),
+});
+
+export const baAccount = pgTable('account', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => baUser.id),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: timestamp('access_token_expires_at'),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const baVerification = pgTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at'),
+});
+
+// ── 006: API Tokens (for CLI / programmatic access) ──
+
+export const apiTokens = pgTable('api_tokens', {
+  token_id: uuid('token_id').primaryKey().defaultRandom(),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => baUser.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  /** SHA-256 hash of the token. The raw token is shown once at creation. */
+  token_hash: text('token_hash').notNull().unique(),
+  /** First 8 chars of the raw token for display (e.g. "aics_abc1...") */
+  token_prefix: text('token_prefix').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  last_used_at: timestamp('last_used_at'),
+  expires_at: timestamp('expires_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
