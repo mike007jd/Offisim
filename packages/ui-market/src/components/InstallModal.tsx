@@ -1,11 +1,13 @@
 'use client';
 
-import { Copy, Download, ExternalLink, X } from 'lucide-react';
+import { Copy, Download, ExternalLink, Package, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { PLATFORM_API_URL } from '../lib/config.js';
 
 interface Props {
   listingId: string;
   version: string;
+  packageVersionId?: string;
   title: string;
   /** Called when the user closes the modal */
   onClose: () => void;
@@ -17,11 +19,13 @@ interface Props {
  * Shown on the marketplace website when a user clicks "Install in AICS"
  * but the desktop app did not open (or is not installed). Provides:
  * 1. A "Try Again" button to re-attempt the deep link
- * 2. A "Copy Install Link" button so the user can paste into the desktop app
- * 3. A download prompt to get the AICS Desktop app
+ * 2. A "Download Package" button for manual .aicspkg import
+ * 3. A "Copy Install Link" button so the user can paste into the desktop app
+ * 4. A download prompt to get the AICS Desktop app
  */
-export function InstallModal({ listingId, version, title, onClose }: Props) {
+export function InstallModal({ listingId, version, packageVersionId, title, onClose }: Props) {
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const deepLink = `aics://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
 
@@ -31,7 +35,6 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select from hidden input (handled by browser)
       console.warn('[InstallModal] Clipboard API unavailable');
     }
   }, [deepLink]);
@@ -39,6 +42,32 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
   const handleRetry = useCallback(() => {
     window.location.href = deepLink;
   }, [deepLink]);
+
+  const handleDownload = useCallback(async () => {
+    if (!packageVersionId) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(
+        `${PLATFORM_API_URL}/v1/install/download/${encodeURIComponent(packageVersionId)}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+      const data = (await res.json()) as { artifact_url?: string };
+      if (!data.artifact_url) throw new Error('No artifact available');
+
+      const a = document.createElement('a');
+      a.href = data.artifact_url;
+      a.download = '';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('[InstallModal] Download error:', err);
+    } finally {
+      setDownloading(false);
+    }
+  }, [packageVersionId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -50,12 +79,12 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
         role="presentation"
       />
 
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-[var(--bg-surface,theme(colors.white))] p-6 shadow-xl">
         {/* Close button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="absolute right-3 top-3 rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover,theme(colors.gray.100))] hover:text-[var(--text-secondary)]"
           aria-label="Close"
         >
           <X size={18} />
@@ -63,9 +92,11 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
 
         {/* Header */}
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Install &ldquo;{title}&rdquo;</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            This asset requires the AICS Desktop app to install.
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            Install &ldquo;{title}&rdquo;
+          </h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            It looks like the AICS Desktop app didn&apos;t open. Choose an option below:
           </p>
         </div>
 
@@ -78,27 +109,42 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
             className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
           >
             <Download size={16} />
-            Open in AICS Desktop
+            Try Opening in AICS Desktop Again
           </button>
+
+          {/* Download package file */}
+          {packageVersionId && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface,theme(colors.white))] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover,theme(colors.gray.50))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-60"
+            >
+              <Package size={16} />
+              {downloading ? 'Downloading...' : 'Download .aicspkg File'}
+            </button>
+          )}
 
           {/* Copy link */}
           <button
             type="button"
             onClick={handleCopy}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-400"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface,theme(colors.white))] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover,theme(colors.gray.50))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
           >
             <Copy size={16} />
-            {copied ? 'Copied!' : 'Copy install link'}
+            {copied ? 'Copied!' : 'Copy Install Link'}
           </button>
         </div>
 
         {/* Divider */}
-        <div className="my-4 border-t border-gray-200" />
+        <div className="my-4 border-t border-[var(--border)]" />
 
-        {/* Download section */}
-        <div className="rounded-md bg-gray-50 p-4">
-          <p className="text-sm font-medium text-gray-900">Don&apos;t have the AICS Desktop app?</p>
-          <p className="mt-1 text-xs text-gray-500">
+        {/* Download desktop app section */}
+        <div className="rounded-md bg-[var(--bg-hover,theme(colors.gray.50))] p-4">
+          <p className="text-sm font-medium text-[var(--text-primary)]">
+            Don&apos;t have the AICS Desktop app?
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
             Download the free desktop runtime to install and run AI company assets locally.
           </p>
           <a
@@ -114,8 +160,8 @@ export function InstallModal({ listingId, version, title, onClose }: Props) {
 
         {/* Install link display for manual use */}
         <div className="mt-3">
-          <p className="text-xs text-gray-400">Install link:</p>
-          <code className="mt-1 block break-all rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
+          <p className="text-xs text-[var(--text-muted)]">Install link:</p>
+          <code className="mt-1 block break-all rounded bg-[var(--bg-hover,theme(colors.gray.100))] px-2 py-1 text-xs text-[var(--text-secondary)]">
             {deepLink}
           </code>
         </div>

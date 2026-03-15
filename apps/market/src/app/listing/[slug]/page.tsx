@@ -138,6 +138,7 @@ export default async function ListingPage({ params }: Props) {
             <InstallButton
               listingId={listing.listing_id}
               version={listing.version?.version ?? listing.latest_version}
+              packageVersionId={listing.version?.package_version_id}
               title={listing.title}
             />
           </div>

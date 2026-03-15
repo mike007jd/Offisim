@@ -53,6 +53,7 @@ export interface ListingSummary {
 
 export interface VersionSummary {
   package_id: string;
+  package_version_id?: string;
   version: string;
   runtime_range: string;
   schema_version: string;
