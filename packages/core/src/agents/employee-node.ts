@@ -18,6 +18,7 @@ import type { LlmMessage, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import { LibraryService } from '../services/library-service.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
@@ -217,7 +218,13 @@ export async function employeeNode(
     }
   }
 
-  const mcpTools = await toolExecutor.listAvailable(companyId);
+  // PRD 2.3: Use workstation-scoped tools when resolver is available.
+  // If an employee is not at a workstation, they get no MCP tools.
+  // System agents (manager/hr/pm/boss) bypass this and get all tools.
+  const { workstationToolResolver } = runtimeCtx;
+  const mcpTools = workstationToolResolver
+    ? await workstationToolResolver.resolveForEmployee(companyId, employee.employee_id)
+    : await toolExecutor.listAvailable(companyId);
   const allTools = [...virtualTools, ...mcpTools];
 
   try {
@@ -374,6 +381,27 @@ export async function employeeNode(
         }
 
         // Non-memory, non-handoff tool calls — delegate to toolExecutor
+        // PRD 2.3: Verify workstation access before executing MCP tool
+        if (workstationToolResolver) {
+          const hasAccess = await workstationToolResolver.isToolAccessible(
+            companyId,
+            employee.employee_id,
+            toolCall.name,
+          );
+          if (!hasAccess) {
+            toolResults.push({
+              callId: toolCall.id,
+              name: toolCall.name,
+              result: {
+                success: false,
+                result: null,
+                error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
+              },
+            });
+            continue;
+          }
+        }
+
         const result = await toolExecutor.execute({
           toolCallId: toolCall.id,
           name: toolCall.name,

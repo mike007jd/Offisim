@@ -16,8 +16,15 @@ export interface ToolCallResponse {
 
 export interface ToolExecutor {
   execute(call: ToolCallRequest): Promise<ToolCallResponse>;
+  /** List all MCP tools available company-wide (unscoped). */
   listAvailable(companyId: string): Promise<ToolDef[]>;
 }
+
+/**
+ * Error code returned when an employee attempts to use a tool
+ * they no longer have workstation access to.
+ */
+export const WORKSTATION_ACCESS_DENIED = 'WORKSTATION_ACCESS_DENIED';
 
 /** Phase 2.0 mock — returns static results */
 export class MockToolExecutor implements ToolExecutor {

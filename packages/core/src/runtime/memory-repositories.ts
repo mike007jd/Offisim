@@ -49,6 +49,9 @@ import type {
   SlotRepository,
   SlotRow,
   NewSlot,
+  WorkstationRackRepository,
+  WorkstationRackRow,
+  NewWorkstationRack,
   LibraryDocumentRepository,
   LibraryDocumentRow,
   NewLibraryDocument,
@@ -316,6 +319,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const sopTemplates = new MemorySopTemplateRepository();
   const racksRepo = new MemoryRackRepository();
   const slotsRepo = new MemorySlotRepository();
+  const workstationRacksRepo = new MemoryWorkstationRackRepository();
   const libraryDocuments = new MemoryLibraryDocumentRepository();
   const officeLayouts = new MemoryOfficeLayoutRepository();
 
@@ -337,6 +341,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     sopTemplates,
     racks: racksRepo,
     slots: slotsRepo,
+    workstationRacks: workstationRacksRepo,
     libraryDocuments,
     officeLayouts,
     ...installRepos,
@@ -486,6 +491,28 @@ export class MemorySlotRepository implements SlotRepository {
   }
   async delete(slotId: string): Promise<void> {
     this.store.delete(slotId);
+  }
+}
+
+export class MemoryWorkstationRackRepository implements WorkstationRackRepository {
+  private readonly store: WorkstationRackRow[] = [];
+
+  async create(binding: NewWorkstationRack): Promise<WorkstationRackRow> {
+    const row: WorkstationRackRow = { ...binding, created_at: new Date().toISOString() };
+    this.store.push(row);
+    return row;
+  }
+  async findByWorkstation(workstationId: string): Promise<WorkstationRackRow[]> {
+    return this.store.filter((r) => r.workstation_id === workstationId);
+  }
+  async findByRack(rackId: string): Promise<WorkstationRackRow[]> {
+    return this.store.filter((r) => r.rack_id === rackId);
+  }
+  async delete(workstationId: string, rackId: string): Promise<void> {
+    const idx = this.store.findIndex(
+      (r) => r.workstation_id === workstationId && r.rack_id === rackId,
+    );
+    if (idx >= 0) this.store.splice(idx, 1);
   }
 }
 
