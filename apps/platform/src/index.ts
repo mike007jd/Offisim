@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { auth } from './auth.js';
 import { db } from './db.js';
 import { optionalAuth } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -55,6 +56,8 @@ app.use(
   cors({
     origin: corsOrigins,
     credentials: true,
+    allowHeaders: ['Content-Type', 'Authorization'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   }),
 );
 app.use('*', requestId);
@@ -63,10 +66,19 @@ app.use('*', async (c, next) => {
   c.set('db', db);
   await next();
 });
+// Skip optionalAuth for Better Auth routes — they handle their own auth
+app.use('/api/auth/*', async (_c, next) => {
+  await next();
+});
 app.use('*', optionalAuth);
 app.onError(errorHandler);
 
-// Routes
+// Better Auth handler — handles /api/auth/* routes
+app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+  return auth.handler(c.req.raw);
+});
+
+// AICS Routes
 app.route('/', health);
 app.route('/v1/auth', authRoute);
 app.route('/v1/market', market);

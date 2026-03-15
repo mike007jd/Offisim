@@ -13,6 +13,7 @@
     "@aics/registry-client": "workspace:*",
     "@aics/ui-core": "workspace:*",
     "@aics/ui-market": "workspace:*",
+    "better-auth": "^1.5.5",
     "lucide-react": "^0.468.0",
     "next": "^15.2.0",
     "react": "^19.0.0",

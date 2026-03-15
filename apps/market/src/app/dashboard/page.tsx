@@ -5,12 +5,12 @@ import { DashboardStats, DraftCard, ListingCard, useAuthContext, PLATFORM_API_UR
 import type { PublishDraft, ListingSummary } from '@aics/registry-client';
 import { RegistryClient } from '@aics/registry-client';
 
-function getClient(token: string) {
-  return new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token });
+function getClient() {
+  return new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' });
 }
 
 export default function DashboardPage() {
-  const { token } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
 
   const [listings, setListings] = useState<ListingSummary[]>([]);
   const [drafts, setDrafts] = useState<PublishDraft[]>([]);
@@ -19,16 +19,16 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (authLoading || !user) return;
 
-    const client = getClient(token);
+    const client = getClient();
     setLoading(true);
     setError(null);
 
     Promise.all([
       // Fetch my creator profile to get handle, then fetch listings
       fetch(`${PLATFORM_API_URL}/v1/publish/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       })
         .then((r) => r.json())
         .then(async (data: { creator: { handle: string } | null }) => {
@@ -48,18 +48,16 @@ export default function DashboardPage() {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
       })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [user, authLoading]);
 
   async function handleDeleteDraft(draftId: string) {
-    // Optimistically remove from list — deletion endpoint not yet implemented,
-    // so we just update local state. A real delete endpoint would be wired here.
     setDrafts((prev) => prev.filter((d) => d.draft_id !== draftId));
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-400">Loading dashboard…</span>
+        <span className="text-sm text-gray-400">Loading dashboard...</span>
       </div>
     );
   }

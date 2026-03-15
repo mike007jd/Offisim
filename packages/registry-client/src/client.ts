@@ -30,17 +30,21 @@ import type {
 export interface RegistryClientConfig {
   baseUrl: string;
   authToken?: string;
+  /** Send cookies with requests (for browser session-based auth). Default: undefined. */
+  credentials?: 'include' | 'same-origin' | 'omit';
   fetch?: typeof globalThis.fetch;
 }
 
 export class RegistryClient {
   private readonly baseUrl: string;
   private readonly authToken?: string;
+  private readonly credentials?: 'include' | 'same-origin' | 'omit';
   private readonly fetch: typeof globalThis.fetch;
 
   constructor(config: RegistryClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.authToken = config.authToken;
+    this.credentials = config.credentials;
     this.fetch = config.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
@@ -153,6 +157,7 @@ export class RegistryClient {
       method,
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
+      credentials: this.credentials,
     });
 
     if (!res.ok) {

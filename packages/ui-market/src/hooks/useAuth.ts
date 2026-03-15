@@ -1,15 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useSession, signIn, signUp, signOut } from '../lib/auth-client.js';
 import { PLATFORM_API_URL } from '../lib/config.js';
-
-const PLATFORM_URL = PLATFORM_API_URL;
-const STORAGE_KEY = 'aics-auth-token';
 
 export interface AuthUser {
   userId: string;
   email: string;
   displayName: string;
+  image?: string | null;
 }
 
 export interface AuthState {
@@ -19,98 +18,72 @@ export interface AuthState {
 }
 
 export interface UseAuthResult extends AuthState {
-  login: (email: string, displayName: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
+  loginWithGithub: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   registerCreator: (handle: string, displayName: string, bio?: string) => Promise<void>;
 }
 
-function decodeTokenPayload(token: string): AuthUser | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1] ?? ''));
-    if (!payload.sub || !payload.email || !payload.display_name) return null;
-    return {
-      userId: payload.sub as string,
-      email: payload.email as string,
-      displayName: payload.display_name as string,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function useAuth(): UseAuthResult {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const session = useSession();
+  const isPending = session.isPending;
+  const sessionData = session.data;
 
-  // On mount, hydrate from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const decoded = decodeTokenPayload(stored);
-        if (decoded) {
-          setToken(stored);
-          setUser(decoded);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
+  const user: AuthUser | null = sessionData?.user
+    ? {
+        userId: sessionData.user.id,
+        email: sessionData.user.email,
+        displayName: sessionData.user.name,
+        image: sessionData.user.image,
       }
-    } catch {
-      // localStorage unavailable (SSR or restricted context) — ignore
-    } finally {
-      setIsLoading(false);
+    : null;
+
+  // Better Auth uses cookies for session, so no raw token is needed for browser requests.
+  // For backwards compatibility, we expose null. API requests use credentials: 'include'.
+  const token: string | null = null;
+
+  const login = useCallback(async (email: string, password: string) => {
+    const result = await signIn.email({ email, password });
+    if (result.error) {
+      throw new Error(result.error.message ?? 'Login failed');
     }
   }, []);
 
-  const login = useCallback(async (email: string, displayName: string) => {
-    const res = await fetch(`${PLATFORM_URL}/v1/auth/dev-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, display_name: displayName }),
+  const register = useCallback(async (email: string, password: string, name: string) => {
+    const result = await signUp.email({ email, password, name });
+    if (result.error) {
+      throw new Error(result.error.message ?? 'Registration failed');
+    }
+  }, []);
+
+  const loginWithGithub = useCallback(async () => {
+    await signIn.social({
+      provider: 'github',
+      callbackURL: window.location.origin + '/dashboard',
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Login failed' }));
-      throw new Error((err as { message?: string }).message ?? 'Login failed');
-    }
-
-    const data = (await res.json()) as { token: string };
-    const newToken = data.token;
-    const decoded = decodeTokenPayload(newToken);
-    if (!decoded) throw new Error('Invalid token received from server');
-
-    try {
-      localStorage.setItem(STORAGE_KEY, newToken);
-    } catch {
-      // Ignore storage errors
-    }
-    setToken(newToken);
-    setUser(decoded);
   }, []);
 
-  const logout = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
-    setToken(null);
-    setUser(null);
+  const loginWithGoogle = useCallback(async () => {
+    await signIn.social({
+      provider: 'google',
+      callbackURL: window.location.origin + '/dashboard',
+    });
+  }, []);
+
+  const doLogout = useCallback(() => {
+    signOut().catch(() => {});
   }, []);
 
   const registerCreator = useCallback(
     async (handle: string, displayName: string, bio?: string) => {
-      if (!token) throw new Error('Not authenticated');
+      if (!user) throw new Error('Not authenticated');
 
-      const res = await fetch(`${PLATFORM_URL}/v1/auth/register-creator`, {
+      const res = await fetch(`${PLATFORM_API_URL}/v1/auth/register-creator`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ handle, display_name: displayName, bio }),
       });
 
@@ -119,8 +92,18 @@ export function useAuth(): UseAuthResult {
         throw new Error((err as { message?: string }).message ?? 'Registration failed');
       }
     },
-    [token],
+    [user],
   );
 
-  return { user, token, isLoading, login, logout, registerCreator };
+  return {
+    user,
+    token,
+    isLoading: isPending,
+    login,
+    register,
+    loginWithGithub,
+    loginWithGoogle,
+    logout: doLogout,
+    registerCreator,
+  };
 }

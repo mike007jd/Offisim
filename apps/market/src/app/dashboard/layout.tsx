@@ -7,7 +7,7 @@ import { RegistryClient } from '@aics/registry-client';
 import type { MyCreatorProfile } from '@aics/registry-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, token, isLoading, logout, registerCreator } = useAuthContext();
+  const { user, isLoading, logout, registerCreator } = useAuthContext();
   const pathname = usePathname();
 
   const [creatorProfile, setCreatorProfile] = useState<MyCreatorProfile | null>(null);
@@ -20,14 +20,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
 
-  // Fetch creator profile once we have a token
+  // Fetch creator profile once authenticated
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       setCreatorProfile(null);
       return;
     }
     setProfileLoading(true);
-    new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token })
+    new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' })
       .getMyCreatorProfile()
       .then((data) => {
         setCreatorProfile(data.creator);
@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setProfileError('Failed to load creator profile.');
       })
       .finally(() => setProfileLoading(false));
-  }, [token]);
+  }, [user]);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       await registerCreator(handle.trim(), user?.displayName ?? handle.trim(), bio.trim() || undefined);
       // Re-fetch profile after registration
-      const data = await new RegistryClient({ baseUrl: PLATFORM_API_URL, authToken: token ?? '' }).getMyCreatorProfile();
+      const data = await new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' }).getMyCreatorProfile();
       setCreatorProfile(data.creator);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : 'Registration failed');
@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-[var(--text-muted)]">Loading…</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading...</span>
       </div>
     );
   }
@@ -115,7 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               id="creator-bio"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell the community about yourself…"
+              placeholder="Tell the community about yourself..."
               rows={3}
               disabled={registering}
               className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
@@ -131,7 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             disabled={registering || !handle.trim()}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {registering ? 'Registering…' : 'Register as Creator'}
+            {registering ? 'Registering...' : 'Register as Creator'}
           </button>
         </form>
       </div>

@@ -111,31 +111,15 @@ function createMockDb(results: unknown[][]) {
   return new Proxy({}, handler) as any;
 }
 
-function createDevToken(payload: { sub: string; email?: string }): string {
-  const header = btoa(JSON.stringify({ alg: 'none' }));
-  const body = btoa(JSON.stringify(payload));
-  return `${header}.${body}.sig`;
-}
-
-function createApp(mockDb: any) {
+function createApp(mockDb: any, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
     c.set('requestId', 'test-req-id');
-    // Simulate optionalAuth: extract from Bearer token
-    const authHeader = c.req.header('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
-      try {
-        const payloadB64 = token.split('.')[1];
-        if (payloadB64) {
-          const payload = JSON.parse(atob(payloadB64));
-          if (payload.sub) c.set('userId', payload.sub);
-          if (payload.email) c.set('userEmail', payload.email);
-        }
-      } catch {
-        // ignore
-      }
+    // Inject authenticated user directly for tests
+    if (userId) {
+      c.set('userId', userId);
+      c.set('userEmail', 'test@example.com');
     }
     await next();
   });
@@ -143,8 +127,6 @@ function createApp(mockDb: any) {
   app.route('/v1/publish', publish);
   return app;
 }
-
-const AUTH_HEADER = `Bearer ${createDevToken({ sub: USER_ID, email: 'test@example.com' })}`;
 
 // ── Validation Tests ──
 
@@ -251,13 +233,12 @@ describe('Publish Routes', () => {
         // 2. insert draft
         [fakeDraft],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ kind: 'employee', title: 'Test Employee' }),
       });
@@ -286,13 +267,12 @@ describe('Publish Routes', () => {
       const mockDb = createMockDb([
         [], // no creator found
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ kind: 'employee', title: 'Test' }),
       });
@@ -302,13 +282,12 @@ describe('Publish Routes', () => {
 
     it('returns 400 if kind or title missing', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ kind: 'employee' }), // missing title
       });
@@ -325,10 +304,10 @@ describe('Publish Routes', () => {
         // 2. drafts list
         [fakeDraft],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts', {
-        headers: { Authorization: AUTH_HEADER },
+        headers: {},
       });
 
       expect(res.status).toBe(200);
@@ -346,10 +325,10 @@ describe('Publish Routes', () => {
         // 2. draft lookup
         [fakeDraft],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}`, {
-        headers: { Authorization: AUTH_HEADER },
+        headers: {},
       });
 
       expect(res.status).toBe(200);
@@ -363,10 +342,10 @@ describe('Publish Routes', () => {
         [fakeCreator],
         [], // no draft found
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts/00000000-0000-0000-0000-000000000000', {
-        headers: { Authorization: AUTH_HEADER },
+        headers: {},
       });
 
       expect(res.status).toBe(404);
@@ -390,13 +369,12 @@ describe('Publish Routes', () => {
         // 3. update draft returning
         [updatedDraft],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}/manifest`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ manifest_json: validManifest }),
       });
@@ -419,13 +397,12 @@ describe('Publish Routes', () => {
         [fakeDraft],
         [updatedDraft], // update still happens
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}/manifest`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ manifest_json: invalidManifest }),
       });
@@ -440,13 +417,12 @@ describe('Publish Routes', () => {
       const submittedDraft = { ...fakeDraft, status: 'submitted' };
 
       const mockDb = createMockDb([[fakeCreator], [submittedDraft]]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}/manifest`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ manifest_json: validManifest }),
       });
@@ -501,13 +477,12 @@ describe('Publish Routes', () => {
         // 11. re-fetch job
         [completedJob],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ draft_id: DRAFT_ID }),
       });
@@ -523,13 +498,12 @@ describe('Publish Routes', () => {
       const invalidDraft = { ...fakeDraft, validation_state: 'invalid' };
 
       const mockDb = createMockDb([[fakeCreator], [invalidDraft]]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ draft_id: DRAFT_ID }),
       });
@@ -539,13 +513,12 @@ describe('Publish Routes', () => {
 
     it('rejects submission without draft_id', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({}),
       });
@@ -557,13 +530,12 @@ describe('Publish Routes', () => {
       const submittedDraft = { ...fakeDraft, validation_state: 'valid', status: 'submitted' };
 
       const mockDb = createMockDb([[fakeCreator], [submittedDraft]]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: AUTH_HEADER,
         },
         body: JSON.stringify({ draft_id: DRAFT_ID }),
       });

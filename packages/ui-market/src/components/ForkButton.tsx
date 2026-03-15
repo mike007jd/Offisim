@@ -9,12 +9,11 @@ export interface ForkButtonProps {
   authToken?: string | null;
 }
 
-export function ForkButton({ listingId, version, forkCount, authToken }: ForkButtonProps) {
+export function ForkButton({ listingId, version, forkCount }: ForkButtonProps) {
   const auth = useAuthContext();
-  const token = authToken ?? auth.token;
 
   function handleClick() {
-    if (!token) {
+    if (!auth.user) {
       // Trigger login prompt by scrolling up or showing message
       alert('Please sign in to fork this asset.');
       return;

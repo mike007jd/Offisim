@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import { optionalAuth } from '../middleware/auth.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { reviewsRoute } from '../routes/reviews.js';
 import type { PlatformEnv } from '../types.js';
@@ -55,21 +54,18 @@ function createMockDb(results: unknown[][]) {
   return new Proxy({}, handler) as any;
 }
 
-/** Helper to create a dev-mode JWT token for testing */
-function makeDevToken(payload: Record<string, unknown>): string {
-  const header = btoa(JSON.stringify({ alg: 'none' }));
-  const body = btoa(JSON.stringify(payload));
-  return `${header}.${body}.sig`;
-}
-
-function createApp(mockDb: any) {
+function createApp(mockDb: any, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
     c.set('requestId', 'test-req-id');
+    // Inject authenticated user directly for tests
+    if (userId) {
+      c.set('userId', userId);
+      c.set('userEmail', 'test@test.com');
+    }
     await next();
   });
-  app.use('*', optionalAuth);
   app.onError(errorHandler);
   app.route('/v1/reviews', reviewsRoute);
   return app;
@@ -94,15 +90,11 @@ describe('Reviews Route', () => {
 
     it('validates rating range', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
-      const token = makeDevToken({ sub: USER_ID, email: 'test@test.com' });
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/reviews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listing_id: LISTING_ID, rating: 6 }),
       });
 
@@ -111,15 +103,11 @@ describe('Reviews Route', () => {
 
     it('validates rating is present', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
-      const token = makeDevToken({ sub: USER_ID, email: 'test@test.com' });
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/reviews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listing_id: LISTING_ID }),
       });
 
@@ -130,15 +118,11 @@ describe('Reviews Route', () => {
       const mockDb = createMockDb([
         [], // listing lookup returns empty
       ]);
-      const app = createApp(mockDb);
-      const token = makeDevToken({ sub: USER_ID, email: 'test@test.com' });
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/reviews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listing_id: '00000000-0000-0000-0000-000000000000', rating: 4 }),
       });
 
@@ -158,15 +142,11 @@ describe('Reviews Route', () => {
         // 5. update listing aggregates
         [],
       ]);
-      const app = createApp(mockDb);
-      const token = makeDevToken({ sub: USER_ID, email: 'test@test.com' });
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/reviews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: LISTING_ID,
           rating: 4,
@@ -197,15 +177,11 @@ describe('Reviews Route', () => {
         // 5. update listing aggregates
         [],
       ]);
-      const app = createApp(mockDb);
-      const token = makeDevToken({ sub: USER_ID, email: 'test@test.com' });
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/reviews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: LISTING_ID,
           rating: 5,

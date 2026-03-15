@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { optionalAuth } from '../middleware/auth.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { _resetRateLimitStore } from '../middleware/rate-limit.js';
 import { installRoute } from '../routes/install.js';
@@ -11,12 +10,6 @@ import type { PlatformEnv } from '../types.js';
 const LISTING_ID = '11111111-1111-1111-1111-111111111111';
 const VERSION_ID = '22222222-2222-2222-2222-222222222222';
 const USER_ID = '33333333-3333-3333-3333-333333333333';
-
-function makeDevToken(payload: Record<string, unknown>): string {
-  const header = btoa(JSON.stringify({ alg: 'none' }));
-  const body = btoa(JSON.stringify(payload));
-  return `${header}.${body}.sig`;
-}
 
 /** Creates a Proxy-based chainable mock */
 function createChainableMock(resolveValue: unknown) {
@@ -37,8 +30,6 @@ function createChainableMock(resolveValue: unknown) {
 
 /**
  * Creates a mock DB that supports both direct queries and transactions.
- * For transaction support, the `transaction` method calls the callback with the
- * same mock db (the tx object behaves identically to db).
  */
 function createMockDb(results: unknown[][]) {
   let callIndex = 0;
@@ -61,23 +52,22 @@ function createMockDb(results: unknown[][]) {
   return new Proxy({}, handler) as any;
 }
 
-function createApp(mockDb: any) {
+function createApp(mockDb: any, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
     c.set('requestId', 'test-req-id');
+    // Inject authenticated user directly for tests
+    if (userId) {
+      c.set('userId', userId);
+      c.set('userEmail', 'test@example.com');
+    }
     await next();
   });
-  app.use('*', optionalAuth);
   app.onError(errorHandler);
   app.route('/v1/install', installRoute);
   return app;
 }
-
-const authHeaders = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${makeDevToken({ sub: USER_ID, email: 'test@example.com' })}`,
-};
 
 // ── Tests ──
 
@@ -107,11 +97,11 @@ describe('Install Route', () => {
 
     it('validates request body', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listing_id: LISTING_ID }),
       });
 
@@ -120,11 +110,11 @@ describe('Install Route', () => {
 
     it('validates install_source enum', async () => {
       const mockDb = createMockDb([]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: LISTING_ID,
           package_version_id: VERSION_ID,
@@ -138,16 +128,15 @@ describe('Install Route', () => {
     });
 
     it('creates receipt and returns recorded status for new install', async () => {
-      // Transaction: insert receipt returns rows (new), then update listing count
       const mockDb = createMockDb([
-        [{ install_receipt_id: `rcpt_${USER_ID}_${LISTING_ID}_${VERSION_ID}` }], // insert returning
-        [], // update listing count
+        [{ install_receipt_id: `rcpt_${USER_ID}_${LISTING_ID}_${VERSION_ID}` }],
+        [],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: LISTING_ID,
           package_version_id: VERSION_ID,
@@ -164,15 +153,14 @@ describe('Install Route', () => {
     });
 
     it('returns already_exists for duplicate receipt (idempotent)', async () => {
-      // Transaction: insert receipt returns empty (conflict/duplicate)
       const mockDb = createMockDb([
-        [], // insert returning is empty (ON CONFLICT DO NOTHING)
+        [],
       ]);
-      const app = createApp(mockDb);
+      const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_id: LISTING_ID,
           package_version_id: VERSION_ID,
@@ -253,7 +241,6 @@ describe('Install Route', () => {
       ]);
       const app = createApp(mockDb);
 
-      // No auth headers
       const res = await app.request(`/v1/install/download/${VERSION_ID}`);
       expect(res.status).toBe(200);
     });
