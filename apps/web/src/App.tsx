@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { ToastBanner, useToasts } from '@aics/ui-core';
 import {
   AgentPanel,
@@ -7,6 +7,7 @@ import {
   ChatPanel,
   CompanyCreationWizard,
   CompanyEditor,
+  DashboardOverlay,
   ErrorBoundary,
   Header,
   InstallDialog,
@@ -30,6 +31,7 @@ const SceneCanvas = React.lazy(() =>
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const { reinitRuntime } = useAicsRuntime();
@@ -38,6 +40,18 @@ export function App() {
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
+
+  // Keyboard shortcut: Cmd+D / Ctrl+D toggles Boss Dashboard overlay
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        setDashboardOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Deep link install handler — receives aics://install?listing_id=X&version=Y from Tauri shell
   useDeepLinkInstall(
@@ -99,9 +113,10 @@ export function App() {
               />
             </ChatDrawer>
           }
-          eventLog={<RightSidebar />}
+          eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
           statusBar={<StatusBar modelName={providerConfig?.model} />}
         />
+        <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}

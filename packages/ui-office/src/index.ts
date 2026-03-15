@@ -11,6 +11,7 @@ export * from './components/chat/ChatPanel.js';
 export * from './components/chat/MessageBubble.js';
 export * from './components/chat/StreamingBubble.js';
 export * from './components/dashboard/BossDashboard.js';
+export * from './components/dashboard/DashboardOverlay.js';
 export * from './components/dashboard/CompanyStatusCard.js';
 export * from './components/dashboard/CostByModelCard.js';
 export * from './components/dashboard/CostOverviewCard.js';
