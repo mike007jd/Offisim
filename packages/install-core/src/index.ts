@@ -81,6 +81,17 @@ export type { MaterializeResult } from './materializer.js';
 export { rollback } from './rollback.js';
 
 // ---------------------------------------------------------------------------
+// Upgrade differ (PRD 3.5)
+// ---------------------------------------------------------------------------
+export { computeUpgradeDiff } from './upgrade-differ.js';
+export type {
+  DiffSeverity,
+  DiffCategory,
+  DiffEntry,
+  UpgradeDiff,
+} from './upgrade-differ.js';
+
+// ---------------------------------------------------------------------------
 // File importer (D.4)
 // ---------------------------------------------------------------------------
 export { readPackageFile, FileImportError } from './file-importer.js';
