@@ -180,7 +180,7 @@ describe('zone-layout-engine', () => {
       }
     });
 
-    it('meeting room width should be 80% of floor content width', () => {
+    it('meeting room and server room should share row 3 proportionally', () => {
       const counts = new Map([
         ['zone-dev', 4],
         ['zone-product', 2],
@@ -188,12 +188,19 @@ describe('zone-layout-engine', () => {
       ]);
       const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
       const mtg = plan.zones.find((z) => z.type === 'meeting_room');
+      const srv = plan.zones.find((z) => z.type === 'server_room');
       expect(mtg).toBeDefined();
+      expect(srv).toBeDefined();
 
-      // Floor content width = totalWidth - 2 * margin(30)
-      const floorContentWidth = plan.totalWidth - 2 * 30;
-      const expectedWidth = Math.max(200, floorContentWidth * 0.8);
-      expect(mtg!.width).toBeCloseTo(expectedWidth, 0);
+      // Meeting room should be wider than server room (70% vs 30%)
+      expect(mtg!.width).toBeGreaterThan(srv!.width);
+
+      // Both should be at least MIN_UTILITY_WIDTH (200)
+      expect(mtg!.width).toBeGreaterThanOrEqual(200);
+      expect(srv!.width).toBeGreaterThanOrEqual(200);
+
+      // They should be on the same row (same y)
+      expect(mtg!.y).toBe(srv!.y);
     });
 
     it('row 2 height should scale with row 1 height for large offices', () => {
