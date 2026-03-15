@@ -2,6 +2,9 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogT
 /**
  * InstallDialog — shadcn Dialog wrapper that renders different content
  * based on the current install flow step.
+ *
+ * Supports both fresh installs and upgrades (PRD 3.5).
+ * When upgrading, shows UpgradePreview instead of ManifestReview.
  */
 
 import './install-animations.css';
@@ -11,6 +14,7 @@ import { BindingForm } from './BindingForm.js';
 import { InstallProgress } from './InstallProgress.js';
 import { ManifestReview } from './ManifestReview.js';
 import { SkillReview } from './SkillReview.js';
+import { UpgradePreview } from './UpgradePreview.js';
 
 type InstallDialogProps = InstallFlowState & InstallFlowActions;
 
@@ -23,12 +27,18 @@ function LoadingContent() {
   );
 }
 
-function DoneContent({ onClose }: { onClose: () => void }) {
+function DoneContent({ onClose, isUpgrade = false }: { onClose: () => void; isUpgrade?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <CheckCircle2 className="h-10 w-10 text-success" />
-      <h3 className="text-base font-semibold text-sand">Installation Complete</h3>
-      <p className="text-sm text-shell text-center">The package has been installed successfully.</p>
+      <h3 className="text-base font-semibold text-sand">
+        {isUpgrade ? 'Upgrade Complete' : 'Installation Complete'}
+      </h3>
+      <p className="text-sm text-shell text-center">
+        {isUpgrade
+          ? 'The package has been upgraded successfully.'
+          : 'The package has been installed successfully.'}
+      </p>
       <Button onClick={onClose} className="mt-2">
         Close
       </Button>
@@ -50,22 +60,30 @@ function ErrorContent({ error, onCancel }: { error: string; onCancel: () => void
 }
 
 /** Map step to dialog title */
-function getDialogTitle(step: InstallDialogProps['step'], isSkillImport: boolean): string {
+function getDialogTitle(
+  step: InstallDialogProps['step'],
+  isSkillImport: boolean,
+  isUpgrade: boolean,
+): string {
   switch (step) {
     case 'loading':
-      return isSkillImport ? 'Loading Skill' : 'Loading Package';
+      return isSkillImport ? 'Loading Skill' : isUpgrade ? 'Loading Upgrade' : 'Loading Package';
     case 'review':
-      return isSkillImport ? 'Import OpenClaw Skill' : 'Review Package';
+      return isSkillImport
+        ? 'Import OpenClaw Skill'
+        : isUpgrade
+          ? 'Review Upgrade'
+          : 'Review Package';
     case 'bindings':
       return 'Configure Bindings';
     case 'installing':
-      return 'Installing';
+      return isUpgrade ? 'Upgrading' : 'Installing';
     case 'done':
-      return 'Done';
+      return isUpgrade ? 'Upgrade Complete' : 'Done';
     case 'error':
       return 'Error';
     default:
-      return 'Install Package';
+      return isUpgrade ? 'Upgrade Package' : 'Install Package';
   }
 }
 
@@ -78,6 +96,7 @@ export function InstallDialog(props: InstallDialogProps) {
     bindingValues,
     isSkillImport,
     skillValidation,
+    upgradeDiff,
     confirmInstall,
     submitBindings,
     setBindingValue,
@@ -105,6 +124,16 @@ export function InstallDialog(props: InstallDialogProps) {
             />
           );
         }
+        if (upgradeDiff) {
+          return (
+            <UpgradePreview
+              diff={upgradeDiff}
+              packageTitle={plan.manifest.package.title}
+              onConfirm={confirmInstall}
+              onCancel={cancel}
+            />
+          );
+        }
         return <ManifestReview plan={plan} onApprove={confirmInstall} onCancel={cancel} />;
 
       case 'bindings':
@@ -123,7 +152,7 @@ export function InstallDialog(props: InstallDialogProps) {
         return <InstallProgress currentStep={step} error={null} />;
 
       case 'done':
-        return <DoneContent onClose={close} />;
+        return <DoneContent onClose={close} isUpgrade={!!upgradeDiff} />;
 
       case 'error':
         return <ErrorContent error={error ?? 'Unknown error'} onCancel={cancel} />;
@@ -142,12 +171,14 @@ export function InstallDialog(props: InstallDialogProps) {
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{getDialogTitle(step, isSkillImport)}</DialogTitle>
+          <DialogTitle>{getDialogTitle(step, isSkillImport, !!upgradeDiff)}</DialogTitle>
           {step === 'review' && plan && (
             <DialogDescription>
               {isSkillImport
                 ? 'Review the skill details before importing as a new employee.'
-                : 'Review the package details before installing.'}
+                : upgradeDiff
+                  ? 'Review the changes before upgrading.'
+                  : 'Review the package details before installing.'}
             </DialogDescription>
           )}
           {step === 'bindings' && (

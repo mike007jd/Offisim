@@ -7,8 +7,8 @@
  */
 
 import { employeeInstalled } from '@aics/core/browser';
-import type { BindingConfirmation, InstallPlan, SkillValidationResult } from '@aics/install-core';
-import { readPackageFile } from '@aics/install-core';
+import type { BindingConfirmation, InstallPlan, SkillValidationResult, UpgradeDiff } from '@aics/install-core';
+import { computeUpgradeDiff, readPackageFile } from '@aics/install-core';
 import { RegistryApiError, RegistryClient } from '@aics/registry-client';
 import { useCallback, useRef, useState } from 'react';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
@@ -33,12 +33,19 @@ export interface InstallFlowState {
   isSkillImport: boolean;
   /** Soft validation warnings from skill validator */
   skillValidation: SkillValidationResult | null;
+  /** Non-null when this is an upgrade — contains the diff for UpgradePreview */
+  upgradeDiff: UpgradeDiff | null;
 }
 
 export interface InstallFlowActions {
   startFileImport: (file: File) => void;
   /** Start install from a marketplace deep link (listing_id + version) */
   startRegistryInstall: (listingId: string, version: string) => void;
+  /**
+   * Start an upgrade flow. Provide the currently installed manifest so the
+   * dialog can compute and show a diff before confirming.
+   */
+  startUpgrade: (file: File, currentManifest: import('@aics/asset-schema').PackageManifest) => void;
   confirmInstall: () => void;
   submitBindings: () => void;
   setBindingValue: (key: string, value: string) => void;
@@ -59,6 +66,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const [bindingValues, setBindingValues] = useState<Map<string, string>>(new Map());
   const [isSkillImport, setIsSkillImport] = useState(false);
   const [skillValidation, setSkillValidation] = useState<SkillValidationResult | null>(null);
+  const [upgradeDiff, setUpgradeDiff] = useState<UpgradeDiff | null>(null);
+
+  // Ref for the current manifest (used during upgrade to compute diff after plan is ready)
+  const currentManifestRef = useRef<import('@aics/asset-schema').PackageManifest | null>(null);
 
   // Track the active transaction ID for cancel / confirm operations
   const txnIdRef = useRef<string | null>(null);
@@ -190,6 +201,81 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           setError(err instanceof Error ? err.message : String(err));
         }
       })();
+    },
+    [installService],
+  );
+
+  /**
+   * Start an upgrade flow. The currentManifest is used to compute an UpgradeDiff
+   * which the UI shows via UpgradePreview instead of ManifestReview.
+   */
+  const startUpgrade = useCallback(
+    (file: File, currentManifest: import('@aics/asset-schema').PackageManifest) => {
+      currentManifestRef.current = currentManifest;
+      setUpgradeDiff(null);
+
+      // Intercept the plan result to compute diff
+      const originalStartFileImport = () => {
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+          setIsOpen(true);
+          setStep('error');
+          setError(`File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+          return;
+        }
+
+        const ext = file.name.toLowerCase();
+        if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip')) {
+          setIsOpen(true);
+          setStep('error');
+          setError('Upgrade only supports .aicspkg or .zip packages');
+          return;
+        }
+
+        setIsOpen(true);
+        setStep('loading');
+        setPlan(null);
+        setError(null);
+        setBindingValues(new Map());
+        setIsSkillImport(false);
+        setSkillValidation(null);
+        txnIdRef.current = null;
+
+        if (!installService) {
+          // Mock fallback
+          timerRef.current = setTimeout(() => {
+            const mockPlan = MOCK_INSTALL_PLAN;
+            setPlan(mockPlan);
+            setUpgradeDiff(computeUpgradeDiff(currentManifest, mockPlan.manifest));
+            setStep('review');
+            timerRef.current = null;
+          }, 500);
+          return;
+        }
+
+        (async () => {
+          try {
+            const bytes = await readPackageFile(file);
+            const result = await installService.importFile(bytes);
+
+            if (result.error || !result.plan) {
+              setStep('error');
+              setError(result.error ?? 'Import failed: no plan returned');
+              return;
+            }
+
+            txnIdRef.current = result.installTxnId;
+            setPlan(result.plan);
+            setUpgradeDiff(computeUpgradeDiff(currentManifest, result.plan.manifest));
+            setStep('review');
+          } catch (err) {
+            setStep('error');
+            setError(err instanceof Error ? err.message : String(err));
+          }
+        })();
+      };
+
+      originalStartFileImport();
     },
     [installService],
   );
@@ -367,6 +453,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     }
 
     txnIdRef.current = null;
+    currentManifestRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
@@ -374,11 +461,13 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setBindingValues(new Map());
     setIsSkillImport(false);
     setSkillValidation(null);
+    setUpgradeDiff(null);
   }, [clearTimer, installService]);
 
   const close = useCallback(() => {
     clearTimer();
     txnIdRef.current = null;
+    currentManifestRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
@@ -386,6 +475,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setBindingValues(new Map());
     setIsSkillImport(false);
     setSkillValidation(null);
+    setUpgradeDiff(null);
   }, [clearTimer]);
 
   return {
@@ -396,8 +486,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     bindingValues,
     isSkillImport,
     skillValidation,
+    upgradeDiff,
     startFileImport,
     startRegistryInstall,
+    startUpgrade,
     confirmInstall,
     submitBindings,
     setBindingValue,
