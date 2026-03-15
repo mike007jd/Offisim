@@ -87,6 +87,7 @@ export type {
   ManagerDirective,
   StepTaskOutput,
   StepResult,
+  CitationRef,
 } from './graph/state.js';
 export type { BuildGraphOptions } from './graph/main-graph.js';
 export type { RetryConfig } from './llm/retry.js';
@@ -199,6 +200,7 @@ export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
+export type { CitationEntry } from './services/library-service.js';
 export { NotificationBridge } from './services/notification-bridge.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
 export type { CompanyTemplate, CompanyTemplateEmployee } from './templates/index.js';
@@ -228,7 +230,7 @@ export type {
 // --- Agent Nodes ---
 export { bossNode } from './agents/boss-node.js';
 export { managerNode } from './agents/manager-node.js';
-export { employeeNode } from './agents/employee-node.js';
+export { employeeNode, extractUsedCitations } from './agents/employee-node.js';
 export { employeeDirectSetupNode } from './agents/employee-direct-setup-node.js';
 export { errorHandlerNode } from './agents/error-handler-node.js';
 export { bossSummaryNode } from './agents/boss-summary-node.js';
