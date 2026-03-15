@@ -1,6 +1,8 @@
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@aics/ui-core';
 import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
+import { MessageSquare } from 'lucide-react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
+import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
 // Generate workstation options from the default floor plan
@@ -63,6 +65,12 @@ export function EmployeeEditorDialog({
             <TabsTrigger value="config" className="flex-1">
               Config
             </TabsTrigger>
+            {isEditMode && (
+              <TabsTrigger value="test" className="flex-1">
+                <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                Test
+              </TabsTrigger>
+            )}
             {isEditMode && (
               <TabsTrigger value="history" className="flex-1">
                 History
@@ -240,6 +248,13 @@ export function EmployeeEditorDialog({
               </div>
             </div>
           </TabsContent>
+
+          {/* Test Chat Tab (edit mode only) */}
+          {isEditMode && employeeId && (
+            <TabsContent value="test">
+              <TestChatTab formData={formData} employeeName={formData.name} />
+            </TabsContent>
+          )}
 
           {/* History Tab (edit mode only) */}
           {isEditMode && employeeId && (

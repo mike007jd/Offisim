@@ -23,6 +23,7 @@ export * from './components/employees/EmployeeQuickCard.js';
 export * from './components/employees/EmployeeWorkshop.js';
 export * from './components/employees/InterviewWizard.js';
 export * from './components/employees/VersionDiffTable.js';
+export * from './components/employees/TestChatTab.js';
 export * from './components/employees/VersionHistoryTab.js';
 export * from './components/employees/interview-steps/ExpertiseStep.js';
 export * from './components/employees/interview-steps/HRPrompt.js';
