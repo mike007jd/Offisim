@@ -52,12 +52,30 @@ export type SceneEntityType = 'employee' | 'lobster';
  * SceneManager operates on this interface — it doesn't care which visual class
  * is underneath.
  */
+/**
+ * Extra info displayed alongside the task bubble.
+ * All fields are optional — only non-null fields are rendered.
+ */
+export interface BubbleInfo {
+  /** Cumulative cost for this employee's current task (e.g. "$0.03") */
+  cost?: number | null;
+  /** Number of RAG citations / references retrieved */
+  referenceCount?: number | null;
+  /** Human-readable error text (shown when state is 'failed' or 'blocked') */
+  errorText?: string | null;
+}
+
 export interface SceneEntity {
   readonly container: Container;
   readonly id: string;
   setState(next: EmployeeState): void;
   setTask(taskId: string | null): void;
   setHighlight(on: boolean): void;
+  /**
+   * Update the bubble's auxiliary info line (cost, references, error).
+   * Only non-null fields cause a visual update. Pass `{}` to clear all.
+   */
+  setBubbleInfo(info: BubbleInfo): void;
   /**
    * Brief attention pulse (800ms), fire-and-forget.
    * Triggered by UI task row click (ANIM-015).

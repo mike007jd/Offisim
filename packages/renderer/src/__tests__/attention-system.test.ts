@@ -107,6 +107,7 @@ function makeEmployee(id: string, x = 0, y = 0): SceneEntity {
     setState: vi.fn(),
     setTask: vi.fn(),
     setHighlight: vi.fn(),
+    setBubbleInfo: vi.fn(),
     flashHighlight: vi.fn(),
     destroy: vi.fn(),
   };

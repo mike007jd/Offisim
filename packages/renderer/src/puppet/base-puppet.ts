@@ -7,7 +7,7 @@ import gsap from 'gsap';
 import { Container, Graphics, Text } from 'pixi.js';
 import { STATE_COLORS } from '../tokens/colors.js';
 import type { MotionBucket } from '../tokens/motion.js';
-import type { SceneEntity } from '../core/types.js';
+import type { BubbleInfo, SceneEntity } from '../core/types.js';
 import type { PuppetAnimState } from './types.js';
 import { EMPLOYEE_STATE_SIGNALS } from '../tokens/state-feedback-matrix.js';
 
@@ -57,7 +57,11 @@ export abstract class BasePuppet implements SceneEntity {
   // ── Task bubble ──
   private readonly taskBubble: Container;
   private readonly taskText: Text;
+  /** Secondary info line below task text (cost / refs / error) */
+  private readonly infoText: Text;
   private taskBubbleBg: Graphics | null = null;
+  /** Current bubble auxiliary data */
+  private bubbleInfo: BubbleInfo = {};
 
   // ── Badge ──
   private readonly badgeContainer: Container;
@@ -109,8 +113,20 @@ export abstract class BasePuppet implements SceneEntity {
       },
     });
     this.taskText.anchor.set(0.5);
+    // Info text line (cost / refs / error) — below task text
+    this.infoText = new Text({
+      text: '',
+      style: {
+        fontSize: 7,
+        fill: 0xa0aec0,
+        fontFamily: 'system-ui, sans-serif',
+      },
+    });
+    this.infoText.anchor.set(0.5);
+    this.infoText.visible = false;
     this.taskBubble.position.set(0, -28);
     this.taskBubble.addChild(this.taskText);
+    this.taskBubble.addChild(this.infoText);
     this.container.addChild(this.taskBubble);
   }
 
@@ -226,7 +242,54 @@ export abstract class BasePuppet implements SceneEntity {
         this.trackTween(gsap.to(this.taskBubble, { alpha: 1, duration, ease }));
       }
     } else {
+      // Clear bubble info when task is cleared
+      this.bubbleInfo = {};
+      this.infoText.visible = false;
       this.taskBubble.visible = false;
+    }
+  }
+
+  setBubbleInfo(info: BubbleInfo): void {
+    // Merge incoming fields (undefined = keep previous, null = clear)
+    if (info.cost !== undefined) this.bubbleInfo.cost = info.cost;
+    if (info.referenceCount !== undefined) this.bubbleInfo.referenceCount = info.referenceCount;
+    if (info.errorText !== undefined) this.bubbleInfo.errorText = info.errorText;
+
+    // Build compact info string
+    const parts: string[] = [];
+    if (this.bubbleInfo.cost != null && this.bubbleInfo.cost > 0) {
+      parts.push(`$${this.bubbleInfo.cost < 0.01 ? this.bubbleInfo.cost.toFixed(4) : this.bubbleInfo.cost.toFixed(2)}`);
+    }
+    if (this.bubbleInfo.referenceCount != null && this.bubbleInfo.referenceCount > 0) {
+      parts.push(`${this.bubbleInfo.referenceCount} refs`);
+    }
+    if (this.bubbleInfo.errorText != null && this.bubbleInfo.errorText.length > 0) {
+      // Truncate long error messages
+      const errTrunc =
+        this.bubbleInfo.errorText.length > 24
+          ? `${this.bubbleInfo.errorText.slice(0, 22)}…`
+          : this.bubbleInfo.errorText;
+      parts.push(errTrunc);
+    }
+
+    if (parts.length > 0) {
+      this.infoText.text = parts.join(' · ');
+      // Position info text below task text
+      this.infoText.position.set(0, this.taskText.height / 2 + 2 + this.infoText.height / 2);
+      // Use red tint for error info
+      if (this.bubbleInfo.errorText) {
+        this.infoText.style.fill = 0xfca5a5; // red-300
+      } else {
+        this.infoText.style.fill = 0xa0aec0; // gray-400
+      }
+      this.infoText.visible = true;
+    } else {
+      this.infoText.visible = false;
+    }
+
+    // Redraw bubble background to accommodate info line
+    if (this.taskBubble.visible) {
+      this.drawTaskBubbleBg();
     }
   }
 
@@ -329,14 +392,17 @@ export abstract class BasePuppet implements SceneEntity {
   private drawTaskBubbleBg(): void {
     const padding = 4;
     const cr = 4;
-    const w = this.taskText.width + padding * 2;
-    const h = this.taskText.height + padding * 2;
+    // Account for info text if visible
+    const infoExtra = this.infoText.visible ? this.infoText.height + 2 : 0;
+    const contentW = Math.max(this.taskText.width, this.infoText.visible ? this.infoText.width : 0);
+    const w = contentW + padding * 2;
+    const h = this.taskText.height + infoExtra + padding * 2;
     if (this.taskBubbleBg) {
       this.taskBubble.removeChild(this.taskBubbleBg);
       this.taskBubbleBg.destroy();
     }
     const bg = new Graphics();
-    bg.roundRect(-w / 2, -h / 2, w, h, cr);
+    bg.roundRect(-w / 2, -this.taskText.height / 2 - padding, w, h, cr);
     bg.fill({ color: 0x334155, alpha: 0.9 });
     this.taskBubble.addChildAt(bg, 0);
     this.taskBubbleBg = bg;
