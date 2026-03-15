@@ -15,6 +15,7 @@ import {
   drawCoffeeTable,
   drawPlant,
   drawVendingMachine,
+  drawServerRack,
 } from '../shapes/furniture.js';
 
 /** Re-export DeskPosition for backward compat with InteractionController */
@@ -338,6 +339,9 @@ export class FloorLayer {
         case 'meeting_room':
           this.drawMeetingFurniture(zone);
           break;
+        case 'server_room':
+          this.drawServerRoomFurniture(zone);
+          break;
       }
     }
   }
@@ -398,6 +402,51 @@ export class FloorLayer {
     drawPlant(plantGfx, 14, 22);
     plantGfx.position.set(zone.x + 20, zone.y + zone.height - 20);
     this.container.addChild(plantGfx);
+  }
+
+  /** Draw server racks and cable trays in the server room zone. */
+  private drawServerRoomFurniture(zone: ZoneBounds): void {
+    const cy = zone.y + zone.height / 2;
+
+    // Server racks arranged in a row
+    const rackCount = Math.max(2, Math.floor(zone.width / 50));
+    const rackSpacing = (zone.width - 30) / rackCount;
+    for (let i = 0; i < rackCount; i++) {
+      const rackGfx = new Graphics();
+      drawServerRack(rackGfx, 20, 36);
+      rackGfx.position.set(
+        zone.x + 15 + i * rackSpacing + rackSpacing / 2,
+        cy - 5,
+      );
+      this.container.addChild(rackGfx);
+    }
+
+    // Cable tray at the bottom (horizontal conduit)
+    const trayGfx = new Graphics();
+    trayGfx.roundRect(zone.x + 10, zone.y + zone.height - 18, zone.width - 20, 6, 2);
+    trayGfx.fill({ color: 0x3b3b55, alpha: 0.6 });
+    this.container.addChild(trayGfx);
+
+    // Status indicator panel (top-right corner, small rectangle with LED dots)
+    const panelGfx = new Graphics();
+    const panelW = 30;
+    const panelH = 12;
+    panelGfx.roundRect(
+      zone.x + zone.width - panelW - 8,
+      zone.y + 6,
+      panelW,
+      panelH,
+      2,
+    );
+    panelGfx.fill(0x1a1a2e);
+    // 3 status LEDs
+    for (let i = 0; i < 3; i++) {
+      const ledX = zone.x + zone.width - panelW - 8 + 8 + i * 9;
+      const ledY = zone.y + 6 + panelH / 2;
+      panelGfx.circle(ledX, ledY, 2);
+      panelGfx.fill(i === 2 ? 0xfbbf24 : 0x22c55e);
+    }
+    this.container.addChild(panelGfx);
   }
 
   private storeMeetingTween(zoneId: string, tw: gsap.core.Tween): void {

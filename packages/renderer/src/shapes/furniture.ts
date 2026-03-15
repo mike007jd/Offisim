@@ -146,6 +146,37 @@ export function drawPlant(g: Graphics, w = 14, h = 22): void {
   g.fill(0x15803d);
 }
 
+/** Server rack — tall cabinet with blinking status LEDs */
+export function drawServerRack(g: Graphics, w = 20, h = 36, color = 0x2a2a3a): void {
+  // Cabinet body
+  g.roundRect(-w / 2, -h / 2, w, h, 2);
+  g.fill(color);
+
+  // Front panel bezel
+  g.roundRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 1);
+  g.fill(0x1a1a2e);
+
+  // Rack unit slots (horizontal lines)
+  const unitCount = 5;
+  const unitGap = (h - 8) / (unitCount + 1);
+  for (let i = 1; i <= unitCount; i++) {
+    const uy = -h / 2 + 4 + unitGap * i;
+    // Slot divider line
+    g.rect(-w / 2 + 3, uy, w - 6, 1);
+    g.fill(0x333355);
+    // Status LED (small colored dot)
+    const ledColor = i % 3 === 0 ? 0xfbbf24 : 0x22c55e; // amber or green
+    g.circle(w / 2 - 5, uy - unitGap / 2, 1.5);
+    g.fill(ledColor);
+  }
+
+  // Ventilation grille at bottom
+  for (let i = 0; i < 3; i++) {
+    g.rect(-w / 2 + 4 + i * 5, h / 2 - 6, 3, 3);
+    g.fill(0x333355);
+  }
+}
+
 /** Vending machine — tall rectangular machine */
 export function drawVendingMachine(g: Graphics, w = 18, h = 32): void {
   // Body

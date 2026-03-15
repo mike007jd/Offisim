@@ -10,7 +10,7 @@ export interface DepartmentConfig {
   readonly accentColor: number;
 }
 
-export type ZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room';
+export type ZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
 
 export interface ZoneConfig {
   readonly zoneId: string;
@@ -86,6 +86,14 @@ export const RD_COMPANY_ZONES: readonly ZoneConfig[] = [
     label: '会议室',
     labelEn: 'MTG',
     floorColor: 0x3a4a5c,
+    minSlots: 0,
+  },
+  {
+    zoneId: 'zone-server',
+    type: 'server_room',
+    label: '机房',
+    labelEn: 'SRV',
+    floorColor: 0x1e2433,
     minSlots: 0,
   },
 ];

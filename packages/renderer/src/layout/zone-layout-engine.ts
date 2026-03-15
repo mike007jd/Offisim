@@ -16,7 +16,7 @@ export interface DeskPosition {
 
 export interface ZoneBounds {
   zoneId: string;
-  type: 'department' | 'library' | 'rest_area' | 'meeting_room';
+  type: 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
   x: number;
   y: number;
   width: number;
@@ -91,6 +91,7 @@ export function computeFloorPlan(
   const departmentZones = zones.filter((z) => z.type === 'department');
   const libraryZone = zones.find((z) => z.type === 'library');
   const restZone = zones.find((z) => z.type === 'rest_area');
+  const serverZone = zones.find((z) => z.type === 'server_room');
   const meetingZone = zones.find((z) => z.type === 'meeting_room');
 
   // ── Step 1: Compute slot counts for departments ─────────────────
@@ -164,11 +165,13 @@ export function computeFloorPlan(
     ? Math.max(...deptLayouts.map((d) => d.height))
     : 0;
 
-  // Row 3 (meeting room)
-  const row3Height = meetingZone ? MIN_UTILITY_HEIGHT : 0;
+  // Row 3 (meeting room + server room)
+  const hasRow3 = meetingZone || serverZone;
+  const row3Height = hasRow3 ? MIN_UTILITY_HEIGHT : 0;
+  const row3Zones = [meetingZone, serverZone].filter(Boolean) as ZoneConfig[];
 
   // ── Step 6: Compute total dimensions ────────────────────────────
-  const rowCount = [finalRow1Height > 0, hasRow2, !!meetingZone].filter(Boolean).length;
+  const rowCount = [finalRow1Height > 0, hasRow2, hasRow3].filter(Boolean).length;
   const interRowPadding = Math.max(0, rowCount - 1) * opts.zonePadding;
 
   const totalWidth = floorContentWidth + 2 * opts.margin;
@@ -237,29 +240,59 @@ export function computeFloorPlan(
     }
   }
 
-  // -- Row 3: Meeting Room (centered) --
-  if (meetingZone) {
+  // -- Row 3: Meeting Room + Server Room --
+  if (hasRow3) {
     const row3Y = opts.margin
       + finalRow1Height
       + (finalRow1Height > 0 ? opts.zonePadding : 0)
       + row2Height
       + (hasRow2 ? opts.zonePadding : 0);
 
-    const meetingWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.8);
-    const meetingX = opts.margin + (floorContentWidth - meetingWidth) / 2;
+    if (row3Zones.length === 1) {
+      // Single zone in row 3 — centered at 80% width (existing behavior for meeting room)
+      const z = row3Zones[0]!;
+      const zoneWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.8);
+      const zoneX = opts.margin + (floorContentWidth - zoneWidth) / 2;
 
-    result.push({
-      zoneId: meetingZone.zoneId,
-      type: 'meeting_room',
-      x: meetingX,
-      y: row3Y,
-      width: meetingWidth,
-      height: row3Height,
-      floorColor: meetingZone.floorColor,
-      label: meetingZone.label,
-      labelEn: meetingZone.labelEn,
-      workstations: [],
-    });
+      result.push({
+        zoneId: z.zoneId,
+        type: z.type as ZoneBounds['type'],
+        x: zoneX,
+        y: row3Y,
+        width: zoneWidth,
+        height: row3Height,
+        floorColor: z.floorColor,
+        label: z.label,
+        labelEn: z.labelEn,
+        workstations: [],
+      });
+    } else {
+      // Two zones share row 3: meeting room gets 70%, server room gets 30%
+      const meetingFraction = 0.7;
+      const totalGap = (row3Zones.length - 1) * opts.zonePadding;
+      const availableWidth = floorContentWidth - totalGap;
+
+      let row3CursorX = opts.margin;
+      for (const z of row3Zones) {
+        const fraction = z.type === 'meeting_room' ? meetingFraction : (1 - meetingFraction);
+        const zoneWidth = Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
+
+        result.push({
+          zoneId: z.zoneId,
+          type: z.type as ZoneBounds['type'],
+          x: row3CursorX,
+          y: row3Y,
+          width: zoneWidth,
+          height: row3Height,
+          floorColor: z.floorColor,
+          label: z.label,
+          labelEn: z.labelEn,
+          workstations: [],
+        });
+
+        row3CursorX += zoneWidth + opts.zonePadding;
+      }
+    }
   }
 
   return {

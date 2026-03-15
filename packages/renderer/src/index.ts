@@ -54,6 +54,8 @@ export { MeetingRoomEntity } from './entities/meeting-room-entity.js';
 export { LibraryZoneEntity } from './entities/library-zone-entity.js';
 export { InstallGhostEntity } from './entities/install-ghost-entity.js';
 export type { InstallGhostConfig } from './entities/install-ghost-entity.js';
+export { ServerRoomEntity } from './entities/server-room-entity.js';
+export type { ServerStatus } from './entities/server-room-entity.js';
 
 // Animations
 export { AmbientSystem } from './animations/ambient-system.js';
@@ -111,4 +113,5 @@ export {
   drawCoffeeTable,
   drawPlant,
   drawVendingMachine,
+  drawServerRack,
 } from './shapes/furniture.js';
