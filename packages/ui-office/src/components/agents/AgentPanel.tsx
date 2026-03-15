@@ -1,10 +1,12 @@
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@aics/ui-core';
-import { ChevronDown, ClipboardList, Plus, Zap } from 'lucide-react';
+import { ChevronDown, ClipboardList, Plus, Wrench, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { useEmployeeEditor } from '../../hooks/useEmployeeEditor';
+import { useEmployeeWorkshop } from '../../hooks/useEmployeeWorkshop';
 import { useInterviewWizard } from '../../hooks/useInterviewWizard';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { EmployeeEditorDialog } from '../employees/EmployeeEditorDialog';
+import { EmployeeWorkshop } from '../employees/EmployeeWorkshop';
 import { InterviewWizard } from '../employees/InterviewWizard';
 import { AgentCard } from './AgentCard';
 
@@ -16,6 +18,7 @@ interface AgentPanelProps {
 export function AgentPanel({ onSelectEmployee, selectedEmployeeId }: AgentPanelProps) {
   const agents = useAgentStates();
   const editor = useEmployeeEditor();
+  const workshop = useEmployeeWorkshop();
   const wizard = useInterviewWizard();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
@@ -39,6 +42,10 @@ export function AgentPanel({ onSelectEmployee, selectedEmployeeId }: AgentPanelP
               <ClipboardList className="h-3.5 w-3.5 mr-2" />
               Interview Onboarding
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => workshop.open()}>
+              <Wrench className="h-3.5 w-3.5 mr-2" />
+              Workshop
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -53,6 +60,7 @@ export function AgentPanel({ onSelectEmployee, selectedEmployeeId }: AgentPanelP
         />
       ))}
       <EmployeeEditorDialog {...editor} />
+      <EmployeeWorkshop {...workshop} />
       <InterviewWizard
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
