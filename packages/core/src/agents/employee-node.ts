@@ -19,9 +19,12 @@ import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
+import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
+
+import type { CitationRef } from '../graph/state.js';
 
 /** Maximum number of employee-to-employee handoffs per thread. */
 const MAX_HANDOFF_COUNT = 3;
@@ -97,6 +100,32 @@ function formatMemoriesSection(memories: MemoryEntryRow[]): string {
   return `\n\n## Your memories\n${lines.join('\n')}`;
 }
 
+/**
+ * Extract [N] citation references from an LLM response and map them
+ * back to the citation entries that were injected into the prompt.
+ * Returns only citations that were actually referenced in the text.
+ */
+export function extractUsedCitations(
+  responseText: string,
+  citationMap: CitationEntry[],
+): CitationRef[] {
+  if (citationMap.length === 0 || !responseText) return [];
+  const usedIndices = new Set<number>();
+  const re = /\[(\d+)]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(responseText)) !== null) {
+    usedIndices.add(Number(m[1]));
+  }
+  return citationMap
+    .filter((c) => usedIndices.has(c.index))
+    .map((c) => ({
+      index: c.index,
+      docTitle: c.docTitle,
+      docId: c.docId,
+      snippet: c.snippet,
+    }));
+}
+
 export async function employeeNode(
   state: AicsGraphState,
   config: RunnableConfig,
@@ -170,13 +199,20 @@ export async function employeeNode(
     }
   }
 
-  // --- Inject relevant library documents into system prompt ---
+  // --- Inject relevant library documents into system prompt (with numbered citations) ---
+  let citationMap: CitationEntry[] = [];
   if (taskDescription && repos.libraryDocuments) {
     try {
       const libraryService = new LibraryService(repos.libraryDocuments, eventBus);
-      const librarySnippets = await libraryService.getRelevantSnippets(companyId, taskDescription);
-      if (librarySnippets) {
-        systemPrompt += `\n\n## Relevant company documents\n${librarySnippets}`;
+      const { text, citations } = await libraryService.getRelevantSnippetsWithCitations(
+        companyId,
+        taskDescription,
+      );
+      if (text) {
+        citationMap = citations;
+        systemPrompt +=
+          `\n\n## Relevant company documents\n${text}` +
+          `\n\nWhen referencing these documents, cite them using [N] notation.`;
       }
     } catch {
       // Library retrieval failure is non-critical
@@ -499,6 +535,9 @@ export async function employeeNode(
       }
     }
 
+    // Extract citations actually used in the response
+    const usedCitations = extractUsedCitations(llmResponse.content, citationMap);
+
     return {
       currentEmployeeId: employee.employee_id,
       currentTaskRunId: taskRunId ?? null,
@@ -511,6 +550,7 @@ export async function employeeNode(
           employeeName: employee.name,
           content: llmResponse.content,
           taskRunId: taskRunId ?? '',
+          citations: usedCitations.length > 0 ? usedCitations : undefined,
         },
       ],
     };

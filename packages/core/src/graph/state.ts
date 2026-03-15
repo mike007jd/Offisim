@@ -36,11 +36,22 @@ export interface ManagerDirective {
   sopTemplateId?: string;  // explicit SOP selection — bypasses substring matching
 }
 
+/** A citation reference extracted from an employee response. */
+export interface CitationRef {
+  /** 1-based index matching [N] in the response text. */
+  index: number;
+  docTitle: string;
+  docId: string;
+  snippet: string;
+}
+
 export interface StepTaskOutput {
   employeeId: string;
   employeeName: string;
   content: string;
   taskRunId: string;
+  /** Library document citations used in this response (empty array if none). */
+  citations?: CitationRef[];
 }
 
 export interface StepResult {

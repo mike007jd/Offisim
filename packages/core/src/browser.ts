@@ -99,6 +99,7 @@ export type {
   ManagerDirective,
   StepTaskOutput,
   StepResult,
+  CitationRef,
 } from './graph/state.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
@@ -186,6 +187,7 @@ export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
+export type { CitationEntry } from './services/library-service.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
 export { listTemplates, getTemplate } from './templates/index.js';
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';

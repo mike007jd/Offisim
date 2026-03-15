@@ -1,6 +1,15 @@
 import type { EventBus } from '../events/event-bus.js';
 import type { LibraryDocumentRepository, LibraryDocumentRow } from '../runtime/repositories.js';
 
+/** A structured citation entry returned alongside formatted snippets. */
+export interface CitationEntry {
+  /** 1-based index matching [N] in the prompt text. */
+  index: number;
+  docTitle: string;
+  docId: string;
+  snippet: string;
+}
+
 /** Score a document's relevance to a multi-keyword query */
 export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): number {
   let score = 0;
@@ -132,5 +141,58 @@ export class LibraryService {
       result += entry;
     }
     return result.trim();
+  }
+
+  /**
+   * Like getRelevantSnippets but returns structured citation metadata alongside the formatted text.
+   * The text uses numbered [N] markers: `[1] Title (doc_id)\nsnippet\n\n[2] ...`
+   */
+  async getRelevantSnippetsWithCitations(
+    companyId: string,
+    query: string,
+    maxChars: number = 4000,
+  ): Promise<{ text: string; citations: CitationEntry[] }> {
+    const keywords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((k) => k.length >= 2);
+    if (keywords.length === 0) return { text: '', citations: [] };
+
+    // Fetch candidates by searching each keyword individually for wider recall
+    const seen = new Set<string>();
+    const docs: LibraryDocumentRow[] = [];
+    for (const kw of keywords) {
+      const results = await this.libraryRepo.search(companyId, kw, { limit: 20 });
+      for (const doc of results) {
+        if (!seen.has(doc.doc_id)) {
+          seen.add(doc.doc_id);
+          docs.push(doc);
+        }
+      }
+    }
+    if (docs.length === 0) return { text: '', citations: [] };
+
+    // Score, filter, and rank by relevance
+    const scored = docs
+      .map((doc) => ({ doc, score: scoreDocument(doc, keywords) }))
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    if (scored.length === 0) return { text: '', citations: [] };
+
+    // Build result with numbered citations
+    let result = '';
+    const citations: CitationEntry[] = [];
+    let idx = 1;
+    for (const { doc } of scored) {
+      const snippet = extractRelevantSnippet(doc.content_text, keywords);
+      const entry = `[${idx}] ${doc.title} (${doc.doc_id})\n${snippet}\n\n`;
+      if (result.length + entry.length > maxChars) break;
+      result += entry;
+      citations.push({ index: idx, docTitle: doc.title, docId: doc.doc_id, snippet });
+      idx++;
+    }
+    return { text: result.trim(), citations };
   }
 }
