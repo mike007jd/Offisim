@@ -173,6 +173,7 @@ market.get('/listings/:listingId', async (c) => {
     version: latestVersion
       ? {
           package_id: latestVersion.package_id,
+          package_version_id: latestVersion.package_version_id,
           version: latestVersion.version,
           runtime_range: latestVersion.runtime_range,
           schema_version: latestVersion.schema_version,
@@ -269,6 +270,7 @@ market.get('/listings/by-slug/:slug', async (c) => {
     version: latestVersion
       ? {
           package_id: latestVersion.package_id,
+          package_version_id: latestVersion.package_version_id,
           version: latestVersion.version,
           runtime_range: latestVersion.runtime_range,
           schema_version: latestVersion.schema_version,
@@ -327,6 +329,7 @@ market.get('/listings/:listingId/versions', async (c) => {
     listing_id: listingId,
     versions: versions.map((v) => ({
       package_id: v.package_id,
+      package_version_id: v.package_version_id,
       version: v.version,
       runtime_range: v.runtime_range,
       schema_version: v.schema_version,
