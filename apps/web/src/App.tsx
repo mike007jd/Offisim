@@ -6,6 +6,7 @@ import {
   ChatDrawer,
   ChatPanel,
   CompanyCreationWizard,
+  CompanyEditor,
   ErrorBoundary,
   Header,
   InstallDialog,
@@ -16,6 +17,7 @@ import {
   loadProviderConfig,
   useAicsRuntime,
   useAgentStates,
+  useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
   useReducedMotion,
@@ -32,6 +34,7 @@ export function App() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const { reinitRuntime } = useAicsRuntime();
   const reducedMotion = useReducedMotion();
+  const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
@@ -67,6 +70,7 @@ export function App() {
             <Header
               providerName={providerConfig?.model}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenCompanyEditor={companyEditor.open}
               onFileImport={installFlow.startFileImport}
             />
           }
@@ -104,6 +108,7 @@ export function App() {
           onSave={handleSaveConfig}
         />
         <InstallDialog {...installFlow} />
+        <CompanyEditor {...companyEditor} />
         <CompanyCreationWizard />
       </>
     </ErrorBoundary>
