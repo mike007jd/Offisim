@@ -35,6 +35,8 @@ export function EmployeeEditorDialog({
   cancelDelete,
   confirmDelete,
   close,
+  sourceAssetId,
+  sourcePackageId,
 }: EmployeeEditorDialogProps) {
   const isEditMode = employeeId !== null;
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
@@ -244,7 +246,13 @@ export function EmployeeEditorDialog({
           {/* History Tab (edit mode only) */}
           {isEditMode && employeeId && (
             <TabsContent value="history">
-              <VersionHistoryTab employeeId={employeeId} />
+              <VersionHistoryTab
+                employeeId={employeeId}
+                forkOrigin={sourceAssetId ? {
+                  sourceAssetId,
+                  sourcePackageId: sourcePackageId ?? null,
+                } : null}
+              />
             </TabsContent>
           )}
         </Tabs>

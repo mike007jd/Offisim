@@ -17,7 +17,7 @@ export default function PublishPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-400">Loading…</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading…</span>
       </div>
     );
   }
@@ -28,7 +28,7 @@ export default function PublishPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">New Listing</h1>
+      <h1 className="mb-6 font-display text-2xl font-bold text-[var(--text-primary)]">New Listing</h1>
       <PublishWizard onComplete={() => router.push('/dashboard')} />
     </div>
   );

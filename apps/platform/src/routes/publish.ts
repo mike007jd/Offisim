@@ -171,6 +171,36 @@ publish.get('/drafts/:draftId', async (c) => {
   });
 });
 
+// DELETE /v1/publish/drafts/:draftId — delete a draft (only non-submitted drafts)
+publish.delete('/drafts/:draftId', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId')!;
+  const draftId = c.req.param('draftId');
+
+  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
+  if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
+
+  const [draft] = await db
+    .select()
+    .from(publishDrafts)
+    .where(
+      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
+    )
+    .limit(1);
+
+  if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
+
+  if (draft.status === 'submitted' || draft.status === 'approved') {
+    throw new HTTPException(400, {
+      message: `Cannot delete a draft with status "${draft.status}". Only drafts in "draft", "validated", or "rejected" status can be deleted.`,
+    });
+  }
+
+  await db.delete(publishDrafts).where(eq(publishDrafts.draft_id, draftId));
+
+  return c.json({ deleted: true, draft_id: draftId });
+});
+
 // PUT /v1/publish/drafts/:draftId/manifest — attach manifest to draft
 publish.put('/drafts/:draftId/manifest', async (c) => {
   const db = c.get('db');

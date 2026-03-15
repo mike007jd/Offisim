@@ -6,7 +6,7 @@ import { Alert, AlertDescription, Badge, Button } from '@aics/ui-core';
 
 import type { RiskClass } from '@aics/asset-schema';
 import type { InstallPlan } from '@aics/install-core';
-import { AlertTriangle, Globe, HardDrive, KeyRound, Shield } from 'lucide-react';
+import { AlertTriangle, Globe, HardDrive, KeyRound, Server, Shield } from 'lucide-react';
 
 interface ManifestReviewProps {
   plan: InstallPlan;
@@ -90,6 +90,30 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
           </span>
         </div>
       </div>
+
+      {/* Required MCP Servers */}
+      {manifest.requirements.required_mcps.length > 0 && (
+        <div className="border-2 border-ocean-light p-3 space-y-2">
+          <h4 className="text-xs font-medium text-ocean-light uppercase tracking-wide font-pixel-body">
+            Required MCP Servers
+          </h4>
+          {manifest.requirements.required_mcps.map((mcp) => (
+            <div key={mcp} className="flex items-center gap-2 text-sm text-shell">
+              <Server className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-sand font-medium">{mcp}</span>
+            </div>
+          ))}
+          <Alert variant="warning">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="text-xs">
+                This package requires the MCP servers listed above. Ensure they
+                are configured in your local runtime before installing.
+              </span>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Confirmation reasons */}
       {confirmationReasons.length > 0 && (

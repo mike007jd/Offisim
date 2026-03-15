@@ -36,7 +36,7 @@ export default function HistoryPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-500">Loading history...</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading history...</span>
       </div>
     );
   }
@@ -44,14 +44,14 @@ export default function HistoryPage() {
   if (error) {
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-[var(--accent-rose)]">{error}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-gray-900">Install History</h1>
+      <h1 className="mb-6 font-display text-xl font-bold text-[var(--text-primary)]">Install History</h1>
       <HistoryList items={items} />
     </div>
   );

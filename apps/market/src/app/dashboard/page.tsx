@@ -51,22 +51,32 @@ export default function DashboardPage() {
   }, [token]);
 
   async function handleDeleteDraft(draftId: string) {
-    // Optimistically remove from list — deletion endpoint not yet implemented,
-    // so we just update local state. A real delete endpoint would be wired here.
+    if (!token) return;
+    // Optimistically remove from UI
+    const previousDrafts = drafts;
     setDrafts((prev) => prev.filter((d) => d.draft_id !== draftId));
+
+    try {
+      const client = getClient(token);
+      await client.deleteMyDraft(draftId);
+    } catch (err) {
+      // Rollback on failure
+      setDrafts(previousDrafts);
+      setError(err instanceof Error ? err.message : 'Failed to delete draft');
+    }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <span className="text-sm text-gray-400">Loading dashboard…</span>
+        <span className="text-sm text-[var(--text-muted)]">Loading dashboard…</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-600">
+      <div className="rounded-md bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]">
         {error}
       </div>
     );
@@ -77,10 +87,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
         <a
           href="/dashboard/publish"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-md bg-[var(--accent-indigo)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
         >
           New Listing
         </a>
@@ -93,7 +103,7 @@ export default function DashboardPage() {
       />
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Your Listings</h2>
+        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">Your Listings</h2>
         {listings.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {listings.map((listing) => (
@@ -101,11 +111,11 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center">
-            <p className="text-sm text-gray-500">No published listings yet.</p>
+          <div className="rounded-lg border border-dashed border-[var(--border-bright)] py-10 text-center">
+            <p className="text-sm text-[var(--text-muted)]">No published listings yet.</p>
             <a
               href="/dashboard/publish"
-              className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent-indigo)] hover:underline"
             >
               Create your first listing
             </a>
@@ -114,7 +124,7 @@ export default function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Drafts</h2>
+        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">Drafts</h2>
         {drafts.length > 0 ? (
           <div className="flex flex-col gap-2">
             {drafts.map((draft) => (
@@ -122,8 +132,8 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center">
-            <p className="text-sm text-gray-500">No drafts yet.</p>
+          <div className="rounded-lg border border-dashed border-[var(--border-bright)] py-10 text-center">
+            <p className="text-sm text-[var(--text-muted)]">No drafts yet.</p>
           </div>
         )}
       </section>
