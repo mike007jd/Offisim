@@ -3,8 +3,16 @@ import { useState } from 'react';
 import { useEmployeeVersions } from '../../hooks/useEmployeeVersions';
 import { VersionDiffTable } from './VersionDiffTable';
 
+interface ForkOrigin {
+  sourceAssetId: string;
+  sourcePackageId?: string | null;
+  sourceUrl?: string | null;
+}
+
 interface VersionHistoryTabProps {
   employeeId: string;
+  /** If this employee was installed from a marketplace asset, show provenance. */
+  forkOrigin?: ForkOrigin | null;
 }
 
 const CHANGE_TYPE_BADGE: Record<
@@ -25,7 +33,7 @@ function formatTimestamp(iso: string): string {
   }
 }
 
-export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
+export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabProps) {
   const { versions, loading, diffResult, selectedVersion, selectVersion, rollback, isRollingBack } =
     useEmployeeVersions(employeeId);
 
@@ -49,6 +57,33 @@ export function VersionHistoryTab({ employeeId }: VersionHistoryTabProps) {
 
   return (
     <div className="flex flex-col gap-3 pt-2">
+      {/* Fork provenance badge */}
+      {forkOrigin && (
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-sea-blue/10 border border-sea-blue/20">
+          <Badge variant="info" className="shrink-0">Forked</Badge>
+          <span className="text-xs text-shell/70">
+            From:{' '}
+            {forkOrigin.sourceUrl ? (
+              <a
+                href={forkOrigin.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sea-blue hover:underline"
+              >
+                {forkOrigin.sourceAssetId}
+              </a>
+            ) : (
+              <span className="font-mono">{forkOrigin.sourceAssetId}</span>
+            )}
+            {forkOrigin.sourcePackageId && (
+              <span className="text-shell/50 ml-1">
+                (pkg: {forkOrigin.sourcePackageId})
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Timeline list */}
       <ScrollArea className="max-h-48">
         <div className="flex flex-col gap-1">

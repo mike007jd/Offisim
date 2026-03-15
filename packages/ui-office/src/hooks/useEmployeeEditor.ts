@@ -87,6 +87,9 @@ export interface UseEmployeeEditorReturn {
   isDirty: boolean;
   isSaving: boolean;
   isConfirmingDelete: boolean;
+  /** Non-null when the employee was installed from a marketplace asset. */
+  sourceAssetId: string | null;
+  sourcePackageId: string | null;
   setFormData: (data: EmployeeFormData) => void;
   updateField: <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => void;
   openForEdit: (id: string) => Promise<void>;
@@ -107,6 +110,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const [originalData, setOriginalData] = useState<EmployeeFormData>(DEFAULT_FORM);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [sourceAssetId, setSourceAssetId] = useState<string | null>(null);
+  const [sourcePackageId, setSourcePackageId] = useState<string | null>(null);
 
   const updateField = useCallback(
     <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {
@@ -137,6 +142,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       setFormData(data);
       setOriginalData(data);
       setIsDirty(false);
+      setSourceAssetId(row.source_asset_id ?? null);
+      setSourcePackageId(row.source_package_id ?? null);
       setIsOpen(true);
     },
     [repos],
@@ -147,6 +154,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     setFormData(DEFAULT_FORM);
     setOriginalData(DEFAULT_FORM);
     setIsDirty(false);
+    setSourceAssetId(null);
+    setSourcePackageId(null);
     setIsOpen(true);
   }, []);
 
@@ -271,5 +280,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     cancelDelete,
     confirmDelete,
     close,
+    sourceAssetId,
+    sourcePackageId,
   };
 }

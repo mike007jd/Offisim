@@ -104,6 +104,10 @@ export class RegistryClient {
     return this.post<SubmitResponse>('/v1/publish/submit', req);
   }
 
+  async deleteMyDraft(draftId: string): Promise<{ deleted: boolean; draft_id: string }> {
+    return this.delete<{ deleted: boolean; draft_id: string }>(`/v1/publish/drafts/${draftId}`);
+  }
+
   async listMyDrafts(params?: ListDraftsParams): Promise<ListDraftsResponse> {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
@@ -179,5 +183,9 @@ export class RegistryClient {
 
   private put<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>('PUT', path, body);
+  }
+
+  private delete<T>(path: string): Promise<T> {
+    return this.request<T>('DELETE', path);
   }
 }
