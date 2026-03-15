@@ -1,6 +1,6 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { graphNodeExited } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { AicsGraphState, MeetingInterrupt, MeetingInterruptType } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 /**
@@ -26,15 +26,65 @@ export class OrchestrationService {
     private runtimeCtx: RuntimeContext,
   ) {}
 
+  /**
+   * Send a meeting interrupt command.
+   * This sets the interrupt on the RuntimeContext's meetingInterruptBox,
+   * which will be picked up by the participantTurnNode after its current
+   * LLM call completes. The meetingTurnCheck then routes accordingly.
+   *
+   * - 'pause': pause the meeting, preserving state for later resume
+   * - 'end': end the meeting immediately
+   * - 'inject': inject a boss comment into the meeting transcript
+   * - null: clear any pending interrupt (used for resume)
+   */
+  interruptMeeting(type: MeetingInterruptType, bossComment?: string): void {
+    this.runtimeCtx.meetingInterruptBox.pending = type ? { type, bossComment } : null;
+  }
+
+  /** Check if there is a pending meeting interrupt. */
+  get hasPendingInterrupt(): boolean {
+    return this.runtimeCtx.meetingInterruptBox.pending !== null;
+  }
+
+  /**
+   * Resume a paused meeting.
+   * Re-invokes the graph with the paused meeting's ID and a resume signal.
+   */
+  async resumeMeeting(meetingId: string, messages: BaseMessage[]): Promise<AicsGraphState> {
+    return this.execute({
+      entryMode: 'meeting',
+      messages,
+      meetingId,
+      meetingInterrupt: { type: null }, // null type = resume
+    });
+  }
+
+  /**
+   * End a paused meeting.
+   * Re-invokes the graph with the paused meeting's ID and an end signal.
+   */
+  async endPausedMeeting(meetingId: string, messages: BaseMessage[]): Promise<AicsGraphState> {
+    return this.execute({
+      entryMode: 'meeting',
+      messages,
+      meetingId,
+      meetingInterrupt: { type: 'end' },
+    });
+  }
+
   async execute(input: {
     entryMode: AicsGraphState['entryMode'];
     messages: BaseMessage[];
     targetEmployeeId?: string | null;
+    meetingId?: string | null;
+    meetingInterrupt?: MeetingInterrupt | null;
   }): Promise<AicsGraphState> {
     const fullInput = {
       threadId: this.runtimeCtx.threadId,
       companyId: this.runtimeCtx.companyId,
       targetEmployeeId: input.targetEmployeeId ?? null,
+      meetingId: input.meetingId ?? null,
+      meetingInterrupt: input.meetingInterrupt ?? null,
       ...input,
     };
 

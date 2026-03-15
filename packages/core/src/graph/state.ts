@@ -57,6 +57,16 @@ export interface MeetingActionItem {
   dependsOn: string[];
 }
 
+/** Boss can send an interrupt to a running meeting. */
+export type MeetingInterruptType = 'pause' | 'end' | 'inject' | null;
+
+/** When interrupt type is 'inject', this carries the boss comment. */
+export interface MeetingInterrupt {
+  type: MeetingInterruptType;
+  /** Boss comment injected into the meeting (only used when type === 'inject'). */
+  bossComment?: string;
+}
+
 export const AicsGraphAnnotation = Annotation.Root({
   // Thread tracking
   threadId: Annotation<string>,
@@ -151,6 +161,12 @@ export const AicsGraphAnnotation = Annotation.Root({
   meetingActionItems: Annotation<MeetingActionItem[]>({
     default: () => [],
     reducer: (_, b) => b,
+  }),
+
+  // P2.5: Boss meeting interrupt — pause, end, or inject comment
+  meetingInterrupt: Annotation<MeetingInterrupt | null>({
+    default: () => null,
+    reducer: (_, v) => v,
   }),
 
   // HR assessment output — populated by hrNode, consumed by bossSummaryNode
