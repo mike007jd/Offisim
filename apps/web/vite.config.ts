@@ -136,6 +136,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['@aics/core', '@aics/core/browser', '@aics/shared-types'],
+    exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
   },
   build: {
     // vendor-llm (LLM SDKs) and vendor-pixi (PixiJS) are large but unavoidable.
