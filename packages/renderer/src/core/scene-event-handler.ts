@@ -8,9 +8,12 @@ import type {
   EmployeeInstalledPayload,
   EmployeeStatePayload,
   EmployeeWorkstationChangedPayload,
+  ErrorOccurredPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  LlmUsageRecordedPayload,
   McpToolCalledPayload,
+  McpToolResultPayload,
   MeetingStatePayload,
   ReportStatePayload,
   TaskAssignmentPayload,
@@ -72,6 +75,10 @@ export class SceneEventHandler {
   private unsubscribers: (() => void)[] = [];
   private readonly nodeActiveEmployees: Map<string, string> = new Map();
   private readonly nodeVisualMap: Record<string, NodeVisualMapping>;
+  /** Accumulated token cost per employee (reset on task unassignment). */
+  private readonly employeeCost: Map<string, number> = new Map();
+  /** Accumulated reference count per employee (reset on task unassignment). */
+  private readonly employeeRefs: Map<string, number> = new Map();
 
   constructor(
     private readonly eventBus: SceneEventBus,
@@ -299,6 +306,70 @@ export class SceneEventHandler {
         }
       }),
     );
+
+    // ── Bubble info: LLM cost tracking ──
+    // Each llm.usage.recorded carries token counts. We estimate cost from tokens
+    // using a rough $/Mtok average and accumulate per-employee via taskRunId mapping.
+    this.unsubscribers.push(
+      this.eventBus.on('llm.usage.recorded', (event) => {
+        const payload = event.payload as LlmUsageRecordedPayload;
+        // Find the employee entity for this task — event.entityId is the employee
+        const employeeId = event.entityId;
+        if (!employeeId) return;
+        const entity = this.delegate.getEntity(employeeId);
+        if (!entity) return;
+
+        // Estimate cost: use a rough average of $3/Mtok input, $15/Mtok output
+        const costDelta =
+          (payload.inputTokens / 1_000_000) * 3 +
+          (payload.outputTokens / 1_000_000) * 15;
+        const prev = this.employeeCost.get(employeeId) ?? 0;
+        const total = prev + costDelta;
+        this.employeeCost.set(employeeId, total);
+
+        entity.setBubbleInfo({ cost: total });
+      }),
+    );
+
+    // ── Bubble info: MCP tool result (reference counting + error text) ──
+    this.unsubscribers.push(
+      this.eventBus.on('mcp.tool.result', (event) => {
+        const payload = event.payload as McpToolResultPayload;
+        const entity = this.delegate.getEntity(payload.employeeId);
+        if (!entity) return;
+
+        if (payload.success) {
+          // Count successful tool calls as "references" when employee is searching
+          const prev = this.employeeRefs.get(payload.employeeId) ?? 0;
+          this.employeeRefs.set(payload.employeeId, prev + 1);
+          entity.setBubbleInfo({ referenceCount: prev + 1 });
+        } else if (payload.error) {
+          entity.setBubbleInfo({ errorText: payload.error });
+        }
+      }),
+    );
+
+    // ── Bubble info: error.occurred → show readable error on employee ──
+    this.unsubscribers.push(
+      this.eventBus.on('error.occurred', (event) => {
+        const payload = event.payload as ErrorOccurredPayload;
+        if (!payload.employeeId) return;
+        const entity = this.delegate.getEntity(payload.employeeId);
+        if (!entity) return;
+        entity.setBubbleInfo({ errorText: payload.message });
+      }),
+    );
+
+    // ── Clear accumulated cost/refs when task is unassigned ──
+    this.unsubscribers.push(
+      this.eventBus.on('task.assignment.changed', (event) => {
+        const payload = event.payload as TaskAssignmentPayload;
+        if (payload.action === 'unassigned') {
+          this.employeeCost.delete(payload.employeeId);
+          this.employeeRefs.delete(payload.employeeId);
+        }
+      }),
+    );
   }
 
   /** Unsubscribe from all events. */
@@ -306,6 +377,8 @@ export class SceneEventHandler {
     for (const unsub of this.unsubscribers) unsub();
     this.unsubscribers = [];
     this.nodeActiveEmployees.clear();
+    this.employeeCost.clear();
+    this.employeeRefs.clear();
   }
 
   // ── Private helpers ──

@@ -1,6 +1,7 @@
 // @aics/renderer — PixiJS 8 + GSAP 3 office scene renderer
 export { SceneManager } from './core/scene-manager.js';
 export type {
+  BubbleInfo,
   SceneEventBus,
   SceneManagerOptions,
   SceneEntity,

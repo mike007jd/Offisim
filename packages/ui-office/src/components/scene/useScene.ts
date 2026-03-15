@@ -1,5 +1,6 @@
 import { SceneManager } from '@aics/renderer';
 import type { SceneEventBus } from '@aics/renderer';
+import { WorkstationAssignmentService } from '@aics/core/browser';
 import { useEffect, useRef, useState } from 'react';
 import { COMPANY_ID } from '../../lib/constants';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
@@ -85,6 +86,29 @@ export function useScene(reducedMotion = false) {
     });
     return unsub;
   }, [eventBus]);
+
+  // Wire drag-drop to WorkstationAssignmentService for persistence.
+  // The renderer emits 'employee.workstation.drop-requested' on successful drops;
+  // this effect listens and calls the service to persist the assignment to DB.
+  useEffect(() => {
+    if (!eventBus || !repos) return;
+    const service = new WorkstationAssignmentService(repos.employees, eventBus);
+    const unsub = (eventBus as SceneEventBus).on(
+      'employee.workstation.drop-requested',
+      (event) => {
+        const payload = event.payload as {
+          employeeId: string;
+          targetWorkstationId: string | null;
+        };
+        service
+          .assignToWorkstation(payload.employeeId, payload.targetWorkstationId)
+          .catch((err) => {
+            console.error('[useScene] workstation assignment failed:', err);
+          });
+      },
+    );
+    return unsub;
+  }, [eventBus, repos]);
 
   // Populate scene with real employees from repos.
   // When repos identity changes (reinitRuntime → new repos), clear old employees

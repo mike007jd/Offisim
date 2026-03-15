@@ -104,6 +104,7 @@ function createMockEntity(id: string, x = 100, y = 100): SceneEntity {
     setState: vi.fn(),
     setTask: vi.fn(),
     setHighlight: vi.fn(),
+    setBubbleInfo: vi.fn(),
     flashHighlight: vi.fn(),
     destroy: vi.fn(),
   };
