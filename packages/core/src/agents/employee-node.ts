@@ -261,6 +261,7 @@ export async function employeeNode(
   const mcpTools = workstationToolResolver
     ? await workstationToolResolver.resolveForEmployee(companyId, employee.employee_id)
     : await toolExecutor.listAvailable(companyId);
+  const allowedMcpToolNames = new Set(mcpTools.map((t) => t.name));
   const allTools = [...virtualTools, ...mcpTools];
 
   try {
@@ -417,25 +418,18 @@ export async function employeeNode(
         }
 
         // Non-memory, non-handoff tool calls — delegate to toolExecutor
-        // PRD 2.3: Verify workstation access before executing MCP tool
-        if (workstationToolResolver) {
-          const hasAccess = await workstationToolResolver.isToolAccessible(
-            companyId,
-            employee.employee_id,
-            toolCall.name,
-          );
-          if (!hasAccess) {
-            toolResults.push({
-              callId: toolCall.id,
-              name: toolCall.name,
-              result: {
-                success: false,
-                result: null,
-                error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
-              },
-            });
-            continue;
-          }
+        // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries)
+        if (workstationToolResolver && !allowedMcpToolNames.has(toolCall.name)) {
+          toolResults.push({
+            callId: toolCall.id,
+            name: toolCall.name,
+            result: {
+              success: false,
+              result: null,
+              error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
+            },
+          });
+          continue;
         }
 
         const result = await toolExecutor.execute({

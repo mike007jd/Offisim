@@ -14,6 +14,7 @@ import { useErrorTracking, type TrackedError } from '../../hooks/useErrorTrackin
 import { useNotifications, type Notification } from '../../hooks/useNotifications';
 import { useTaskQueue } from '../../hooks/useTaskQueue';
 import { useAgentStates } from '../../runtime/use-agent-states';
+import { formatTimestamp, truncate } from '../../lib/format-time';
 import { CompanyStatusCard } from './CompanyStatusCard';
 import { CostByModelCard } from './CostByModelCard';
 import { CostOverviewCard } from './CostOverviewCard';
@@ -27,26 +28,6 @@ import { TaskQueueCard } from './TaskQueueCard';
 interface DashboardOverlayProps {
   open: boolean;
   onClose: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatTimestamp(ts: number): string {
-  const diff = Date.now() - ts;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
 }
 
 // ---------------------------------------------------------------------------

@@ -48,8 +48,8 @@ export function MeetingControls({
   const [showInjectInput, setShowInjectInput] = useState(false);
 
   // Derive meeting status from events
-  const meetingEvents = useEventStream('meeting.state.changed');
-  const latestEvent = meetingEvents.length > 0 ? meetingEvents[meetingEvents.length - 1] : null;
+  const meetingEvents = useEventStream('meeting.state.changed', 1);
+  const latestEvent = meetingEvents[0] ?? null;
 
   let status: MeetingStatus = 'idle';
   if (meetingId && latestEvent) {

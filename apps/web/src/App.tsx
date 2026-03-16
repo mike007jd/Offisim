@@ -116,7 +116,7 @@ export function App() {
           eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
           statusBar={<StatusBar modelName={providerConfig?.model} />}
         />
-        <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+        {dashboardOpen && <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />}
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}

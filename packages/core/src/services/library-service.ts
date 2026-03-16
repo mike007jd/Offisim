@@ -93,23 +93,17 @@ export class LibraryService {
     await this.libraryRepo.delete(docId);
   }
 
-  /**
-   * Get relevant snippets for a query — used by employee-node for document-augmented responses.
-   * Splits query into keywords, scores documents by title (3x) + content (1x) match weight,
-   * sorts by relevance, and extracts snippets centered around keyword matches.
-   */
-  async getRelevantSnippets(
+  /** Shared: fetch, deduplicate, score, and rank documents for a query. */
+  private async fetchAndRankDocuments(
     companyId: string,
     query: string,
-    maxChars: number = 4000,
-  ): Promise<string> {
+  ): Promise<Array<{ doc: LibraryDocumentRow; score: number; snippet: string }>> {
     const keywords = query
       .toLowerCase()
       .split(/\s+/)
       .filter((k) => k.length >= 2);
-    if (keywords.length === 0) return '';
+    if (keywords.length === 0) return [];
 
-    // Fetch candidates by searching each keyword individually for wider recall
     const seen = new Set<string>();
     const docs: LibraryDocumentRow[] = [];
     for (const kw of keywords) {
@@ -121,21 +115,32 @@ export class LibraryService {
         }
       }
     }
-    if (docs.length === 0) return '';
+    if (docs.length === 0) return [];
 
-    // Score, filter, and rank by relevance
-    const scored = docs
-      .map((doc) => ({ doc, score: scoreDocument(doc, keywords) }))
+    return docs
+      .map((doc) => ({
+        doc,
+        score: scoreDocument(doc, keywords),
+        snippet: extractRelevantSnippet(doc.content_text, keywords),
+      }))
       .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
+  }
 
-    if (scored.length === 0) return '';
+  /**
+   * Get relevant snippets for a query — simple text format with document titles.
+   */
+  async getRelevantSnippets(
+    companyId: string,
+    query: string,
+    maxChars: number = 4000,
+  ): Promise<string> {
+    const ranked = await this.fetchAndRankDocuments(companyId, query);
+    if (ranked.length === 0) return '';
 
-    // Build result with keyword-centered snippets
     let result = '';
-    for (const { doc } of scored) {
-      const snippet = extractRelevantSnippet(doc.content_text, keywords);
+    for (const { doc, snippet } of ranked) {
       const entry = `[${doc.title}]\n${snippet}\n\n---\n\n`;
       if (result.length + entry.length > maxChars) break;
       result += entry;
@@ -152,41 +157,13 @@ export class LibraryService {
     query: string,
     maxChars: number = 4000,
   ): Promise<{ text: string; citations: CitationEntry[] }> {
-    const keywords = query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((k) => k.length >= 2);
-    if (keywords.length === 0) return { text: '', citations: [] };
+    const ranked = await this.fetchAndRankDocuments(companyId, query);
+    if (ranked.length === 0) return { text: '', citations: [] };
 
-    // Fetch candidates by searching each keyword individually for wider recall
-    const seen = new Set<string>();
-    const docs: LibraryDocumentRow[] = [];
-    for (const kw of keywords) {
-      const results = await this.libraryRepo.search(companyId, kw, { limit: 20 });
-      for (const doc of results) {
-        if (!seen.has(doc.doc_id)) {
-          seen.add(doc.doc_id);
-          docs.push(doc);
-        }
-      }
-    }
-    if (docs.length === 0) return { text: '', citations: [] };
-
-    // Score, filter, and rank by relevance
-    const scored = docs
-      .map((doc) => ({ doc, score: scoreDocument(doc, keywords) }))
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-
-    if (scored.length === 0) return { text: '', citations: [] };
-
-    // Build result with numbered citations
     let result = '';
     const citations: CitationEntry[] = [];
     let idx = 1;
-    for (const { doc } of scored) {
-      const snippet = extractRelevantSnippet(doc.content_text, keywords);
+    for (const { doc, snippet } of ranked) {
       const entry = `[${idx}] ${doc.title} (${doc.doc_id})\n${snippet}\n\n`;
       if (result.length + entry.length > maxChars) break;
       result += entry;
