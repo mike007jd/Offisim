@@ -2,8 +2,12 @@ import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 
 interface Persona {
   expertise?: string;
+  /** Editor saves as 'style', legacy as 'tone' */
   tone?: string;
+  style?: string;
+  /** Editor saves as 'customInstructions', legacy as 'constraints' */
   constraints?: string;
+  customInstructions?: string;
 }
 
 function parsePersona(json: string | null): Persona {
@@ -27,11 +31,13 @@ export function buildEmployeePrompt(
   if (persona.expertise) {
     lines.push(`Your expertise: ${persona.expertise}`);
   }
-  if (persona.tone) {
-    lines.push(`Communication style: ${persona.tone}`);
+  const style = persona.style ?? persona.tone;
+  if (style) {
+    lines.push(`Communication style: ${style}`);
   }
-  if (persona.constraints) {
-    lines.push(`Constraints: ${persona.constraints}`);
+  const instructions = persona.customInstructions ?? persona.constraints;
+  if (instructions) {
+    lines.push(`Additional instructions: ${instructions}`);
   }
 
   lines.push('');

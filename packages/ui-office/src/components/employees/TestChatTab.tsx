@@ -63,8 +63,8 @@ async function createTestGateway(): Promise<LlmGateway | null> {
   const config = loadProviderConfig();
   if (!config) return null;
 
-  // Dynamic import keeps gateway-factory out of the initial bundle
-  const { createGateway } = await import('@aics/core/dist/llm/gateway-factory.js');
+  // Dynamic import keeps LLM SDKs out of the initial bundle
+  const { createGateway } = await import('@aics/core');
 
   const isDev = typeof window !== 'undefined' && '__VITE_DEV_SERVER_URL' in window;
   const proxyBaseURL =
