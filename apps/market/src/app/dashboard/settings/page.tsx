@@ -168,7 +168,7 @@ export default function SettingsPage() {
               Token created. Copy it now -- you will not be able to see it again.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-white px-3 py-2 text-xs font-mono text-[var(--text-primary)] border border-green-200 break-all">
+              <code className="flex-1 rounded bg-[var(--bg-secondary)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] border border-green-200 break-all">
                 {newToken}
               </code>
               <button

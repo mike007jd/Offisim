@@ -94,7 +94,7 @@ export default async function CreatorPage({ params }: Props) {
             ))}
           </div>
         ) : (
-          <div className="card rounded-xl py-12 text-center">
+          <div className="card rounded-lg py-12 text-center">
             <p className="text-[var(--text-muted)]">No published assets yet.</p>
           </div>
         )}

@@ -8,10 +8,10 @@ const STATUS_BADGE: Record<
   PublishDraft['status'],
   { label: string; className: string }
 > = {
-  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
+  draft: { label: 'Draft', className: 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]' },
   validated: { label: 'Validated', className: 'bg-blue-100 text-blue-700' },
   submitted: { label: 'Submitted', className: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Approved', className: 'bg-green-100 text-green-700' },
+  approved: { label: 'Approved', className: 'bg-green-100 text-[var(--success)]' },
   rejected: { label: 'Rejected', className: 'bg-red-100 text-red-700' },
 };
 
@@ -32,12 +32,12 @@ export function DraftCard({ draft, onDelete }: DraftCardProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         {draft.kind && <KindIcon kind={draft.kind} size={16} />}
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-gray-900">{title}</p>
-          <p className="mt-0.5 text-xs text-gray-500">{createdAt}</p>
+          <p className="truncate text-sm font-medium text-[var(--text-primary)]">{title}</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">{createdAt}</p>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export function DraftCard({ draft, onDelete }: DraftCardProps) {
 
         <a
           href={`/dashboard/publish?draft=${draft.draft_id}`}
-          className="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded border border-[var(--border-bright)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]"
         >
           Edit
         </a>
@@ -57,7 +57,7 @@ export function DraftCard({ draft, onDelete }: DraftCardProps) {
           <button
             type="button"
             onClick={handleDelete}
-            className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10"
           >
             Delete
           </button>

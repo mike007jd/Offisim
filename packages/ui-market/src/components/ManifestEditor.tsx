@@ -9,7 +9,7 @@ export interface ManifestEditorProps {
 }
 
 const inputCls =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+  'w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]';
 
 const ASSET_KINDS = [
   'employee',
@@ -102,12 +102,12 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
         <button
           type="button"
           onClick={mode === 'form' ? handleSwitchToJson : handleSwitchToForm}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-[var(--accent-indigo)] hover:underline"
         >
           {mode === 'form' ? 'Switch to JSON view' : 'Switch to form view'}
         </button>
         {mode === 'json' && jsonError && (
-          <span className="text-xs text-red-500">{jsonError}</span>
+          <span className="text-xs text-[var(--accent-rose)]">{jsonError}</span>
         )}
       </div>
 
@@ -117,25 +117,25 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
           onChange={(e) => handleJsonChange(e.target.value)}
           rows={20}
           spellCheck={false}
-          className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-xs placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-[var(--border-bright)] bg-[var(--bg-tertiary)] px-3 py-2 font-mono text-xs placeholder-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
           placeholder="{}"
         />
       ) : (
         <div className="space-y-6">
           {/* Identity */}
           <section>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               Identity
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Kind
                 </label>
                 <select
                   value={str(getField(manifest, ['package', 'kind']))}
                   onChange={(e) => set(e.target.value, 'package', 'kind')}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
                 >
                   <option value="">Select kind…</option>
                   {ASSET_KINDS.map((k) => (
@@ -146,7 +146,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Title</label>
                 <input
                   type="text"
                   value={str(getField(manifest, ['package', 'title']))}
@@ -156,7 +156,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Summary</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Summary</label>
                 <input
                   type="text"
                   value={str(getField(manifest, ['package', 'summary']))}
@@ -166,7 +166,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Version</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Version</label>
                 <input
                   type="text"
                   value={str(getField(manifest, ['package', 'version']))}
@@ -176,7 +176,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">License</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">License</label>
                 <input
                   type="text"
                   value={str(getField(manifest, ['package', 'license']))}
@@ -190,12 +190,12 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
 
           {/* Compatibility */}
           <section>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               Compatibility
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Runtime Range
                 </label>
                 <input
@@ -207,17 +207,17 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]">
                   Supported Environments
                 </label>
                 <div className="flex flex-wrap gap-3">
                   {ENVIRONMENTS.map((env) => (
-                    <label key={env} className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <label key={env} className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                       <input
                         type="checkbox"
                         checked={environments.includes(env)}
                         onChange={() => toggleEnvironment(env)}
-                        className="rounded border-gray-300"
+                        className="rounded border-[var(--border-bright)]"
                       />
                       {env}
                     </label>
@@ -229,16 +229,16 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
 
           {/* Permissions */}
           <section>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               Permissions
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Risk Class</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Risk Class</label>
                 <select
                   value={str(getField(manifest, ['permissions', 'risk_class']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'risk_class')}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
                 >
                   <option value="">Select risk class…</option>
                   {RISK_CLASSES.map((r) => (
@@ -249,13 +249,13 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Filesystem Scope
                 </label>
                 <select
                   value={str(getField(manifest, ['permissions', 'filesystem_scope']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'filesystem_scope')}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
                 >
                   <option value="">Select scope…</option>
                   {FILESYSTEM_SCOPES.map((s) => (
@@ -266,13 +266,13 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Network Scope
                 </label>
                 <select
                   value={str(getField(manifest, ['permissions', 'network_scope']))}
                   onChange={(e) => set(e.target.value, 'permissions', 'network_scope')}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
                 >
                   <option value="">Select scope…</option>
                   {NETWORK_SCOPES.map((s) => (
@@ -282,12 +282,12 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                   ))}
                 </select>
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={bool(getField(manifest, ['permissions', 'declares_secrets']))}
                   onChange={(e) => set(e.target.checked, 'permissions', 'declares_secrets')}
-                  className="rounded border-gray-300"
+                  className="rounded border-[var(--border-bright)]"
                 />
                 Declares secrets (requires secret bindings after install)
               </label>
@@ -296,12 +296,12 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
 
           {/* Distribution */}
           <section>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               Distribution
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Source URL</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Source URL</label>
                 <input
                   type="text"
                   value={str(getField(manifest, ['distribution', 'source_url']))}
@@ -311,7 +311,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Package SHA-256
                 </label>
                 <input
@@ -319,7 +319,7 @@ export function ManifestEditor({ manifest, onChange }: ManifestEditorProps) {
                   value={str(getField(manifest, ['integrity', 'package_sha256']))}
                   onChange={(e) => set(e.target.value, 'integrity', 'package_sha256')}
                   placeholder="sha256 hex string"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 font-mono text-xs placeholder-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]"
                 />
               </div>
             </div>

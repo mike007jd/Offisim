@@ -7,7 +7,7 @@ export interface ForkListProps {
 
 export function ForkList({ forks }: ForkListProps) {
   if (forks.length === 0) {
-    return <p className="text-sm text-gray-500">No forks yet.</p>;
+    return <p className="text-sm text-[var(--text-muted)]">No forks yet.</p>;
   }
 
   return (
@@ -16,13 +16,13 @@ export function ForkList({ forks }: ForkListProps) {
         <a
           key={fork.listingId}
           href={`/listing/${fork.slug}`}
-          className="block rounded-md border border-gray-200 p-3 hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+          className="block rounded-md border border-[var(--border)] p-3 hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-900">{fork.title}</span>
-            <span className="font-mono text-xs text-gray-400">v{fork.version}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{fork.title}</span>
+            <span className="font-mono text-xs text-[var(--text-muted)]">v{fork.version}</span>
           </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-muted)]">
             <span>by @{fork.creatorHandle}</span>
             <span>&middot;</span>
             <span>{formatDate(fork.forkedAt)}</span>

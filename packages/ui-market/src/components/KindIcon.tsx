@@ -11,5 +11,5 @@ const icons: Record<string, typeof User> = {
 
 export function KindIcon({ kind, size = 16 }: { kind: string; size?: number }) {
   const Icon = icons[kind] ?? Package;
-  return <Icon size={size} className="text-gray-500" />;
+  return <Icon size={size} className="text-[var(--text-muted)]" />;
 }

@@ -4,19 +4,19 @@ import { RatingStars } from './RatingStars.js';
 
 export function ReviewList({ reviews }: { reviews: Review[] }) {
   if (reviews.length === 0) {
-    return <p className="text-sm text-gray-500">No reviews yet.</p>;
+    return <p className="text-sm text-[var(--text-muted)]">No reviews yet.</p>;
   }
 
   return (
     <div className="space-y-4">
       {reviews.map((r) => (
-        <div key={r.review_id} className="border-b border-gray-100 pb-4">
+        <div key={r.review_id} className="border-b border-[var(--border)] pb-4">
           <div className="flex items-center gap-2">
             <RatingStars rating={r.rating} />
-            {r.title && <span className="font-medium text-gray-900">{r.title}</span>}
+            {r.title && <span className="font-medium text-[var(--text-primary)]">{r.title}</span>}
           </div>
-          {r.body && <p className="mt-1 text-sm text-gray-600">{r.body}</p>}
-          <p className="mt-1 text-xs text-gray-400">{formatDate(r.created_at)}</p>
+          {r.body && <p className="mt-1 text-sm text-[var(--text-secondary)]">{r.body}</p>}
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDate(r.created_at)}</p>
         </div>
       ))}
     </div>

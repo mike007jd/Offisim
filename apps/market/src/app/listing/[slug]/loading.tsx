@@ -6,14 +6,14 @@ export default function ListingLoading() {
         {/* Header */}
         <div className="mb-8 space-y-2">
           <div className="flex items-center gap-3">
-            <div className="h-6 w-6 rounded bg-gray-200" />
-            <div className="h-7 w-48 rounded bg-gray-200" />
-            <div className="h-5 w-16 rounded bg-gray-200" />
+            <div className="h-6 w-6 rounded bg-[var(--bg-tertiary)]" />
+            <div className="h-7 w-48 rounded bg-[var(--bg-tertiary)]" />
+            <div className="h-5 w-16 rounded bg-[var(--bg-tertiary)]" />
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-4 w-24 rounded bg-gray-200" />
-            <div className="h-4 w-20 rounded bg-gray-200" />
-            <div className="h-4 w-16 rounded bg-gray-200" />
+            <div className="h-4 w-24 rounded bg-[var(--bg-tertiary)]" />
+            <div className="h-4 w-20 rounded bg-[var(--bg-tertiary)]" />
+            <div className="h-4 w-16 rounded bg-[var(--bg-tertiary)]" />
           </div>
         </div>
 
@@ -21,25 +21,25 @@ export default function ListingLoading() {
           {/* Main content */}
           <div className="space-y-8 lg:col-span-2">
             {/* Install bar */}
-            <div className="h-16 rounded-lg bg-gray-200" />
+            <div className="h-16 rounded-lg bg-[var(--bg-tertiary)]" />
             {/* Description */}
             <div className="space-y-2">
-              <div className="h-5 w-28 rounded bg-gray-200" />
-              <div className="h-4 w-full rounded bg-gray-200" />
-              <div className="h-4 w-3/4 rounded bg-gray-200" />
-              <div className="h-4 w-5/6 rounded bg-gray-200" />
+              <div className="h-5 w-28 rounded bg-[var(--bg-tertiary)]" />
+              <div className="h-4 w-full rounded bg-[var(--bg-tertiary)]" />
+              <div className="h-4 w-3/4 rounded bg-[var(--bg-tertiary)]" />
+              <div className="h-4 w-5/6 rounded bg-[var(--bg-tertiary)]" />
             </div>
             {/* Versions */}
             <div className="space-y-2">
-              <div className="h-5 w-20 rounded bg-gray-200" />
-              <div className="h-24 rounded bg-gray-200" />
+              <div className="h-5 w-20 rounded bg-[var(--bg-tertiary)]" />
+              <div className="h-24 rounded bg-[var(--bg-tertiary)]" />
             </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-4">
-            <div className="h-32 rounded-lg bg-gray-200" />
-            <div className="h-20 rounded-lg bg-gray-200" />
+            <div className="h-32 rounded-lg bg-[var(--bg-tertiary)]" />
+            <div className="h-20 rounded-lg bg-[var(--bg-tertiary)]" />
           </div>
         </div>
       </div>

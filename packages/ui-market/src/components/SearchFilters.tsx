@@ -26,7 +26,7 @@ export function SearchFilters() {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <select
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+        className="rounded border border-[var(--border-bright)] px-3 py-1.5 text-sm"
         value={params.get('kind') ?? ''}
         onChange={(e) => update('kind', e.target.value)}
         aria-label="Filter by kind"
@@ -40,7 +40,7 @@ export function SearchFilters() {
       </select>
 
       <select
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+        className="rounded border border-[var(--border-bright)] px-3 py-1.5 text-sm"
         value={params.get('sort') ?? 'relevance'}
         onChange={(e) => update('sort', e.target.value)}
         aria-label="Sort by"

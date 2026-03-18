@@ -11,9 +11,9 @@ interface StatCardProps {
 
 function StatCard({ label, value }: StatCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 px-5 py-4">
-      <p className="text-2xl font-bold text-gray-900">{value.toLocaleString()}</p>
-      <p className="mt-1 text-sm text-gray-500">{label}</p>
+    <div className="rounded-lg border border-[var(--border)] px-5 py-4">
+      <p className="text-2xl font-bold text-[var(--text-primary)]">{value.toLocaleString()}</p>
+      <p className="mt-1 text-sm text-[var(--text-muted)]">{label}</p>
     </div>
   );
 }

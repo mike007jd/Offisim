@@ -9,7 +9,7 @@ export function VersionTable({ versions }: { versions: VersionSummary[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-gray-500">
+          <tr className="border-b text-left text-[var(--text-muted)]">
             <th className="pb-2 font-medium">Version</th>
             <th className="pb-2 font-medium">Runtime</th>
             <th className="pb-2 font-medium">Environments</th>
@@ -19,13 +19,13 @@ export function VersionTable({ versions }: { versions: VersionSummary[] }) {
         </thead>
         <tbody>
           {versions.map((v) => (
-            <tr key={v.version} className="border-b border-gray-100">
+            <tr key={v.version} className="border-b border-[var(--border)]">
               <td className="py-2 font-mono text-xs">{v.version}</td>
               <td className="py-2 font-mono text-xs">{v.runtime_range}</td>
               <td className="py-2">
                 <div className="flex gap-1">
                   {v.environments.map((env) => (
-                    <span key={env} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">
+                    <span key={env} className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-xs">
                       {env}
                     </span>
                   ))}
@@ -34,7 +34,7 @@ export function VersionTable({ versions }: { versions: VersionSummary[] }) {
               <td className="py-2">
                 <RiskBadge risk={v.risk_class} />
               </td>
-              <td className="py-2 text-gray-500">
+              <td className="py-2 text-[var(--text-muted)]">
                 {v.published_at ? formatDate(v.published_at) : '\u2014'}
               </td>
             </tr>

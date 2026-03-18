@@ -76,7 +76,7 @@ export function InstallButton({ listingId, version, packageVersionId, title }: P
           type="button"
           onClick={handleDeepLink}
           disabled={state === 'opening'}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-60 disabled:cursor-wait transition-opacity"
+          className="inline-flex items-center gap-2 rounded-md bg-[var(--accent-indigo)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-60 disabled:cursor-wait transition-opacity"
         >
           {state === 'opening' ? (
             <>

@@ -10,7 +10,7 @@ export function CreatorBadge({ handle, verification_state }: Props) {
   return (
     <a
       href={`/creator/${handle}`}
-      className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+      className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
     >
       <span>@{handle}</span>
       {verification_state === 'verified' && (

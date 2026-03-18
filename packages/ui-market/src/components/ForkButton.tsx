@@ -25,7 +25,7 @@ export function ForkButton({ listingId, version, forkCount }: ForkButtonProps) {
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+      className="inline-flex items-center gap-2 rounded-md border border-[var(--border-bright)] bg-[var(--bg-secondary)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +46,7 @@ export function ForkButton({ listingId, version, forkCount }: ForkButtonProps) {
       </svg>
       Fork
       {forkCount > 0 && (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+        <span className="rounded-full bg-[var(--bg-tertiary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
           {forkCount}
         </span>
       )}

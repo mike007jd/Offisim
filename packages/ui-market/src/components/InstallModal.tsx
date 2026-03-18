@@ -65,7 +65,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
         role="presentation"
       />
 
-      <div className="relative w-full max-w-md rounded-lg bg-[var(--bg-surface,theme(colors.white))] p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-[var(--bg-surface,theme(colors.white))] p-6 shadow-none border border-[var(--border-bright)]">
         {/* Close button */}
         <button
           type="button"
@@ -92,7 +92,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
           <button
             type="button"
             onClick={handleRetry}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-indigo)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
           >
             <Download size={16} />
             Try Opening in AICS Desktop Again
@@ -137,7 +137,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             href="https://github.com/AICraftsman/AICS/releases"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent-indigo)] hover:text-blue-700"
           >
             <ExternalLink size={14} />
             Download AICS Desktop

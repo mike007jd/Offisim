@@ -55,12 +55,12 @@ export default async function SearchPage({ searchParams }: Props) {
             name="q"
             defaultValue={params.q ?? ''}
             placeholder="Search employees, skills, SOPs..."
-            className="flex-1 rounded-xl border border-[var(--border-bright)] bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]/50 transition-colors"
+            className="flex-1 rounded-lg border border-[var(--border-bright)] bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)]/50 transition-colors"
             aria-label="Search assets"
           />
           <button
             type="submit"
-            className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+            className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
           >
             Search
           </button>
@@ -113,7 +113,7 @@ export default async function SearchPage({ searchParams }: Props) {
           )}
         </>
       ) : (
-        <div className="card rounded-xl py-16 text-center">
+        <div className="card rounded-lg py-16 text-center">
           <p className="text-[var(--text-muted)]">No assets found matching your criteria.</p>
           <a
             href="/search"

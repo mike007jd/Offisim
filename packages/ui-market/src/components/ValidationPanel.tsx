@@ -116,8 +116,8 @@ export function ValidationPanel({ manifest }: ValidationPanelProps) {
       <div
         className={`rounded-md px-4 py-3 text-sm font-medium ${
           allPass
-            ? 'bg-green-50 text-green-800 border border-green-200'
-            : 'bg-red-50 text-red-800 border border-red-200'
+            ? 'bg-[var(--success)]/10 text-green-800 border border-[var(--success)]/20'
+            : 'bg-[var(--accent-rose)]/10 text-red-800 border border-red-200'
         }`}
       >
         {allPass ? 'Ready to submit — all checks passed.' : `${failCount} issue${failCount !== 1 ? 's' : ''} found. Fix before submitting.`}
@@ -128,15 +128,15 @@ export function ValidationPanel({ manifest }: ValidationPanelProps) {
         {checks.map((check) => (
           <li key={check.label} className="flex items-start gap-2 text-sm">
             <span
-              className={`mt-0.5 flex-shrink-0 text-base leading-none ${check.pass ? 'text-green-500' : 'text-red-500'}`}
+              className={`mt-0.5 flex-shrink-0 text-base leading-none ${check.pass ? 'text-green-500' : 'text-[var(--accent-rose)]'}`}
               aria-hidden="true"
             >
               {check.pass ? '✓' : '✗'}
             </span>
-            <span className={check.pass ? 'text-gray-700' : 'text-gray-900 font-medium'}>
+            <span className={check.pass ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)] font-medium'}>
               {check.label}
               {!check.pass && check.message && (
-                <span className="ml-1 font-normal text-red-600">— {check.message}</span>
+                <span className="ml-1 font-normal text-[var(--accent-rose)]">— {check.message}</span>
               )}
             </span>
           </li>

@@ -30,14 +30,14 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
     <div className="space-y-6">
       {/* Card preview */}
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
           Listing card preview
         </p>
-        <div className="max-w-xs rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="max-w-xs rounded-lg border border-[var(--border)] p-4 shadow-sm">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
               <KindIcon kind={draft.kind} size={18} />
-              <h3 className="font-semibold text-gray-900 line-clamp-1">
+              <h3 className="font-semibold text-[var(--text-primary)] line-clamp-1">
                 {draft.title || 'Untitled'}
               </h3>
             </div>
@@ -46,17 +46,17 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
             )}
           </div>
 
-          <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+          <p className="mt-2 text-sm text-[var(--text-secondary)] line-clamp-2">
             {draft.summary || 'No summary provided.'}
           </p>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <span>v{displayVersion}</span>
             {draft.tags && draft.tags.length > 0 && (
               <>
-                <span className="text-gray-300">&middot;</span>
+                <span className="text-[var(--text-muted)]">&middot;</span>
                 {draft.tags.slice(0, 3).map((tag) => (
-                  <span key={tag} className="rounded bg-gray-100 px-1.5 py-0.5">
+                  <span key={tag} className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5">
                     {tag}
                   </span>
                 ))}
@@ -68,30 +68,30 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
 
       {/* Detail page preview */}
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
           Detail page preview
         </p>
-        <div className="rounded-lg border border-gray-200 p-6">
+        <div className="rounded-lg border border-[var(--border)] p-6">
           <div className="flex items-center gap-3">
             <KindIcon kind={draft.kind} size={24} />
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{draft.title || 'Untitled'}</h2>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">{draft.title || 'Untitled'}</h2>
+              <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
                 <span>v{displayVersion}</span>
-                <span className="text-gray-300">&middot;</span>
+                <span className="text-[var(--text-muted)]">&middot;</span>
                 <span>{draft.kind || 'unknown kind'}</span>
               </div>
             </div>
           </div>
 
           {draft.summary && (
-            <p className="mt-4 text-sm font-medium text-gray-700">{draft.summary}</p>
+            <p className="mt-4 text-sm font-medium text-[var(--text-secondary)]">{draft.summary}</p>
           )}
 
           {draft.description && (
             <div className="mt-4">
-              <h3 className="mb-1 text-sm font-semibold text-gray-900">Description</h3>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{draft.description}</p>
+              <h3 className="mb-1 text-sm font-semibold text-[var(--text-primary)]">Description</h3>
+              <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">{draft.description}</p>
             </div>
           )}
 

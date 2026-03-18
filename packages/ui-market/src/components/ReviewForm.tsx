@@ -31,7 +31,7 @@ function StarSelector({
           className={`text-2xl transition-colors disabled:cursor-not-allowed ${
             star <= (hovered || value)
               ? 'text-yellow-400'
-              : 'text-gray-300'
+              : 'text-[var(--text-muted)]'
           }`}
           aria-label={`${star} star${star > 1 ? 's' : ''}`}
         >
@@ -52,7 +52,7 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
 
   if (!auth.user) {
     return (
-      <p className="text-sm text-gray-400 italic">
+      <p className="text-sm text-[var(--text-muted)] italic">
         Sign in to leave a review.
       </p>
     );
@@ -60,8 +60,8 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
 
   if (submitted) {
     return (
-      <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3">
-        <p className="text-sm font-medium text-green-700">
+      <div className="rounded-md border border-[var(--success)]/20 bg-[var(--success)]/10 px-4 py-3">
+        <p className="text-sm font-medium text-[var(--success)]">
           Review submitted successfully. Thank you!
         </p>
       </div>
@@ -106,12 +106,12 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Your rating</label>
+        <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Your rating</label>
         <StarSelector value={rating} onChange={setRating} disabled={submitting} />
       </div>
 
       <div>
-        <label htmlFor="review-comment" className="mb-1 block text-sm font-medium text-gray-700">
+        <label htmlFor="review-comment" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
           Comment (optional, max 500 chars)
         </label>
         <textarea
@@ -122,13 +122,13 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
           rows={3}
           disabled={submitting}
           placeholder="Share your experience with this asset..."
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)] disabled:opacity-50"
         />
-        <p className="mt-1 text-xs text-gray-400">{comment.length}/500</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{comment.length}/500</p>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+        <p role="alert" className="rounded-md bg-[var(--accent-rose)]/10 px-3 py-2 text-sm text-[var(--accent-rose)]">
           {error}
         </p>
       )}
@@ -136,7 +136,7 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
       <button
         type="submit"
         disabled={submitting || rating === 0}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md bg-[var(--accent-indigo)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {submitting ? 'Submitting...' : 'Submit Review'}
       </button>

@@ -148,16 +148,16 @@ function StepIndicator({ steps, currentStep }: { steps: typeof STEPS; currentSte
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                     isDone
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[var(--accent-indigo)] text-white'
                       : isCurrent
-                        ? 'border-2 border-blue-600 text-blue-600'
-                        : 'border-2 border-gray-200 text-gray-400'
+                        ? 'border-2 border-blue-600 text-[var(--accent-indigo)]'
+                        : 'border-2 border-[var(--border)] text-[var(--text-muted)]'
                   }`}
                 >
                   {isDone ? '✓' : step.number}
                 </div>
                 <span
-                  className={`mt-1 text-xs ${isCurrent ? 'font-medium text-blue-600' : 'text-gray-400'}`}
+                  className={`mt-1 text-xs ${isCurrent ? 'font-medium text-[var(--accent-indigo)]' : 'text-[var(--text-muted)]'}`}
                 >
                   {step.label}
                 </span>
@@ -165,7 +165,7 @@ function StepIndicator({ steps, currentStep }: { steps: typeof STEPS; currentSte
               {idx < steps.length - 1 && (
                 <div
                   className={`mx-2 mb-4 h-0.5 w-10 flex-shrink-0 sm:w-16 ${
-                    step.number < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    step.number < currentStep ? 'bg-[var(--accent-indigo)]' : 'bg-[var(--bg-elevated)]'
                   }`}
                 />
               )}
@@ -179,14 +179,14 @@ function StepIndicator({ steps, currentStep }: { steps: typeof STEPS; currentSte
 
 function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-gray-700">
+    <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
       {children}
     </label>
   );
 }
 
 const inputCls =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50';
+  'w-full rounded-md border border-[var(--border-bright)] px-3 py-2 text-sm placeholder-[var(--text-muted)] focus:border-[var(--accent-indigo)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-indigo)] disabled:opacity-50';
 
 // ── Main component ─────────────────────────────────────────────────────────
 
@@ -317,7 +317,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {/* Step 1 — Basic Info */}
       {step === 1 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Basic Info</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Basic Info</h2>
           <div>
             <FieldLabel htmlFor="wiz-kind">Kind</FieldLabel>
             <select
@@ -391,8 +391,8 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {/* Step 2 — Manifest */}
       {step === 2 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Manifest</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Manifest</h2>
+          <p className="text-sm text-[var(--text-muted)]">
             Configure your asset manifest. Switch to JSON view for full control.
           </p>
           <ManifestEditor
@@ -405,8 +405,8 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {/* Step 3 — Validate */}
       {step === 3 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Validate</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Validate</h2>
+          <p className="text-sm text-[var(--text-muted)]">
             All checks must pass before you can proceed.
           </p>
           <ValidationPanel manifest={manifest} />
@@ -416,8 +416,8 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {/* Step 4 — Preview */}
       {step === 4 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Preview</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Preview</h2>
+          <p className="text-sm text-[var(--text-muted)]">
             This is how your listing will appear on the marketplace.
           </p>
           <PublishPreview
@@ -443,43 +443,43 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {/* Step 5 — Submit */}
       {step === 5 && (
         <div className="space-y-6">
-          <h2 className="text-lg font-semibold text-gray-900">Submit for Review</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Submit for Review</h2>
 
           {submissionStatus !== 'success' && (
             <>
-              <div className="rounded-lg border border-gray-200 p-4 text-sm">
-                <h3 className="mb-3 font-semibold text-gray-900">Summary</h3>
-                <dl className="space-y-2 text-gray-700">
+              <div className="rounded-lg border border-[var(--border)] p-4 text-sm">
+                <h3 className="mb-3 font-semibold text-[var(--text-primary)]">Summary</h3>
+                <dl className="space-y-2 text-[var(--text-secondary)]">
                   <div className="flex gap-2">
-                    <dt className="min-w-[80px] font-medium text-gray-500">Title</dt>
+                    <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Title</dt>
                     <dd>{formData.title}</dd>
                   </div>
                   <div className="flex gap-2">
-                    <dt className="min-w-[80px] font-medium text-gray-500">Kind</dt>
+                    <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Kind</dt>
                     <dd>{formData.kind}</dd>
                   </div>
                   {formData.summary && (
                     <div className="flex gap-2">
-                      <dt className="min-w-[80px] font-medium text-gray-500">Summary</dt>
+                      <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Summary</dt>
                       <dd>{formData.summary}</dd>
                     </div>
                   )}
                   {tags.length > 0 && (
                     <div className="flex gap-2">
-                      <dt className="min-w-[80px] font-medium text-gray-500">Tags</dt>
+                      <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Tags</dt>
                       <dd>{tags.join(', ')}</dd>
                     </div>
                   )}
                   {state.draftId && (
                     <div className="flex gap-2">
-                      <dt className="min-w-[80px] font-medium text-gray-500">Draft ID</dt>
+                      <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Draft ID</dt>
                       <dd className="font-mono text-xs">{state.draftId}</dd>
                     </div>
                   )}
                 </dl>
               </div>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--text-muted)]">
                 By submitting, you confirm this listing complies with AICS marketplace policies.
                 Your listing will enter moderation review.
               </p>
@@ -487,12 +487,12 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
           )}
 
           {submissionStatus === 'success' && (
-            <div className="rounded-md bg-green-50 border border-green-200 px-4 py-4 text-sm text-green-800">
+            <div className="rounded-md bg-[var(--success)]/10 border border-[var(--success)]/20 px-4 py-4 text-sm text-green-800">
               <p className="font-semibold">Submitted!</p>
               <p className="mt-1">{submissionMessage}</p>
               <a
                 href="/dashboard"
-                className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline"
+                className="mt-3 inline-block text-sm font-medium text-[var(--accent-indigo)] hover:underline"
               >
                 Back to Dashboard
               </a>
@@ -500,7 +500,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
           )}
 
           {submissionStatus === 'error' && (
-            <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-md bg-[var(--accent-rose)]/10 border border-red-200 px-4 py-3 text-sm text-red-700">
               {submissionMessage}
             </div>
           )}
@@ -511,7 +511,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {stepError && (
         <div
           role="alert"
-          className="mt-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          className="mt-4 rounded-md bg-[var(--accent-rose)]/10 border border-red-200 px-4 py-3 text-sm text-red-700"
         >
           {stepError}
         </div>
@@ -523,7 +523,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
           type="button"
           onClick={() => dispatch({ type: 'SET_STEP', step: step - 1 })}
           disabled={step === 1}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-[var(--border-bright)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Back
         </button>
@@ -540,7 +540,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
                     ? handleStep3Next
                     : handleStep4Next
             }
-            className="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-md bg-[var(--accent-indigo)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
           >
             Next
           </button>
@@ -551,7 +551,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
             type="button"
             onClick={handleSubmit}
             disabled={submissionStatus === 'loading'}
-            className="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-[var(--accent-indigo)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submissionStatus === 'loading' ? 'Submitting…' : 'Submit for Review'}
           </button>

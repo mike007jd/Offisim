@@ -23,7 +23,7 @@ function NavLink({ href, label, icon, active }: NavLinkProps) {
       className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? 'bg-blue-50 text-blue-700'
-          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
       }`}
     >
       {icon}
@@ -34,10 +34,10 @@ function NavLink({ href, label, icon, active }: NavLinkProps) {
 
 export function CreatorNav({ displayName, handle, activePath, onLogout }: CreatorNavProps) {
   return (
-    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white px-4 py-6">
+    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-6">
       <div className="mb-6">
-        <p className="truncate text-sm font-semibold text-gray-900">{displayName}</p>
-        <p className="truncate text-xs text-gray-500">@{handle}</p>
+        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+        <p className="truncate text-xs text-[var(--text-muted)]">@{handle}</p>
       </div>
 
       <nav className="flex flex-col gap-1">
@@ -77,7 +77,7 @@ export function CreatorNav({ displayName, handle, activePath, onLogout }: Creato
         <button
           type="button"
           onClick={onLogout}
-          className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-secondary)]"
         >
           Logout
         </button>
