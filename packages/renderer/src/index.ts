@@ -1,4 +1,7 @@
 // @aics/renderer — PixiJS 8 + GSAP 3 office scene renderer
+
+// Illustration system (SVG-based character assembly)
+export * from './illustration/index.js';
 export { SceneManager } from './core/scene-manager.js';
 export type {
   BubbleInfo,
