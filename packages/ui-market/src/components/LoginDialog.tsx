@@ -178,7 +178,7 @@ export function LoginDialog({ onClose }: Props) {
           </div>
 
           {error && (
-            <p role="alert" className="rounded-md bg-[var(--accent-rose)]/10 px-3 py-2 text-sm text-[var(--accent-rose)]">
+            <p role="alert" className="rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]">
               {error}
             </p>
           )}

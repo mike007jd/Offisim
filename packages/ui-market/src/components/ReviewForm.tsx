@@ -60,7 +60,7 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
 
   if (submitted) {
     return (
-      <div className="rounded-md border border-[var(--success)]/20 bg-[var(--success)]/10 px-4 py-3">
+      <div className="rounded-md border border-[rgba(34,197,94,0.2)] bg-[rgba(34,197,94,0.1)] px-4 py-3">
         <p className="text-sm font-medium text-[var(--success)]">
           Review submitted successfully. Thank you!
         </p>
@@ -128,7 +128,7 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-[var(--accent-rose)]/10 px-3 py-2 text-sm text-[var(--accent-rose)]">
+        <p role="alert" className="rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]">
           {error}
         </p>
       )}

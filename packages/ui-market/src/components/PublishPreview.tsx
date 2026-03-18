@@ -100,7 +100,7 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
               {draft.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs text-blue-700"
+                  className="rounded-full bg-[rgba(99,102,241,0.1)] px-2.5 py-0.5 text-xs text-[var(--accent-indigo)]"
                 >
                   {tag}
                 </span>

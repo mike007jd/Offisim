@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Syne, Outfit } from 'next/font/google';
+import { Syne } from 'next/font/google';
 import { AuthProvider } from '@aics/ui-market';
 import { SITE_URL } from '../lib/url';
 import { siteJsonLd } from '../lib/jsonld';
@@ -11,13 +11,6 @@ const syne = Syne({
   variable: '--font-display',
   display: 'swap',
   weight: ['400', '500', '600', '700', '800'],
-});
-
-const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
 });
 
 const description =
@@ -51,7 +44,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${syne.variable} ${outfit.variable}`}>
+    <html lang="en" className={syne.variable}>
       <body className="min-h-screen antialiased">
         <script
           type="application/ld+json"

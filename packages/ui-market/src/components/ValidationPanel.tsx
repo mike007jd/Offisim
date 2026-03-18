@@ -116,8 +116,8 @@ export function ValidationPanel({ manifest }: ValidationPanelProps) {
       <div
         className={`rounded-md px-4 py-3 text-sm font-medium ${
           allPass
-            ? 'bg-[var(--success)]/10 text-green-800 border border-[var(--success)]/20'
-            : 'bg-[var(--accent-rose)]/10 text-red-800 border border-red-200'
+            ? 'bg-[rgba(34,197,94,0.1)] text-[var(--success)] border border-[rgba(34,197,94,0.2)]'
+            : 'bg-[rgba(244,63,94,0.1)] text-[var(--accent-rose)] border border-[rgba(244,63,94,0.2)]'
         }`}
       >
         {allPass ? 'Ready to submit — all checks passed.' : `${failCount} issue${failCount !== 1 ? 's' : ''} found. Fix before submitting.`}

@@ -11,6 +11,10 @@
   --bg-secondary: #18181b;
   --bg-tertiary: #27272a;
   --bg-elevated: #3f3f46;
+  /* Aliases for legacy references */
+  --bg-base: var(--bg-primary);
+  --bg-surface: var(--bg-secondary);
+  --bg-input: var(--bg-secondary);
 
   /* Text — high contrast, clear hierarchy */
   --text-primary: #fafafa;

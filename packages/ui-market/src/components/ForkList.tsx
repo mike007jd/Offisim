@@ -16,7 +16,7 @@ export function ForkList({ forks }: ForkListProps) {
         <a
           key={fork.listingId}
           href={`/listing/${fork.slug}`}
-          className="block rounded-md border border-[var(--border)] p-3 hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+          className="block rounded-md border border-[var(--border)] p-3 hover:border-[var(--accent-indigo)] hover:bg-[rgba(99,102,241,0.1)]/30 transition-colors"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-[var(--text-primary)]">{fork.title}</span>

@@ -8,7 +8,7 @@ export function ListingCard({ listing }: { listing: ListingSummary }) {
   return (
     <a
       href={`/listing/${listing.slug}`}
-      className="block rounded-lg border border-[var(--border)] p-4 transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+      className="block rounded-lg border border-[var(--border)] p-4 transition-shadow  focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">

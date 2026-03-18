@@ -1,9 +1,9 @@
 import { riskLabel } from '../lib/format.js';
 
 const colors: Record<string, string> = {
-  data_asset: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20',
-  logic_asset: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  privileged_asset: 'bg-[var(--accent-rose)]/10 text-red-700 border-red-200',
+  data_asset: 'bg-[rgba(34,197,94,0.1)] text-[var(--success)] border-[rgba(34,197,94,0.2)]',
+  logic_asset: 'bg-[rgba(234,179,8,0.1)] text-[var(--warning)] border-yellow-200',
+  privileged_asset: 'bg-[rgba(244,63,94,0.1)] text-[var(--accent-rose)] border-[rgba(244,63,94,0.2)]',
 };
 
 export function RiskBadge({ risk }: { risk: string }) {

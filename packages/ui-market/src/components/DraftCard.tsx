@@ -9,10 +9,10 @@ const STATUS_BADGE: Record<
   { label: string; className: string }
 > = {
   draft: { label: 'Draft', className: 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]' },
-  validated: { label: 'Validated', className: 'bg-blue-100 text-blue-700' },
-  submitted: { label: 'Submitted', className: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Approved', className: 'bg-green-100 text-[var(--success)]' },
-  rejected: { label: 'Rejected', className: 'bg-red-100 text-red-700' },
+  validated: { label: 'Validated', className: 'bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)]' },
+  submitted: { label: 'Submitted', className: 'bg-[rgba(234,179,8,0.15)] text-[var(--warning)]' },
+  approved: { label: 'Approved', className: 'bg-[rgba(34,197,94,0.15)] text-[var(--success)]' },
+  rejected: { label: 'Rejected', className: 'bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)]' },
 };
 
 export interface DraftCardProps {
@@ -57,7 +57,7 @@ export function DraftCard({ draft, onDelete }: DraftCardProps) {
           <button
             type="button"
             onClick={handleDelete}
-            className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10"
+            className="rounded border border-[rgba(244,63,94,0.2)] px-3 py-1 text-xs font-medium text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.1)]"
           >
             Delete
           </button>

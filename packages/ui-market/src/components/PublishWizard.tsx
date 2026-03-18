@@ -487,7 +487,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
           )}
 
           {submissionStatus === 'success' && (
-            <div className="rounded-md bg-[var(--success)]/10 border border-[var(--success)]/20 px-4 py-4 text-sm text-green-800">
+            <div className="rounded-md bg-[rgba(34,197,94,0.1)] border border-[rgba(34,197,94,0.2)] px-4 py-4 text-sm text-[var(--success)]">
               <p className="font-semibold">Submitted!</p>
               <p className="mt-1">{submissionMessage}</p>
               <a
@@ -500,7 +500,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
           )}
 
           {submissionStatus === 'error' && (
-            <div className="rounded-md bg-[var(--accent-rose)]/10 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-md bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.2)] px-4 py-3 text-sm text-[var(--accent-rose)]">
               {submissionMessage}
             </div>
           )}
@@ -511,7 +511,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
       {stepError && (
         <div
           role="alert"
-          className="mt-4 rounded-md bg-[var(--accent-rose)]/10 border border-red-200 px-4 py-3 text-sm text-red-700"
+          className="mt-4 rounded-md bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.2)] px-4 py-3 text-sm text-[var(--accent-rose)]"
         >
           {stepError}
         </div>

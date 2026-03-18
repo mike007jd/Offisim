@@ -12,7 +12,7 @@ export function HistoryList({ items }: HistoryListProps) {
         <p className="text-sm text-[var(--text-muted)]">No installations yet.</p>
         <a
           href="/search"
-          className="mt-2 inline-block text-sm font-medium text-[var(--accent-indigo)] hover:text-blue-700"
+          className="mt-2 inline-block text-sm font-medium text-[var(--accent-indigo)] hover:text-[var(--accent-indigo)]"
         >
           Browse the marketplace
         </a>
@@ -31,7 +31,7 @@ export function HistoryList({ items }: HistoryListProps) {
             <th className="pb-3 pr-4 font-medium text-[var(--text-secondary)]">Installed</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-[var(--border)]">
           {items.map((item) => (
             <tr key={`${item.listing.listing_id}-${item.version.version}`} className="hover:bg-[var(--bg-tertiary)]">
               <td className="py-3 pr-4">

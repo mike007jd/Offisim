@@ -137,7 +137,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             href="https://github.com/AICraftsman/AICS/releases"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent-indigo)] hover:text-blue-700"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent-indigo)] hover:text-[var(--accent-indigo)]"
           >
             <ExternalLink size={14} />
             Download AICS Desktop
