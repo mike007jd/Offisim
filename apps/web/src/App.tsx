@@ -8,6 +8,7 @@ import {
   CompanyCreationWizard,
   CompanyEditor,
   DashboardOverlay,
+  NotificationCenter,
   ErrorBoundary,
   Header,
   InstallDialog,
@@ -86,6 +87,7 @@ export function App() {
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenCompanyEditor={companyEditor.open}
               onFileImport={installFlow.startFileImport}
+              notificationSlot={<NotificationCenter />}
             />
           }
           agentPanel={

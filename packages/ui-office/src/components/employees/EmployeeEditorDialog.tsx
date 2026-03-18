@@ -248,6 +248,16 @@ export function EmployeeEditorDialog({
                   }
                 />
               </div>
+
+              {/* Installed Skills hint */}
+              {isEditMode && (
+                <div>
+                  <label className="text-sm text-shell mb-1 block">Skills</label>
+                  <p className="text-xs text-shell/60 italic">
+                    Skills are managed via package install. Import a .aicspkg skill file to add capabilities to this employee.
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 

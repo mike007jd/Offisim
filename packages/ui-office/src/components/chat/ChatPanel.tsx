@@ -7,6 +7,7 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
+import { MeetingControlsAutoWired } from '../office/MeetingControlsAutoWired';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
@@ -222,6 +223,7 @@ export function ChatPanel({
           </div>
         </ScrollArea>
       )}
+      <MeetingControlsAutoWired />
       <ChatInput onSend={handleSend} disabled={isRunning || !isReady} />
     </div>
   );

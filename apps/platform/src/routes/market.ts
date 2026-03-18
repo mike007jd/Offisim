@@ -583,4 +583,45 @@ market.get('/listings/:listingId/lineage', async (c) => {
   return c.json({ ancestors, descendants });
 });
 
+// PATCH /v1/market/listings/:listingId/status — creator self-delist or admin takedown
+market.patch('/listings/:listingId/status', requireAuth, async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId')!;
+  const { listingId } = c.req.param();
+  const body = (await c.req.json()) as { status: string; reason?: string };
+
+  if (body.status !== 'delisted') {
+    throw new HTTPException(400, { message: 'Only "delisted" status is supported via this endpoint' });
+  }
+
+  // Verify ownership: listing must belong to this creator
+  const [listing] = await db
+    .select({ listing_id: listings.listing_id, creator_id: listings.creator_id })
+    .from(listings)
+    .where(eq(listings.listing_id, listingId))
+    .limit(1);
+
+  if (!listing) {
+    throw new HTTPException(404, { message: 'Listing not found' });
+  }
+
+  // Check if user is the creator
+  const [creator] = await db
+    .select({ creator_id: creators.creator_id })
+    .from(creators)
+    .where(eq(creators.user_id, userId))
+    .limit(1);
+
+  if (!creator || creator.creator_id !== listing.creator_id) {
+    throw new HTTPException(403, { message: 'Only the listing creator can delist' });
+  }
+
+  await db
+    .update(listings)
+    .set({ status: 'delisted', updated_at: new Date() })
+    .where(eq(listings.listing_id, listingId));
+
+  return c.json({ ok: true, listing_id: listingId, status: 'delisted' });
+});
+
 export { market };

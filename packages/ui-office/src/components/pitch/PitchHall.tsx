@@ -155,6 +155,20 @@ function DeliverableCard({ item }: { item: Deliverable }) {
           >
             {exporting ? 'Exporting...' : 'Download'}
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px] text-shell/70 hover:text-emerald-400"
+            onClick={() => {
+              const event = new CustomEvent('sop.save-from-output', {
+                detail: { title: item.title, outputId: item.id },
+              });
+              window.dispatchEvent(event);
+            }}
+            title="Save the task path that produced this output as a reusable SOP template"
+          >
+            Save as SOP
+          </Button>
         </div>
       </CardContent>
     </Card>
