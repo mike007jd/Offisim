@@ -2,6 +2,9 @@
 
 // Illustration system (SVG-based character assembly)
 export * from './illustration/index.js';
+
+// Visual effects (lighting, ambient details)
+export * from './effects/index.js';
 export { SceneManager } from './core/scene-manager.js';
 export type {
   BubbleInfo,
