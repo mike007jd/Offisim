@@ -39,6 +39,7 @@ import type {
   NewSlot,
   NewLibraryDocument,
   NewOfficeLayout,
+  WorkstationRackRow,
   RuntimeRepositories,
   SopTemplateRow,
   RackRow,
@@ -847,6 +848,36 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const workstationRacks: RuntimeRepositories['workstationRacks'] = {
+    async create(binding) {
+      const row = { ...binding, created_at: new Date().toISOString() };
+      await db.insert(schema.workstationRacks).values(row);
+      return row;
+    },
+    async findByWorkstation(workstationId) {
+      return (await db
+        .select()
+        .from(schema.workstationRacks)
+        .where(eq(schema.workstationRacks.workstation_id, workstationId))) as WorkstationRackRow[];
+    },
+    async findByRack(rackId) {
+      return (await db
+        .select()
+        .from(schema.workstationRacks)
+        .where(eq(schema.workstationRacks.rack_id, rackId))) as WorkstationRackRow[];
+    },
+    async delete(workstationId, rackId) {
+      await db
+        .delete(schema.workstationRacks)
+        .where(
+          and(
+            eq(schema.workstationRacks.workstation_id, workstationId),
+            eq(schema.workstationRacks.rack_id, rackId),
+          ),
+        );
+    },
+  };
+
   return {
     companies,
     threads,
@@ -869,6 +900,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     sopTemplates,
     racks,
     slots,
+    workstationRacks,
     libraryDocuments,
     officeLayouts,
   };

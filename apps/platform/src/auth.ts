@@ -1,7 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
-import { nextCookies } from 'better-auth/next-js';
 import { db } from './db.js';
 
 /**
@@ -12,7 +11,7 @@ import { db } from './db.js';
  * - GitHub OAuth
  * - Google OAuth (optional — only if env vars are set)
  * - Bearer token plugin (for API/CLI access)
- * - Next.js cookies plugin (for SSR session handling in market app)
+ * - Cookie-based sessions (SSR-compatible via credentials: 'include')
  *
  * Better Auth manages its own tables (user, session, account, verification).
  * We keep our existing `users` / `creators` tables and sync via hooks.
@@ -60,7 +59,6 @@ export const auth = betterAuth({
 
   plugins: [
     bearer(),
-    nextCookies(),
   ],
 
   trustedOrigins: (process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean)) ?? [

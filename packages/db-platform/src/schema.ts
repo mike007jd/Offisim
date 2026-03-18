@@ -198,7 +198,7 @@ export const baSession = pgTable('session', {
   userAgent: text('user_agent'),
   userId: text('user_id')
     .notNull()
-    .references(() => baUser.id),
+    .references(() => baUser.id, { onDelete: 'cascade' }),
 });
 
 export const baAccount = pgTable('account', {
@@ -207,7 +207,7 @@ export const baAccount = pgTable('account', {
   providerId: text('provider_id').notNull(),
   userId: text('user_id')
     .notNull()
-    .references(() => baUser.id),
+    .references(() => baUser.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
