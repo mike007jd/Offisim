@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `/creator/${handle}` },
       openGraph: {
         type: 'profile',
-        title: `${title} — AICS Talent Market`,
+        title: `${title} — Offisim Market`,
         description,
         url: `${SITE_URL}/creator/${handle}`,
       },

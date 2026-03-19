@@ -54,7 +54,7 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Deep link install handler — receives aics://install?listing_id=X&version=Y from Tauri shell
+  // Deep link install handler — receives offisim://install?listing_id=X&version=Y from Tauri shell
   useDeepLinkInstall(
     useCallback(
       ({ listing_id, version }) => {

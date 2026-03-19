@@ -112,7 +112,7 @@ export default async function Home() {
       <section className="border-t border-[var(--border)] py-20 text-center">
         <h2 className="font-display text-2xl font-bold">Build your AI company</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          Download AICS Desktop and start assembling your team.
+          Download Offisim Desktop and start assembling your team.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <a

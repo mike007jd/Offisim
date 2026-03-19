@@ -1,5 +1,5 @@
 /**
- * useDeepLinkInstall — listens for `aics://install` deep link events
+ * useDeepLinkInstall — listens for `offisim://install` deep link events
  * from the Tauri shell and invokes a callback with the parsed payload.
  *
  * This hook is a no-op when running in a plain browser (non-Tauri) context.
@@ -26,7 +26,7 @@ type DeepLinkHandler = (payload: DeepLinkInstallPayload) => void;
  * Listen for deep link install events from the Tauri shell.
  *
  * @param onInstallRequest — called when the desktop app receives an
- *   `aics://install?listing_id=X&version=Y` deep link. The handler
+ *   `offisim://install?listing_id=X&version=Y` deep link. The handler
  *   receives the parsed listing_id and version.
  */
 export function useDeepLinkInstall(onInstallRequest: DeepLinkHandler): void {

@@ -14,24 +14,24 @@ const syne = Syne({
 });
 
 const description =
-  'Browse, discover, and install AI company employees, skills, SOPs, and templates for AI Company Simulator.';
+  'Browse, discover, and install AI company employees, skills, SOPs, and templates for Offisim.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: '%s — AICS Talent Market',
-    default: 'AICS Talent Market — Discover AI Company Assets',
+    template: '%s — Offisim Market',
+    default: 'Offisim Market — Discover AI Company Assets',
   },
   description,
   openGraph: {
     type: 'website',
-    siteName: 'AICS Talent Market',
+    siteName: 'Offisim Market',
     locale: 'en_US',
     description,
   },
   twitter: {
     card: 'summary',
-    title: 'AICS Talent Market',
+    title: 'Offisim Market',
     description,
   },
   robots: {
@@ -58,9 +58,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
                 <div>
                   <span className="font-display text-lg font-bold tracking-tight text-[var(--text-primary)]">
-                    AICS
+                    Offisim
                   </span>
-                  <span className="ml-1 text-sm text-[var(--text-muted)]">Talent Market</span>
+                  <span className="ml-1 text-sm text-[var(--text-muted)]">Market</span>
                 </div>
                 <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
                   <a href="/search" className="hover:text-[var(--text-secondary)] transition-colors">

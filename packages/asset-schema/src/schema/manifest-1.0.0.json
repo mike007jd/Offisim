@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aics.local/schema/manifest-1.0.0.json",
-  "title": "AI Company Simulator Package Manifest",
+  "title": "Offisim Package Manifest",
   "type": "object",
   "required": [
     "spec_version",

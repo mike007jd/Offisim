@@ -16,18 +16,18 @@ interface Props {
 /**
  * InstallModal — web fallback modal for non-desktop users.
  *
- * Shown on the marketplace website when a user clicks "Install in AICS"
+ * Shown on the marketplace website when a user clicks "Install in Offisim"
  * but the desktop app did not open (or is not installed). Provides:
  * 1. A "Try Again" button to re-attempt the deep link
  * 2. A "Download Package" button for manual .aicspkg import
  * 3. A "Copy Install Link" button so the user can paste into the desktop app
- * 4. A download prompt to get the AICS Desktop app
+ * 4. A download prompt to get the Offisim Desktop app
  */
 export function InstallModal({ listingId, version, packageVersionId, title, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const deepLink = `aics://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
+  const deepLink = `offisim://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
 
   const handleCopy = useCallback(async () => {
     try {
@@ -82,7 +82,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             Install &ldquo;{title}&rdquo;
           </h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            It looks like the AICS Desktop app didn&apos;t open. Choose an option below:
+            It looks like the Offisim Desktop app didn&apos;t open. Choose an option below:
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             className="flex w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-indigo)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
           >
             <Download size={16} />
-            Try Opening in AICS Desktop Again
+            Try Opening in Offisim Desktop Again
           </button>
 
           {/* Download package file */}
@@ -128,7 +128,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
         {/* Download desktop app section */}
         <div className="rounded-md bg-[var(--bg-hover,theme(colors.gray.50))] p-4">
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            Don&apos;t have the AICS Desktop app?
+            Don&apos;t have the Offisim Desktop app?
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             Download the free desktop runtime to install and run AI company assets locally.
@@ -140,7 +140,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent-indigo)] hover:text-[var(--accent-indigo)]"
           >
             <ExternalLink size={14} />
-            Download AICS Desktop
+            Download Offisim Desktop
           </a>
         </div>
 

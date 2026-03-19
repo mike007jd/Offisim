@@ -13,9 +13,9 @@ export function MarketNav() {
         <nav className="mx-auto flex max-w-content items-center justify-between px-6 py-3">
           <a href="/" className="flex items-center gap-2 group">
             <span className="font-display text-xl font-bold tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent-indigo)] transition-colors">
-              AICS
+              Offisim
             </span>
-            <span className="text-sm font-medium text-[var(--text-muted)]">Talent Market</span>
+            <span className="text-sm font-medium text-[var(--text-muted)]">Market</span>
           </a>
           <div className="flex items-center gap-5">
             <a

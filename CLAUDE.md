@@ -14,7 +14,7 @@ Before changing code or specs, read in this order:
 
 ## Project
 
-AI Company Simulator (AICS) is a local-first, open-source AI company runtime plus an official marketplace website for installable assets.
+Offisim is a local-first, open-source AI company runtime plus an official marketplace website for installable assets.
 
 This is **not** a generic Next.js app.
 
@@ -35,7 +35,7 @@ Primary repo shape:
 
 ## Product truth
 
-AICS is built around four non-negotiable ideas:
+Offisim is built around four non-negotiable ideas:
 
 1. **Multi-agent collaboration is the product core.**
    Employees, Manager, PM, meetings, handoffs, queueing, interrupts, resume, and reporting are first-class.

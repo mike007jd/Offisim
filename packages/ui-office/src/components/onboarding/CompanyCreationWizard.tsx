@@ -31,7 +31,7 @@ export function CompanyCreationWizard() {
       <div className="mx-auto w-full max-w-2xl px-6">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-zinc-100">Welcome to AI Company Simulator</h1>
+          <h1 className="text-2xl font-bold text-zinc-100">Welcome to Offisim</h1>
           <p className="mt-2 text-zinc-400">
             Choose a template to set up your AI company. You can customize everything later.
           </p>

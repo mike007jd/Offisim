@@ -50,10 +50,10 @@ export function siteJsonLd() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'AICS Talent Market',
+    name: 'Offisim Market',
     url: SITE_URL,
     description:
-      'Browse, discover, and install AI company employees, skills, SOPs, and templates for AI Company Simulator.',
+      'Browse, discover, and install AI company employees, skills, SOPs, and templates for Offisim.',
     potentialAction: {
       '@type': 'SearchAction',
       target: {

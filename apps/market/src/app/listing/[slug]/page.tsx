@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const client = getRegistryClient();
     const listing = await client.getListingBySlug(slug);
-    const title = `${listing.title} — AICS Talent Market`;
+    const title = `${listing.title} — Offisim Market`;
     return {
       title: listing.title,
       description: listing.summary,

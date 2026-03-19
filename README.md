@@ -1,6 +1,6 @@
-# AI Company Simulator (AICS)
+# Offisim
 
-AICS is a **local-first, open-source AI company runtime** plus an **official marketplace website** for installable assets.
+Offisim is a **local-first, open-source AI company runtime** plus an **official marketplace website** for installable assets.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
@@ -106,7 +106,7 @@ If a task is about...
 
 ## Important guardrails
 
-- Do not accidentally turn AICS into a hosted SaaS execution plane.
+- Do not accidentally turn Offisim into a hosted SaaS execution plane.
 - Do not hardcode provider-specific model assumptions into marketplace assets.
 - Do not place secrets in assets.
 - Do not add install hooks or postinstall scripts in 1.0.

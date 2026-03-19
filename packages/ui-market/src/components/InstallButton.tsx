@@ -19,7 +19,7 @@ interface Props {
 /**
  * InstallButton — Two-path install bridge for the marketplace.
  *
- * Path A (primary): Deep link to AICS Desktop via `aics://install` protocol.
+ * Path A (primary): Deep link to Offisim Desktop via `offisim://install` protocol.
  *   If the desktop app is installed, it opens and starts the install flow.
  *   If not, a fallback modal appears after 3s with download instructions.
  *
@@ -32,7 +32,7 @@ export function InstallButton({ listingId, version, packageVersionId, title }: P
   const [state, setState] = useState<InstallState>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const deepLink = `aics://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
+  const deepLink = `offisim://install?listing_id=${encodeURIComponent(listingId)}&version=${encodeURIComponent(version)}`;
 
   const handleDeepLink = useCallback(() => {
     setState('opening');
@@ -81,12 +81,12 @@ export function InstallButton({ listingId, version, packageVersionId, title }: P
           {state === 'opening' ? (
             <>
               <MonitorDown size={16} className="animate-pulse" />
-              Opening AICS Desktop...
+              Opening Offisim Desktop...
             </>
           ) : (
             <>
               <Download size={16} />
-              Install in AICS
+              Install in Offisim
             </>
           )}
         </button>

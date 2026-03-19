@@ -14,13 +14,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const q = params.q;
   const title = q ? `"${q}" — Search` : 'Browse Assets';
   const description = q
-    ? `Search results for "${q}" on AICS Talent Market.`
+    ? `Search results for "${q}" on Offisim Market.`
     : 'Browse AI company employees, skills, SOPs, and templates.';
   return {
     title,
     description,
     alternates: { canonical: '/search' },
-    openGraph: { title: `${title} — AICS Talent Market`, description },
+    openGraph: { title: `${title} — Offisim Market`, description },
     twitter: { card: 'summary', title, description },
   };
 }

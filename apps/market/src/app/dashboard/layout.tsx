@@ -89,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="mx-auto max-w-sm py-16">
         <h1 className="mb-2 text-xl font-bold text-[var(--text-primary)]">Become a Creator</h1>
         <p className="mb-6 text-sm text-[var(--text-muted)]">
-          Register a creator profile to publish listings on the AICS marketplace.
+          Register a creator profile to publish listings on the Offisim marketplace.
         </p>
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div>
