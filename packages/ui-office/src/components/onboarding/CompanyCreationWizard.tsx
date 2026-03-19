@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
 import { TemplateCard } from './TemplateCard.js';
 
@@ -38,7 +39,7 @@ export function CompanyCreationWizard() {
 
         {step === 'creating' ? (
           <div className="py-12 text-center">
-            <div className="mb-4 text-4xl">{selectedTemplate?.icon ?? '🏢'}</div>
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-blue-400" />
             <p className="text-zinc-300">Setting up your company...</p>
             <p className="mt-1 text-sm text-zinc-500">
               Creating {selectedTemplate?.employees.length ?? 0} employees and{' '}
@@ -48,7 +49,7 @@ export function CompanyCreationWizard() {
         ) : (
           <>
             {/* Template grid */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               {templates.map((template) => (
                 <TemplateCard
                   key={template.id}
