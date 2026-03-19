@@ -95,6 +95,7 @@ export * from './lib/provider-config.js';
 
 // Runtime
 export * from './runtime/aics-runtime-context.js';
+export * from './runtime/notification-provider.js';
 export * from './runtime/use-agent-states.js';
 export * from './runtime/use-event-stream.js';
 export * from './runtime/use-streaming-content.js';

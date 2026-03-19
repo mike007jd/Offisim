@@ -3,8 +3,9 @@ import {
   InMemoryEventBus,
 } from '@aics/core/browser';
 import type { McpServerConfig } from '@aics/core/browser';
+import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AicsRuntimeContext, type AicsRuntimeValue, isTauri, loadProviderConfig } from '@aics/ui-office';
+import { AicsRuntimeContext, type AicsRuntimeValue, COMPANY_ID, isTauri, loadProviderConfig } from '@aics/ui-office';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
 interface Props {
@@ -34,6 +35,19 @@ export function AicsRuntimeProvider({ children }: Props) {
   //      — old subscriptions automatically receive events from the new runtime
   // ---------------------------------------------------------------------------
   const eventBusRef = useRef(new InMemoryEventBus());
+  const notificationBridgeRef = useRef<NotificationBridge | null>(null);
+
+  // Activate NotificationBridge once — subscribes to runtime events on the
+  // stable EventBus and emits `notification.created` for the UI.
+  useEffect(() => {
+    const bridge = new NotificationBridge(eventBusRef.current, COMPANY_ID);
+    bridge.activate();
+    notificationBridgeRef.current = bridge;
+    return () => {
+      bridge.deactivate();
+      notificationBridgeRef.current = null;
+    };
+  }, []);
 
   // Async runtime init (Tauri + browser modes — both async due to seedCostRates)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {

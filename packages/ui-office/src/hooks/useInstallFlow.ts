@@ -334,8 +334,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             type: 'application/octet-stream',
           });
 
-          // Reset state and re-enter through file import
-          setIsOpen(false);
+          // Continue through file import — dialog is already open, no need to
+          // close/reopen (that would cause a visible flicker).
           startFileImport(file);
         } catch (err) {
           if (err instanceof RegistryApiError) {

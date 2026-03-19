@@ -1,15 +1,12 @@
-import type { NotificationPayload, RuntimeEvent } from '@aics/shared-types';
-import { useCallback, useEffect, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
-
-const MAX_NOTIFICATIONS = 50;
+import { useContext } from 'react';
+import { NotificationContext } from '../runtime/notification-provider';
 
 export interface Notification {
   notificationId: string;
-  level: NotificationPayload['level'];
+  level: 'info' | 'success' | 'warning' | 'error';
   title: string;
   message: string;
-  source: NotificationPayload['source'];
+  source: 'runtime' | 'market' | 'install' | 'hr';
   actionUrl?: string;
   employeeId?: string;
   dismissable: boolean;
@@ -26,60 +23,15 @@ export interface UseNotificationsResult {
 }
 
 /**
- * Subscribes to `notification.created` events on the EventBus and maintains
- * a notification queue with read/unread tracking.
+ * Reads notification state from the shared NotificationProvider context.
  *
- * Max 50 notifications, FIFO eviction.
+ * All consumers (Header NotificationCenter, DashboardOverlay, etc.) share
+ * a single state instance — markRead/dismiss/clearAll propagate everywhere.
  */
 export function useNotifications(): UseNotificationsResult {
-  const { eventBus } = useAicsRuntime();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-
-  useEffect(() => {
-    const off = eventBus.on(
-      'notification.',
-      (e: RuntimeEvent<NotificationPayload>) => {
-        if (e.type === 'notification.created') {
-          setNotifications((prev) => {
-            const next = [
-              {
-                notificationId: e.payload.notificationId,
-                level: e.payload.level,
-                title: e.payload.title,
-                message: e.payload.message,
-                source: e.payload.source,
-                actionUrl: e.payload.actionUrl,
-                employeeId: e.payload.employeeId,
-                dismissable: e.payload.dismissable,
-                timestamp: e.payload.timestamp,
-                read: false,
-              },
-              ...prev,
-            ];
-            // FIFO eviction: keep most recent MAX_NOTIFICATIONS
-            return next.slice(0, MAX_NOTIFICATIONS);
-          });
-        }
-      },
-    );
-    return off;
-  }, [eventBus]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.notificationId === id ? { ...n, read: true } : n)),
-    );
-  }, []);
-
-  const dismiss = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.notificationId !== id));
-  }, []);
-
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  return { notifications, unreadCount, markRead, dismiss, clearAll };
+  const ctx = useContext(NotificationContext);
+  if (!ctx) {
+    throw new Error('useNotifications must be used within <NotificationProvider>');
+  }
+  return ctx;
 }

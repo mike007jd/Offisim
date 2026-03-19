@@ -1,30 +1,24 @@
 import { Badge, Button, ScrollArea } from '@aics/ui-core';
 import { Bell, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { UseNotificationsResult } from '../../hooks/useNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationCard } from './NotificationCard';
 
 interface NotificationCenterProps {
-  notifications: UseNotificationsResult['notifications'];
-  unreadCount: number;
-  onMarkRead: UseNotificationsResult['markRead'];
-  onDismiss: UseNotificationsResult['dismiss'];
-  onClearAll: UseNotificationsResult['clearAll'];
   onFocusEmployee?: (employeeId: string) => void;
 }
 
 /**
  * Bell icon with unread badge and dropdown notification panel.
  * Placed in the Header bar.
+ *
+ * Self-contained: reads notification state from the shared
+ * NotificationProvider context via useNotifications().
  */
 export function NotificationCenter({
-  notifications,
-  unreadCount,
-  onMarkRead,
-  onDismiss,
-  onClearAll,
   onFocusEmployee,
 }: NotificationCenterProps) {
+  const { notifications, unreadCount, markRead, dismiss, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +53,7 @@ export function NotificationCenter({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={onClearAll}
+                onClick={clearAll}
                 title="Clear all"
               >
                 <Trash2 className="h-3 w-3" />
@@ -77,8 +71,8 @@ export function NotificationCenter({
                 <NotificationCard
                   key={n.notificationId}
                   notification={n}
-                  onDismiss={onDismiss}
-                  onMarkRead={onMarkRead}
+                  onDismiss={dismiss}
+                  onMarkRead={markRead}
                   onFocusEmployee={onFocusEmployee}
                 />
               ))
