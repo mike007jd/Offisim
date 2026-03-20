@@ -16,6 +16,8 @@ export interface MeetingControlsProps {
   onEnd: () => void;
   /** Called when boss wants to inject a comment into the meeting. */
   onInject: (comment: string) => void;
+  /** Called when boss changes the meeting type selection. */
+  onMeetingTypeChange?: (type: MeetingType) => void;
 }
 
 const STATUS_VARIANTS: Record<MeetingStatus, 'default' | 'success' | 'warning'> = {
@@ -37,7 +39,7 @@ const MEETING_TYPES = [
   { value: 'review', label: 'Review', Icon: ClipboardCheck },
 ] as const;
 
-type MeetingType = typeof MEETING_TYPES[number]['value'];
+export type MeetingType = typeof MEETING_TYPES[number]['value'];
 
 /**
  * MeetingControls — boss-facing meeting control panel.
@@ -52,10 +54,16 @@ export function MeetingControls({
   onResume,
   onEnd,
   onInject,
+  onMeetingTypeChange,
 }: MeetingControlsProps) {
   const [injectText, setInjectText] = useState('');
   const [showInjectInput, setShowInjectInput] = useState(false);
   const [meetingType, setMeetingType] = useState<MeetingType>('brainstorm');
+
+  const handleMeetingTypeChange = useCallback((type: MeetingType) => {
+    setMeetingType(type);
+    onMeetingTypeChange?.(type);
+  }, [onMeetingTypeChange]);
 
   // Derive meeting status from events
   const meetingEvents = useEventStream('meeting.state.changed', 1);
@@ -114,7 +122,7 @@ export function MeetingControls({
               <button
                 key={value}
                 type="button"
-                onClick={() => setMeetingType(value)}
+                onClick={() => handleMeetingTypeChange(value)}
                 className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
                   meetingType === value
                     ? 'border border-blue-400/50 bg-blue-500/20 text-blue-300'
