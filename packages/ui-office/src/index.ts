@@ -56,7 +56,6 @@ export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
 export * from './components/library/Library.js';
 export * from './components/office/MeetingControls.js';
-export * from './components/office/OfficeEditor.js';
 export { OfficeEditorOverlay } from './components/office/OfficeEditorOverlay.js';
 export * from './components/onboarding/CompanyCreationWizard.js';
 export * from './components/onboarding/TemplateCard.js';
