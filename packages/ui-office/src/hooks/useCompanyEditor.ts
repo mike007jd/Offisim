@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ZoneConfig } from '../components/company/ZoneEditor';
 import type { CompanyPolicy } from '../components/company/PolicyEditor';
 import { DEFAULT_COMPANY_POLICY } from '../components/company/PolicyEditor';
 import { COMPANY_ID } from '../lib/constants';
+import type { ZoneDef } from '../lib/zone-config';
+import { ZONES } from '../lib/zone-config';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
-export type { ZoneConfig, CompanyPolicy };
+/** Local alias so existing code below keeps working with minimal changes. */
+type ZoneConfig = ZoneDef;
+const DEFAULT_ZONES: ZoneConfig[] = [...ZONES];
+
+export type { CompanyPolicy };
 
 interface CompanyInfo {
   name: string;
@@ -13,12 +18,6 @@ interface CompanyInfo {
 }
 
 const DEFAULT_COMPANY: CompanyInfo = { name: '', description: '' };
-
-const DEFAULT_ZONES: ZoneConfig[] = [
-  { id: 'zone-dev', name: 'Development', color: '#3b82f6', employeeCount: 0 },
-  { id: 'zone-prod', name: 'Production', color: '#8b5cf6', employeeCount: 0 },
-  { id: 'zone-art', name: 'Art & Design', color: '#92400e', employeeCount: 0 },
-];
 
 export interface UseCompanyEditorReturn {
   /** Basic company info (null while loading). */

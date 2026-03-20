@@ -14,7 +14,9 @@ export interface AvatarAppearance {
   hairColor: number;
   hairStyle: string;
   clothingColor: number;
+  clothingAccent: number;
   bodyType: string;
+  gender: 'neutral' | 'masculine' | 'feminine';
 }
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -22,7 +24,9 @@ export const DEFAULT_APPEARANCE: AvatarAppearance = {
   hairColor: 0x1a1a1a,
   hairStyle: 'short',
   clothingColor: 0x4a90d9,
+  clothingAccent: 0xffffff,
   bodyType: 'normal',
+  gender: 'neutral',
 };
 
 export interface EmployeeFormData {

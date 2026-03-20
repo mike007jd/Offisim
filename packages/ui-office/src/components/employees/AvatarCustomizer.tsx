@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@aics/ui-core';
+import { cn } from '@aics/ui-core';
 import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
 
 interface AvatarCustomizerProps {
@@ -29,6 +30,15 @@ const HAIR_COLORS: { value: number; label: string }[] = [
   { value: 0x3d6bce, label: 'Blue' },
 ];
 
+const CLOTHING_COLORS: { value: number; label: string }[] = [
+  { value: 0x4a90d9, label: 'Blue' },
+  { value: 0x7a7a7a, label: 'Gray' },
+  { value: 0x1a1a1a, label: 'Black' },
+  { value: 0xf0f0f0, label: 'White' },
+  { value: 0x3a8a4a, label: 'Green' },
+  { value: 0xc0392b, label: 'Red' },
+];
+
 const HAIR_STYLES = [
   'short',
   'long',
@@ -41,6 +51,12 @@ const HAIR_STYLES = [
 ] as const;
 
 const BODY_TYPES = ['normal', 'slim', 'stocky'] as const;
+
+const GENDER_OPTIONS = [
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'masculine', label: 'Masc' },
+  { value: 'feminine', label: 'Fem' },
+] as const;
 
 function hexToCSS(n: number): string {
   return `#${n.toString(16).padStart(6, '0')}`;
@@ -98,6 +114,42 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
         selected={config.hairColor}
         onSelect={(v) => set('hairColor', v)}
       />
+
+      <SwatchRow
+        label="Clothing color"
+        options={CLOTHING_COLORS}
+        selected={config.clothingColor}
+        onSelect={(v) => set('clothingColor', v)}
+      />
+
+      <SwatchRow
+        label="Clothing accent"
+        options={CLOTHING_COLORS}
+        selected={config.clothingAccent}
+        onSelect={(v) => set('clothingAccent', v)}
+      />
+
+      {/* Gender presentation toggle */}
+      <div>
+        <p className="text-[10px] text-slate-400 mb-1.5">Gender presentation</p>
+        <div className="flex gap-1">
+          {GENDER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => set('gender', opt.value)}
+              className={cn(
+                'flex-1 py-1 text-[11px] border transition-colors',
+                config.gender === opt.value
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                  : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>

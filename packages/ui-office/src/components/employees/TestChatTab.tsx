@@ -4,6 +4,7 @@ import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { EmployeeFormData } from '../../hooks/useEmployeeEditor';
 import { loadProviderConfig } from '../../lib/provider-config';
+import { buildSystemPrompt } from '../../lib/build-system-prompt';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,32 +28,6 @@ interface TestChatTabProps {
 let _nextId = 0;
 function genId(): string {
   return `test-msg-${_nextId++}`;
-}
-
-/**
- * Build a system prompt from the editor's current (potentially unsaved) form
- * data so the user can verify persona, expertise, and instructions before
- * committing.
- */
-function buildSystemPrompt(form: EmployeeFormData): string {
-  const lines: string[] = [
-    `You are ${form.name || 'an unnamed employee'}, a ${form.role_slug} at the company.`,
-  ];
-
-  if (form.expertise) {
-    lines.push(`Your expertise: ${form.expertise}`);
-  }
-  if (form.style) {
-    lines.push(`Communication style: ${form.style}`);
-  }
-  if (form.customInstructions) {
-    lines.push(`Additional instructions: ${form.customInstructions}`);
-  }
-
-  lines.push('');
-  lines.push('Respond in character. Keep answers concise unless asked to elaborate.');
-
-  return lines.join('\n');
 }
 
 /**
@@ -178,15 +153,15 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
     <div className="flex flex-col gap-2 pt-2" style={{ minHeight: 320 }}>
       {/* Header with clear button */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-shell font-pixel-mono">
-          Test chat with <span className="text-coral">{employeeName || 'this employee'}</span>
+        <span className="text-xs text-slate-400 font-mono">
+          Test chat with <span className="text-orange-400">{employeeName || 'this employee'}</span>
           {' '}(unsaved config)
         </span>
         {!isEmpty && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-shell hover:text-sand"
+            className="h-6 px-2 text-slate-400 hover:text-slate-100"
             onClick={handleClear}
           >
             <Trash2 className="h-3 w-3 mr-1" />
@@ -203,12 +178,12 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
       )}
 
       {/* Message area */}
-      <ScrollArea className="flex-1 border-2 border-ocean-light rounded" style={{ height: 220 }}>
+      <ScrollArea className="flex-1 border-2 border-slate-700 rounded" style={{ height: 220 }}>
         <div ref={scrollRef} className="flex flex-col gap-2 p-3">
           {isEmpty ? (
             <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-              <MessageSquare className="h-8 w-8 text-shell/40" />
-              <p className="text-xs text-shell/60 font-pixel-mono max-w-[240px]">
+              <MessageSquare className="h-8 w-8 text-slate-400/40" />
+              <p className="text-xs text-slate-400/60 font-mono max-w-[240px]">
                 Send a message to test this employee's personality and configuration.
                 Uses current form values, not saved data.
               </p>
@@ -225,8 +200,8 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
                     className={cn(
                       'max-w-[80%] border-2 px-3 py-1.5 text-xs whitespace-pre-wrap',
                       isUser
-                        ? 'border-lobster-red bg-lobster-red/20 text-sand'
-                        : 'border-ocean-light bg-ocean-mid text-sand',
+                        ? 'border-red-500/40 bg-red-500/10 text-slate-100'
+                        : 'border-slate-700 bg-slate-800 text-slate-100',
                     )}
                   >
                     {msg.content}
@@ -237,7 +212,7 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
           )}
           {isSending && (
             <div className="flex justify-start">
-              <div className="border-2 border-ocean-light bg-ocean-mid px-3 py-1.5 text-xs text-shell animate-pulse">
+              <div className="border-2 border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-400 animate-pulse">
                 Thinking...
               </div>
             </div>

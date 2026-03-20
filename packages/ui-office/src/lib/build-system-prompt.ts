@@ -1,0 +1,27 @@
+import type { EmployeeFormData } from '../hooks/useEmployeeEditor';
+
+/**
+ * Build a system prompt from employee form data.
+ * Used in both TestChatTab (live chat) and the System Prompt Preview
+ * in EmployeeEditorDialog.
+ */
+export function buildSystemPrompt(form: EmployeeFormData): string {
+  const lines: string[] = [
+    `You are ${form.name || 'an unnamed employee'}, a ${form.role_slug} at the company.`,
+  ];
+
+  if (form.expertise) {
+    lines.push(`Your expertise: ${form.expertise}`);
+  }
+  if (form.style) {
+    lines.push(`Communication style: ${form.style}`);
+  }
+  if (form.customInstructions) {
+    lines.push(`Additional instructions: ${form.customInstructions}`);
+  }
+
+  lines.push('');
+  lines.push('Respond in character. Keep answers concise unless asked to elaborate.');
+
+  return lines.join('\n');
+}

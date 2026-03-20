@@ -2,6 +2,7 @@ import { Button, Dialog, DialogContent, DialogTitle, Progress } from '@aics/ui-c
 import { ArrowLeft, ArrowRight, SkipForward, UserPlus } from 'lucide-react';
 import { type UseInterviewWizardReturn, WIZARD_STEPS } from '../../hooks/useInterviewWizard';
 import { cn } from '@aics/ui-core';
+import { AppearanceStep } from './interview-steps/AppearanceStep';
 import { ExpertiseStep } from './interview-steps/ExpertiseStep';
 import { HRPrompt } from './interview-steps/HRPrompt';
 import { InstructionsStep } from './interview-steps/InstructionsStep';
@@ -17,6 +18,7 @@ const STEP_LABELS: Record<(typeof WIZARD_STEPS)[number], string> = {
   name: 'Name',
   expertise: 'Expertise',
   style: 'Style',
+  appearance: 'Appearance',
   instructions: 'Instructions',
   model: 'Model',
   preview: 'Preview',
@@ -123,6 +125,9 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           )}
           {currentStepName === 'style' && (
             <StyleStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'appearance' && (
+            <AppearanceStep formData={state.formData} updateField={updateField} />
           )}
           {currentStepName === 'instructions' && (
             <InstructionsStep formData={state.formData} updateField={updateField} />

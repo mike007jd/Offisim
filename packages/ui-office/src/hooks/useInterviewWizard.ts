@@ -14,6 +14,7 @@ export const WIZARD_STEPS = [
   'name',
   'expertise',
   'style',
+  'appearance',
   'instructions',
   'model',
   'preview',
@@ -21,7 +22,7 @@ export const WIZARD_STEPS = [
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 /** Steps that can be skipped (optional content). */
-const OPTIONAL_STEPS = new Set<WizardStep>(['instructions', 'model']);
+const OPTIONAL_STEPS = new Set<WizardStep>(['appearance', 'instructions', 'model']);
 
 // ---------------------------------------------------------------------------
 // State & Actions
@@ -79,6 +80,8 @@ export function isStepValid(step: number, formData: EmployeeFormData): boolean {
       return formData.expertise.trim() !== '';
     case 'style':
       return formData.style.trim() !== '';
+    case 'appearance':
+      return true; // optional
     case 'instructions':
       return true; // optional
     case 'model':
@@ -196,6 +199,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
         expertise: formData.expertise,
         style: formData.style,
         customInstructions: formData.customInstructions,
+        appearance: formData.appearance,
       });
       const configJson = JSON.stringify({
         modelPreference: formData.modelPreference,

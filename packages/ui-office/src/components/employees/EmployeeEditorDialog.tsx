@@ -17,8 +17,10 @@ import {
   Textarea,
 } from '@aics/ui-core';
 import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
-import { MessageSquare } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
+import { buildSystemPrompt } from '../../lib/build-system-prompt';
 import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
 import { AvatarCustomizer } from './AvatarCustomizer';
@@ -31,6 +33,63 @@ const WORKSTATION_OPTIONS = Array.from(_defaultPlan.allWorkstations.entries()).m
   value: id,
   label: `Workstation ${i + 1}`,
 }));
+
+// ---------------------------------------------------------------------------
+// Provider config
+// ---------------------------------------------------------------------------
+
+interface ProviderOption {
+  value: string;
+  label: string;
+  models: string[];
+}
+
+const PROVIDER_OPTIONS: ProviderOption[] = [
+  {
+    value: 'default',
+    label: 'Default (use company setting)',
+    models: [],
+  },
+  {
+    value: 'openai',
+    label: 'OpenAI',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  },
+  {
+    value: 'anthropic',
+    label: 'Anthropic',
+    models: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-3-5-haiku-latest'],
+  },
+  {
+    value: 'google',
+    label: 'Google',
+    models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+  },
+  {
+    value: 'ollama',
+    label: 'Ollama (local)',
+    models: ['llama3.2', 'mistral', 'phi3', 'gemma2'],
+  },
+  {
+    value: 'custom',
+    label: 'Custom',
+    models: [],
+  },
+];
+
+/** Derive the provider from a model preference string (best-effort). */
+function inferProvider(modelPref: string): string {
+  if (!modelPref) return 'default';
+  const m = modelPref.toLowerCase();
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3')) return 'openai';
+  if (m.startsWith('claude')) return 'anthropic';
+  if (m.startsWith('gemini')) return 'google';
+  return 'custom';
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 interface EmployeeEditorDialogProps extends UseEmployeeEditorReturn {}
 
@@ -53,6 +112,29 @@ export function EmployeeEditorDialog({
   const isEditMode = employeeId !== null;
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
+
+  // System prompt preview state
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+
+  // Provider selector state (derived from modelPreference, not persisted separately)
+  const [selectedProvider, setSelectedProvider] = useState(() =>
+    inferProvider(formData.modelPreference),
+  );
+
+  const handleProviderChange = (provider: string) => {
+    setSelectedProvider(provider);
+    if (provider === 'default') {
+      updateField('modelPreference', '');
+    }
+  };
+
+  const currentProviderModels =
+    PROVIDER_OPTIONS.find((p) => p.value === selectedProvider)?.models ?? [];
+
+  // Workstation tools badge
+  const workstationLabel = formData.workstation_id
+    ? (WORKSTATION_OPTIONS.find((w) => w.value === formData.workstation_id)?.label ?? 'Assigned')
+    : null;
 
   return (
     <Dialog
@@ -141,7 +223,7 @@ export function EmployeeEditorDialog({
                 </Button>
               </div>
 
-              {/* Workstation assignment (accessibility fallback for drag-drop) */}
+              {/* Workstation assignment with tools badge */}
               <div>
                 <label htmlFor="editor-workstation" className="text-sm text-slate-400 mb-1 block">
                   Assign Workstation
@@ -162,6 +244,12 @@ export function EmployeeEditorDialog({
                     ))}
                   </SelectContent>
                 </Select>
+                {/* Associated tools indicator */}
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {workstationLabel
+                    ? `${workstationLabel} — MCP tools available via workstation rack`
+                    : 'No workstation assigned — no MCP tools accessible'}
+                </p>
               </div>
 
               {/* Avatar appearance — persisted to persona_json via formData.appearance */}
@@ -213,22 +301,90 @@ export function EmployeeEditorDialog({
                   rows={4}
                 />
               </div>
+
+              {/* System Prompt Preview — collapsible */}
+              <div className="border border-slate-700 rounded">
+                <button
+                  type="button"
+                  onClick={() => setShowSystemPrompt((v) => !v)}
+                  className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  {showSystemPrompt ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  System Prompt Preview
+                </button>
+                {showSystemPrompt && (
+                  <pre className="px-3 pb-3 text-[11px] font-mono text-slate-300 bg-black/20 whitespace-pre-wrap leading-relaxed overflow-x-hidden">
+                    {buildSystemPrompt(formData)}
+                  </pre>
+                )}
+              </div>
             </div>
           </TabsContent>
 
           {/* Config Tab */}
           <TabsContent value="config" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
+              {/* Provider selector */}
+              <div>
+                <label htmlFor="editor-provider" className="text-sm text-slate-400 mb-1 block">
+                  Provider
+                </label>
+                <Select value={selectedProvider} onValueChange={handleProviderChange}>
+                  <SelectTrigger id="editor-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Model preference — with datalist suggestions per provider */}
               <div>
                 <label htmlFor="editor-model" className="text-sm text-slate-400 mb-1 block">
-                  Model Preference
+                  Model
                 </label>
                 <Input
                   id="editor-model"
+                  list="editor-model-suggestions"
                   value={formData.modelPreference}
                   onChange={(e) => updateField('modelPreference', e.target.value)}
-                  placeholder="e.g. gpt-4, claude-3-opus (leave empty for default)"
+                  placeholder={
+                    selectedProvider === 'default'
+                      ? 'Using company default'
+                      : 'e.g. gpt-4o, claude-opus-4-5'
+                  }
+                  disabled={selectedProvider === 'default'}
                 />
+                {currentProviderModels.length > 0 && (
+                  <datalist id="editor-model-suggestions">
+                    {currentProviderModels.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
+                )}
+                {currentProviderModels.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {currentProviderModels.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => updateField('modelPreference', m)}
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-blue-500 hover:text-blue-300 transition-colors"
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
