@@ -8,6 +8,7 @@ import type {
   TaskStatePayload,
 } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface DashboardMetrics {
@@ -17,6 +18,11 @@ export interface DashboardMetrics {
   employeeUtilization: { active: number; total: number };
   elapsedMs: number | null;
   estimatedCostUsd: number;
+  completedTasks: number;
+  totalTasks: number;
+  bossMessages: number;
+  taskCompletionRate: number;
+  bossInterventionRate: number;
 }
 
 const INITIAL_METRICS: DashboardMetrics = {
@@ -26,6 +32,11 @@ const INITIAL_METRICS: DashboardMetrics = {
   employeeUtilization: { active: 0, total: 0 },
   elapsedMs: null,
   estimatedCostUsd: 0,
+  completedTasks: 0,
+  totalTasks: 0,
+  bossMessages: 0,
+  taskCompletionRate: 0,
+  bossInterventionRate: 0,
 };
 
 /** TaskStates considered "active" for the dashboard counter. */
@@ -75,17 +86,40 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus, isRunning } = useAicsRuntime();
+  const { eventBus, isRunning, repos } = useAicsRuntime();
   const [metrics, setMetrics] = useState<DashboardMetrics>(INITIAL_METRICS);
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
   const activeTasksRef = useRef<Set<string>>(new Set());
   const employeeStatesRef = useRef<Map<string, string>>(new Map());
   const costAccRef = useRef<CostAccumulator>({ totalCost: 0 });
+  const completedTasksRef = useRef(0);
+  const totalTasksRef = useRef(0);
+  const bossMessagesRef = useRef(0);
 
   // Elapsed time tracking
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Load initial employee count from repos on mount (same pattern as useAgentStates).
+  // Without this, the status bar shows "0/0 agents" until an employee.created event fires.
+  useEffect(() => {
+    if (!repos) return;
+    repos.employees.findByCompany(COMPANY_ID).then((rows) => {
+      const states = employeeStatesRef.current;
+      for (const row of rows) {
+        if (!states.has(row.employee_id)) {
+          states.set(row.employee_id, 'idle');
+        }
+      }
+      if (rows.length > 0) {
+        setMetrics((prev) => ({
+          ...prev,
+          employeeUtilization: { active: prev.employeeUtilization.active, total: states.size },
+        }));
+      }
+    });
+  }, [repos]);
 
   // Reset all accumulators when a new run starts
   useEffect(() => {
@@ -93,6 +127,9 @@ export function useDashboardMetrics(): DashboardMetrics {
       activeTasksRef.current.clear();
       employeeStatesRef.current.clear();
       costAccRef.current = { totalCost: 0 };
+      completedTasksRef.current = 0;
+      totalTasksRef.current = 0;
+      bossMessagesRef.current = 0;
       startTimeRef.current = Date.now();
 
       setMetrics({
@@ -158,20 +195,32 @@ export function useDashboardMetrics(): DashboardMetrics {
       },
     );
 
-    // --- Active task count ---
+    // --- Active task count + completion KPI ---
     const unsubTask = eventBus.on('task.state.changed', (event: RuntimeEvent<TaskStatePayload>) => {
       const { taskRunId, next } = event.payload;
       const tasks = activeTasksRef.current;
 
       if (ACTIVE_TASK_STATES.has(next)) {
         tasks.add(taskRunId);
+        totalTasksRef.current += 1;
       } else {
         tasks.delete(taskRunId);
+        if (next === 'completed') {
+          completedTasksRef.current += 1;
+        }
       }
+
+      const total = totalTasksRef.current;
+      const completed = completedTasksRef.current;
+      const bossMsg = bossMessagesRef.current;
 
       updateMetrics((prev) => ({
         ...prev,
         activeTaskCount: tasks.size,
+        completedTasks: completed,
+        totalTasks: total,
+        taskCompletionRate: total > 0 ? completed / total : 0,
+        bossInterventionRate: total > 0 ? bossMsg / total : 0,
       }));
     });
 
@@ -229,6 +278,18 @@ export function useDashboardMetrics(): DashboardMetrics {
       },
     );
 
+    // --- Boss intervention counter (prefix match on 'boss.') ---
+    const unsubBoss = eventBus.on('boss.', () => {
+      bossMessagesRef.current += 1;
+      const total = totalTasksRef.current;
+      const bossMsg = bossMessagesRef.current;
+      updateMetrics((prev) => ({
+        ...prev,
+        bossMessages: bossMsg,
+        bossInterventionRate: total > 0 ? bossMsg / total : 0,
+      }));
+    });
+
     return () => {
       unsubLlm();
       unsubUsage();
@@ -236,6 +297,7 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubCreated();
       unsubDeleted();
       unsubEmployee();
+      unsubBoss();
     };
   }, [eventBus, updateMetrics]);
 
