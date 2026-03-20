@@ -1,5 +1,5 @@
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
-import { MessageSquarePlus, Pause, Play, Square } from 'lucide-react';
+import { ClipboardCheck, Lightbulb, MessageSquarePlus, Pause, Play, Rocket, Square, Users } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useEventStream } from '../../runtime/use-event-stream';
 
@@ -30,6 +30,15 @@ const STATUS_LABELS: Record<MeetingStatus, string> = {
   paused: 'Paused',
 };
 
+const MEETING_TYPES = [
+  { value: 'brainstorm', label: 'Brainstorm', Icon: Lightbulb },
+  { value: 'kickoff', label: 'Kickoff', Icon: Rocket },
+  { value: 'standup', label: 'Standup', Icon: Users },
+  { value: 'review', label: 'Review', Icon: ClipboardCheck },
+] as const;
+
+type MeetingType = typeof MEETING_TYPES[number]['value'];
+
 /**
  * MeetingControls — boss-facing meeting control panel.
  *
@@ -46,6 +55,7 @@ export function MeetingControls({
 }: MeetingControlsProps) {
   const [injectText, setInjectText] = useState('');
   const [showInjectInput, setShowInjectInput] = useState(false);
+  const [meetingType, setMeetingType] = useState<MeetingType>('brainstorm');
 
   // Derive meeting status from events
   const meetingEvents = useEventStream('meeting.state.changed', 1);
@@ -87,10 +97,10 @@ export function MeetingControls({
   if (status === 'idle') return null;
 
   return (
-    <Card className="border-shell/20">
+    <Card className="border-slate-400/20">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+          <CardTitle className="text-sm uppercase tracking-wider text-slate-400">
             Meeting
           </CardTitle>
           <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
@@ -98,6 +108,24 @@ export function MeetingControls({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-2">
+          {/* Meeting type selector */}
+          <div className="flex gap-1">
+            {MEETING_TYPES.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMeetingType(value)}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                  meetingType === value
+                    ? 'border border-blue-400/50 bg-blue-500/20 text-blue-300'
+                    : 'border border-transparent text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-1.5">
             {status === 'running' && (
               <>
@@ -162,7 +190,7 @@ export function MeetingControls({
             <div className="flex gap-1.5">
               <input
                 type="text"
-                className="flex-1 rounded border border-shell/20 bg-transparent px-2 py-1 text-xs text-shell placeholder:text-shell/40 focus:outline-none focus:ring-1 focus:ring-shell/40"
+                className="flex-1 rounded border border-slate-400/20 bg-transparent px-2 py-1 text-xs text-slate-400 placeholder:text-slate-400/40 focus:outline-none focus:ring-1 focus:ring-slate-400/40"
                 placeholder="Type your comment..."
                 value={injectText}
                 onChange={(e) => setInjectText(e.target.value)}
