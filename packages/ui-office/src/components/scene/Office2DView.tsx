@@ -189,6 +189,21 @@ function VendingMachineSVG({ x, y }: { x: number; y: number }) {
   );
 }
 
+// ── Status bubble labels ──────────────────────────────────────────────
+
+const STATE_LABELS: Record<string, string> = {
+  thinking: '...',
+  searching: 'search',
+  executing: 'working',
+  meeting: 'meeting',
+  blocked: 'blocked',
+  waiting: 'queued',
+  reporting: 'report',
+  success: 'done',
+  failed: 'error',
+  paused: 'paused',
+};
+
 // ── Employee Node ─────────────────────────────────────────────────────
 
 function EmployeeNode({
@@ -229,6 +244,15 @@ function EmployeeNode({
       />
       {/* Status pip */}
       <circle cx="12" cy="12" r="5" fill={statusColor} stroke="#0f172a" strokeWidth="2" />
+      {/* Status bubble — floats above avatar for non-idle states */}
+      {agent.state !== 'idle' && STATE_LABELS[agent.state] && (
+        <g transform="translate(0, -28)">
+          <rect x={-22} y={-8} width={44} height={14} rx={7} fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} />
+          <text x={0} y={1} textAnchor="middle" fontSize={7} fontFamily="monospace" fill="rgba(255,255,255,0.8)">
+            {STATE_LABELS[agent.state]}
+          </text>
+        </g>
+      )}
       {/* Name plate */}
       <g transform="translate(0, 28)">
         <rect x="-32" y="-8" width="64" height="16" rx="8" fill="#0f172a" opacity="0.85" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />

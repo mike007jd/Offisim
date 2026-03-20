@@ -578,6 +578,43 @@ function LowPolyCharacter({ statusColor, outfitColor, skinTone, state }: {
   );
 }
 
+// ── Status bubble labels ────────────────────────────────────────────
+
+const STATE_LABELS: Record<string, string> = {
+  thinking: '...',
+  searching: 'search',
+  executing: 'working',
+  meeting: 'meeting',
+  blocked: 'blocked',
+  waiting: 'queued',
+  reporting: 'report',
+  success: 'done',
+  failed: 'error',
+  paused: 'paused',
+};
+
+function StatusBubble3D({ state }: { state: string }) {
+  const label = STATE_LABELS[state];
+  if (!label) return null;
+  return (
+    <Html position={[0, 2.2, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
+      <div style={{
+        borderRadius: '9999px',
+        background: 'rgba(0,0,0,0.70)',
+        backdropFilter: 'blur(4px)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        padding: '2px 8px',
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: 'rgba(255,255,255,0.80)',
+        whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </div>
+    </Html>
+  );
+}
+
 // ── Employee placement ──────────────────────────────────────────────
 
 /**
@@ -675,6 +712,7 @@ function EmployeeMarker({
         </mesh>
       )}
       <LowPolyCharacter statusColor={color} outfitColor={outfit} skinTone={skin} state={emp.agent.state} />
+      {emp.agent.state !== 'idle' && <StatusBubble3D state={emp.agent.state} />}
     </group>
   );
 }
