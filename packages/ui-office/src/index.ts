@@ -58,6 +58,8 @@ export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
 export * from './components/library/Library.js';
 export * from './components/office/MeetingControls.js';
+export { MeetingPanel } from './components/office/MeetingPanel.js';
+export type { MeetingPanelProps } from './components/office/MeetingPanel.js';
 export { OfficeEditorOverlay } from './components/office/OfficeEditorOverlay.js';
 export * from './components/onboarding/CompanyCreationWizard.js';
 export * from './components/onboarding/TemplateCard.js';
@@ -93,6 +95,7 @@ export * from './hooks/useRackSlot.js';
 export * from './hooks/useTaskDashboard.js';
 export * from './hooks/useNotifications.js';
 export * from './hooks/useTaskQueue.js';
+export * from './hooks/useMeeting.js';
 
 // Lib
 export * from './lib/constants.js';

@@ -7,7 +7,7 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
-import { MeetingControlsAutoWired } from '../office/MeetingControlsAutoWired';
+import { MeetingPanel } from '../office/MeetingPanel';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
@@ -244,8 +244,8 @@ export function ChatPanel({
         </ScrollArea>
       )}
 
-      {/* Meeting controls (only shown when meeting is active) */}
-      <MeetingControlsAutoWired />
+      {/* Meeting panel — shows live participants, transcript, actions, controls */}
+      <MeetingPanel agents={agents} />
 
       {/* Input */}
       <ChatInput
