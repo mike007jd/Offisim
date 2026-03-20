@@ -819,6 +819,17 @@ function DragController({
 }) {
   const { camera, gl } = useThree();
 
+  // Keep latest values in refs so the stable pointermove/pointerup effect
+  // can always read the current state without being re-registered on every drag move.
+  const dragStateRef = useRef(dragState);
+  dragStateRef.current = dragState;
+  const onDragMoveRef = useRef(onDragMove);
+  onDragMoveRef.current = onDragMove;
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
+  const onDragCancelRef = useRef(onDragCancel);
+  onDragCancelRef.current = onDragCancel;
+
   // Disable OrbitControls when drag is active
   useEffect(() => {
     if (!controlsRef.current) return;
@@ -828,22 +839,23 @@ function DragController({
   // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dragState) {
-        onDragCancel();
+      if (e.key === 'Escape' && dragStateRef.current) {
+        onDragCancelRef.current();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dragState, onDragCancel]);
+  }, []);
 
   // Pointer leave handler — cancel drag when pointer exits canvas
   useEffect(() => {
-    if (!dragState) return;
     const canvas = gl.domElement;
-    const handleLeave = () => { onDragCancel(); };
+    const handleLeave = () => {
+      if (dragStateRef.current) onDragCancelRef.current();
+    };
     canvas.addEventListener('pointerleave', handleLeave);
     return () => canvas.removeEventListener('pointerleave', handleLeave);
-  }, [dragState, gl.domElement, onDragCancel]);
+  }, [gl.domElement]);
 
   /** Raycast from screen coords to the y=0 floor plane. */
   const raycastToFloor = useCallback((clientX: number, clientY: number): [number, number, number] | null => {
@@ -860,23 +872,26 @@ function DragController({
   // Listen for pointer move/up on the canvas DOM element during active drag.
   // We attach DOM listeners rather than R3F mesh events for more reliable
   // capture (the ghost might obscure the invisible floor mesh).
+  // Effect is stable (only re-runs when gl.domElement changes) because all
+  // state-dependent values are accessed via refs inside the handlers.
   useEffect(() => {
-    if (!dragState) return;
     const canvas = gl.domElement;
 
     const handleMove = (e: PointerEvent) => {
+      if (!dragStateRef.current) return;
       const pos = raycastToFloor(e.clientX, e.clientY);
       if (pos) {
-        onDragMove(pos[0], pos[2], e.clientX, e.clientY);
+        onDragMoveRef.current(pos[0], pos[2], e.clientX, e.clientY);
       }
     };
 
     const handleUp = (e: PointerEvent) => {
+      if (!dragStateRef.current) return;
       const pos = raycastToFloor(e.clientX, e.clientY);
       if (pos) {
-        onDragEnd(pos[0], pos[2]);
+        onDragEndRef.current(pos[0], pos[2]);
       } else {
-        onDragCancel();
+        onDragCancelRef.current();
       }
     };
 
@@ -886,7 +901,7 @@ function DragController({
       canvas.removeEventListener('pointermove', handleMove);
       canvas.removeEventListener('pointerup', handleUp);
     };
-  }, [dragState, gl.domElement, raycastToFloor, onDragMove, onDragEnd, onDragCancel]);
+  }, [gl.domElement, raycastToFloor]);
 
   return null; // No visual output — purely event handling
 }
