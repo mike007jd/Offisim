@@ -1041,6 +1041,14 @@ function TaskFlowLine({ from, to, color, onComplete }: {
     matRef.current = lineObj.material as THREE.LineBasicMaterial;
   }, [lineObj]);
 
+  // Dispose geometry and material on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      geo.dispose();
+      (lineObj.material as THREE.LineBasicMaterial).dispose();
+    };
+  }, [geo, lineObj]);
+
   return <primitive object={lineObj} />;
 }
 
@@ -1152,12 +1160,14 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
     return hasMeeting ? 0.6 : 0.8;
   }, [agents]);
 
+  // Memoize the THREE.Color object so we don't allocate a new one every frame
+  const targetColorObj = useMemo(() => new THREE.Color(targetColor), [targetColor]);
+
   useFrame(() => {
     if (!lightRef.current) return;
     // Lerp toward target color/intensity each frame for smooth transitions
     const current = lightRef.current.color;
-    const target = new THREE.Color(targetColor);
-    current.lerp(target, 0.02);
+    current.lerp(targetColorObj, 0.02);
     lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, 0.02);
   });
 
@@ -1218,7 +1228,11 @@ export default function Office3DView() {
         variant: 'normal',
         createdAt: Date.now(),
       };
-      setFlowLines(prev => [...prev, line]);
+      setFlowLines(prev => {
+        const now = Date.now();
+        const cleaned = prev.filter(l => now - l.createdAt < 5000);
+        return [...cleaned, line].slice(-20);
+      });
     });
     return () => { unsub(); };
   }, [eventBus]);
