@@ -1,7 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
-import { Bell, Book, Database, LayoutDashboard, Terminal, Users } from 'lucide-react';
+import { Bell, Book, Database, LayoutDashboard, Terminal } from 'lucide-react';
 import { useAgentStates } from '../../runtime/use-agent-states';
-import { ZONES, resolveEmployeeZone } from '../../lib/zone-config';
 import { EventLog } from '../events/EventLog';
 import { Library } from '../library/Library';
 import { PitchHall } from '../pitch/PitchHall';
@@ -19,7 +18,6 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
     { id: 'tasks', icon: Terminal, label: 'Tasks' },
     { id: 'outputs', icon: LayoutDashboard, label: 'Outputs' },
     { id: 'events', icon: Bell, label: 'Events' },
-    { id: 'office', icon: Users, label: 'Office' },
     { id: 'server-room', icon: Database, label: 'Server' },
     { id: 'library', icon: Book, label: 'Library' },
   ];
@@ -47,9 +45,6 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
         <TabsContent value="tasks" className="mt-0"><TaskDashboard agents={agents} /></TabsContent>
         <TabsContent value="outputs" className="mt-0"><PitchHall /></TabsContent>
         <TabsContent value="events" className="mt-0"><EventLog /></TabsContent>
-        <TabsContent value="office" className="mt-0 p-3">
-          <OfficeSummaryPanel agents={agents} />
-        </TabsContent>
         <TabsContent value="server-room" className="mt-0 p-3"><ServerRoom /></TabsContent>
         <TabsContent value="library" className="mt-0"><Library /></TabsContent>
       </div>
@@ -65,95 +60,5 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
         </button>
       </div>
     </Tabs>
-  );
-}
-
-interface OfficeSummaryPanelProps {
-  agents: Map<string, { name: string; role: string; state: string; workstationId?: string | null }>;
-}
-
-function OfficeSummaryPanel({ agents }: OfficeSummaryPanelProps) {
-  const totalWorkstations = ZONES.reduce((sum, z) => sum + z.deskSlots, 0);
-  const totalAgents = agents.size;
-
-  // Count employees per zone
-  const zoneCounts: Record<string, number> = {};
-  for (const z of ZONES) zoneCounts[z.id] = 0;
-  for (const [, agent] of agents) {
-    const zoneId = resolveEmployeeZone(agent);
-    if (zoneCounts[zoneId] !== undefined) {
-      zoneCounts[zoneId]++;
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Quick stats */}
-      <div className="p-3 rounded-md bg-white/3 border border-white/5">
-        <p className="text-xs font-medium text-slate-400 mb-2">Overview</p>
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Employees</span>
-            <span className="text-sm font-medium text-slate-200">{totalAgents}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Workstations</span>
-            <span className="text-sm font-medium text-slate-200">{totalWorkstations}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Utilization</span>
-            <span className="text-sm font-medium text-slate-200">
-              {totalWorkstations > 0 ? Math.round((totalAgents / totalWorkstations) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Zone breakdown */}
-      <div className="p-3 rounded-md bg-white/3 border border-white/5">
-        <p className="text-xs font-medium text-slate-400 mb-2">Zones</p>
-        <div className="flex flex-col gap-1.5">
-          {ZONES.map(zone => {
-            const count = zoneCounts[zone.id] ?? 0;
-            const capacity = zone.deskSlots;
-            const pct = capacity > 0 ? Math.round((count / capacity) * 100) : 0;
-
-            return (
-              <div key={zone.id} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: zone.accent }}
-                    />
-                    <span className="text-xs text-slate-200 truncate">{zone.label}</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    {capacity > 0 ? (
-                      <span className="text-[10px] text-slate-500">{count}/{capacity}</span>
-                    ) : (
-                      <span className="text-[10px] text-slate-600">{zone.spaceType}</span>
-                    )}
-                  </div>
-                </div>
-                {/* Utilization bar for zones with desks */}
-                {capacity > 0 && (
-                  <div className="h-1 w-full rounded-full bg-white/5 ml-4" style={{ width: 'calc(100% - 16px)' }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(pct, 100)}%`,
-                        backgroundColor: zone.accent,
-                        opacity: 0.7,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
   );
 }
