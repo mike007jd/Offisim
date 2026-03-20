@@ -5,6 +5,7 @@ import { useContext, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { AicsRuntimeContext } from '../../runtime/aics-runtime-context';
+import { STATE_LABELS } from '../../lib/state-labels';
 
 // ── Zone definitions (matching 2D renderer departments.ts) ──────────
 // TODO: migrate to shared ../../lib/zone-config.ts (P1 follow-up)
@@ -579,19 +580,6 @@ function LowPolyCharacter({ statusColor, outfitColor, skinTone, state }: {
 }
 
 // ── Status bubble labels ────────────────────────────────────────────
-
-const STATE_LABELS: Record<string, string> = {
-  thinking: '...',
-  searching: 'search',
-  executing: 'working',
-  meeting: 'meeting',
-  blocked: 'blocked',
-  waiting: 'queued',
-  reporting: 'report',
-  success: 'done',
-  failed: 'error',
-  paused: 'paused',
-};
 
 function StatusBubble3D({ state }: { state: string }) {
   const label = STATE_LABELS[state];

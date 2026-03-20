@@ -11,6 +11,7 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { ZONES, resolveZone, STATUS_COLORS } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
+import { STATE_LABELS } from '../../lib/state-labels';
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -188,21 +189,6 @@ function VendingMachineSVG({ x, y }: { x: number; y: number }) {
     </g>
   );
 }
-
-// ── Status bubble labels ──────────────────────────────────────────────
-
-const STATE_LABELS: Record<string, string> = {
-  thinking: '...',
-  searching: 'search',
-  executing: 'working',
-  meeting: 'meeting',
-  blocked: 'blocked',
-  waiting: 'queued',
-  reporting: 'report',
-  success: 'done',
-  failed: 'error',
-  paused: 'paused',
-};
 
 // ── Employee Node ─────────────────────────────────────────────────────
 
