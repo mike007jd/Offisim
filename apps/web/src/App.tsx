@@ -152,6 +152,7 @@ export function App() {
               }
               agentPanel={
                 <AgentPanel
+                  agents={agents}
                   onSelectEmployee={setSelectedEmployeeId}
                   selectedEmployeeId={selectedEmployeeId}
                   onOpenCreator={() => setView('employee-creator')}

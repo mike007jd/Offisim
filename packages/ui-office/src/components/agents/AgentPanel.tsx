@@ -1,17 +1,17 @@
 import { Plus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useAgentStates } from '../../runtime/use-agent-states';
+import type { AgentState } from '../../runtime/use-agent-states';
 import { AgentCard } from './AgentCard';
 
 interface AgentPanelProps {
+  agents: Map<string, AgentState>;
   onSelectEmployee?: (employeeId: string) => void;
   selectedEmployeeId?: string | null;
   /** Navigate to full-screen employee creator */
   onOpenCreator?: () => void;
 }
 
-export function AgentPanel({ onSelectEmployee, selectedEmployeeId, onOpenCreator }: AgentPanelProps) {
-  const agents = useAgentStates();
+export function AgentPanel({ agents, onSelectEmployee, selectedEmployeeId, onOpenCreator }: AgentPanelProps) {
   const [search, setSearch] = useState('');
 
   const filteredEntries = useMemo(() => {
