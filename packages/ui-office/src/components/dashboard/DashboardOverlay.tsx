@@ -58,7 +58,7 @@ function NotificationsCard({
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell flex items-center gap-2">
+          <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Bell className="h-4 w-4" />
             Notifications
             {unreadCount > 0 && (
@@ -82,31 +82,31 @@ function NotificationsCard({
       </CardHeader>
       <CardContent>
         {notifications.length === 0 ? (
-          <p className="text-xs text-shell/50 font-pixel-body">No notifications</p>
+          <p className="text-xs text-slate-400/50">No notifications</p>
         ) : (
           <ScrollArea className="max-h-48">
             <div className="flex flex-col gap-1">
               {notifications.slice(0, 20).map((n) => (
                 <div
                   key={n.notificationId}
-                  className={`flex items-start gap-2 rounded p-1.5 cursor-pointer transition-colors hover:bg-ocean-mid/30 ${
+                  className={`flex items-start gap-2 rounded p-1.5 cursor-pointer transition-colors hover:bg-slate-800/30 ${
                     n.read ? 'opacity-50' : ''
                   }`}
                   onClick={() => !n.read && onMarkRead(n.notificationId)}
                 >
                   <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${(LEVEL_COLORS[n.level] ?? 'text-blue-400').replace('text-', 'bg-')}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-shell leading-tight truncate">{n.title}</p>
-                    <p className="text-[10px] text-shell/60 leading-tight mt-0.5 line-clamp-1">
+                    <p className="text-xs text-slate-400 leading-tight truncate">{n.title}</p>
+                    <p className="text-[10px] text-slate-400/60 leading-tight mt-0.5 line-clamp-3">
                       {n.message}
                     </p>
                   </div>
-                  <span className="text-[9px] text-shell/40 shrink-0">
+                  <span className="text-[9px] text-slate-400/40 shrink-0">
                     {formatTimestamp(n.timestamp)}
                   </span>
                   {n.dismissable && (
                     <button
-                      className="shrink-0 text-shell/40 hover:text-shell"
+                      className="shrink-0 text-slate-400/40 hover:text-slate-400"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDismiss(n.notificationId);
@@ -129,7 +129,7 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell flex items-center gap-2">
+        <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4" />
           Error History
           {errors.length > 0 && (
@@ -141,7 +141,7 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
       </CardHeader>
       <CardContent>
         {errors.length === 0 ? (
-          <p className="text-xs text-shell/50 font-pixel-body">No errors recorded</p>
+          <p className="text-xs text-slate-400/50">No errors recorded</p>
         ) : (
           <ScrollArea className="max-h-48">
             <div className="flex flex-col gap-1.5">
@@ -152,22 +152,22 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
                 .map((err, i) => (
                   <div
                     key={`${err.errorCode}-${err.timestamp}-${i}`}
-                    className="rounded border border-ocean-light bg-ocean-mid/10 p-2"
+                    className="rounded border border-slate-700 bg-slate-800/10 p-2"
                   >
                     <div className="flex items-center gap-2">
                       <XCircle
                         className={`h-3.5 w-3.5 shrink-0 ${err.recoverable ? 'text-yellow-400' : 'text-red-400'}`}
                       />
-                      <span className="text-xs font-pixel-mono text-shell truncate">
+                      <span className="text-xs font-mono text-slate-400 truncate">
                         {err.errorCode}
                       </span>
-                      <span className="text-[9px] text-shell/40 ml-auto shrink-0">
+                      <span className="text-[9px] text-slate-400/40 ml-auto shrink-0">
                         {formatTimestamp(err.timestamp)}
                       </span>
                     </div>
-                    <p className="text-[10px] text-shell/70 mt-1 line-clamp-2">{err.message}</p>
+                    <p className="text-[10px] text-slate-400/70 mt-1 line-clamp-3">{err.message}</p>
                     {err.nodeName && (
-                      <span className="text-[9px] text-shell/40 mt-0.5 block">
+                      <span className="text-[9px] text-slate-400/40 mt-0.5 block">
                         node: {err.nodeName}
                         {err.employeeId ? ` | employee: ${err.employeeId}` : ''}
                       </span>
@@ -188,7 +188,7 @@ function OutputsCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell flex items-center gap-2">
+        <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <FileOutput className="h-4 w-4" />
           Recent Outputs
           {deliverables.length > 0 && (
@@ -200,7 +200,7 @@ function OutputsCard() {
       </CardHeader>
       <CardContent>
         {deliverables.length === 0 ? (
-          <p className="text-xs text-shell/50 font-pixel-body">
+          <p className="text-xs text-slate-400/50">
             No outputs yet. Deliverables will appear after tasks complete.
           </p>
         ) : (
@@ -213,17 +213,17 @@ function OutputsCard() {
                 .map((d) => (
                   <div
                     key={d.id}
-                    className="rounded border border-ocean-light bg-ocean-mid/10 p-2"
+                    className="rounded border border-slate-700 bg-slate-800/10 p-2"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-pearl font-pixel-body truncate">
+                      <span className="text-xs text-slate-100 truncate">
                         {d.title}
                       </span>
-                      <span className="text-[9px] text-shell/40 shrink-0 ml-2">
+                      <span className="text-[9px] text-slate-400/40 shrink-0 ml-2">
                         {formatTimestamp(d.createdAt)}
                       </span>
                     </div>
-                    <p className="text-[10px] text-shell/60 mt-1 line-clamp-2">
+                    <p className="text-[10px] text-slate-400/60 mt-1 line-clamp-2">
                       {truncate(d.content, 120)}
                     </p>
                     {d.contributingEmployees.length > 0 && (
@@ -307,7 +307,7 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-40 bg-ocean-deep/80 backdrop-blur-sm"
+      className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
       aria-hidden={!open}
@@ -319,14 +319,14 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
         <div className="mx-auto max-w-7xl px-4 py-6">
           {/* Header row */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-pixel-display text-lg text-pearl uppercase tracking-wider">
+            <h2 className="font-black text-lg text-slate-100 uppercase tracking-wider">
               Boss Dashboard
             </h2>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-shell hover:text-pearl"
+              className="text-slate-400 hover:text-slate-100"
               title="Close dashboard (Esc)"
             >
               <X className="h-5 w-5" />
@@ -334,7 +334,7 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
           </div>
 
           {/* Dashboard grid — responsive 1/2/3 columns */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <CostOverviewCard summary={cost.summary} loading={cost.loading} />
             <CompanyStatusCard agents={agents} />
             <CostByModelCard byModel={cost.byModel} loading={cost.loading} />

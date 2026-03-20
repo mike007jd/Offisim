@@ -375,7 +375,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
         {/* ── Right Sidebar: Zone Properties (slides in when zone selected in 2D) ── */}
         <div
           className={`shrink-0 border-l border-white/[0.06] bg-[#060a14] flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${
-            showSidebar ? 'w-80 opacity-100' : 'w-0 opacity-0 border-l-0'
+            showSidebar ? 'w-80 min-w-[280px] opacity-100' : 'w-0 opacity-0 border-l-0'
           }`}
         >
           {showSidebar && selectedZone && selectedProps && (

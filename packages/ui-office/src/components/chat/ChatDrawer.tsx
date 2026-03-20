@@ -11,13 +11,13 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
   return (
     <div
       className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300"
-      style={{ height: open ? '50vh' : '48px' }}
+      style={{ height: open ? '40vh' : '56px' }}
     >
       {/* Toggle bar */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full h-12 px-6 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
+        className="w-full h-14 px-6 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
       >
         <div className="flex items-center space-x-3">
           <MessageSquare className="w-4 h-4 text-blue-500" />
@@ -36,7 +36,7 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
         className="overflow-hidden transition-opacity duration-300"
         style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
       >
-        <div className="h-[calc(50vh-48px)] overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="h-[calc(40vh-56px)] overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );

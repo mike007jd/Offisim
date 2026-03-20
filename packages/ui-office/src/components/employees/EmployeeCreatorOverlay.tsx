@@ -147,9 +147,9 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       </div>
 
       {/* ── Main Content ─────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* ── Left Panel: Character Preview (45%) ──────────────── */}
-        <div className="flex w-[45%] shrink-0 flex-col items-center justify-center bg-[#020409]">
+        <div className="flex w-full lg:w-[45%] shrink-0 flex-col items-center justify-center bg-[#020409] max-h-[200px] lg:max-h-none">
           <div className="flex flex-col items-center gap-6">
             {/* Avatar Preview */}
             <div className="relative">
@@ -222,7 +222,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
         </div>
 
         {/* ── Right Panel: Configuration (55%) ─────────────────── */}
-        <div className="flex w-[55%] flex-col border-l border-white/[0.06] overflow-y-auto">
+        <div className="flex w-full lg:w-[55%] flex-col border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-y-auto">
           <div className="flex flex-1 flex-col gap-5 p-8">
             {/* Section: Identity */}
             <SectionPanel title="IDENTITY" stepIndex={0} activeStep={activeStep}>
