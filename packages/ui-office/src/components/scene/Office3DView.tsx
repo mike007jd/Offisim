@@ -975,7 +975,7 @@ function DragController({
 
 // ── Task flow line data ─────────────────────────────────────────────
 
-interface _FlowLineData {
+interface FlowLineData {
   id: string;
   from: [number, number, number];
   to: [number, number, number];
@@ -991,7 +991,7 @@ interface _FlowLineData {
  * Animated line from manager/boss position → employee zone center.
  * Lifecycle: fade-in 0.3s → hold 1s → fade-out 0.7s (total 2s).
  */
-function _TaskFlowLine({ from, to, color, onComplete }: {
+function TaskFlowLine({ from, to, color, onComplete }: {
   from: [number, number, number];
   to: [number, number, number];
   color: string;
@@ -1173,10 +1173,55 @@ export default function Office3DView() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState3D | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
+  const [flowLines, setFlowLines] = useState<FlowLineData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
   const isDragging = dragState?.active ?? false;
+
+  // ── Per-zone activity counters ──
+  const zoneActivity = useMemo(() => {
+    const activity: Record<string, { count: number; blocked: boolean }> = {};
+    for (const zone of ZONES_3D) activity[zone.id] = { count: 0, blocked: false };
+    for (const [, agent] of agents) {
+      const zoneId = resolveEmployeeZone(agent);
+      if (!activity[zoneId]) continue;
+      if (agent.state !== 'idle') activity[zoneId].count++;
+      if (agent.state === 'blocked' || agent.state === 'failed') activity[zoneId].blocked = true;
+    }
+    return activity;
+  }, [agents]);
+
+  // ── Scene-level stats for HUD ──
+  const activeCount = useMemo(() => [...agents.values()].filter(a => a.state !== 'idle').length, [agents]);
+  const blockedCount = useMemo(() => [...agents.values()].filter(a => a.state === 'blocked' || a.state === 'failed').length, [agents]);
+
+  // Keep a stable ref to agents so the event handler reads latest without re-subscribing
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
+
+  // ── Task flow line event subscription ──
+  useEffect(() => {
+    const unsub = eventBus.on('task.state.changed', (event: RuntimeEvent) => {
+      const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
+      if (payload?.taskState !== 'active') return;
+      const assignedZoneId = payload.assignedTo
+        ? resolveEmployeeZone(agentsRef.current.get(payload.assignedTo) ?? { role: 'employee' })
+        : 'PROD';
+      const mtgLayout = ZONE_3D_LAYOUT['MTG'];
+      const targetLayout = ZONE_3D_LAYOUT[assignedZoneId] ?? ZONE_3D_LAYOUT['PROD'];
+      if (!mtgLayout || !targetLayout) return;
+      const line: FlowLineData = {
+        id: `flow-${Date.now()}-${Math.random()}`,
+        from: [mtgLayout.position[0], 0.5, mtgLayout.position[2]],
+        to: [targetLayout.position[0], 0.5, targetLayout.position[2]],
+        variant: 'normal',
+        createdAt: Date.now(),
+      };
+      setFlowLines(prev => [...prev, line]);
+    });
+    return () => { unsub(); };
+  }, [eventBus]);
 
   const handleSelectEmployee = useCallback((id: string) => {
     setSelectedEmployeeId(id);
@@ -1288,8 +1333,8 @@ export default function Office3DView() {
         <color attach="background" args={['#020617']} />
         <fog attach="fog" args={['#020617', 40, 100]} />
 
-        {/* Lighting */}
-        <ambientLight intensity={0.8} />
+        {/* Lighting — AmbientStateLight replaces static ambientLight */}
+        <AmbientStateLight agents={agents} />
         <directionalLight
           castShadow
           position={[12, 25, 12]}
@@ -1308,7 +1353,7 @@ export default function Office3DView() {
         {/* Room shell — floor click deselects */}
         <RoomShell onFloorClick={handleDeselect} />
 
-        {/* ── Zone overlays (with drag highlight) ── */}
+        {/* ── Zone overlays (with drag highlight and activity glow) ── */}
         {ZONES_3D.map((z) => (
           <ZoneLabel
             key={z.id}
@@ -1319,6 +1364,9 @@ export default function Office3DView() {
             isDragging={isDragging && z.deskSlots > 0}
             isHovered={hoveredZoneId === z.id}
             isSource={isDragging ? dragState!.sourceZoneId === z.id : false}
+            activityCount={zoneActivity[z.id]?.count ?? 0}
+            hasBlocked={zoneActivity[z.id]?.blocked ?? false}
+            isMeetingActive={z.id === 'MTG' && (zoneActivity['MTG']?.count ?? 0) > 0}
           />
         ))}
 
@@ -1361,6 +1409,36 @@ export default function Office3DView() {
             onDragStart={handleEmployeeDragStart}
           />
         ))}
+
+        {/* ── Task flow lines ── */}
+        {flowLines.map((line) => (
+          <TaskFlowLine
+            key={line.id}
+            from={line.from}
+            to={line.to}
+            color={line.variant === 'handoff' ? '#f97316' : '#60a5fa'}
+            onComplete={() => setFlowLines(prev => prev.filter(l => l.id !== line.id))}
+          />
+        ))}
+
+        {/* ── Scene HUD overlay ── */}
+        <Html position={[18, 14, 0]} center style={{ pointerEvents: 'none' }}>
+          <div style={{
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            color: 'rgba(255,255,255,0.6)',
+            background: 'rgba(0,0,0,0.4)',
+            borderRadius: '8px',
+            padding: '4px 8px',
+            backdropFilter: 'blur(4px)',
+            whiteSpace: 'nowrap',
+          }}>
+            <div>⚡ {activeCount} active</div>
+            {blockedCount > 0 && (
+              <div style={{ color: '#fbbf24' }}>⚠ {blockedCount} blocked</div>
+            )}
+          </div>
+        </Html>
 
         {/* ── Drag ghost ── */}
         {isDragging && dragState && (
