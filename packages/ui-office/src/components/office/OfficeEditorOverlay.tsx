@@ -115,6 +115,10 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
     // Emit a zone config change event so the scene can react immediately
     eventBus.emit({
       type: 'office.zone.config.changed',
+      entityId: selectedZoneId,
+      entityType: 'company',
+      companyId: '',
+      timestamp: Date.now(),
       payload: { zoneId: selectedZoneId, accentColor: selectedProps.accentColor, workstationCount: selectedProps.workstationCount },
     });
   }, [selectedZoneId, selectedProps, eventBus]);
@@ -128,7 +132,14 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
       } else {
         await createLayout('Default Layout', layoutJson);
       }
-      eventBus.emit({ type: 'office.layout.saved', payload: { zoneProps } });
+      eventBus.emit({
+        type: 'office.layout.saved',
+        entityId: 'office',
+        entityType: 'company',
+        companyId: '',
+        timestamp: Date.now(),
+        payload: { zoneProps },
+      });
       onClose();
     } finally {
       setSaving(false);
