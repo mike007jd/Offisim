@@ -124,6 +124,8 @@ export default defineConfig({
     alias: [
       { find: 'node:async_hooks', replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts') },
       { find: 'better-sqlite3', replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts') },
+      // Tauri packages — stub them in browser dev mode (external only works at build time)
+      { find: /^@tauri-apps\//, replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts') },
       // Redirect bare `@aics/core` imports (from @aics/ui-office compiled output)
       // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
       // from being pulled into the initial bundle via ui-office's static imports.
@@ -184,6 +186,14 @@ export default defineConfig({
           // PixiJS core — the big renderer library
           if (id.includes('/pixi.js/') || id.includes('/@pixi/')) {
             return 'vendor-pixi';
+          }
+
+          // Three.js + React Three Fiber (lazy on 3D view toggle)
+          if (
+            id.includes('/three/') ||
+            id.includes('/@react-three/')
+          ) {
+            return 'vendor-3d';
           }
 
           // UI stack — icons, Radix primitives, scroll-lock, GSAP

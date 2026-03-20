@@ -5,6 +5,7 @@ export * from './components/company/PolicyEditor.js';
 export * from './components/company/ZoneEditor.js';
 export * from './components/agents/AgentCard.js';
 export * from './components/agents/AgentPanel.js';
+export { DicebearAvatar } from './components/shared/DicebearAvatar.js';
 export * from './components/chat/ChatDrawer.js';
 export * from './components/chat/ChatInput.js';
 export * from './components/chat/ChatPanel.js';

@@ -1,137 +1,177 @@
 @import "tailwindcss";
 
 /*
- * AICS Web Shell — Pixel Art Theme
- * Retro game palette inspired by SNES/GBA era.
- * Design ref: docs/plans/2026-03-10-phase7-pixel-openclaw-design.md §1.1
+ * Offisim Web Shell — Cyberpunk HUD Theme
+ * Dark glassmorphism with blue accent, inspired by OffisimArt reference.
  */
 @theme {
   /* ── Core palette ── */
-  --color-ocean-deep: #1a1c2c;
-  --color-ocean-mid: #333c57;
-  --color-ocean-light: #566c86;
-  --color-sand: #f4f4f4;
-  --color-shell: #8b9bb4;
-  --color-lobster-red: #e43b44;
-  --color-coral-orange: #f77622;
-  --color-kelp-green: #3e8948;
-  --color-sea-blue: #3978a8;
-  --color-abyss: #0e071b;
-  --color-pearl: #ffffff;
-  --color-foam: #c0cbdc;
+  --color-hud-black: #02040a;
+  --color-hud-dark: #0f172a;
+  --color-hud-mid: #1e293b;
+  --color-hud-light: #334155;
+  --color-hud-lighter: #475569;
+  --color-hud-border: rgba(255, 255, 255, 0.1);
 
-  /* ── Semantic aliases (maps old token names → new palette) ── */
-  --color-surface: #1a1c2c;
-  --color-surface-light: #333c57;
-  --color-surface-lighter: #566c86;
-  --color-border: #566c86;
-  --color-text-primary: #f4f4f4;
-  --color-text-secondary: #8b9bb4;
-  --color-text-muted: #566c86;
-  --color-accent: #e43b44;
-  --color-accent-hover: #c42f38;
-  --color-success: #3e8948;
-  --color-warning: #f77622;
-  --color-error: #e43b44;
-  --color-info: #3978a8;
+  /* ── Legacy palette aliases (prevent breakage in components not yet updated) ── */
+  --color-ocean-deep: #0f172a;
+  --color-ocean-mid: #1e293b;
+  --color-ocean-light: #334155;
+  --color-sand: #f8fafc;
+  --color-shell: #94a3b8;
+  --color-lobster-red: #ef4444;
+  --color-coral-orange: #f97316;
+  --color-kelp-green: #10b981;
+  --color-sea-blue: #3b82f6;
+  --color-abyss: #020617;
+  --color-pearl: #ffffff;
+  --color-foam: #cbd5e1;
+  --color-coral: #f97316;
+
+  /* ── Semantic aliases ── */
+  --color-surface: #02040a;
+  --color-surface-light: #0f172a;
+  --color-surface-lighter: #1e293b;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
 
   /* ── Font families ── */
-  --font-pixel-display: "Press Start 2P", monospace;
-  --font-pixel-body: "Pixelify Sans", system-ui, sans-serif;
-  --font-pixel-mono: "IBM Plex Mono", monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Keep old names working during transition ── */
+  --font-pixel-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-pixel-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-pixel-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 /* ── Base styles ── */
 body {
   @apply bg-surface text-text-primary;
-  font-family: var(--font-pixel-body);
-  -webkit-font-smoothing: none;
-  -moz-osx-font-smoothing: unset;
-  text-rendering: optimizeSpeed;
-  image-rendering: pixelated;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
-/* ── Pixel utility classes ── */
-.font-pixel-display {
-  font-family: var(--font-pixel-display);
+/* ── Glass panel utility ── */
+.glass-panel {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.5rem;
 }
 
-.font-pixel-body {
-  font-family: var(--font-pixel-body);
+.glass-panel-sm {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
 }
 
-.font-pixel-mono {
-  font-family: var(--font-pixel-mono);
+/* ── Cyber button ── */
+.cyber-button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.625rem 1rem;
+  color: #94a3b8;
+  font-size: 0.625rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.cyber-button:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
 }
 
-/* ── Pixel border utilities ── */
-.pixel-border {
-  border: 2px solid var(--color-ocean-light);
-  border-radius: 0;
+/* ── Noise overlay ── */
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.pixel-border-double {
-  border: 2px solid var(--color-ocean-light);
-  outline: 2px solid var(--color-abyss);
-  outline-offset: 2px;
-  border-radius: 0;
+/* ── Scanline overlay ── */
+.scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.02;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 2px, 3px 100%;
 }
 
-.pixel-inset {
-  border: 2px solid;
-  border-color: var(--color-abyss) var(--color-ocean-light) var(--color-ocean-light)
-    var(--color-abyss);
-  border-radius: 0;
+/* ── Custom scrollbar ── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 
-/* ── Custom pixel scrollbar ── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--color-ocean-deep);
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: var(--color-ocean-light);
-  border: 1px solid var(--color-ocean-mid);
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-lobster-red);
+  background: rgba(148, 163, 184, 0.4);
 }
-
 ::-webkit-scrollbar-corner {
-  background: var(--color-ocean-deep);
+  background: transparent;
 }
 
-/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-ocean-light) var(--color-ocean-deep);
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
 }
 
-/* ── Pixel cursor blink for inputs ── */
-@keyframes pixel-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-.pixel-cursor::after {
-  content: "▮";
-  animation: pixel-blink 1s step-end infinite;
-  color: var(--color-lobster-red);
-}
-
-/* ── Pixel press effect for buttons ── */
-.pixel-press:active {
-  transform: translate(2px, 2px);
-  box-shadow: none !important;
-}
+/* ── Keep legacy pixel classes working (mapped to new system) ── */
+.font-pixel-display { font-family: var(--font-sans); font-weight: 900; }
+.font-pixel-body { font-family: var(--font-sans); }
+.font-pixel-mono { font-family: var(--font-mono); }
+.pixel-border { border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; }
+.pixel-border-double { border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; }
+.pixel-inset { border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; }
+.pixel-press:active { transform: scale(0.98); }

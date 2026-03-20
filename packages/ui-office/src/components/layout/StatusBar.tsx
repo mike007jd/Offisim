@@ -1,4 +1,4 @@
-import { Badge } from '@aics/ui-core';
+import { Activity, Cpu, Database, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 
@@ -9,31 +9,59 @@ interface StatusBarProps {
 export function StatusBar({ modelName }: StatusBarProps) {
   const { isRunning, error } = useAicsRuntime();
   const metrics = useDashboardMetrics();
-
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';
-  const statusVariant =
-    runStatus === 'error' ? 'error' : runStatus === 'running' ? 'info' : 'secondary';
 
   return (
-    <footer className="flex h-8 items-center justify-between border-t-2 border-ocean-light bg-ocean-deep px-4 font-pixel-mono text-[10px] text-shell">
-      <div className="flex items-center gap-2">
-        <Badge variant={statusVariant} className="text-[10px] px-1.5 py-0">
-          {runStatus}
-        </Badge>
-        {modelName && <span className="text-[10px] text-shell">MODEL: {modelName}</span>}
-      </div>
-      <div className="flex items-center gap-3 text-[10px] text-shell">
-        {metrics.activeTaskCount > 0 && <span>⚡ {metrics.activeTaskCount} tasks</span>}
-        <span>
-          👥 {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total}
-        </span>
-        {metrics.totalInputTokens + metrics.totalOutputTokens > 0 && (
-          <span>
-            TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}
+    <footer className="h-9 bg-black/60 backdrop-blur-xl text-slate-500 text-[9px] px-6 flex items-center justify-between relative overflow-hidden border-t border-white/5">
+      <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+
+      <div className="flex items-center space-x-5 relative z-10">
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${runStatus === 'running' ? 'bg-emerald-500 animate-pulse' : runStatus === 'error' ? 'bg-red-500' : 'bg-slate-600'}`} />
+          <span className={`uppercase tracking-[0.2em] font-black ${runStatus === 'running' ? 'text-emerald-500/90' : runStatus === 'error' ? 'text-red-500/90' : 'text-slate-600'}`}>
+            {runStatus === 'running' ? 'System Online' : runStatus === 'error' ? 'Error' : 'Standby'}
           </span>
+        </div>
+
+        <div className="w-px h-3 bg-white/10" />
+
+        <div className="flex items-center space-x-4">
+          {modelName && (
+            <div className="flex items-center space-x-1.5">
+              <Cpu className="w-3 h-3 text-blue-400/50" />
+              <span className="font-mono">{modelName}</span>
+            </div>
+          )}
+          {metrics.activeTaskCount > 0 && (
+            <div className="flex items-center space-x-1.5">
+              <Zap className="w-3 h-3 text-amber-400/50" />
+              <span className="font-mono">{metrics.activeTaskCount} tasks</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-1.5">
+            <Database className="w-3 h-3 text-purple-400/50" />
+            <span className="font-mono">
+              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} agents
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-5 relative z-10">
+        {metrics.totalInputTokens + metrics.totalOutputTokens > 0 && (
+          <span className="font-mono">TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}</span>
         )}
-        {metrics.estimatedCostUsd > 0 && <span>~${metrics.estimatedCostUsd.toFixed(4)}</span>}
-        {metrics.elapsedMs != null && <span>{(metrics.elapsedMs / 1000).toFixed(1)}s</span>}
+        {metrics.estimatedCostUsd > 0 && (
+          <span className="font-mono text-emerald-500/50">${metrics.estimatedCostUsd.toFixed(4)}</span>
+        )}
+        {metrics.elapsedMs != null && (
+          <span className="font-mono">LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s</span>
+        )}
+        <div className="w-px h-3 bg-white/10" />
+        <div className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity">
+          <Activity className="w-3 h-3" />
+          <span className="font-mono">v1.0.4</span>
+        </div>
       </div>
     </footer>
   );

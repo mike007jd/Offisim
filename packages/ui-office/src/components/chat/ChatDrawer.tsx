@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronUp, Terminal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 interface ChatDrawerProps {
@@ -9,26 +9,34 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-t-2 border-ocean-light bg-ocean-deep">
-      {/* Toggle bar — always visible */}
+    <div
+      className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300"
+      style={{ height: open ? '350px' : '48px' }}
+    >
+      {/* Toggle bar */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-center gap-1 py-1.5 font-pixel-mono text-[10px] text-shell hover:bg-ocean-mid hover:text-sand transition-colors"
+        className="w-full h-12 px-6 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
       >
-        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-        <span>{open ? 'HIDE CHAT' : 'SHOW CHAT'}</span>
-        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+        <div className="flex items-center space-x-3">
+          <Terminal className="w-4 h-4 text-blue-500" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em]">Command Terminal</span>
+        </div>
+        <div
+          className="transition-transform duration-300"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          <ChevronUp className="w-4 h-4" />
+        </div>
       </button>
 
-      {/* Collapsible content area — always rendered to preserve child state */}
+      {/* Content area — always rendered to preserve state */}
       <div
-        className="transition-[max-height] duration-300 ease-in-out overflow-hidden"
-        style={{ maxHeight: open ? '50vh' : '0px' }}
+        className="overflow-hidden transition-opacity duration-300"
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
       >
-        <div className={`h-[50vh] overflow-hidden${open ? '' : ' pointer-events-none'}`}>
-          {children}
-        </div>
+        <div className="h-[302px] overflow-hidden">{children}</div>
       </div>
     </div>
   );
