@@ -209,8 +209,10 @@ export function useDashboardMetrics(): DashboardMetrics {
       const tasks = activeTasksRef.current;
 
       if (ACTIVE_TASK_STATES.has(next)) {
+        if (!tasks.has(taskRunId)) {
+          totalTasksRef.current += 1;
+        }
         tasks.add(taskRunId);
-        totalTasksRef.current += 1;
       } else {
         tasks.delete(taskRunId);
         if (next === 'completed') {
