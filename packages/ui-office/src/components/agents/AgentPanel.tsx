@@ -11,14 +11,19 @@ interface AgentPanelProps {
   onOpenCreator?: () => void;
 }
 
-export function AgentPanel({ agents, onSelectEmployee, selectedEmployeeId, onOpenCreator }: AgentPanelProps) {
+export function AgentPanel({
+  agents,
+  onSelectEmployee,
+  selectedEmployeeId,
+  onOpenCreator,
+}: AgentPanelProps) {
   const [search, setSearch] = useState('');
 
   const filteredEntries = useMemo(() => {
     const query = search.toLowerCase();
-    return [...agents.entries()].filter(([, agent]) =>
-      agent.name.toLowerCase().includes(query) ||
-      agent.role.toLowerCase().includes(query)
+    return [...agents.entries()].filter(
+      ([, agent]) =>
+        agent.name.toLowerCase().includes(query) || agent.role.toLowerCase().includes(query),
     );
   }, [agents, search]);
 
@@ -64,6 +69,7 @@ export function AgentPanel({ agents, onSelectEmployee, selectedEmployeeId, onOpe
       {/* Bottom action — direct to employee creator */}
       <div className="p-4 border-t border-white/5 bg-black/40">
         <button
+          type="button"
           className="cyber-button w-full flex items-center justify-center space-x-2 group"
           onClick={onOpenCreator}
         >
