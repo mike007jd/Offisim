@@ -21,8 +21,9 @@ import { MessageSquare } from 'lucide-react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
-import { AvatarCustomizer, type AvatarConfig } from './AvatarCustomizer';
+import { AvatarCustomizer } from './AvatarCustomizer';
 import { SkillBindingList } from './SkillBindingList';
+import { ROLE_OPTIONS } from '../../lib/roles';
 
 // Generate workstation options from the default floor plan
 const _defaultPlan = computeFloorPlan(RD_COMPANY_ZONES, new Map());
@@ -30,16 +31,6 @@ const WORKSTATION_OPTIONS = Array.from(_defaultPlan.allWorkstations.entries()).m
   value: id,
   label: `Workstation ${i + 1}`,
 }));
-
-const ROLE_OPTIONS = [
-  { value: 'pm', label: 'Product Manager' },
-  { value: 'developer', label: 'Developer' },
-  { value: 'designer', label: 'Designer' },
-  { value: 'qa', label: 'QA Engineer' },
-  { value: 'devops', label: 'DevOps Engineer' },
-  { value: 'analyst', label: 'Analyst' },
-  { value: 'engineering_manager', label: 'Engineering Manager' },
-];
 
 interface EmployeeEditorDialogProps extends UseEmployeeEditorReturn {}
 
@@ -175,7 +166,7 @@ export function EmployeeEditorDialog({
 
               {/* Avatar appearance — persisted to persona_json via formData.appearance */}
               <AvatarCustomizer
-                config={formData.appearance as AvatarConfig}
+                config={formData.appearance}
                 onChange={(cfg) => updateField('appearance', cfg)}
               />
             </div>

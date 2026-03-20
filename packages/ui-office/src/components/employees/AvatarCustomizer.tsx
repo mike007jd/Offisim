@@ -5,18 +5,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@aics/ui-core';
-
-export interface AvatarConfig {
-  skinColor: number;
-  hairColor: number;
-  hairStyle: string;
-  clothingColor: number;
-  bodyType: string;
-}
+import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
 
 interface AvatarCustomizerProps {
-  config: AvatarConfig;
-  onChange: (config: AvatarConfig) => void;
+  config: AvatarAppearance;
+  onChange: (config: AvatarAppearance) => void;
 }
 
 const SKIN_COLORS: { value: number; label: string }[] = [
@@ -85,7 +78,7 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
 }
 
 export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
-  const set = <K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) =>
+  const set = <K extends keyof AvatarAppearance>(key: K, value: AvatarAppearance[K]) =>
     onChange({ ...config, [key]: value });
 
   return (
