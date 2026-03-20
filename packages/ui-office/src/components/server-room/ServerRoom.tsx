@@ -1,144 +1,298 @@
-import { useState } from 'react';
+import { Badge } from '@aics/ui-core';
+import { Circle, Plus, Server, Trash2, Unplug, Wifi } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
+import type { RackWithSlots } from '@aics/core/browser';
 import { useRackSlot } from '../../hooks/useRackSlot.js';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
+
+// ─── Status helpers ─────────────────────────────────────────────────────────
+
+type RackStatus = 'bound' | 'unbound' | 'error' | 'disabled' | string;
+type SlotStatus = 'available' | 'occupied' | 'error' | string;
+
+const RACK_BADGE_VARIANT: Record<RackStatus, 'success' | 'secondary' | 'error' | 'outline'> = {
+  bound: 'success',
+  unbound: 'secondary',
+  error: 'error',
+  disabled: 'outline',
+};
+
+const SLOT_DOT: Record<SlotStatus, string> = {
+  available: 'bg-emerald-500',
+  occupied: 'bg-blue-500',
+  error: 'bg-red-500',
+};
+
+function rackBadgeVariant(status: RackStatus) {
+  return RACK_BADGE_VARIANT[status] ?? 'outline';
+}
+
+function slotDotColor(status: SlotStatus) {
+  return SLOT_DOT[status] ?? 'bg-slate-500';
+}
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+interface SlotListProps {
+  rack: RackWithSlots;
+  newSlotInput: string;
+  onSlotInputChange: (value: string) => void;
+  onAddSlot: () => void;
+  onRemoveSlot: (slotId: string) => void;
+}
+
+function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSlot }: SlotListProps) {
+  return (
+    <div className="mt-2 flex flex-col gap-1 pl-1 border-l border-white/5">
+      {rack.slots.length === 0 && (
+        <p className="text-[10px] text-slate-500 py-1 pl-1">No slots — add a capability below</p>
+      )}
+
+      {rack.slots.map((slot) => (
+        <div
+          key={slot.slot_id}
+          className="flex items-center justify-between rounded bg-white/5 px-2 py-1 gap-2"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Circle
+              className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
+              fill="currentColor"
+              strokeWidth={0}
+            />
+            <span className="text-[10px] text-slate-200 font-mono truncate">{slot.capability_name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-[9px] text-slate-500 font-mono">{slot.exposure_scope}</span>
+            <button
+              type="button"
+              onClick={() => onRemoveSlot(slot.slot_id)}
+              className="text-slate-600 hover:text-red-400 transition-colors"
+              title="Remove slot"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* Add slot inline input */}
+      <div className="flex items-center gap-1 mt-0.5">
+        <input
+          type="text"
+          value={newSlotInput}
+          onChange={(e) => onSlotInputChange(e.target.value)}
+          placeholder="capability name..."
+          className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
+          onKeyDown={(e) => e.key === 'Enter' && onAddSlot()}
+        />
+        <button
+          type="button"
+          onClick={onAddSlot}
+          className="flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all"
+        >
+          <Plus className="w-2.5 h-2.5" />
+          Slot
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface RackCardProps {
+  rack: RackWithSlots;
+  newSlotInput: string;
+  onSlotInputChange: (rackId: string, value: string) => void;
+  onAddSlot: (rackId: string) => void;
+  onRemoveSlot: (slotId: string) => void;
+  onBind: (rackId: string) => void;
+  onUnbind: (rackId: string) => void;
+  onDelete: (rackId: string) => void;
+}
+
+function RackCard({
+  rack,
+  newSlotInput,
+  onSlotInputChange,
+  onAddSlot,
+  onRemoveSlot,
+  onBind,
+  onUnbind,
+  onDelete,
+}: RackCardProps) {
+  const isBound = rack.status === 'bound';
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/40 p-3 flex flex-col gap-2">
+      {/* Rack header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Server className="w-3 h-3 text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">{rack.label}</p>
+            <p className="text-[9px] text-slate-500 font-mono">{rack.provider_type}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Badge variant={rackBadgeVariant(rack.status)} className="text-[9px] px-1.5 py-0">
+            {rack.status}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Slot count summary */}
+      <div className="flex items-center gap-3 text-[9px] text-slate-500">
+        <span>{rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}</span>
+        <span className="text-emerald-500/70">
+          {rack.slots.filter((s) => s.status === 'available').length} available
+        </span>
+      </div>
+
+      {/* Slot list */}
+      <SlotList
+        rack={rack}
+        newSlotInput={newSlotInput}
+        onSlotInputChange={(v) => onSlotInputChange(rack.rack_id, v)}
+        onAddSlot={() => onAddSlot(rack.rack_id)}
+        onRemoveSlot={onRemoveSlot}
+      />
+
+      {/* Rack actions */}
+      <div className="flex items-center gap-1 pt-1 border-t border-white/5">
+        {isBound ? (
+          <button
+            type="button"
+            onClick={() => onUnbind(rack.rack_id)}
+            className="flex items-center gap-1 text-[9px] text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 rounded px-1.5 py-0.5 transition-all"
+          >
+            <Unplug className="w-2.5 h-2.5" />
+            Unbind
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onBind(rack.rack_id)}
+            className="flex items-center gap-1 text-[9px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded px-1.5 py-0.5 transition-all"
+          >
+            <Wifi className="w-2.5 h-2.5" />
+            Bind
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onDelete(rack.rack_id)}
+          className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded px-1.5 py-0.5 transition-all ml-auto"
+        >
+          <Trash2 className="w-2.5 h-2.5" />
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Empty state ─────────────────────────────────────────────────────────────
+
+function EmptyRacks() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+        <Server className="w-5 h-5 text-slate-500" />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold text-slate-400">No racks configured</p>
+        <p className="text-[10px] text-slate-600 mt-1 max-w-[180px] leading-relaxed">
+          Racks group MCP capabilities and control which agents can access them.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 export function ServerRoom() {
-  const { racks, loading, createRack, deleteRack, bindRack, unbindRack, addSlot, removeSlot } =
+  const { eventBus } = useAicsRuntime();
+  const { racks, loading, createRack, deleteRack, bindRack, unbindRack, addSlot, removeSlot, refresh } =
     useRackSlot();
+
   const [newRackLabel, setNewRackLabel] = useState('');
   const [newSlotInputs, setNewSlotInputs] = useState<Record<string, string>>({});
 
-  if (loading) {
-    return <div className="p-3 text-sm text-zinc-400">Loading racks...</div>;
-  }
+  // Subscribe to rack/slot events for live updates
+  useEffect(() => {
+    if (!eventBus) return;
+    const unsubs = [
+      eventBus.on('rack.', () => { void refresh(); }),
+      eventBus.on('slot.', () => { void refresh(); }),
+    ];
+    return () => { for (const unsub of unsubs) unsub(); };
+  }, [eventBus, refresh]);
 
-  const handleCreateRack = async () => {
-    if (!newRackLabel.trim()) return;
-    await createRack(newRackLabel.trim(), 'mcp_server');
+  const handleCreateRack = useCallback(async () => {
+    const label = newRackLabel.trim();
+    if (!label) return;
+    await createRack(label, 'mcp_server');
     setNewRackLabel('');
-  };
+  }, [newRackLabel, createRack]);
 
-  const handleAddSlot = async (rackId: string) => {
+  const handleSlotInputChange = useCallback((rackId: string, value: string) => {
+    setNewSlotInputs((prev) => ({ ...prev, [rackId]: value }));
+  }, []);
+
+  const handleAddSlot = useCallback(async (rackId: string) => {
     const capName = newSlotInputs[rackId]?.trim();
     if (!capName) return;
     await addSlot(rackId, capName);
     setNewSlotInputs((prev) => ({ ...prev, [rackId]: '' }));
-  };
+  }, [newSlotInputs, addSlot]);
 
   return (
-    <div className="flex flex-col gap-3 p-3">
-      <h3 className="text-sm font-semibold text-zinc-200">Server Room</h3>
+    <div className="flex flex-col gap-3">
+      {/* Section header */}
+      <h2 className="text-[8px] uppercase tracking-wider text-slate-400">
+        Server Room
+      </h2>
 
       {/* Add rack */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <input
           type="text"
           value={newRackLabel}
           onChange={(e) => setNewRackLabel(e.target.value)}
-          placeholder="New rack name..."
-          className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-zinc-200 placeholder-zinc-500"
+          placeholder="New rack label..."
+          className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
           onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
         />
         <button
           type="button"
           onClick={handleCreateRack}
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500"
+          className="flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-all"
         >
-          Add
+          <Plus className="w-3 h-3" />
+          Rack
         </button>
       </div>
 
       {/* Rack list */}
-      {racks.length === 0 ? (
-        <p className="text-xs text-zinc-500">No racks configured. Add one to start managing MCP permissions.</p>
+      {loading ? (
+        <div className="text-[10px] text-slate-500 py-2">Loading racks…</div>
+      ) : racks.length === 0 ? (
+        <EmptyRacks />
       ) : (
         <div className="flex flex-col gap-2">
-          {racks.map((rack) => (
-            <div key={rack.rack_id} className="rounded border border-zinc-700 bg-zinc-900 p-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-zinc-200">{rack.label}</span>
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs ${
-                      rack.status === 'bound'
-                        ? 'bg-green-900 text-green-300'
-                        : 'bg-zinc-800 text-zinc-400'
-                    }`}
-                  >
-                    {rack.status}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {rack.status === 'unbound' ? (
-                    <button
-                      type="button"
-                      onClick={() => bindRack(rack.rack_id)}
-                      className="rounded px-2 py-0.5 text-xs text-green-400 hover:bg-zinc-700"
-                    >
-                      Bind
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => unbindRack(rack.rack_id)}
-                      className="rounded px-2 py-0.5 text-xs text-yellow-400 hover:bg-zinc-700"
-                    >
-                      Unbind
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => deleteRack(rack.rack_id)}
-                    className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-zinc-700"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {/* Slots */}
-              <div className="mt-2 flex flex-col gap-1">
-                {rack.slots.map((slot) => (
-                  <div
-                    key={slot.slot_id}
-                    className="flex items-center justify-between rounded bg-zinc-800 px-2 py-1"
-                  >
-                    <span className="text-xs text-zinc-300">{slot.capability_name}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-zinc-500">{slot.exposure_scope}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeSlot(slot.slot_id)}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add slot */}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={newSlotInputs[rack.rack_id] ?? ''}
-                    onChange={(e) =>
-                      setNewSlotInputs((prev) => ({ ...prev, [rack.rack_id]: e.target.value }))
-                    }
-                    placeholder="Capability name..."
-                    className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-200 placeholder-zinc-500"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddSlot(rack.rack_id)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddSlot(rack.rack_id)}
-                    className="rounded bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-600"
-                  >
-                    + Slot
-                  </button>
-                </div>
-              </div>
-            </div>
+          {racks.map((rack: RackWithSlots) => (
+            <RackCard
+              key={rack.rack_id}
+              rack={rack}
+              newSlotInput={newSlotInputs[rack.rack_id] ?? ''}
+              onSlotInputChange={handleSlotInputChange}
+              onAddSlot={handleAddSlot}
+              onRemoveSlot={removeSlot}
+              onBind={bindRack}
+              onUnbind={unbindRack}
+              onDelete={deleteRack}
+            />
           ))}
         </div>
       )}
