@@ -1,10 +1,11 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, RoundedBox, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
-import { AicsRuntimeContext } from '../../runtime/aics-runtime-context';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { COMPANY_ID } from '../../lib/constants';
 import { STATE_LABELS } from '../../lib/state-labels';
 
 // ── Zone definitions (matching 2D renderer departments.ts) ──────────
@@ -113,6 +114,54 @@ function resolveEmployeeZone3D(agent: AgentState): string {
     return agent.workstationId;
   }
   return resolveZone(agent.role);
+}
+
+/** Zones that accept employee drops (those with desk slots). */
+const DROP_TARGET_ZONES = ZONES.filter(z => z.deskSlots > 0);
+
+// ── Drag state ───────────────────────────────────────────────────────
+
+interface DragState3D {
+  /** Employee being dragged. */
+  employeeId: string;
+  /** Resolved source zone at drag-start time. */
+  sourceZoneId: string;
+  /** Whether the drag threshold has been exceeded. */
+  active: boolean;
+  /** Current world position of the drag ghost [x, y, z]. */
+  position: [number, number, number];
+  /** Screen position where pointer went down — for threshold check. */
+  startScreenX: number;
+  startScreenY: number;
+}
+
+/** Minimum screen-pixel movement before a click becomes a drag. */
+const DRAG_THRESHOLD_PX = 5;
+
+/** Reusable raycasting objects (avoid allocating per frame). */
+const _raycaster = new THREE.Raycaster();
+const _pointer = new THREE.Vector2();
+const _floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _intersectPoint = new THREE.Vector3();
+
+/**
+ * Hit-test a world-space XZ position against zone bounding boxes.
+ * Returns the first matching drop-target zone, or null.
+ */
+function hitTestZone3D(worldX: number, worldZ: number): ZoneDef | null {
+  for (const zone of DROP_TARGET_ZONES) {
+    const halfW = zone.size[0] / 2;
+    const halfD = zone.size[1] / 2;
+    const cx = zone.position[0];
+    const cz = zone.position[2];
+    if (
+      worldX >= cx - halfW && worldX <= cx + halfW &&
+      worldZ >= cz - halfD && worldZ <= cz + halfD
+    ) {
+      return zone;
+    }
+  }
+  return null;
 }
 
 // ── Status colors (matching 2D renderer STATE_COLORS) ───────────────
@@ -448,23 +497,64 @@ function ServerRoomFurniture({ position }: { position: [number, number, number] 
 
 // ── Zone floor label ────────────────────────────────────────────────
 
-function ZoneLabel({ position, size, color, name }: {
+function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSource }: {
   position: [number, number, number];
   size: [number, number];
   color: string;
   name: string;
+  /** True when any drag is active. */
+  isDragging?: boolean;
+  /** True when ghost is hovering over this zone. */
+  isHovered?: boolean;
+  /** True when this zone is the drag source (don't highlight as drop target). */
+  isSource?: boolean;
 }) {
+  // During drag: valid drop targets get brighter, hovered zone pulses, source stays dim
+  const floorOpacity = isDragging
+    ? (isHovered && !isSource ? 0.35 : isSource ? 0.08 : 0.2)
+    : 0.12;
+  const borderOpacity = isDragging
+    ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6)
+    : 0.4;
+
   return (
     <group position={position}>
       {/* Zone floor overlay */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={size} />
-        <meshStandardMaterial color={color} transparent opacity={0.12} />
+        <meshStandardMaterial color={color} transparent opacity={floorOpacity} />
         <lineSegments>
           <edgesGeometry args={[new THREE.PlaneGeometry(size[0], size[1])]} />
-          <lineBasicMaterial color={color} transparent opacity={0.4} />
+          <lineBasicMaterial color={color} transparent opacity={borderOpacity} />
         </lineSegments>
       </mesh>
+      {/* "Drop here" indicator during drag */}
+      {isDragging && !isSource && (
+        <Html
+          position={[0, 0.8, 0]}
+          center
+          style={{ pointerEvents: 'none' }}
+        >
+          <div style={{
+            background: isHovered ? 'rgba(30,64,175,0.85)' : 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            border: `1px solid ${isHovered ? '#60a5fa' : color + '40'}`,
+            borderRadius: '8px',
+            padding: '4px 14px',
+            whiteSpace: 'nowrap',
+            transition: 'background 0.15s, border-color 0.15s',
+          }}>
+            <span style={{
+              color: isHovered ? '#ffffff' : color,
+              fontSize: '11px',
+              fontWeight: 700,
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}>
+              Drop here
+            </span>
+          </div>
+        </Html>
+      )}
       {/* HUD label floating above zone */}
       <Html
         position={[0, 0.5, -size[1] / 2 + 0.5]}
@@ -681,11 +771,16 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
 function EmployeeMarker({
   emp,
   isSelected,
+  isDragSource,
   onSelect,
+  onDragStart,
 }: {
   emp: PlacedEmployee;
   isSelected: boolean;
+  /** True when this employee is the one currently being dragged. */
+  isDragSource?: boolean;
   onSelect: (id: string) => void;
+  onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
   const color = STATE_COLORS[emp.agent.state] ?? '#64748b';
   const outfit = OUTFIT_COLORS[emp.globalIndex % OUTFIT_COLORS.length] ?? '#3b82f6';
@@ -698,9 +793,16 @@ function EmployeeMarker({
         e.stopPropagation();
         onSelect(emp.id);
       }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (onDragStart) {
+          // Forward the native event for screen-space threshold check
+          onDragStart(emp.id, emp.agent, e.nativeEvent as unknown as React.PointerEvent<Element>);
+        }
+      }}
       onPointerOver={(e) => {
         e.stopPropagation();
-        document.body.style.cursor = 'pointer';
+        document.body.style.cursor = 'grab';
       }}
       onPointerOut={() => {
         document.body.style.cursor = 'default';
@@ -713,8 +815,22 @@ function EmployeeMarker({
           <meshBasicMaterial color="#3b82f6" transparent opacity={0.8} />
         </mesh>
       )}
-      <LowPolyCharacter statusColor={color} outfitColor={outfit} skinTone={skin} state={emp.agent.state} />
-      {emp.agent.state !== 'idle' && <StatusBubble3D state={emp.agent.state} />}
+      {/* Dim the source employee during drag */}
+      <group scale={isDragSource ? [0.85, 0.85, 0.85] : [1, 1, 1]}>
+        <LowPolyCharacter
+          statusColor={color}
+          outfitColor={outfit}
+          skinTone={skin}
+          state={emp.agent.state}
+        />
+      </group>
+      {isDragSource && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+          <ringGeometry args={[0.5, 0.65, 32]} />
+          <meshBasicMaterial color="#94a3b8" transparent opacity={0.3} />
+        </mesh>
+      )}
+      {emp.agent.state !== 'idle' && !isDragSource && <StatusBubble3D state={emp.agent.state} />}
     </group>
   );
 }
@@ -754,40 +870,248 @@ function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
   );
 }
 
+// ── Drag ghost (translucent cylinder character silhouette) ───────────
+
+function DragGhost3D({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Shadow disc on floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[0.6, 32]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.25} />
+      </mesh>
+      {/* Body cylinder */}
+      <mesh position={[0, 0.75, 0]} castShadow>
+        <cylinderGeometry args={[0.25, 0.3, 1.2, 12]} />
+        <meshStandardMaterial color="#3b82f6" transparent opacity={0.45} />
+      </mesh>
+      {/* Head sphere */}
+      <mesh position={[0, 1.5, 0]} castShadow>
+        <sphereGeometry args={[0.22, 12, 12]} />
+        <meshStandardMaterial color="#3b82f6" transparent opacity={0.45} />
+      </mesh>
+      {/* Glowing ring at feet */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[0.45, 0.6, 32]} />
+        <meshBasicMaterial color="#60a5fa" transparent opacity={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── Drag controller (runs inside Canvas, handles raycasting) ────────
+
+/**
+ * Invisible floor plane mesh that captures pointer move/up events during drag.
+ * Uses Three.js raycasting to project screen pointer → world XZ coordinates.
+ */
+function DragController({
+  dragState,
+  onDragMove,
+  onDragEnd,
+  onDragCancel,
+  controlsRef,
+}: {
+  dragState: DragState3D | null;
+  onDragMove: (worldX: number, worldZ: number, screenX: number, screenY: number) => void;
+  onDragEnd: (worldX: number, worldZ: number) => void;
+  onDragCancel: () => void;
+  controlsRef: React.RefObject<{ enabled: boolean } | null>;
+}) {
+  const { camera, gl } = useThree();
+
+  // Disable OrbitControls when drag is active
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.enabled = !dragState;
+  }, [dragState, controlsRef]);
+
+  // Escape key handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && dragState) {
+        onDragCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dragState, onDragCancel]);
+
+  // Pointer leave handler — cancel drag when pointer exits canvas
+  useEffect(() => {
+    if (!dragState) return;
+    const canvas = gl.domElement;
+    const handleLeave = () => { onDragCancel(); };
+    canvas.addEventListener('pointerleave', handleLeave);
+    return () => canvas.removeEventListener('pointerleave', handleLeave);
+  }, [dragState, gl.domElement, onDragCancel]);
+
+  /** Raycast from screen coords to the y=0 floor plane. */
+  const raycastToFloor = useCallback((clientX: number, clientY: number): [number, number, number] | null => {
+    const canvas = gl.domElement;
+    const rect = canvas.getBoundingClientRect();
+    _pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    _pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    _raycaster.setFromCamera(_pointer, camera);
+    const hit = _raycaster.ray.intersectPlane(_floorPlane, _intersectPoint);
+    if (!hit) return null;
+    return [_intersectPoint.x, 0, _intersectPoint.z];
+  }, [camera, gl.domElement]);
+
+  // Listen for pointer move/up on the canvas DOM element during active drag.
+  // We attach DOM listeners rather than R3F mesh events for more reliable
+  // capture (the ghost might obscure the invisible floor mesh).
+  useEffect(() => {
+    if (!dragState) return;
+    const canvas = gl.domElement;
+
+    const handleMove = (e: PointerEvent) => {
+      const pos = raycastToFloor(e.clientX, e.clientY);
+      if (pos) {
+        onDragMove(pos[0], pos[2], e.clientX, e.clientY);
+      }
+    };
+
+    const handleUp = (e: PointerEvent) => {
+      const pos = raycastToFloor(e.clientX, e.clientY);
+      if (pos) {
+        onDragEnd(pos[0], pos[2]);
+      } else {
+        onDragCancel();
+      }
+    };
+
+    canvas.addEventListener('pointermove', handleMove);
+    canvas.addEventListener('pointerup', handleUp);
+    return () => {
+      canvas.removeEventListener('pointermove', handleMove);
+      canvas.removeEventListener('pointerup', handleUp);
+    };
+  }, [dragState, gl.domElement, raycastToFloor, onDragMove, onDragEnd, onDragCancel]);
+
+  return null; // No visual output — purely event handling
+}
+
 // ── Main 3D View ────────────────────────────────────────────────────
 
 export default function Office3DView() {
   const agents = useAgentStates();
   const placed = usePlacedEmployees(agents);
-  const runtime = useContext(AicsRuntimeContext);
+  const { eventBus } = useAicsRuntime();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<DragState3D | null>(null);
+  const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null);
 
-  const handleSelectEmployee = (id: string) => {
+  const isDragging = dragState?.active ?? false;
+
+  const handleSelectEmployee = useCallback((id: string) => {
     setSelectedEmployeeId(id);
-    runtime?.eventBus.emit({
+    eventBus.emit({
       type: 'scene.employee.selected',
       entityId: id,
       entityType: 'employee',
-      companyId: '',
+      companyId: COMPANY_ID,
       timestamp: Date.now(),
       payload: { employeeId: id, source: 'scene' },
     });
-  };
+  }, [eventBus]);
 
-  const handleDeselect = () => {
+  const handleDeselect = useCallback(() => {
     setSelectedEmployeeId(null);
-    runtime?.eventBus.emit({
+    eventBus.emit({
       type: 'ui.selection.changed',
       entityId: '',
       entityType: 'employee',
-      companyId: '',
+      companyId: COMPANY_ID,
       timestamp: Date.now(),
-      payload: { employeeId: null, source: 'scene' },
+      payload: { entityId: null, source: 'scene' },
     });
-  };
+  }, [eventBus]);
+
+  // ── Drag-to-assign handlers ──
+
+  /** Called from EmployeeMarker onPointerDown — starts potential drag. */
+  const handleEmployeeDragStart = useCallback((
+    empId: string,
+    agent: AgentState,
+    e: React.PointerEvent<Element>,
+  ) => {
+    // Only primary button
+    const nativeEvent = e as unknown as PointerEvent;
+    if (nativeEvent.button !== 0) return;
+    const zoneId = resolveEmployeeZone3D(agent);
+    setDragState({
+      employeeId: empId,
+      sourceZoneId: zoneId,
+      active: false,
+      position: [0, 0, 0], // will be set on first move
+      startScreenX: nativeEvent.clientX,
+      startScreenY: nativeEvent.clientY,
+    });
+  }, []);
+
+  /** Pointer move during drag — update ghost position and check threshold. */
+  const handleDragMove = useCallback((worldX: number, worldZ: number, screenX: number, screenY: number) => {
+    setDragState(prev => {
+      if (!prev) return null;
+      // Check threshold
+      const dx = screenX - prev.startScreenX;
+      const dy = screenY - prev.startScreenY;
+      const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD_PX;
+      return {
+        ...prev,
+        active,
+        position: [worldX, 0, worldZ],
+      };
+    });
+    // Update hovered zone
+    const zone = hitTestZone3D(worldX, worldZ);
+    setHoveredZoneId(zone?.id ?? null);
+  }, []);
+
+  /** Pointer up during drag — determine drop target and emit event. */
+  const handleDragEnd = useCallback((worldX: number, worldZ: number) => {
+    const ds = dragState;
+    if (!ds) return;
+
+    if (ds.active) {
+      const targetZone = hitTestZone3D(worldX, worldZ);
+      if (targetZone && targetZone.id !== ds.sourceZoneId) {
+        // Valid drop — emit workstation assignment event
+        eventBus.emit({
+          type: 'employee.workstation.drop-requested',
+          entityId: ds.employeeId,
+          entityType: 'employee',
+          companyId: COMPANY_ID,
+          timestamp: Date.now(),
+          payload: {
+            employeeId: ds.employeeId,
+            targetWorkstationId: targetZone.id,
+          },
+        });
+      }
+      // If dropped outside valid zone or on source zone → no-op
+    } else {
+      // Didn't exceed threshold — treat as click
+      handleSelectEmployee(ds.employeeId);
+    }
+
+    setDragState(null);
+    setHoveredZoneId(null);
+    document.body.style.cursor = 'default';
+  }, [dragState, eventBus, handleSelectEmployee]);
+
+  /** Cancel drag (Escape, pointer leave). */
+  const handleDragCancel = useCallback(() => {
+    setDragState(null);
+    setHoveredZoneId(null);
+    document.body.style.cursor = 'default';
+  }, []);
 
   return (
-    <div className="w-full h-full bg-slate-950">
+    <div className="w-full h-full bg-slate-950" style={{ cursor: isDragging ? 'grabbing' : undefined }}>
       <Canvas shadows camera={{ position: [0, 22, 28], fov: 45 }}>
         <color attach="background" args={['#020617']} />
         <fog attach="fog" args={['#020617', 40, 100]} />
@@ -812,7 +1136,7 @@ export default function Office3DView() {
         {/* Room shell — floor click deselects */}
         <RoomShell onFloorClick={handleDeselect} />
 
-        {/* ── Zone overlays ── */}
+        {/* ── Zone overlays (with drag highlight) ── */}
         {ZONES.map((z) => (
           <ZoneLabel
             key={z.id}
@@ -820,6 +1144,9 @@ export default function Office3DView() {
             size={z.size}
             color={z.accent}
             name={z.label}
+            isDragging={isDragging && z.deskSlots > 0}
+            isHovered={hoveredZoneId === z.id}
+            isSource={isDragging ? dragState!.sourceZoneId === z.id : false}
           />
         ))}
 
@@ -857,11 +1184,28 @@ export default function Office3DView() {
             key={emp.id}
             emp={emp}
             isSelected={selectedEmployeeId === emp.id}
+            isDragSource={isDragging && dragState!.employeeId === emp.id}
             onSelect={handleSelectEmployee}
+            onDragStart={handleEmployeeDragStart}
           />
         ))}
 
+        {/* ── Drag ghost ── */}
+        {isDragging && dragState && (
+          <DragGhost3D position={dragState.position} />
+        )}
+
+        {/* ── Drag controller (raycasting + event handling) ── */}
+        <DragController
+          dragState={dragState}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+          controlsRef={controlsRef}
+        />
+
         <OrbitControls
+          ref={controlsRef}
           makeDefault
           minPolarAngle={0}
           maxPolarAngle={Math.PI / 2 - 0.1}
