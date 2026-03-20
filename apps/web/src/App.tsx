@@ -1,17 +1,21 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { ToastBanner, useToasts } from '@aics/ui-core';
+import { employeeCreated } from '@aics/core/browser';
 import {
   AgentPanel,
   AppLayout,
   ChatDrawer,
   ChatPanel,
+  COMPANY_ID,
   CompanyCreationWizard,
   CompanyEditor,
   DashboardOverlay,
+  EmployeeCreatorOverlay,
   NotificationCenter,
   ErrorBoundary,
   Header,
   InstallDialog,
+  OfficeEditorOverlay,
   type ProviderConfig,
   RightSidebar,
   SettingsDialog,
@@ -30,12 +34,16 @@ const SceneCanvas = React.lazy(() =>
   import('@aics/ui-office/scene').then((m) => ({ default: m.SceneCanvas })),
 );
 
+type AppView = 'office' | 'employee-creator' | 'office-editor';
+
 export function App() {
+  const [view, setView] = useState<AppView>('office');
+  const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const { reinitRuntime } = useAicsRuntime();
+  const { reinitRuntime, repos, eventBus } = useAicsRuntime();
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
@@ -71,6 +79,34 @@ export function App() {
     ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
 
+  const handleCreatorDeploy = useCallback(
+    async ({ name, role, seed }: { name: string; role: string; seed: string }) => {
+      if (!repos?.employees) {
+        addToast('Runtime not ready — please wait a moment', 'error');
+        return;
+      }
+      try {
+        addToast(`Deploying ${name} (${role})…`, 'info');
+        const result = await repos.employees.create({
+          company_id: COMPANY_ID,
+          name,
+          role_slug: role,
+          source_asset_id: null,
+          source_package_id: null,
+          persona_json: JSON.stringify({ expertise: '', style: '', customInstructions: '', avatarSeed: seed }),
+          config_json: JSON.stringify({ modelPreference: '', temperature: 0.7, maxTokens: 4096 }),
+        });
+        eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, name, role));
+        addToast(`${name} deployed successfully`, 'success');
+        setView('office');
+      } catch (err) {
+        console.error('[App] Failed to create employee:', err);
+        addToast(`Failed to deploy ${name}`, 'error');
+      }
+    },
+    [repos, eventBus, addToast],
+  );
+
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
     reinitRuntime();
@@ -80,45 +116,74 @@ export function App() {
     <ErrorBoundary>
       <>
         <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-        <AppLayout
-          header={
-            <Header
-              providerName={providerConfig?.model}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onOpenCompanyEditor={companyEditor.open}
-              onFileImport={installFlow.startFileImport}
-              notificationSlot={<NotificationCenter />}
-            />
-          }
-          agentPanel={
-            <AgentPanel
-              onSelectEmployee={setSelectedEmployeeId}
-              selectedEmployeeId={selectedEmployeeId}
-            />
-          }
-          sceneCanvas={
-            <Suspense
-              fallback={
-                <div className="h-full w-full bg-ocean-deep animate-pulse" />
+
+        {/* ── Full-page views ── */}
+        {view === 'employee-creator' && (
+          <EmployeeCreatorOverlay
+            open
+            onClose={() => setView('office')}
+            onDeploy={handleCreatorDeploy}
+          />
+        )}
+
+        {view === 'office-editor' && (
+          <OfficeEditorOverlay
+            open
+            onClose={() => setView('office')}
+          />
+        )}
+
+        {/* ── Office view (default) ── */}
+        {view === 'office' && (
+          <>
+            <AppLayout
+              header={
+                <Header
+                  providerName={providerConfig?.model}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                  onOpenCompanyEditor={companyEditor.open}
+                  onOpenEmployeeCreator={() => setView('employee-creator')}
+                  onOpenOfficeEditor={() => setView('office-editor')}
+                  onFileImport={installFlow.startFileImport}
+                  notificationSlot={<NotificationCenter />}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
               }
-            >
-              <SceneCanvas reducedMotion={reducedMotion} />
-            </Suspense>
-          }
-          chatDrawer={
-            <ChatDrawer>
-              <ChatPanel
-                onOpenSettings={() => setSettingsOpen(true)}
-                selectedEmployeeId={selectedEmployeeId}
-                selectedEmployeeName={selectedEmployeeName}
-                onClearSelection={() => setSelectedEmployeeId(null)}
-              />
-            </ChatDrawer>
-          }
-          eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
-          statusBar={<StatusBar modelName={providerConfig?.model} />}
-        />
-        {dashboardOpen && <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />}
+              agentPanel={
+                <AgentPanel
+                  onSelectEmployee={setSelectedEmployeeId}
+                  selectedEmployeeId={selectedEmployeeId}
+                  onOpenCreator={() => setView('employee-creator')}
+                />
+              }
+              sceneCanvas={
+                <Suspense
+                  fallback={
+                    <div className="h-full w-full bg-ocean-deep animate-pulse" />
+                  }
+                >
+                  <SceneCanvas reducedMotion={reducedMotion} viewMode={viewMode} />
+                </Suspense>
+              }
+              chatDrawer={
+                <ChatDrawer>
+                  <ChatPanel
+                    onOpenSettings={() => setSettingsOpen(true)}
+                    selectedEmployeeId={selectedEmployeeId}
+                    selectedEmployeeName={selectedEmployeeName}
+                    onClearSelection={() => setSelectedEmployeeId(null)}
+                  />
+                </ChatDrawer>
+              }
+              eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
+              statusBar={<StatusBar modelName={providerConfig?.model} />}
+            />
+            {dashboardOpen && <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />}
+          </>
+        )}
+
+        {/* ── Global dialogs (available across all views) ── */}
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
