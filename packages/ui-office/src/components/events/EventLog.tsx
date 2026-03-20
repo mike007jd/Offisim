@@ -150,15 +150,15 @@ export function EventLog() {
   );
 
   return (
-    <div className="flex flex-col h-full">
-      <h2 className="font-pixel-display text-[8px] uppercase tracking-wider text-shell p-3 pb-1">
+    <div className="flex flex-col h-full overflow-hidden">
+      <h2 className="text-[8px] uppercase tracking-wider text-slate-400 p-3 pb-1">
         Event Log
       </h2>
       <EventFilters onFilterChange={setFilters} />
       <ScrollArea className="flex-1">
         <div ref={scrollRef}>
           {filteredEvents.length === 0 ? (
-            <div className="p-3 text-xs text-ocean-light">
+            <div className="p-3 text-xs text-slate-500">
               {events.length === 0 ? 'No events yet' : 'No events match filters'}
             </div>
           ) : (
@@ -169,7 +169,7 @@ export function EventLog() {
               return (
                 <div
                   key={`${event.timestamp}-${i}`}
-                  className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-sea-blue/5' : ''}`}
+                  className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-blue-500/5' : ''}`}
                   onClick={clickable ? () => handleEmployeeClick(employeeId) : undefined}
                 >
                   <EventItem event={event} />

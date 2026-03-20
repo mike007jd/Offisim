@@ -45,7 +45,7 @@ export function AppLayout({
 
         {/* ══════ LEFT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
           style={{ width: leftOpen ? '280px' : '44px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
@@ -68,7 +68,7 @@ export function AppLayout({
               className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors"
             >
               <Users className="w-4 h-4 text-blue-400" />
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500" style={{ writingMode: 'vertical-rl' }}>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500" style={{ writingMode: 'vertical-rl' }}>
                 Personnel
               </span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
@@ -80,7 +80,7 @@ export function AppLayout({
 
         {/* ══════ RIGHT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
           style={{ width: rightOpen ? '280px' : '44px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
@@ -102,7 +102,7 @@ export function AppLayout({
               className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors"
             >
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
                 Operations
               </span>
               <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
@@ -111,8 +111,16 @@ export function AppLayout({
         </div>
       </div>
 
-      {/* Chat drawer — floating overlay above status bar, doesn't push layout */}
-      <div className="absolute bottom-9 left-4 right-4 z-30 pointer-events-auto">{chatDrawer}</div>
+      {/* Chat drawer — floating overlay above status bar, constrained between side panels */}
+      <div
+        className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
+        style={{
+          left: leftOpen ? '300px' : '64px',
+          right: rightOpen ? '300px' : '64px',
+        }}
+      >
+        {chatDrawer}
+      </div>
       {/* Status bar — always at bottom */}
       <div className="relative z-30 shrink-0">{statusBar}</div>
     </div>

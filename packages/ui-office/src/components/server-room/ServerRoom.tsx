@@ -52,9 +52,9 @@ function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSl
       {rack.slots.map((slot) => (
         <div
           key={slot.slot_id}
-          className="flex items-center justify-between rounded bg-white/5 px-2 py-1 gap-2"
+          className="flex items-center justify-between rounded bg-white/5 px-2 py-1 gap-1"
         >
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <Circle
               className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
               fill="currentColor"
@@ -62,7 +62,7 @@ function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSl
             />
             <span className="text-[10px] text-slate-200 font-mono truncate">{slot.capability_name}</span>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-[9px] text-slate-500 font-mono">{slot.exposure_scope}</span>
             <button
               type="button"
@@ -82,17 +82,16 @@ function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSl
           type="text"
           value={newSlotInput}
           onChange={(e) => onSlotInputChange(e.target.value)}
-          placeholder="capability name..."
+          placeholder="Capability name"
           className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
           onKeyDown={(e) => e.key === 'Enter' && onAddSlot()}
         />
         <button
           type="button"
           onClick={onAddSlot}
-          className="flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all"
+          className="flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all flex-shrink-0"
         >
           <Plus className="w-2.5 h-2.5" />
-          Slot
         </button>
       </div>
     </div>
@@ -123,21 +122,19 @@ function RackCard({
   const isBound = rack.status === 'bound';
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/40 p-3 flex flex-col gap-2">
+    <div className="rounded-lg border border-white/10 bg-black/40 p-3 flex flex-col gap-2 overflow-hidden">
       {/* Rack header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Server className="w-3 h-3 text-slate-400 flex-shrink-0" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">{rack.label}</p>
-            <p className="text-[9px] text-slate-500 font-mono">{rack.provider_type}</p>
+            <p className="text-[9px] text-slate-500 font-mono truncate">{rack.provider_type}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Badge variant={rackBadgeVariant(rack.status)} className="text-[9px] px-1.5 py-0">
-            {rack.status}
-          </Badge>
-        </div>
+        <Badge variant={rackBadgeVariant(rack.status)} className="text-[9px] px-1.5 py-0 flex-shrink-0">
+          {rack.status}
+        </Badge>
       </div>
 
       {/* Slot count summary */}
@@ -184,7 +181,6 @@ function RackCard({
           className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded px-1.5 py-0.5 transition-all ml-auto"
         >
           <Trash2 className="w-2.5 h-2.5" />
-          Delete
         </button>
       </div>
     </div>
@@ -195,14 +191,15 @@ function RackCard({
 
 function EmptyRacks() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
       <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
         <Server className="w-5 h-5 text-slate-500" />
       </div>
-      <div>
-        <p className="text-[11px] font-semibold text-slate-400">No racks configured</p>
-        <p className="text-[10px] text-slate-600 mt-1 max-w-[180px] leading-relaxed">
-          Racks group MCP capabilities and control which agents can access them.
+      <div className="px-2">
+        <p className="text-[11px] font-semibold text-slate-400">No MCP Racks</p>
+        <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+          Racks are groups of MCP server capabilities that your AI employees can access.
+          Create a rack, add capability slots, then bind it to make tools available to agents.
         </p>
       </div>
     </div>
@@ -248,35 +245,15 @@ export function ServerRoom() {
   }, [newSlotInputs, addSlot]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 overflow-hidden">
       {/* Section header */}
       <h2 className="text-[8px] uppercase tracking-wider text-slate-400">
         Server Room
       </h2>
 
-      {/* Add rack */}
-      <div className="flex items-center gap-1.5">
-        <input
-          type="text"
-          value={newRackLabel}
-          onChange={(e) => setNewRackLabel(e.target.value)}
-          placeholder="New rack label..."
-          className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
-          onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
-        />
-        <button
-          type="button"
-          onClick={handleCreateRack}
-          className="flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-all"
-        >
-          <Plus className="w-3 h-3" />
-          Rack
-        </button>
-      </div>
-
       {/* Rack list */}
       {loading ? (
-        <div className="text-[10px] text-slate-500 py-2">Loading racks…</div>
+        <div className="text-[10px] text-slate-500 py-2">Loading racks...</div>
       ) : racks.length === 0 ? (
         <EmptyRacks />
       ) : (
@@ -296,6 +273,30 @@ export function ServerRoom() {
           ))}
         </div>
       )}
+
+      {/* Add rack — below content */}
+      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
+        <label className="text-[10px] text-slate-500 font-medium">Add New Rack</label>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            value={newRackLabel}
+            onChange={(e) => setNewRackLabel(e.target.value)}
+            placeholder="Rack name"
+            className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
+          />
+          <button
+            type="button"
+            onClick={handleCreateRack}
+            disabled={!newRackLabel.trim()}
+            className="flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Add</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

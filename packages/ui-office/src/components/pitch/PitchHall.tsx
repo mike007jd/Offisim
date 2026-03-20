@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@aics/ui-core';
+import { FileOutput } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 
@@ -102,16 +103,16 @@ function DeliverableCard({ item }: { item: Deliverable }) {
   }, [item, selectedFormat]);
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-ocean-deep/50 border-ocean-light">
+    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 border-slate-700 overflow-hidden">
       <CardHeader className="p-3 pb-1">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-xs text-pearl leading-snug">{item.title}</CardTitle>
-          <span className="shrink-0 text-[10px] text-shell/60">{timeAgo(item.createdAt)}</span>
+        <div className="flex items-start justify-between gap-2 min-w-0">
+          <CardTitle className="text-xs text-pearl leading-snug truncate">{item.title}</CardTitle>
+          <span className="shrink-0 text-[10px] text-slate-400/60">{timeAgo(item.createdAt)}</span>
         </div>
         {item.contributingEmployees.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {item.contributingEmployees.map((emp) => (
-              <Badge key={emp.employeeId} variant="info" className="text-[10px] px-1.5 py-0">
+              <Badge key={emp.employeeId} variant="info" className="text-[10px] px-1.5 py-0 truncate max-w-[120px]">
                 {emp.employeeName}
               </Badge>
             ))}
@@ -119,14 +120,15 @@ function DeliverableCard({ item }: { item: Deliverable }) {
         )}
       </CardHeader>
       <CardContent className="p-3 pt-1">
-        <p className="font-pixel-mono text-[11px] text-shell/80 leading-relaxed whitespace-pre-wrap break-words">
+        <p className="font-mono text-[11px] text-slate-400/80 leading-relaxed whitespace-pre-wrap break-words">
           {truncate(item.content, 200)}
         </p>
-        <div className="flex items-center gap-2 mt-2">
+        {/* Actions — wrap-friendly for 280px */}
+        <div className="flex flex-wrap items-center gap-1 mt-2">
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-shell/70 hover:text-pearl"
+            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
             onClick={handleCopy}
           >
             {copied ? 'Copied!' : 'Copy'}
@@ -135,7 +137,7 @@ function DeliverableCard({ item }: { item: Deliverable }) {
             value={selectedFormat}
             onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
           >
-            <SelectTrigger className="h-6 w-[72px] text-[10px] text-shell/70 border-shell/20 bg-transparent">
+            <SelectTrigger className="h-6 w-[64px] text-[10px] text-slate-400/70 border-shell/20 bg-transparent">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -149,16 +151,16 @@ function DeliverableCard({ item }: { item: Deliverable }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-shell/70 hover:text-pearl"
+            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
             onClick={handleDownload}
             disabled={exporting}
           >
-            {exporting ? 'Exporting...' : 'Download'}
+            {exporting ? '...' : 'Export'}
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-shell/70 hover:text-emerald-400"
+            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400"
             onClick={() => {
               const event = new CustomEvent('sop.save-from-output', {
                 detail: { title: item.title, outputId: item.id },
@@ -167,7 +169,7 @@ function DeliverableCard({ item }: { item: Deliverable }) {
             }}
             title="Save the task path that produced this output as a reusable SOP template"
           >
-            Save as SOP
+            SOP
           </Button>
         </div>
       </CardContent>
@@ -184,17 +186,25 @@ export function PitchHall() {
 
   if (deliverables.length === 0) {
     return (
-      <div className="flex items-center justify-center p-6 text-sm text-shell">
-        No deliverables yet. Outputs will appear here after tasks complete.
+      <div className="flex flex-col items-center justify-center gap-3 py-8 text-center p-3">
+        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+          <FileOutput className="w-5 h-5 text-slate-500" />
+        </div>
+        <div className="px-2">
+          <p className="text-[11px] font-semibold text-slate-400">No Outputs Yet</p>
+          <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+            Deliverables will appear here as your AI employees complete tasks. You can copy, export, or save them as SOPs.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div className="flex flex-col gap-2 p-3 overflow-hidden">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-pearl">Deliverables</h3>
-        <span className="text-[10px] text-shell">{deliverables.length} total</span>
+        <h2 className="text-[8px] uppercase tracking-wider text-slate-400">Outputs</h2>
+        <span className="text-[10px] text-slate-500">{deliverables.length}</span>
       </div>
       {deliverables.map((item) => (
         <DeliverableCard key={item.id} item={item} />

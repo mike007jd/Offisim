@@ -70,48 +70,49 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
 
   const levelPillClass = (level: EventLevel, active: boolean) => {
     const base = 'px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
-    if (!active) return `${base} bg-transparent text-shell border border-shell/30 opacity-40`;
-    if (level === 'Error') return `${base} bg-lobster-red/20 text-lobster-red border border-lobster-red/40`;
+    if (!active) return `${base} bg-transparent text-slate-400 border border-slate-400/30 opacity-40`;
+    if (level === 'Error') return `${base} bg-red-500/20 text-red-500 border border-red-500/40`;
     if (level === 'Warning') return `${base} bg-amber-400/20 text-amber-400 border border-amber-400/40`;
-    return `${base} bg-sea-blue/20 text-sea-blue border border-sea-blue/40`;
+    return `${base} bg-blue-500/20 text-blue-500 border border-blue-500/40`;
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-shell/10 flex-wrap">
-      {/* Type dropdown */}
-      <select
-        value={selectedType}
-        onChange={(e) => handleTypeChange(e.target.value as EventFilterType)}
-        className="text-[10px] bg-abyss text-shell border border-shell/20 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:border-sea-blue/50"
-      >
-        {ALL_EVENT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-col gap-1.5 px-3 py-1.5 border-b border-slate-400/10">
+      {/* Top row: type dropdown + level pills */}
+      <div className="flex items-center gap-1.5 overflow-hidden">
+        <select
+          value={selectedType}
+          onChange={(e) => handleTypeChange(e.target.value as EventFilterType)}
+          className="text-[10px] bg-slate-950 text-slate-400 border border-slate-400/20 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:border-blue-500/50 flex-shrink-0"
+        >
+          {ALL_EVENT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
 
-      {/* Level pills */}
-      <div className="flex items-center gap-1">
-        {ALL_LEVELS.map((level) => (
-          <button
-            key={level}
-            type="button"
-            className={levelPillClass(level, activeLevels.has(level))}
-            onClick={() => toggleLevel(level)}
-          >
-            {level}
-          </button>
-        ))}
+        <div className="flex items-center gap-1">
+          {ALL_LEVELS.map((level) => (
+            <button
+              key={level}
+              type="button"
+              className={levelPillClass(level, activeLevels.has(level))}
+              onClick={() => toggleLevel(level)}
+            >
+              {level === 'Warning' ? 'Warn' : level}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Search */}
+      {/* Search — own row to prevent overflow */}
       <input
         type="text"
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Search…"
-        className="flex-1 min-w-0 text-[10px] bg-abyss text-sand border border-shell/20 rounded px-1.5 py-0.5 placeholder:text-shell/40 focus:outline-none focus:border-sea-blue/50"
+        placeholder="Search events..."
+        className="w-full text-[10px] bg-slate-950 text-slate-100 border border-slate-400/20 rounded px-1.5 py-0.5 placeholder:text-slate-400/40 focus:outline-none focus:border-blue-500/50"
       />
     </div>
   );
