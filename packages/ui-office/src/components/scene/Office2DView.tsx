@@ -80,8 +80,14 @@ interface DragState {
 
 // ── Avatar helper ─────────────────────────────────────────────────────
 
+const avatarCache = new Map<string, string>();
+
 function getAvatarUri(seed: string): string {
-  return createAvatar(avataaars, { seed, size: 64 }).toDataUri();
+  const cached = avatarCache.get(seed);
+  if (cached) return cached;
+  const uri = createAvatar(avataaars, { seed, size: 64 }).toDataUri();
+  avatarCache.set(seed, uri);
+  return uri;
 }
 
 // ── SVG Furniture Components ──────────────────────────────────────────
