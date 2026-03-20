@@ -20,6 +20,7 @@ import { CostByModelCard } from './CostByModelCard';
 import { CostOverviewCard } from './CostOverviewCard';
 import { RecentActivityCard } from './RecentActivityCard';
 import { TaskQueueCard } from './TaskQueueCard';
+import { TeamHealthCard } from './TeamHealthCard';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -347,6 +348,7 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
               onClearAll={clearAll}
             />
             <ErrorHistoryCard errors={errors} />
+            <TeamHealthCard agents={agents} />
             <div className="md:col-span-2">
               <RecentActivityCard />
             </div>

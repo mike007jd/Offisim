@@ -10,6 +10,7 @@ import {
   CompanyEditor,
   DashboardOverlay,
   EmployeeCreatorOverlay,
+  EmployeeInspector,
   ErrorBoundary,
   Header,
   InstallDialog,
@@ -181,6 +182,16 @@ export function App() {
             {dashboardOpen && (
               <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
             )}
+            <EmployeeInspector
+              employeeId={selectedEmployeeId}
+              agents={agents}
+              onClose={() => setSelectedEmployeeId(null)}
+              onOpenEditor={(id) => {
+                companyEditor.open();
+                console.info('[EmployeeInspector] Open editor for', id);
+              }}
+              onStartChat={(id) => setSelectedEmployeeId(id)}
+            />
           </>
         )}
 
