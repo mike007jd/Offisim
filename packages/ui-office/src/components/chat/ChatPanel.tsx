@@ -1,6 +1,6 @@
-import { Button, ScrollArea } from '@aics/ui-core';
+import { ScrollArea } from '@aics/ui-core';
 import { ArrowLeft } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -23,6 +23,10 @@ interface ChatPanelProps {
   selectedEmployeeId?: string | null;
   selectedEmployeeName?: string | null;
   onClearSelection?: () => void;
+  /** Open dashboard overlay (for /status command) */
+  onShowDashboard?: () => void;
+  /** Open cost view (for /budget command) */
+  onShowBudget?: () => void;
 }
 
 let nextMsgId = 0;
@@ -35,6 +39,8 @@ export function ChatPanel({
   selectedEmployeeId,
   selectedEmployeeName,
   onClearSelection,
+  onShowDashboard,
+  onShowBudget,
 }: ChatPanelProps) {
   const {
     sendMessage,
@@ -43,7 +49,6 @@ export function ChatPanel({
     isReady,
     error,
     clearError,
-    connectedMcpServers,
   } = useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
@@ -56,7 +61,7 @@ export function ChatPanel({
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Track which target the last error occurred on, so retry adds response to the correct bucket
+  // Track which target the last error occurred on
   const errorTargetRef = useRef<string | null>(null);
 
   // Current target key
@@ -65,7 +70,7 @@ export function ChatPanel({
   // Current messages for the active target
   const messages = messagesByTarget.get(targetKey) ?? [];
 
-  // Clear error when switching targets — old error is no longer relevant
+  // Clear error when switching targets
   const prevTargetRef = useRef(targetKey);
   useEffect(() => {
     if (prevTargetRef.current !== targetKey && error) {
@@ -74,8 +79,6 @@ export function ChatPanel({
     prevTargetRef.current = targetKey;
   }, [targetKey, error, clearError]);
 
-  // Track latest stream content in a ref so handleSend can read it after
-  // sendMessage resolves.
   const lastStreamRef = useRef('');
 
   useEffect(() => {
@@ -84,8 +87,8 @@ export function ChatPanel({
     }
   }, [isStreaming, streamContent]);
 
-  // Auto-scroll when new messages arrive or streaming content updates
-  // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll-to-bottom intentionally
+  // Auto-scroll
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -111,9 +114,6 @@ export function ChatPanel({
       targetEmployeeId: selectedEmployeeId ?? undefined,
     });
 
-    // After sendMessage resolves, pick the best source for the assistant reply:
-    // 1. Streaming content (from boss-summary's llm.stream.chunk events)
-    // 2. Direct graph return value (for non-streaming / direct_reply paths)
     const finalContent = lastStreamRef.current || response;
     if (finalContent) {
       addMessage(targetKey, { id: genMsgId(), role: 'assistant', content: finalContent });
@@ -123,7 +123,6 @@ export function ChatPanel({
 
   async function handleRetry() {
     lastStreamRef.current = '';
-    // Use the target where the error originally occurred
     const retryTarget = errorTargetRef.current;
     const response = await retryLastMessage();
     const finalContent = lastStreamRef.current || response;
@@ -133,9 +132,7 @@ export function ChatPanel({
     lastStreamRef.current = '';
   }
 
-  // Swap person: re-send the last failed message targeting a different employee
   function handleSwapPerson(employeeId: string) {
-    // Find the last user message to re-send
     const allMessages = messagesByTarget.get(errorTargetRef.current) ?? [];
     const lastUserMsg = [...allMessages].reverse().find((m) => m.role === 'user');
     if (!lastUserMsg) return;
@@ -143,7 +140,6 @@ export function ChatPanel({
     clearError();
     lastStreamRef.current = '';
 
-    // Send to the selected employee
     addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
     sendMessage(lastUserMsg.content, { targetEmployeeId: employeeId }).then((response) => {
       const finalContent = lastStreamRef.current || response;
@@ -154,36 +150,62 @@ export function ChatPanel({
     });
   }
 
-  // Swap model: open settings so user can change provider/model, then retry
   function handleSwapModel() {
     onOpenSettings();
   }
 
+  // ── Slash command handler (client-side only) ────────────────────
+  const handleSlashCommand = useCallback(
+    (cmd: string) => {
+      switch (cmd) {
+        case '/status':
+          onShowDashboard?.();
+          break;
+        case '/budget':
+          onShowBudget?.();
+          break;
+      }
+    },
+    [onShowDashboard, onShowBudget],
+  );
+
+  // ── Mention select handler ─────────────────────────────────────
+  const handleMentionSelect = useCallback(
+    (_employeeId: string) => {
+      // For now, @mentions just insert the name in the message.
+      // Direct chat switching happens when user sends the message
+      // or could be wired here if desired.
+    },
+    [],
+  );
+
   const showEmpty = messages.length === 0 && !isStreaming;
   const isDirectChat = !!selectedEmployeeId;
 
-  // Derive employee names for EmptyState
-  const employeeNames = [...agents.values()].map((a) => a.name);
-  const hasMcpTools = connectedMcpServers.size > 0;
+  const inputPlaceholder = isDirectChat
+    ? `Message ${selectedEmployeeName ?? 'employee'}...`
+    : 'Message your team...';
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
+      {/* Direct chat header — single compact line */}
       {isDirectChat && (
-        <div className="flex items-center gap-2 border-b border-slate-700/60 bg-slate-900/60 px-3 py-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 px-1.5 text-slate-500 hover:text-slate-100"
+        <div className="flex items-center gap-2 border-b border-white/5 px-3 h-8">
+          <button
+            type="button"
             onClick={onClearSelection}
+            className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors"
           >
-            <ArrowLeft className="h-3 w-3 mr-1" />
+            <ArrowLeft className="h-3 w-3" />
             <span className="text-xs">Team</span>
-          </Button>
-          <span className="text-xs text-orange-400/80">
+          </button>
+          <span className="text-xs text-slate-300 font-medium">
             {selectedEmployeeName ?? selectedEmployeeId}
           </span>
         </div>
       )}
+
+      {/* Error banner */}
       {error && (
         <ErrorBanner
           message={error}
@@ -195,11 +217,13 @@ export function ChatPanel({
           errorHistory={errorHistory}
         />
       )}
+
+      {/* Message area */}
       {showEmpty ? (
         isDirectChat ? (
-          <div className="flex flex-1 items-center justify-center p-3">
-            <p className="text-xs text-slate-500 text-center leading-relaxed">
-              Message {selectedEmployeeName ?? 'this employee'}
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-xs text-slate-600">
+              Start a conversation with {selectedEmployeeName ?? 'this employee'}
             </p>
           </div>
         ) : (
@@ -207,13 +231,11 @@ export function ChatPanel({
             isConfigured={isReady}
             onOpenSettings={onOpenSettings}
             onSendPrompt={handleSend}
-            hasMcpTools={hasMcpTools}
-            employeeNames={employeeNames}
           />
         )
       ) : (
         <ScrollArea className="flex-1">
-          <div ref={scrollRef} className="flex flex-col gap-1.5 p-3">
+          <div ref={scrollRef} className="flex flex-col gap-1 p-2">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}
@@ -221,8 +243,19 @@ export function ChatPanel({
           </div>
         </ScrollArea>
       )}
+
+      {/* Meeting controls (only shown when meeting is active) */}
       <MeetingControlsAutoWired />
-      <ChatInput onSend={handleSend} disabled={isRunning || !isReady} />
+
+      {/* Input */}
+      <ChatInput
+        onSend={handleSend}
+        disabled={isRunning || !isReady}
+        placeholder={inputPlaceholder}
+        agents={agents}
+        onSlashCommand={handleSlashCommand}
+        onMentionSelect={handleMentionSelect}
+      />
     </div>
   );
 }

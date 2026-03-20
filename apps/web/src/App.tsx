@@ -170,6 +170,8 @@ export function App() {
                     selectedEmployeeId={selectedEmployeeId}
                     selectedEmployeeName={selectedEmployeeName}
                     onClearSelection={() => setSelectedEmployeeId(null)}
+                    onShowDashboard={() => setDashboardOpen(true)}
+                    onShowBudget={() => setDashboardOpen(true)}
                   />
                 </ChatDrawer>
               }
