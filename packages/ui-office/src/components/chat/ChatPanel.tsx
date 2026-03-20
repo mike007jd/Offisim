@@ -24,6 +24,8 @@ interface ChatPanelProps {
   selectedEmployeeId?: string | null;
   selectedEmployeeName?: string | null;
   onClearSelection?: () => void;
+  /** Switch active direct-chat target (used by @mention selection). */
+  onSelectEmployee?: (employeeId: string) => void;
   /** Open dashboard overlay (for /status command) */
   onShowDashboard?: () => void;
   /** Open cost view (for /budget command) */
@@ -40,6 +42,7 @@ export function ChatPanel({
   selectedEmployeeId,
   selectedEmployeeName,
   onClearSelection,
+  onSelectEmployee,
   onShowDashboard,
   onShowBudget,
 }: ChatPanelProps) {
@@ -173,12 +176,11 @@ export function ChatPanel({
 
   // ── Mention select handler ─────────────────────────────────────
   const handleMentionSelect = useCallback(
-    (_employeeId: string) => {
-      // For now, @mentions just insert the name in the message.
-      // Direct chat switching happens when user sends the message
-      // or could be wired here if desired.
+    (employeeId: string) => {
+      if (employeeId === 'team') return; // @team stays in team chat
+      onSelectEmployee?.(employeeId); // Switch to direct chat with that employee
     },
-    [],
+    [onSelectEmployee],
   );
 
   const showEmpty = messages.length === 0 && !isStreaming;

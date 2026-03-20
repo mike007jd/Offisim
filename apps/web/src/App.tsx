@@ -135,6 +135,12 @@ export function App() {
     reinitRuntime();
   }
 
+  function handleWizardComplete() {
+    if (!providerConfig) {
+      setSettingsOpen(true);
+    }
+  }
+
   return (
     <ErrorBoundary>
       <>
@@ -166,6 +172,7 @@ export function App() {
                   notificationSlot={<NotificationCenter />}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
+                  needsConfig={!providerConfig}
                 />
               }
               agentPanel={
@@ -188,6 +195,7 @@ export function App() {
                     selectedEmployeeId={selectedEmployeeId}
                     selectedEmployeeName={selectedEmployeeName}
                     onClearSelection={() => setSelectedEmployeeId(null)}
+                    onSelectEmployee={setSelectedEmployeeId}
                     onShowDashboard={() => setDashboardOpen(true)}
                     onShowBudget={() => setDashboardOpen(true)}
                   />
@@ -222,10 +230,11 @@ export function App() {
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onSave={handleSaveConfig}
+          onSaveSuccess={() => addToast('Provider configuration saved', 'success')}
         />
         <InstallDialog {...installFlow} />
         <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
-        <CompanyCreationWizard />
+        <CompanyCreationWizard onComplete={handleWizardComplete} />
       </>
     </ErrorBoundary>
   );

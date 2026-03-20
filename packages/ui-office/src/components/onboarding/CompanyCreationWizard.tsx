@@ -1,8 +1,14 @@
 import { Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
 import { TemplateCard } from './TemplateCard.js';
 
-export function CompanyCreationWizard() {
+interface CompanyCreationWizardProps {
+  /** Called once when the company transitions to 'ready' for the first time. */
+  onComplete?: () => void;
+}
+
+export function CompanyCreationWizard({ onComplete }: CompanyCreationWizardProps) {
   const {
     step,
     templates,
@@ -13,6 +19,15 @@ export function CompanyCreationWizard() {
     create,
     error,
   } = useCompanyCreation();
+
+  // Track prior step so we only fire onComplete on the first-run → ready transition
+  const prevStepRef = useRef(step);
+  useEffect(() => {
+    if (prevStepRef.current === 'creating' && step === 'ready') {
+      onComplete?.();
+    }
+    prevStepRef.current = step;
+  }, [step, onComplete]);
 
   if (step === 'checking') {
     return (

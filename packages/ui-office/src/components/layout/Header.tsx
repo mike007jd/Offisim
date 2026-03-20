@@ -13,9 +13,11 @@ interface HeaderProps {
   notificationSlot?: ReactNode;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
+  /** Show a red dot on the Settings icon when provider is not yet configured. */
+  needsConfig?: boolean;
 }
 
-export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOpenEmployeeCreator, onOpenOfficeEditor, onFileImport, notificationSlot, viewMode, onViewModeChange }: HeaderProps) {
+export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOpenEmployeeCreator, onOpenOfficeEditor, onFileImport, notificationSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
   return (
     <header className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between px-4 rounded-xl border border-white/10 shadow-2xl">
       <div className="flex items-center space-x-3">
@@ -73,9 +75,14 @@ export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOp
           </Button>
         )}
         <div className="h-6 w-px bg-white/10" />
-        <Button variant="ghost" size="icon" onClick={onOpenSettings} className="hover:bg-white/5">
-          <Settings className="h-4 w-4 text-slate-400 hover:text-blue-400" />
-        </Button>
+        <div className="relative">
+          <Button variant="ghost" size="icon" onClick={onOpenSettings} className="hover:bg-white/5">
+            <Settings className="h-4 w-4 text-slate-400 hover:text-blue-400" />
+          </Button>
+          {needsConfig && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full pointer-events-none" />
+          )}
+        </div>
       </div>
     </header>
   );

@@ -12,9 +12,11 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (config: ProviderConfig) => void;
+  /** Optional callback fired after a successful save (e.g. show a toast). */
+  onSaveSuccess?: () => void;
 }
 
-export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
   const [preset, setPreset] = useState('gemini');
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
@@ -86,9 +88,10 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
     saveProviderConfig(config);
     onSave(config);
     onOpenChange(false);
+    onSaveSuccess?.();
   }
 
-  const showBaseURL = preset === 'custom' || preset === 'kimi';
+  const showBaseURL = preset === 'custom' || preset === 'kimi' || preset === 'openrouter';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,6 +156,13 @@ export function SettingsDialog({ open, onOpenChange, onSave }: SettingsDialogPro
                     onChange={(e) => setBaseURL(e.target.value)}
                     placeholder="https://api.example.com/v1"
                   />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {preset === 'openrouter'
+                      ? 'OpenRouter endpoint: https://openrouter.ai/api/v1'
+                      : preset === 'kimi'
+                        ? 'Kimi endpoint: https://api.moonshot.cn/v1'
+                        : 'Enter your OpenAI-compatible API endpoint URL'}
+                  </p>
                 </div>
               )}
 
