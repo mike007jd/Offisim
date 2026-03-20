@@ -3,7 +3,7 @@ import {
   type ExportableDocument,
   exportDocument,
 } from '@aics/doc-engine';
-import type { SopDefinition } from '@aics/shared-types';
+import type { DeliverableCreatedPayload, RuntimeEvent, SopDefinition } from '@aics/shared-types';
 import {
   Badge,
   Button,
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@aics/ui-core';
 import { FileOutput } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { COMPANY_ID } from '../../lib/constants';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
@@ -73,9 +73,11 @@ function triggerDownload(blob: Blob, filename: string): void {
 interface DeliverableCardProps {
   item: Deliverable;
   onSaveAsSop: (item: Deliverable) => Promise<void>;
+  /** When true, briefly flash a highlight ring then fade */
+  isNew?: boolean;
 }
 
-function DeliverableCard({ item, onSaveAsSop }: DeliverableCardProps) {
+function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [exporting, setExporting] = useState(false);
@@ -127,7 +129,7 @@ function DeliverableCard({ item, onSaveAsSop }: DeliverableCardProps) {
   }, [item, onSaveAsSop, savingSop, sopSaved]);
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 border-slate-700 overflow-hidden">
+    <Card className={`animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 overflow-hidden transition-all ${isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700'}`}>
       <CardHeader className="p-3 pb-1">
         <div className="flex items-start justify-between gap-2 min-w-0">
           <CardTitle className="text-xs text-pearl leading-snug truncate">{item.title}</CardTitle>
@@ -208,6 +210,32 @@ function DeliverableCard({ item, onSaveAsSop }: DeliverableCardProps) {
 export function PitchHall() {
   const deliverables = useDeliverables();
   const { repos, eventBus } = useAicsRuntime();
+  const listBottomRef = useRef<HTMLDivElement>(null);
+
+  // Track newest deliverable id for brief highlight, clear after 3s
+  const [newestId, setNewestId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const off = eventBus.on(
+      'deliverable.created',
+      (e: RuntimeEvent<DeliverableCreatedPayload>) => {
+        const id = e.payload.deliverableId;
+        if (!id) return;
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        setNewestId(id);
+        // Scroll to bottom so the new card is visible
+        setTimeout(() => {
+          listBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
+        highlightTimerRef.current = setTimeout(() => setNewestId(null), 3000);
+      },
+    );
+    return () => {
+      off();
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, [eventBus]);
 
   const handleSaveAsSop = useCallback(
     async (item: Deliverable) => {
@@ -297,8 +325,14 @@ export function PitchHall() {
         <span className="text-[10px] text-slate-500">{deliverables.length}</span>
       </div>
       {deliverables.map((item) => (
-        <DeliverableCard key={item.id} item={item} onSaveAsSop={handleSaveAsSop} />
+        <DeliverableCard
+          key={item.id}
+          item={item}
+          onSaveAsSop={handleSaveAsSop}
+          isNew={item.id === newestId}
+        />
       ))}
+      <div ref={listBottomRef} />
     </div>
   );
 }

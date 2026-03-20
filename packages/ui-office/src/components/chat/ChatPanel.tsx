@@ -1,4 +1,5 @@
 import { ScrollArea } from '@aics/ui-core';
+import type { GraphNodeEnteredPayload, RuntimeEvent } from '@aics/shared-types';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
@@ -11,6 +12,64 @@ import { MeetingPanel } from '../office/MeetingPanel';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
+
+// ---------------------------------------------------------------------------
+// Pipeline status — derived from graph.node.entered events
+// ---------------------------------------------------------------------------
+
+type PipelineStage = 'routing' | 'planning' | 'executing' | 'delivering' | null;
+
+function nodeToPipelineStage(nodeName: string): PipelineStage {
+  const lower = nodeName.toLowerCase();
+  if (lower === 'manager') return 'routing';
+  if (lower === 'pm' || lower === 'project_manager' || lower === 'planner') return 'planning';
+  if (lower.includes('deliver') || lower === 'boss_summary' || lower === 'boss') return 'delivering';
+  return 'executing';
+}
+
+const STAGE_LABEL: Record<NonNullable<PipelineStage>, string> = {
+  routing: 'Manager routing…',
+  planning: 'PM planning…',
+  executing: 'Executing…',
+  delivering: 'Delivering…',
+};
+
+const STAGE_COLOR: Record<NonNullable<PipelineStage>, string> = {
+  routing: 'text-amber-400',
+  planning: 'text-blue-400',
+  executing: 'text-emerald-400',
+  delivering: 'text-purple-400',
+};
+
+function usePipelineStatus(): { stage: PipelineStage; label: string | null } {
+  const { eventBus, isRunning } = useAicsRuntime();
+  const [stage, setStage] = useState<PipelineStage>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear stage when run ends
+  useEffect(() => {
+    if (!isRunning) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setStage(null), 3000);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [isRunning]);
+
+  useEffect(() => {
+    const off = eventBus.on('graph.node.entered', (e: RuntimeEvent<GraphNodeEnteredPayload>) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setStage(nodeToPipelineStage(e.payload.nodeName));
+    });
+    return off;
+  }, [eventBus]);
+
+  return {
+    stage,
+    label: stage ? STAGE_LABEL[stage] : null,
+  };
+}
 
 interface ChatMessage {
   id: string;
@@ -53,6 +112,7 @@ export function ChatPanel({
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
+  const pipeline = usePipelineStatus();
 
   // Per-target message history: null key = boss chat, employeeId = direct chat
   const [messagesByTarget, setMessagesByTarget] = useState<Map<string | null, ChatMessage[]>>(
@@ -246,6 +306,20 @@ export function ChatPanel({
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       <MeetingPanel agents={agents} />
+
+      {/* Pipeline status — inline, only visible while active */}
+      {pipeline.stage && (
+        <div className="flex items-center gap-1.5 px-3 py-1 border-t border-white/5">
+          <span className="flex gap-0.5">
+            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_COLOR[pipeline.stage]} opacity-80`} style={{ animationDelay: '0ms' }} />
+            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_COLOR[pipeline.stage]} opacity-60`} style={{ animationDelay: '120ms' }} />
+            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_COLOR[pipeline.stage]} opacity-40`} style={{ animationDelay: '240ms' }} />
+          </span>
+          <span className={`font-mono text-[10px] tracking-wide ${STAGE_COLOR[pipeline.stage]}`}>
+            {pipeline.label}
+          </span>
+        </div>
+      )}
 
       {/* Input */}
       <ChatInput
