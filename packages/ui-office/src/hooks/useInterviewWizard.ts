@@ -3,6 +3,7 @@ import { useCallback, useReducer, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
+import { DEFAULT_APPEARANCE } from './useEmployeeEditor';
 
 // ---------------------------------------------------------------------------
 // Step definitions
@@ -54,6 +55,7 @@ export const DEFAULT_WIZARD_FORM: EmployeeFormData = {
   modelPreference: '',
   temperature: 0.7,
   maxTokens: 4096,
+  appearance: DEFAULT_APPEARANCE,
 };
 
 export const initialWizardState: WizardState = {

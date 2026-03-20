@@ -9,6 +9,22 @@ import { useCallback, useState } from 'react';
 import { COMPANY_ID } from '../lib/constants';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
+export interface AvatarAppearance {
+  skinColor: number;
+  hairColor: number;
+  hairStyle: string;
+  clothingColor: number;
+  bodyType: string;
+}
+
+export const DEFAULT_APPEARANCE: AvatarAppearance = {
+  skinColor: 0xfdbcb4,
+  hairColor: 0x1a1a1a,
+  hairStyle: 'short',
+  clothingColor: 0x4a90d9,
+  bodyType: 'normal',
+};
+
 export interface EmployeeFormData {
   name: string;
   role_slug: string;
@@ -20,6 +36,7 @@ export interface EmployeeFormData {
   modelPreference: string;
   temperature: number;
   maxTokens: number;
+  appearance: AvatarAppearance;
 }
 
 const DEFAULT_FORM: EmployeeFormData = {
@@ -33,21 +50,23 @@ const DEFAULT_FORM: EmployeeFormData = {
   modelPreference: '',
   temperature: 0.7,
   maxTokens: 4096,
+  appearance: DEFAULT_APPEARANCE,
 };
 
 function parsePersonaJson(
   raw: string | null,
-): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions'> {
-  if (!raw) return { expertise: '', style: '', customInstructions: '' };
+): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions' | 'appearance'> {
+  if (!raw) return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
   try {
     const parsed = JSON.parse(raw);
     return {
       expertise: parsed.expertise ?? '',
       style: parsed.style ?? '',
       customInstructions: parsed.customInstructions ?? '',
+      appearance: parsed.appearance ?? DEFAULT_APPEARANCE,
     };
   } catch {
-    return { expertise: '', style: '', customInstructions: '' };
+    return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
   }
 }
 
@@ -168,6 +187,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
         expertise: formData.expertise,
         style: formData.style,
         customInstructions: formData.customInstructions,
+        appearance: formData.appearance,
       });
       const configJson = JSON.stringify({
         modelPreference: formData.modelPreference,

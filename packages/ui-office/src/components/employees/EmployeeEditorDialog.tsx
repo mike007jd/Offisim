@@ -18,7 +18,6 @@ import {
 } from '@aics/ui-core';
 import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
 import { MessageSquare } from 'lucide-react';
-import { useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
@@ -42,14 +41,6 @@ const ROLE_OPTIONS = [
   { value: 'engineering_manager', label: 'Engineering Manager' },
 ];
 
-const DEFAULT_AVATAR: AvatarConfig = {
-  skinColor: 0xfdbcb4,
-  hairColor: 0x1a1a1a,
-  hairStyle: 'short',
-  clothingColor: 0x4a90d9,
-  bodyType: 'normal',
-};
-
 interface EmployeeEditorDialogProps extends UseEmployeeEditorReturn {}
 
 export function EmployeeEditorDialog({
@@ -71,10 +62,6 @@ export function EmployeeEditorDialog({
   const isEditMode = employeeId !== null;
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
-
-  // Avatar appearance — local state for now; a future formData.appearance field
-  // in useEmployeeEditor will persist this to persona_json.
-  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR);
 
   return (
     <Dialog
@@ -186,8 +173,11 @@ export function EmployeeEditorDialog({
                 </Select>
               </div>
 
-              {/* Avatar appearance */}
-              <AvatarCustomizer config={avatarConfig} onChange={setAvatarConfig} />
+              {/* Avatar appearance — persisted to persona_json via formData.appearance */}
+              <AvatarCustomizer
+                config={formData.appearance as AvatarConfig}
+                onChange={(cfg) => updateField('appearance', cfg)}
+              />
             </div>
           </TabsContent>
 
