@@ -12,21 +12,7 @@ import { avataaars } from '@dicebear/collection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
-import { ZONES, resolveZone, STATUS_COLORS } from '../../lib/zone-config.js';
-
-/** Valid zone IDs that accept employees. */
-const VALID_ZONE_IDS = new Set(ZONES.filter(z => z.deskSlots > 0).map(z => z.id));
-
-/**
- * Resolve which zone an employee belongs to.
- * Priority: persisted workstationId (from DB, updated by drag-to-assign) → role-based fallback.
- */
-function resolveEmployeeZone(agent: AgentState): string {
-  if (agent.workstationId && VALID_ZONE_IDS.has(agent.workstationId)) {
-    return agent.workstationId;
-  }
-  return resolveZone(agent.role);
-}
+import { ZONES, STATUS_COLORS, DROP_TARGET_ZONES, resolveEmployeeZone } from '../../lib/zone-config.js';
 import type { ZoneDef } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
@@ -40,9 +26,6 @@ const ROOM_H = 1500; // 30 * 50
 
 /** Minimum pointer movement (in screen px) before a click becomes a drag. */
 const DRAG_THRESHOLD = 5;
-
-/** Zones that accept employee drops (department zones with desk slots). */
-const DROP_TARGET_ZONES = ZONES.filter(z => z.deskSlots > 0);
 
 /** Map 3D center coords → SVG top-left */
 function toSVG(cx: number, cz: number, w: number, d: number) {

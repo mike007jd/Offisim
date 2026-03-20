@@ -1,0 +1,67 @@
+/** Shared zone configuration — single source of truth for 2D, 3D, and editor views. */
+
+export interface ZoneDef {
+  readonly id: string;
+  readonly label: string;
+  readonly accent: string;
+  readonly cx: number;
+  readonly cz: number;
+  readonly w: number;
+  readonly d: number;
+  readonly type: 'dept' | 'support' | 'infra';
+  readonly roleSlugs: readonly string[];
+  readonly deskSlots: number;
+}
+
+export const ZONES: readonly ZoneDef[] = [
+  { id: 'mtg', label: 'MEETING ROOM', accent: '#94a3b8', cx: -10, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0 },
+  { id: 'srv', label: 'SERVER ROOM', accent: '#06b6d4', cx: 8, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0 },
+  { id: 'lib', label: 'LIBRARY', accent: '#10b981', cx: -10, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0 },
+  { id: 'rest', label: 'REST AREA', accent: '#f59e0b', cx: 8, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0 },
+  { id: 'dev', label: 'DEVELOPMENT', accent: '#3b82f6', cx: -13, cz: 11, w: 12, d: 8, type: 'dept', roleSlugs: ['developer', 'engineer', 'backend', 'frontend', 'fullstack'], deskSlots: 4 },
+  { id: 'prod', label: 'PRODUCT', accent: '#a855f7', cx: 0, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['pm', 'product_manager', 'researcher', 'analyst'], deskSlots: 4 },
+  { id: 'art', label: 'ART & DESIGN', accent: '#f97316', cx: 12, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['designer', 'artist', 'ui_designer', 'ux_designer'], deskSlots: 4 },
+];
+
+/** Resolve employee role slug to zone ID. Defaults to 'dev'. */
+export function resolveZone(role: string): string {
+  for (const z of ZONES) {
+    if (z.roleSlugs.includes(role)) return z.id;
+  }
+  return 'dev';
+}
+
+/** Valid zone IDs that accept employees (have desk slots). */
+export const VALID_ZONE_IDS: ReadonlySet<string> = new Set(
+  ZONES.filter(z => z.deskSlots > 0).map(z => z.id),
+);
+
+/** Zones that accept employee drops (those with desk slots). */
+export const DROP_TARGET_ZONES: readonly ZoneDef[] = ZONES.filter(z => z.deskSlots > 0);
+
+/**
+ * Agent shape that resolveEmployeeZone depends on.
+ * Matches AgentState from use-agent-states — kept minimal to avoid circular imports.
+ */
+export interface AgentZoneInfo {
+  role: string;
+  workstationId?: string | null;
+}
+
+/**
+ * Resolve which zone an employee belongs to.
+ * Priority: persisted workstationId (from DB, updated by drag-to-assign) → role-based fallback.
+ */
+export function resolveEmployeeZone(agent: AgentZoneInfo): string {
+  if (agent.workstationId && VALID_ZONE_IDS.has(agent.workstationId)) {
+    return agent.workstationId;
+  }
+  return resolveZone(agent.role);
+}
+
+/** Status colors for employee states (CSS hex strings). */
+export const STATUS_COLORS: Record<string, string> = {
+  idle: '#64748b', assigned: '#3b82f6', thinking: '#818cf8', searching: '#c084fc',
+  executing: '#10b981', meeting: '#a855f7', blocked: '#ef4444', waiting: '#f59e0b',
+  reporting: '#06b6d4', success: '#22c55e', failed: '#ef4444', paused: '#475569',
+};

@@ -2,6 +2,7 @@ import { ArrowLeft, Eye, Grid3X3, RotateCcw, Save, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
+import { ZONES } from '../../lib/zone-config.js';
 
 // ── Props ───────────────────────────────────────────────────────────
 
@@ -10,27 +11,32 @@ export interface OfficeEditorOverlayProps {
   onClose: () => void;
 }
 
-// ── Zone data (matches departments.ts) ──────────────────────────────
+// ── Editor-specific zone layout (sublabel, grid position) ───────────
+// Zone IDs must match zone-config.ts ZONES. Shared fields (id, label, accent)
+// are imported from zone-config; only editor-specific visual properties live here.
 
-interface ZoneData {
-  readonly id: string;
-  readonly label: string;
+interface ZoneEditorLayout {
   readonly sublabel: string;
-  readonly color: string;
   readonly row: number;
   readonly col: number;
   readonly colSpan?: number;
 }
 
-const ZONES: readonly ZoneData[] = [
-  { id: 'dev', label: 'DEV', sublabel: '\u5F00\u53D1\u90E8\u95E8', color: '#3b82f6', row: 0, col: 0 },
-  { id: 'product', label: 'PROD', sublabel: '\u4EA7\u54C1\u90E8\u95E8', color: '#a855f7', row: 0, col: 1 },
-  { id: 'art', label: 'ART', sublabel: '\u7F8E\u672F\u90E8\u95E8', color: '#f97316', row: 0, col: 2 },
-  { id: 'library', label: 'LIB', sublabel: '\u56FE\u4E66\u9986', color: '#10b981', row: 1, col: 0, colSpan: 1 },
-  { id: 'rest', label: 'REST', sublabel: '\u4F11\u606F\u533A', color: '#f59e0b', row: 1, col: 1 },
-  { id: 'meeting', label: 'MTG', sublabel: '\u4F1A\u8BAE\u5BA4', color: '#94a3b8', row: 2, col: 0 },
-  { id: 'server', label: 'SRV', sublabel: '\u673A\u623F', color: '#06b6d4', row: 2, col: 1 },
-];
+/** Maps zone ID → editor grid layout metadata. */
+const ZONE_EDITOR_LAYOUT: Readonly<Record<string, ZoneEditorLayout>> = {
+  dev:  { sublabel: '开发部门', row: 0, col: 0 },
+  prod: { sublabel: '产品部门', row: 0, col: 1 },
+  art:  { sublabel: '美术部门', row: 0, col: 2 },
+  lib:  { sublabel: '图书馆',   row: 1, col: 0, colSpan: 1 },
+  rest: { sublabel: '休息区',   row: 1, col: 1 },
+  mtg:  { sublabel: '会议室',   row: 2, col: 0 },
+  srv:  { sublabel: '机房',     row: 2, col: 1 },
+};
+
+/** Zones in editor display order (only those with an editor layout entry). */
+const EDITOR_ZONES = ZONES.filter(z => z.id in ZONE_EDITOR_LAYOUT)
+  .map(z => ({ ...z, ...ZONE_EDITOR_LAYOUT[z.id]! }))
+  .sort((a, b) => a.row - b.row || a.col - b.col);
 
 // ── Accent color presets ────────────────────────────────────────────
 
@@ -63,13 +69,13 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   // Per-zone editable properties (keyed by zone id)
   const [zoneProps, setZoneProps] = useState<Record<string, ZoneProperties>>(() => {
     const initial: Record<string, ZoneProperties> = {};
-    for (const zone of ZONES) {
-      initial[zone.id] = { accentColor: zone.color, workstationCount: 4 };
+    for (const zone of EDITOR_ZONES) {
+      initial[zone.id] = { accentColor: zone.accent, workstationCount: 4 };
     }
     return initial;
   });
 
-  const selectedZone = ZONES.find((z) => z.id === selectedZoneId) ?? null;
+  const selectedZone = EDITOR_ZONES.find((z) => z.id === selectedZoneId) ?? null;
   const selectedProps = selectedZoneId ? zoneProps[selectedZoneId] : null;
 
   // Show sidebar only in 2D mode when a zone is selected
@@ -103,8 +109,8 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 
   const handleResetDefaults = useCallback(() => {
     const initial: Record<string, ZoneProperties> = {};
-    for (const zone of ZONES) {
-      initial[zone.id] = { accentColor: zone.color, workstationCount: 4 };
+    for (const zone of EDITOR_ZONES) {
+      initial[zone.id] = { accentColor: zone.accent, workstationCount: 4 };
     }
     setZoneProps(initial);
     setSelectedZoneId(null);
@@ -158,7 +164,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   const svgHeight = MAP_PADDING * 2 + ROW_HEIGHTS.reduce((a, b) => a + b, 0) + ZONE_GAP * (ROW_HEIGHTS.length - 1);
 
   /** Compute zone rectangle geometry in SVG space */
-  function getZoneRect(zone: ZoneData) {
+  function getZoneRect(zone: typeof EDITOR_ZONES[number]) {
     const contentWidth = svgWidth - MAP_PADDING * 2;
     const cols = COL_COUNTS[zone.row] ?? 3;
     const colWidth = (contentWidth - (cols - 1) * ZONE_GAP) / cols;
@@ -252,10 +258,10 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#grid-dots)" />
 
               {/* Zone rectangles */}
-              {ZONES.map((zone) => {
+              {EDITOR_ZONES.map((zone) => {
                 const { x, y, width, height } = getZoneRect(zone);
                 const isSelected = selectedZoneId === zone.id;
-                const accentColor = zoneProps[zone.id]?.accentColor ?? zone.color;
+                const accentColor = zoneProps[zone.id]?.accentColor ?? zone.accent;
 
                 return (
                   <g
@@ -531,16 +537,16 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 function getZoneTypeLabel(zoneId: string): string {
   switch (zoneId) {
     case 'dev':
-    case 'product':
+    case 'prod':
     case 'art':
       return 'DEPARTMENT';
-    case 'library':
+    case 'lib':
       return 'LIBRARY';
     case 'rest':
       return 'REST_AREA';
-    case 'meeting':
+    case 'mtg':
       return 'MEETING_ROOM';
-    case 'server':
+    case 'srv':
       return 'SERVER_ROOM';
     default:
       return 'UNKNOWN';

@@ -7,117 +7,33 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
 import { STATE_LABELS } from '../../lib/state-labels';
+import { ZONES, DROP_TARGET_ZONES, STATUS_COLORS as _STATUS_COLORS, resolveEmployeeZone } from '../../lib/zone-config.js';
 
-// ── Zone definitions (matching 2D renderer departments.ts) ──────────
-// TODO: migrate to shared ../../lib/zone-config.ts (P1 follow-up)
+// ── 3D-specific zone position/size bridge ────────────────────────────
+// zone-config uses { cx, cz, w, d } (2D/logical coords).
+// Three.js needs [x, y, z] position and [w, d] size.
+// This mapping is the ONLY place that bridges the two formats.
 
-interface ZoneDef {
-  id: string;
-  label: string;
-  accent: string;
-  /** Center position [x, y, z] */
+interface Zone3DLayout {
+  /** Three.js world position [x, y, z] — y=0 means on the floor plane. */
   position: [number, number, number];
-  /** Floor size [width, depth] */
+  /** Floor footprint [width, depth] in world units. */
   size: [number, number];
-  /** Role slugs that map employees to this zone */
-  roleSlugs: string[];
-  /** Max desk workstation slots */
-  deskSlots: number;
 }
 
-const ZONES: ZoneDef[] = [
-  // Row 1 (back/top, z=-8): Infrastructure — rarely interacted with
-  {
-    id: 'mtg',
-    label: 'MEETING ROOM',
-    accent: '#94a3b8',
-    position: [-10, 0, -8],
-    size: [14, 6],
-    roleSlugs: [],
-    deskSlots: 0,
-  },
-  {
-    id: 'srv',
-    label: 'SERVER ROOM',
-    accent: '#06b6d4',
-    position: [8, 0, -8],
-    size: [14, 6],
-    roleSlugs: [],
-    deskSlots: 0,
-  },
-  // Row 2 (middle, z=2): Support areas
-  {
-    id: 'lib',
-    label: 'LIBRARY',
-    accent: '#10b981',
-    position: [-10, 0, 2],
-    size: [14, 8],
-    roleSlugs: [],
-    deskSlots: 0,
-  },
-  {
-    id: 'rest',
-    label: 'REST AREA',
-    accent: '#f59e0b',
-    position: [8, 0, 2],
-    size: [14, 8],
-    roleSlugs: [],
-    deskSlots: 0,
-  },
-  // Row 3 (front/bottom, z=11): Main work areas — high interaction
-  {
-    id: 'dev',
-    label: 'DEVELOPMENT',
-    accent: '#3b82f6',
-    position: [-13, 0, 11],
-    size: [12, 8],
-    roleSlugs: ['developer', 'engineer', 'backend', 'frontend', 'fullstack'],
-    deskSlots: 4,
-  },
-  {
-    id: 'prod',
-    label: 'PRODUCT',
-    accent: '#a855f7',
-    position: [0, 0, 11],
-    size: [10, 8],
-    roleSlugs: ['pm', 'product_manager', 'researcher', 'analyst'],
-    deskSlots: 4,
-  },
-  {
-    id: 'art',
-    label: 'ART & DESIGN',
-    accent: '#f97316',
-    position: [12, 0, 11],
-    size: [10, 8],
-    roleSlugs: ['designer', 'artist', 'ui_designer', 'ux_designer'],
-    deskSlots: 4,
-  },
-];
+/** Maps zone ID → Three.js position and size (derived from zone-config cx/cz/w/d). */
+const ZONE_3D_LAYOUT: Readonly<Record<string, Zone3DLayout>> = Object.fromEntries(
+  ZONES.map(z => [z.id, { position: [z.cx, 0, z.cz] as [number, number, number], size: [z.w, z.d] as [number, number] }]),
+);
 
-/** Resolve employee role slug to zone ID. Defaults to 'dev'. */
-function resolveZone(role: string): string {
-  for (const z of ZONES) {
-    if (z.roleSlugs.includes(role)) return z.id;
-  }
-  return 'dev';
-}
+/** Zones that accept employee drops (those with desk slots) — with 3D layout attached. */
+const DROP_TARGET_ZONES_3D = DROP_TARGET_ZONES.map(z => ({ ...z, ...ZONE_3D_LAYOUT[z.id]! }));
 
-/** Valid zone IDs that accept employees. */
-const VALID_ZONE_IDS_3D = new Set(ZONES.filter(z => z.deskSlots > 0).map(z => z.id));
+/** All zones with 3D layout attached (for rendering zone overlays). */
+const ZONES_3D = ZONES.map(z => ({ ...z, ...ZONE_3D_LAYOUT[z.id]! }));
 
-/**
- * Resolve which zone an employee belongs to.
- * Priority: persisted workstationId (from DB, updated by drag-to-assign in 2D) → role-based fallback.
- */
-function resolveEmployeeZone3D(agent: AgentState): string {
-  if (agent.workstationId && VALID_ZONE_IDS_3D.has(agent.workstationId)) {
-    return agent.workstationId;
-  }
-  return resolveZone(agent.role);
-}
-
-/** Zones that accept employee drops (those with desk slots). */
-const DROP_TARGET_ZONES = ZONES.filter(z => z.deskSlots > 0);
+// Re-export STATUS_COLORS under the local alias used in this file
+const STATE_COLORS = _STATUS_COLORS;
 
 // ── Drag state ───────────────────────────────────────────────────────
 
@@ -145,11 +61,11 @@ const _floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const _intersectPoint = new THREE.Vector3();
 
 /**
- * Hit-test a world-space XZ position against zone bounding boxes.
- * Returns the first matching drop-target zone, or null.
+ * Hit-test a world-space XZ position against drop-target zone bounding boxes.
+ * Returns the first matching drop-target zone (with 3D layout), or null.
  */
-function hitTestZone3D(worldX: number, worldZ: number): ZoneDef | null {
-  for (const zone of DROP_TARGET_ZONES) {
+function hitTestZone3D(worldX: number, worldZ: number): typeof DROP_TARGET_ZONES_3D[number] | null {
+  for (const zone of DROP_TARGET_ZONES_3D) {
     const halfW = zone.size[0] / 2;
     const halfD = zone.size[1] / 2;
     const cx = zone.position[0];
@@ -163,23 +79,6 @@ function hitTestZone3D(worldX: number, worldZ: number): ZoneDef | null {
   }
   return null;
 }
-
-// ── Status colors (matching 2D renderer STATE_COLORS) ───────────────
-
-const STATE_COLORS: Record<string, string> = {
-  idle: '#64748b',
-  assigned: '#3b82f6',
-  thinking: '#818cf8',
-  searching: '#c084fc',
-  executing: '#10b981',
-  meeting: '#a855f7',
-  blocked: '#ef4444',
-  waiting: '#f59e0b',
-  reporting: '#06b6d4',
-  success: '#22c55e',
-  failed: '#ef4444',
-  paused: '#475569',
-};
 
 const OUTFIT_COLORS = [
   '#3b82f6', '#a855f7', '#22c55e', '#818cf8',
@@ -730,15 +629,15 @@ interface PlacedEmployee {
 
 function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
   return useMemo(() => {
-    // Group employees by zone
+    // Group employees by zone using shared resolveEmployeeZone
     const zoneEmployees = new Map<string, { id: string; agent: AgentState; globalIndex: number }[]>();
-    for (const z of ZONES) {
+    for (const z of ZONES_3D) {
       zoneEmployees.set(z.id, []);
     }
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
-      const zoneId = resolveEmployeeZone3D(agent);
+      const zoneId = resolveEmployeeZone(agent);
       const arr = zoneEmployees.get(zoneId);
       if (arr) {
         arr.push({ id, agent, globalIndex: globalIdx });
@@ -747,7 +646,7 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
     }
 
     const placed: PlacedEmployee[] = [];
-    for (const zone of ZONES) {
+    for (const zone of ZONES_3D) {
       const emps = zoneEmployees.get(zone.id) ?? [];
       emps.forEach((emp, slotIdx) => {
         // Place at desk positions, wrapping around if > 4
@@ -1041,7 +940,7 @@ export default function Office3DView() {
     // Only primary button
     const nativeEvent = e as unknown as PointerEvent;
     if (nativeEvent.button !== 0) return;
-    const zoneId = resolveEmployeeZone3D(agent);
+    const zoneId = resolveEmployeeZone(agent);
     setDragState({
       employeeId: empId,
       sourceZoneId: zoneId,
@@ -1137,7 +1036,7 @@ export default function Office3DView() {
         <RoomShell onFloorClick={handleDeselect} />
 
         {/* ── Zone overlays (with drag highlight) ── */}
-        {ZONES.map((z) => (
+        {ZONES_3D.map((z) => (
           <ZoneLabel
             key={z.id}
             position={z.position}
