@@ -45,26 +45,39 @@ describe('Agency Lite template', () => {
     }
   });
 
-  it('has 2 SOPs', () => {
-    expect(agencyLiteTemplate.sops).toHaveLength(2);
+  it('has 3 SOPs', () => {
+    expect(agencyLiteTemplate.sops).toHaveLength(3);
   });
 
   it('Client Brief Intake SOP has correct structure', () => {
     const sop = agencyLiteTemplate.sops.find((s) => s.sop_id === 'sop-client-brief-intake');
     expect(sop).toBeDefined();
-    expect(sop!.steps).toHaveLength(3);
+    expect(sop!.steps).toHaveLength(4);
     expect(sop!.steps[0]!.dependencies).toHaveLength(0);
     expect(sop!.steps[1]!.dependencies).toContain('gather-requirements');
     expect(sop!.steps[2]!.dependencies).toContain('scope-and-plan');
+    expect(sop!.steps[3]!.dependencies).toContain('creative-direction');
   });
 
   it('Deliverable Review SOP has correct structure', () => {
     const sop = agencyLiteTemplate.sops.find((s) => s.sop_id === 'sop-deliverable-review');
     expect(sop).toBeDefined();
-    expect(sop!.steps).toHaveLength(3);
+    expect(sop!.steps).toHaveLength(4);
     expect(sop!.steps[0]!.dependencies).toHaveLength(0);
     expect(sop!.steps[1]!.dependencies).toContain('qa-review');
     expect(sop!.steps[2]!.dependencies).toContain('fix-and-polish');
+    expect(sop!.steps[3]!.dependencies).toContain('final-qa');
+  });
+
+  it('Social Media Campaign SOP has correct structure', () => {
+    const sop = agencyLiteTemplate.sops.find((s) => s.sop_id === 'sop-social-campaign');
+    expect(sop).toBeDefined();
+    expect(sop!.steps).toHaveLength(5);
+    expect(sop!.steps[0]!.dependencies).toHaveLength(0);
+    expect(sop!.steps[1]!.dependencies).toContain('campaign-brief');
+    expect(sop!.steps[2]!.dependencies).toContain('content-creation');
+    expect(sop!.steps[3]!.dependencies).toContain('visual-design');
+    expect(sop!.steps[4]!.dependencies).toContain('campaign-review');
   });
 
   it('employees have distinct character appearances', () => {
@@ -86,7 +99,7 @@ describe('Agency Lite template', () => {
     expect(roles).toContain('analyst');
   });
 
-  it('uses agency layout preset', () => {
-    expect(agencyLiteTemplate.layoutPreset).toBe('agency');
+  it('uses agency-studio layout preset', () => {
+    expect(agencyLiteTemplate.layoutPreset).toBe('agency-studio');
   });
 });
