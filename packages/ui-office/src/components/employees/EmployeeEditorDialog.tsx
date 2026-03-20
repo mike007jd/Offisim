@@ -1,9 +1,29 @@
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@aics/ui-core';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+} from '@aics/ui-core';
 import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
 import { MessageSquare } from 'lucide-react';
+import { useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
+import { AvatarCustomizer, type AvatarConfig } from './AvatarCustomizer';
+import { SkillBindingList } from './SkillBindingList';
 
 // Generate workstation options from the default floor plan
 const _defaultPlan = computeFloorPlan(RD_COMPANY_ZONES, new Map());
@@ -21,6 +41,14 @@ const ROLE_OPTIONS = [
   { value: 'analyst', label: 'Analyst' },
   { value: 'engineering_manager', label: 'Engineering Manager' },
 ];
+
+const DEFAULT_AVATAR: AvatarConfig = {
+  skinColor: 0xfdbcb4,
+  hairColor: 0x1a1a1a,
+  hairStyle: 'short',
+  clothingColor: 0x4a90d9,
+  bodyType: 'normal',
+};
 
 interface EmployeeEditorDialogProps extends UseEmployeeEditorReturn {}
 
@@ -44,6 +72,10 @@ export function EmployeeEditorDialog({
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
 
+  // Avatar appearance — local state for now; a future formData.appearance field
+  // in useEmployeeEditor will persist this to persona_json.
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR);
+
   return (
     <Dialog
       open={isOpen}
@@ -51,12 +83,12 @@ export function EmployeeEditorDialog({
         if (!open) close();
       }}
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg h-[560px] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="profile" className="mt-2">
+        <Tabs defaultValue="profile" className="mt-2 flex-1 flex flex-col min-h-0">
           <TabsList className="w-full">
             <TabsTrigger value="profile" className="flex-1">
               Profile
@@ -81,10 +113,10 @@ export function EmployeeEditorDialog({
           </TabsList>
 
           {/* Profile Tab */}
-          <TabsContent value="profile">
+          <TabsContent value="profile" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
               <div>
-                <label htmlFor="editor-name" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-name" className="text-sm text-slate-400 mb-1 block">
                   Name
                 </label>
                 <Input
@@ -96,7 +128,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-role" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-role" className="text-sm text-slate-400 mb-1 block">
                   Role
                 </label>
                 <Select
@@ -117,7 +149,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-enabled" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-enabled" className="text-sm text-slate-400 mb-1 block">
                   Status
                 </label>
                 <Button
@@ -133,7 +165,7 @@ export function EmployeeEditorDialog({
 
               {/* Workstation assignment (accessibility fallback for drag-drop) */}
               <div>
-                <label htmlFor="editor-workstation" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-workstation" className="text-sm text-slate-400 mb-1 block">
                   Assign Workstation
                 </label>
                 <Select
@@ -153,14 +185,17 @@ export function EmployeeEditorDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Avatar appearance */}
+              <AvatarCustomizer config={avatarConfig} onChange={setAvatarConfig} />
             </div>
           </TabsContent>
 
           {/* Persona Tab */}
-          <TabsContent value="persona">
+          <TabsContent value="persona" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
               <div>
-                <label htmlFor="editor-expertise" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-expertise" className="text-sm text-slate-400 mb-1 block">
                   Expertise
                 </label>
                 <Textarea
@@ -173,7 +208,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-style" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-style" className="text-sm text-slate-400 mb-1 block">
                   Working Style
                 </label>
                 <Textarea
@@ -186,7 +221,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-instructions" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-instructions" className="text-sm text-slate-400 mb-1 block">
                   Custom Instructions
                 </label>
                 <Textarea
@@ -201,10 +236,10 @@ export function EmployeeEditorDialog({
           </TabsContent>
 
           {/* Config Tab */}
-          <TabsContent value="config">
+          <TabsContent value="config" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
               <div>
-                <label htmlFor="editor-model" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-model" className="text-sm text-slate-400 mb-1 block">
                   Model Preference
                 </label>
                 <Input
@@ -216,7 +251,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-temperature" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-temperature" className="text-sm text-slate-400 mb-1 block">
                   Temperature
                 </label>
                 <Input
@@ -233,7 +268,7 @@ export function EmployeeEditorDialog({
               </div>
 
               <div>
-                <label htmlFor="editor-max-tokens" className="text-sm text-shell mb-1 block">
+                <label htmlFor="editor-max-tokens" className="text-sm text-slate-400 mb-1 block">
                   Max Tokens
                 </label>
                 <Input
@@ -249,13 +284,14 @@ export function EmployeeEditorDialog({
                 />
               </div>
 
-              {/* Installed Skills hint */}
-              {isEditMode && (
+              {/* Skills */}
+              {isEditMode && employeeId && (
                 <div>
-                  <label className="text-sm text-shell mb-1 block">Skills</label>
-                  <p className="text-xs text-shell/60 italic">
-                    Skills are managed via package install. Import a .aicspkg skill file to add capabilities to this employee.
-                  </p>
+                  <label className="text-sm text-slate-400 mb-2 block">Skills</label>
+                  <SkillBindingList
+                    employeeId={employeeId}
+                    sourcePackageId={sourcePackageId ?? null}
+                  />
                 </div>
               )}
             </div>
@@ -263,14 +299,14 @@ export function EmployeeEditorDialog({
 
           {/* Test Chat Tab (edit mode only) */}
           {isEditMode && employeeId && (
-            <TabsContent value="test">
+            <TabsContent value="test" className="flex-1 overflow-y-auto min-h-0">
               <TestChatTab formData={formData} employeeName={formData.name} />
             </TabsContent>
           )}
 
           {/* History Tab (edit mode only) */}
           {isEditMode && employeeId && (
-            <TabsContent value="history">
+            <TabsContent value="history" className="flex-1 overflow-y-auto min-h-0">
               <VersionHistoryTab
                 employeeId={employeeId}
                 forkOrigin={sourceAssetId ? {
@@ -283,7 +319,7 @@ export function EmployeeEditorDialog({
         </Tabs>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-ocean-light mt-2">
+        <div className="flex items-center justify-between pt-4 border-t border-slate-700 mt-2">
           <div>
             {isEditMode && !isConfirmingDelete && (
               <Button variant="destructive" size="sm" disabled={isSaving} onClick={requestDelete}>
