@@ -103,11 +103,12 @@ export function useAgentStates(): Map<string, AgentState> {
       (event: RuntimeEvent<EmployeeUpdatedPayload>) => {
         const { employeeId, name, roleSlug } = event.payload;
         setAgents((prev) => {
+          const existing = prev.get(employeeId);
+          // Skip if unchanged — prevents unnecessary Map recreation
+          if (existing && existing.name === name && existing.role === roleSlug) return prev;
+          if (!existing) return prev;
           const next = new Map(prev);
-          const existing = next.get(employeeId);
-          if (existing) {
-            next.set(employeeId, { ...existing, name, role: roleSlug });
-          }
+          next.set(employeeId, { ...existing, name, role: roleSlug });
           return next;
         });
       },
