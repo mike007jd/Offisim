@@ -169,18 +169,18 @@ export function ChatPanel({
   return (
     <div className="flex flex-1 flex-col min-h-0">
       {isDirectChat && (
-        <div className="flex items-center gap-2 border-b-2 border-ocean-light bg-ocean-deep/80 px-4 py-2">
+        <div className="flex items-center gap-2 border-b border-slate-700/60 bg-slate-900/60 px-3 py-1.5">
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-shell hover:text-sand"
+            className="h-5 px-1.5 text-slate-500 hover:text-slate-100"
             onClick={onClearSelection}
           >
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Team
+            <ArrowLeft className="h-3 w-3 mr-1" />
+            <span className="text-xs">Team</span>
           </Button>
-          <span className="text-xs font-pixel-mono text-coral">
-            Direct chat with {selectedEmployeeName ?? selectedEmployeeId}
+          <span className="text-xs text-orange-400/80">
+            {selectedEmployeeName ?? selectedEmployeeId}
           </span>
         </div>
       )}
@@ -197,11 +197,9 @@ export function ChatPanel({
       )}
       {showEmpty ? (
         isDirectChat ? (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-xs text-shell font-pixel-mono text-center">
-              Start a conversation with {selectedEmployeeName ?? 'this employee'}.
-              <br />
-              They will respond using their persona.
+          <div className="flex flex-1 items-center justify-center p-3">
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              Message {selectedEmployeeName ?? 'this employee'}
             </p>
           </div>
         ) : (
@@ -215,7 +213,7 @@ export function ChatPanel({
         )
       ) : (
         <ScrollArea className="flex-1">
-          <div ref={scrollRef} className="flex flex-col gap-3 p-4">
+          <div ref={scrollRef} className="flex flex-col gap-1.5 p-3">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}

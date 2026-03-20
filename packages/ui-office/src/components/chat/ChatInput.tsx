@@ -1,3 +1,4 @@
+import { ArrowUp } from 'lucide-react';
 import { type KeyboardEvent, useRef, useState } from 'react';
 
 interface ChatInputProps {
@@ -23,32 +24,28 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   }
 
+  const canSend = !!text.trim() && !disabled;
+
   return (
-    <div className="flex space-x-3 p-4">
-      <div className="flex-1 relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="ENTER COMMAND..."
-          disabled={disabled}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-3.5 text-sm font-mono text-white focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-slate-700 uppercase tracking-widest"
-        />
-        {!text && (
-          <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center space-x-2 pointer-events-none">
-            <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-[8px] font-black text-blue-500/40 uppercase tracking-widest">Awaiting Input</span>
-          </div>
-        )}
-      </div>
+    <div className="flex items-center gap-2 px-3 py-2 border-t border-white/8">
+      <input
+        ref={inputRef}
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Message your team..."
+        disabled={disabled}
+        className="flex-1 h-8 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-600 disabled:opacity-40"
+      />
       <button
+        type="button"
         onClick={handleSend}
-        disabled={disabled || !text.trim()}
-        className="bg-blue-600 text-white px-8 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-500 transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] active:scale-95 disabled:opacity-30 disabled:shadow-none"
+        disabled={!canSend}
+        aria-label="Send message"
+        className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-30 disabled:bg-slate-700"
       >
-        Execute
+        <ArrowUp className="w-3.5 h-3.5 text-white" />
       </button>
     </div>
   );

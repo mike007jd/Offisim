@@ -33,10 +33,10 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
     <div data-role={role} className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[80%] border-2 px-4 py-2 text-sm whitespace-pre-wrap',
+          'max-w-[78%] border px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-lg',
           isUser
-            ? 'border-lobster-red bg-lobster-red/20 text-sand'
-            : 'border-ocean-light bg-ocean-mid text-sand',
+            ? 'border-red-500/30 bg-red-500/10 text-slate-100'
+            : 'border-slate-700/70 bg-slate-800/80 text-slate-200',
         )}
       >
         {isUser ? content : renderWithCitations(content)}

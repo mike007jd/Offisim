@@ -10,24 +10,24 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
 
   return (
     <div
-      className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300"
-      style={{ height: open ? '40vh' : '56px' }}
+      className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300"
+      style={{ height: open ? '32vh' : '40px' }}
     >
       {/* Toggle bar */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full h-14 px-6 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
+        className="w-full h-10 px-4 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
       >
-        <div className="flex items-center space-x-3">
-          <MessageSquare className="w-4 h-4 text-blue-500" />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Chat</span>
+        <div className="flex items-center space-x-2">
+          <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+          <span className="text-xs font-medium text-slate-300">Chat</span>
         </div>
         <div
           className="transition-transform duration-300"
           style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
         >
-          <ChevronUp className="w-4 h-4" />
+          <ChevronUp className="w-3.5 h-3.5" />
         </div>
       </button>
 
@@ -36,7 +36,7 @@ export function ChatDrawer({ children }: ChatDrawerProps) {
         className="overflow-hidden transition-opacity duration-300"
         style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
       >
-        <div className="h-[calc(40vh-56px)] overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="h-[calc(32vh-40px)] overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );
