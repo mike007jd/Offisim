@@ -2,6 +2,7 @@ import { Badge, type BadgeProps } from '@aics/ui-core';
 import { Wrench } from 'lucide-react';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
+import { ROLE_LABELS } from '../../lib/roles';
 
 const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
   idle: 'secondary',
@@ -25,15 +26,6 @@ const STATUS_DOTS: Record<string, string> = {
   waiting: 'bg-amber-500',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  engineering_manager: 'Engineering Manager',
-  developer: 'Developer',
-  designer: 'Designer',
-  pm: 'Product Manager',
-  qa: 'QA Engineer',
-  devops: 'DevOps Engineer',
-  analyst: 'Analyst',
-};
 
 interface AgentCardProps {
   id: string;
