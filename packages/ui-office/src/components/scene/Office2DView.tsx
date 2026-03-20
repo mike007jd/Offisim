@@ -2,13 +2,18 @@
  * SVG-based 2D office top-down view.
  * Replaces PixiJS for visual rendering — cleaner, matches 3D layout 1:1.
  * Inspired by OffisimArt Office2D.tsx.
+ *
+ * Supports drag-to-assign: drag an employee avatar to a department zone
+ * to reassign their workstation. Emits 'employee.workstation.drop-requested'
+ * which is consumed by WorkstationAssignmentService via useScene.
  */
 import { createAvatar } from '@dicebear/core';
 import { avataaars } from '@dicebear/collection';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { ZONES, resolveZone, STATUS_COLORS } from '../../lib/zone-config.js';
+import type { ZoneDef } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
 import { STATE_LABELS } from '../../lib/state-labels';
@@ -19,6 +24,12 @@ const SCALE = 50; // px per 3D unit
 const ROOM_W = 2000; // 40 * 50
 const ROOM_H = 1500; // 30 * 50
 
+/** Minimum pointer movement (in screen px) before a click becomes a drag. */
+const DRAG_THRESHOLD = 5;
+
+/** Zones that accept employee drops (department zones with desk slots). */
+const DROP_TARGET_ZONES = ZONES.filter(z => z.deskSlots > 0);
+
 /** Map 3D center coords → SVG top-left */
 function toSVG(cx: number, cz: number, w: number, d: number) {
   return {
@@ -27,6 +38,45 @@ function toSVG(cx: number, cz: number, w: number, d: number) {
     w: w * SCALE,
     h: d * SCALE,
   };
+}
+
+/** Pre-compute zone bounding boxes in SVG space for hit testing. */
+const ZONE_SVG_BOUNDS = DROP_TARGET_ZONES.map(z => {
+  const s = toSVG(z.cx, z.cz, z.w, z.d);
+  return { zone: z, x: s.x, y: s.y, w: s.w, h: s.h };
+});
+
+/** Find which drop-target zone contains a point in SVG coords. */
+function hitTestZone(svgX: number, svgY: number): ZoneDef | null {
+  for (const b of ZONE_SVG_BOUNDS) {
+    if (svgX >= b.x && svgX <= b.x + b.w && svgY >= b.y && svgY <= b.y + b.h) {
+      return b.zone;
+    }
+  }
+  return null;
+}
+
+// ── Drag State ────────────────────────────────────────────────────────
+
+interface DragState {
+  /** Employee being dragged. */
+  employeeId: string;
+  /** Employee name (for ghost label). */
+  employeeName: string;
+  /** Employee role (to determine source zone). */
+  employeeRole: string;
+  /** Avatar seed for the ghost. */
+  avatarSeed: string;
+  /** Status color for the ghost ring. */
+  statusColor: string;
+  /** Screen position where pointer went down. */
+  startScreenX: number;
+  startScreenY: number;
+  /** Current position in SVG coords (for the ghost). */
+  currentSvgX: number;
+  currentSvgY: number;
+  /** Whether the drag threshold has been exceeded (true drag vs potential click). */
+  active: boolean;
 }
 
 // ── Avatar helper ─────────────────────────────────────────────────────
@@ -42,11 +92,13 @@ function getAvatarUri(seed: string): string {
  * 3D: 3.2x3.2 units = 160x160 SVG pixels.
  * Big desk surface + cross glass partition + 4 workstations with laptops + 4 chairs outside.
  */
-function DeskClusterSVG({ x, y, employees, selectedEmployeeId, onEmployeeClick }: {
+function DeskClusterSVG({ x, y, employees, selectedEmployeeId, draggedEmployeeId, onEmployeeClick, onEmployeeDragStart }: {
   x: number; y: number;
   employees: Array<{ agent: AgentState; seed: string; empId: string } | null>;
   selectedEmployeeId: string | null;
+  draggedEmployeeId: string | null;
   onEmployeeClick: (empId: string) => void;
+  onEmployeeDragStart: (empId: string, agent: AgentState, seed: string, e: React.PointerEvent) => void;
 }) {
   // 3.2 units * 50 px/unit = 160px
   const S = 160;
@@ -92,7 +144,9 @@ function DeskClusterSVG({ x, y, employees, selectedEmployeeId, onEmployeeClick }
               agent={employees[i]!.agent}
               seed={employees[i]!.seed}
               selected={selectedEmployeeId === employees[i]!.empId}
+              dimmed={draggedEmployeeId === employees[i]!.empId}
               onClick={() => onEmployeeClick(employees[i]!.empId)}
+              onDragStart={(e) => onEmployeeDragStart(employees[i]!.empId, employees[i]!.agent, employees[i]!.seed, e)}
             />
           )}
         </g>
@@ -193,7 +247,7 @@ function VendingMachineSVG({ x, y }: { x: number; y: number }) {
 // ── Employee Node ─────────────────────────────────────────────────────
 
 function EmployeeNode({
-  x, y, agent, seed, selected, onClick,
+  x, y, agent, seed, selected, onClick, onDragStart, dimmed,
 }: {
   x: number;
   y: number;
@@ -201,6 +255,8 @@ function EmployeeNode({
   seed: string;
   selected: boolean;
   onClick: () => void;
+  onDragStart?: (e: React.PointerEvent) => void;
+  dimmed?: boolean;
 }) {
   const avatarUri = useMemo(() => getAvatarUri(seed), [seed]);
   const statusColor = STATUS_COLORS[agent.state] ?? '#64748b';
@@ -212,7 +268,14 @@ function EmployeeNode({
         e.stopPropagation();
         onClick();
       }}
-      style={{ cursor: 'pointer' }}
+      onPointerDown={(e) => {
+        if (onDragStart) {
+          e.stopPropagation();
+          onDragStart(e);
+        }
+      }}
+      style={{ cursor: 'grab', touchAction: 'none' }}
+      opacity={dimmed ? 0.35 : 1}
     >
       {/* Selection ring — rendered below avatar so stroke doesn't obscure it */}
       {selected && (
@@ -248,6 +311,40 @@ function EmployeeNode({
   );
 }
 
+// ── Drag Ghost ────────────────────────────────────────────────────────
+
+/** A simplified avatar rendered at SVG root level during drag. */
+function DragGhost({ svgX, svgY, seed, statusColor, name }: {
+  svgX: number;
+  svgY: number;
+  seed: string;
+  statusColor: string;
+  name: string;
+}) {
+  const avatarUri = useMemo(() => getAvatarUri(seed), [seed]);
+  return (
+    <g transform={`translate(${svgX}, ${svgY})`} style={{ pointerEvents: 'none' }}>
+      {/* Drop shadow */}
+      <circle cx="2" cy="2" r="22" fill="rgba(0,0,0,0.3)" />
+      {/* Aura — slightly larger during drag for emphasis */}
+      <circle cx="0" cy="0" r="24" fill={statusColor} opacity="0.2" />
+      {/* Avatar background */}
+      <circle cx="0" cy="0" r="20" fill="#1e293b" stroke={statusColor} strokeWidth="3" />
+      {/* Avatar image */}
+      <image
+        href={avatarUri}
+        x="-18" y="-18" width="36" height="36"
+        clipPath="circle(18px at center)"
+      />
+      {/* Name label */}
+      <g transform="translate(0, 32)">
+        <rect x="-36" y="-8" width="72" height="16" rx="8" fill="#0f172a" opacity="0.9" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
+        <text x="0" y="4" fill="#f8fafc" fontSize="9" fontWeight="bold" textAnchor="middle">{name.split(' ')[0]}</text>
+      </g>
+    </g>
+  );
+}
+
 // ── Main 2D View ──────────────────────────────────────────────────────
 
 export default function Office2DView() {
@@ -258,6 +355,27 @@ export default function Office2DView() {
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
+
+  // Keep transform in a ref so pointer handlers can read current value
+  // without causing re-renders via closure capture.
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+
+  /** Convert screen (clientX, clientY) → SVG viewBox coordinates. */
+  const screenToSvg = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
+    const el = viewportRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    const t = transformRef.current;
+    // Screen → CSS div space (accounting for pan + scale)
+    const divX = (clientX - rect.left - t.x) / t.scale;
+    const divY = (clientY - rect.top - t.y) / t.scale;
+    // The inner div is sized ROOM_W x ROOM_H and the SVG has viewBox 0..ROOM_W x 0..ROOM_H,
+    // so CSS div coords = SVG coords (no additional viewBox transform needed).
+    return { x: divX, y: divY };
+  }, []);
 
   // Fit to viewport on mount
   useEffect(() => {
@@ -294,16 +412,127 @@ export default function Office2DView() {
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // Cancel drag on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && dragState) {
+        setDragState(null);
+        setHoveredZoneId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dragState]);
+
+  // ── Drag-to-assign handlers ──
+
+  /** Called from EmployeeNode onPointerDown — initiates potential drag. */
+  const handleEmployeeDragStart = useCallback((
+    empId: string,
+    agent: AgentState,
+    seed: string,
+    e: React.PointerEvent,
+  ) => {
+    // Only primary button
+    if (e.button !== 0) return;
+    const svgPos = screenToSvg(e.clientX, e.clientY);
+    setDragState({
+      employeeId: empId,
+      employeeName: agent.name,
+      employeeRole: agent.role,
+      avatarSeed: seed,
+      statusColor: STATUS_COLORS[agent.state] ?? '#64748b',
+      startScreenX: e.clientX,
+      startScreenY: e.clientY,
+      currentSvgX: svgPos.x,
+      currentSvgY: svgPos.y,
+      active: false,
+    });
+  }, [screenToSvg]);
+
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Don't start panning if we're initiating a drag on an employee
+    if (dragState) return;
     setIsPanning(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
+
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (dragState) {
+      const svgPos = screenToSvg(e.clientX, e.clientY);
+
+      setDragState(prev => {
+        if (!prev) return null;
+        // Check if we've exceeded drag threshold
+        const dx = e.clientX - prev.startScreenX;
+        const dy = e.clientY - prev.startScreenY;
+        const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD;
+        return {
+          ...prev,
+          currentSvgX: svgPos.x,
+          currentSvgY: svgPos.y,
+          active,
+        };
+      });
+
+      // Update hovered zone for highlight feedback
+      const hitZone = hitTestZone(svgPos.x, svgPos.y);
+      setHoveredZoneId(hitZone?.id ?? null);
+      return;
+    }
+
     if (isPanning) {
       setTransform(prev => ({ ...prev, x: prev.x + e.movementX, y: prev.y + e.movementY }));
     }
   };
-  const handlePointerUp = () => setIsPanning(false);
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (dragState) {
+      if (dragState.active) {
+        // Determine drop target
+        const svgPos = screenToSvg(e.clientX, e.clientY);
+        const targetZone = hitTestZone(svgPos.x, svgPos.y);
+        const sourceZoneId = resolveZone(dragState.employeeRole);
+
+        if (targetZone && targetZone.id !== sourceZoneId) {
+          // Valid drop — emit the workstation assignment event.
+          // Use zone ID as targetWorkstationId, matching the convention that
+          // zones map 1:1 to workstation clusters in the 2D view.
+          eventBus.emit({
+            type: 'employee.workstation.drop-requested',
+            entityId: dragState.employeeId,
+            entityType: 'employee',
+            companyId: COMPANY_ID,
+            timestamp: Date.now(),
+            payload: {
+              employeeId: dragState.employeeId,
+              targetWorkstationId: targetZone.id,
+            },
+          });
+        }
+        // If dropped outside any valid zone or on the same zone → cancel (no-op)
+      } else {
+        // Didn't exceed drag threshold — treat as a click
+        handleEmployeeClick(dragState.employeeId);
+      }
+
+      setDragState(null);
+      setHoveredZoneId(null);
+      return;
+    }
+
+    setIsPanning(false);
+  };
+
+  const handlePointerLeave = () => {
+    if (dragState) {
+      // Cancel drag when pointer leaves the viewport
+      setDragState(null);
+      setHoveredZoneId(null);
+      return;
+    }
+    setIsPanning(false);
+  };
 
   const handleEmployeeClick = (empId: string) => {
     setSelectedEmployeeId(empId);
@@ -340,15 +569,21 @@ export default function Office2DView() {
     return map;
   }, [agents]);
 
+  // Determine if an active drag is happening (past threshold)
+  const isDragging = dragState?.active ?? false;
+
+  // Cursor logic: dragging overrides panning cursor
+  const cursor = isDragging ? 'grabbing' : isPanning ? 'grabbing' : 'grab';
+
   return (
     <div
       ref={viewportRef}
       className="w-full h-full bg-[#020617] overflow-hidden select-none"
-      style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+      style={{ cursor }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
     >
       <div
         className="absolute origin-top-left"
@@ -369,14 +604,34 @@ export default function Office2DView() {
           <rect width={ROOM_W} height={ROOM_H} fill="#090f1b" onClick={handleDeselect} style={{ cursor: 'default' }} />
           <rect width={ROOM_W} height={ROOM_H} fill="url(#grid2d)" style={{ pointerEvents: 'none' }} />
 
-          {/* Zones */}
+          {/* Zones — with drag highlight overlay */}
           {ZONES.map(z => {
             const s = toSVG(z.cx, z.cz, z.w, z.d);
+            const isDropTarget = isDragging && z.deskSlots > 0;
+            const isHovered = isDragging && hoveredZoneId === z.id;
+            const isSourceZone = isDragging && resolveZone(dragState!.employeeRole) === z.id;
             return (
               <g key={z.id}>
                 <rect x={s.x} y={s.y} width={s.w} height={s.h} rx="16"
-                  fill={z.accent} fillOpacity="0.06"
-                  stroke={z.accent} strokeWidth="1.5" strokeOpacity="0.3" strokeDasharray={z.type === 'infra' ? '8 4' : 'none'} />
+                  fill={z.accent}
+                  fillOpacity={isHovered && !isSourceZone ? 0.18 : 0.06}
+                  stroke={z.accent}
+                  strokeWidth={isDropTarget ? (isHovered && !isSourceZone ? 3 : 2) : 1.5}
+                  strokeOpacity={isDropTarget ? (isHovered && !isSourceZone ? 0.8 : 0.5) : 0.3}
+                  strokeDasharray={z.type === 'infra' ? '8 4' : isDropTarget && !isSourceZone ? '6 3' : 'none'}
+                  style={{ transition: 'fill-opacity 0.15s, stroke-width 0.15s, stroke-opacity 0.15s' }}
+                />
+                {/* Drop target label — visible during drag */}
+                {isDropTarget && !isSourceZone && (
+                  <text
+                    x={s.x + s.w / 2} y={s.y + s.h / 2 + 5}
+                    fill={z.accent} fontSize="14" fontWeight="700"
+                    textAnchor="middle" opacity={isHovered ? 0.9 : 0.4}
+                    style={{ pointerEvents: 'none', transition: 'opacity 0.15s' }}
+                  >
+                    Drop here
+                  </text>
+                )}
                 {/* Zone label */}
                 <text x={s.x + s.w / 2} y={s.y + 28} fill={z.accent} fontSize="18" fontWeight="900"
                   letterSpacing="6" textAnchor="middle" opacity="0.5">
@@ -476,7 +731,9 @@ export default function Office2DView() {
                 y={s.y + s.h / 2}
                 employees={slots}
                 selectedEmployeeId={selectedEmployeeId}
+                draggedEmployeeId={isDragging ? dragState!.employeeId : null}
                 onEmployeeClick={handleEmployeeClick}
+                onEmployeeDragStart={handleEmployeeDragStart}
               />
             );
           })}
@@ -487,6 +744,17 @@ export default function Office2DView() {
           <PlantSVG x={1930} y={130} />
           <PlantSVG x={1930} y={1430} />
           <PlantSVG x={1030} y={1430} />
+
+          {/* ── Drag ghost overlay ── */}
+          {isDragging && dragState && (
+            <DragGhost
+              svgX={dragState.currentSvgX}
+              svgY={dragState.currentSvgY}
+              seed={dragState.avatarSeed}
+              statusColor={dragState.statusColor}
+              name={dragState.employeeName}
+            />
+          )}
         </svg>
       </div>
     </div>
