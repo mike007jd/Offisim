@@ -61,7 +61,7 @@ export function EmployeeEditorDialog({
         if (!open) close();
       }}
     >
-      <DialogContent className="max-w-lg h-[560px] flex flex-col">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

@@ -63,16 +63,16 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
         if (!open) handleClose();
       }}
     >
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogTitle className="sr-only">Interview Onboarding Wizard</DialogTitle>
 
-        {/* Progress bar */}
-        <div className="mb-4">
+        {/* Progress bar — pinned header */}
+        <div className="shrink-0 mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-pixel-mono text-shell uppercase tracking-wider">
+            <span className="text-xs font-monotext-slate-400 uppercase tracking-wider">
               Step {state.currentStep + 1} of {WIZARD_STEPS.length}: {STEP_LABELS[currentStepName]}
             </span>
-            <span className="text-xs font-pixel-mono text-shell">
+            <span className="text-xs font-monotext-slate-400">
               {Math.round(progress * 100)}%
             </span>
           </div>
@@ -92,10 +92,10 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                 className={cn(
                   'w-2 h-2 rounded-full transition-colors',
                   idx === state.currentStep
-                    ? 'bg-lobster-red'
+                    ? 'bg-red-500'
                     : state.completedSteps.has(idx)
-                      ? 'bg-kelp-green'
-                      : 'bg-ocean-light',
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-700',
                 )}
                 title={STEP_LABELS[stepName]}
               />
@@ -103,13 +103,15 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           </div>
         </div>
 
+        {/* Scrollable middle: HR Prompt + Step Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
         {/* HR Prompt */}
         <div className="mb-4">
           <HRPrompt step={currentStepName} />
         </div>
 
         {/* Step Content */}
-        <div className="min-h-[200px]">
+        <div className="min-h-0">
           {currentStepName === 'role' && (
             <RoleStep formData={state.formData} updateField={updateField} />
           )}
@@ -130,9 +132,10 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           )}
           {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
         </div>
+        </div>{/* end scrollable area */}
 
-        {/* Footer Navigation */}
-        <div className="flex items-center justify-between pt-4 border-t border-ocean-light mt-4">
+        {/* Footer Navigation — pinned */}
+        <div className="shrink-0 flex items-center justify-between pt-4 border-t border-slate-700 mt-4">
           <div>
             {!isFirstStep && (
               <Button variant="outline" size="sm" onClick={back} disabled={isSubmitting}>
