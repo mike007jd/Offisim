@@ -1,5 +1,13 @@
 /** Shared zone configuration — single source of truth for 2D, 3D, and editor views. */
 
+/** Human-readable space type label shown in the Office Editor UI. */
+export type ZoneSpaceType =
+  | 'Work Zone'
+  | 'Knowledge Zone'
+  | 'Break Zone'
+  | 'Meeting Zone'
+  | 'Infrastructure Zone';
+
 export interface ZoneDef {
   readonly id: string;
   readonly label: string;
@@ -11,16 +19,18 @@ export interface ZoneDef {
   readonly type: 'dept' | 'support' | 'infra';
   readonly roleSlugs: readonly string[];
   readonly deskSlots: number;
+  /** Space type label shown in the Office Editor UI. */
+  readonly spaceType: ZoneSpaceType;
 }
 
 export const ZONES: readonly ZoneDef[] = [
-  { id: 'mtg', label: 'MEETING ROOM', accent: '#94a3b8', cx: -10, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0 },
-  { id: 'srv', label: 'SERVER ROOM', accent: '#06b6d4', cx: 8, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0 },
-  { id: 'lib', label: 'LIBRARY', accent: '#10b981', cx: -10, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0 },
-  { id: 'rest', label: 'REST AREA', accent: '#f59e0b', cx: 8, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0 },
-  { id: 'dev', label: 'DEVELOPMENT', accent: '#3b82f6', cx: -13, cz: 11, w: 12, d: 8, type: 'dept', roleSlugs: ['developer', 'engineer', 'backend', 'frontend', 'fullstack'], deskSlots: 4 },
-  { id: 'prod', label: 'PRODUCT', accent: '#a855f7', cx: 0, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['pm', 'product_manager', 'researcher', 'analyst'], deskSlots: 4 },
-  { id: 'art', label: 'ART & DESIGN', accent: '#f97316', cx: 12, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['designer', 'artist', 'ui_designer', 'ux_designer'], deskSlots: 4 },
+  { id: 'mtg', label: 'MEETING ROOM', accent: '#94a3b8', cx: -10, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0, spaceType: 'Meeting Zone' },
+  { id: 'srv', label: 'SERVER ROOM', accent: '#06b6d4', cx: 8, cz: -8, w: 14, d: 6, type: 'infra', roleSlugs: [], deskSlots: 0, spaceType: 'Infrastructure Zone' },
+  { id: 'lib', label: 'LIBRARY', accent: '#10b981', cx: -10, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0, spaceType: 'Knowledge Zone' },
+  { id: 'rest', label: 'REST AREA', accent: '#f59e0b', cx: 8, cz: 2, w: 14, d: 8, type: 'support', roleSlugs: [], deskSlots: 0, spaceType: 'Break Zone' },
+  { id: 'dev', label: 'DEVELOPMENT', accent: '#3b82f6', cx: -13, cz: 11, w: 12, d: 8, type: 'dept', roleSlugs: ['developer', 'engineer', 'backend', 'frontend', 'fullstack'], deskSlots: 4, spaceType: 'Work Zone' },
+  { id: 'prod', label: 'PRODUCT', accent: '#a855f7', cx: 0, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['pm', 'product_manager', 'researcher', 'analyst'], deskSlots: 4, spaceType: 'Work Zone' },
+  { id: 'art', label: 'ART & DESIGN', accent: '#f97316', cx: 12, cz: 11, w: 10, d: 8, type: 'dept', roleSlugs: ['designer', 'artist', 'ui_designer', 'ux_designer'], deskSlots: 4, spaceType: 'Work Zone' },
 ];
 
 /** Resolve employee role slug to zone ID. Defaults to 'dev'. */

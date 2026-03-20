@@ -1,5 +1,8 @@
+import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
-import { ZoneEditor } from './ZoneEditor';
+import { ZONES } from '../../lib/zone-config.js';
+import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
+import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
 import { PolicyEditor } from './PolicyEditor';
 import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 
@@ -9,34 +12,35 @@ interface CompanyEditorProps
   extends Pick<
     UseCompanyEditorReturn,
     | 'company'
-    | 'zones'
     | 'policy'
     | 'isDirty'
     | 'isSaving'
     | 'isOpen'
     | 'updateCompanyName'
     | 'updateCompanyDescription'
-    | 'updateZones'
     | 'updatePolicy'
     | 'save'
     | 'close'
-  > {}
+  > {
+  /** When provided, the Zones tab shows an "Open Office Editor" button. */
+  onOpenOfficeEditor?: () => void;
+}
 
 export function CompanyEditor({
   company,
-  zones,
   policy,
   isDirty,
   isSaving,
   isOpen,
   updateCompanyName,
   updateCompanyDescription,
-  updateZones,
   updatePolicy,
   save,
   close,
+  onOpenOfficeEditor,
 }: CompanyEditorProps) {
   const [activeTab, setActiveTab] = useState<Tab>('general');
+  const { activeLayout } = useOfficeLayout();
 
   if (!isOpen) return null;
 
@@ -45,15 +49,24 @@ export function CompanyEditor({
     close();
   }
 
+  // Parse current zone props from the active layout for the read-only summary
+  let zoneLayoutMap: ZoneLayoutMap = {};
+  try {
+    if (activeLayout?.layout_json) {
+      const parsed = JSON.parse(activeLayout.layout_json) as Record<string, unknown>;
+      if (parsed.zoneProps && typeof parsed.zoneProps === 'object' && !Array.isArray(parsed.zoneProps)) {
+        zoneLayoutMap = parsed.zoneProps as ZoneLayoutMap;
+      }
+    }
+  } catch { /* use empty map */ }
+
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
-      {/* Panel */}
       <div className="relative flex flex-col w-full max-w-xl rounded-lg border border-gray-700 bg-gray-900 shadow-xl max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-700 px-5 py-4">
@@ -101,10 +114,7 @@ export function CompanyEditor({
           {activeTab === 'general' && (
             <div className="flex flex-col gap-4">
               <div>
-                <label
-                  htmlFor="company-name"
-                  className="block text-sm text-gray-300 mb-1"
-                >
+                <label htmlFor="company-name" className="block text-sm text-gray-300 mb-1">
                   Company Name
                 </label>
                 <input
@@ -117,10 +127,7 @@ export function CompanyEditor({
                 />
               </div>
               <div>
-                <label
-                  htmlFor="company-description"
-                  className="block text-sm text-gray-300 mb-1"
-                >
+                <label htmlFor="company-description" className="block text-sm text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
@@ -136,7 +143,10 @@ export function CompanyEditor({
           )}
 
           {activeTab === 'zones' && (
-            <ZoneEditor zones={zones} onChange={updateZones} />
+            <ZoneSummaryTab
+              zoneLayoutMap={zoneLayoutMap}
+              onOpenOfficeEditor={onOpenOfficeEditor}
+            />
           )}
 
           {activeTab === 'defaults' && (
@@ -163,6 +173,84 @@ export function CompanyEditor({
             {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Zones Summary Tab ──────────────────────────────────────────────
+
+interface ZoneSummaryTabProps {
+  zoneLayoutMap: ZoneLayoutMap;
+  onOpenOfficeEditor?: () => void;
+}
+
+function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-gray-300 font-medium">Office Zones</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Zone layout is managed in the Office Editor. Use the button to open it.
+          </p>
+        </div>
+        {onOpenOfficeEditor && (
+          <button
+            type="button"
+            onClick={onOpenOfficeEditor}
+            className="shrink-0 flex items-center gap-1.5 rounded border border-blue-500/40 bg-blue-600/15 px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-600/25 hover:text-blue-300 transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Open Office Editor
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {ZONES.map((zone) => {
+          const props = zoneLayoutMap[zone.id];
+          const accentColor = props?.accentColor ?? zone.accent;
+          const displayName = props?.displayName?.trim() || zone.label;
+          const isEnabled = props?.enabled ?? true;
+          const seats = props?.workstationCount ?? zone.deskSlots;
+
+          return (
+            <div
+              key={zone.id}
+              className={`flex items-center gap-3 rounded-md border px-3 py-2.5 ${
+                isEnabled
+                  ? 'border-gray-700 bg-gray-800'
+                  : 'border-gray-800 bg-gray-900 opacity-50'
+              }`}
+            >
+              <span
+                className="h-3 w-3 shrink-0 rounded-sm"
+                style={{ backgroundColor: accentColor }}
+              />
+              <div className="flex-1 min-w-0">
+                <span className="block truncate text-sm font-medium text-gray-200">
+                  {displayName}
+                </span>
+                <span className="text-xs text-gray-500">{zone.spaceType}</span>
+              </div>
+              {seats > 0 && (
+                <span className="shrink-0 text-xs text-gray-500">
+                  {seats} seats
+                </span>
+              )}
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  isEnabled
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'bg-gray-700/50 text-gray-500'
+                }`}
+              >
+                {isEnabled ? 'On' : 'Off'}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { ArrowLeft, Eye, Grid3X3, RotateCcw, Save, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { ArrowLeft, Eye, Grid3X3, Power, RotateCcw, Save, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
 import { ZONES } from '../../lib/zone-config.js';
@@ -11,9 +11,20 @@ export interface OfficeEditorOverlayProps {
   onClose: () => void;
 }
 
+// ── Persistent zone properties (saved in layout_json) ───────────────
+
+export interface ZoneLayoutProps {
+  accentColor: string;
+  workstationCount: number;
+  /** Custom display name; falls back to ZoneDef.label when absent or empty. */
+  displayName?: string;
+  /** Whether this zone is active in the layout. Defaults to true. */
+  enabled?: boolean;
+}
+
+export type ZoneLayoutMap = Record<string, ZoneLayoutProps>;
+
 // ── Editor-specific zone layout (sublabel, grid position) ───────────
-// Zone IDs must match zone-config.ts ZONES. Shared fields (id, label, accent)
-// are imported from zone-config; only editor-specific visual properties live here.
 
 interface ZoneEditorLayout {
   readonly sublabel: string;
@@ -22,18 +33,16 @@ interface ZoneEditorLayout {
   readonly colSpan?: number;
 }
 
-/** Maps zone ID → editor grid layout metadata. */
 const ZONE_EDITOR_LAYOUT: Readonly<Record<string, ZoneEditorLayout>> = {
   dev:  { sublabel: '开发部门', row: 0, col: 0 },
   prod: { sublabel: '产品部门', row: 0, col: 1 },
   art:  { sublabel: '美术部门', row: 0, col: 2 },
-  lib:  { sublabel: '图书馆',   row: 1, col: 0, colSpan: 1 },
+  lib:  { sublabel: '图书馆',   row: 1, col: 0 },
   rest: { sublabel: '休息区',   row: 1, col: 1 },
   mtg:  { sublabel: '会议室',   row: 2, col: 0 },
   srv:  { sublabel: '机房',     row: 2, col: 1 },
 };
 
-/** Zones in editor display order (only those with an editor layout entry). */
 const EDITOR_ZONES = ZONES.filter(z => z.id in ZONE_EDITOR_LAYOUT)
   .map(z => ({ ...z, ...ZONE_EDITOR_LAYOUT[z.id]! }))
   .sort((a, b) => a.row - b.row || a.col - b.col);
@@ -50,11 +59,51 @@ const ACCENT_PRESETS = [
 
 type ViewMode = '2d' | '3d';
 
-// ── Zone properties state ───────────────────────────────────────────
+// ── Default zone props factory ──────────────────────────────────────
 
-interface ZoneProperties {
-  accentColor: string;
-  workstationCount: number;
+function buildDefaultZoneProps(): ZoneLayoutMap {
+  const map: ZoneLayoutMap = {};
+  for (const zone of EDITOR_ZONES) {
+    map[zone.id] = {
+      accentColor: zone.accent,
+      workstationCount: zone.deskSlots > 0 ? zone.deskSlots : 0,
+      displayName: undefined,
+      enabled: true,
+    };
+  }
+  return map;
+}
+
+/** Parse layout_json from DB into ZoneLayoutMap, merging defaults for missing keys. */
+function parseLayoutJson(json: string | null | undefined): ZoneLayoutMap {
+  const defaults = buildDefaultZoneProps();
+  if (!json) return defaults;
+  try {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    const raw = parsed.zoneProps as Record<string, ZoneLayoutProps> | undefined;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [id, props] of Object.entries(raw)) {
+        if (id in defaults) {
+          defaults[id] = { ...defaults[id]!, ...props };
+        }
+      }
+    }
+  } catch {
+    // ignore — use defaults
+  }
+  return defaults;
+}
+
+/** Serialize ZoneLayoutMap into the canonical layout_json shape, preserving other keys. */
+function serializeLayoutJson(
+  zoneProps: ZoneLayoutMap,
+  existingJson: string | null | undefined,
+): string {
+  let existing: Record<string, unknown> = {};
+  try {
+    if (existingJson) existing = JSON.parse(existingJson) as Record<string, unknown>;
+  } catch { /* ignore */ }
+  return JSON.stringify({ ...existing, zoneProps });
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -66,73 +115,66 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   const { eventBus } = useAicsRuntime();
   const { activeLayout, createLayout, updateLayout } = useOfficeLayout();
 
-  // Per-zone editable properties (keyed by zone id)
-  const [zoneProps, setZoneProps] = useState<Record<string, ZoneProperties>>(() => {
-    const initial: Record<string, ZoneProperties> = {};
-    for (const zone of EDITOR_ZONES) {
-      initial[zone.id] = { accentColor: zone.accent, workstationCount: 4 };
+  const [zoneProps, setZoneProps] = useState<ZoneLayoutMap>(buildDefaultZoneProps);
+
+  // Hydrate from DB layout when overlay opens or layout becomes available
+  useEffect(() => {
+    if (open && activeLayout) {
+      setZoneProps(parseLayoutJson(activeLayout.layout_json));
     }
-    return initial;
-  });
+  }, [open, activeLayout]);
 
   const selectedZone = EDITOR_ZONES.find((z) => z.id === selectedZoneId) ?? null;
-  const selectedProps = selectedZoneId ? zoneProps[selectedZoneId] : null;
-
-  // Show sidebar only in 2D mode when a zone is selected
+  const selectedProps = selectedZoneId ? (zoneProps[selectedZoneId] ?? null) : null;
   const showSidebar = viewMode === '2d' && selectedZone != null && selectedProps != null;
 
   const handleZoneClick = useCallback((zoneId: string) => {
     setSelectedZoneId((prev) => (prev === zoneId ? null : zoneId));
   }, []);
 
-  const handleAccentColorChange = useCallback(
-    (color: string) => {
+  const patchSelectedZone = useCallback(
+    (patch: Partial<ZoneLayoutProps>) => {
       if (!selectedZoneId) return;
       setZoneProps((prev) => ({
         ...prev,
-        [selectedZoneId]: { ...prev[selectedZoneId]!, accentColor: color },
+        [selectedZoneId]: { ...prev[selectedZoneId]!, ...patch },
       }));
     },
     [selectedZoneId],
   );
 
-  const handleWorkstationCountChange = useCallback(
-    (count: number) => {
-      if (!selectedZoneId) return;
-      setZoneProps((prev) => ({
-        ...prev,
-        [selectedZoneId]: { ...prev[selectedZoneId]!, workstationCount: Math.max(0, Math.min(20, count)) },
-      }));
-    },
-    [selectedZoneId],
-  );
+  const handleToggleEnabled = useCallback(() => {
+    if (!selectedZoneId || !selectedProps) return;
+    patchSelectedZone({ enabled: !(selectedProps.enabled ?? true) });
+  }, [selectedZoneId, selectedProps, patchSelectedZone]);
 
   const handleResetDefaults = useCallback(() => {
-    const initial: Record<string, ZoneProperties> = {};
-    for (const zone of EDITOR_ZONES) {
-      initial[zone.id] = { accentColor: zone.accent, workstationCount: 4 };
-    }
-    setZoneProps(initial);
+    setZoneProps(buildDefaultZoneProps());
     setSelectedZoneId(null);
   }, []);
 
   const handleApplyChanges = useCallback(() => {
     if (!selectedZoneId || !selectedProps) return;
-    // Emit a zone config change event so the scene can react immediately
     eventBus.emit({
       type: 'office.zone.config.changed',
       entityId: selectedZoneId,
       entityType: 'company',
       companyId: '',
       timestamp: Date.now(),
-      payload: { zoneId: selectedZoneId, accentColor: selectedProps.accentColor, workstationCount: selectedProps.workstationCount },
+      payload: {
+        zoneId: selectedZoneId,
+        accentColor: selectedProps.accentColor,
+        workstationCount: selectedProps.workstationCount,
+        displayName: selectedProps.displayName,
+        enabled: selectedProps.enabled ?? true,
+      },
     });
   }, [selectedZoneId, selectedProps, eventBus]);
 
   const handleSaveLayout = useCallback(async () => {
     setSaving(true);
     try {
-      const layoutJson = JSON.stringify(zoneProps);
+      const layoutJson = serializeLayoutJson(zoneProps, activeLayout?.layout_json);
       if (activeLayout) {
         await updateLayout(activeLayout.layout_id, { layout_json: layoutJson });
       } else {
@@ -154,31 +196,24 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 
   if (!open) return null;
 
-  // ── Grid layout dimensions for the SVG map ────────────────────────
   const MAP_PADDING = 32;
   const ZONE_GAP = 12;
   const ROW_HEIGHTS = [200, 140, 120];
   const COL_COUNTS = [3, 2, 2];
-
   const svgWidth = 720;
   const svgHeight = MAP_PADDING * 2 + ROW_HEIGHTS.reduce((a, b) => a + b, 0) + ZONE_GAP * (ROW_HEIGHTS.length - 1);
 
-  /** Compute zone rectangle geometry in SVG space */
   function getZoneRect(zone: typeof EDITOR_ZONES[number]) {
     const contentWidth = svgWidth - MAP_PADDING * 2;
     const cols = COL_COUNTS[zone.row] ?? 3;
     const colWidth = (contentWidth - (cols - 1) * ZONE_GAP) / cols;
     const span = zone.colSpan ?? 1;
-
     const x = MAP_PADDING + zone.col * (colWidth + ZONE_GAP);
     let y = MAP_PADDING;
     for (let r = 0; r < zone.row; r++) {
       y += (ROW_HEIGHTS[r] ?? 0) + ZONE_GAP;
     }
-    const width = colWidth * span + (span - 1) * ZONE_GAP;
-    const height = ROW_HEIGHTS[zone.row] ?? 140;
-
-    return { x, y, width, height };
+    return { x, y, width: colWidth * span + (span - 1) * ZONE_GAP, height: ROW_HEIGHTS[zone.row] ?? 140 };
   }
 
   return (
@@ -199,7 +234,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
             OFFICE_LAYOUT_EDITOR
           </h1>
           <div className="h-5 w-px bg-white/10" />
-          {/* View toggle */}
           <div className="flex overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
             <button
               type="button"
@@ -239,12 +273,10 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               className="h-full max-h-[calc(100vh-8rem)] w-full max-w-[900px]"
               style={{ filter: 'drop-shadow(0 0 60px rgba(59,130,246,0.05))' }}
             >
-              {/* Background grid dots */}
               <defs>
                 <pattern id="grid-dots" width="40" height="40" patternUnits="userSpaceOnUse">
                   <circle cx="1" cy="1" r="0.6" fill="rgba(255,255,255,0.04)" />
                 </pattern>
-                {/* Glow filter for selected zone */}
                 <filter id="zone-glow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
                   <feFlood floodColor="#3b82f6" floodOpacity="0.4" result="color" />
@@ -257,11 +289,13 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               </defs>
               <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#grid-dots)" />
 
-              {/* Zone rectangles */}
               {EDITOR_ZONES.map((zone) => {
                 const { x, y, width, height } = getZoneRect(zone);
                 const isSelected = selectedZoneId === zone.id;
-                const accentColor = zoneProps[zone.id]?.accentColor ?? zone.accent;
+                const props = zoneProps[zone.id];
+                const accentColor = props?.accentColor ?? zone.accent;
+                const isEnabled = props?.enabled ?? true;
+                const displayName = props?.displayName?.trim() || zone.label;
 
                 return (
                   <g
@@ -269,81 +303,49 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                     onClick={() => handleZoneClick(zone.id)}
                     className="cursor-pointer"
                     filter={isSelected ? 'url(#zone-glow)' : undefined}
+                    opacity={isEnabled ? 1 : 0.38}
                   >
-                    {/* Zone background */}
-                    <rect
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={height}
-                      rx={6}
+                    <rect x={x} y={y} width={width} height={height} rx={6}
                       fill={`${accentColor}10`}
                       stroke={isSelected ? '#3b82f6' : `${accentColor}40`}
                       strokeWidth={isSelected ? 2.5 : 1.5}
                     />
-
-                    {/* Accent top stripe */}
-                    <rect
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={4}
-                      rx={6}
-                      fill={accentColor}
-                      opacity={isSelected ? 1 : 0.6}
+                    <rect x={x} y={y} width={width} height={4} rx={6}
+                      fill={accentColor} opacity={isSelected ? 1 : 0.6}
                     />
-                    {/* Re-square bottom corners of stripe */}
-                    <rect
-                      x={x}
-                      y={y + 2}
-                      width={width}
-                      height={2}
-                      fill={accentColor}
-                      opacity={isSelected ? 1 : 0.6}
+                    <rect x={x} y={y + 2} width={width} height={2}
+                      fill={accentColor} opacity={isSelected ? 1 : 0.6}
                     />
-
-                    {/* Zone label */}
-                    <text
-                      x={x + width / 2}
-                      y={y + height / 2 - 8}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill={accentColor}
-                      fontSize="18"
-                      fontFamily="monospace"
-                      fontWeight="700"
-                      letterSpacing="0.15em"
-                      opacity={isSelected ? 1 : 0.8}
+                    {!isEnabled && (
+                      <rect x={x} y={y} width={width} height={height} rx={6} fill="rgba(0,0,0,0.5)" />
+                    )}
+                    <text x={x + width / 2} y={y + height / 2 - 8}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fill={accentColor} fontSize="18" fontFamily="monospace"
+                      fontWeight="700" letterSpacing="0.15em" opacity={isSelected ? 1 : 0.8}
                     >
-                      {zone.label}
+                      {displayName}
                     </text>
-
-                    {/* Zone sublabel */}
-                    <text
-                      x={x + width / 2}
-                      y={y + height / 2 + 14}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="rgba(255,255,255,0.35)"
-                      fontSize="11"
+                    <text x={x + width / 2} y={y + height / 2 + 14}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fill="rgba(255,255,255,0.35)" fontSize="11"
                     >
                       {zone.sublabel}
                     </text>
-
-                    {/* Workstation count badge */}
-                    <text
-                      x={x + width - 12}
-                      y={y + height - 12}
-                      textAnchor="end"
-                      dominantBaseline="auto"
-                      fill="rgba(255,255,255,0.2)"
-                      fontSize="10"
-                      fontFamily="monospace"
+                    <text x={x + width - 12} y={y + height - 12}
+                      textAnchor="end" dominantBaseline="auto"
+                      fill="rgba(255,255,255,0.2)" fontSize="10" fontFamily="monospace"
                     >
-                      {zoneProps[zone.id]?.workstationCount ?? 0} seats
+                      {props?.workstationCount ?? 0} seats
                     </text>
-
-                    {/* Selection indicator dots */}
+                    {!isEnabled && (
+                      <text x={x + 12} y={y + height - 12}
+                        textAnchor="start" dominantBaseline="auto"
+                        fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="monospace" letterSpacing="0.1em"
+                      >
+                        DISABLED
+                      </text>
+                    )}
                     {isSelected && (
                       <>
                         <circle cx={x} cy={y} r={3} fill="#3b82f6" />
@@ -357,7 +359,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               })}
             </svg>
           ) : (
-            /* ── 3D Preview placeholder ──────────────────────────── */
             <div className="flex flex-col items-center gap-3 text-center">
               <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-12">
                 <Eye className="mx-auto mb-4 h-16 w-16 text-zinc-700" />
@@ -365,14 +366,14 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                   3D_PREVIEW
                 </p>
                 <p className="mt-3 text-xs text-zinc-600">
-                  3D \u5B9E\u65F6\u9884\u89C8\u5373\u5C06\u4E0A\u7EBF -- \u656C\u8BF7\u671F\u5F85
+                  3D 实时预览即将上线 -- 敬请期待
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Right Sidebar: Zone Properties (slides in when zone selected in 2D) ── */}
+        {/* ── Right Sidebar: Zone Properties ── */}
         <div
           className={`shrink-0 border-l border-white/[0.06] bg-[#060a14] flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${
             showSidebar ? 'w-80 min-w-[280px] opacity-100' : 'w-0 opacity-0 border-l-0'
@@ -380,7 +381,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
         >
           {showSidebar && selectedZone && selectedProps && (
             <>
-              {/* Panel header */}
               <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
                 <h2 className="font-mono text-xs font-semibold tracking-[0.15em] text-zinc-400">
                   ZONE_PROPERTIES
@@ -395,29 +395,31 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               </div>
 
               <div className="flex flex-1 flex-col overflow-y-auto p-5">
-                {/* Zone name (read-only) */}
+                {/* Zone name editable */}
                 <div className="mb-5">
-                  <label className="mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                  <label
+                    htmlFor="zone-display-name"
+                    className="mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500"
+                  >
                     Zone Name
                   </label>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-3 w-3 rounded-sm"
-                      style={{ backgroundColor: selectedProps.accentColor }}
-                    />
-                    <span className="font-mono text-sm font-semibold tracking-wider text-zinc-200">
-                      {selectedZone.label}
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {selectedZone.sublabel}
-                    </span>
-                  </div>
+                  <input
+                    id="zone-display-name"
+                    type="text"
+                    value={selectedProps.displayName ?? selectedZone.label}
+                    onChange={(e) => patchSelectedZone({ displayName: e.target.value })}
+                    placeholder={selectedZone.label}
+                    className="w-full rounded border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 font-mono text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-blue-500/50"
+                  />
+                  <p className="mt-1 font-mono text-[9px] text-zinc-600">
+                    Default: {selectedZone.label}
+                  </p>
                 </div>
 
-                {/* Zone type indicator */}
+                {/* Space type */}
                 <div className="mb-5">
                   <label className="mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                    Zone Type
+                    Space Type
                   </label>
                   <div
                     className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs"
@@ -427,8 +429,30 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                       backgroundColor: `${selectedProps.accentColor}08`,
                     }}
                   >
-                    {getZoneTypeLabel(selectedZone.id)}
+                    {selectedZone.spaceType}
                   </div>
+                </div>
+
+                {/* Enable / Disable toggle */}
+                <div className="mb-5">
+                  <label className="mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                    Zone Status
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleToggleEnabled}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-mono text-xs font-medium tracking-wider transition-all ${
+                      (selectedProps.enabled ?? true)
+                        ? 'border-emerald-500/30 bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25'
+                        : 'border-zinc-600/40 bg-zinc-800/40 text-zinc-500 hover:bg-zinc-700/40 hover:text-zinc-400'
+                    }`}
+                  >
+                    <Power className="h-3.5 w-3.5" />
+                    {(selectedProps.enabled ?? true) ? 'ENABLED' : 'DISABLED'}
+                  </button>
+                  <p className="mt-1.5 font-mono text-[9px] text-zinc-600">
+                    Disabled zones are hidden from the 3D scene.
+                  </p>
                 </div>
 
                 {/* Accent color picker */}
@@ -441,7 +465,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                       <button
                         key={color}
                         type="button"
-                        onClick={() => handleAccentColorChange(color)}
+                        onClick={() => patchSelectedZone({ accentColor: color })}
                         className={`h-7 w-7 rounded-full border-2 transition-all ${
                           selectedProps.accentColor === color
                             ? 'scale-110 border-white shadow-lg'
@@ -449,10 +473,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                         }`}
                         style={{
                           backgroundColor: color,
-                          boxShadow:
-                            selectedProps.accentColor === color
-                              ? `0 0 12px ${color}60`
-                              : undefined,
+                          boxShadow: selectedProps.accentColor === color ? `0 0 12px ${color}60` : undefined,
                         }}
                         title={color}
                       />
@@ -468,7 +489,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => handleWorkstationCountChange(selectedProps.workstationCount - 1)}
+                      onClick={() => patchSelectedZone({ workstationCount: Math.max(0, selectedProps.workstationCount - 1) })}
                       className="flex h-8 w-8 items-center justify-center rounded border border-white/[0.08] bg-white/[0.04] font-mono text-sm text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
                     >
                       -
@@ -478,12 +499,12 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                       min={0}
                       max={20}
                       value={selectedProps.workstationCount}
-                      onChange={(e) => handleWorkstationCountChange(Number(e.target.value))}
+                      onChange={(e) => patchSelectedZone({ workstationCount: Math.max(0, Math.min(20, Number(e.target.value))) })}
                       className="h-8 w-16 rounded border border-white/[0.08] bg-white/[0.04] text-center font-mono text-sm text-zinc-200 outline-none focus:border-blue-500/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
-                      onClick={() => handleWorkstationCountChange(selectedProps.workstationCount + 1)}
+                      onClick={() => patchSelectedZone({ workstationCount: Math.min(20, selectedProps.workstationCount + 1) })}
                       className="flex h-8 w-8 items-center justify-center rounded border border-white/[0.08] bg-white/[0.04] font-mono text-sm text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
                     >
                       +
@@ -507,7 +528,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 
       {/* ── Bottom Bar ──────────────────────────────────────────────── */}
       <div className="flex h-16 shrink-0 items-center justify-between border-t border-white/[0.06] px-8">
-        {/* Reset to Default (ghost style) */}
         <button
           type="button"
           onClick={handleResetDefaults}
@@ -516,8 +536,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
           <RotateCcw className="h-3.5 w-3.5" />
           Reset Default
         </button>
-
-        {/* Save Layout (blue glow) */}
         <button
           type="button"
           onClick={() => { void handleSaveLayout(); }}
@@ -525,30 +543,9 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
           className="flex items-center gap-2.5 rounded-xl border border-blue-500/40 bg-blue-600/25 px-8 py-3 font-mono text-sm font-semibold tracking-wider text-blue-300 transition-all hover:bg-blue-600/40 hover:text-blue-200 hover:shadow-[0_0_30px_rgba(59,130,246,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="h-4 w-4" />
-          {saving ? 'Saving…' : 'Save Layout'}
+          {saving ? 'Saving\u2026' : 'Save Layout'}
         </button>
       </div>
     </div>
   );
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────
-
-function getZoneTypeLabel(zoneId: string): string {
-  switch (zoneId) {
-    case 'dev':
-    case 'prod':
-    case 'art':
-      return 'DEPARTMENT';
-    case 'lib':
-      return 'LIBRARY';
-    case 'rest':
-      return 'REST_AREA';
-    case 'mtg':
-      return 'MEETING_ROOM';
-    case 'srv':
-      return 'SERVER_ROOM';
-    default:
-      return 'UNKNOWN';
-  }
 }

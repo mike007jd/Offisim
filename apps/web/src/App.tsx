@@ -1,33 +1,33 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { ToastBanner, useToasts } from '@aics/ui-core';
 import { employeeCreated } from '@aics/core/browser';
+import { ToastBanner, useToasts } from '@aics/ui-core';
 import {
   AgentPanel,
   AppLayout,
+  COMPANY_ID,
   ChatDrawer,
   ChatPanel,
-  COMPANY_ID,
   CompanyCreationWizard,
   CompanyEditor,
   DashboardOverlay,
   EmployeeCreatorOverlay,
-  NotificationCenter,
   ErrorBoundary,
   Header,
   InstallDialog,
+  NotificationCenter,
   OfficeEditorOverlay,
   type ProviderConfig,
   RightSidebar,
   SettingsDialog,
   StatusBar,
   loadProviderConfig,
-  useAicsRuntime,
   useAgentStates,
+  useAicsRuntime,
   useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
   useReducedMotion,
 } from '@aics/ui-office';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 
 /** Lazy-loaded SceneCanvas — keeps PixiJS + GSAP (~504KB) out of the initial bundle */
 const SceneCanvas = React.lazy(() =>
@@ -93,7 +93,12 @@ export function App() {
           role_slug: role,
           source_asset_id: null,
           source_package_id: null,
-          persona_json: JSON.stringify({ expertise: '', style: '', customInstructions: '', avatarSeed: seed }),
+          persona_json: JSON.stringify({
+            expertise: '',
+            style: '',
+            customInstructions: '',
+            avatarSeed: seed,
+          }),
           config_json: JSON.stringify({ modelPreference: '', temperature: 0.7, maxTokens: 4096 }),
         });
         eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, name, role));
@@ -126,12 +131,7 @@ export function App() {
           />
         )}
 
-        {view === 'office-editor' && (
-          <OfficeEditorOverlay
-            open
-            onClose={() => setView('office')}
-          />
-        )}
+        {view === 'office-editor' && <OfficeEditorOverlay open onClose={() => setView('office')} />}
 
         {/* ── Office view (default) ── */}
         {view === 'office' && (
@@ -159,11 +159,7 @@ export function App() {
                 />
               }
               sceneCanvas={
-                <Suspense
-                  fallback={
-                    <div className="h-full w-full bg-ocean-deep animate-pulse" />
-                  }
-                >
+                <Suspense fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}>
                   <SceneCanvas reducedMotion={reducedMotion} viewMode={viewMode} />
                 </Suspense>
               }
@@ -180,7 +176,9 @@ export function App() {
               eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
               statusBar={<StatusBar modelName={providerConfig?.model} />}
             />
-            {dashboardOpen && <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />}
+            {dashboardOpen && (
+              <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+            )}
           </>
         )}
 
@@ -191,7 +189,7 @@ export function App() {
           onSave={handleSaveConfig}
         />
         <InstallDialog {...installFlow} />
-        <CompanyEditor {...companyEditor} />
+        <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
         <CompanyCreationWizard />
       </>
     </ErrorBoundary>
