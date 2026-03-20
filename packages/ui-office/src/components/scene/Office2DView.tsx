@@ -357,6 +357,7 @@ export default function Office2DView() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
+  const [zoneOverrides, setZoneOverrides] = useState<Map<string, string>>(new Map());
 
   // Keep transform in a ref so pointer handlers can read current value
   // without causing re-renders via closure capture.
@@ -509,6 +510,16 @@ export default function Office2DView() {
               targetWorkstationId: targetZone.id,
             },
           });
+          // Optimistically update the local zone override so the employee
+          // immediately appears in the target zone without waiting for a
+          // data refresh from the DB.
+          const droppedEmpId = dragState.employeeId;
+          const droppedZoneId = targetZone.id;
+          setZoneOverrides(prev => {
+            const next = new Map(prev);
+            next.set(droppedEmpId, droppedZoneId);
+            return next;
+          });
         }
         // If dropped outside any valid zone or on the same zone → cancel (no-op)
       } else {
@@ -558,16 +569,34 @@ export default function Office2DView() {
     });
   };
 
-  // Group employees by zone for desk cluster assignment
+  // Listen for external workstation assignment events (e.g. from WorkstationAssignmentService)
+  // and mirror them into the local override map so the 2D view stays in sync.
+  useEffect(() => {
+    if (!eventBus) return;
+    const unsub = eventBus.on('employee.workstation.', (event: { payload?: { employeeId?: string; targetWorkstationId?: string } }) => {
+      const payload = event.payload ?? {};
+      if (payload.employeeId && payload.targetWorkstationId) {
+        setZoneOverrides(prev => {
+          const next = new Map(prev);
+          next.set(payload.employeeId!, payload.targetWorkstationId!);
+          return next;
+        });
+      }
+    });
+    return () => unsub();
+  }, [eventBus]);
+
+  // Group employees by zone for desk cluster assignment.
+  // zoneOverrides (drag assignments made this session) take precedence over role-derived zone.
   const zoneEmployees = useMemo(() => {
     const map = new Map<string, Array<{ agent: AgentState; seed: string; empId: string }>>();
     for (const z of ZONES) map.set(z.id, []);
     for (const [empId, agent] of agents) {
-      const zId = resolveZone(agent.role);
+      const zId = zoneOverrides.get(empId) ?? resolveZone(agent.role);
       map.get(zId)?.push({ agent, seed: agent.name, empId });
     }
     return map;
-  }, [agents]);
+  }, [agents, zoneOverrides]);
 
   // Determine if an active drag is happening (past threshold)
   const isDragging = dragState?.active ?? false;
