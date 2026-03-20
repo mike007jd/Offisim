@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
+import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { TaskStepCard } from './TaskStepCard';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
@@ -7,6 +8,7 @@ import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
+  const { getTaskCost } = useDashboardMetrics();
   const { eventBus } = useAicsRuntime();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [stepFilter, setStepFilter] = useState<number | null>(null);
@@ -176,6 +178,7 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
           onToggle={dashboard.toggleStep}
           expandedTaskId={expandedTaskId}
           onTaskClick={handleTaskClick}
+          getTaskCost={getTaskCost}
         />
       ))}
     </div>

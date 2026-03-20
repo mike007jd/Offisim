@@ -17,6 +17,8 @@ export interface TaskDetail {
 
 export interface TaskDetailPanelProps {
   task: TaskDetail;
+  /** Accumulated estimated LLM cost for this task in USD. Hidden when 0. */
+  taskCost?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,7 +48,7 @@ const OUTPUT_PREVIEW_LIMIT = 200;
 // Component
 // ---------------------------------------------------------------------------
 
-export function TaskDetailPanel({ task }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
   const [showFullOutput, setShowFullOutput] = useState(false);
 
   const hasOutput = typeof task.output === 'string' && task.output.length > 0;
@@ -85,6 +87,12 @@ export function TaskDetailPanel({ task }: TaskDetailPanelProps) {
             <span className="text-shell">Status: </span>
             <span className={statusColor(task.status)}>{task.status}</span>
           </span>
+          {taskCost > 0 && (
+            <span>
+              <span className="text-shell">Est. cost: </span>
+              <span className="font-mono text-emerald-400">${taskCost.toFixed(4)}</span>
+            </span>
+          )}
         </div>
 
         {/* Dependencies */}

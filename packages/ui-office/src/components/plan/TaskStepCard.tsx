@@ -27,11 +27,13 @@ export function TaskStepCard({
   onToggle,
   expandedTaskId,
   onTaskClick,
+  getTaskCost,
 }: {
   step: DashboardStep;
   onToggle: (i: number) => void;
   expandedTaskId?: string | null;
   onTaskClick?: (taskRunId: string) => void;
+  getTaskCost?: (taskRunId: string) => number;
 }) {
   return (
     <div className="rounded border border-ocean-mid/20 bg-ocean-deep/50">
@@ -61,6 +63,7 @@ export function TaskStepCard({
               task={task}
               expandedTaskId={expandedTaskId}
               onTaskClick={onTaskClick}
+              taskCost={getTaskCost ? getTaskCost(task.taskRunId) : 0}
             />
           ))}
         </ul>

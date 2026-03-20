@@ -23,9 +23,13 @@ export interface DashboardMetrics {
   bossMessages: number;
   taskCompletionRate: number;
   bossInterventionRate: number;
+  /** Returns the accumulated estimated cost (USD) for a given taskRunId, or 0 if no data. */
+  getTaskCost: (taskRunId: string) => number;
 }
 
-const INITIAL_METRICS: DashboardMetrics = {
+type MetricsState = Omit<DashboardMetrics, 'getTaskCost'>;
+
+const INITIAL_METRICS: MetricsState = {
   activeTaskCount: 0,
   totalInputTokens: 0,
   totalOutputTokens: 0,
@@ -95,12 +99,13 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  */
 export function useDashboardMetrics(): DashboardMetrics {
   const { eventBus, isRunning, repos } = useAicsRuntime();
-  const [metrics, setMetrics] = useState<DashboardMetrics>(INITIAL_METRICS);
+  const [metrics, setMetrics] = useState<MetricsState>(INITIAL_METRICS);
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
   const activeTasksRef = useRef<Set<string>>(new Set());
   const employeeStatesRef = useRef<Map<string, string>>(new Map());
   const costAccRef = useRef<CostAccumulator>({ totalCost: 0 });
+  const costByTaskRef = useRef(new Map<string, number>());
   const completedTasksRef = useRef(0);
   const totalTasksRef = useRef(0);
   const bossMessagesRef = useRef(0);
@@ -135,6 +140,7 @@ export function useDashboardMetrics(): DashboardMetrics {
       activeTasksRef.current.clear();
       employeeStatesRef.current.clear();
       costAccRef.current = { totalCost: 0 };
+      costByTaskRef.current.clear();
       completedTasksRef.current = 0;
       totalTasksRef.current = 0;
       bossMessagesRef.current = 0;
@@ -170,7 +176,7 @@ export function useDashboardMetrics(): DashboardMetrics {
     };
   }, [isRunning]);
 
-  const updateMetrics = useCallback((updater: (prev: DashboardMetrics) => DashboardMetrics) => {
+  const updateMetrics = useCallback((updater: (prev: MetricsState) => MetricsState) => {
     setMetrics(updater);
   }, []);
 
@@ -192,9 +198,14 @@ export function useDashboardMetrics(): DashboardMetrics {
     const unsubUsage = eventBus.on(
       'llm.usage.recorded',
       (event: RuntimeEvent<LlmUsageRecordedPayload>) => {
-        const { inputTokens, outputTokens, model } = event.payload;
+        const { inputTokens, outputTokens, model, taskRunId } = event.payload;
         const callCost = estimateCost(inputTokens, outputTokens, model);
         costAccRef.current.totalCost += callCost;
+        // Accumulate cost per task
+        if (taskRunId) {
+          const current = costByTaskRef.current.get(taskRunId) ?? 0;
+          costByTaskRef.current.set(taskRunId, current + callCost);
+        }
         const newTotal = costAccRef.current.totalCost;
         updateMetrics((prev) => ({
           ...prev,
@@ -311,5 +322,9 @@ export function useDashboardMetrics(): DashboardMetrics {
     };
   }, [eventBus, updateMetrics]);
 
-  return metrics;
+  const getTaskCost = useCallback((taskRunId: string): number => {
+    return costByTaskRef.current.get(taskRunId) ?? 0;
+  }, []);
+
+  return { ...metrics, getTaskCost };
 }

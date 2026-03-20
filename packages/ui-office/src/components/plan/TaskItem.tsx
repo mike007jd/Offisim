@@ -30,10 +30,12 @@ export function TaskItem({
   task,
   expandedTaskId,
   onTaskClick,
+  taskCost = 0,
 }: {
   task: TaskInfo;
   expandedTaskId?: string | null;
   onTaskClick?: (taskRunId: string) => void;
+  taskCost?: number;
 }) {
   const isExpanded = expandedTaskId === task.taskRunId;
 
@@ -56,6 +58,9 @@ export function TaskItem({
         </span>
         <span className="shrink-0 text-koi">{task.employeeName ?? task.employeeId ?? 'Unassigned'}</span>
         <span className="truncate text-shell">{task.description || task.taskType}</span>
+        {taskCost > 0 && (
+          <span className="shrink-0 font-mono text-emerald-400">${taskCost.toFixed(4)}</span>
+        )}
       </button>
 
       {/* Inline detail panel with CSS transition */}
@@ -74,6 +79,7 @@ export function TaskItem({
               taskType: task.taskType,
               status: task.status,
             }}
+            taskCost={taskCost}
           />
         )}
       </div>
