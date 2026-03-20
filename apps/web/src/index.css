@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Scan monorepo packages for Tailwind classes in production builds */
+@source "../../../packages/ui-office/src/**/*.tsx";
+@source "../../../packages/ui-office/src/**/*.ts";
+@source "../../../packages/ui-core/src/**/*.tsx";
+@source "../../../packages/ui-core/src/**/*.ts";
+
 /*
  * Offisim Web Shell — Cyberpunk HUD Theme
  * Dark glassmorphism with blue accent, inspired by OffisimArt reference.
