@@ -6,6 +6,7 @@ import { Library } from '../library/Library';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 import { ServerRoom } from '../server-room/ServerRoom';
+import { SopPanel } from '../sop/SopPanel';
 
 interface RightSidebarProps {
   onOpenDashboard?: () => void;
@@ -27,7 +28,7 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
       {/* Tabs navigation — icon-only to fit 280px */}
       <div className="flex border-b border-white/5 px-2 pt-2 overflow-hidden">
         <TabsList className="bg-transparent w-full justify-start gap-0 p-0">
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
@@ -42,16 +43,33 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-        <TabsContent value="tasks" className="mt-0"><TaskDashboard agents={agents} /></TabsContent>
-        <TabsContent value="outputs" className="mt-0"><PitchHall /></TabsContent>
-        <TabsContent value="events" className="mt-0"><EventLog /></TabsContent>
-        <TabsContent value="server-room" className="mt-0 p-3"><ServerRoom /></TabsContent>
-        <TabsContent value="library" className="mt-0"><Library /></TabsContent>
+        <TabsContent value="tasks" className="mt-0">
+          <TaskDashboard agents={agents} />
+          <details open className="border-t border-white/5">
+            <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2 text-[10px] font-medium text-slate-400 hover:text-slate-300 select-none">
+              <span className="flex-1">Saved SOPs</span>
+            </summary>
+            <SopPanel />
+          </details>
+        </TabsContent>
+        <TabsContent value="outputs" className="mt-0">
+          <PitchHall />
+        </TabsContent>
+        <TabsContent value="events" className="mt-0">
+          <EventLog />
+        </TabsContent>
+        <TabsContent value="server-room" className="mt-0 p-3">
+          <ServerRoom />
+        </TabsContent>
+        <TabsContent value="library" className="mt-0">
+          <Library />
+        </TabsContent>
       </div>
 
       {/* Bottom action */}
       <div className="p-3 border-t border-white/5 bg-black/40">
         <button
+          type="button"
           className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-[11px] font-semibold text-slate-400 hover:bg-blue-500/15 hover:border-blue-500/40 hover:text-blue-300 transition-all"
           onClick={onOpenDashboard}
         >

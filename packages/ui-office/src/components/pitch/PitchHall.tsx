@@ -3,6 +3,7 @@ import {
   type ExportableDocument,
   exportDocument,
 } from '@aics/doc-engine';
+import type { SopDefinition } from '@aics/shared-types';
 import {
   Badge,
   Button,
@@ -19,6 +20,8 @@ import {
 import { FileOutput } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
+import { COMPANY_ID } from '../../lib/constants';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,10 +70,17 @@ function triggerDownload(blob: Blob, filename: string): void {
 // DeliverableCard
 // ---------------------------------------------------------------------------
 
-function DeliverableCard({ item }: { item: Deliverable }) {
+interface DeliverableCardProps {
+  item: Deliverable;
+  onSaveAsSop: (item: Deliverable) => Promise<void>;
+}
+
+function DeliverableCard({ item, onSaveAsSop }: DeliverableCardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [exporting, setExporting] = useState(false);
+  const [savingSop, setSavingSop] = useState(false);
+  const [sopSaved, setSopSaved] = useState(false);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -102,6 +112,20 @@ function DeliverableCard({ item }: { item: Deliverable }) {
     }
   }, [item, selectedFormat]);
 
+  const handleSaveAsSop = useCallback(async () => {
+    if (savingSop || sopSaved) return;
+    setSavingSop(true);
+    try {
+      await onSaveAsSop(item);
+      setSopSaved(true);
+      setTimeout(() => setSopSaved(false), 2000);
+    } catch (err) {
+      console.error('[PitchHall] Save as SOP failed:', err);
+    } finally {
+      setSavingSop(false);
+    }
+  }, [item, onSaveAsSop, savingSop, sopSaved]);
+
   return (
     <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 border-slate-700 overflow-hidden">
       <CardHeader className="p-3 pb-1">
@@ -112,7 +136,11 @@ function DeliverableCard({ item }: { item: Deliverable }) {
         {item.contributingEmployees.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {item.contributingEmployees.map((emp) => (
-              <Badge key={emp.employeeId} variant="info" className="text-[10px] px-1.5 py-0 truncate max-w-[120px]">
+              <Badge
+                key={emp.employeeId}
+                variant="info"
+                className="text-[10px] px-1.5 py-0 truncate max-w-[120px]"
+              >
                 {emp.employeeName}
               </Badge>
             ))}
@@ -160,16 +188,12 @@ function DeliverableCard({ item }: { item: Deliverable }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400"
-            onClick={() => {
-              const event = new CustomEvent('sop.save-from-output', {
-                detail: { title: item.title, outputId: item.id },
-              });
-              window.dispatchEvent(event);
-            }}
+            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50"
+            onClick={() => void handleSaveAsSop()}
+            disabled={savingSop || sopSaved}
             title="Save the task path that produced this output as a reusable SOP template"
           >
-            SOP
+            {sopSaved ? 'Saved!' : savingSop ? '...' : 'SOP'}
           </Button>
         </div>
       </CardContent>
@@ -183,6 +207,71 @@ function DeliverableCard({ item }: { item: Deliverable }) {
 
 export function PitchHall() {
   const deliverables = useDeliverables();
+  const { repos, eventBus } = useAicsRuntime();
+
+  const handleSaveAsSop = useCallback(
+    async (item: Deliverable) => {
+      if (!repos) throw new Error('Runtime not ready');
+
+      // Build a minimal SopDefinition from contributing employees.
+      // Each contributing employee becomes one sequential step.
+      // If no contributors, create a single generic step.
+      const employees = item.contributingEmployees;
+      const sopId = `sop_draft_${item.id}`;
+      const now = new Date().toISOString();
+
+      const steps: SopDefinition['steps'] =
+        employees.length > 0
+          ? employees.map((emp, i) => ({
+              step_id: `step_${i + 1}`,
+              label: `${emp.employeeName} contribution`,
+              role_slug: emp.employeeName.toLowerCase().replace(/\s+/g, '-'),
+              instruction: `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
+              dependencies: i === 0 ? [] : [`step_${i}`],
+              output_key: `output_step_${i + 1}`,
+            }))
+          : [
+              {
+                step_id: 'step_1',
+                label: 'Execute task',
+                role_slug: 'employee',
+                instruction: `Produce output similar to: "${item.title}".`,
+                dependencies: [],
+                output_key: 'output_step_1',
+              },
+            ];
+
+      const definition: SopDefinition = {
+        sop_id: sopId,
+        name: item.title,
+        description: `SOP derived from output "${item.title}" (thread: ${item.threadId})`,
+        steps,
+        created_at: now,
+      };
+
+      const sopTemplateId = `sop_${crypto.randomUUID()}`;
+      await repos.sopTemplates.create({
+        sop_template_id: sopTemplateId,
+        company_id: COMPANY_ID,
+        name: item.title,
+        description: definition.description,
+        definition_json: JSON.stringify(definition),
+        source_thread_id: item.threadId,
+      });
+
+      // Notify subscribers — useSops auto-refreshes on any sop.* event
+      eventBus.emit({
+        type: 'sop.template.created',
+        entityId: sopTemplateId,
+        entityType: 'plan',
+        companyId: COMPANY_ID,
+        threadId: item.threadId,
+        timestamp: Date.now(),
+        payload: { sopTemplateId, name: item.title },
+      });
+    },
+    [repos, eventBus],
+  );
 
   if (deliverables.length === 0) {
     return (
@@ -193,7 +282,8 @@ export function PitchHall() {
         <div className="px-2">
           <p className="text-[11px] font-semibold text-slate-400">No Outputs Yet</p>
           <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
-            Deliverables will appear here as your AI employees complete tasks. You can copy, export, or save them as SOPs.
+            Deliverables will appear here as your AI employees complete tasks. You can copy, export,
+            or save them as SOPs.
           </p>
         </div>
       </div>
@@ -207,7 +297,7 @@ export function PitchHall() {
         <span className="text-[10px] text-slate-500">{deliverables.length}</span>
       </div>
       {deliverables.map((item) => (
-        <DeliverableCard key={item.id} item={item} />
+        <DeliverableCard key={item.id} item={item} onSaveAsSop={handleSaveAsSop} />
       ))}
     </div>
   );
