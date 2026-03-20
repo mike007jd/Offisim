@@ -1,5 +1,5 @@
 import { Badge, type BadgeProps } from '@aics/ui-core';
-import { Pencil } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 
@@ -40,10 +40,9 @@ interface AgentCardProps {
   agent: AgentState;
   isSelected?: boolean;
   onClick?: () => void;
-  onEditClick?: () => void;
 }
 
-export function AgentCard({ id, agent, isSelected, onClick, onEditClick }: AgentCardProps) {
+export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
   const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
 
@@ -72,20 +71,11 @@ export function AgentCard({ id, agent, isSelected, onClick, onEditClick }: Agent
             <span className="text-sm font-semibold text-slate-200 truncate">{agent.name}</span>
             <div className="flex items-center gap-1.5">
               <Badge variant={variant} className="text-[10px]">{agent.state}</Badge>
-              {onEditClick && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onEditClick(); }}
-                  className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
-                  aria-label={`Edit ${agent.name}`}
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              )}
             </div>
           </div>
-          <p className="text-xs text-slate-400 truncate font-mono">
+          <p className="text-xs text-slate-400 truncate font-mono flex items-center gap-1">
             {ROLE_LABELS[agent.role] ?? agent.role}
+            <Wrench className="h-2.5 w-2.5 text-slate-700 inline flex-shrink-0" />
           </p>
         </div>
       </div>
