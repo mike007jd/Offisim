@@ -14,6 +14,7 @@ export interface AgentState {
   role: string;
   state: string;
   taskRunId?: string;
+  workstationId?: string | null;
 }
 
 /**
@@ -37,6 +38,7 @@ export function useAgentStates(): Map<string, AgentState> {
               name: row.name,
               role: row.role_slug,
               state: 'idle',
+              workstationId: row.workstation_id ?? null,
             });
           }
         }
@@ -52,11 +54,12 @@ export function useAgentStates(): Map<string, AgentState> {
       (event: RuntimeEvent<EmployeeStatePayload>) => {
         const { employeeId, next, taskRunId } = event.payload;
         setAgents((prev) => {
+          const existing = prev.get(employeeId);
+          // Skip update if state unchanged — prevents unnecessary Map recreation
+          if (existing && existing.state === next && existing.taskRunId === taskRunId) return prev;
+          if (!existing) return prev;
           const next2 = new Map(prev);
-          const existing = next2.get(employeeId);
-          if (existing) {
-            next2.set(employeeId, { ...existing, state: next, taskRunId });
-          }
+          next2.set(employeeId, { ...existing, state: next, taskRunId });
           return next2;
         });
       },
@@ -69,7 +72,26 @@ export function useAgentStates(): Map<string, AgentState> {
         const { employeeId, name, roleSlug } = event.payload;
         setAgents((prev) => {
           const next = new Map(prev);
-          next.set(employeeId, { name, role: roleSlug, state: 'idle' });
+          next.set(employeeId, { name, role: roleSlug, state: 'idle', workstationId: null });
+          return next;
+        });
+      },
+    );
+
+    // Workstation assignments — update workstationId when employee is assigned/moved
+    const unsubWorkstation = eventBus.on(
+      'employee.workstation.',
+      (event: RuntimeEvent) => {
+        const payload = event.payload as any;
+        const employeeId = payload?.employeeId;
+        const targetWorkstationId = payload?.targetWorkstationId ?? payload?.workstationId;
+        if (!employeeId) return;
+        setAgents((prev) => {
+          const existing = prev.get(employeeId);
+          if (!existing) return prev;
+          if (existing.workstationId === targetWorkstationId) return prev;
+          const next = new Map(prev);
+          next.set(employeeId, { ...existing, workstationId: targetWorkstationId });
           return next;
         });
       },
@@ -109,6 +131,7 @@ export function useAgentStates(): Map<string, AgentState> {
       unsubCreated();
       unsubUpdated();
       unsubDeleted();
+      unsubWorkstation();
     };
   }, [eventBus]);
 
