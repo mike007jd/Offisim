@@ -101,6 +101,20 @@ function resolveZone(role: string): string {
   return 'dev';
 }
 
+/** Valid zone IDs that accept employees. */
+const VALID_ZONE_IDS_3D = new Set(ZONES.filter(z => z.deskSlots > 0).map(z => z.id));
+
+/**
+ * Resolve which zone an employee belongs to.
+ * Priority: persisted workstationId (from DB, updated by drag-to-assign in 2D) → role-based fallback.
+ */
+function resolveEmployeeZone3D(agent: AgentState): string {
+  if (agent.workstationId && VALID_ZONE_IDS_3D.has(agent.workstationId)) {
+    return agent.workstationId;
+  }
+  return resolveZone(agent.role);
+}
+
 // ── Status colors (matching 2D renderer STATE_COLORS) ───────────────
 
 const STATE_COLORS: Record<string, string> = {
@@ -634,7 +648,7 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
-      const zoneId = resolveZone(agent.role);
+      const zoneId = resolveEmployeeZone3D(agent);
       const arr = zoneEmployees.get(zoneId);
       if (arr) {
         arr.push({ id, agent, globalIndex: globalIdx });

@@ -13,6 +13,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { ZONES, resolveZone, STATUS_COLORS } from '../../lib/zone-config.js';
+
+/** Valid zone IDs that accept employees. */
+const VALID_ZONE_IDS = new Set(ZONES.filter(z => z.deskSlots > 0).map(z => z.id));
+
+/**
+ * Resolve which zone an employee belongs to.
+ * Priority: persisted workstationId (from DB, updated by drag-to-assign) → role-based fallback.
+ */
+function resolveEmployeeZone(agent: AgentState): string {
+  if (agent.workstationId && VALID_ZONE_IDS.has(agent.workstationId)) {
+    return agent.workstationId;
+  }
+  return resolveZone(agent.role);
+}
 import type { ZoneDef } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
@@ -63,8 +77,10 @@ interface DragState {
   employeeId: string;
   /** Employee name (for ghost label). */
   employeeName: string;
-  /** Employee role (to determine source zone). */
+  /** Employee role (to determine source zone fallback). */
   employeeRole: string;
+  /** Resolved source zone at drag-start time (uses workstationId if set). */
+  sourceZoneId: string;
   /** Avatar seed for the ghost. */
   avatarSeed: string;
   /** Status color for the ghost ring. */
@@ -357,7 +373,6 @@ export default function Office2DView() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
-  const [zoneOverrides, setZoneOverrides] = useState<Map<string, string>>(new Map());
 
   // Keep transform in a ref so pointer handlers can read current value
   // without causing re-renders via closure capture.
@@ -441,6 +456,7 @@ export default function Office2DView() {
       employeeId: empId,
       employeeName: agent.name,
       employeeRole: agent.role,
+      sourceZoneId: resolveEmployeeZone(agent),
       avatarSeed: seed,
       statusColor: STATUS_COLORS[agent.state] ?? '#64748b',
       startScreenX: e.clientX,
@@ -493,12 +509,14 @@ export default function Office2DView() {
         // Determine drop target
         const svgPos = screenToSvg(e.clientX, e.clientY);
         const targetZone = hitTestZone(svgPos.x, svgPos.y);
-        const sourceZoneId = resolveZone(dragState.employeeRole);
+        const sourceZoneId = dragState.sourceZoneId;
 
         if (targetZone && targetZone.id !== sourceZoneId) {
           // Valid drop — emit the workstation assignment event.
           // Use zone ID as targetWorkstationId, matching the convention that
           // zones map 1:1 to workstation clusters in the 2D view.
+          // useAgentStates subscribes to 'employee.workstation.' and will update
+          // workstationId on the AgentState, which triggers a re-render via resolveEmployeeZone.
           eventBus.emit({
             type: 'employee.workstation.drop-requested',
             entityId: dragState.employeeId,
@@ -509,16 +527,6 @@ export default function Office2DView() {
               employeeId: dragState.employeeId,
               targetWorkstationId: targetZone.id,
             },
-          });
-          // Optimistically update the local zone override so the employee
-          // immediately appears in the target zone without waiting for a
-          // data refresh from the DB.
-          const droppedEmpId = dragState.employeeId;
-          const droppedZoneId = targetZone.id;
-          setZoneOverrides(prev => {
-            const next = new Map(prev);
-            next.set(droppedEmpId, droppedZoneId);
-            return next;
           });
         }
         // If dropped outside any valid zone or on the same zone → cancel (no-op)
@@ -569,34 +577,17 @@ export default function Office2DView() {
     });
   };
 
-  // Listen for external workstation assignment events (e.g. from WorkstationAssignmentService)
-  // and mirror them into the local override map so the 2D view stays in sync.
-  useEffect(() => {
-    if (!eventBus) return;
-    const unsub = eventBus.on('employee.workstation.', (event: { payload?: { employeeId?: string; targetWorkstationId?: string } }) => {
-      const payload = event.payload ?? {};
-      if (payload.employeeId && payload.targetWorkstationId) {
-        setZoneOverrides(prev => {
-          const next = new Map(prev);
-          next.set(payload.employeeId!, payload.targetWorkstationId!);
-          return next;
-        });
-      }
-    });
-    return () => unsub();
-  }, [eventBus]);
-
   // Group employees by zone for desk cluster assignment.
-  // zoneOverrides (drag assignments made this session) take precedence over role-derived zone.
+  // resolveEmployeeZone uses the persisted workstationId from AgentState, with role as fallback.
   const zoneEmployees = useMemo(() => {
     const map = new Map<string, Array<{ agent: AgentState; seed: string; empId: string }>>();
     for (const z of ZONES) map.set(z.id, []);
     for (const [empId, agent] of agents) {
-      const zId = zoneOverrides.get(empId) ?? resolveZone(agent.role);
+      const zId = resolveEmployeeZone(agent);
       map.get(zId)?.push({ agent, seed: agent.name, empId });
     }
     return map;
-  }, [agents, zoneOverrides]);
+  }, [agents]);
 
   // Determine if an active drag is happening (past threshold)
   const isDragging = dragState?.active ?? false;
@@ -638,7 +629,7 @@ export default function Office2DView() {
             const s = toSVG(z.cx, z.cz, z.w, z.d);
             const isDropTarget = isDragging && z.deskSlots > 0;
             const isHovered = isDragging && hoveredZoneId === z.id;
-            const isSourceZone = isDragging && resolveZone(dragState!.employeeRole) === z.id;
+            const isSourceZone = isDragging && dragState!.sourceZoneId === z.id;
             return (
               <g key={z.id}>
                 <rect x={s.x} y={s.y} width={s.w} height={s.h} rx="16"
