@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
 import { Bell, Book, Database, LayoutDashboard, Terminal } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { EventLog } from '../events/EventLog';
 import { Library } from '../library/Library';
@@ -10,10 +11,20 @@ import { SopPanel } from '../sop/SopPanel';
 
 interface RightSidebarProps {
   onOpenDashboard?: () => void;
+  /** When truthy, switch to the outputs tab. Increment/change value to re-trigger. */
+  focusOutputsToken?: number;
 }
 
-export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
+export function RightSidebar({ onOpenDashboard, focusOutputsToken }: RightSidebarProps) {
   const agents = useAgentStates();
+  const [activeTab, setActiveTab] = useState('events');
+
+  // Switch to outputs tab whenever the parent signals a new deliverable
+  useEffect(() => {
+    if (focusOutputsToken) {
+      setActiveTab('outputs');
+    }
+  }, [focusOutputsToken]);
 
   const tabs = [
     { id: 'tasks', icon: Terminal, label: 'Tasks' },
@@ -24,7 +35,7 @@ export function RightSidebar({ onOpenDashboard }: RightSidebarProps) {
   ];
 
   return (
-    <Tabs defaultValue="events" className="flex h-full flex-col overflow-hidden">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col overflow-hidden">
       {/* Tabs navigation — icon-only to fit 280px */}
       <div className="flex border-b border-white/5 px-2 pt-2 overflow-hidden">
         <TabsList className="bg-transparent w-full justify-start gap-0 p-0">

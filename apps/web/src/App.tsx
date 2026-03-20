@@ -28,6 +28,7 @@ import {
   useInstallFlow,
   useReducedMotion,
 } from '@aics/ui-office';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 
 /** Lazy-loaded SceneCanvas — keeps PixiJS + GSAP (~504KB) out of the initial bundle */
@@ -44,6 +45,7 @@ export function App() {
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const { reinitRuntime, repos, eventBus } = useAicsRuntime();
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
@@ -62,6 +64,21 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Subscribe to deliverable.created — show a prominent "Output ready" toast with a View action
+  useEffect(() => {
+    return eventBus.on(
+      'deliverable.created',
+      (e: RuntimeEvent<DeliverableCreatedPayload>) => {
+        const title = e.payload.title || 'Output';
+        addToast(`Output ready: ${title}`, 'success', {
+          actionLabel: 'View',
+          onAction: () => setFocusOutputsToken((t) => t + 1),
+          durationMs: 8_000,
+        });
+      },
+    );
+  }, [eventBus, addToast]);
 
   // Deep link install handler — receives offisim://install?listing_id=X&version=Y from Tauri shell
   useDeepLinkInstall(
@@ -176,7 +193,12 @@ export function App() {
                   />
                 </ChatDrawer>
               }
-              eventLog={<RightSidebar onOpenDashboard={() => setDashboardOpen(true)} />}
+              eventLog={
+                <RightSidebar
+                  onOpenDashboard={() => setDashboardOpen(true)}
+                  focusOutputsToken={focusOutputsToken}
+                />
+              }
               statusBar={<StatusBar modelName={providerConfig?.model} />}
             />
             {dashboardOpen && (

@@ -17,6 +17,12 @@ export interface ToastItem {
   id: string;
   message: string;
   variant: ToastVariant;
+  /** Optional action button label */
+  actionLabel?: string;
+  /** Callback when action button is clicked */
+  onAction?: () => void;
+  /** Override auto-dismiss duration in ms (uses component default if omitted) */
+  durationMs?: number;
 }
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
@@ -42,29 +48,44 @@ function ToastEntry({
   onDismiss: (id: string) => void;
   durationMs: number;
 }) {
+  const effectiveDuration = toast.durationMs ?? durationMs;
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), durationMs);
+    const timer = setTimeout(() => onDismiss(toast.id), effectiveDuration);
     return () => clearTimeout(timer);
-  }, [toast.id, onDismiss, durationMs]);
+  }, [toast.id, onDismiss, effectiveDuration]);
 
   return (
     <div
       role="status"
       aria-live="polite"
       className={cn(
-        'pointer-events-auto flex items-center justify-between gap-3 border-2 px-4 py-2 font-pixel-mono text-xs shadow-md',
+        'pointer-events-auto flex items-center justify-between gap-3 border-2 px-4 py-2 font-pixel-mono text-xs shadow-md rounded-lg',
         VARIANT_CLASSES[toast.variant],
       )}
     >
       <span>{toast.message}</span>
-      <button
-        type="button"
-        onClick={() => onDismiss(toast.id)}
-        className="ml-2 shrink-0 opacity-60 hover:opacity-100"
-        aria-label="Dismiss"
-      >
-        x
-      </button>
+      <div className="flex items-center gap-2 ml-2 shrink-0">
+        {toast.actionLabel && toast.onAction && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.onAction?.();
+              onDismiss(toast.id);
+            }}
+            className="underline underline-offset-2 opacity-80 hover:opacity-100 font-semibold"
+          >
+            {toast.actionLabel}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onDismiss(toast.id)}
+          className="opacity-60 hover:opacity-100"
+          aria-label="Dismiss"
+        >
+          x
+        </button>
+      </div>
     </div>
   );
 }
@@ -91,13 +112,25 @@ export function ToastBanner({
 
 let toastCounter = 0;
 
+export interface AddToastOptions {
+  actionLabel?: string;
+  onAction?: () => void;
+  durationMs?: number;
+}
+
 export function useToasts() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = useCallback((message: string, variant: ToastVariant = 'info') => {
-    const id = `toast-${++toastCounter}-${Date.now()}`;
-    setToasts((prev) => [...prev, { id, message, variant }]);
-  }, []);
+  const addToast = useCallback(
+    (message: string, variant: ToastVariant = 'info', options?: AddToastOptions) => {
+      const id = `toast-${++toastCounter}-${Date.now()}`;
+      setToasts((prev) => [
+        ...prev,
+        { id, message, variant, ...options },
+      ]);
+    },
+    [],
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

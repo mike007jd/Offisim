@@ -8,6 +8,7 @@ import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { COMPANY_ID } from '../../lib/constants';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { ZONES, DROP_TARGET_ZONES, STATUS_COLORS as _STATUS_COLORS, resolveEmployeeZone } from '../../lib/zone-config.js';
+import type { RuntimeEvent } from '@aics/shared-types';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
 // zone-config uses { cx, cz, w, d } (2D/logical coords).
@@ -396,7 +397,7 @@ function ServerRoomFurniture({ position }: { position: [number, number, number] 
 
 // ── Zone floor label ────────────────────────────────────────────────
 
-function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSource }: {
+function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSource, activityCount, hasBlocked, isMeetingActive }: {
   position: [number, number, number];
   size: [number, number];
   color: string;
@@ -407,6 +408,12 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
   isHovered?: boolean;
   /** True when this zone is the drag source (don't highlight as drop target). */
   isSource?: boolean;
+  /** Number of active (non-idle, non-blocked) employees in this zone. */
+  activityCount?: number;
+  /** True when any employee in this zone is blocked. */
+  hasBlocked?: boolean;
+  /** True when this is the MTG zone and a meeting is active. */
+  isMeetingActive?: boolean;
 }) {
   // During drag: valid drop targets get brighter, hovered zone pulses, source stays dim
   const floorOpacity = isDragging
@@ -427,6 +434,16 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
           <lineBasicMaterial color={color} transparent opacity={borderOpacity} />
         </lineSegments>
       </mesh>
+      {/* Zone activity glow — only visible when not dragging */}
+      {!isDragging && (
+        <ZoneActivityGlow
+          size={size}
+          activityCount={activityCount ?? 0}
+          hasBlocked={hasBlocked ?? false}
+        />
+      )}
+      {/* Meeting active label above MTG zone */}
+      {isMeetingActive && <MeetingActiveLabel />}
       {/* "Drop here" indicator during drag */}
       {isDragging && !isSource && (
         <Html
@@ -584,23 +601,68 @@ function LowPolyCharacter({ statusColor, outfitColor, skinTone, state }: {
 
 // ── Status bubble labels ────────────────────────────────────────────
 
-function StatusBubble3D({ state }: { state: string }) {
+function StatusBubble3D({ state, taskDesc, blockReason }: {
+  state: string;
+  /** Optional truncated task description (working state). */
+  taskDesc?: string;
+  /** Reason for blockage (blocked state). */
+  blockReason?: string;
+}) {
   const label = STATE_LABELS[state];
   if (!label) return null;
+
+  const isBlocked = state === 'blocked' || state === 'failed';
+  const isReporting = state === 'reporting';
+  const isWorking = state === 'executing' || state === 'working';
+
+  const bubbleColor = isBlocked
+    ? 'rgba(239,68,68,0.20)'
+    : isReporting
+      ? 'rgba(6,182,212,0.20)'
+      : 'rgba(0,0,0,0.70)';
+  const borderColor = isBlocked
+    ? 'rgba(239,68,68,0.50)'
+    : isReporting
+      ? 'rgba(6,182,212,0.50)'
+      : 'rgba(255,255,255,0.10)';
+
+  // Main label text
+  let displayText = label;
+  if (isWorking && taskDesc) {
+    displayText = taskDesc.length > 20 ? taskDesc.slice(0, 20) + '…' : taskDesc;
+  } else if (isBlocked && blockReason) {
+    displayText = blockReason.length > 20 ? blockReason.slice(0, 20) + '…' : blockReason;
+  } else if (isReporting) {
+    displayText = 'Delivering…';
+  }
+
   return (
     <Html position={[0, 2.2, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
       <div style={{
         borderRadius: '9999px',
-        background: 'rgba(0,0,0,0.70)',
+        background: bubbleColor,
         backdropFilter: 'blur(4px)',
-        border: '1px solid rgba(255,255,255,0.10)',
+        border: `1px solid ${borderColor}`,
         padding: '2px 8px',
         fontSize: '9px',
         fontFamily: 'monospace',
-        color: 'rgba(255,255,255,0.80)',
+        color: isBlocked ? '#fca5a5' : isReporting ? '#67e8f9' : 'rgba(255,255,255,0.80)',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
       }}>
-        {label}
+        {isReporting && (
+          <span style={{
+            display: 'inline-block',
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
+            background: '#06b6d4',
+            animation: 'pulse 1s infinite',
+          }} />
+        )}
+        {displayText}
       </div>
     </Html>
   );
@@ -671,6 +733,7 @@ function EmployeeMarker({
   emp,
   isSelected,
   isDragSource,
+  taskDesc,
   onSelect,
   onDragStart,
 }: {
@@ -678,6 +741,8 @@ function EmployeeMarker({
   isSelected: boolean;
   /** True when this employee is the one currently being dragged. */
   isDragSource?: boolean;
+  /** Optional truncated task description to show in status bubble. */
+  taskDesc?: string;
   onSelect: (id: string) => void;
   onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
@@ -729,7 +794,9 @@ function EmployeeMarker({
           <meshBasicMaterial color="#94a3b8" transparent opacity={0.3} />
         </mesh>
       )}
-      {emp.agent.state !== 'idle' && !isDragSource && <StatusBubble3D state={emp.agent.state} />}
+      {emp.agent.state !== 'idle' && !isDragSource && (
+        <StatusBubble3D state={emp.agent.state} taskDesc={taskDesc} />
+      )}
     </group>
   );
 }
@@ -904,6 +971,197 @@ function DragController({
   }, [gl.domElement, raycastToFloor]);
 
   return null; // No visual output — purely event handling
+}
+
+// ── Task flow line data ─────────────────────────────────────────────
+
+interface _FlowLineData {
+  id: string;
+  from: [number, number, number];
+  to: [number, number, number];
+  /** 'normal' = blue assignment; 'handoff' = orange handoff */
+  variant: 'normal' | 'handoff';
+  /** Unix ms when this line was created — drives 2-second lifecycle. */
+  createdAt: number;
+}
+
+// ── TaskFlowLine ────────────────────────────────────────────────────
+
+/**
+ * Animated line from manager/boss position → employee zone center.
+ * Lifecycle: fade-in 0.3s → hold 1s → fade-out 0.7s (total 2s).
+ */
+function _TaskFlowLine({ from, to, color, onComplete }: {
+  from: [number, number, number];
+  to: [number, number, number];
+  color: string;
+  onComplete: () => void;
+}) {
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
+  const startRef = useRef(performance.now() / 1000);
+  const doneRef = useRef(false);
+
+  const points = useMemo(() => [
+    new THREE.Vector3(...from),
+    new THREE.Vector3(...to),
+  ], [from, to]);
+
+  useFrame(() => {
+    if (doneRef.current || !matRef.current) return;
+    const elapsed = performance.now() / 1000 - startRef.current;
+    let opacity = 0;
+    if (elapsed < 0.3) {
+      opacity = elapsed / 0.3;
+    } else if (elapsed < 1.3) {
+      opacity = 1;
+    } else if (elapsed < 2.0) {
+      opacity = 1 - (elapsed - 1.3) / 0.7;
+    } else {
+      doneRef.current = true;
+      onComplete();
+      return;
+    }
+    matRef.current.opacity = opacity * 0.85;
+  });
+
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry().setFromPoints(points);
+    return g;
+  }, [points]);
+
+  const lineObj = useMemo(() => {
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, linewidth: 2 });
+    const l = new THREE.Line(geo, mat);
+    return l;
+  }, [geo, color]);
+
+  // Update opacity via ref to the material
+  useEffect(() => {
+    if (matRef.current) return;
+    matRef.current = lineObj.material as THREE.LineBasicMaterial;
+  }, [lineObj]);
+
+  return <primitive object={lineObj} />;
+}
+
+// ── Zone activity glow overlay ──────────────────────────────────────
+
+/**
+ * Pulsing floor overlay driven by zone activity level.
+ * Rendered as a thin plane just above the zone floor overlay.
+ */
+function ZoneActivityGlow({ size, activityCount, hasBlocked }: {
+  size: [number, number];
+  activityCount: number;
+  hasBlocked: boolean;
+}) {
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  const targetOpacity = hasBlocked ? 0.18 : activityCount >= 3 ? 0.20 : activityCount >= 1 ? 0.10 : 0.04;
+  const baseColor = hasBlocked ? '#f59e0b' : '#60a5fa';
+
+  useFrame((state) => {
+    if (!matRef.current) return;
+    const t = state.clock.elapsedTime;
+    // Gentle pulse: ±20% of target opacity
+    const pulse = Math.sin(t * 2.5) * 0.2 + 1;
+    matRef.current.opacity = targetOpacity * pulse;
+  });
+
+  return (
+    <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={size} />
+      <meshBasicMaterial ref={matRef} color={baseColor} transparent opacity={targetOpacity} />
+    </mesh>
+  );
+}
+
+// ── Meeting zone "MEETING" label and connectors ─────────────────────
+
+/** Floating "MEETING" pill above the MTG zone when a meeting is active. */
+function MeetingActiveLabel() {
+  return (
+    <Html position={[0, 2.5, 0]} center style={{ pointerEvents: 'none' }}>
+      <div style={{
+        background: 'rgba(148,163,184,0.20)',
+        backdropFilter: 'blur(6px)',
+        border: '1px solid #94a3b8',
+        borderRadius: '9999px',
+        padding: '3px 14px',
+        whiteSpace: 'nowrap',
+        animation: 'pulse 2s infinite',
+      }}>
+        <span style={{
+          color: '#e2e8f0',
+          fontSize: '10px',
+          fontWeight: 900,
+          letterSpacing: '3px',
+          textTransform: 'uppercase',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        }}>
+          MEETING
+        </span>
+      </div>
+    </Html>
+  );
+}
+
+/** Lines connecting each meeting participant to the meeting room center. */
+export function MeetingParticipantLines({ participantPositions }: {
+  participantPositions: [number, number, number][];
+}) {
+  const MTG_CENTER: [number, number, number] = [-10, 0.5, -8];
+
+  const lines = useMemo(() => participantPositions.map((pos) => {
+    const points = [new THREE.Vector3(...MTG_CENTER), new THREE.Vector3(...pos)];
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.35, linewidth: 1 });
+    return new THREE.Line(geo, mat);
+  }), [participantPositions]);
+
+  return (
+    <>
+      {lines.map((line, i) => <primitive key={i} object={line} />)}
+    </>
+  );
+}
+
+// ── Ambient light controller (company state → color) ───────────────
+
+/**
+ * Reads agent states and adjusts the scene ambient light color/intensity.
+ * Rendered inside Canvas so it has access to the scene.
+ */
+export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> }) {
+  const lightRef = useRef<THREE.AmbientLight>(null);
+
+  const targetColor = useMemo(() => {
+    const values = [...agents.values()];
+    const hasBlocked = values.some(a => a.state === 'blocked' || a.state === 'failed');
+    const hasActive = values.some(a => a.state !== 'idle');
+    const hasMeeting = values.some(a => a.state === 'meeting');
+    if (hasBlocked) return '#ff9944';
+    if (hasMeeting) return '#c4bfee';
+    if (hasActive) return '#ffffff';
+    return '#aabbcc';
+  }, [agents]);
+
+  const targetIntensity = useMemo(() => {
+    const values = [...agents.values()];
+    const hasMeeting = values.some(a => a.state === 'meeting');
+    return hasMeeting ? 0.6 : 0.8;
+  }, [agents]);
+
+  useFrame(() => {
+    if (!lightRef.current) return;
+    // Lerp toward target color/intensity each frame for smooth transitions
+    const current = lightRef.current.color;
+    const target = new THREE.Color(targetColor);
+    current.lerp(target, 0.02);
+    lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, 0.02);
+  });
+
+  return <ambientLight ref={lightRef} intensity={0.8} color={targetColor} />;
 }
 
 // ── Main 3D View ────────────────────────────────────────────────────
