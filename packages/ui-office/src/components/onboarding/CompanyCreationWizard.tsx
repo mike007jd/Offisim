@@ -435,94 +435,71 @@ function BuildingAnimation() {
 
 function TemplateHero({ template, meta }: { template: CompanyTemplate; meta: TemplateMeta }) {
   return (
-    <div className="space-y-5 pt-2">
-      {/* ── Hero banner ── */}
-      <div className={`relative rounded-2xl border border-white/[0.06] overflow-hidden bg-gradient-to-br ${meta.gradient}`}>
-        <div className="px-6 py-5 flex items-start gap-5">
-          <div className={`shrink-0 w-14 h-14 rounded-xl border flex items-center justify-center ${meta.accentBg}`}
-            style={{ animation: 'wiz-icon-glow 3s ease-in-out infinite' }}>
-            <div className={meta.accent}>{meta.iconLg}</div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-white">{template.name}</h2>
-            <p className="text-sm text-slate-400 mt-0.5">{meta.tagline}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              {meta.bestFor.map((tag) => (
-                <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-400 border border-white/[0.06]">
-                  {tag}
-                </span>
-              ))}
-              <span className="text-[10px] text-slate-600 ml-1">
-                {template.employees.length} members
-              </span>
-              <span className="text-[10px] text-slate-700 mx-1">/</span>
-              <span className="text-[10px] text-slate-600">
-                {template.sops.length} workflow{template.sops.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="flex gap-4 mt-3">
-              {meta.capabilities.map((cap) => (
-                <div key={cap} className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <div className="w-1 h-1 rounded-full" style={{ backgroundColor: meta.accentHex }} />
-                  {cap}
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Complexity meter */}
-          <div className="shrink-0 flex flex-col items-center gap-1 pt-1">
-            <span className="text-[9px] font-medium text-slate-600 uppercase tracking-wider">Complexity</span>
-            <div className="flex gap-1">
-              {Array.from({ length: 5 }, (_, i) => (
-                <div key={i} className="w-2 h-2 rounded-full transition-colors" style={{
-                  backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
-                }} />
-              ))}
-            </div>
+    <div className="flex flex-col gap-4 pt-2 flex-1 min-h-0">
+      {/* ── Hero banner (compact single row) ── */}
+      <div className={`rounded-xl border border-white/[0.06] overflow-hidden bg-gradient-to-r ${meta.gradient} px-4 py-2.5 flex items-center gap-3`}>
+        <div className={`shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center ${meta.accentBg}`}>
+          <div className={`${meta.accent} scale-75`}>{meta.iconLg}</div>
+        </div>
+        <h2 className="text-sm font-bold text-white shrink-0">{template.name}</h2>
+        <span className="text-xs text-slate-500">—</span>
+        <p className="text-xs text-slate-400 truncate">{meta.tagline}</p>
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          {meta.bestFor.map((tag) => (
+            <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.04]">
+              {tag}
+            </span>
+          ))}
+          <span className="text-[9px] text-slate-600 ml-2">{template.employees.length} members</span>
+          <div className="flex gap-0.5 ml-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
+                backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
+              }} />
+            ))}
           </div>
         </div>
       </div>
 
-      {/* ── Office Layout — full width ── */}
-      <div>
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Office Layout</h3>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] overflow-hidden">
-          <Office2DPreview employees={template.employees} />
-        </div>
-      </div>
-
-      {/* ── Team + Workflows side by side ── */}
-      <div className="grid grid-cols-[1fr_300px] gap-5 items-start">
-        {/* Left: Team */}
-        <div>
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+      {/* ── Main content: team list (left, scrollable) + floor plan (right, large) ── */}
+      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+        {/* Left column: Team + Workflows (scrollable) */}
+        <div className="w-[320px] shrink-0 overflow-y-auto pr-1 space-y-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2 sticky top-0 bg-[#02040a] py-1 z-10">
             <span>Your Team</span>
             <span className="text-[10px] font-normal text-slate-700 normal-case tracking-normal">
               {template.employees.length} members
             </span>
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
             {template.employees.map((emp, idx) => (
               <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 60}ms both` }}>
                 <EmployeeCard name={emp.name} role={emp.role_slug} />
               </div>
             ))}
           </div>
+
+          {template.sops.length > 0 && (
+            <div className="pt-2">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                Workflows
+              </h3>
+              <div className="space-y-2">
+                {template.sops.map((sop) => (
+                  <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right: Workflows */}
-        {template.sops.length > 0 && (
-          <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-              Workflows
-            </h3>
-            <div className="space-y-2">
-              {template.sops.map((sop) => (
-                <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
-              ))}
-            </div>
+        {/* Right column: Floor plan (fills remaining space) */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Office Layout</h3>
+          <div className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.01] overflow-hidden flex items-center justify-center p-3">
+            <Office2DPreview employees={template.employees} />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
