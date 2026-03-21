@@ -1,7 +1,7 @@
 # Prefab System Design Spec
 
 **Date:** 2026-03-21
-**Status:** Draft
+**Status:** Reviewed (R1 fixes applied)
 **Scope:** packages/shared-types, packages/renderer, packages/core, packages/db-local, packages/asset-schema
 
 ---
@@ -50,6 +50,9 @@ Every prefab belongs to exactly one semantic category. The category:
 | `knowledge` | Bookshelf, filing cabinet, whiteboard | RAG source, doc store, prompt library | Knowledge base ref, vector store |
 | `collaboration` | Meeting table, sofa area | Multi-agent protocol, handoff | Meeting session, handoff route |
 | `infrastructure` | Network switch, cable tray, patch panel | Event routing, task queue, data pipeline | EventBus routes, handoff chains |
+| `decorative` | Plant, coffee table, water cooler | None — pure cosmetic | None (no binding slots) |
+
+**`decorative` has no state machine and no binding slots.** It exists to allow non-functional furniture that makes the office feel lived-in. Decorative prefabs are always in a static visual state.
 
 ---
 
@@ -78,8 +81,25 @@ States: empty | occupied | working | thinking | searching | blocked | idle
 | `working` | Monitor green, keyboard flicker | `employee.state.changed → executing` |
 | `thinking` | Monitor pulse, thought bubble | `employee.state.changed → thinking` |
 | `searching` | Monitor scan-line animation | `employee.state.changed → searching` |
-| `blocked` | Monitor red border, warning light | `employee.state.changed → blocked` |
-| `idle` | Normal colors, monitor standby | `employee.state.changed → idle` |
+| `blocked` | Monitor red border, warning light | `employee.state.changed → blocked / failed` |
+| `idle` | Normal colors, monitor standby | `employee.state.changed → idle / success / paused` |
+
+**Full EmployeeState → workspace state mapping:**
+
+| EmployeeState | Workspace State | Rationale |
+|---|---|---|
+| `idle` | `idle` | Agent waiting |
+| `assigned` | `occupied` | Task queued, not yet executing |
+| `thinking` | `thinking` | LLM call in progress |
+| `searching` | `searching` | RAG/tool search |
+| `executing` | `working` | Active tool/action execution |
+| `meeting` | `idle` | Agent is at meeting table, workspace vacant |
+| `blocked` | `blocked` | Awaiting dependency |
+| `waiting` | `occupied` | Polling, low activity |
+| `reporting` | `working` | Summarizing (still active work) |
+| `success` | `idle` | Task done, return to standby |
+| `failed` | `blocked` | Error state, needs attention |
+| `paused` | `idle` | Manually paused |
 
 **Event binding:** Listens to `employee.state.changed` for the bound agent's `employeeId`.
 
@@ -181,7 +201,8 @@ type SemanticCategory =
   | 'compute'
   | 'knowledge'
   | 'collaboration'
-  | 'infrastructure';
+  | 'infrastructure'
+  | 'decorative';
 
 /** Binding slot declaration — what AI resources this prefab can connect to */
 interface PrefabBindingSlotDef {
@@ -261,7 +282,7 @@ CREATE TABLE IF NOT EXISTS prefab_instances (
   instance_id   TEXT PRIMARY KEY,
   company_id    TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   prefab_id     TEXT NOT NULL,           -- FK conceptual → PrefabDefinition.prefabId
-  zone_id       TEXT NOT NULL,           -- Which zone this instance is placed in
+  zone_id       TEXT NOT NULL,           -- Stable zone key (convention: "zone-dev", "zone-product", "zone-art", "zone-library", "zone-rest", "zone-meeting", "zone-server")
   position_x    REAL NOT NULL DEFAULT 0, -- X position within zone (pixels)
   position_y    REAL NOT NULL DEFAULT 0, -- Y position within zone (pixels)
   rotation      INTEGER NOT NULL DEFAULT 0, -- 0, 90, 180, 270
@@ -277,6 +298,20 @@ CREATE INDEX IF NOT EXISTS idx_prefab_instances_company
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone
   ON prefab_instances(company_id, zone_id);
 ```
+
+**Zone ID Convention:** Zones are NOT a DB table — they are a runtime concept computed by `zone-layout-engine.ts`. The `zone_id` column uses stable convention keys that match `ZoneConfig.zoneId` from `departments.ts`:
+
+| zone_id | Zone Type | Source |
+|---------|-----------|--------|
+| `zone-dev` | department (dev) | `RD_COMPANY_ZONES[0].zoneId` |
+| `zone-product` | department (product) | `RD_COMPANY_ZONES[1].zoneId` |
+| `zone-art` | department (art) | `RD_COMPANY_ZONES[2].zoneId` |
+| `zone-library` | library | `RD_COMPANY_ZONES[3].zoneId` |
+| `zone-rest` | rest_area | `RD_COMPANY_ZONES[4].zoneId` |
+| `zone-meeting` | meeting_room | `RD_COMPANY_ZONES[5].zoneId` |
+| `zone-server` | server_room | `RD_COMPANY_ZONES[6].zoneId` |
+
+These keys are stable because they are derived from department IDs (which are config, not computed). If a company adds custom departments, the convention extends: `zone-{departmentId}`. No FK constraint needed — validation is application-level.
 
 ### 6.2 TypeScript Type
 
@@ -326,8 +361,10 @@ Migration strategy: write a migration that creates `prefab_instances` rows from 
 
 ```typescript
 // packages/renderer/src/prefab/prefab-runtime.ts
+// NOTE: This is a CLASS (not a shared-types interface) — it lives in renderer
+// because it depends on PixiJS Container and GSAP.
 
-interface PrefabRuntime {
+class PrefabRuntime {
   readonly instanceId: string;
   readonly definition: PrefabDefinition;
   readonly container: Container;          // PixiJS container (placed in L1 furniture layer)
@@ -369,6 +406,20 @@ When `setState()` is called:
 3. The template re-renders with the new state
 4. GSAP transitions animate between visual states (M1 motion bucket)
 
+**Composite rendering flow:** For composite prefabs, `PrefabRuntime` creates a parent `Container`. Each child gets its own `Graphics` object positioned at its `offset`. The parent container is placed in L1 (furniture layer). State drives all children as a unit — `setState('working')` re-renders every child's template with the new state.
+
+```
+PrefabRuntime.container (Container, placed in L1)
+  ├── child[0].graphics (Graphics at offset [0, 0])    → desk template(state)
+  ├── child[1].graphics (Graphics at offset [0, -12])   → monitor template(state)
+  └── child[2].graphics (Graphics at offset [0, 14])    → chair template(state)
+```
+
+**Validation rules:**
+- If `composite === true`: `children` must be non-empty array, `render2D` must be undefined
+- If `composite === false`: `render2D` must be present, `children` must be undefined
+- Validated at registration time by `PrefabRegistry` and at install time by `asset-schema`
+
 ### 7.2 PrefabEventRouter
 
 Routes RuntimeEvent instances to PrefabRuntime instances based on their bindings.
@@ -408,6 +459,24 @@ class PrefabEventRouter {
   private inferState(category: SemanticCategory, event: RuntimeEvent): string | null;
 }
 ```
+
+**Event-to-resourceRef extraction rules** (how `routeEvent()` finds the bound resource from each event):
+
+| Event Type | Extract resourceRef From | Matches Binding Type |
+|---|---|---|
+| `employee.state.changed` | `(payload as EmployeeStatePayload).employeeId` | `agent-context` |
+| `llm.call.started` | `event.entityId` (= llmCallId) — **requires lookup**: `llmCallId → rackId` via in-memory call tracking | `rack-provider` |
+| `llm.call.completed` | Same lookup as above | `rack-provider` |
+| `rack.bound` | `(payload as RackBoundPayload).rackId` | `rack-provider` |
+| `rack.unbound` | `(payload as RackUnboundPayload).rackId` | `rack-provider` |
+| `knowledge.index.*` | `(payload as KnowledgeIndex*Payload).knowledgeBaseRef` | `knowledge-source` |
+| `knowledge.search.*` | `(payload as KnowledgeSearch*Payload).knowledgeBaseRef` | `knowledge-source` |
+| `meeting.state.changed` | `(payload as MeetingStatePayload).meetingId` | `meeting-session` |
+| `handoff.initiated` | `(payload as HandoffInitiatedPayload).fromEmployeeId + toEmployeeId` | `handoff-route` |
+| `handoff.completed` | `(payload as HandoffCompletedPayload).toEmployeeId` | `handoff-route` |
+| `error.occurred` | `event.entityId` — context-dependent | varies |
+
+**Note:** `LlmCallStartedPayload` currently lacks `rackId`. The router must maintain an in-memory `Map<provider+model, rackId>` built from `rack.bound` events, and use `LlmCallStartedPayload.provider + .model` to look up the rack. This is imperfect but avoids requiring a schema change to `LlmCallStartedPayload`. If the provider+model lookup causes false matches, we can add `rackId` to the payload in a future event schema update.
 
 **Integration point:** `SceneEventHandler` already subscribes to all runtime events. Add one call to `prefabEventRouter.routeEvent(event)` in the main handler.
 
@@ -510,7 +579,7 @@ registerTemplate('network-switch', renderNetworkSwitch); // new: small flat box 
 registerTemplate('cable-tray',    renderCableTray);     // new: horizontal run with data flow particles
 registerTemplate('patch-panel',   renderPatchPanel);    // new: wall-mount panel with connection indicators
 
-// decorative (no state machine — category: null / cosmetic)
+// decorative (category: 'decorative' — no state machine, no bindings)
 registerTemplate('plant',         renderPlant);         // from drawPlant
 registerTemplate('coffee-table',  renderCoffeeTable);   // from drawCoffeeTable
 registerTemplate('vending-machine', renderVendingMachine); // from drawVendingMachine
@@ -614,7 +683,7 @@ Core ships with these standard prefab definitions:
 | `cable-tray` | Cable Tray | 4x1 | no | handoff-route |
 | `patch-panel` | Patch Panel | 2x1 | no | handoff-route (required) |
 
-### decorative (no category / cosmetic)
+### decorative (category: 'decorative')
 
 | prefabId | Name | Grid | Notes |
 |----------|------|------|-------|
@@ -623,6 +692,8 @@ Core ships with these standard prefab definitions:
 | `coffee-table` | Coffee Table | 1x1 | Pure cosmetic |
 | `vending-machine` | Vending Machine | 1x2 | Pure cosmetic |
 | `water-cooler` | Water Cooler | 1x1 | Pure cosmetic |
+| `reading-table` | Reading Table | 2x1 | Library decoration, no AI binding |
+| `chair-standalone` | Standalone Chair | 1x1 | For library/rest reading areas |
 
 ---
 
@@ -700,11 +771,21 @@ The workspace PrefabInstance's `agent-context` binding slot holds the `employeeI
 
 ### 12.1 Prefab Package Kind
 
-Add `'prefab'` to `installed_packages.package_kind`:
+Add `'prefab'` to `AssetKind` (defined in `packages/asset-schema/src/manifest.types.ts`):
 
 ```typescript
-type PackageKind = 'employee' | 'sop' | 'template' | 'library' | 'mcp' | 'prefab';
+// Current:
+type AssetKind = 'employee' | 'skill' | 'sop' | 'company_template' | 'office_layout' | 'bundle';
+// New:
+type AssetKind = 'employee' | 'skill' | 'sop' | 'company_template' | 'office_layout' | 'bundle' | 'prefab';
 ```
+
+**Files that need the new `'prefab'` value:**
+1. `packages/asset-schema/src/manifest.types.ts` — `AssetKind` union
+2. `packages/db-local/src/migrations/` — new migration to ALTER CHECK constraint on `installed_packages.package_kind`
+3. `packages/db-platform/src/migrations/` — new migration for platform registry schema
+4. `Docs/02_contracts_and_schemas/aics_manifest.schema.json` — JSON Schema `enum`
+5. `packages/install-core/` — materializer must handle `'prefab'` kind
 
 ### 12.2 Prefab Manifest
 
@@ -792,9 +873,9 @@ When a zone is created without a template layout, apply sensible defaults:
 - 1 × `plant-small` (corner decoration)
 
 ### Library
-- 2 × `bookshelf-double` (top row)
-- 1 × `reading-table` + `chair` (center)
-- 1 × `plant-large` (corner)
+- 2 × `bookshelf-double` (top row, knowledge category)
+- 1 × `reading-table` + `chair-standalone` (center, decorative)
+- 1 × `plant-large` (corner, decorative)
 
 ### Rest Area
 - 1 × `sofa-set`
@@ -855,19 +936,26 @@ packages/asset-schema/
 
 ## 16. Migration Strategy
 
-### Phase: Single migration, atomic
+### SQLite FK Constraint Reality
 
-1. Create `prefab_instances` table
-2. For each existing `workstations` row:
-   - Create a `prefab_instances` row with `prefab_id = 'workstation-standard'`
-   - Copy position from `position_json`
-   - Set `bindings_json` with agent-context binding from `employees.workstation_id` FK
-3. For each existing `racks` row:
-   - Create a `prefab_instances` row with `prefab_id = 'server-rack-2u'`
-   - Set `bindings_json` with rack-provider binding
-4. Keep `workstations` table as read-only alias during transition
-5. Update `employees.workstation_id` to reference `prefab_instances.instance_id`
-6. Generate default zone prefab layouts for utility zones (library, rest, meeting)
+SQLite does not support `ALTER TABLE ... DROP/ADD CONSTRAINT`. Changing `employees.workstation_id`'s FK target from `workstations` to `prefab_instances` would require recreating the `employees` table (new table → copy data → drop old → rename). This is high-risk and touches every FK that references `employees`.
+
+**Pragmatic approach: dual-write coexistence.**
+
+### Migration Steps
+
+1. **Create `prefab_instances` table** (new migration)
+2. **Populate from existing data:**
+   - For each `workstations` row: create a `prefab_instances` row with `prefab_id = 'workstation-standard'`, using the `workstation_id` as `instance_id` (same ID, zero disruption)
+   - For each `racks` row: create a `prefab_instances` row with `prefab_id = 'server-rack-2u'`
+   - Set `bindings_json` from existing FK relationships
+3. **Keep `workstations` table and `employees.workstation_id` FK unchanged**
+   - `employees.workstation_id` continues to reference `workstations(workstation_id)`
+   - Workspace-category `prefab_instances.instance_id` uses the SAME value as `workstations.workstation_id`
+   - This means both tables are queryable with the same ID — no FK change needed
+4. **New code reads from `prefab_instances`**, old code still works via `workstations`
+5. **Generate default zone prefab layouts** for utility zones (library, rest, meeting, server)
+6. **Future cleanup (post-1.0):** Once all read paths use `prefab_instances`, drop `workstations` table via full table rebuild migration
 
 ---
 
