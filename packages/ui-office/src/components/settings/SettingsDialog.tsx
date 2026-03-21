@@ -96,14 +96,14 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg h-[520px] flex flex-col">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Configure your AI model provider and MCP server connections.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="provider" className="mt-2">
+        <Tabs defaultValue="provider" className="mt-2 flex-1 flex flex-col min-h-0">
           <TabsList className="w-full">
             <TabsTrigger value="provider" className="flex-1">
               LLM Provider
@@ -116,7 +116,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="provider">
+          <TabsContent value="provider" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
               <div>
                 <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
@@ -189,13 +189,13 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             </div>
           </TabsContent>
 
-          <TabsContent value="mcp">
+          <TabsContent value="mcp" className="flex-1 overflow-y-auto min-h-0">
             <div className="pt-2">
               <McpConfigPanel />
             </div>
           </TabsContent>
 
-          <TabsContent value="openclaw">
+          <TabsContent value="openclaw" className="flex-1 overflow-y-auto min-h-0">
             <div className="pt-2">
               <OpenClawSettings />
             </div>
