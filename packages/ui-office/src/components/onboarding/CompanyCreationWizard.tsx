@@ -1,6 +1,6 @@
 import {
   FlaskConical, PenTool, Rocket, Briefcase, Brain,
-  Loader2, ChevronDown, ChevronUp, Building2,
+  Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CompanyTemplate } from '@aics/core/browser';
@@ -109,6 +109,11 @@ const ROLE_LABELS: Record<string, string> = {
   manager: 'Team Manager',
   qa: 'QA Engineer',
   engineering_manager: 'Engineering Manager',
+  writer: 'Content Writer',
+  seo_specialist: 'SEO Specialist',
+  project_manager: 'Project Manager',
+  account_manager: 'Account Manager',
+  graphic_designer: 'Graphic Designer',
 };
 
 const ROLE_DOT: Record<string, string> = {
@@ -117,6 +122,8 @@ const ROLE_DOT: Record<string, string> = {
   designer: '#f59e0b', ui_designer: '#fbbf24', artist: '#f97316',
   analyst: '#10b981', qa: '#34d399', researcher: '#06b6d4',
   devops: '#94a3b8', engineering_manager: '#a78bfa',
+  writer: '#10b981', seo_specialist: '#f97316',
+  project_manager: '#a78bfa', account_manager: '#ec4899', graphic_designer: '#f97316',
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -263,6 +270,7 @@ export function CompanyCreationWizard({ onComplete }: Props) {
   } = useCompanyCreation();
 
   const prevStepRef = useRef(step);
+  const [infoTab, setInfoTab] = useState<'team' | 'workflows'>('team');
   useEffect(() => {
     if (prevStepRef.current === 'creating' && step === 'ready') onComplete?.();
     prevStepRef.current = step;
@@ -272,11 +280,24 @@ export function CompanyCreationWizard({ onComplete }: Props) {
     if (!selectedTemplateId && templates.length > 0) setSelectedTemplateId(templates[0]!.id);
   }, [selectedTemplateId, templates, setSelectedTemplateId]);
 
+  // Reset tab when template changes
+  useEffect(() => { setInfoTab('team'); }, [selectedTemplateId]);
+
   useEffect(() => { ensureKeyframes(); }, []);
+
+  const currentTemplateIdx = useMemo(
+    () => templates.findIndex(t => t.id === selectedTemplateId),
+    [templates, selectedTemplateId],
+  );
+  const switchTemplate = useCallback((dir: -1 | 1) => {
+    const idx = templates.findIndex(t => t.id === selectedTemplateId);
+    const next = (idx + dir + templates.length) % templates.length;
+    setSelectedTemplateId(templates[next]!.id);
+  }, [selectedTemplateId, templates, setSelectedTemplateId]);
 
   if (step === 'checking') {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#02040a]">
+      <div className="flex h-screen items-center justify-center bg-surface">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
           <p className="text-xs text-slate-600">Loading templates...</p>
@@ -290,69 +311,85 @@ export function CompanyCreationWizard({ onComplete }: Props) {
   const meta = selected ? TMPL[selected.id] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#02040a] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex flex-col bg-surface overflow-hidden">
       {/* Background dot grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(circle, #1e293b 0.5px, transparent 0.5px)',
+        backgroundImage: 'radial-gradient(circle, var(--surface-lighter) 0.5px, transparent 0.5px)',
         backgroundSize: '24px 24px',
       }} />
 
-      {/* ── Compact top bar: title + company name + CTA ── */}
-      <div className="relative z-10 px-4 py-2.5 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl">
-        {step === 'creating' ? (
-          <BuildingAnimation />
-        ) : (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 shrink-0">
-              <Building2 className="h-4 w-4 text-slate-400" />
-              <h1 className="text-sm font-bold text-white tracking-tight">New Company</h1>
-            </div>
-            <div className="flex-1 max-w-xs">
-              <input
-                id="company-name"
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="My AI Company"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/40 transition-all focus:shadow-[0_0_12px_2px_rgba(59,130,246,0.08)]"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={create}
-              disabled={!selectedTemplateId || !runtimeReady}
-              className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-1.5 text-xs font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
-              style={
-                runtimeReady && selectedTemplateId
-                  ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
-                  : undefined
-              }
-            >
-              {!runtimeReady ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Initializing...
-                </span>
-              ) : (
-                'Start Company'
-              )}
-            </button>
-          </div>
-        )}
-        {error && <p className="text-[10px] text-red-400 text-center mt-1">{error}</p>}
-      </div>
-
-      {/* ── Main content: left panel + floor plan ── */}
+      {/* ── Main content: left panel + right floor plan ── */}
       <div className="relative z-10 flex-1 flex min-h-0 overflow-hidden">
         {selected && meta ? (
           <>
-            {/* LEFT: Template selector + info + Team/Workflows */}
-            <LeftPanel
-              selected={selected}
-              meta={meta}
-              templates={templates}
-              selectedTemplateId={selectedTemplateId}
-              setSelectedTemplateId={setSelectedTemplateId}
-            />
+            {/* LEFT panel — fixed header + scrollable content */}
+            <div className="w-[340px] shrink-0 border-r border-white/[0.06] flex flex-col"
+              key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
+              {/* ── Fixed header ── */}
+              <div className="shrink-0 px-4 pt-4 pb-3 space-y-3 border-b border-white/[0.06]">
+                {/* Template switcher */}
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-2.5 flex flex-col items-center gap-2">
+                  <div className="flex items-center w-full">
+                    <button type="button" onClick={() => switchTemplate(-1)}
+                      className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors">
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                    <div className="flex-1 flex items-center justify-center gap-2.5 min-w-0">
+                      <div className={`shrink-0 ${meta.accent}`}>{meta.icon}</div>
+                      <h2 className="text-lg font-semibold text-white truncate">{selected.name}</h2>
+                    </div>
+                    <button type="button" onClick={() => switchTemplate(1)}
+                      className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors">
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {templates.map((t, i) => (
+                      <button key={t.id} type="button" onClick={() => setSelectedTemplateId(t.id)}
+                        className="rounded-full transition-all"
+                        style={{
+                          width: i === currentTemplateIdx ? 16 : 6,
+                          height: 6,
+                          backgroundColor: i === currentTemplateIdx ? meta.accentHex : 'rgba(255,255,255,0.12)',
+                        }} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tab bar */}
+                <div className="flex">
+                  <button type="button" onClick={() => setInfoTab('team')}
+                    className={`pb-2 pr-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                      infoTab === 'team' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
+                    }`}>
+                    Team · {selected.employees.length}
+                  </button>
+                  {selected.sops.length > 0 && (
+                    <button type="button" onClick={() => setInfoTab('workflows')}
+                      className={`pb-2 px-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                        infoTab === 'workflows' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
+                      }`}>
+                      Workflows · {selected.sops.length}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Scrollable content ── */}
+              <div className="flex-1 overflow-y-auto px-4 py-3">
+                {infoTab === 'team' || selected.sops.length === 0 ? (
+                  <div className="space-y-1.5">
+                    {selected.employees.map((emp, idx) => (
+                      <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 50}ms both` }}>
+                        <EmployeeCard name={emp.name} role={emp.role_slug} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ProductionWorkflow sops={selected.sops} accentHex={meta.accentHex} />
+                )}
+              </div>
+            </div>
 
             {/* RIGHT: Floor plan — fixed, fills space */}
             <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
@@ -364,9 +401,52 @@ export function CompanyCreationWizard({ onComplete }: Props) {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-slate-700">Select a template to get started</p>
+            <p className="text-sm text-slate-700">Select a template above</p>
           </div>
         )}
+      </div>
+
+      {/* ── Bottom CTA bar ── */}
+      <div className="relative z-10 border-t border-white/[0.06] bg-black/60 backdrop-blur-xl px-6 py-4">
+        {step === 'creating' ? (
+          <BuildingAnimation />
+        ) : (
+          <div className="flex items-center gap-4 max-w-3xl mx-auto">
+            <div className="flex-1">
+              <label htmlFor="company-name" className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1.5">
+                Company Name
+              </label>
+              <input
+                id="company-name"
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="My AI Company"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/40 transition-all focus:shadow-[0_0_16px_2px_rgba(59,130,246,0.1)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={create}
+              disabled={!selectedTemplateId || !runtimeReady}
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all mt-5"
+              style={
+                runtimeReady && selectedTemplateId
+                  ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
+                  : undefined
+              }
+            >
+              {!runtimeReady ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Initializing...
+                </span>
+              ) : (
+                'Start Company'
+              )}
+            </button>
+          </div>
+        )}
+        {error && <p className="text-xs text-red-400 text-center mt-2">{error}</p>}
       </div>
     </div>
   );
@@ -385,126 +465,7 @@ function BuildingAnimation() {
           Building your office...
         </span>
       </div>
-      <p className="text-[10px] text-slate-600">Setting up employees, workflows, and office layout</p>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Left Panel — template info + tabbed Team/Workflows
-   ══════════════════════════════════════════════════════════════════════════ */
-
-function LeftPanel({
-  selected, meta, templates, selectedTemplateId, setSelectedTemplateId,
-}: {
-  selected: CompanyTemplate;
-  meta: TemplateMeta;
-  templates: CompanyTemplate[];
-  selectedTemplateId: string | null;
-  setSelectedTemplateId: (id: string) => void;
-}) {
-  const [tab, setTab] = useState<'team' | 'workflows'>('team');
-
-  return (
-    <div className="w-[300px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0">
-      {/* ── Template selector list ── */}
-      <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
-        <div className="space-y-0.5">
-          {templates.map((t) => {
-            const m = TMPL[t.id];
-            const active = selectedTemplateId === t.id;
-            if (!m) return null;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTemplateId(t.id)}
-                className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 transition-all duration-200 text-left ${
-                  active
-                    ? 'bg-white/[0.06] border border-white/[0.1]'
-                    : 'border border-transparent hover:bg-white/[0.03]'
-                }`}
-              >
-                <div className={`shrink-0 ${active ? m.accent : 'text-slate-600'} transition-colors`}>
-                  {m.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-slate-400'} truncate transition-colors`}>
-                    {t.name}
-                  </div>
-                </div>
-                <span className="text-[9px] text-slate-600 shrink-0">{t.employees.length}</span>
-                {active && (
-                  <div className="flex gap-0.5 shrink-0">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <div key={i} className="w-1 h-1 rounded-full" style={{
-                        backgroundColor: i < m.complexity ? m.accentHex : 'rgba(255,255,255,0.08)',
-                      }} />
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Tags row ── */}
-      <div className="px-3 py-2 border-b border-white/[0.06]" key={`tags-${selected.id}`}
-        style={{ animation: 'wiz-fade-in 0.2s ease-out' }}>
-        <div className="flex flex-wrap items-center gap-1 text-[9px]">
-          {meta.bestFor.map((tag) => (
-            <span key={tag} className="px-1.5 py-px rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">{tag}</span>
-          ))}
-          <span className="text-slate-700">·</span>
-          <div className="flex gap-0.5">
-            {Array.from({ length: 5 }, (_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
-                backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
-              }} />
-            ))}
-          </div>
-          <span className="text-slate-700">·</span>
-          <span className="text-slate-500">{selected.employees.length} members</span>
-        </div>
-      </div>
-
-      {/* ── Tab bar ── */}
-      <div className="flex border-b border-white/[0.06]">
-        <button type="button" onClick={() => setTab('team')}
-          className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-            tab === 'team' ? 'text-white border-b-2 border-blue-500' : 'text-slate-600 hover:text-slate-400'
-          }`}>
-          Team · {selected.employees.length}
-        </button>
-        {selected.sops.length > 0 && (
-          <button type="button" onClick={() => setTab('workflows')}
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-              tab === 'workflows' ? 'text-white border-b-2 border-blue-500' : 'text-slate-600 hover:text-slate-400'
-            }`}>
-            Workflows · {selected.sops.length}
-          </button>
-        )}
-      </div>
-
-      {/* ── Tab content — scrollable ── */}
-      <div className="flex-1 overflow-y-auto px-3 py-2" key={`tab-${selected.id}`}>
-        {tab === 'team' ? (
-          <div className="space-y-1.5">
-            {selected.employees.map((emp, idx) => (
-              <div key={emp.name} style={{ animation: `wiz-card-in 0.3s ease-out ${idx * 40}ms both` }}>
-                <EmployeeCard name={emp.name} role={emp.role_slug} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {selected.sops.map((sop) => (
-              <WorkflowFlowChart key={sop.sop_id} sop={sop} />
-            ))}
-          </div>
-        )}
-      </div>
+      <p className="text-xs text-slate-600">Setting up employees, workflows, and office layout</p>
     </div>
   );
 }
@@ -534,14 +495,14 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
         <div className="relative shrink-0">
           <img src={avatarUri} alt="" className="w-11 h-11 rounded-full" />
           <div
-            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#060a14]"
+            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface"
             style={{ backgroundColor: dotColor }}
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-slate-200 truncate">{name}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: dotColor }}>{roleLabel}</div>
-          {bio && <div className="text-[10px] text-slate-600 mt-0.5 truncate italic">{bio.bio}</div>}
+          <div className="text-base font-medium text-slate-200 truncate">{name}</div>
+          <div className="text-[13px] mt-0.5" style={{ color: dotColor }}>{roleLabel}</div>
+          {bio && <div className="text-xs text-slate-600 mt-0.5 truncate italic">{bio.bio}</div>}
         </div>
         <div className="shrink-0 text-slate-700">
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -553,16 +514,16 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
         <div className="px-3 pb-3 pt-0 border-t border-white/[0.04]" style={{ animation: 'wiz-slide-up 0.25s ease-out' }}>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {bio.expertise.map((tag) => (
-              <span key={tag} className="text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-white/[0.05] border border-white/[0.06]"
+              <span key={tag} className="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-white/[0.05] border border-white/[0.06]"
                 style={{ color: dotColor }}>
                 {tag}
               </span>
             ))}
-            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/[0.03] text-slate-600 border border-white/[0.04]">
+            <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-white/[0.03] text-slate-600 border border-white/[0.04]">
               {bio.style}
             </span>
           </div>
-          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">{bio.helpsWith}</p>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">{bio.helpsWith}</p>
         </div>
       )}
     </div>
@@ -570,193 +531,67 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Workflow Flow Chart — SVG DAG with bezier curve connections
+   Workflow Visual — horizontal step flow with role indicators
    ══════════════════════════════════════════════════════════════════════════ */
 
-interface DagNode {
-  step_id: string;
-  label: string;
-  role_slug: string;
-  layer: number;
-  col: number;
-  x: number;
-  y: number;
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   Production Workflow — unified multi-phase flow with step detail
+   ══════════════════════════════════════════════════════════════════════════ */
 
-function buildDagLayout(steps: CompanyTemplate['sops'][0]['steps']) {
-  // Build step lookup and compute layers via topological depth
-  const stepMap = new Map(steps.map((s) => [s.step_id, s]));
-  const layerMap = new Map<string, number>();
-
-  function getDepth(id: string, visited = new Set<string>()): number {
-    if (visited.has(id)) return 0;
-    visited.add(id);
-    const cached = layerMap.get(id);
-    if (cached !== undefined) return cached;
-    const s = stepMap.get(id);
-    if (!s || s.dependencies.length === 0) {
-      layerMap.set(id, 0);
-      return 0;
-    }
-    const depth = Math.max(...s.dependencies.map((d) => getDepth(d, visited))) + 1;
-    layerMap.set(id, depth);
-    return depth;
-  }
-
-  for (const s of steps) getDepth(s.step_id);
-
-  // Group by layer
-  type Step = (typeof steps)[number];
-  const layers = new Map<number, Step[]>();
-  for (const s of steps) {
-    const layer = layerMap.get(s.step_id) ?? 0;
-    const list = layers.get(layer) ?? [];
-    list.push(s);
-    layers.set(layer, list);
-  }
-
-  const maxLayer = Math.max(...layers.keys(), 0);
-  const MAX_PER_ROW = 3;
-  const BOX_W = 82;
-  const BOX_H = 36;
-  const GAP_X = 10;
-  const GAP_Y = 32;
-  const PAD_X = 8;
-  const PAD_Y = 8;
-
-  // Compute node positions
-  const nodes: DagNode[] = [];
-  let maxRowWidth = 0;
-  for (let layer = 0; layer <= maxLayer; layer++) {
-    const layerSteps = layers.get(layer) ?? [];
-    const count = Math.min(layerSteps.length, MAX_PER_ROW);
-    const rowW = count * BOX_W + (count - 1) * GAP_X;
-    if (rowW > maxRowWidth) maxRowWidth = rowW;
-  }
-
-  const svgW = maxRowWidth + PAD_X * 2;
-
-  for (let layer = 0; layer <= maxLayer; layer++) {
-    const layerSteps = layers.get(layer) ?? [];
-    const count = Math.min(layerSteps.length, MAX_PER_ROW);
-    const rowW = count * BOX_W + (count - 1) * GAP_X;
-    const startX = PAD_X + (maxRowWidth - rowW) / 2;
-
-    layerSteps.forEach((s, col) => {
-      if (col >= MAX_PER_ROW) return;
-      nodes.push({
-        step_id: s.step_id,
-        label: s.label,
-        role_slug: s.role_slug,
-        layer,
-        col,
-        x: startX + col * (BOX_W + GAP_X),
-        y: PAD_Y + layer * (BOX_H + GAP_Y),
-      });
-    });
-  }
-
-  const svgH = PAD_Y * 2 + (maxLayer + 1) * BOX_H + maxLayer * GAP_Y;
-
-  // Build edges
-  const nodeMap = new Map(nodes.map((n) => [n.step_id, n]));
-  const edges: Array<{ from: DagNode; to: DagNode }> = [];
-  for (const s of steps) {
-    const target = nodeMap.get(s.step_id);
-    if (!target) continue;
-    for (const depId of s.dependencies) {
-      const source = nodeMap.get(depId);
-      if (source) edges.push({ from: source, to: target });
-    }
-  }
-
-  return { nodes, edges, svgW, svgH, BOX_W, BOX_H };
-}
-
-function WorkflowFlowChart({ sop }: { sop: CompanyTemplate['sops'][0] }) {
-  const layout = useMemo(() => buildDagLayout(sop.steps), [sop.steps]);
-  const { nodes, edges, svgW, svgH, BOX_W, BOX_H } = layout;
-
+function ProductionWorkflow({ sops, accentHex }: { sops: CompanyTemplate['sops']; accentHex: string }) {
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="text-[11px] font-medium text-slate-300 mb-2">{sop.name}</div>
-      <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" preserveAspectRatio="xMidYMid meet"
-        style={{ maxHeight: `${Math.min(svgH * 1.2, 400)}px` }}>
-        {/* Connection lines — cubic bezier curves */}
-        {edges.map((edge) => {
-          const fromColor = ROLE_DOT[edge.from.role_slug] ?? '#64748b';
-          const x1 = edge.from.x + BOX_W / 2;
-          const y1 = edge.from.y + BOX_H;
-          const x2 = edge.to.x + BOX_W / 2;
-          const y2 = edge.to.y;
-          const cy1 = y1 + (y2 - y1) * 0.45;
-          const cy2 = y2 - (y2 - y1) * 0.45;
-          return (
-            <path
-              key={`${edge.from.step_id}-${edge.to.step_id}`}
-              d={`M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`}
-              fill="none"
-              stroke={fromColor}
-              strokeWidth={1.2}
-              strokeOpacity={0.4}
-              strokeLinecap="round"
-            />
-          );
-        })}
-        {/* Arrow heads at connection endpoints */}
-        {edges.map((edge) => {
-          const fromColor = ROLE_DOT[edge.from.role_slug] ?? '#64748b';
-          const x2 = edge.to.x + BOX_W / 2;
-          const y2 = edge.to.y;
-          return (
-            <polygon
-              key={`arrow-${edge.from.step_id}-${edge.to.step_id}`}
-              points={`${x2},${y2} ${x2 - 3},${y2 - 5} ${x2 + 3},${y2 - 5}`}
-              fill={fromColor}
-              fillOpacity={0.5}
-            />
-          );
-        })}
-        {/* Step boxes */}
-        {nodes.map((node) => {
-          const color = ROLE_DOT[node.role_slug] ?? '#64748b';
-          const roleLabel = ROLE_LABELS[node.role_slug] ?? node.role_slug;
-          return (
-            <g key={node.step_id}>
-              {/* Box background */}
-              <rect
-                x={node.x} y={node.y}
-                width={BOX_W} height={BOX_H}
-                rx={4}
-                fill={`${color}10`}
-                stroke={color}
-                strokeWidth={0.8}
-                strokeOpacity={0.5}
-              />
-              {/* Step label — truncated */}
-              <text
-                x={node.x + BOX_W / 2} y={node.y + 14}
-                textAnchor="middle"
-                fontSize={8} fontWeight={600}
-                fill="#e2e8f0"
-                fontFamily="system-ui"
-              >
-                {node.label.length > 12 ? node.label.slice(0, 11) + '\u2026' : node.label}
-              </text>
-              {/* Role label */}
-              <text
-                x={node.x + BOX_W / 2} y={node.y + 26}
-                textAnchor="middle"
-                fontSize={6.5}
-                fill={color}
-                fontFamily="system-ui"
-              >
-                {roleLabel.length > 14 ? roleLabel.slice(0, 13) + '\u2026' : roleLabel}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+    <div className="flex flex-col items-center">
+      {sops.map((sop, sopIdx) => (
+        <div key={sop.sop_id} className="w-full flex flex-col items-center">
+          {/* Phase divider (between phases) */}
+          {sops.length > 1 && sopIdx > 0 && (
+            <div className="flex items-center gap-2 w-[90%] my-2">
+              <div className="flex-1 h-px" style={{ backgroundColor: `${accentHex}15` }} />
+              <span className="text-[11px] font-medium uppercase tracking-wider"
+                style={{ color: `${accentHex}80` }}>
+                Phase {sopIdx + 1}
+              </span>
+              <div className="flex-1 h-px" style={{ backgroundColor: `${accentHex}15` }} />
+            </div>
+          )}
+          {sops.length > 1 && sopIdx === 0 && (
+            <div className="text-[11px] font-medium uppercase tracking-wider mb-2"
+              style={{ color: `${accentHex}80` }}>
+              Phase 1
+            </div>
+          )}
+
+          {/* Steps as flow chart boxes */}
+          {sop.steps.map((step, idx) => {
+            const stepColor = ROLE_DOT[step.role_slug] ?? '#64748b';
+            const stepRole = ROLE_LABELS[step.role_slug] ?? step.role_slug;
+            const isLastGlobal = sopIdx === sops.length - 1 && idx === sop.steps.length - 1;
+            return (
+              <div key={step.step_id} className="w-full flex flex-col items-center">
+                {/* Step box */}
+                <div className="w-[90%] rounded-lg border px-3 py-2 relative overflow-hidden"
+                  style={{ borderColor: `${stepColor}20`, backgroundColor: `${stepColor}06` }}>
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: stepColor }} />
+                  <div className="pl-2.5">
+                    <div className="text-xs font-medium text-slate-200">{step.label}</div>
+                    <div className="text-[11px] mt-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stepColor }} />
+                      <span style={{ color: stepColor }}>{stepRole}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Connector arrow */}
+                {!isLastGlobal && (
+                  <svg className="shrink-0" width="8" height="16" viewBox="0 0 8 16">
+                    <line x1="4" y1="0" x2="4" y2="12" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+                    <path d="M2 10l2 4 2-4" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={0.8} />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -778,14 +613,14 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
   ];
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-half} y={-half} width={S} height={S} rx={1.5} fill="#e2e8f0" stroke="#cbd5e1" strokeWidth={0.3} />
-      <line x1="0" y1={-half} x2="0" y2={half} stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.5} />
-      <line x1={-half} y1="0" x2={half} y2="0" stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.5} />
+      <rect x={-half} y={-half} width={S} height={S} rx={1.5} fill="var(--surface-mid)" stroke="var(--surface-mid)" strokeWidth={0.3} />
+      <line x1="0" y1={-half} x2="0" y2={half} stroke="var(--text-secondary-val)" strokeWidth={0.5} strokeOpacity={0.5} />
+      <line x1={-half} y1="0" x2={half} y2="0" stroke="var(--text-secondary-val)" strokeWidth={0.5} strokeOpacity={0.5} />
       {seats.map(([dx, dz, cdz], i) => (
         <g key={i}>
-          <rect x={dx - 2} y={dz - 1} width={4} height={2} rx={0.3} fill="#334155" />
+          <rect x={dx - 2} y={dz - 1} width={4} height={2} rx={0.3} fill="var(--surface-mid)" />
           <rect x={dx - 3} y={dz < 0 ? dz - 3 : dz + 1} width={6} height={1.2} rx={0.2} fill="#0ea5e9" opacity={0.5} />
-          <circle cx={dx} cy={cdz} r={2.2} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+          <circle cx={dx} cy={cdz} r={2.2} fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth={0.2} />
         </g>
       ))}
     </g>
@@ -795,15 +630,15 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
 function PreviewMeetingTable({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-18} y={-6} width={36} height={12} rx={3.5} fill="#1e293b" stroke="#334155" strokeWidth={0.3} />
-      <rect x={-15} y={-4} width={30} height={8} rx={2} fill="#0f172a" />
+      <rect x={-18} y={-6} width={36} height={12} rx={3.5} fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth={0.3} />
+      <rect x={-15} y={-4} width={30} height={8} rx={2} fill="var(--surface-light)" />
       {[-11, -4, 4, 11].map((cx, i) => (
         <g key={i}>
-          <circle cx={cx} cy={-9.5} r={2} fill="#0f172a" stroke="#334155" strokeWidth={0.2} />
-          <circle cx={cx} cy={9.5} r={2} fill="#0f172a" stroke="#334155" strokeWidth={0.2} />
+          <circle cx={cx} cy={-9.5} r={2} fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth={0.2} />
+          <circle cx={cx} cy={9.5} r={2} fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth={0.2} />
         </g>
       ))}
-      <rect x={-26} y={-4} width={1.2} height={8} rx={0.3} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={0.15} />
+      <rect x={-26} y={-4} width={1.2} height={8} rx={0.3} fill="var(--surface-lighter)" stroke="var(--text-secondary-val)" strokeWidth={0.15} />
     </g>
   );
 }
@@ -812,10 +647,10 @@ function PreviewBookshelf({ x, y }: { x: number; y: number }) {
   const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-5} y={-6} width={10} height={12} rx={0.5} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+      <rect x={-5} y={-6} width={10} height={12} rx={0.5} fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth={0.2} />
       {[0, 1, 2].map(shelf => (
         <g key={shelf}>
-          <rect x={-4.5} y={-5 + shelf * 4} width={9} height={0.2} fill="#334155" />
+          <rect x={-4.5} y={-5 + shelf * 4} width={9} height={0.2} fill="var(--surface-mid)" />
           {[0, 1, 2, 3, 4].map(b => (
             <rect key={b} x={-4 + b * 1.6} y={-4.5 + shelf * 4} width={1.2} height={3} rx={0.1}
               fill={bookColors[(shelf * 5 + b) % bookColors.length]} />
@@ -829,11 +664,11 @@ function PreviewBookshelf({ x, y }: { x: number; y: number }) {
 function PreviewReadingTable({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-10} y={-4} width={20} height={8} rx={1} fill="#064e3b" stroke="#334155" strokeWidth={0.2} />
+      <rect x={-10} y={-4} width={20} height={8} rx={1} fill="#064e3b" stroke="var(--surface-mid)" strokeWidth={0.2} />
       {[-5, 5].map((cx, i) => (
         <g key={i}>
-          <circle cx={cx} cy={-6.5} r={1.8} fill="#0f172a" stroke="#334155" strokeWidth={0.15} />
-          <circle cx={cx} cy={6.5} r={1.8} fill="#0f172a" stroke="#334155" strokeWidth={0.15} />
+          <circle cx={cx} cy={-6.5} r={1.8} fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth={0.15} />
+          <circle cx={cx} cy={6.5} r={1.8} fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth={0.15} />
         </g>
       ))}
     </g>
@@ -844,8 +679,8 @@ function PreviewSofa({ x, y, color = '#f59e0b' }: { x: number; y: number; color?
   return (
     <g transform={`translate(${x}, ${y})`}>
       <path d="M-9,-3.5 L9,-3.5 L9,1.5 L5,1.5 L5,-1 L-5,-1 L-5,1.5 L-9,1.5 Z" fill={color} />
-      <rect x={-10.5} y={-3.5} width={2} height={5} rx={0.8} fill="#0f172a" />
-      <rect x={8.5} y={-3.5} width={2} height={5} rx={0.8} fill="#0f172a" />
+      <rect x={-10.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--surface-light)" />
+      <rect x={8.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--surface-light)" />
     </g>
   );
 }
@@ -853,8 +688,8 @@ function PreviewSofa({ x, y, color = '#f59e0b' }: { x: number; y: number; color?
 function PreviewCoffeeTable({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <circle cx="0" cy="0" r={4.5} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
-      <circle cx="0" cy="0" r={2} fill="#0f172a" />
+      <circle cx="0" cy="0" r={4.5} fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth={0.2} />
+      <circle cx="0" cy="0" r={2} fill="var(--surface-light)" />
     </g>
   );
 }
@@ -862,10 +697,10 @@ function PreviewCoffeeTable({ x, y }: { x: number; y: number }) {
 function PreviewServerRack({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-3.5} y={-8} width={7} height={16} rx={0.5} fill="#0f172a" stroke="#1e293b" strokeWidth={0.3} />
+      <rect x={-3.5} y={-8} width={7} height={16} rx={0.5} fill="var(--surface-light)" stroke="var(--surface-lighter)" strokeWidth={0.3} />
       {Array.from({ length: 6 }, (_, i) => (
         <g key={i}>
-          <rect x={-2.8} y={-7 + i * 2.5} width={5.6} height={2} rx={0.2} fill="#0c1220" />
+          <rect x={-2.8} y={-7 + i * 2.5} width={5.6} height={2} rx={0.2} fill="var(--surface)" />
           <circle cx={1.5} cy={-6 + i * 2.5} r={0.4} fill={i % 3 === 0 ? '#fbbf24' : '#22c55e'} />
         </g>
       ))}
@@ -876,9 +711,9 @@ function PreviewServerRack({ x, y }: { x: number; y: number }) {
 function PreviewVendingMachine({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x={-3} y={-5.5} width={6} height={11} rx={0.7} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+      <rect x={-3} y={-5.5} width={6} height={11} rx={0.7} fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth={0.2} />
       <rect x={-2.2} y={-4.5} width={4.4} height={4.5} rx={0.3} fill="#0ea5e9" opacity={0.4} />
-      <rect x={-1.8} y={1} width={3.6} height={1.5} rx={0.3} fill="#0f172a" />
+      <rect x={-1.8} y={1} width={3.6} height={1.5} rx={0.3} fill="var(--surface-light)" />
     </g>
   );
 }
@@ -886,7 +721,7 @@ function PreviewVendingMachine({ x, y }: { x: number; y: number }) {
 function PreviewPlant({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <circle cx="0" cy="1" r={2.2} fill="#334155" stroke="#475569" strokeWidth={0.15} />
+      <circle cx="0" cy="1" r={2.2} fill="var(--surface-mid)" stroke="var(--text-muted-val)" strokeWidth={0.15} />
       {[0, 72, 144, 216, 288].map(angle => (
         <path key={angle} d="M0,0 C-2,-3.5 2,-3.5 0,0" fill="#10b981"
           transform={`rotate(${angle})`} />
@@ -906,19 +741,19 @@ function PreviewEmployeeAvatar({ x, y, name, role }: { x: number; y: number; nam
       {/* Status aura */}
       <circle cx="0" cy="0" r={5} fill={dotColor} opacity={0.12} />
       {/* Avatar bg */}
-      <circle cx="0" cy="0" r={4} fill="#1e293b" stroke={dotColor} strokeWidth={0.5} />
+      <circle cx="0" cy="0" r={4} fill="var(--surface-lighter)" stroke={dotColor} strokeWidth={0.5} />
       {/* Avatar image */}
       <image href={avatarUri} x={-3.2} y={-3.2} width={6.4} height={6.4}
         clipPath={`circle(3.2px at 3.2px 3.2px)`} />
       {/* Fallback initials */}
-      <text x="0" y="1.5" textAnchor="middle" fontSize={3} fill="#e2e8f0"
+      <text x="0" y="1.5" textAnchor="middle" fontSize={3} fill="var(--text-primary-val)"
         fontFamily="system-ui" fontWeight={600} style={{ pointerEvents: 'none' }}>
         {initials}
       </text>
       {/* Name plate */}
       <g transform="translate(0, 6.5)">
-        <rect x={-8} y={-2} width={16} height={4} rx={2} fill="#0f172a" opacity={0.8} />
-        <text x="0" y="0.8" fill="#f8fafc" fontSize={2.2} fontWeight={600} textAnchor="middle"
+        <rect x={-8} y={-2} width={16} height={4} rx={2} fill="var(--surface-light)" opacity={0.8} />
+        <text x="0" y="0.8" fill="var(--text-primary-val)" fontSize={2.2} fontWeight={600} textAnchor="middle"
           fontFamily="system-ui">{name.split(' ')[0]}</text>
       </g>
     </g>
@@ -1030,10 +865,10 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <rect width={W} height={H} fill="#060a14" rx={6} />
+      <rect width={W} height={H} fill="var(--surface)" rx={6} />
       <defs>
         <pattern id="wiz-grid" width="16" height="16" patternUnits="userSpaceOnUse">
-          <circle cx="8" cy="8" r="0.25" fill="#1e293b" />
+          <circle cx="8" cy="8" r="0.25" fill="var(--surface-lighter)" />
         </pattern>
       </defs>
       <rect width={W} height={H} fill="url(#wiz-grid)" rx={6} />
@@ -1071,10 +906,10 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
             {/* Hover tooltip */}
             {isHovered && tooltip && (
               <g>
-                <rect x={mx - 90} y={z.y - 28} width={180} height={22} rx={4}
-                  fill="#0f172a" stroke={z.accent} strokeWidth={0.5} strokeOpacity={0.6} />
-                <text x={mx} y={z.y - 14} fontSize={9} fill="#e2e8f0" textAnchor="middle"
-                  fontFamily="system-ui" fontWeight={500}>{tooltip}</text>
+                <rect x={mx - 50} y={z.y - 16} width={100} height={13} rx={3}
+                  fill="var(--surface-lighter)" stroke={z.accent} strokeWidth={0.3} strokeOpacity={0.5} />
+                <text x={mx} y={z.y - 7.5} fontSize={3.5} fill="var(--text-primary-val)" textAnchor="middle"
+                  fontFamily="system-ui">{tooltip}</text>
               </g>
             )}
 
@@ -1103,7 +938,7 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
             )}
             {z.id === 'rest' && (
               <g transform={`translate(${mx}, ${my}) scale(${sc})`}>
-                <rect x={-20} y={-10} width={40} height={20} rx={2} fill="#334155" opacity={0.1} />
+                <rect x={-20} y={-10} width={40} height={20} rx={2} fill="var(--surface-mid)" opacity={0.1} />
                 <PreviewSofa x={0} y={-5} />
                 <PreviewCoffeeTable x={0} y={2} />
                 <PreviewVendingMachine x={18} y={-4} />
