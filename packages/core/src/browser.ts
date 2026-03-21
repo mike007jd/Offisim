@@ -207,3 +207,12 @@ export { AicsError, LlmError, GraphError, DataError } from './errors.js';
 
 // --- Runtime (browser-safe parts) ---
 export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
+
+// --- OpenClaw Gateway ---
+export { OpenClawClient } from './gateway/index.js';
+export type {
+  OpenClawConfig,
+  OpenClawAgent,
+  OpenClawChatResponse,
+  ConnectionState,
+} from './gateway/index.js';

@@ -1,6 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, RoundedBox, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { Lobster3D } from './Lobster3D.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
@@ -750,6 +751,11 @@ function EmployeeMarker({
   const outfit = OUTFIT_COLORS[emp.globalIndex % OUTFIT_COLORS.length] ?? '#3b82f6';
   const skin = SKIN_TONES[emp.globalIndex % SKIN_TONES.length] ?? '#fce7f3';
 
+  /** OpenClaw agents use the lobster model instead of the humanoid. */
+  const isOpenClaw = emp.agent.role === 'openclaw';
+  /** Brand color from agent metadata, falling back to the default OpenClaw red. */
+  const openClawBrandColor = (emp.agent as { brandColor?: string }).brandColor ?? '#e74c3c';
+
   return (
     <group
       position={emp.position}
@@ -772,21 +778,33 @@ function EmployeeMarker({
         document.body.style.cursor = 'default';
       }}
     >
-      {/* Selection ring — rendered below the character when selected */}
-      {isSelected && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[0.6, 0.75, 32]} />
-          <meshBasicMaterial color="#3b82f6" transparent opacity={0.8} />
-        </mesh>
-      )}
       {/* Dim the source employee during drag */}
       <group scale={isDragSource ? [0.85, 0.85, 0.85] : [1, 1, 1]}>
-        <LowPolyCharacter
-          statusColor={color}
-          outfitColor={outfit}
-          skinTone={skin}
-          state={emp.agent.state}
-        />
+        {isOpenClaw ? (
+          // OpenClaw agents render as a 3D lobster with built-in selection ring
+          <Lobster3D
+            brandColor={openClawBrandColor}
+            state={emp.agent.state}
+            name={emp.agent.name ?? emp.id}
+            isSelected={isSelected}
+          />
+        ) : (
+          <>
+            {/* Selection ring — rendered below the humanoid when selected */}
+            {isSelected && (
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                <ringGeometry args={[0.6, 0.75, 32]} />
+                <meshBasicMaterial color="#3b82f6" transparent opacity={0.8} />
+              </mesh>
+            )}
+            <LowPolyCharacter
+              statusColor={color}
+              outfitColor={outfit}
+              skinTone={skin}
+              state={emp.agent.state}
+            />
+          </>
+        )}
       </group>
       {isDragSource && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
