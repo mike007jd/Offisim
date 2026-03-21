@@ -20,7 +20,7 @@ export interface UseCompanyCreationReturn {
 }
 
 export function useCompanyCreation(): UseCompanyCreationReturn {
-  const { repos, eventBus, reinitRuntime } = useAicsRuntime();
+  const { repos, eventBus } = useAicsRuntime();
   const [step, setStep] = useState<CreationStep>('checking');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState('My AI Company');
@@ -63,13 +63,11 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
       );
       await service.materializeTemplate(selectedTemplateId, COMPANY_ID);
       setStep('ready');
-      // Reinit runtime to pick up new employees
-      reinitRuntime();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create company');
       setStep('first-run');
     }
-  }, [repos, selectedTemplateId, eventBus, reinitRuntime]);
+  }, [repos, selectedTemplateId, eventBus]);
 
   return {
     step,
