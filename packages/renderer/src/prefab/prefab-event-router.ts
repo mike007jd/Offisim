@@ -8,24 +8,34 @@
  * - Matching prefab runtimes receive inferred state transitions.
  * - Special provider→rack index supports compute category routing for LLM events.
  */
-import type { RuntimeEvent, SemanticCategory } from '@aics/shared-types';
-import type { PrefabRuntime } from './prefab-runtime.js';
+import type { RuntimeEvent, SemanticCategory, PrefabDefinition } from '@aics/shared-types';
 import { inferWorkspaceState } from './state-machines.js';
+
+/**
+ * Minimal interface for a prefab runtime instance.
+ * Decoupled from any rendering engine — consumers provide their own
+ * implementation (Three.js, SVG, headless, etc.).
+ */
+export interface PrefabRuntimeHandle {
+  readonly instanceId: string;
+  readonly definition: Pick<PrefabDefinition, 'category'>;
+  setState(next: string): boolean;
+}
 
 export class PrefabEventRouter {
   /** Map: resourceRef → Set<instanceId> */
   private bindingIndex = new Map<string, Set<string>>();
-  /** Map: instanceId → PrefabRuntime */
-  private runtimes = new Map<string, PrefabRuntime>();
+  /** Map: instanceId → PrefabRuntimeHandle */
+  private runtimes = new Map<string, PrefabRuntimeHandle>();
   /** Map: "providerType" → rackId (for compute category LLM event routing) */
   private providerRackIndex = new Map<string, string>();
 
-  /** Register a PrefabRuntime instance */
-  registerRuntime(runtime: PrefabRuntime): void {
+  /** Register a prefab runtime handle */
+  registerRuntime(runtime: PrefabRuntimeHandle): void {
     this.runtimes.set(runtime.instanceId, runtime);
   }
 
-  /** Unregister a PrefabRuntime instance */
+  /** Unregister a prefab runtime handle */
   unregisterRuntime(instanceId: string): void {
     this.runtimes.delete(instanceId);
     // Clean up binding index

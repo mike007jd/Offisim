@@ -1,33 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PrefabDefinition, RuntimeEvent, SemanticCategory } from '@aics/shared-types';
-import { getInitialState } from '../prefab/state-machines.js';
-import type { PrefabRuntime } from '../prefab/prefab-runtime.js';
-import { PrefabEventRouter } from '../prefab/prefab-event-router.js';
+import type { RuntimeEvent, SemanticCategory } from '@aics/shared-types';
+import { PrefabEventRouter, type PrefabRuntimeHandle } from '../prefab/prefab-event-router.js';
 
-// ── Mock PrefabRuntime factory ──────────────────────────────────
+// ── Mock PrefabRuntimeHandle factory ────────────────────────────
 
-function createMockRuntime(instanceId: string, category: SemanticCategory): PrefabRuntime {
+function createMockRuntime(instanceId: string, category: SemanticCategory): PrefabRuntimeHandle {
   return {
     instanceId,
-    definition: {
-      category,
-      prefabId: 'test',
-      name: 'Test',
-      description: '',
-      gridSize: [1, 1],
-      composite: false,
-      bindingSlots: [],
-    } as PrefabDefinition,
-    container: {} as any,
-    currentState: getInitialState(category) ?? 'static',
-    eventUnsubscribers: [],
+    definition: { category },
     setState: vi.fn(() => true),
-    bindToResource: vi.fn(),
-    unbindResource: vi.fn(),
-    getBinding: vi.fn(),
-    getAllBindings: vi.fn(() => []),
-    destroy: vi.fn(),
-  } as unknown as PrefabRuntime;
+  };
 }
 
 // ── Helper: build RuntimeEvent ──────────────────────────────────
