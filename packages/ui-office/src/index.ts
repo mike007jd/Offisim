@@ -106,3 +106,6 @@ export * from './runtime/use-streaming-content.js';
 
 // Types
 export type { AicsDebugBridge } from './types/global.js';
+
+// Theme
+export { ThemeProvider, useTheme, type Theme } from './theme/index.js';
