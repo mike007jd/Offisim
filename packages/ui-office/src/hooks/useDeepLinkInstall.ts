@@ -45,7 +45,7 @@ export function useDeepLinkInstall(onInstallRequest: DeepLinkHandler): void {
     const tauriEventModule = '@tauri-apps' + '/api/event';
     import(/* @vite-ignore */ tauriEventModule)
       .then(({ listen }) => {
-        return listen<DeepLinkInstallPayload>('deep-link-install', (event) => {
+        return (listen as (evt: string, handler: (event: { payload: DeepLinkInstallPayload }) => void) => Promise<() => void>)('deep-link-install', (event: { payload: DeepLinkInstallPayload }) => {
           const payload = event.payload;
           if (payload?.listing_id && payload?.version) {
             handlerRef.current(payload);
