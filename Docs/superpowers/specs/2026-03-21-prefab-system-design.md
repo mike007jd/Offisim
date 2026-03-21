@@ -392,28 +392,79 @@ class PrefabRuntime {
 The render template receives the current state as a parameter. Each template function has the signature:
 
 ```typescript
+/**
+ * A render template function builds a GraphicsContext (NOT a Graphics object).
+ * Called ONCE per state at creation time, not on every state change.
+ */
 type RenderTemplateFn = (
-  graphics: Graphics,
   params: Record<string, unknown>,
   state: string,
-  stateProgress?: number,  // 0–1 for animated transitions
-) => void;
+) => GraphicsContext;
 ```
 
-When `setState()` is called:
-1. The state machine validates the transition
-2. If valid, `currentState` updates
-3. The template re-renders with the new state
-4. GSAP transitions animate between visual states (M1 motion bucket)
+### 7.1.1 GraphicsContext Swapping (Critical Performance Pattern)
 
-**Composite rendering flow:** For composite prefabs, `PrefabRuntime` creates a parent `Container`. Each child gets its own `Graphics` object positioned at its `offset`. The parent container is placed in L1 (furniture layer). State drives all children as a unit — `setState('working')` re-renders every child's template with the new state.
+**PixiJS 8 official guidance: "Do not clear and rebuild graphics every frame."**
+The correct pattern is **GraphicsContext swapping** — pre-build contexts, swap on state change.
+
+**At creation time:**
+```typescript
+// PrefabRuntime constructor pre-renders all states
+const stateContexts = new Map<string, GraphicsContext>();
+for (const state of stateMachine.allStates) {
+  stateContexts.set(state, templateFn(params, state));
+}
+graphics.context = stateContexts.get(initialState)!;
+```
+
+**On `setState()` call:**
+```typescript
+setState(next: string): void {
+  if (!stateMachine.canTransition(this.currentState, next)) return;
+  this.currentState = next;
+  // Context swap — "a very cheap operation" (PixiJS docs)
+  this.graphics.context = this.stateContexts.get(next)!;
+  // GSAP handles animated overlays (tint, alpha, transform)
+  // Use overwrite: "auto" to kill only conflicting property tweens
+  gsap.to(this.container, { alpha: 1, overwrite: 'auto' });
+}
+```
+
+**GSAP animations** (breathing LEDs, fan spin, heat shimmer) are applied to the Container's `alpha`, `tint`, `scale`, `rotation` — properties PixiJS explicitly says are cheap to update. They never touch Graphics content.
+
+### 7.1.2 Composite Rendering
+
+For composite prefabs, `PrefabRuntime` creates a parent `Container`. Each child gets its own `Graphics` object, each with its own set of pre-built `GraphicsContext` per state. The parent container is placed in L1 (furniture layer).
 
 ```
 PrefabRuntime.container (Container, placed in L1)
-  ├── child[0].graphics (Graphics at offset [0, 0])    → desk template(state)
-  ├── child[1].graphics (Graphics at offset [0, -12])   → monitor template(state)
-  └── child[2].graphics (Graphics at offset [0, 14])    → chair template(state)
+  ├── child[0].graphics (Graphics at offset [0, 0])
+  │     └── stateContexts: { idle: ctx, working: ctx, ... }  → desk
+  ├── child[1].graphics (Graphics at offset [0, -12])
+  │     └── stateContexts: { idle: ctx, working: ctx, ... }  → monitor
+  └── child[2].graphics (Graphics at offset [0, 14])
+        └── stateContexts: { idle: ctx, working: ctx, ... }  → chair
 ```
+
+State drives all children as a unit — `setState('working')` swaps context on every child.
+
+### 7.1.3 Large Office Performance Fallback
+
+PixiJS docs: "Using 100s of complex graphics objects can be slow — use sprites instead."
+
+When prefab count exceeds a threshold (default: 40), apply automatic texture caching:
+- **Decorative prefabs** (no state changes): convert to Sprite via `renderer.generateTexture(graphics)` after initial render. Destroy the Graphics to free GPU memory.
+- **Stateful prefabs**: keep as Graphics (they need context swapping).
+- This is transparent to the rest of the system — PrefabRuntime.container still works the same way.
+
+### 7.1.4 Instance Override Merge Semantics
+
+`PrefabInstance.config_json` stores user overrides for the definition's template params. Merge strategy:
+
+- **Shallow merge**: `{ ...definition.render2D.params, ...instance.configOverrides }`
+- Arrays are replaced, not concatenated
+- `null` value in override explicitly removes a param (falls back to template default)
+- Applied at PrefabRuntime creation time, before GraphicsContext pre-building
 
 **Validation rules:**
 - If `composite === true`: `children` must be non-empty array, `render2D` must be undefined
@@ -586,27 +637,35 @@ registerTemplate('vending-machine', renderVendingMachine); // from drawVendingMa
 registerTemplate('reading-table', renderReadingTable);   // from drawReadingTable
 ```
 
-### 9.3 State-Aware Rendering Example
+### 9.3 State-Aware Rendering Example (GraphicsContext Pattern)
 
 ```typescript
+import { GraphicsContext } from 'pixi.js';
+
+/**
+ * Template function: returns a GraphicsContext for a given state.
+ * Called once per state at PrefabRuntime creation time.
+ * NOT called on every state change — context swapping handles that.
+ */
 function renderServerRack(
-  g: Graphics,
   params: Record<string, unknown>,
   state: string,
-): void {
+): GraphicsContext {
   const w = (params.width as number) ?? 20;
   const h = (params.height as number) ?? 36;
   const color = (params.color as number) ?? 0x2a2a3a;
 
-  // Cabinet body (same as current drawServerRack)
-  g.roundRect(-w / 2, -h / 2, w, h, 2);
-  g.fill(color);
+  const ctx = new GraphicsContext();
+
+  // Cabinet body
+  ctx.roundRect(-w / 2, -h / 2, w, h, 2);
+  ctx.fill(color);
 
   // Front panel
-  g.roundRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 1);
-  g.fill(0x1a1a2e);
+  ctx.roundRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 1);
+  ctx.fill(0x1a1a2e);
 
-  // Status LEDs — color depends on state
+  // Status LEDs — color depends on state (baked into the context)
   const ledColor = {
     offline:    0x333333,
     idle:       0x22c55e,  // green
@@ -619,21 +678,28 @@ function renderServerRack(
   const unitGap = (h - 8) / (unitCount + 1);
   for (let i = 1; i <= unitCount; i++) {
     const uy = -h / 2 + 4 + unitGap * i;
-    g.rect(-w / 2 + 3, uy, w - 6, 1);
-    g.fill(0x333355);
-    g.circle(w / 2 - 5, uy - unitGap / 2, 1.5);
-    g.fill(ledColor);
+    ctx.rect(-w / 2 + 3, uy, w - 6, 1);
+    ctx.fill(0x333355);
+    ctx.circle(w / 2 - 5, uy - unitGap / 2, 1.5);
+    ctx.fill(ledColor);
   }
 
-  // Ventilation — animate when processing/overloaded
+  // Ventilation — color baked into context per state
   for (let i = 0; i < 3; i++) {
-    g.rect(-w / 2 + 4 + i * 5, h / 2 - 6, 3, 3);
-    g.fill(state === 'overloaded' ? 0xef4444 : 0x333355);
+    ctx.rect(-w / 2 + 4 + i * 5, h / 2 - 6, 3, 3);
+    ctx.fill(state === 'overloaded' ? 0xef4444 : 0x333355);
   }
+
+  return ctx;
 }
 ```
 
-**GSAP animations** (breathing LEDs, fan spin, heat shimmer) are added as overlays by the PrefabRuntime, not inside the template function. The template handles static rendering per state; PrefabRuntime handles animated transitions.
+**Key performance properties:**
+- Each `GraphicsContext` is created once and reused on every state swap
+- A server rack with 5 states = 5 pre-built contexts (~negligible memory for simple geometry)
+- `graphics.context = stateContexts.get(next)!` is O(1) and GPU-friendly
+- GSAP animations (breathing, spin, shimmer) operate on Container transform/alpha/tint — never on Graphics content
+- Use `overwrite: "auto"` on all GSAP state-transition tweens to kill only conflicting properties
 
 ---
 
