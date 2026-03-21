@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SCENE_COLORS, STATE_COLORS } from '../tokens/colors.js';
+import { STATE_COLORS } from '../tokens/colors.js';
 import {
   MOTION,
   MOTION_REDUCED,
@@ -32,11 +32,6 @@ describe('tokens/colors', () => {
     }
   });
 
-  it('scene colors are valid hex numbers', () => {
-    for (const value of Object.values(SCENE_COLORS)) {
-      expect(value).toBeTypeOf('number');
-    }
-  });
 });
 
 describe('tokens/motion', () => {
