@@ -66,7 +66,7 @@ export function EditorToolbar() {
           borderColor: isEdit
             ? 'rgba(59, 130, 246, 0.5)'
             : 'rgba(71, 85, 105, 0.3)',
-          color: isEdit ? '#93c5fd' : '#94a3b8',
+          color: isEdit ? '#93c5fd' : 'var(--text-secondary-val)',
         }}
       >
         <ModeIcon isEdit={isEdit} />
@@ -136,7 +136,7 @@ export function EditorToolbar() {
             <span style={{
               fontSize: 9,
               fontFamily: 'monospace',
-              color: '#64748b',
+              color: 'var(--text-muted-val)',
               padding: '2px 6px',
               background: 'rgba(51, 65, 85, 0.3)',
               borderRadius: 4,

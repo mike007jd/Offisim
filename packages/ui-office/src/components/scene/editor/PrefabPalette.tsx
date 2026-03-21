@@ -53,7 +53,7 @@ const HEADER_STYLE: React.CSSProperties = {
   fontWeight: 900,
   letterSpacing: 2,
   textTransform: 'uppercase',
-  color: 'rgba(148, 163, 184, 0.9)',
+  color: 'var(--text-secondary-val)',
   borderBottom: '1px solid rgba(51, 65, 85, 0.4)',
   flexShrink: 0,
 };
@@ -117,13 +117,13 @@ export function PrefabPalette() {
                   textAlign: 'left',
                   fontSize: 11,
                   fontWeight: 700,
-                  color: '#94a3b8',
+                  color: 'var(--text-secondary-val)',
                   fontFamily: 'inherit',
                 }}
               >
                 <span style={{
                   fontSize: 9,
-                  color: '#64748b',
+                  color: 'var(--text-muted-val)',
                   transition: 'transform 0.15s',
                   transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                   display: 'inline-block',
@@ -135,7 +135,7 @@ export function PrefabPalette() {
                 <span style={{
                   marginLeft: 'auto',
                   fontSize: 9,
-                  color: '#475569',
+                  color: 'var(--text-muted-val)',
                   fontWeight: 500,
                 }}>
                   {items.length}
@@ -205,7 +205,7 @@ function PrefabItem({
         <div style={{
           fontSize: 11,
           fontWeight: 500,
-          color: isActive ? '#93c5fd' : '#e2e8f0',
+          color: isActive ? '#93c5fd' : 'var(--surface-mid)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -216,7 +216,7 @@ function PrefabItem({
       <span style={{
         fontSize: 9,
         fontFamily: 'monospace',
-        color: '#64748b',
+        color: 'var(--text-muted-val)',
         flexShrink: 0,
       }}>
         {gridLabel}

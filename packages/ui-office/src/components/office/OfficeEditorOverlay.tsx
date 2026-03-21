@@ -217,7 +217,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   }
 
   return (
-    <div className="h-screen w-screen bg-[#02040a] flex flex-col overflow-hidden">
+    <div className="h-screen w-screen bg-surface flex flex-col overflow-hidden">
       {/* ── Top Bar ────────────────────────────────────────────────── */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-6">
         <div className="flex items-center gap-4">

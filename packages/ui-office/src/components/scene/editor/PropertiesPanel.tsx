@@ -37,13 +37,13 @@ const LABEL_STYLE: React.CSSProperties = {
   fontWeight: 700,
   letterSpacing: 1.5,
   textTransform: 'uppercase',
-  color: '#64748b',
+  color: 'var(--text-muted-val)',
   marginBottom: 4,
 };
 
 const VALUE_STYLE: React.CSSProperties = {
   fontSize: 11,
-  color: '#e2e8f0',
+  color: 'var(--surface-mid)',
   fontFamily: 'monospace',
 };
 
@@ -88,7 +88,7 @@ export function PropertiesPanel() {
 
   if (!instance || !definition) return null;
 
-  const catColor = CATEGORY_COLORS[definition.category] ?? '#64748b';
+  const catColor = CATEGORY_COLORS[definition.category] ?? 'var(--text-muted-val)';
   const pos = instance.position;
 
   const handleRotate = () => {
@@ -116,7 +116,7 @@ export function PropertiesPanel() {
           <div style={{
             fontSize: 12,
             fontWeight: 700,
-            color: '#f1f5f9',
+            color: 'var(--text-primary-val)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -172,7 +172,7 @@ export function PropertiesPanel() {
               borderRadius: 6,
               padding: '2px 8px',
               fontSize: 10,
-              color: '#94a3b8',
+              color: 'var(--text-secondary-val)',
               cursor: 'pointer',
               fontFamily: 'inherit',
             }}
@@ -192,7 +192,7 @@ export function PropertiesPanel() {
               style={{
                 ...ROW_STYLE,
                 fontSize: 10,
-                color: '#94a3b8',
+                color: 'var(--text-secondary-val)',
               }}
             >
               <span style={{ fontFamily: 'monospace' }}>{slot.name}</span>
@@ -203,7 +203,7 @@ export function PropertiesPanel() {
                 background: slot.required
                   ? 'rgba(239, 68, 68, 0.15)'
                   : 'rgba(71, 85, 105, 0.3)',
-                color: slot.required ? '#fca5a5' : '#64748b',
+                color: slot.required ? '#fca5a5' : 'var(--text-muted-val)',
               }}>
                 {slot.required ? 'required' : 'optional'}
               </span>
@@ -217,7 +217,7 @@ export function PropertiesPanel() {
         <div style={LABEL_STYLE}>Description</div>
         <div style={{
           fontSize: 10,
-          color: '#94a3b8',
+          color: 'var(--text-secondary-val)',
           lineHeight: 1.4,
         }}>
           {definition.description}
