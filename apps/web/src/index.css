@@ -7,68 +7,53 @@
 @source "../../../packages/ui-core/src/**/*.ts";
 
 /*
- * Offisim — "Modern Coworking" palette
- *
- * Warm neutral base inspired by real office spaces:
- * linen paper, light wood, soft shadows.
- * Accent is warm terracotta — NOT AI blue.
- * Zone/status/role colors stay as semantic identity.
+ * Offisim Web Shell — Theme System
+ * Light/dark mode via CSS custom properties + class toggle on <html>.
+ * ThemeProvider in @aics/ui-office manages the .dark/.light class.
  */
 
+/* ── Light mode (default) ── */
 :root {
-  /* ── Warm neutral surfaces ── */
-  --surface: #f6f4f0;           /* warm linen / off-white */
-  --surface-light: #eceae4;     /* warm light panel */
-  --surface-lighter: #e3e0d8;   /* warm card / sidebar */
-  --surface-mid: #d4d0c7;       /* warm border / divider */
-
-  /* ── Warm text ── */
-  --text-primary-val: #2c2924;  /* warm charcoal (not cold black) */
-  --text-secondary-val: #6b655c;/* warm medium gray */
-  --text-muted-val: #9e978d;    /* warm faded */
-
-  /* ── Borders ── */
-  --border-val: rgba(44, 41, 36, 0.12);
-
-  /* ── Accent: terracotta / warm orange ── */
-  --accent-val: #c17040;        /* terracotta */
-  --accent-hover-val: #a85c32;  /* darker terracotta */
-
-  /* ── Semantic ── */
-  --success-val: #2d9c6f;       /* warm green (not neon) */
-  --warning-val: #c78c20;       /* warm amber */
-  --error-val: #c44d3a;         /* warm red */
-  --info-val: #4a8ea8;          /* warm teal (not AI blue) */
-
-  /* ── Glass ── */
-  --glass-bg: rgba(246, 244, 240, 0.82);
-  --glass-border: rgba(44, 41, 36, 0.08);
-
-  /* ── Scrollbar ── */
-  --scrollbar-thumb: rgba(44, 41, 36, 0.15);
-  --scrollbar-thumb-hover: rgba(44, 41, 36, 0.3);
+  --surface: #ffffff;
+  --surface-light: #f8fafc;
+  --surface-lighter: #f1f5f9;
+  --surface-mid: #e2e8f0;
+  --border-val: rgba(0, 0, 0, 0.1);
+  --text-primary-val: #0f172a;
+  --text-secondary-val: #475569;
+  --text-muted-val: #94a3b8;
+  --accent-val: #2563eb;
+  --accent-hover-val: #1d4ed8;
+  --success-val: #059669;
+  --warning-val: #d97706;
+  --error-val: #dc2626;
+  --info-val: #2563eb;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb: rgba(100, 116, 139, 0.3);
+  --scrollbar-thumb-hover: rgba(100, 116, 139, 0.5);
 }
 
-/* Dark mode kept in sync — same warm palette for now (unified look) */
+/* ── Dark mode ── */
 :root.dark {
-  --surface: #f6f4f0;
-  --surface-light: #eceae4;
-  --surface-lighter: #e3e0d8;
-  --surface-mid: #d4d0c7;
-  --border-val: rgba(44, 41, 36, 0.12);
-  --text-primary-val: #2c2924;
-  --text-secondary-val: #6b655c;
-  --text-muted-val: #9e978d;
-  --accent-val: #c17040;
-  --accent-hover-val: #a85c32;
-  --success-val: #2d9c6f;
-  --warning-val: #c78c20;
-  --error-val: #c44d3a;
-  --info-val: #4a8ea8;
-  --glass-bg: rgba(246, 244, 240, 0.82);
-  --glass-border: rgba(44, 41, 36, 0.08);
-  --scrollbar-thumb: rgba(44, 41, 36, 0.15);
-  --scrollbar-thumb-hover: rgba(44, 41, 36, 0.3);
+  --surface: #02040a;
+  --surface-light: #0f172a;
+  --surface-lighter: #1e293b;
+  --surface-mid: #334155;
+  --border-val: rgba(255, 255, 255, 0.1);
+  --text-primary-val: #f1f5f9;
+  --text-secondary-val: #94a3b8;
+  --text-muted-val: #64748b;
+  --accent-val: #3b82f6;
+  --accent-hover-val: #2563eb;
+  --success-val: #10b981;
+  --warning-val: #f59e0b;
+  --error-val: #ef4444;
+  --info-val: #3b82f6;
+  --glass-bg: rgba(0, 0, 0, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
 }
 
 @theme inline {
@@ -88,26 +73,26 @@
   --color-error: var(--error-val);
   --color-info: var(--info-val);
 
-  /* ── Legacy aliases (backward compat) ── */
+  /* ── Legacy aliases (existing components reference these) ── */
   --color-hud-black: var(--surface);
   --color-hud-dark: var(--surface-light);
   --color-hud-mid: var(--surface-lighter);
   --color-hud-light: var(--surface-mid);
-  --color-hud-lighter: var(--text-muted-val);
+  --color-hud-lighter: #475569;
   --color-hud-border: var(--border-val);
   --color-ocean-deep: var(--surface-light);
   --color-ocean-mid: var(--surface-lighter);
   --color-ocean-light: var(--surface-mid);
-  --color-sand: #f8f6f2;
-  --color-shell: var(--text-secondary-val);
+  --color-sand: #f8fafc;
+  --color-shell: #94a3b8;
   --color-lobster-red: var(--error-val);
-  --color-coral-orange: var(--accent-val);
+  --color-coral-orange: #f97316;
   --color-kelp-green: var(--success-val);
-  --color-sea-blue: var(--info-val);
-  --color-abyss: #2c2924;
-  --color-pearl: #fffef9;
-  --color-foam: var(--surface-mid);
-  --color-coral: var(--accent-val);
+  --color-sea-blue: var(--accent-val);
+  --color-abyss: #020617;
+  --color-pearl: #ffffff;
+  --color-foam: #cbd5e1;
+  --color-coral: #f97316;
 
   /* ── Fonts ── */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -127,7 +112,7 @@ body {
   overflow: hidden;
 }
 
-/* ── Glass panel — soft frosted card ── */
+/* ── Glass panel utility ── */
 .glass-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(24px);
@@ -144,48 +129,101 @@ body {
   border-radius: 1rem;
 }
 
-/* ── Warm button (replaces cyber-button) ── */
+/* ── Cyber button ── */
 .cyber-button {
-  background: rgba(44, 41, 36, 0.04);
+  background: color-mix(in srgb, var(--text-primary-val) 5%, transparent);
   border: 1px solid var(--border-val);
-  border-radius: 0.625rem;
-  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1rem;
   color: var(--text-secondary-val);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  transition: all 0.2s;
+  font-size: 0.625rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transition: all 0.3s;
   cursor: pointer;
 }
 .cyber-button:hover {
-  background: rgba(193, 112, 64, 0.08);
-  border-color: rgba(193, 112, 64, 0.3);
+  background: color-mix(in srgb, var(--accent-val) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-val) 40%, transparent);
   color: var(--accent-val);
 }
 
-/* ── Noise / scanline overlays — disabled (not needed for warm theme) ── */
-.noise, .scanline {
-  display: none;
+/* ── Noise overlay (dark mode only) ── */
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root.dark .noise {
+  opacity: 0.015;
+}
+
+/* ── Scanline overlay (dark mode only) ── */
+.scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 2px, 3px 100%;
+}
+:root.dark .scanline {
+  opacity: 0.02;
 }
 
 /* ── Custom scrollbar ── */
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-/* ── Legacy classes ── */
+/* ── Keep legacy pixel classes working (mapped to new system) ── */
 .font-pixel-display { font-family: var(--font-sans); font-weight: 900; }
 .font-pixel-body { font-family: var(--font-sans); }
 .font-pixel-mono { font-family: var(--font-mono); }
