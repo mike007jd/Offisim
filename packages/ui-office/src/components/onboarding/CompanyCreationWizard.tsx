@@ -297,65 +297,62 @@ export function CompanyCreationWizard({ onComplete }: Props) {
         backgroundSize: '24px 24px',
       }} />
 
-      {/* ── Header ── */}
-      <div className="relative z-10 px-6 pt-5 pb-4 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-slate-400" />
-          <h1 className="text-lg font-bold text-white tracking-tight">New Company</h1>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">Select a template to build your AI company around</p>
+      {/* ── Compact top bar: title + company name + CTA ── */}
+      <div className="relative z-10 px-4 py-2.5 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl">
+        {step === 'creating' ? (
+          <BuildingAnimation />
+        ) : (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 shrink-0">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              <h1 className="text-sm font-bold text-white tracking-tight">New Company</h1>
+            </div>
+            <div className="flex-1 max-w-xs">
+              <input
+                id="company-name"
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="My AI Company"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/40 transition-all focus:shadow-[0_0_12px_2px_rgba(59,130,246,0.08)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={create}
+              disabled={!selectedTemplateId || !runtimeReady}
+              className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-1.5 text-xs font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
+              style={
+                runtimeReady && selectedTemplateId
+                  ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
+                  : undefined
+              }
+            >
+              {!runtimeReady ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Initializing...
+                </span>
+              ) : (
+                'Start Company'
+              )}
+            </button>
+          </div>
+        )}
+        {error && <p className="text-[10px] text-red-400 text-center mt-1">{error}</p>}
       </div>
 
-      {/* ── Template selector tabs ── */}
-      <div className="relative z-10 px-6 pt-4 pb-2">
-        <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-          {templates.map((t) => {
-            const m = TMPL[t.id];
-            const active = selectedTemplateId === t.id;
-            if (!m) return null;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTemplateId(t.id)}
-                className={`shrink-0 flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 border ${
-                  active
-                    ? `${m.accentBg} shadow-lg`
-                    : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08]'
-                }`}
-                style={active ? { boxShadow: `0 0 24px 2px ${m.accentHex}15` } : undefined}
-              >
-                <div className={`shrink-0 ${active ? m.accent : 'text-slate-600'} transition-colors duration-300`}
-                  style={active ? { animation: 'wiz-icon-glow 3s ease-in-out infinite' } : undefined}>
-                  {m.icon}
-                </div>
-                <div className="text-left">
-                  <div className={`text-xs font-semibold ${active ? 'text-white' : 'text-slate-400'} transition-colors`}>
-                    {t.name}
-                  </div>
-                  <div className="text-[10px] text-slate-600">{t.employees.length} members</div>
-                </div>
-                {active && (
-                  <div className="flex gap-0.5 ml-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${
-                        i < m.complexity ? 'bg-current' : 'bg-white/10'
-                      }`} style={{ color: i < m.complexity ? m.accentHex : undefined }} />
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Main content: fixed floor plan (left) + scrollable info (right) ── */}
+      {/* ── Main content: left panel + floor plan ── */}
       <div className="relative z-10 flex-1 flex min-h-0 overflow-hidden">
         {selected && meta ? (
           <>
-            {/* LEFT: Info + Tabbed content (Team | Workflows) */}
-            <LeftPanel selected={selected} meta={meta} />
+            {/* LEFT: Template selector + info + Team/Workflows */}
+            <LeftPanel
+              selected={selected}
+              meta={meta}
+              templates={templates}
+              selectedTemplateId={selectedTemplateId}
+              setSelectedTemplateId={setSelectedTemplateId}
+            />
 
             {/* RIGHT: Floor plan — fixed, fills space */}
             <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
@@ -367,54 +364,9 @@ export function CompanyCreationWizard({ onComplete }: Props) {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-slate-700">Select a template above</p>
+            <p className="text-sm text-slate-700">Select a template to get started</p>
           </div>
         )}
-      </div>
-
-      {/* ── Bottom CTA bar ── */}
-      <div className="relative z-10 border-t border-white/[0.06] bg-black/60 backdrop-blur-xl px-6 py-4">
-        {step === 'creating' ? (
-          <BuildingAnimation />
-        ) : (
-          <div className="flex items-center gap-4 max-w-3xl mx-auto">
-            <div className="flex-1">
-              <label htmlFor="company-name" className="text-[10px] font-medium text-slate-500 uppercase tracking-wider block mb-1.5">
-                Company Name
-              </label>
-              <input
-                id="company-name"
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="My AI Company"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/40 transition-all focus:shadow-[0_0_16px_2px_rgba(59,130,246,0.1)]"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={create}
-              disabled={!selectedTemplateId || !runtimeReady}
-              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all mt-5"
-              style={
-                runtimeReady && selectedTemplateId
-                  ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
-                  : undefined
-              }
-            >
-              {!runtimeReady ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Initializing...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  Start Company
-                </span>
-              )}
-            </button>
-          </div>
-        )}
-        {error && <p className="text-xs text-red-400 text-center mt-2">{error}</p>}
       </div>
     </div>
   );
@@ -442,27 +394,69 @@ function BuildingAnimation() {
    Left Panel — template info + tabbed Team/Workflows
    ══════════════════════════════════════════════════════════════════════════ */
 
-function LeftPanel({ selected, meta }: { selected: CompanyTemplate; meta: TemplateMeta }) {
+function LeftPanel({
+  selected, meta, templates, selectedTemplateId, setSelectedTemplateId,
+}: {
+  selected: CompanyTemplate;
+  meta: TemplateMeta;
+  templates: CompanyTemplate[];
+  selectedTemplateId: string | null;
+  setSelectedTemplateId: (id: string) => void;
+}) {
   const [tab, setTab] = useState<'team' | 'workflows'>('team');
 
   return (
-    <div className="w-[340px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0"
-      key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
-      {/* Template info — compact, fixed */}
-      <div className="px-4 pt-3 pb-2 space-y-1.5 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <div className={`${meta.accent}`}>{meta.icon}</div>
-          <h2 className="text-xs font-bold text-white">{selected.name}</h2>
-          <span className="text-[9px] text-slate-600">—</span>
-          <span className="text-[9px] text-slate-500 truncate">{meta.tagline}</span>
+    <div className="w-[300px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0">
+      {/* ── Template selector list ── */}
+      <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
+        <div className="space-y-0.5">
+          {templates.map((t) => {
+            const m = TMPL[t.id];
+            const active = selectedTemplateId === t.id;
+            if (!m) return null;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelectedTemplateId(t.id)}
+                className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 transition-all duration-200 text-left ${
+                  active
+                    ? 'bg-white/[0.06] border border-white/[0.1]'
+                    : 'border border-transparent hover:bg-white/[0.03]'
+                }`}
+              >
+                <div className={`shrink-0 ${active ? m.accent : 'text-slate-600'} transition-colors`}>
+                  {m.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-slate-400'} truncate transition-colors`}>
+                    {t.name}
+                  </div>
+                </div>
+                <span className="text-[9px] text-slate-600 shrink-0">{t.employees.length}</span>
+                {active && (
+                  <div className="flex gap-0.5 shrink-0">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <div key={i} className="w-1 h-1 rounded-full" style={{
+                        backgroundColor: i < m.complexity ? m.accentHex : 'rgba(255,255,255,0.08)',
+                      }} />
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-600">
+      </div>
+
+      {/* ── Tags row ── */}
+      <div className="px-3 py-2 border-b border-white/[0.06]" key={`tags-${selected.id}`}
+        style={{ animation: 'wiz-fade-in 0.2s ease-out' }}>
+        <div className="flex flex-wrap items-center gap-1 text-[9px]">
           {meta.bestFor.map((tag) => (
             <span key={tag} className="px-1.5 py-px rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">{tag}</span>
           ))}
-          <span>·</span>
-          <span>{selected.employees.length} members</span>
-          <span>·</span>
+          <span className="text-slate-700">·</span>
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
@@ -470,10 +464,12 @@ function LeftPanel({ selected, meta }: { selected: CompanyTemplate; meta: Templa
               }} />
             ))}
           </div>
+          <span className="text-slate-700">·</span>
+          <span className="text-slate-500">{selected.employees.length} members</span>
         </div>
       </div>
 
-      {/* Tab bar */}
+      {/* ── Tab bar ── */}
       <div className="flex border-b border-white/[0.06]">
         <button type="button" onClick={() => setTab('team')}
           className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
@@ -491,8 +487,8 @@ function LeftPanel({ selected, meta }: { selected: CompanyTemplate; meta: Templa
         )}
       </div>
 
-      {/* Tab content — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      {/* ── Tab content — scrollable ── */}
+      <div className="flex-1 overflow-y-auto px-3 py-2" key={`tab-${selected.id}`}>
         {tab === 'team' ? (
           <div className="space-y-1.5">
             {selected.employees.map((emp, idx) => (
@@ -504,7 +500,7 @@ function LeftPanel({ selected, meta }: { selected: CompanyTemplate; meta: Templa
         ) : (
           <div className="space-y-3">
             {selected.sops.map((sop) => (
-              <WorkflowVisual key={sop.sop_id} sop={sop} />
+              <WorkflowFlowChart key={sop.sop_id} sop={sop} />
             ))}
           </div>
         )}
@@ -574,45 +570,193 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Workflow Visual — horizontal step flow with role indicators
+   Workflow Flow Chart — SVG DAG with bezier curve connections
    ══════════════════════════════════════════════════════════════════════════ */
 
-function WorkflowVisual({ sop }: { sop: CompanyTemplate['sops'][0]; accentHex?: string }) {
+interface DagNode {
+  step_id: string;
+  label: string;
+  role_slug: string;
+  layer: number;
+  col: number;
+  x: number;
+  y: number;
+}
+
+function buildDagLayout(steps: CompanyTemplate['sops'][0]['steps']) {
+  // Build step lookup and compute layers via topological depth
+  const stepMap = new Map(steps.map((s) => [s.step_id, s]));
+  const layerMap = new Map<string, number>();
+
+  function getDepth(id: string, visited = new Set<string>()): number {
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const cached = layerMap.get(id);
+    if (cached !== undefined) return cached;
+    const s = stepMap.get(id);
+    if (!s || s.dependencies.length === 0) {
+      layerMap.set(id, 0);
+      return 0;
+    }
+    const depth = Math.max(...s.dependencies.map((d) => getDepth(d, visited))) + 1;
+    layerMap.set(id, depth);
+    return depth;
+  }
+
+  for (const s of steps) getDepth(s.step_id);
+
+  // Group by layer
+  type Step = (typeof steps)[number];
+  const layers = new Map<number, Step[]>();
+  for (const s of steps) {
+    const layer = layerMap.get(s.step_id) ?? 0;
+    const list = layers.get(layer) ?? [];
+    list.push(s);
+    layers.set(layer, list);
+  }
+
+  const maxLayer = Math.max(...layers.keys(), 0);
+  const MAX_PER_ROW = 3;
+  const BOX_W = 82;
+  const BOX_H = 36;
+  const GAP_X = 10;
+  const GAP_Y = 32;
+  const PAD_X = 8;
+  const PAD_Y = 8;
+
+  // Compute node positions
+  const nodes: DagNode[] = [];
+  let maxRowWidth = 0;
+  for (let layer = 0; layer <= maxLayer; layer++) {
+    const layerSteps = layers.get(layer) ?? [];
+    const count = Math.min(layerSteps.length, MAX_PER_ROW);
+    const rowW = count * BOX_W + (count - 1) * GAP_X;
+    if (rowW > maxRowWidth) maxRowWidth = rowW;
+  }
+
+  const svgW = maxRowWidth + PAD_X * 2;
+
+  for (let layer = 0; layer <= maxLayer; layer++) {
+    const layerSteps = layers.get(layer) ?? [];
+    const count = Math.min(layerSteps.length, MAX_PER_ROW);
+    const rowW = count * BOX_W + (count - 1) * GAP_X;
+    const startX = PAD_X + (maxRowWidth - rowW) / 2;
+
+    layerSteps.forEach((s, col) => {
+      if (col >= MAX_PER_ROW) return;
+      nodes.push({
+        step_id: s.step_id,
+        label: s.label,
+        role_slug: s.role_slug,
+        layer,
+        col,
+        x: startX + col * (BOX_W + GAP_X),
+        y: PAD_Y + layer * (BOX_H + GAP_Y),
+      });
+    });
+  }
+
+  const svgH = PAD_Y * 2 + (maxLayer + 1) * BOX_H + maxLayer * GAP_Y;
+
+  // Build edges
+  const nodeMap = new Map(nodes.map((n) => [n.step_id, n]));
+  const edges: Array<{ from: DagNode; to: DagNode }> = [];
+  for (const s of steps) {
+    const target = nodeMap.get(s.step_id);
+    if (!target) continue;
+    for (const depId of s.dependencies) {
+      const source = nodeMap.get(depId);
+      if (source) edges.push({ from: source, to: target });
+    }
+  }
+
+  return { nodes, edges, svgW, svgH, BOX_W, BOX_H };
+}
+
+function WorkflowFlowChart({ sop }: { sop: CompanyTemplate['sops'][0] }) {
+  const layout = useMemo(() => buildDagLayout(sop.steps), [sop.steps]);
+  const { nodes, edges, svgW, svgH, BOX_W, BOX_H } = layout;
+
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="text-[11px] font-medium text-slate-300 mb-3">{sop.name}</div>
-      {/* Flow chart: boxes connected by arrows */}
-      <div className="space-y-1">
-        {sop.steps.map((step, idx) => {
-          const stepColor = ROLE_DOT[step.role_slug] ?? '#64748b';
-          const stepRole = ROLE_LABELS[step.role_slug] ?? step.role_slug;
-          const isLast = idx === sop.steps.length - 1;
+      <div className="text-[11px] font-medium text-slate-300 mb-2">{sop.name}</div>
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" preserveAspectRatio="xMidYMid meet"
+        style={{ maxHeight: `${Math.min(svgH * 1.2, 400)}px` }}>
+        {/* Connection lines — cubic bezier curves */}
+        {edges.map((edge) => {
+          const fromColor = ROLE_DOT[edge.from.role_slug] ?? '#64748b';
+          const x1 = edge.from.x + BOX_W / 2;
+          const y1 = edge.from.y + BOX_H;
+          const x2 = edge.to.x + BOX_W / 2;
+          const y2 = edge.to.y;
+          const cy1 = y1 + (y2 - y1) * 0.45;
+          const cy2 = y2 - (y2 - y1) * 0.45;
           return (
-            <div key={step.step_id}>
-              {/* Step box */}
-              <div className="rounded-lg border px-3 py-2 flex items-center gap-2.5"
-                style={{ borderColor: `${stepColor}40`, backgroundColor: `${stepColor}08` }}>
-                <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0"
-                  style={{ backgroundColor: `${stepColor}25`, color: stepColor }}>
-                  {idx + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-slate-300 leading-tight">{step.label}</div>
-                  <div className="text-[9px] mt-0.5" style={{ color: stepColor }}>{stepRole}</div>
-                </div>
-              </div>
-              {/* Arrow connector */}
-              {!isLast && (
-                <div className="flex justify-center py-0.5">
-                  <svg width="12" height="10" viewBox="0 0 12 10" className="text-slate-700">
-                    <path d="M6 0 L6 6 M3 4 L6 7 L9 4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-              )}
-            </div>
+            <path
+              key={`${edge.from.step_id}-${edge.to.step_id}`}
+              d={`M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`}
+              fill="none"
+              stroke={fromColor}
+              strokeWidth={1.2}
+              strokeOpacity={0.4}
+              strokeLinecap="round"
+            />
           );
         })}
-      </div>
+        {/* Arrow heads at connection endpoints */}
+        {edges.map((edge) => {
+          const fromColor = ROLE_DOT[edge.from.role_slug] ?? '#64748b';
+          const x2 = edge.to.x + BOX_W / 2;
+          const y2 = edge.to.y;
+          return (
+            <polygon
+              key={`arrow-${edge.from.step_id}-${edge.to.step_id}`}
+              points={`${x2},${y2} ${x2 - 3},${y2 - 5} ${x2 + 3},${y2 - 5}`}
+              fill={fromColor}
+              fillOpacity={0.5}
+            />
+          );
+        })}
+        {/* Step boxes */}
+        {nodes.map((node) => {
+          const color = ROLE_DOT[node.role_slug] ?? '#64748b';
+          const roleLabel = ROLE_LABELS[node.role_slug] ?? node.role_slug;
+          return (
+            <g key={node.step_id}>
+              {/* Box background */}
+              <rect
+                x={node.x} y={node.y}
+                width={BOX_W} height={BOX_H}
+                rx={4}
+                fill={`${color}10`}
+                stroke={color}
+                strokeWidth={0.8}
+                strokeOpacity={0.5}
+              />
+              {/* Step label — truncated */}
+              <text
+                x={node.x + BOX_W / 2} y={node.y + 14}
+                textAnchor="middle"
+                fontSize={8} fontWeight={600}
+                fill="#e2e8f0"
+                fontFamily="system-ui"
+              >
+                {node.label.length > 12 ? node.label.slice(0, 11) + '\u2026' : node.label}
+              </text>
+              {/* Role label */}
+              <text
+                x={node.x + BOX_W / 2} y={node.y + 26}
+                textAnchor="middle"
+                fontSize={6.5}
+                fill={color}
+                fontFamily="system-ui"
+              >
+                {roleLabel.length > 14 ? roleLabel.slice(0, 13) + '\u2026' : roleLabel}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
