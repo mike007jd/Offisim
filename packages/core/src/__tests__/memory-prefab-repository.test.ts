@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { PrefabInstanceRow } from '@aics/shared-types';
 import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';
 
@@ -45,7 +45,7 @@ describe('MemoryPrefabInstanceRepository', () => {
 
     const results = await repo.findByCompanyAndZone('co-1', 'zone-dev');
     expect(results).toHaveLength(1);
-    expect(results[0].instance_id).toBe('pi-1');
+    expect(results[0]!.instance_id).toBe('pi-1');
   });
 
   it('findByCompany() returns all for a company', async () => {
