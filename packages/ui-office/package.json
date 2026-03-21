@@ -11,6 +11,34 @@
     "./scene": {
       "types": "./dist/scene.d.ts",
       "default": "./dist/scene.js"
+    },
+    "./wizard": {
+      "types": "./dist/components/onboarding/CompanyCreationWizard.d.ts",
+      "default": "./dist/components/onboarding/CompanyCreationWizard.js"
+    },
+    "./dashboard": {
+      "types": "./dist/components/dashboard/DashboardOverlay.d.ts",
+      "default": "./dist/components/dashboard/DashboardOverlay.js"
+    },
+    "./employee-creator": {
+      "types": "./dist/components/employees/EmployeeCreatorOverlay.d.ts",
+      "default": "./dist/components/employees/EmployeeCreatorOverlay.js"
+    },
+    "./office-editor": {
+      "types": "./dist/components/office/OfficeEditorOverlay.d.ts",
+      "default": "./dist/components/office/OfficeEditorOverlay.js"
+    },
+    "./settings": {
+      "types": "./dist/components/settings/SettingsDialog.d.ts",
+      "default": "./dist/components/settings/SettingsDialog.js"
+    },
+    "./company-editor": {
+      "types": "./dist/components/company/CompanyEditor.d.ts",
+      "default": "./dist/components/company/CompanyEditor.js"
+    },
+    "./install": {
+      "types": "./dist/components/install/InstallDialog.d.ts",
+      "default": "./dist/components/install/InstallDialog.js"
     }
   },
   "scripts": {

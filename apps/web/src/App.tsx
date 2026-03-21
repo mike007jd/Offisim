@@ -6,19 +6,12 @@ import {
   COMPANY_ID,
   ChatDrawer,
   ChatPanel,
-  CompanyCreationWizard,
-  CompanyEditor,
-  DashboardOverlay,
-  EmployeeCreatorOverlay,
   EmployeeInspector,
   ErrorBoundary,
   Header,
-  InstallDialog,
   NotificationCenter,
-  OfficeEditorOverlay,
   type ProviderConfig,
   RightSidebar,
-  SettingsDialog,
   StatusBar,
   loadProviderConfig,
   useAgentStates,
@@ -34,6 +27,29 @@ import React, { Suspense, useCallback, useEffect, useState } from 'react';
 /** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
 const SceneCanvas = React.lazy(() =>
   import('@aics/ui-office/scene').then((m) => ({ default: m.SceneCanvas })),
+);
+
+/** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
+const CompanyCreationWizard = React.lazy(() =>
+  import('@aics/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
+);
+const DashboardOverlay = React.lazy(() =>
+  import('@aics/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
+);
+const EmployeeCreatorOverlay = React.lazy(() =>
+  import('@aics/ui-office/employee-creator').then((m) => ({ default: m.EmployeeCreatorOverlay })),
+);
+const OfficeEditorOverlay = React.lazy(() =>
+  import('@aics/ui-office/office-editor').then((m) => ({ default: m.OfficeEditorOverlay })),
+);
+const SettingsDialog = React.lazy(() =>
+  import('@aics/ui-office/settings').then((m) => ({ default: m.SettingsDialog })),
+);
+const CompanyEditor = React.lazy(() =>
+  import('@aics/ui-office/company-editor').then((m) => ({ default: m.CompanyEditor })),
+);
+const InstallDialog = React.lazy(() =>
+  import('@aics/ui-office/install').then((m) => ({ default: m.InstallDialog })),
 );
 
 type AppView = 'office' | 'employee-creator' | 'office-editor';
@@ -148,14 +164,20 @@ export function App() {
 
         {/* ── Full-page views ── */}
         {view === 'employee-creator' && (
-          <EmployeeCreatorOverlay
-            open
-            onClose={() => setView('office')}
-            onDeploy={handleCreatorDeploy}
-          />
+          <Suspense fallback={null}>
+            <EmployeeCreatorOverlay
+              open
+              onClose={() => setView('office')}
+              onDeploy={handleCreatorDeploy}
+            />
+          </Suspense>
         )}
 
-        {view === 'office-editor' && <OfficeEditorOverlay open onClose={() => setView('office')} />}
+        {view === 'office-editor' && (
+          <Suspense fallback={null}>
+            <OfficeEditorOverlay open onClose={() => setView('office')} />
+          </Suspense>
+        )}
 
         {/* ── Office view (default) ── */}
         {view === 'office' && (
@@ -210,7 +232,9 @@ export function App() {
               statusBar={<StatusBar modelName={providerConfig?.model} />}
             />
             {dashboardOpen && (
-              <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+              <Suspense fallback={null}>
+                <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+              </Suspense>
             )}
             <EmployeeInspector
               employeeId={selectedEmployeeId}
@@ -226,15 +250,23 @@ export function App() {
         )}
 
         {/* ── Global dialogs (available across all views) ── */}
-        <SettingsDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          onSave={handleSaveConfig}
-          onSaveSuccess={() => addToast('Provider configuration saved', 'success')}
-        />
-        <InstallDialog {...installFlow} />
-        <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
-        <CompanyCreationWizard onComplete={handleWizardComplete} />
+        <Suspense fallback={null}>
+          <SettingsDialog
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            onSave={handleSaveConfig}
+            onSaveSuccess={() => addToast('Provider configuration saved', 'success')}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <InstallDialog {...installFlow} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <CompanyCreationWizard onComplete={handleWizardComplete} />
+        </Suspense>
       </>
     </ErrorBoundary>
   );

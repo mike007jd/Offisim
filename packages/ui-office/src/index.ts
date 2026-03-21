@@ -1,6 +1,8 @@
 // Components
+// Note: CompanyCreationWizard, CompanyEditor, DashboardOverlay, EmployeeCreatorOverlay,
+// InstallDialog, OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from
+// the barrel — they are lazy-loaded via subpath exports (e.g. @aics/ui-office/wizard).
 export * from './components/ErrorBoundary.js';
-export * from './components/company/CompanyEditor.js';
 export * from './components/company/PolicyEditor.js';
 export * from './components/company/ZoneEditor.js';
 export * from './components/agents/AgentCard.js';
@@ -13,7 +15,6 @@ export * from './components/chat/ChatPanel.js';
 export * from './components/chat/MessageBubble.js';
 export * from './components/chat/StreamingBubble.js';
 export * from './components/dashboard/BossDashboard.js';
-export * from './components/dashboard/DashboardOverlay.js';
 export * from './components/dashboard/CompanyStatusCard.js';
 export * from './components/dashboard/CostByModelCard.js';
 export * from './components/dashboard/CostOverviewCard.js';
@@ -22,8 +23,6 @@ export * from './components/dashboard/StepProgressBar.js';
 export * from './components/dashboard/TaskDetailPanel.js';
 export * from './components/dashboard/TaskQueueCard.js';
 export * from './components/dashboard/TeamHealthCard.js';
-export { EmployeeCreatorOverlay } from './components/employees/EmployeeCreatorOverlay.js';
-export type { EmployeeCreatorOverlayProps } from './components/employees/EmployeeCreatorOverlay.js';
 export * from './components/employees/EmployeeEditorDialog.js';
 export * from './components/employees/EmployeeQuickCard.js';
 export * from './components/employees/EmployeeWorkshop.js';
@@ -46,7 +45,6 @@ export * from './components/events/EventItem.js';
 export * from './components/events/EventLog.js';
 export * from './components/install/BindingForm.js';
 export * from './components/install/FileImportTrigger.js';
-export * from './components/install/InstallDialog.js';
 export * from './components/install/InstallProgress.js';
 export * from './components/install/ManifestReview.js';
 export * from './components/install/SkillReview.js';
@@ -60,8 +58,6 @@ export * from './components/library/Library.js';
 export * from './components/office/MeetingControls.js';
 export { MeetingPanel } from './components/office/MeetingPanel.js';
 export type { MeetingPanelProps } from './components/office/MeetingPanel.js';
-export { OfficeEditorOverlay } from './components/office/OfficeEditorOverlay.js';
-export * from './components/onboarding/CompanyCreationWizard.js';
 export * from './components/onboarding/TemplateCard.js';
 export * from './components/pitch/PitchHall.js';
 export * from './components/plan/TaskDashboard.js';
@@ -72,7 +68,6 @@ export * from './components/scene/SceneCanvas.js';
 export * from './components/scene/useScene.js';
 export * from './components/server-room/ServerRoom.js';
 export * from './components/settings/McpConfigPanel.js';
-export * from './components/settings/SettingsDialog.js';
 export * from './components/settings/provider-presets.js';
 
 // Hooks
