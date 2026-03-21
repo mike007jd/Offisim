@@ -5,6 +5,7 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 export interface ServerRackMesh3DProps {
   position?: [number, number, number];
@@ -17,6 +18,7 @@ export function ServerRackMesh3D({
   rotation = 0,
   state: _state,
 }: ServerRackMesh3DProps) {
+  const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
 
   return (
@@ -26,12 +28,12 @@ export function ServerRackMesh3D({
         <group key={`rack-${ri}`} position={[x, 0, -0.5]}>
           {/* Rack cabinet */}
           <RoundedBox args={[1.6, 2.8, 1]} position={[0, 1.4, 0]} radius={0.03} smoothness={4} castShadow>
-            <meshStandardMaterial color="#0f172a" metalness={0.6} roughness={0.3} />
+            <meshStandardMaterial color={sc.serverBody} metalness={0.6} roughness={0.3} />
           </RoundedBox>
           {/* Front panel */}
           <mesh position={[0, 1.4, 0.51]}>
             <planeGeometry args={[1.4, 2.6]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.4} roughness={0.4} />
+            <meshStandardMaterial color={sc.furniture} metalness={0.4} roughness={0.4} />
           </mesh>
           {/* LED indicator rows */}
           {[0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.2, 2.5].map((y, li) => (
@@ -40,7 +42,7 @@ export function ServerRackMesh3D({
                 <mesh key={`led-${lj}`} position={[lx, y, 0.52]}>
                   <circleGeometry args={[0.03, 8]} />
                   <meshBasicMaterial
-                    color={(li + lj + ri) % 3 === 0 ? '#06b6d4' : (li + lj + ri) % 3 === 1 ? '#10b981' : '#3b82f6'}
+                    color={(li + lj + ri) % 3 === 0 ? sc.ledCyan : (li + lj + ri) % 3 === 1 ? sc.leafPrimary : sc.ledBlue}
                   />
                 </mesh>
               ))}
@@ -52,7 +54,7 @@ export function ServerRackMesh3D({
               {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((vx, vj) => (
                 <mesh key={`vline-${vj}`} position={[vx, y, 0.515]}>
                   <planeGeometry args={[0.08, 0.04]} />
-                  <meshStandardMaterial color="#334155" />
+                  <meshStandardMaterial color={sc.furnitureLight} />
                 </mesh>
               ))}
             </group>

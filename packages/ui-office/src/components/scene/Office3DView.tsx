@@ -1,6 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { Lobster3D } from './Lobster3D.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -468,6 +469,7 @@ function EmployeeMarker({
   onSelect: (id: string) => void;
   onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
+  const sc = useSceneColors();
   const color = STATE_COLORS[emp.agent.state] ?? '#64748b';
   const outfit = OUTFIT_COLORS[emp.globalIndex % OUTFIT_COLORS.length] ?? '#3b82f6';
   const skin = SKIN_TONES[emp.globalIndex % SKIN_TONES.length] ?? '#fce7f3';
@@ -515,7 +517,7 @@ function EmployeeMarker({
             {isSelected && (
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <ringGeometry args={[0.6, 0.75, 32]} />
-                <meshBasicMaterial color="#3b82f6" transparent opacity={0.8} />
+                <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
               </mesh>
             )}
             <LowPolyCharacter
@@ -530,7 +532,7 @@ function EmployeeMarker({
       {isDragSource && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
           <ringGeometry args={[0.5, 0.65, 32]} />
-          <meshBasicMaterial color="#94a3b8" transparent opacity={0.3} />
+          <meshBasicMaterial color={sc.textMuted} transparent opacity={0.3} />
         </mesh>
       )}
       {emp.agent.state !== 'idle' && !isDragSource && (
@@ -578,6 +580,7 @@ function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
 // ── Drag ghost (translucent cylinder character silhouette) ───────────
 
 function DragGhost3D({ position }: { position: [number, number, number] }) {
+  const sc = useSceneColors();
   return (
     <group position={position}>
       {/* Shadow disc on floor */}
@@ -588,12 +591,12 @@ function DragGhost3D({ position }: { position: [number, number, number] }) {
       {/* Body cylinder */}
       <mesh position={[0, 0.75, 0]} castShadow>
         <cylinderGeometry args={[0.25, 0.3, 1.2, 12]} />
-        <meshStandardMaterial color="#3b82f6" transparent opacity={0.45} />
+        <meshStandardMaterial color={sc.selectionRing} transparent opacity={0.45} />
       </mesh>
       {/* Head sphere */}
       <mesh position={[0, 1.5, 0]} castShadow>
         <sphereGeometry args={[0.22, 12, 12]} />
-        <meshStandardMaterial color="#3b82f6" transparent opacity={0.45} />
+        <meshStandardMaterial color={sc.selectionRing} transparent opacity={0.45} />
       </mesh>
       {/* Glowing ring at feet */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
@@ -827,19 +830,20 @@ function ZoneActivityGlow({ size, activityCount, hasBlocked }: {
 
 /** Floating "MEETING" pill above the MTG zone when a meeting is active. */
 function MeetingActiveLabel() {
+  const sc = useSceneColors();
   return (
     <Html position={[0, 2.5, 0]} center style={{ pointerEvents: 'none' }}>
       <div style={{
         background: 'rgba(148,163,184,0.20)',
         backdropFilter: 'blur(6px)',
-        border: '1px solid #94a3b8',
+        border: `1px solid ${sc.textMuted}`,
         borderRadius: '9999px',
         padding: '3px 14px',
         whiteSpace: 'nowrap',
         animation: 'pulse 2s infinite',
       }}>
         <span style={{
-          color: '#e2e8f0',
+          color: sc.text,
           fontSize: '10px',
           fontWeight: 900,
           letterSpacing: '3px',
@@ -857,14 +861,15 @@ function MeetingActiveLabel() {
 export function MeetingParticipantLines({ participantPositions }: {
   participantPositions: [number, number, number][];
 }) {
+  const sc = useSceneColors();
   const MTG_CENTER: [number, number, number] = [-10, 0.5, -8];
 
   const lines = useMemo(() => participantPositions.map((pos) => {
     const points = [new THREE.Vector3(...MTG_CENTER), new THREE.Vector3(...pos)];
     const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.35, linewidth: 1 });
+    const mat = new THREE.LineBasicMaterial({ color: sc.textMuted, transparent: true, opacity: 0.35, linewidth: 1 });
     return new THREE.Line(geo, mat);
-  }), [participantPositions]);
+  }), [participantPositions, sc.textMuted]);
 
   return (
     <>
