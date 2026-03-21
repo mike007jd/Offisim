@@ -8,8 +8,7 @@ import type { CompanyTemplate } from './index.js';
 export const contentStudioTemplate: CompanyTemplate = {
   id: 'content-studio',
   name: 'Content Studio',
-  description:
-    'AI content factory with research-draft-edit-review-optimize pipeline. Showcases the Generate-Critique collaboration pattern with editorial oversight.',
+  description: 'Research, write, review, publish',
   icon: '📝',
   employees: [
     {

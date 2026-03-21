@@ -8,8 +8,7 @@ import type { CompanyTemplate } from './index.js';
 export const productTeamTemplate: CompanyTemplate = {
   id: 'product-team',
   name: 'Product Team',
-  description:
-    'AI development squad with specify-design-implement-review pipeline. Showcases the Spec-Driven collaboration pattern.',
+  description: 'Spec → design → build → ship',
   icon: '🚀',
   employees: [
     {

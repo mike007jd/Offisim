@@ -8,8 +8,7 @@ import type { CompanyTemplate } from './index.js';
 export const rdCompanyTemplate: CompanyTemplate = {
   id: 'rd-company',
   name: 'R&D Company',
-  description:
-    'A full R&D company with developers, product managers, and designers — the default starting template.',
+  description: 'Dev + PM + Design team',
   icon: '🏢',
   employees: [
     // ── DEV department (4 devs) ──

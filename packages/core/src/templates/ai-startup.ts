@@ -8,8 +8,7 @@ import type { CompanyTemplate } from './index.js';
 export const aiStartupTemplate: CompanyTemplate = {
   id: 'ai-startup',
   name: 'AI Startup',
-  description:
-    'An AI/ML-focused team with researchers, ML engineers, data engineers, and product builders. Includes Model Evaluation, AI Feature Sprint, and Paper Review & Implementation SOPs.',
+  description: 'ML research + data + product',
   icon: '🧠',
   employees: [
     // ── Research & ML ──

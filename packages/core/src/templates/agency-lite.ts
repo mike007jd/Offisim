@@ -8,8 +8,7 @@ import type { CompanyTemplate } from './index.js';
 export const agencyLiteTemplate: CompanyTemplate = {
   id: 'agency-lite',
   name: 'Agency Lite',
-  description:
-    'Freelancer/small studio setup with client management, creative production, and quality delivery. Includes Client Brief Intake, Deliverable Review, and Social Media Campaign SOPs.',
+  description: 'Client work + creative delivery',
   icon: '🏗️',
   employees: [
     // ── Client-facing ──
