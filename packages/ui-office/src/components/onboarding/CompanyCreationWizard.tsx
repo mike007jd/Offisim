@@ -57,6 +57,7 @@ export function CompanyCreationWizard({ onComplete }: Props) {
   const {
     step, templates, selectedTemplateId, companyName,
     setSelectedTemplateId, setCompanyName, create, error,
+    runtimeReady,
   } = useCompanyCreation();
 
   const prevStepRef = useRef(step);
@@ -106,9 +107,13 @@ export function CompanyCreationWizard({ onComplete }: Props) {
         <div className="p-3 border-t border-white/[0.06] space-y-2">
           <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company name"
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/40" />
-          <button type="button" onClick={create} disabled={!selectedTemplateId || step === 'creating'}
+          <button type="button" onClick={create} disabled={!selectedTemplateId || step === 'creating' || !runtimeReady}
             className="w-full rounded-lg bg-blue-600 py-2 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-30 transition-colors">
-            {step === 'creating' ? <span className="flex items-center justify-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Setting up...</span> : 'Start Company'}
+            {step === 'creating'
+              ? <span className="flex items-center justify-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Setting up...</span>
+              : !runtimeReady
+                ? <span className="flex items-center justify-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Initializing...</span>
+                : 'Start Company'}
           </button>
           {error && <p className="text-[10px] text-red-400">{error}</p>}
         </div>

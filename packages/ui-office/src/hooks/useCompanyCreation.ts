@@ -16,6 +16,7 @@ export interface UseCompanyCreationReturn {
   setCompanyName: (name: string) => void;
   create: () => Promise<void>;
   error: string | null;
+  runtimeReady: boolean;
 }
 
 export function useCompanyCreation(): UseCompanyCreationReturn {
@@ -43,8 +44,14 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
     })();
   }, [repos]);
 
+  const runtimeReady = repos !== null;
+
   const create = useCallback(async () => {
-    if (!repos || !selectedTemplateId) return;
+    if (!selectedTemplateId) return;
+    if (!repos) {
+      setError('Runtime is still initializing. Please wait a moment and try again.');
+      return;
+    }
     setStep('creating');
     setError(null);
     try {
@@ -73,5 +80,6 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
     setCompanyName,
     create,
     error,
+    runtimeReady,
   };
 }
