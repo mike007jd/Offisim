@@ -354,63 +354,8 @@ export function CompanyCreationWizard({ onComplete }: Props) {
       <div className="relative z-10 flex-1 flex min-h-0 overflow-hidden">
         {selected && meta ? (
           <>
-            {/* LEFT: Info + Team + Workflows — scrollable */}
-            <div className="w-[340px] shrink-0 border-r border-white/[0.06] overflow-y-auto px-4 py-4 space-y-4"
-              key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
-              {/* Template info — compact */}
-              <div className="flex items-center gap-2">
-                <div className={`${meta.accent}`}>{meta.icon}</div>
-                <h2 className="text-xs font-bold text-white">{selected.name}</h2>
-                <span className="text-[9px] text-slate-600">—</span>
-                <span className="text-[9px] text-slate-500 truncate">{meta.tagline}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-600">
-                {meta.bestFor.map((tag) => (
-                  <span key={tag} className="px-1.5 py-px rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">{tag}</span>
-                ))}
-                <span>·</span>
-                <span>{selected.employees.length} members</span>
-                <span>·</span>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
-                      backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
-                    }} />
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-white/[0.06]" />
-
-              {/* Team */}
-              <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Team · {selected.employees.length}
-                </h3>
-                <div className="space-y-1.5">
-                  {selected.employees.map((emp, idx) => (
-                    <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 50}ms both` }}>
-                      <EmployeeCard name={emp.name} role={emp.role_slug} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Workflows */}
-              {selected.sops.length > 0 && (
-                <div>
-                  <div className="border-t border-white/[0.06] mb-4" />
-                  <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Workflows
-                  </h3>
-                  <div className="space-y-2">
-                    {selected.sops.map((sop) => (
-                      <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* LEFT: Info + Tabbed content (Team | Workflows) */}
+            <LeftPanel selected={selected} meta={meta} />
 
             {/* RIGHT: Floor plan — fixed, fills space */}
             <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
@@ -493,7 +438,80 @@ function BuildingAnimation() {
   );
 }
 
-/* TemplateHero removed — content inlined into main component layout */
+/* ══════════════════════════════════════════════════════════════════════════
+   Left Panel — template info + tabbed Team/Workflows
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function LeftPanel({ selected, meta }: { selected: CompanyTemplate; meta: TemplateMeta }) {
+  const [tab, setTab] = useState<'team' | 'workflows'>('team');
+
+  return (
+    <div className="w-[340px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0"
+      key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
+      {/* Template info — compact, fixed */}
+      <div className="px-4 pt-3 pb-2 space-y-1.5 border-b border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <div className={`${meta.accent}`}>{meta.icon}</div>
+          <h2 className="text-xs font-bold text-white">{selected.name}</h2>
+          <span className="text-[9px] text-slate-600">—</span>
+          <span className="text-[9px] text-slate-500 truncate">{meta.tagline}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-600">
+          {meta.bestFor.map((tag) => (
+            <span key={tag} className="px-1.5 py-px rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">{tag}</span>
+          ))}
+          <span>·</span>
+          <span>{selected.employees.length} members</span>
+          <span>·</span>
+          <div className="flex gap-0.5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
+                backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
+              }} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex border-b border-white/[0.06]">
+        <button type="button" onClick={() => setTab('team')}
+          className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+            tab === 'team' ? 'text-white border-b-2 border-blue-500' : 'text-slate-600 hover:text-slate-400'
+          }`}>
+          Team · {selected.employees.length}
+        </button>
+        {selected.sops.length > 0 && (
+          <button type="button" onClick={() => setTab('workflows')}
+            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+              tab === 'workflows' ? 'text-white border-b-2 border-blue-500' : 'text-slate-600 hover:text-slate-400'
+            }`}>
+            Workflows · {selected.sops.length}
+          </button>
+        )}
+      </div>
+
+      {/* Tab content — scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {tab === 'team' ? (
+          <div className="space-y-1.5">
+            {selected.employees.map((emp, idx) => (
+              <div key={emp.name} style={{ animation: `wiz-card-in 0.3s ease-out ${idx * 40}ms both` }}>
+                <EmployeeCard name={emp.name} role={emp.role_slug} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {selected.sops.map((sop) => (
+              <WorkflowVisual key={sop.sop_id} sop={sop} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Employee Card — character profile with expandable detail
@@ -562,25 +580,35 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
 function WorkflowVisual({ sop }: { sop: CompanyTemplate['sops'][0]; accentHex?: string }) {
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="text-[11px] font-medium text-slate-300 mb-2.5">{sop.name}</div>
-      <div className="space-y-0">
+      <div className="text-[11px] font-medium text-slate-300 mb-3">{sop.name}</div>
+      {/* Flow chart: boxes connected by arrows */}
+      <div className="space-y-1">
         {sop.steps.map((step, idx) => {
           const stepColor = ROLE_DOT[step.role_slug] ?? '#64748b';
           const stepRole = ROLE_LABELS[step.role_slug] ?? step.role_slug;
           const isLast = idx === sop.steps.length - 1;
           return (
-            <div key={step.step_id} className="flex gap-2.5">
-              {/* Timeline column */}
-              <div className="flex flex-col items-center w-4 shrink-0">
-                <div className="w-2.5 h-2.5 rounded-full border-[1.5px] shrink-0 mt-0.5"
-                  style={{ borderColor: stepColor, backgroundColor: `${stepColor}20` }} />
-                {!isLast && <div className="w-px flex-1 my-0.5" style={{ backgroundColor: `${stepColor}30` }} />}
+            <div key={step.step_id}>
+              {/* Step box */}
+              <div className="rounded-lg border px-3 py-2 flex items-center gap-2.5"
+                style={{ borderColor: `${stepColor}40`, backgroundColor: `${stepColor}08` }}>
+                <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0"
+                  style={{ backgroundColor: `${stepColor}25`, color: stepColor }}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-slate-300 leading-tight">{step.label}</div>
+                  <div className="text-[9px] mt-0.5" style={{ color: stepColor }}>{stepRole}</div>
+                </div>
               </div>
-              {/* Step content */}
-              <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-2.5'}`}>
-                <div className="text-[10px] text-slate-400">{step.label}</div>
-                <div className="text-[9px] mt-0.5" style={{ color: stepColor }}>{stepRole}</div>
-              </div>
+              {/* Arrow connector */}
+              {!isLast && (
+                <div className="flex justify-center py-0.5">
+                  <svg width="12" height="10" viewBox="0 0 12 10" className="text-slate-700">
+                    <path d="M6 0 L6 6 M3 4 L6 7 L9 4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </div>
           );
         })}
@@ -899,10 +927,10 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
             {/* Hover tooltip */}
             {isHovered && tooltip && (
               <g>
-                <rect x={mx - 50} y={z.y - 16} width={100} height={13} rx={3}
-                  fill="#1e293b" stroke={z.accent} strokeWidth={0.3} strokeOpacity={0.5} />
-                <text x={mx} y={z.y - 7.5} fontSize={3.5} fill="#e2e8f0" textAnchor="middle"
-                  fontFamily="system-ui">{tooltip}</text>
+                <rect x={mx - 90} y={z.y - 28} width={180} height={22} rx={4}
+                  fill="#0f172a" stroke={z.accent} strokeWidth={0.5} strokeOpacity={0.6} />
+                <text x={mx} y={z.y - 14} fontSize={9} fill="#e2e8f0" textAnchor="middle"
+                  fontFamily="system-ui" fontWeight={500}>{tooltip}</text>
               </g>
             )}
 
