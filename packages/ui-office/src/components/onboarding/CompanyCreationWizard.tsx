@@ -483,8 +483,16 @@ function TemplateHero({ template, meta }: { template: CompanyTemplate; meta: Tem
         </div>
       </div>
 
-      {/* ── Content grid: team + floor plan ── */}
-      <div className="grid grid-cols-[1fr_340px] gap-5 items-start" style={{ minHeight: 0 }}>
+      {/* ── Office Layout — full width ── */}
+      <div>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Office Layout</h3>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] overflow-hidden">
+          <Office2DPreview employees={template.employees} />
+        </div>
+      </div>
+
+      {/* ── Team + Workflows side by side ── */}
+      <div className="grid grid-cols-[1fr_300px] gap-5 items-start">
         {/* Left: Team */}
         <div>
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -502,28 +510,19 @@ function TemplateHero({ template, meta }: { template: CompanyTemplate; meta: Tem
           </div>
         </div>
 
-        {/* Right: Floor plan + workflows */}
-        <div className="space-y-4">
+        {/* Right: Workflows */}
+        {template.sops.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Office Layout</h3>
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] overflow-hidden">
-              <Office2DPreview employees={template.employees} />
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              Workflows
+            </h3>
+            <div className="space-y-2">
+              {template.sops.map((sop) => (
+                <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
+              ))}
             </div>
           </div>
-
-          {template.sops.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Workflows
-              </h3>
-              <div className="space-y-2">
-                {template.sops.map((sop) => (
-                  <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
