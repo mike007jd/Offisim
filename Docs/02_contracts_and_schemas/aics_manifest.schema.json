@@ -41,7 +41,8 @@
             "sop",
             "company_template",
             "office_layout",
-            "bundle"
+            "bundle",
+            "prefab"
           ]
         },
         "version": {
@@ -289,7 +290,8 @@
               "sop",
               "company_template",
               "office_layout",
-              "bundle"
+              "bundle",
+              "prefab"
             ]
           },
           "path": {

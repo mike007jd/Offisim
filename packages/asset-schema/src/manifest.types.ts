@@ -5,7 +5,8 @@ export type AssetKind =
   | 'sop'
   | 'company_template'
   | 'office_layout'
-  | 'bundle';
+  | 'bundle'
+  | 'prefab';
 
 export type SupportedEnvironment = 'desktop' | 'docker' | 'web_limited';
 
