@@ -354,16 +354,8 @@ export function CompanyCreationWizard({ onComplete }: Props) {
       <div className="relative z-10 flex-1 flex min-h-0 overflow-hidden">
         {selected && meta ? (
           <>
-            {/* LEFT: Floor plan — fixed, fills space */}
-            <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
-              style={{ animation: 'wiz-fade-in 0.4s ease-out' }}>
-              <div className="w-full h-full rounded-xl border border-white/[0.06] bg-white/[0.01] flex items-center justify-center p-2 overflow-hidden">
-                <Office2DPreview employees={selected.employees} />
-              </div>
-            </div>
-
-            {/* RIGHT: Info + Team + Workflows — scrollable */}
-            <div className="w-[340px] shrink-0 border-l border-white/[0.06] overflow-y-auto px-4 py-4 space-y-4"
+            {/* LEFT: Info + Team + Workflows — scrollable */}
+            <div className="w-[340px] shrink-0 border-r border-white/[0.06] overflow-y-auto px-4 py-4 space-y-4"
               key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
               {/* Template info header */}
               <div>
@@ -433,6 +425,14 @@ export function CompanyCreationWizard({ onComplete }: Props) {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* RIGHT: Floor plan — fixed, fills space */}
+            <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
+              style={{ animation: 'wiz-fade-in 0.4s ease-out' }}>
+              <div className="w-full h-full rounded-xl border border-white/[0.06] bg-white/[0.01] flex items-center justify-center p-2 overflow-hidden">
+                <Office2DPreview employees={selected.employees} />
+              </div>
             </div>
           </>
         ) : (
