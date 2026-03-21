@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, RoundedBox, Html } from '@react-three/drei';
+import { OrbitControls, Environment, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Lobster3D } from './Lobster3D.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,6 +10,16 @@ import { COMPANY_ID } from '../../lib/constants';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { ZONES, DROP_TARGET_ZONES, STATUS_COLORS as _STATUS_COLORS, resolveEmployeeZone } from '../../lib/zone-config.js';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
+import { Prefab3D } from './prefabs/index.js';
+import {
+  WorkstationMesh3D,
+  BookshelfMesh3D,
+  RestAreaMesh3D,
+  MeetingTableMesh3D,
+  ServerRackMesh3D,
+  PlantMesh3D,
+} from './prefabs/index.js';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
 // zone-config uses { cx, cz, w, d } (2D/logical coords).
@@ -93,308 +103,9 @@ const SKIN_TONES = [
 ];
 
 // ── Furniture components ────────────────────────────────────────────
-
-function OfficeChair({ position, rotation = [0, 0, 0] }: {
-  position: [number, number, number];
-  rotation?: [number, number, number];
-}) {
-  return (
-    <group position={position} rotation={rotation}>
-      <mesh position={[0, 0.05, 0]} castShadow>
-        <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      <mesh position={[0, 0.25, 0]} castShadow>
-        <cylinderGeometry args={[0.05, 0.05, 0.4, 8]} />
-        <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <RoundedBox args={[0.5, 0.08, 0.5]} position={[0, 0.45, 0]} radius={0.02} smoothness={4} castShadow>
-        <meshStandardMaterial color="#1e293b" />
-      </RoundedBox>
-      <RoundedBox args={[0.45, 0.5, 0.05]} position={[0, 0.75, 0.22]} radius={0.02} smoothness={4} castShadow>
-        <meshStandardMaterial color="#1e293b" />
-      </RoundedBox>
-    </group>
-  );
-}
-
-function Laptop({ position, rotation = [0, 0, 0] }: {
-  position: [number, number, number];
-  rotation?: [number, number, number];
-}) {
-  return (
-    <group position={position} rotation={rotation}>
-      <mesh position={[0, 0.01, 0]} castShadow>
-        <boxGeometry args={[0.4, 0.02, 0.3]} />
-        <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <group position={[0, 0.02, -0.15]} rotation={[-0.2, 0, 0]}>
-        <mesh position={[0, 0.15, 0]} castShadow>
-          <boxGeometry args={[0.4, 0.3, 0.02]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-        </mesh>
-        <mesh position={[0, 0.15, 0.011]}>
-          <planeGeometry args={[0.38, 0.28]} />
-          <meshBasicMaterial color="#0ea5e9" />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function Plant({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.25, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.15, 0.5, 16]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <icosahedronGeometry args={[0.3, 1]} />
-        <meshStandardMaterial color="#10b981" roughness={0.6} />
-      </mesh>
-      <mesh position={[-0.15, 0.5, 0.1]} castShadow>
-        <icosahedronGeometry args={[0.2, 1]} />
-        <meshStandardMaterial color="#059669" roughness={0.6} />
-      </mesh>
-    </group>
-  );
-}
-
-// ── Zone furniture sets ─────────────────────────────────────────────
-
-/** 4-seat desk cluster with laptops and glass dividers */
-function DeskCluster({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <RoundedBox args={[3.2, 0.05, 3.2]} position={[0, 0.75, 0]} radius={0.02} smoothness={4} castShadow receiveShadow>
-        <meshStandardMaterial color="#f1f5f9" roughness={0.2} />
-      </RoundedBox>
-      {[-1.5, 1.5].map(x => [-1.5, 1.5].map(z => (
-        <mesh key={`leg-${x}-${z}`} position={[x, 0.375, z]} castShadow>
-          <cylinderGeometry args={[0.04, 0.04, 0.75, 8]} />
-          <meshStandardMaterial color="#cbd5e1" metalness={0.5} />
-        </mesh>
-      )))}
-      {/* Glass dividers */}
-      <mesh position={[0, 1.05, 0]} castShadow>
-        <boxGeometry args={[3.0, 0.6, 0.05]} />
-        <meshPhysicalMaterial color="#bae6fd" transmission={0.9} opacity={1} roughness={0.1} ior={1.5} thickness={0.05} transparent />
-      </mesh>
-      <mesh position={[0, 1.05, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
-        <boxGeometry args={[3.0, 0.6, 0.05]} />
-        <meshPhysicalMaterial color="#bae6fd" transmission={0.9} opacity={1} roughness={0.1} ior={1.5} thickness={0.05} transparent />
-      </mesh>
-      {/* 4 workstations */}
-      {([[-0.8, -0.8, 0.2], [0.8, -0.8, -0.2], [-0.8, 0.8, Math.PI - 0.2], [0.8, 0.8, Math.PI + 0.2]] as [number, number, number][]).map(([x, z, rot], i) => (
-        <group key={`ws-${i}`} position={[x, 0, z]}>
-          <Laptop position={[0, 0.775, 0]} rotation={[0, rot, 0]} />
-          <OfficeChair position={[0, 0, z < 0 ? -0.8 : 0.8]} rotation={[0, z < 0 ? Math.PI : 0, 0]} />
-        </group>
-      ))}
-    </group>
-  );
-}
-
-/** Library zone: bookshelves + reading tables */
-function LibraryFurniture({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      {/* Bookshelves along the back */}
-      {[-4, -1.5, 1, 3.5].map((x, i) => (
-        <group key={`shelf-${i}`} position={[x, 0, -2.5]}>
-          {/* Shelf frame */}
-          <RoundedBox args={[2, 2.5, 0.6]} position={[0, 1.25, 0]} radius={0.03} smoothness={4} castShadow>
-            <meshStandardMaterial color="#1e293b" />
-          </RoundedBox>
-          {/* Shelf levels with books */}
-          {[0.5, 1.1, 1.7, 2.3].map((y, j) => (
-            <group key={`books-${j}`}>
-              <mesh position={[0, y, 0]} castShadow>
-                <boxGeometry args={[1.8, 0.04, 0.5]} />
-                <meshStandardMaterial color="#334155" />
-              </mesh>
-              {/* Book spines */}
-              {[-0.6, -0.3, 0, 0.3, 0.6].map((bx, k) => (
-                <mesh key={`book-${k}`} position={[bx, y + 0.15, 0]} castShadow>
-                  <boxGeometry args={[0.18, 0.25, 0.35]} />
-                  <meshStandardMaterial
-                    color={['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7'][(j + k) % 5]}
-                    roughness={0.8}
-                  />
-                </mesh>
-              ))}
-            </group>
-          ))}
-        </group>
-      ))}
-      {/* Reading tables */}
-      {[-3, 1.5].map((x, i) => (
-        <group key={`table-${i}`} position={[x, 0, 1.5]}>
-          <RoundedBox args={[2.5, 0.05, 1.2]} position={[0, 0.72, 0]} radius={0.02} smoothness={4} castShadow receiveShadow>
-            <meshStandardMaterial color="#064e3b" roughness={0.3} />
-          </RoundedBox>
-          {([[-1, -0.5], [1, -0.5], [-1, 0.5], [1, 0.5]] as [number, number][]).map(([lx, lz], j) => (
-            <mesh key={`tleg-${j}`} position={[lx, 0.36, lz]} castShadow>
-              <cylinderGeometry args={[0.04, 0.04, 0.72, 8]} />
-              <meshStandardMaterial color="#334155" metalness={0.5} />
-            </mesh>
-          ))}
-          <OfficeChair position={[-0.6, 0, -1]} />
-          <OfficeChair position={[0.6, 0, -1]} />
-          <OfficeChair position={[-0.6, 0, 1]} rotation={[0, Math.PI, 0]} />
-          <OfficeChair position={[0.6, 0, 1]} rotation={[0, Math.PI, 0]} />
-        </group>
-      ))}
-      <Plant position={[5.5, 0, -2.5]} />
-    </group>
-  );
-}
-
-/** Rest area: sofas, coffee table, vending machine */
-function RestAreaFurniture({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      {/* Carpet */}
-      <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[10, 6]} />
-        <meshStandardMaterial color="#334155" roughness={0.9} />
-      </mesh>
-      {/* Sofa set 1 - L shape */}
-      <RoundedBox args={[4, 0.4, 1.2]} position={[-1, 0.2, -2.2]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#f59e0b" roughness={0.7} />
-      </RoundedBox>
-      <RoundedBox args={[4, 0.6, 0.3]} position={[-1, 0.5, -2.75]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#f59e0b" roughness={0.7} />
-      </RoundedBox>
-      {/* Sofa set 2 */}
-      <RoundedBox args={[3, 0.4, 1]} position={[1, 0.2, 2]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#d97706" roughness={0.7} />
-      </RoundedBox>
-      <RoundedBox args={[3, 0.6, 0.3]} position={[1, 0.5, 2.45]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#d97706" roughness={0.7} />
-      </RoundedBox>
-      {/* Coffee table */}
-      <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.8, 0.8, 0.05, 32]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.15, 0]} castShadow>
-        <cylinderGeometry args={[0.4, 0.2, 0.3, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      {/* Vending machine */}
-      <group position={[5.5, 0, -2]}>
-        <RoundedBox args={[1, 2.2, 0.8]} position={[0, 1.1, 0]} radius={0.05} castShadow>
-          <meshStandardMaterial color="#1e293b" metalness={0.4} roughness={0.3} />
-        </RoundedBox>
-        {/* Screen */}
-        <mesh position={[0, 1.4, 0.41]}>
-          <planeGeometry args={[0.7, 0.5]} />
-          <meshBasicMaterial color="#f59e0b" />
-        </mesh>
-        {/* Product window */}
-        <mesh position={[0, 0.8, 0.41]}>
-          <planeGeometry args={[0.7, 0.8]} />
-          <meshPhysicalMaterial color="#bae6fd" transmission={0.8} opacity={1} roughness={0.1} ior={1.5} thickness={0.05} transparent />
-        </mesh>
-      </group>
-      <Plant position={[-5, 0, -2.5]} />
-      <Plant position={[4, 0, 2.5]} />
-    </group>
-  );
-}
-
-/** Meeting room: conference table + chairs */
-function MeetingRoomFurniture({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      {/* Conference table */}
-      <RoundedBox args={[6, 0.08, 2.2]} position={[0, 0.75, 0]} radius={0.1} smoothness={4} castShadow receiveShadow>
-        <meshStandardMaterial color="#1e293b" roughness={0.3} />
-      </RoundedBox>
-      {/* Table base */}
-      <mesh position={[0, 0.375, 0]} castShadow>
-        <boxGeometry args={[4, 0.75, 0.6]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      {/* Chairs around table */}
-      {[-2, -0.7, 0.7, 2].map((x, i) => (
-        <group key={`mchair-${i}`}>
-          <OfficeChair position={[x, 0, -1.8]} />
-          <OfficeChair position={[x, 0, 1.8]} rotation={[0, Math.PI, 0]} />
-        </group>
-      ))}
-      {/* Whiteboard on wall */}
-      <group position={[-5.5, 0, 0]}>
-        <mesh position={[0, 1.8, 0]} castShadow>
-          <boxGeometry args={[0.1, 1.5, 2.5]} />
-          <meshStandardMaterial color="#f1f5f9" roughness={0.3} />
-        </mesh>
-        {/* Whiteboard frame */}
-        <lineSegments position={[0.06, 1.8, 0]}>
-          <edgesGeometry args={[new THREE.PlaneGeometry(2.5, 1.5)]} />
-          <lineBasicMaterial color="#94a3b8" />
-        </lineSegments>
-      </group>
-    </group>
-  );
-}
-
-/** Server room: server racks with LED indicator lights */
-function ServerRoomFurniture({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      {/* Server racks */}
-      {[-4, -1.5, 1, 3.5].map((x, ri) => (
-        <group key={`rack-${ri}`} position={[x, 0, -0.5]}>
-          {/* Rack cabinet */}
-          <RoundedBox args={[1.6, 2.8, 1]} position={[0, 1.4, 0]} radius={0.03} smoothness={4} castShadow>
-            <meshStandardMaterial color="#0f172a" metalness={0.6} roughness={0.3} />
-          </RoundedBox>
-          {/* Front panel */}
-          <mesh position={[0, 1.4, 0.51]}>
-            <planeGeometry args={[1.4, 2.6]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.4} roughness={0.4} />
-          </mesh>
-          {/* LED indicator rows */}
-          {[0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.2, 2.5].map((y, li) => (
-            <group key={`led-row-${li}`}>
-              {[-0.4, -0.2, 0, 0.2, 0.4].map((lx, lj) => (
-                <mesh key={`led-${lj}`} position={[lx, y, 0.52]}>
-                  <circleGeometry args={[0.03, 8]} />
-                  <meshBasicMaterial
-                    color={(li + lj + ri) % 3 === 0 ? '#06b6d4' : (li + lj + ri) % 3 === 1 ? '#10b981' : '#3b82f6'}
-                  />
-                </mesh>
-              ))}
-            </group>
-          ))}
-          {/* Ventilation grilles */}
-          {[0.3, 1.2, 2.1].map((y, vi) => (
-            <group key={`vent-${vi}`}>
-              {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((vx, vj) => (
-                <mesh key={`vline-${vj}`} position={[vx, y, 0.515]}>
-                  <planeGeometry args={[0.08, 0.04]} />
-                  <meshStandardMaterial color="#334155" />
-                </mesh>
-              ))}
-            </group>
-          ))}
-        </group>
-      ))}
-      {/* Floor cable channels */}
-      {[-3, 0, 3].map((x, i) => (
-        <mesh key={`cable-${i}`} position={[x, 0.02, 1.5]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.3, 2]} />
-          <meshStandardMaterial color="#0c4a6e" />
-        </mesh>
-      ))}
-      {/* Server room glow */}
-      <pointLight position={[0, 2, 0.5]} intensity={0.8} color="#06b6d4" distance={8} decay={2} />
-    </group>
-  );
-}
+// Extracted to packages/ui-office/src/components/scene/prefabs/
+// Imports: WorkstationMesh3D, BookshelfMesh3D, RestAreaMesh3D,
+//          MeetingTableMesh3D, ServerRackMesh3D, PlantMesh3D, Prefab3D
 
 // ── Zone floor label ────────────────────────────────────────────────
 
@@ -1205,6 +916,10 @@ export default function Office3DView() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
+  // ── Prefab data-driven rendering ──
+  const { instances: prefabInstances } = usePrefabInstances();
+  const hasPrefabData = prefabInstances.length > 0;
+
   const isDragging = dragState?.active ?? false;
 
   // ── Per-zone activity counters ──
@@ -1402,33 +1117,43 @@ export default function Office3DView() {
           />
         ))}
 
-        {/* ── MTG zone furniture (back row) ── */}
-        <MeetingRoomFurniture position={[-10, 0, -8]} />
-
-        {/* ── SRV zone furniture (back row) ── */}
-        <ServerRoomFurniture position={[8, 0, -8]} />
-
-        {/* ── LIB zone furniture (middle row) ── */}
-        <LibraryFurniture position={[-10, 0, 2]} />
-
-        {/* ── REST zone furniture (middle row) ── */}
-        <RestAreaFurniture position={[8, 0, 2]} />
-
-        {/* ── DEV zone furniture (front row) ── */}
-        <DeskCluster position={[-13, 0, 11]} />
-
-        {/* ── PROD zone furniture (front row) ── */}
-        <DeskCluster position={[0, 0, 11]} />
-
-        {/* ── ART zone furniture (front row) ── */}
-        <DeskCluster position={[12, 0, 11]} />
-
-        {/* ── Decoration plants along walls ── */}
-        <Plant position={[-18, 0, -13]} />
-        <Plant position={[-18, 0, 13]} />
-        <Plant position={[18, 0, -13]} />
-        <Plant position={[18, 0, 13]} />
-        <Plant position={[0, 0, 13]} />
+        {/* ── Zone furniture: data-driven from PrefabInstances (with hardcoded fallback) ── */}
+        {hasPrefabData ? (
+          <>
+            {prefabInstances.map(({ instance, definition }) => (
+              <Prefab3D
+                key={instance.instance_id}
+                definition={definition}
+                position={[instance.position_x, 0, instance.position_y]}
+                rotation={instance.rotation}
+              />
+            ))}
+          </>
+        ) : (
+          <>
+            {/* Fallback: hardcoded furniture when no PrefabInstance data is loaded */}
+            {/* MTG zone furniture (back row) */}
+            <MeetingTableMesh3D position={[-10, 0, -8]} />
+            {/* SRV zone furniture (back row) */}
+            <ServerRackMesh3D position={[8, 0, -8]} />
+            {/* LIB zone furniture (middle row) */}
+            <BookshelfMesh3D position={[-10, 0, 2]} />
+            {/* REST zone furniture (middle row) */}
+            <RestAreaMesh3D position={[8, 0, 2]} />
+            {/* DEV zone furniture (front row) */}
+            <WorkstationMesh3D position={[-13, 0, 11]} />
+            {/* PROD zone furniture (front row) */}
+            <WorkstationMesh3D position={[0, 0, 11]} />
+            {/* ART zone furniture (front row) */}
+            <WorkstationMesh3D position={[12, 0, 11]} />
+            {/* Decoration plants along walls */}
+            <PlantMesh3D position={[-18, 0, -13]} />
+            <PlantMesh3D position={[-18, 0, 13]} />
+            <PlantMesh3D position={[18, 0, -13]} />
+            <PlantMesh3D position={[18, 0, 13]} />
+            <PlantMesh3D position={[0, 0, 13]} />
+          </>
+        )}
 
         {/* ── Employees ── */}
         {placed.map((emp) => (
