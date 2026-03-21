@@ -9,7 +9,7 @@
  */
 import { createAvatar } from '@dicebear/core';
 import { avataaars } from '@dicebear/collection';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { ZONES, STATUS_COLORS, DROP_TARGET_ZONES, resolveEmployeeZone } from '../../lib/zone-config.js';
@@ -97,7 +97,7 @@ function getAvatarUri(seed: string): string {
  * 3D: 3.2x3.2 units = 160x160 SVG pixels.
  * Big desk surface + cross glass partition + 4 workstations with laptops + 4 chairs outside.
  */
-function DeskClusterSVG({ x, y, employees, selectedEmployeeId, draggedEmployeeId, onEmployeeClick, onEmployeeDragStart }: {
+const DeskClusterSVG = memo(function DeskClusterSVG({ x, y, employees, selectedEmployeeId, draggedEmployeeId, onEmployeeClick, onEmployeeDragStart }: {
   x: number; y: number;
   employees: Array<{ agent: AgentState; seed: string; empId: string } | null>;
   selectedEmployeeId: string | null;
@@ -158,9 +158,9 @@ function DeskClusterSVG({ x, y, employees, selectedEmployeeId, draggedEmployeeId
       ))}
     </g>
   );
-}
+});
 
-function MeetingTableSVG({ x, y }: { x: number; y: number }) {
+const MeetingTableSVG = memo(function MeetingTableSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <rect x="-100" y="-35" width="200" height="70" rx="20" fill="#1e293b" stroke="#334155" strokeWidth="2" />
@@ -173,9 +173,9 @@ function MeetingTableSVG({ x, y }: { x: number; y: number }) {
       ))}
     </g>
   );
-}
+});
 
-function BookshelfSVG({ x, y }: { x: number; y: number }) {
+const BookshelfSVG = memo(function BookshelfSVG({ x, y }: { x: number; y: number }) {
   const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -191,9 +191,9 @@ function BookshelfSVG({ x, y }: { x: number; y: number }) {
       ))}
     </g>
   );
-}
+});
 
-function SofaSVG({ x, y, color = '#f59e0b' }: { x: number; y: number; color?: string }) {
+const SofaSVG = memo(function SofaSVG({ x, y, color = '#f59e0b' }: { x: number; y: number; color?: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <path d="M-50,-20 L50,-20 L50,10 L30,10 L30,-5 L-30,-5 L-30,10 L-50,10 Z" fill={color} />
@@ -201,18 +201,18 @@ function SofaSVG({ x, y, color = '#f59e0b' }: { x: number; y: number; color?: st
       <rect x="45" y="-20" width="10" height="30" rx="4" fill="#0f172a" />
     </g>
   );
-}
+});
 
-function CoffeeTableSVG({ x, y }: { x: number; y: number }) {
+const CoffeeTableSVG = memo(function CoffeeTableSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <circle cx="0" cy="0" r="25" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <circle cx="0" cy="0" r="12" fill="#0f172a" />
     </g>
   );
-}
+});
 
-function ServerRackSVG({ x, y }: { x: number; y: number }) {
+const ServerRackSVG = memo(function ServerRackSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <rect x="-18" y="-45" width="36" height="90" rx="3" fill="#0f172a" stroke="#1e293b" strokeWidth="1.5" />
@@ -224,9 +224,9 @@ function ServerRackSVG({ x, y }: { x: number; y: number }) {
       ))}
     </g>
   );
-}
+});
 
-function PlantSVG({ x, y }: { x: number; y: number }) {
+const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <circle cx="0" cy="5" r="12" fill="#334155" stroke="#475569" strokeWidth="1" />
@@ -237,9 +237,9 @@ function PlantSVG({ x, y }: { x: number; y: number }) {
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#059669" transform="rotate(288)" />
     </g>
   );
-}
+});
 
-function VendingMachineSVG({ x, y }: { x: number; y: number }) {
+const VendingMachineSVG = memo(function VendingMachineSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <rect x="-16" y="-30" width="32" height="60" rx="4" fill="#1e293b" stroke="#334155" strokeWidth="1" />
@@ -247,11 +247,11 @@ function VendingMachineSVG({ x, y }: { x: number; y: number }) {
       <rect x="-10" y="5" width="20" height="8" rx="2" fill="#0f172a" />
     </g>
   );
-}
+});
 
 // ── Employee Node ─────────────────────────────────────────────────────
 
-function EmployeeNode({
+const EmployeeNode = memo(function EmployeeNode({
   x, y, agent, seed, selected, onClick, onDragStart, dimmed,
 }: {
   x: number;
@@ -314,7 +314,7 @@ function EmployeeNode({
       </g>
     </g>
   );
-}
+});
 
 // ── Drag Ghost ────────────────────────────────────────────────────────
 
