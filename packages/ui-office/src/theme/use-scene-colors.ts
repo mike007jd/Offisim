@@ -29,53 +29,45 @@ export interface SceneColors {
   selectionRing: string;
 }
 
-const DARK_SCENE: SceneColors = {
-  floor: '#1e293b',
-  desk: '#e2e8f0',
-  deskEdge: '#cbd5e1',
-  furniture: '#1e293b',
-  furnitureDark: '#0f172a',
-  furnitureLight: '#334155',
-  partition: '#94a3b8',
-  screen: '#0ea5e9',
-  metal: '#334155',
-  serverBody: '#0f172a',
-  ledCyan: '#06b6d4',
-  ledGreen: '#22c55e',
-  ledBlue: '#3b82f6',
-  ledAmber: '#fbbf24',
-  potBase: '#334155',
-  leafPrimary: '#10b981',
-  leafSecondary: '#059669',
-  leafTertiary: '#34d399',
-  text: '#e2e8f0',
-  textMuted: '#94a3b8',
-  selectionRing: '#3b82f6',
+/**
+ * "Modern Coworking" scene palette.
+ * Warm neutrals, light wood tones, soft contrast.
+ * Feels like a real modern office — not a cold wireframe.
+ */
+const SCENE: SceneColors = {
+  // ── Surfaces: warm cream/wood tones ──
+  floor: '#e8e4dc',           // warm beige floor (like light wood)
+  desk: '#faf9f6',            // near-white desk surface (clean)
+  deskEdge: '#d4d0c7',        // warm edge
+  furniture: '#c8c3b8',       // warm gray furniture
+  furnitureDark: '#8a857d',   // warm dark (chair bases, keyboards)
+  furnitureLight: '#e3e0d8',  // warm light (shelves, panels)
+  partition: '#b8b3a8',       // warm divider / glass tint
+
+  // ── Tech: subtle, not neon ──
+  screen: '#5ab0c8',          // soft teal screen (not harsh blue)
+  metal: '#a09b93',           // brushed warm metal
+  serverBody: '#6b655c',      // warm dark server rack
+  ledCyan: '#2d9c8f',         // warm teal LED
+  ledGreen: '#2d9c6f',        // warm green LED
+  ledBlue: '#4a8ea8',         // warm blue LED (NOT AI blue)
+  ledAmber: '#c78c20',        // warm amber LED
+
+  // ── Nature ──
+  potBase: '#b8b3a8',         // terracotta-ish pot
+  leafPrimary: '#5a9e78',     // warm green
+  leafSecondary: '#3d7a5a',   // darker warm green
+  leafTertiary: '#7ab890',    // lighter warm green
+
+  // ── Text / UI ──
+  text: '#2c2924',            // warm charcoal
+  textMuted: '#9e978d',       // warm muted
+  selectionRing: '#c17040',   // terracotta accent (matches app accent)
 };
 
-const LIGHT_SCENE: SceneColors = {
-  floor: '#e2e8f0',
-  desk: '#ffffff',
-  deskEdge: '#cbd5e1',
-  furniture: '#e2e8f0',
-  furnitureDark: '#cbd5e1',
-  furnitureLight: '#f1f5f9',
-  partition: '#94a3b8',
-  screen: '#0284c7',
-  metal: '#94a3b8',
-  serverBody: '#334155',
-  ledCyan: '#06b6d4',
-  ledGreen: '#22c55e',
-  ledBlue: '#3b82f6',
-  ledAmber: '#f59e0b',
-  potBase: '#a1a1aa',
-  leafPrimary: '#10b981',
-  leafSecondary: '#059669',
-  leafTertiary: '#34d399',
-  text: '#1e293b',
-  textMuted: '#64748b',
-  selectionRing: '#2563eb',
-};
+// Both modes use the same warm palette — unified look
+const DARK_SCENE = SCENE;
+const LIGHT_SCENE = SCENE;
 
 export function useSceneColors(): SceneColors {
   const { resolvedTheme } = useTheme();
