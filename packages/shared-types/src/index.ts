@@ -19,6 +19,12 @@ export type {
   MeetingState,
   ReportState,
   RuntimeEntityType,
+  WorkspacePrefabState,
+  ComputePrefabState,
+  KnowledgePrefabState,
+  CollaborationPrefabState,
+  InfrastructurePrefabState,
+  PrefabState,
 } from './states.js';
 
 export type {
@@ -73,6 +79,12 @@ export type {
   HrRecommendationPayload,
   NotificationPayload,
   NotificationDismissedPayload,
+  KnowledgeIndexStartedPayload,
+  KnowledgeIndexCompletedPayload,
+  KnowledgeIndexFailedPayload,
+  KnowledgeSearchStartedPayload,
+  KnowledgeSearchCompletedPayload,
+  PrefabStateChangedPayload,
 } from './events.js';
 
 export type {
@@ -89,3 +101,14 @@ export type {
 } from './models.js';
 
 export type { SopStep, SopDefinition } from './sop.js';
+
+export type {
+  SemanticCategory,
+  PrefabBindingSlotType,
+  PrefabBindingSlotDef,
+  RenderTemplate2D,
+  PrefabChildDef,
+  PrefabDefinition,
+  PrefabInstanceRow,
+  PrefabBinding,
+} from './prefab.js';

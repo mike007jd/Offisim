@@ -73,7 +73,13 @@ export type EventFamily =
   | 'hr.assessment.completed'
   | 'hr.recommendation'
   | 'notification.created'
-  | 'notification.dismissed';
+  | 'notification.dismissed'
+  | 'knowledge.index.started'
+  | 'knowledge.index.completed'
+  | 'knowledge.index.failed'
+  | 'knowledge.search.started'
+  | 'knowledge.search.completed'
+  | 'prefab.state.changed';
 
 // --- Typed event payloads ---
 
@@ -448,4 +454,39 @@ export interface NotificationPayload {
 
 export interface NotificationDismissedPayload {
   readonly notificationId: string;
+}
+
+// ── Knowledge Events ──────────────────────────────────────────
+export interface KnowledgeIndexStartedPayload {
+  readonly knowledgeBaseRef: string;
+  readonly documentCount: number;
+}
+export interface KnowledgeIndexCompletedPayload {
+  readonly knowledgeBaseRef: string;
+  readonly indexedCount: number;
+  readonly durationMs: number;
+}
+export interface KnowledgeIndexFailedPayload {
+  readonly knowledgeBaseRef: string;
+  readonly error: string;
+}
+export interface KnowledgeSearchStartedPayload {
+  readonly knowledgeBaseRef: string;
+  readonly query: string;
+  readonly employeeId: string;
+}
+export interface KnowledgeSearchCompletedPayload {
+  readonly knowledgeBaseRef: string;
+  readonly resultCount: number;
+  readonly employeeId: string;
+  readonly durationMs: number;
+}
+
+// ── Prefab Events ──────────────────────────────────────────────
+export interface PrefabStateChangedPayload {
+  readonly instanceId: string;
+  readonly prefabId: string;
+  readonly category: string;
+  readonly prev: string;
+  readonly next: string;
 }
