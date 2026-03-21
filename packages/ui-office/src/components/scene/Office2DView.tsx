@@ -124,23 +124,23 @@ const DeskClusterSVG = memo(function DeskClusterSVG({ x, y, employees, selectedE
   return (
     <g transform={`translate(${x}, ${y})`}>
       {/* Desk surface */}
-      <rect x={-half} y={-half} width={S} height={S} rx="8" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+      <rect x={-half} y={-half} width={S} height={S} rx="8" fill="var(--surface-mid)" stroke="var(--surface-mid)" strokeWidth="1.5" />
       {/* Glass partitions (cross) */}
-      <line x1="0" y1={-half} x2="0" y2={half} stroke="#94a3b8" strokeWidth="3" strokeOpacity="0.5" />
-      <line x1={-half} y1="0" x2={half} y2="0" stroke="#94a3b8" strokeWidth="3" strokeOpacity="0.5" />
+      <line x1="0" y1={-half} x2="0" y2={half} stroke="var(--text-secondary-val)" strokeWidth="3" strokeOpacity="0.5" />
+      <line x1={-half} y1="0" x2={half} y2="0" stroke="var(--text-secondary-val)" strokeWidth="3" strokeOpacity="0.5" />
 
       {/* 4 workstations */}
       {seats.map(([dx, dz, cdz], i) => (
         <g key={i}>
           {/* Laptop/keyboard on desk */}
           <g transform={`translate(${dx}, ${dz})`}>
-            <rect x="-12" y="-4" width="24" height="10" rx="2" fill="#334155" />
-            <rect x="-18" y={dz < 0 ? -16 : 6} width="36" height="6" rx="1" fill="#0f172a" />
+            <rect x="-12" y="-4" width="24" height="10" rx="2" fill="var(--surface-mid)" />
+            <rect x="-18" y={dz < 0 ? -16 : 6} width="36" height="6" rx="1" fill="var(--surface-light)" />
             <rect x="-16" y={dz < 0 ? -18 : 8} width="32" height="4" fill="#0ea5e9" opacity="0.6" />
           </g>
           {/* Chair outside desk */}
-          <circle cx={dx} cy={cdz} r="12" fill="#1e293b" stroke="#334155" strokeWidth="1" />
-          <rect x={dx - 8} y={cdz < 0 ? cdz + 4 : cdz - 12} width="16" height="8" rx="4" fill="#0f172a" />
+          <circle cx={dx} cy={cdz} r="12" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
+          <rect x={dx - 8} y={cdz < 0 ? cdz + 4 : cdz - 12} width="16" height="8" rx="4" fill="var(--surface-light)" />
           {/* Employee avatar at chair position */}
           {employees[i] && (
             <EmployeeNode
@@ -163,12 +163,12 @@ const DeskClusterSVG = memo(function DeskClusterSVG({ x, y, employees, selectedE
 const MeetingTableSVG = memo(function MeetingTableSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x="-100" y="-35" width="200" height="70" rx="20" fill="#1e293b" stroke="#334155" strokeWidth="2" />
-      <rect x="-85" y="-25" width="170" height="50" rx="12" fill="#0f172a" />
+      <rect x="-100" y="-35" width="200" height="70" rx="20" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="2" />
+      <rect x="-85" y="-25" width="170" height="50" rx="12" fill="var(--surface-light)" />
       {[-60, -20, 20, 60].map((cx, i) => (
         <g key={i}>
-          <circle cx={cx} cy={-55} r="12" fill="#0f172a" stroke="#334155" strokeWidth="1" />
-          <circle cx={cx} cy={55} r="12" fill="#0f172a" stroke="#334155" strokeWidth="1" />
+          <circle cx={cx} cy={-55} r="12" fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth="1" />
+          <circle cx={cx} cy={55} r="12" fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth="1" />
         </g>
       ))}
     </g>
@@ -179,10 +179,10 @@ const BookshelfSVG = memo(function BookshelfSVG({ x, y }: { x: number; y: number
   const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x="-25" y="-35" width="50" height="70" rx="3" fill="#1e293b" stroke="#334155" strokeWidth="1" />
+      <rect x="-25" y="-35" width="50" height="70" rx="3" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
       {[0, 1, 2, 3].map(shelf => (
         <g key={shelf}>
-          <rect x="-23" y={-30 + shelf * 17} width="46" height="1" fill="#334155" />
+          <rect x="-23" y={-30 + shelf * 17} width="46" height="1" fill="var(--surface-mid)" />
           {[0, 1, 2, 3, 4, 5, 6].map(b => (
             <rect key={b} x={-21 + b * 6.5} y={-28 + shelf * 17} width="5" height="14" rx="0.5"
               fill={bookColors[(shelf * 7 + b) % bookColors.length]} />
@@ -197,8 +197,8 @@ const SofaSVG = memo(function SofaSVG({ x, y, color = '#f59e0b' }: { x: number; 
   return (
     <g transform={`translate(${x}, ${y})`}>
       <path d="M-50,-20 L50,-20 L50,10 L30,10 L30,-5 L-30,-5 L-30,10 L-50,10 Z" fill={color} />
-      <rect x="-55" y="-20" width="10" height="30" rx="4" fill="#0f172a" />
-      <rect x="45" y="-20" width="10" height="30" rx="4" fill="#0f172a" />
+      <rect x="-55" y="-20" width="10" height="30" rx="4" fill="var(--surface-light)" />
+      <rect x="45" y="-20" width="10" height="30" rx="4" fill="var(--surface-light)" />
     </g>
   );
 });
@@ -206,8 +206,8 @@ const SofaSVG = memo(function SofaSVG({ x, y, color = '#f59e0b' }: { x: number; 
 const CoffeeTableSVG = memo(function CoffeeTableSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <circle cx="0" cy="0" r="25" fill="#1e293b" stroke="#334155" strokeWidth="1" />
-      <circle cx="0" cy="0" r="12" fill="#0f172a" />
+      <circle cx="0" cy="0" r="25" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
+      <circle cx="0" cy="0" r="12" fill="var(--surface-light)" />
     </g>
   );
 });
@@ -215,10 +215,10 @@ const CoffeeTableSVG = memo(function CoffeeTableSVG({ x, y }: { x: number; y: nu
 const ServerRackSVG = memo(function ServerRackSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x="-18" y="-45" width="36" height="90" rx="3" fill="#0f172a" stroke="#1e293b" strokeWidth="1.5" />
+      <rect x="-18" y="-45" width="36" height="90" rx="3" fill="var(--surface-light)" stroke="var(--surface-lighter)" strokeWidth="1.5" />
       {Array.from({ length: 8 }, (_, i) => (
         <g key={i}>
-          <rect x="-14" y={-40 + i * 11} width="28" height="9" rx="1" fill="#0c1220" />
+          <rect x="-14" y={-40 + i * 11} width="28" height="9" rx="1" fill="var(--surface-light)" />
           <circle cx="10" cy={-36 + i * 11} r="2" fill={i % 3 === 0 ? '#fbbf24' : '#22c55e'} />
         </g>
       ))}
@@ -229,7 +229,7 @@ const ServerRackSVG = memo(function ServerRackSVG({ x, y }: { x: number; y: numb
 const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <circle cx="0" cy="5" r="12" fill="#334155" stroke="#475569" strokeWidth="1" />
+      <circle cx="0" cy="5" r="12" fill="var(--surface-mid)" stroke="var(--text-muted-val)" strokeWidth="1" />
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#10b981" />
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#059669" transform="rotate(72)" />
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#34d399" transform="rotate(144)" />
@@ -242,9 +242,9 @@ const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
 const VendingMachineSVG = memo(function VendingMachineSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x="-16" y="-30" width="32" height="60" rx="4" fill="#1e293b" stroke="#334155" strokeWidth="1" />
+      <rect x="-16" y="-30" width="32" height="60" rx="4" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
       <rect x="-12" y="-26" width="24" height="25" rx="2" fill="#0ea5e9" opacity="0.5" />
-      <rect x="-10" y="5" width="20" height="8" rx="2" fill="#0f172a" />
+      <rect x="-10" y="5" width="20" height="8" rx="2" fill="var(--surface-light)" />
     </g>
   );
 });
@@ -284,12 +284,12 @@ const EmployeeNode = memo(function EmployeeNode({
     >
       {/* Selection ring — rendered below avatar so stroke doesn't obscure it */}
       {selected && (
-        <circle cx="0" cy="0" r="26" fill="none" stroke="#3b82f6" strokeWidth="2.5" opacity={0.9} />
+        <circle cx="0" cy="0" r="26" fill="none" stroke="var(--accent-val)" strokeWidth="2.5" opacity={0.9} />
       )}
       {/* Status aura */}
       <circle cx="0" cy="0" r="22" fill={statusColor} opacity="0.15" />
       {/* Avatar background */}
-      <circle cx="0" cy="0" r="18" fill="#1e293b" stroke={statusColor} strokeWidth="2.5" />
+      <circle cx="0" cy="0" r="18" fill="var(--surface-lighter)" stroke={statusColor} strokeWidth="2.5" />
       {/* Avatar image */}
       <image
         href={avatarUri}
@@ -297,7 +297,7 @@ const EmployeeNode = memo(function EmployeeNode({
         clipPath="circle(16px at center)"
       />
       {/* Status pip */}
-      <circle cx="12" cy="12" r="5" fill={statusColor} stroke="#0f172a" strokeWidth="2" />
+      <circle cx="12" cy="12" r="5" fill={statusColor} stroke="var(--surface-light)" strokeWidth="2" />
       {/* Status bubble — floats above avatar for non-idle states */}
       {agent.state !== 'idle' && STATE_LABELS[agent.state] && (
         <g transform="translate(0, -28)">
@@ -309,7 +309,7 @@ const EmployeeNode = memo(function EmployeeNode({
       )}
       {/* Name plate */}
       <g transform="translate(0, 28)">
-        <rect x="-32" y="-8" width="64" height="16" rx="8" fill="#0f172a" opacity="0.85" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+        <rect x="-32" y="-8" width="64" height="16" rx="8" fill="var(--surface-light)" opacity="0.85" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
         <text x="0" y="4" fill="#f8fafc" fontSize="9" fontWeight="bold" textAnchor="middle">{agent.name.split(' ')[0]}</text>
       </g>
     </g>
@@ -334,7 +334,7 @@ function DragGhost({ svgX, svgY, seed, statusColor, name }: {
       {/* Aura — slightly larger during drag for emphasis */}
       <circle cx="0" cy="0" r="24" fill={statusColor} opacity="0.2" />
       {/* Avatar background */}
-      <circle cx="0" cy="0" r="20" fill="#1e293b" stroke={statusColor} strokeWidth="3" />
+      <circle cx="0" cy="0" r="20" fill="var(--surface-lighter)" stroke={statusColor} strokeWidth="3" />
       {/* Avatar image */}
       <image
         href={avatarUri}
@@ -343,7 +343,7 @@ function DragGhost({ svgX, svgY, seed, statusColor, name }: {
       />
       {/* Name label */}
       <g transform="translate(0, 32)">
-        <rect x="-36" y="-8" width="72" height="16" rx="8" fill="#0f172a" opacity="0.9" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
+        <rect x="-36" y="-8" width="72" height="16" rx="8" fill="var(--surface-light)" opacity="0.9" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
         <text x="0" y="4" fill="#f8fafc" fontSize="9" fontWeight="bold" textAnchor="middle">{name.split(' ')[0]}</text>
       </g>
     </g>
@@ -605,7 +605,7 @@ export default function Office2DView() {
         <svg ref={svgRef} viewBox={`0 0 ${ROOM_W} ${ROOM_H}`} className="w-full h-full">
           <defs>
             <pattern id="grid2d" width="50" height="50" patternUnits="userSpaceOnUse">
-              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1e293b" strokeWidth="1" />
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="var(--surface-lighter)" strokeWidth="1" />
             </pattern>
           </defs>
 
@@ -660,7 +660,7 @@ export default function Office2DView() {
             return <g>
               <MeetingTableSVG x={mx} y={my} />
               {/* Whiteboard on left wall: 3D [-5.5, 1.8, 0] */}
-              <rect x={mx - 275} y={my - 60} width="8" height="100" rx="2" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" />
+              <rect x={mx - 275} y={my - 60} width="8" height="100" rx="2" fill="#f1f5f9" stroke="var(--text-secondary-val)" strokeWidth="1" />
             </g>;
           })()}
 
@@ -688,12 +688,12 @@ export default function Office2DView() {
               {/* 2 reading tables at x=[-3,1.5]*50=[-150,75], z=1.5*50=75 */}
               {[-150, 75].map((ox, i) => (
                 <g key={`rt${i}`}>
-                  <rect x={mx + ox - 55} y={my + 55} width="110" height="40" rx="6" fill="#064e3b" stroke="#334155" strokeWidth="1" />
+                  <rect x={mx + ox - 55} y={my + 55} width="110" height="40" rx="6" fill="#064e3b" stroke="var(--surface-mid)" strokeWidth="1" />
                   {/* 4 chairs per table */}
                   {[-35, 35].map((cx2, j) => (
                     <g key={`ch${j}`}>
-                      <circle cx={mx + ox + cx2} cy={my + 25} r="10" fill="#0f172a" stroke="#334155" strokeWidth="0.8" />
-                      <circle cx={mx + ox + cx2} cy={my + 105} r="10" fill="#0f172a" stroke="#334155" strokeWidth="0.8" />
+                      <circle cx={mx + ox + cx2} cy={my + 25} r="10" fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth="0.8" />
+                      <circle cx={mx + ox + cx2} cy={my + 105} r="10" fill="var(--surface-light)" stroke="var(--surface-mid)" strokeWidth="0.8" />
                     </g>
                   ))}
                 </g>
@@ -709,7 +709,7 @@ export default function Office2DView() {
             const my = cx.y + cx.h / 2;
             return <g>
               {/* Carpet */}
-              <rect x={mx - 180} y={my - 60} width="360" height="140" rx="10" fill="#334155" opacity="0.2" />
+              <rect x={mx - 180} y={my - 60} width="360" height="140" rx="10" fill="var(--surface-mid)" opacity="0.2" />
               {/* Sofa 1 (L-shape): 3D [-1, -2.2] → [-50, -110] */}
               <SofaSVG x={mx - 50} y={my - 110} />
               {/* Sofa 2: 3D [1, 2] → [50, 100] */}
