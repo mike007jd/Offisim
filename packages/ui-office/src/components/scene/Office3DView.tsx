@@ -20,6 +20,16 @@ import {
   ServerRackMesh3D,
   PlantMesh3D,
 } from './prefabs/index.js';
+import {
+  EditorProvider,
+  useEditorMaybe,
+  EditorToolbar,
+  PrefabPalette,
+  PropertiesPanel,
+  GhostPrefab,
+  EditorGrid,
+  EditorPlacedPrefabs,
+} from './editor/index.js';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
 // zone-config uses { cx, cz, w, d } (2D/logical coords).
@@ -1075,7 +1085,83 @@ export default function Office3DView() {
   }, []);
 
   return (
-    <div className="w-full h-full bg-slate-950" style={{ cursor: isDragging ? 'grabbing' : undefined }}>
+    <EditorProvider>
+      <Office3DViewInner
+        agents={agents}
+        placed={placed}
+        selectedEmployeeId={selectedEmployeeId}
+        isDragging={isDragging}
+        dragState={dragState}
+        hoveredZoneId={hoveredZoneId}
+        flowLines={flowLines}
+        setFlowLines={setFlowLines}
+        controlsRef={controlsRef}
+        hasPrefabData={hasPrefabData}
+        prefabInstances={prefabInstances}
+        zoneActivity={zoneActivity}
+        activeCount={activeCount}
+        blockedCount={blockedCount}
+        handleDeselect={handleDeselect}
+        handleSelectEmployee={handleSelectEmployee}
+        handleEmployeeDragStart={handleEmployeeDragStart}
+        handleDragMove={handleDragMove}
+        handleDragEnd={handleDragEnd}
+        handleDragCancel={handleDragCancel}
+      />
+    </EditorProvider>
+  );
+}
+
+// ── Inner view (needs EditorProvider above it) ───────────────────
+
+function Office3DViewInner({
+  agents,
+  placed,
+  selectedEmployeeId,
+  isDragging,
+  dragState,
+  hoveredZoneId,
+  flowLines,
+  setFlowLines,
+  controlsRef,
+  hasPrefabData,
+  prefabInstances,
+  zoneActivity,
+  activeCount,
+  blockedCount,
+  handleDeselect,
+  handleSelectEmployee,
+  handleEmployeeDragStart,
+  handleDragMove,
+  handleDragEnd,
+  handleDragCancel,
+}: {
+  agents: Map<string, AgentState>;
+  placed: PlacedEmployee[];
+  selectedEmployeeId: string | null;
+  isDragging: boolean;
+  dragState: DragState3D | null;
+  hoveredZoneId: string | null;
+  flowLines: FlowLineData[];
+  setFlowLines: React.Dispatch<React.SetStateAction<FlowLineData[]>>;
+  controlsRef: React.RefObject<any>;
+  hasPrefabData: boolean;
+  prefabInstances: ReturnType<typeof usePrefabInstances>['instances'];
+  zoneActivity: Record<string, { count: number; blocked: boolean }>;
+  activeCount: number;
+  blockedCount: number;
+  handleDeselect: () => void;
+  handleSelectEmployee: (id: string) => void;
+  handleEmployeeDragStart: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
+  handleDragMove: (worldX: number, worldZ: number, screenX: number, screenY: number) => void;
+  handleDragEnd: (worldX: number, worldZ: number) => void;
+  handleDragCancel: () => void;
+}) {
+  const editor = useEditorMaybe();
+  const isEditMode = editor?.mode === 'edit';
+
+  return (
+    <div className="w-full h-full bg-slate-950" style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}>
       <Canvas shadows camera={{ position: [0, 22, 28], fov: 45 }}>
         <color attach="background" args={['#020617']} />
         <fog attach="fog" args={['#020617', 40, 100]} />
@@ -1099,6 +1185,9 @@ export default function Office3DView() {
 
         {/* Room shell — floor click deselects */}
         <RoomShell onFloorClick={handleDeselect} />
+
+        {/* ── Editor grid overlay (visible only in edit mode) ── */}
+        <EditorGrid />
 
         {/* ── Zone overlays (with drag highlight and activity glow) ── */}
         {ZONES_3D.map((z) => (
@@ -1155,6 +1244,12 @@ export default function Office3DView() {
           </>
         )}
 
+        {/* ── Editor-placed prefabs (from editor local state) ── */}
+        <EditorPlacedPrefabs />
+
+        {/* ── Ghost prefab (placement preview) ── */}
+        <GhostPrefab />
+
         {/* ── Employees ── */}
         {placed.map((emp) => (
           <EmployeeMarker
@@ -1190,9 +1285,9 @@ export default function Office3DView() {
             backdropFilter: 'blur(4px)',
             whiteSpace: 'nowrap',
           }}>
-            <div>⚡ {activeCount} active</div>
+            <div>{activeCount} active</div>
             {blockedCount > 0 && (
-              <div style={{ color: '#fbbf24' }}>⚠ {blockedCount} blocked</div>
+              <div style={{ color: '#fbbf24' }}>{blockedCount} blocked</div>
             )}
           </div>
         </Html>
@@ -1221,6 +1316,11 @@ export default function Office3DView() {
           target={[0, 0, 2]}
         />
       </Canvas>
+
+      {/* ── Editor DOM overlays (rendered outside Canvas) ── */}
+      <EditorToolbar />
+      {isEditMode && <PrefabPalette />}
+      {isEditMode && <PropertiesPanel />}
     </div>
   );
 }
