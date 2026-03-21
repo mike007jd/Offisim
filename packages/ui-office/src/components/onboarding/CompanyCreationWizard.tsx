@@ -2,13 +2,15 @@ import {
   FlaskConical, PenTool, Rocket, Briefcase, Brain,
   Loader2, ChevronRight,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { CompanyTemplate } from '@aics/core/browser';
 import { createAvatar } from '@dicebear/core';
 import { avataaars } from '@dicebear/collection';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
 import { ZONES } from '../../lib/zone-config.js';
 import { ROLE_LABELS } from '../../lib/roles.js';
+
+const Office3DView = lazy(() => import('../scene/Office3DView'));
 
 /* ── Template config ── */
 
@@ -389,14 +391,101 @@ function PreviewEmployeeAvatar({ x, y, name, role }: { x: number; y: number; nam
 
 /* ── 2D Office Preview (SVG with real furniture + employee avatars) ── */
 
-function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'] }) {
-  const SCALE = 8;
+/** Dynamically compute layout zones based on template employees */
+function computeTemplateZones(employees: CompanyTemplate['employees']) {
+  // Find which departments have employees
+  const deptMap = new Map<string, number>();
+  for (const emp of employees) {
+    const dept = resolveZoneForRole(emp.role_slug);
+    deptMap.set(dept, (deptMap.get(dept) ?? 0) + 1);
+  }
+  const activeDepts = [...deptMap.keys()];
+  const totalEmps = employees.length;
+
+  // Infrastructure zones: scale based on company size
+  const hasServer = totalEmps >= 5;
+  const hasMeeting = totalEmps >= 3;
+  const hasLibrary = totalEmps >= 4;
+  const hasRest = totalEmps >= 3;
+
+  // Layout grid: departments in bottom row, utility zones in top rows
+  const zones: Array<{
+    id: string; label: string; accent: string; type: string;
+    x: number; y: number; w: number; h: number;
+    deptId?: string; empCount?: number;
+  }> = [];
+
+  const PAD = 6;
   const W = 380;
   const H = 260;
-  const ox = W / 2;
-  const oy = H / 2 - 5;
 
-  // Place employees into zones
+  // ── Row 1: infrastructure (top) ──
+  const infraZones: typeof zones = [];
+  if (hasMeeting) infraZones.push({ id: 'mtg', label: 'MEETING ROOM', accent: '#94a3b8', type: 'infra', x: 0, y: 0, w: 0, h: 0 });
+  if (hasServer) infraZones.push({ id: 'srv', label: 'SERVER ROOM', accent: '#06b6d4', type: 'infra', x: 0, y: 0, w: 0, h: 0 });
+
+  const infraW = infraZones.length > 0 ? (W - PAD * 2 - (infraZones.length - 1) * PAD) / infraZones.length : 0;
+  const infraH = 60;
+  infraZones.forEach((z, i) => {
+    z.x = PAD + i * (infraW + PAD);
+    z.y = PAD;
+    z.w = infraW;
+    z.h = infraH;
+  });
+  zones.push(...infraZones);
+
+  // ── Row 2: support (middle) ──
+  const supportZones: typeof zones = [];
+  if (hasLibrary) supportZones.push({ id: 'lib', label: 'LIBRARY', accent: '#10b981', type: 'support', x: 0, y: 0, w: 0, h: 0 });
+  if (hasRest) supportZones.push({ id: 'rest', label: 'REST AREA', accent: '#f59e0b', type: 'support', x: 0, y: 0, w: 0, h: 0 });
+
+  const row2Y = infraZones.length > 0 ? PAD + infraH + PAD : PAD;
+  const supportW = supportZones.length > 0 ? (W - PAD * 2 - (supportZones.length - 1) * PAD) / supportZones.length : 0;
+  const supportH = 70;
+  supportZones.forEach((z, i) => {
+    z.x = PAD + i * (supportW + PAD);
+    z.y = row2Y;
+    z.w = supportW;
+    z.h = supportH;
+  });
+  zones.push(...supportZones);
+
+  // ── Row 3: departments (bottom) ──
+  const row3Y = row2Y + (supportZones.length > 0 ? supportH + PAD : 0);
+  const deptW = activeDepts.length > 0 ? (W - PAD * 2 - (activeDepts.length - 1) * PAD) / activeDepts.length : 0;
+  const deptH = H - row3Y - PAD;
+
+  const DEPT_META: Record<string, { label: string; accent: string }> = {
+    dev: { label: 'DEVELOPMENT', accent: '#3b82f6' },
+    prod: { label: 'PRODUCT', accent: '#a855f7' },
+    art: { label: 'ART & DESIGN', accent: '#f97316' },
+  };
+
+  activeDepts.forEach((deptId, i) => {
+    const meta = DEPT_META[deptId] ?? { label: deptId.toUpperCase(), accent: '#64748b' };
+    zones.push({
+      id: deptId,
+      label: meta.label,
+      accent: meta.accent,
+      type: 'dept',
+      x: PAD + i * (deptW + PAD),
+      y: row3Y,
+      w: deptW,
+      h: deptH,
+      deptId,
+      empCount: deptMap.get(deptId) ?? 0,
+    });
+  });
+
+  return zones;
+}
+
+function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'] }) {
+  const W = 380;
+  const H = 260;
+
+  const zones = useMemo(() => computeTemplateZones(employees), [employees]);
+
   const empByZone = useMemo(() => {
     const map = new Map<string, typeof employees>();
     for (const emp of employees) {
@@ -408,23 +497,9 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
     return map;
   }, [employees]);
 
-  /** Convert zone def to SVG coordinates */
-  function zoneToSVG(z: typeof ZONES[number]) {
-    const x = ox + z.cx * SCALE - (z.w * SCALE) / 2;
-    const y = oy + z.cz * SCALE - (z.d * SCALE) / 2;
-    const w = z.w * SCALE;
-    const h = z.d * SCALE;
-    const mx = x + w / 2;
-    const my = y + h / 2;
-    return { x, y, w, h, mx, my };
-  }
-
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[440px]">
-      {/* Background */}
       <rect width={W} height={H} fill="#060a14" rx={6} />
-
-      {/* Subtle dot grid */}
       <defs>
         <pattern id="wiz-grid" width="16" height="16" patternUnits="userSpaceOnUse">
           <circle cx="8" cy="8" r="0.25" fill="#1e293b" />
@@ -432,133 +507,80 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
       </defs>
       <rect width={W} height={H} fill="url(#wiz-grid)" rx={6} />
 
-      {/* ── Zone backgrounds + labels ── */}
-      {ZONES.map((z) => {
-        const s = zoneToSVG(z);
+      {zones.map((z) => {
+        const mx = z.x + z.w / 2;
+        const my = z.y + z.h / 2;
+        const sc = Math.min(z.w, z.h) / 55;
+
         return (
           <g key={z.id}>
-            {/* Zone fill */}
-            <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={3}
+            {/* Zone background */}
+            <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={3}
               fill={z.accent} fillOpacity={0.04}
-              stroke={z.accent} strokeWidth={0.6}
-              strokeOpacity={0.2}
+              stroke={z.accent} strokeWidth={0.6} strokeOpacity={0.2}
               strokeDasharray={z.type === 'infra' ? '3 1.5' : 'none'} />
-            {/* Zone label — top-left corner */}
-            <text x={s.x + 4} y={s.y + 7} fontSize={4.5} fill={z.accent} opacity={0.5}
-              fontFamily="system-ui" fontWeight={700} letterSpacing={1}>
+            {/* Zone label */}
+            <text x={z.x + 4} y={z.y + 8} fontSize={4.5} fill={z.accent} opacity={0.5}
+              fontFamily="system-ui" fontWeight={700} letterSpacing={0.8}>
               {z.label}
             </text>
-          </g>
-        );
-      })}
 
-      {/* ── Meeting Room (mtg) — conference table + whiteboard ── */}
-      {(() => {
-        const s = zoneToSVG(ZONES.find(z => z.id === 'mtg')!);
-        return (
-          <g>
-            <PreviewMeetingTable x={s.mx} y={s.my + 3} />
-          </g>
-        );
-      })()}
+            {/* ── Furniture per zone type ── */}
+            {z.id === 'mtg' && (
+              <g transform={`translate(${mx}, ${my + 2}) scale(${sc})`}>
+                <PreviewMeetingTable x={0} y={0} />
+              </g>
+            )}
+            {z.id === 'srv' && (
+              <g transform={`translate(${mx}, ${my}) scale(${sc})`}>
+                <circle cx={0} cy={0} r={18} fill="#06b6d4" opacity={0.04} />
+                {[-15, 0, 15].map((dx, i) => (
+                  <PreviewServerRack key={i} x={dx} y={0} />
+                ))}
+              </g>
+            )}
+            {z.id === 'lib' && (
+              <g transform={`translate(${mx}, ${my}) scale(${sc})`}>
+                {[-15, -5, 5, 15].map((dx, i) => (
+                  <PreviewBookshelf key={i} x={dx} y={-12} />
+                ))}
+                <PreviewReadingTable x={0} y={8} />
+                <PreviewPlant x={22} y={-16} />
+              </g>
+            )}
+            {z.id === 'rest' && (
+              <g transform={`translate(${mx}, ${my}) scale(${sc})`}>
+                <rect x={-20} y={-10} width={40} height={20} rx={2} fill="#334155" opacity={0.1} />
+                <PreviewSofa x={0} y={-5} />
+                <PreviewCoffeeTable x={0} y={2} />
+                <PreviewVendingMachine x={18} y={-4} />
+                <PreviewPlant x={-18} y={-8} />
+              </g>
+            )}
 
-      {/* ── Server Room (srv) — 3 racks + cable channels + cyan glow ── */}
-      {(() => {
-        const s = zoneToSVG(ZONES.find(z => z.id === 'srv')!);
-        return (
-          <g>
-            {/* Subtle glow */}
-            <circle cx={s.mx} cy={s.my} r={18} fill="#06b6d4" opacity={0.03} />
-            {/* Server racks */}
-            {[-20, 0, 20].map((dx, i) => (
-              <PreviewServerRack key={i} x={s.mx + dx} y={s.my} />
-            ))}
-            {/* Cable channels */}
-            {[-10, 10].map((dx, i) => (
-              <rect key={`c${i}`} x={s.mx + dx - 0.5} y={s.my + 9} width={1} height={10}
-                rx={0.3} fill="#0c4a6e" opacity={0.35} />
-            ))}
-          </g>
-        );
-      })()}
-
-      {/* ── Library (lib) — bookshelves + reading tables + plant ── */}
-      {(() => {
-        const s = zoneToSVG(ZONES.find(z => z.id === 'lib')!);
-        return (
-          <g>
-            {/* 4 bookshelves along top */}
-            {[-22, -9, 4, 17].map((dx, i) => (
-              <PreviewBookshelf key={i} x={s.mx + dx} y={s.y + 12} />
-            ))}
-            {/* 2 reading tables */}
-            <PreviewReadingTable x={s.mx - 14} y={s.my + 10} />
-            <PreviewReadingTable x={s.mx + 14} y={s.my + 10} />
-            {/* Plant */}
-            <PreviewPlant x={s.x + s.w - 5} y={s.y + 5} />
-          </g>
-        );
-      })()}
-
-      {/* ── Rest Area (rest) — sofas + coffee table + vending machine + plants ── */}
-      {(() => {
-        const s = zoneToSVG(ZONES.find(z => z.id === 'rest')!);
-        return (
-          <g>
-            {/* Carpet */}
-            <rect x={s.mx - 25} y={s.my - 10} width={50} height={22} rx={2} fill="#334155" opacity={0.15} />
-            {/* Sofas */}
-            <PreviewSofa x={s.mx - 5} y={s.my - 6} />
-            <PreviewSofa x={s.mx + 5} y={s.my + 8} color="#d97706" />
-            {/* Coffee table */}
-            <PreviewCoffeeTable x={s.mx} y={s.my + 1} />
-            {/* Vending machine */}
-            <PreviewVendingMachine x={s.x + s.w - 8} y={s.my - 5} />
-            {/* Plants */}
-            <PreviewPlant x={s.x + 4} y={s.y + 5} />
-            <PreviewPlant x={s.x + s.w - 5} y={s.y + s.h - 5} />
-          </g>
-        );
-      })()}
-
-      {/* ── Department zones: desk clusters + employees ── */}
-      {(['dev', 'prod', 'art'] as const).map(id => {
-        const z = ZONES.find(zz => zz.id === id)!;
-        const s = zoneToSVG(z);
-        const zoneEmps = empByZone.get(id) ?? [];
-
-        return (
-          <g key={id}>
-            {/* Desk cluster in center of zone */}
-            <PreviewDeskCluster x={s.mx} y={s.my + 2} />
-
-            {/* Employee avatars seated at desks */}
-            {zoneEmps.slice(0, 4).map((emp, i) => {
-              const cols = 2;
-              const row = Math.floor(i / cols);
-              const col = i % cols;
-              // Position employees at chair positions around the desk cluster
-              const chairOff = 14;
-              const wsOff = 7;
-              const ex = s.mx + (col === 0 ? -wsOff : wsOff);
-              const ey = s.my + 2 + (row === 0 ? -chairOff : chairOff);
+            {/* ── Department zones: desks + employees ── */}
+            {z.type === 'dept' && (() => {
+              const zoneEmps = empByZone.get(z.id) ?? [];
+              const dsc = Math.min(z.w, z.h) / 55;
               return (
-                <PreviewEmployeeAvatar
-                  key={emp.name}
-                  x={ex} y={ey}
-                  name={emp.name}
-                  role={emp.role_slug}
-                />
+                <g transform={`translate(${mx}, ${my + 2}) scale(${dsc})`}>
+                  <PreviewDeskCluster x={0} y={0} />
+                  {zoneEmps.slice(0, 4).map((emp, i) => {
+                    const row = Math.floor(i / 2);
+                    const col = i % 2;
+                    const ex = (col === 0 ? -7 : 7);
+                    const ey = (row === 0 ? -14 : 14);
+                    return <PreviewEmployeeAvatar key={emp.name} x={ex} y={ey} name={emp.name} role={emp.role_slug} />;
+                  })}
+                </g>
               );
-            })}
+            })()}
           </g>
         );
       })}
 
-      {/* ── Corner plants ── */}
+      {/* Corner plants */}
       <PreviewPlant x={12} y={12} />
-      <PreviewPlant x={W - 12} y={12} />
-      <PreviewPlant x={12} y={H - 12} />
       <PreviewPlant x={W - 12} y={H - 12} />
     </svg>
   );
