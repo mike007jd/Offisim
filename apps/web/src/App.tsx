@@ -31,7 +31,7 @@ import {
 import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 
-/** Lazy-loaded SceneCanvas — keeps PixiJS + GSAP (~504KB) out of the initial bundle */
+/** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
 const SceneCanvas = React.lazy(() =>
   import('@aics/ui-office/scene').then((m) => ({ default: m.SceneCanvas })),
 );

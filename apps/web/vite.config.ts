@@ -142,8 +142,7 @@ export default defineConfig({
     exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
   },
   build: {
-    // vendor-llm (LLM SDKs) and vendor-pixi (PixiJS) are large but unavoidable.
-    // vendor-llm is lazy-loaded on first chat; vendor-pixi is needed for scene rendering.
+    // vendor-llm (LLM SDKs) is large but unavoidable — lazy-loaded on first chat.
     chunkSizeWarningLimit: 1100,
     rollupOptions: {
       external: [
@@ -157,9 +156,8 @@ export default defineConfig({
         // Manual chunk splitting strategy:
         //   vendor-react   — React core (rarely changes, long cache)
         //   vendor-llm     — LLM SDKs + LangChain + zod (lazy on first chat)
-        //   vendor-pixi    — PixiJS core (220 files, ~250 KB; renderer backends
-        //                    auto-split by Vite via pixi.js dynamic imports)
-        //   vendor-ui      — Radix primitives + lucide icons + animation helpers
+        //   vendor-3d      — Three.js + React Three Fiber (lazy on 3D view toggle)
+        //   vendor-ui      — Radix primitives + lucide icons
         //   vendor-install — fflate + ajv + gray-matter + js-yaml
         //   vendor-drizzle — drizzle-orm (leaks via @aics/core barrel export)
         // ---------------------------------------------------------------------------
@@ -184,11 +182,6 @@ export default defineConfig({
             return 'vendor-llm';
           }
 
-          // PixiJS core — the big renderer library
-          if (id.includes('/pixi.js/') || id.includes('/@pixi/')) {
-            return 'vendor-pixi';
-          }
-
           // Three.js + React Three Fiber (lazy on 3D view toggle)
           if (
             id.includes('/three/') ||
@@ -197,15 +190,14 @@ export default defineConfig({
             return 'vendor-3d';
           }
 
-          // UI stack — icons, Radix primitives, scroll-lock, GSAP
+          // UI stack — icons, Radix primitives, scroll-lock
           if (
             id.includes('/lucide-react/') ||
             id.includes('/@radix-ui/') ||
             id.includes('/react-remove-scroll') ||
             id.includes('/use-callback-ref/') ||
             id.includes('/use-sidecar/') ||
-            id.includes('/react-style-singleton/') ||
-            id.includes('/gsap/')
+            id.includes('/react-style-singleton/')
           ) {
             return 'vendor-ui';
           }
