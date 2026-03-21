@@ -1,6 +1,12 @@
 /**
  * OpenClawClient — WebSocket client for the OpenClaw Gateway Protocol v3.
  *
+ * NOTE: For cross-agent task communication, prefer the A2A Protocol (HTTP JSON-RPC)
+ * via `A2AClient` in `../a2a/`. This WebSocket client remains the right choice for:
+ *   - Real-time event streaming (agent state changes, chat token streaming)
+ *   - Long-lived bidirectional connections
+ *   - Gateway-level operations (connect, ping, device management)
+ *
  * Lifecycle:
  *  1. connect() opens WebSocket
  *  2. Waits for connect.challenge event from gateway

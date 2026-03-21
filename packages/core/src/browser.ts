@@ -208,7 +208,7 @@ export { AicsError, LlmError, GraphError, DataError } from './errors.js';
 // --- Runtime (browser-safe parts) ---
 export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 
-// --- OpenClaw Gateway ---
+// --- OpenClaw Gateway (WebSocket — real-time event streaming) ---
 export { OpenClawClient } from './gateway/index.js';
 export type {
   OpenClawConfig,
@@ -216,3 +216,16 @@ export type {
   OpenClawChatResponse,
   ConnectionState,
 } from './gateway/index.js';
+
+// --- A2A Protocol (HTTP JSON-RPC — preferred cross-agent communication) ---
+export { A2AClient } from './a2a/index.js';
+export type {
+  A2APeer,
+  A2ATask,
+  A2AAgentCard,
+  A2AConfig,
+  A2APart,
+  A2ATextPart,
+  A2ATaskState,
+  A2ASkill,
+} from './a2a/index.js';
