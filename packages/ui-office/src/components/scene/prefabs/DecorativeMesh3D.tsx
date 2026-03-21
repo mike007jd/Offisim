@@ -5,6 +5,8 @@
  * The `template` prop selects which decorative variant to render.
  */
 
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
+
 export interface PlantMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
@@ -17,21 +19,22 @@ export function PlantMesh3D({
   rotation = 0,
   state: _state,
 }: PlantMesh3DProps) {
+  const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.25, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.15, 0.5, 16]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.8} />
+        <meshStandardMaterial color={sc.desk} roughness={0.8} />
       </mesh>
       <mesh position={[0, 0.6, 0]} castShadow>
         <icosahedronGeometry args={[0.3, 1]} />
-        <meshStandardMaterial color="#10b981" roughness={0.6} />
+        <meshStandardMaterial color={sc.leafPrimary} roughness={0.6} />
       </mesh>
       <mesh position={[-0.15, 0.5, 0.1]} castShadow>
         <icosahedronGeometry args={[0.2, 1]} />
-        <meshStandardMaterial color="#059669" roughness={0.6} />
+        <meshStandardMaterial color={sc.leafSecondary} roughness={0.6} />
       </mesh>
     </group>
   );

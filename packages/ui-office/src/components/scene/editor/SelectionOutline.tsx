@@ -11,6 +11,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 interface SelectionOutlineProps {
   /** World position of the selected prefab. */
@@ -23,6 +24,7 @@ export function SelectionOutline({
   position,
   size = [2, 2],
 }: SelectionOutlineProps) {
+  const sc = useSceneColors();
   const ringRef = useRef<THREE.Mesh>(null);
   const boxRef = useRef<THREE.LineSegments>(null);
 
@@ -54,7 +56,7 @@ export function SelectionOutline({
           Math.max(size[0], size[1]) * 0.75,
           32,
         ]} />
-        <meshBasicMaterial color="#3b82f6" transparent opacity={0.5} />
+        <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.5} />
       </mesh>
 
       {/* Wireframe bounding box */}
@@ -62,7 +64,7 @@ export function SelectionOutline({
         <edgesGeometry
           args={[new THREE.BoxGeometry(size[0], boxH, size[1])]}
         />
-        <lineBasicMaterial color="#60a5fa" transparent opacity={0.35} />
+        <lineBasicMaterial color={sc.selectionRing} transparent opacity={0.35} />
       </lineSegments>
 
       {/* Corner markers — four dots at the base */}
@@ -74,7 +76,7 @@ export function SelectionOutline({
       ] as [number, number, number][]).map((p, i) => (
         <mesh key={i} position={p}>
           <sphereGeometry args={[0.08, 8, 8]} />
-          <meshBasicMaterial color="#93c5fd" />
+          <meshBasicMaterial color={sc.selectionRing} />
         </mesh>
       ))}
     </group>

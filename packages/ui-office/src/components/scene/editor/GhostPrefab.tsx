@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { Prefab3D } from '../prefabs/index.js';
 import { useEditor } from './EditorMode.js';
 import type { PrefabDefinition } from '@aics/shared-types';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ function GhostMesh({
   definition: PrefabDefinition;
   position: [number, number, number];
 }) {
+  const sc = useSceneColors();
   const groupRef = useRef<THREE.Group>(null);
 
   // Apply transparency to all materials in the group on every frame
@@ -157,7 +159,7 @@ function GhostMesh({
         rotation={[-Math.PI / 2, 0, 0]}
       >
         <ringGeometry args={[0.8, 1.0, 32]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.5} />
+        <meshBasicMaterial color={sc.leafPrimary} transparent opacity={0.5} />
       </mesh>
 
       {/* Grid cell indicator */}
@@ -172,7 +174,7 @@ function GhostMesh({
           ]}
         />
         <meshBasicMaterial
-          color="#10b981"
+          color={sc.leafPrimary}
           transparent
           opacity={0.08}
         />

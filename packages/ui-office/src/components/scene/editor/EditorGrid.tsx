@@ -11,12 +11,14 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useEditor } from './EditorMode.js';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 const ROOM_W = 40;
 const GRID_DIVISIONS = 80; // 0.5 unit grid
 
 export function EditorGrid() {
   const { mode } = useEditor();
+  const sc = useSceneColors();
   const matRef = useRef<THREE.LineBasicMaterial>(null);
   const matRef2 = useRef<THREE.LineBasicMaterial>(null);
 
@@ -43,21 +45,21 @@ export function EditorGrid() {
   return (
     <group position={[0, 0.015, 0]}>
       {/* Major grid (every 2 units) */}
-      <gridHelper args={[ROOM_W, ROOM_W / 2, '#3b82f6', '#3b82f6']}>
+      <gridHelper args={[ROOM_W, ROOM_W / 2, sc.selectionRing, sc.selectionRing]}>
         <lineBasicMaterial
           ref={matRef}
           attach="material"
-          color="#3b82f6"
+          color={sc.selectionRing}
           transparent
           opacity={0}
         />
       </gridHelper>
       {/* Minor grid (every 0.5 units) */}
-      <gridHelper args={[ROOM_W, GRID_DIVISIONS, '#1e40af', '#1e40af']}>
+      <gridHelper args={[ROOM_W, GRID_DIVISIONS, sc.selectionRing, sc.selectionRing]}>
         <lineBasicMaterial
           ref={matRef2}
           attach="material"
-          color="#1e40af"
+          color={sc.selectionRing}
           transparent
           opacity={0}
         />

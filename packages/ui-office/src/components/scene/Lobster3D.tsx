@@ -8,6 +8,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 
 // ── Color palette ─────────────────────────────────────────────────────
 
@@ -217,6 +218,8 @@ export function Lobster3D({
   const antennaRRef = useRef<THREE.Group>(null);
   const tailRef = useRef<THREE.Group>(null);
 
+  const sc = useSceneColors();
+
   // Memoize color palette and derived hex strings — only recomputed when brandColor changes
   const { colors, baseHex, darkHex, bellyHex } = useMemo(() => {
     const c = lobsterColors(brandColor);
@@ -386,7 +389,7 @@ export function Lobster3D({
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <ringGeometry args={[0.7, 0.85, 32]} />
-          <meshBasicMaterial color="#3b82f6" transparent opacity={0.8} />
+          <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
         </mesh>
       )}
 
