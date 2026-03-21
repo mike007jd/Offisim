@@ -575,50 +575,27 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 function WorkflowVisual({ sop, accentHex }: { sop: CompanyTemplate['sops'][0]; accentHex: string }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-      <div className="text-xs font-medium text-slate-300 mb-2">{sop.name}</div>
-      <div className="flex items-center gap-0">
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+      <div className="text-[11px] font-medium text-slate-300 mb-2.5">{sop.name}</div>
+      <div className="space-y-0">
         {sop.steps.map((step, idx) => {
           const stepColor = ROLE_DOT[step.role_slug] ?? '#64748b';
           const stepRole = ROLE_LABELS[step.role_slug] ?? step.role_slug;
-          const isHovered = hovered === idx;
+          const isLast = idx === sop.steps.length - 1;
           return (
-            <div key={step.step_id} className="flex items-center flex-1 min-w-0">
-              {/* Step node */}
-              <div
-                className="relative flex flex-col items-center"
-                onMouseEnter={() => setHovered(idx)}
-                onMouseLeave={() => setHovered(null)}
-              >
-                <div
-                  className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[8px] font-bold transition-all duration-200"
-                  style={{
-                    borderColor: stepColor,
-                    backgroundColor: isHovered ? stepColor : 'transparent',
-                    color: isHovered ? '#0f172a' : stepColor,
-                    transform: isHovered ? 'scale(1.2)' : 'scale(1)',
-                  }}
-                >
-                  {idx + 1}
-                </div>
-                <div className="text-[8px] text-slate-600 mt-1 text-center whitespace-nowrap max-w-[56px] truncate">
-                  {stepRole}
-                </div>
-                {/* Tooltip on hover */}
-                {isHovered && (
-                  <div className="absolute bottom-full mb-2 px-2 py-1 rounded-md bg-slate-800 border border-white/[0.08] text-[9px] text-slate-300 whitespace-nowrap z-20 shadow-xl"
-                    style={{ animation: 'wiz-fade-in 0.15s ease-out' }}>
-                    {step.label}
-                  </div>
-                )}
+            <div key={step.step_id} className="flex gap-2.5">
+              {/* Timeline column */}
+              <div className="flex flex-col items-center w-4 shrink-0">
+                <div className="w-2.5 h-2.5 rounded-full border-[1.5px] shrink-0 mt-0.5"
+                  style={{ borderColor: stepColor, backgroundColor: `${stepColor}20` }} />
+                {!isLast && <div className="w-px flex-1 my-0.5" style={{ backgroundColor: `${stepColor}30` }} />}
               </div>
-              {/* Connector line */}
-              {idx < sop.steps.length - 1 && (
-                <div className="flex-1 h-px mx-1" style={{ backgroundColor: `${accentHex}30` }} />
-              )}
+              {/* Step content */}
+              <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-2.5'}`}>
+                <div className="text-[10px] text-slate-400">{step.label}</div>
+                <div className="text-[9px] mt-0.5" style={{ color: stepColor }}>{stepRole}</div>
+              </div>
             </div>
           );
         })}
@@ -895,7 +872,7 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
   }, [employees]);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '280px' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
       <rect width={W} height={H} fill="#060a14" rx={6} />
       <defs>
         <pattern id="wiz-grid" width="16" height="16" patternUnits="userSpaceOnUse">
