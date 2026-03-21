@@ -11,13 +11,10 @@ interface SceneCanvasProps {
 }
 
 export function SceneCanvas({ reducedMotion = false, viewMode = '3D' }: SceneCanvasProps) {
-  const { containerRef } = useScene(reducedMotion);
+  useScene(reducedMotion);
 
   return (
     <div className="h-full w-full overflow-hidden bg-[#020617] relative">
-      {/* PixiJS — hidden, keeps business logic alive */}
-      <div ref={containerRef} className="absolute inset-0" style={{ display: 'none' }} />
-
       {/* SVG 2D View */}
       {viewMode === '2D' && (
         <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="text-[10px] font-mono text-slate-600 animate-pulse">LOADING 2D MAP...</div></div>}>

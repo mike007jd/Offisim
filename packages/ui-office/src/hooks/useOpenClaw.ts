@@ -3,7 +3,7 @@
  *
  * Persists gateway config and invited agent IDs to localStorage.
  * Emits standard employee.installed / employee.deleted events so the
- * renderer SceneManager adds/removes lobster puppets automatically.
+ * scene views react to these events and update accordingly.
  *
  * The actual OpenClawClient is mocked until the client package is available.
  */
@@ -178,7 +178,7 @@ export function useOpenClaw() {
         return next;
       });
 
-      // Emit employee.installed so SceneManager adds a lobster puppet
+      // Emit employee.installed so scene views add a lobster puppet
       eventBus.emit(
         employeeInstalled(
           COMPANY_ID,
@@ -201,7 +201,7 @@ export function useOpenClaw() {
         return next;
       });
 
-      // Emit employee.deleted so SceneManager removes the lobster puppet
+      // Emit employee.deleted so scene views remove the lobster puppet
       eventBus.emit(employeeDeleted(COMPANY_ID, agentId));
     },
     [eventBus],

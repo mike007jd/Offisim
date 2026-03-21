@@ -3,7 +3,7 @@
  * Wired to real InstallService when available; falls back to mock data otherwise.
  *
  * After successful install, emits `employee.installed` events for each new employee
- * so the renderer (SceneManager) can add them to the scene.
+ * so scene views can add them to the display.
  */
 
 import { employeeInstalled } from '@aics/core/browser';
@@ -86,7 +86,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   /**
    * After a successful install, emit employeeInstalled events so
-   * SceneManager can add the new employees to the PixiJS scene.
+   * scene views can add the new employees to the display.
    */
   const emitInstalledEmployees = useCallback(
     (employeeIds: string[], activePlan: InstallPlan, txnId: string) => {
