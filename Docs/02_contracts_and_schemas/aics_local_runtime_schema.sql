@@ -219,6 +219,22 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Prefab System: office elements as stateful, bindable AI-concept entities
+CREATE TABLE IF NOT EXISTS prefab_instances (
+  instance_id   TEXT PRIMARY KEY,
+  company_id    TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  prefab_id     TEXT NOT NULL,
+  zone_id       TEXT NOT NULL,
+  position_x    REAL NOT NULL DEFAULT 0,
+  position_y    REAL NOT NULL DEFAULT 0,
+  rotation      INTEGER NOT NULL DEFAULT 0,
+  bindings_json TEXT,
+  config_json   TEXT,
+  enabled       INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_installed_packages_company ON installed_packages(company_id);
 CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installed_package_id);
 CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
@@ -226,3 +242,5 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(company_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_thread ON llm_calls(thread_id);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_task_run ON llm_calls(task_run_id);
+CREATE INDEX IF NOT EXISTS idx_prefab_instances_company ON prefab_instances(company_id);
+CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone ON prefab_instances(company_id, zone_id);
