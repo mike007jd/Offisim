@@ -357,40 +357,25 @@ export function CompanyCreationWizard({ onComplete }: Props) {
             {/* LEFT: Info + Team + Workflows — scrollable */}
             <div className="w-[340px] shrink-0 border-r border-white/[0.06] overflow-y-auto px-4 py-4 space-y-4"
               key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
-              {/* Template info header */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`${meta.accent}`}>{meta.icon}</div>
-                  <h2 className="text-sm font-bold text-white">{selected.name}</h2>
-                </div>
-                <p className="text-xs text-slate-500">{meta.tagline}</p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {meta.bestFor.map((tag) => (
-                    <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
-                  <span>{selected.employees.length} members</span>
-                  <span>·</span>
-                  <span>{selected.sops.length} workflow{selected.sops.length !== 1 ? 's' : ''}</span>
-                  <span>·</span>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
-                        backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
-                      }} />
-                    ))}
-                  </div>
-                </div>
-                {/* Capabilities */}
-                <div className="flex flex-col gap-1 mt-3">
-                  {meta.capabilities.map((cap) => (
-                    <div key={cap} className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: meta.accentHex }} />
-                      {cap}
-                    </div>
+              {/* Template info — compact */}
+              <div className="flex items-center gap-2">
+                <div className={`${meta.accent}`}>{meta.icon}</div>
+                <h2 className="text-xs font-bold text-white">{selected.name}</h2>
+                <span className="text-[9px] text-slate-600">—</span>
+                <span className="text-[9px] text-slate-500 truncate">{meta.tagline}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-600">
+                {meta.bestFor.map((tag) => (
+                  <span key={tag} className="px-1.5 py-px rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">{tag}</span>
+                ))}
+                <span>·</span>
+                <span>{selected.employees.length} members</span>
+                <span>·</span>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
+                      backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
+                    }} />
                   ))}
                 </div>
               </div>
@@ -574,7 +559,7 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
    Workflow Visual — horizontal step flow with role indicators
    ══════════════════════════════════════════════════════════════════════════ */
 
-function WorkflowVisual({ sop, accentHex }: { sop: CompanyTemplate['sops'][0]; accentHex: string }) {
+function WorkflowVisual({ sop }: { sop: CompanyTemplate['sops'][0]; accentHex?: string }) {
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
       <div className="text-[11px] font-medium text-slate-300 mb-2.5">{sop.name}</div>
