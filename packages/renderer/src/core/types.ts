@@ -1,4 +1,4 @@
-import type { EmployeeState, RuntimeEvent } from '@aics/shared-types';
+import type { EmployeeState, RuntimeEvent, SemanticCategory, PrefabBinding } from '@aics/shared-types';
 import type { Container } from 'pixi.js';
 
 /**
@@ -114,6 +114,19 @@ export interface NodeVisualMapping {
   readonly enterState: EmployeeState;
 }
 
+/** Seed definition for placing a prefab instance in the scene */
+export interface PrefabSeed {
+  readonly instanceId: string;
+  readonly prefabId: string;
+  readonly category: SemanticCategory;
+  readonly zoneId: string;
+  readonly positionX: number;
+  readonly positionY: number;
+  readonly rotation: 0 | 90 | 180 | 270;
+  readonly bindings?: readonly PrefabBinding[];
+  readonly configOverrides?: Record<string, unknown>;
+}
+
 /** Options for SceneManager construction */
 export interface SceneManagerOptions {
   /** Container element to mount the PixiJS canvas into */
@@ -136,6 +149,8 @@ export interface SceneManagerOptions {
    * Defaults to 'employee'. Use 'lobster' only for OpenClaw imported agents.
    */
   entityStyle?: SceneEntityType;
+  /** Seed prefab instances to place in the scene at mount time */
+  prefabs?: PrefabSeed[];
 }
 
 /** Default employee seeds */

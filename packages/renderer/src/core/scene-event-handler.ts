@@ -20,6 +20,7 @@ import type {
 } from '@aics/shared-types';
 import { STATE_COLORS } from '../tokens/colors.js';
 import type { PerformanceTier } from '../tokens/motion.js';
+import type { PrefabEventRouter } from '../prefab/prefab-event-router.js';
 import type { NodeVisualMapping, SceneEntity, SceneEventBus } from './types.js';
 
 /**
@@ -84,6 +85,7 @@ export class SceneEventHandler {
     private readonly eventBus: SceneEventBus,
     private readonly delegate: SceneManagerDelegate,
     nodeVisualMap: Record<string, NodeVisualMapping>,
+    private readonly prefabEventRouter?: PrefabEventRouter,
   ) {
     this.nodeVisualMap = nodeVisualMap;
   }
@@ -370,6 +372,18 @@ export class SceneEventHandler {
         }
       }),
     );
+
+    // ── Route events to prefab instances ──
+    // Catch-all: forward every event to PrefabEventRouter so bound
+    // prefab instances can react to resource state changes.
+    if (this.prefabEventRouter) {
+      const router = this.prefabEventRouter;
+      this.unsubscribers.push(
+        this.eventBus.on('', (event) => {
+          router.routeEvent(event);
+        }),
+      );
+    }
   }
 
   /** Unsubscribe from all events. */

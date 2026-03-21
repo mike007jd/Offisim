@@ -13,6 +13,7 @@ export type {
   SceneEntity,
   SceneEntityType,
   EmployeeSeed,
+  PrefabSeed,
   NodeVisualMapping,
 } from './core/types.js';
 export { LAYER_NAMES } from './core/types.js';
@@ -121,3 +122,6 @@ export {
   drawVendingMachine,
   drawServerRack,
 } from './shapes/furniture.js';
+
+// Prefab system
+export * from './prefab/index.js';

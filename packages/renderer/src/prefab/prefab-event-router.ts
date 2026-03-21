@@ -110,6 +110,13 @@ export class PrefabEventRouter {
     return [];
   }
 
+  /** Clean up all registrations */
+  destroy(): void {
+    this.bindingIndex.clear();
+    this.runtimes.clear();
+    this.providerRackIndex.clear();
+  }
+
   /** Infer the target prefab state from an event */
   private inferState(category: SemanticCategory, event: RuntimeEvent): string | null {
     const payload = event.payload as Record<string, unknown>;

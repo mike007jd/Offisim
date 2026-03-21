@@ -23,6 +23,7 @@ import type {
   EmployeeSeed,
   LayerName,
   NodeVisualMapping,
+  PrefabSeed,
   SceneEntity,
   SceneEntityType,
   SceneEventBus,
@@ -40,6 +41,7 @@ export class SceneManager implements SceneManagerDelegate {
   private readonly container: HTMLElement;
   private readonly eventBus: SceneEventBus;
   private readonly employees: EmployeeSeed[];
+  private readonly prefabs: PrefabSeed[];
   private readonly nodeVisualMap: Record<string, NodeVisualMapping>;
   private _reducedMotion: boolean;
   private _destroyed = false;
@@ -65,6 +67,7 @@ export class SceneManager implements SceneManagerDelegate {
     this.container = options.container;
     this.eventBus = options.eventBus;
     this.employees = options.employees ?? DEFAULT_EMPLOYEES;
+    this.prefabs = options.prefabs ?? [];
     this._reducedMotion = options.reducedMotion ?? false;
     this.nodeVisualMap = options.nodeVisualMap ?? DEFAULT_NODE_VISUAL_MAP;
     this.entityStyle = options.entityStyle ?? 'employee';
@@ -121,6 +124,7 @@ export class SceneManager implements SceneManagerDelegate {
       this.layers.entity,
       () => this.motion,
       this.entityStyle,
+      this.layers.furniture,
     );
 
     this.visualFeedback = new SceneVisualFeedback(
@@ -133,7 +137,12 @@ export class SceneManager implements SceneManagerDelegate {
       () => this.entityManager.findUnoccupiedWorkstation(),
     );
 
-    this.eventHandler = new SceneEventHandler(this.eventBus, this, this.nodeVisualMap);
+    this.eventHandler = new SceneEventHandler(
+      this.eventBus,
+      this,
+      this.nodeVisualMap,
+      this.entityManager.prefabEventRouter,
+    );
 
     // ── Compute floor plan from employees ──
     const employeeCounts = this.entityManager.computeDepartmentCounts(this.employees);
@@ -157,6 +166,11 @@ export class SceneManager implements SceneManagerDelegate {
 
     // ── Employee entities (L2) ──
     this.entityManager.placeInitialEmployees(this.employees);
+
+    // ── Prefab instances (L1 — furniture layer) ──
+    if (this.prefabs.length > 0) {
+      this.entityManager.placeInitialPrefabs(this.prefabs);
+    }
 
     // ── Interaction controller ──
     this.interactionController = new InteractionController(

@@ -11,8 +11,12 @@ import type { CharacterConfig } from '../puppet/types.js';
 import { DEFAULT_CHARACTER_CONFIGS, PUPPET } from '../puppet/types.js';
 import { resolveEmployeeDepartment, RD_COMPANY_ZONES } from '../tokens/departments.js';
 import type { MotionBucket, MotionTokens } from '../tokens/motion.js';
+import { PrefabRuntime } from '../prefab/prefab-runtime.js';
+import { PrefabEventRouter } from '../prefab/prefab-event-router.js';
+import { getBuiltinPrefab } from '../prefab/builtin-catalog.js';
 import type {
   EmployeeSeed,
+  PrefabSeed,
   SceneEntity,
   SceneEntityType,
 } from './types.js';
@@ -28,6 +32,11 @@ export class SceneEntityManager {
   readonly employeeEntities: Map<string, SceneEntity> = new Map();
   /** Stored role slugs per employee for layout recomputation */
   readonly employeeRoleSlugs: Map<string, string | undefined> = new Map();
+
+  /** Prefab runtime instances keyed by instanceId */
+  readonly prefabRuntimes: Map<string, PrefabRuntime> = new Map();
+  /** Routes runtime events to bound prefab instances */
+  readonly prefabEventRouter: PrefabEventRouter = new PrefabEventRouter();
 
   /** Tracked GSAP tweens created by entity lifecycle animations (killed on destroy) */
   private managedTweens: gsap.core.Tween[] = [];
@@ -47,6 +56,7 @@ export class SceneEntityManager {
     private readonly entityLayer: Container,
     private readonly getMotion: () => MotionTokens,
     entityStyle: SceneEntityType,
+    private readonly furnitureLayer?: Container,
   ) {
     this.entityStyle = entityStyle;
   }
@@ -382,6 +392,61 @@ export class SceneEntityManager {
     return allDesks.find((d) => !this.occupancy.has(d.workstationId))?.workstationId ?? null;
   }
 
+  // ── Prefab instances ──
+
+  /**
+   * Add a prefab instance to the scene from a seed definition.
+   * Looks up the built-in catalog for the prefab definition,
+   * creates a PrefabRuntime, positions it, registers bindings, and
+   * adds the container to the furniture layer.
+   */
+  addPrefabInstance(seed: PrefabSeed): PrefabRuntime | null {
+    const definition = getBuiltinPrefab(seed.prefabId);
+    if (!definition) return null;
+
+    const runtime = new PrefabRuntime(seed.instanceId, definition, seed.configOverrides);
+    runtime.container.x = seed.positionX;
+    runtime.container.y = seed.positionY;
+
+    // Register bindings
+    if (seed.bindings) {
+      for (const b of seed.bindings) {
+        runtime.bindToResource(b.slotName, b.resourceRef, b.label);
+        this.prefabEventRouter.registerBinding(seed.instanceId, b.resourceRef);
+      }
+    }
+
+    this.prefabEventRouter.registerRuntime(runtime);
+    this.prefabRuntimes.set(seed.instanceId, runtime);
+
+    // Add to furniture layer (L1) if available
+    if (this.furnitureLayer) {
+      this.furnitureLayer.addChild(runtime.container);
+    }
+
+    return runtime;
+  }
+
+  /**
+   * Remove a prefab instance from the scene and clean up its resources.
+   */
+  removePrefabInstance(instanceId: string): void {
+    const runtime = this.prefabRuntimes.get(instanceId);
+    if (!runtime) return;
+    this.prefabEventRouter.unregisterRuntime(instanceId);
+    this.prefabRuntimes.delete(instanceId);
+    runtime.destroy();
+  }
+
+  /**
+   * Place initial prefab instances from seeds during mount.
+   */
+  placeInitialPrefabs(prefabs: PrefabSeed[]): void {
+    for (const seed of prefabs) {
+      this.addPrefabInstance(seed);
+    }
+  }
+
   // ── Debug ──
 
   get employeeDebugInfo(): Array<{ id: string; x: number; y: number; roleSlug: string | undefined }> {
@@ -406,6 +471,11 @@ export class SceneEntityManager {
     for (const entity of this.employeeEntities.values()) entity.destroy();
     this.employeeEntities.clear();
     this.employeeRoleSlugs.clear();
+
+    // Clean up prefab runtimes and event router
+    for (const runtime of this.prefabRuntimes.values()) runtime.destroy();
+    this.prefabRuntimes.clear();
+    this.prefabEventRouter.destroy();
 
     this.restAreaSeats = [];
     this.seatAssignments.clear();
