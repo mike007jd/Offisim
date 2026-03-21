@@ -52,11 +52,11 @@ export function AicsRuntimeProvider({ children }: Props) {
   // Async runtime init (Tauri + browser modes — both async due to seedCostRates)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
-    if (!config) return null;
 
     const eventBus = eventBusRef.current;
 
     if (isTauri()) {
+      if (!config) return null; // Tauri requires config for DB init
       const { createTauriRuntime } = await import('../lib/tauri-runtime');
       const runtime = await createTauriRuntime(config, eventBus);
       runtimeRef.current = runtime;
@@ -64,7 +64,13 @@ export function AicsRuntimeProvider({ children }: Props) {
     }
 
     // Browser mode — dynamically import to code-split heavy deps (LangGraph, OpenAI SDK, etc.)
-    const { createBrowserRuntime } = await import('../lib/browser-runtime');
+    const { createBrowserRuntime, createBrowserRuntimeReposOnly } = await import('../lib/browser-runtime');
+    if (!config) {
+      // No provider configured — init repos only (allows company creation, browsing)
+      const runtime = await createBrowserRuntimeReposOnly(eventBus);
+      runtimeRef.current = runtime;
+      return runtime;
+    }
     const runtime = await createBrowserRuntime(config, eventBus);
     runtimeRef.current = runtime;
     return runtime;
