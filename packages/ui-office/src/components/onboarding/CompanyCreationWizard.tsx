@@ -151,26 +151,26 @@ function TemplatePreview({ template, tmpl }: { template: CompanyTemplate; tmpl: 
         </div>
 
         {/* Team sidebar */}
-        <div className="w-56 shrink-0 border-l border-white/[0.06] flex flex-col overflow-y-auto p-3">
-          <h3 className="text-[10px] font-medium text-slate-600 uppercase tracking-wider mb-2">
+        <div className="w-64 shrink-0 border-l border-white/[0.06] flex flex-col overflow-y-auto p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Team · {template.employees.length}
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {template.employees.map((emp) => (
-              <EmployeeRow key={emp.name} name={emp.name} role={emp.role_slug} />
+              <EmployeeCard key={emp.name} name={emp.name} role={emp.role_slug} />
             ))}
           </div>
 
           {template.sops.length > 0 && (
             <>
-              <h3 className="text-[10px] font-medium text-slate-600 uppercase tracking-wider mb-2 mt-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 mt-5">
                 Workflows · {template.sops.length}
               </h3>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {template.sops.map((sop) => (
-                  <div key={sop.sop_id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5">
-                    <div className="text-[11px] text-slate-400 truncate">{sop.name}</div>
-                    <div className="text-[9px] text-slate-600">{sop.steps.length} steps</div>
+                  <div key={sop.sop_id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                    <div className="text-xs text-slate-400 truncate">{sop.name}</div>
+                    <div className="text-[10px] text-slate-600 mt-0.5">{sop.steps.length} steps</div>
                   </div>
                 ))}
               </div>
@@ -182,33 +182,217 @@ function TemplatePreview({ template, tmpl }: { template: CompanyTemplate; tmpl: 
   );
 }
 
-/* ── Employee row with DiceBear ── */
+/* ── Employee card with DiceBear (larger, more prominent) ── */
 
-function EmployeeRow({ name, role }: { name: string; role: string }) {
-  const avatarUri = useMemo(() => getAvatar(name, 28), [name]);
+function EmployeeCard({ name, role }: { name: string; role: string }) {
+  const avatarUri = useMemo(() => getAvatar(name, 48), [name]);
   const dotColor = ROLE_DOT[role] ?? '#64748b';
   const roleLabel = ROLE_LABELS[role] ?? role;
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5">
-      <img src={avatarUri} alt="" className="w-6 h-6 rounded-full shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] text-slate-300 truncate">{name}</div>
+    <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.05] transition-colors">
+      <div className="relative shrink-0">
+        <img src={avatarUri} alt="" className="w-10 h-10 rounded-full" />
+        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#060a14]"
+          style={{ backgroundColor: dotColor }} />
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
-        <span className="text-[9px] text-slate-600">{roleLabel}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-slate-200 truncate">{name}</div>
+        <div className="text-xs text-slate-500 mt-0.5">{roleLabel}</div>
       </div>
     </div>
   );
 }
 
-/* ── 2D Office Preview (SVG with furniture + employees) ── */
+/* ── SVG Furniture for Preview (simplified versions matching Office2DView style) ── */
+
+function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
+  // 4-seat desk cluster with glass partition cross, laptops, and chairs
+  const S = 28; // cluster size
+  const half = S / 2;
+  const wsOff = 7;   // workstation offset from center
+  const chairOff = 14; // chair offset from center
+  const seats: [number, number, number][] = [
+    [-wsOff, -wsOff, -chairOff],
+    [wsOff, -wsOff, -chairOff],
+    [-wsOff, wsOff, chairOff],
+    [wsOff, wsOff, chairOff],
+  ];
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Desk surface */}
+      <rect x={-half} y={-half} width={S} height={S} rx={1.5} fill="#e2e8f0" stroke="#cbd5e1" strokeWidth={0.3} />
+      {/* Glass partition cross */}
+      <line x1="0" y1={-half} x2="0" y2={half} stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.5} />
+      <line x1={-half} y1="0" x2={half} y2="0" stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.5} />
+      {/* Workstations + chairs */}
+      {seats.map(([dx, dz, cdz], i) => (
+        <g key={i}>
+          {/* Laptop on desk */}
+          <rect x={dx - 2} y={dz - 1} width={4} height={2} rx={0.3} fill="#334155" />
+          {/* Screen */}
+          <rect x={dx - 3} y={dz < 0 ? dz - 3 : dz + 1} width={6} height={1.2} rx={0.2} fill="#0ea5e9" opacity={0.5} />
+          {/* Chair */}
+          <circle cx={dx} cy={cdz} r={2.2} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function PreviewMeetingTable({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Conference table */}
+      <rect x={-18} y={-6} width={36} height={12} rx={3.5} fill="#1e293b" stroke="#334155" strokeWidth={0.3} />
+      {/* Inner surface */}
+      <rect x={-15} y={-4} width={30} height={8} rx={2} fill="#0f172a" />
+      {/* Chairs — 4 on each side */}
+      {[-11, -4, 4, 11].map((cx, i) => (
+        <g key={i}>
+          <circle cx={cx} cy={-9.5} r={2} fill="#0f172a" stroke="#334155" strokeWidth={0.2} />
+          <circle cx={cx} cy={9.5} r={2} fill="#0f172a" stroke="#334155" strokeWidth={0.2} />
+        </g>
+      ))}
+      {/* Whiteboard on left */}
+      <rect x={-26} y={-4} width={1.2} height={8} rx={0.3} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={0.15} />
+    </g>
+  );
+}
+
+function PreviewBookshelf({ x, y }: { x: number; y: number }) {
+  const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Shelf frame */}
+      <rect x={-5} y={-6} width={10} height={12} rx={0.5} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+      {/* 3 shelves with books */}
+      {[0, 1, 2].map(shelf => (
+        <g key={shelf}>
+          <rect x={-4.5} y={-5 + shelf * 4} width={9} height={0.2} fill="#334155" />
+          {[0, 1, 2, 3, 4].map(b => (
+            <rect key={b} x={-4 + b * 1.6} y={-4.5 + shelf * 4} width={1.2} height={3} rx={0.1}
+              fill={bookColors[(shelf * 5 + b) % bookColors.length]} />
+          ))}
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function PreviewReadingTable({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Table */}
+      <rect x={-10} y={-4} width={20} height={8} rx={1} fill="#064e3b" stroke="#334155" strokeWidth={0.2} />
+      {/* 2 chairs per side */}
+      {[-5, 5].map((cx, i) => (
+        <g key={i}>
+          <circle cx={cx} cy={-6.5} r={1.8} fill="#0f172a" stroke="#334155" strokeWidth={0.15} />
+          <circle cx={cx} cy={6.5} r={1.8} fill="#0f172a" stroke="#334155" strokeWidth={0.15} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function PreviewSofa({ x, y, color = '#f59e0b' }: { x: number; y: number; color?: string }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Sofa body */}
+      <path d="M-9,-3.5 L9,-3.5 L9,1.5 L5,1.5 L5,-1 L-5,-1 L-5,1.5 L-9,1.5 Z" fill={color} />
+      {/* Arm rests */}
+      <rect x={-10.5} y={-3.5} width={2} height={5} rx={0.8} fill="#0f172a" />
+      <rect x={8.5} y={-3.5} width={2} height={5} rx={0.8} fill="#0f172a" />
+    </g>
+  );
+}
+
+function PreviewCoffeeTable({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <circle cx="0" cy="0" r={4.5} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+      <circle cx="0" cy="0" r={2} fill="#0f172a" />
+    </g>
+  );
+}
+
+function PreviewServerRack({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Rack frame */}
+      <rect x={-3.5} y={-8} width={7} height={16} rx={0.5} fill="#0f172a" stroke="#1e293b" strokeWidth={0.3} />
+      {/* Server units with LED indicators */}
+      {Array.from({ length: 6 }, (_, i) => (
+        <g key={i}>
+          <rect x={-2.8} y={-7 + i * 2.5} width={5.6} height={2} rx={0.2} fill="#0c1220" />
+          <circle cx={1.5} cy={-6 + i * 2.5} r={0.4} fill={i % 3 === 0 ? '#fbbf24' : '#22c55e'} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function PreviewVendingMachine({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <rect x={-3} y={-5.5} width={6} height={11} rx={0.7} fill="#1e293b" stroke="#334155" strokeWidth={0.2} />
+      <rect x={-2.2} y={-4.5} width={4.4} height={4.5} rx={0.3} fill="#0ea5e9" opacity={0.4} />
+      <rect x={-1.8} y={1} width={3.6} height={1.5} rx={0.3} fill="#0f172a" />
+    </g>
+  );
+}
+
+function PreviewPlant({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Pot */}
+      <circle cx="0" cy="1" r={2.2} fill="#334155" stroke="#475569" strokeWidth={0.15} />
+      {/* Leaves */}
+      {[0, 72, 144, 216, 288].map(angle => (
+        <path key={angle} d="M0,0 C-2,-3.5 2,-3.5 0,0" fill="#10b981"
+          transform={`rotate(${angle})`} />
+      ))}
+    </g>
+  );
+}
+
+/* ── Employee avatar in floor plan ── */
+
+function PreviewEmployeeAvatar({ x, y, name, role }: { x: number; y: number; name: string; role: string }) {
+  const avatarUri = useMemo(() => getAvatar(name, 32), [name]);
+  const dotColor = ROLE_DOT[role] ?? '#64748b';
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2);
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* Status aura */}
+      <circle cx="0" cy="0" r={5} fill={dotColor} opacity={0.12} />
+      {/* Avatar bg */}
+      <circle cx="0" cy="0" r={4} fill="#1e293b" stroke={dotColor} strokeWidth={0.5} />
+      {/* Avatar image */}
+      <image href={avatarUri} x={-3.2} y={-3.2} width={6.4} height={6.4}
+        clipPath={`circle(3.2px at 3.2px 3.2px)`} />
+      {/* Fallback initials (renders under image, visible if image fails) */}
+      <text x="0" y="1.5" textAnchor="middle" fontSize={3} fill="#e2e8f0"
+        fontFamily="system-ui" fontWeight={600} style={{ pointerEvents: 'none' }}>
+        {initials}
+      </text>
+      {/* Name plate */}
+      <g transform="translate(0, 6.5)">
+        <rect x={-8} y={-2} width={16} height={4} rx={2} fill="#0f172a" opacity={0.8} />
+        <text x="0" y="0.8" fill="#f8fafc" fontSize={2.2} fontWeight={600} textAnchor="middle"
+          fontFamily="system-ui">{name.split(' ')[0]}</text>
+      </g>
+    </g>
+  );
+}
+
+/* ── 2D Office Preview (SVG with real furniture + employee avatars) ── */
 
 function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'] }) {
   const SCALE = 8;
-  const W = 360;
-  const H = 240;
+  const W = 380;
+  const H = 260;
   const ox = W / 2;
   const oy = H / 2 - 5;
 
@@ -224,76 +408,158 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
     return map;
   }, [employees]);
 
+  /** Convert zone def to SVG coordinates */
+  function zoneToSVG(z: typeof ZONES[number]) {
+    const x = ox + z.cx * SCALE - (z.w * SCALE) / 2;
+    const y = oy + z.cz * SCALE - (z.d * SCALE) / 2;
+    const w = z.w * SCALE;
+    const h = z.d * SCALE;
+    const mx = x + w / 2;
+    const my = y + h / 2;
+    return { x, y, w, h, mx, my };
+  }
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[400px]">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[440px]">
       {/* Background */}
       <rect width={W} height={H} fill="#060a14" rx={6} />
 
-      {/* Subtle grid */}
+      {/* Subtle dot grid */}
       <defs>
-        <pattern id="grid" width="16" height="16" patternUnits="userSpaceOnUse">
-          <circle cx="8" cy="8" r="0.3" fill="#1e293b" />
+        <pattern id="wiz-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+          <circle cx="8" cy="8" r="0.25" fill="#1e293b" />
         </pattern>
       </defs>
-      <rect width={W} height={H} fill="url(#grid)" rx={6} />
+      <rect width={W} height={H} fill="url(#wiz-grid)" rx={6} />
 
-      {/* Zones */}
+      {/* ── Zone backgrounds + labels ── */}
       {ZONES.map((z) => {
-        const x = ox + z.cx * SCALE - (z.w * SCALE) / 2;
-        const y = oy + z.cz * SCALE - (z.d * SCALE) / 2;
-        const w = z.w * SCALE;
-        const h = z.d * SCALE;
-        const zoneEmps = empByZone.get(z.id) ?? [];
-
+        const s = zoneToSVG(z);
         return (
           <g key={z.id}>
-            {/* Zone background */}
-            <rect x={x} y={y} width={w} height={h} rx={4}
-              fill={z.accent + '06'} stroke={z.accent} strokeWidth={0.8} strokeOpacity={0.25} />
+            {/* Zone fill */}
+            <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={3}
+              fill={z.accent} fillOpacity={0.04}
+              stroke={z.accent} strokeWidth={0.6}
+              strokeOpacity={0.2}
+              strokeDasharray={z.type === 'infra' ? '3 1.5' : 'none'} />
+            {/* Zone label — top-left corner */}
+            <text x={s.x + 4} y={s.y + 7} fontSize={4.5} fill={z.accent} opacity={0.5}
+              fontFamily="system-ui" fontWeight={700} letterSpacing={1}>
+              {z.label}
+            </text>
+          </g>
+        );
+      })}
 
-            {/* Zone label */}
-            <text x={x + 6} y={y + 10} fontSize={6} fill={z.accent} opacity={0.4}
-              fontFamily="system-ui" fontWeight={600}>{z.label}</text>
+      {/* ── Meeting Room (mtg) — conference table + whiteboard ── */}
+      {(() => {
+        const s = zoneToSVG(ZONES.find(z => z.id === 'mtg')!);
+        return (
+          <g>
+            <PreviewMeetingTable x={s.mx} y={s.my + 3} />
+          </g>
+        );
+      })()}
 
-            {/* Desk shapes (small rectangles) */}
-            {z.deskSlots > 0 && Array.from({ length: Math.min(z.deskSlots, 4) }, (_, i) => {
-              const dw = 14; const dh = 8;
-              const cols = 2;
-              const row = Math.floor(i / cols);
-              const col = i % cols;
-              const dx = x + 8 + col * (dw + 6);
-              const dy = y + 16 + row * (dh + 10);
-              return (
-                <g key={i}>
-                  <rect x={dx} y={dy} width={dw} height={dh} rx={1.5}
-                    fill="#1e293b" stroke="#334155" strokeWidth={0.4} />
-                  {/* Monitor on desk */}
-                  <rect x={dx + 4} y={dy + 1} width={6} height={3} rx={0.5} fill="#0f172a" stroke="#475569" strokeWidth={0.3} />
-                </g>
-              );
-            })}
+      {/* ── Server Room (srv) — 3 racks + cable channels + cyan glow ── */}
+      {(() => {
+        const s = zoneToSVG(ZONES.find(z => z.id === 'srv')!);
+        return (
+          <g>
+            {/* Subtle glow */}
+            <circle cx={s.mx} cy={s.my} r={18} fill="#06b6d4" opacity={0.03} />
+            {/* Server racks */}
+            {[-20, 0, 20].map((dx, i) => (
+              <PreviewServerRack key={i} x={s.mx + dx} y={s.my} />
+            ))}
+            {/* Cable channels */}
+            {[-10, 10].map((dx, i) => (
+              <rect key={`c${i}`} x={s.mx + dx - 0.5} y={s.my + 9} width={1} height={10}
+                rx={0.3} fill="#0c4a6e" opacity={0.35} />
+            ))}
+          </g>
+        );
+      })()}
 
-            {/* Employee avatars in zone */}
+      {/* ── Library (lib) — bookshelves + reading tables + plant ── */}
+      {(() => {
+        const s = zoneToSVG(ZONES.find(z => z.id === 'lib')!);
+        return (
+          <g>
+            {/* 4 bookshelves along top */}
+            {[-22, -9, 4, 17].map((dx, i) => (
+              <PreviewBookshelf key={i} x={s.mx + dx} y={s.y + 12} />
+            ))}
+            {/* 2 reading tables */}
+            <PreviewReadingTable x={s.mx - 14} y={s.my + 10} />
+            <PreviewReadingTable x={s.mx + 14} y={s.my + 10} />
+            {/* Plant */}
+            <PreviewPlant x={s.x + s.w - 5} y={s.y + 5} />
+          </g>
+        );
+      })()}
+
+      {/* ── Rest Area (rest) — sofas + coffee table + vending machine + plants ── */}
+      {(() => {
+        const s = zoneToSVG(ZONES.find(z => z.id === 'rest')!);
+        return (
+          <g>
+            {/* Carpet */}
+            <rect x={s.mx - 25} y={s.my - 10} width={50} height={22} rx={2} fill="#334155" opacity={0.15} />
+            {/* Sofas */}
+            <PreviewSofa x={s.mx - 5} y={s.my - 6} />
+            <PreviewSofa x={s.mx + 5} y={s.my + 8} color="#d97706" />
+            {/* Coffee table */}
+            <PreviewCoffeeTable x={s.mx} y={s.my + 1} />
+            {/* Vending machine */}
+            <PreviewVendingMachine x={s.x + s.w - 8} y={s.my - 5} />
+            {/* Plants */}
+            <PreviewPlant x={s.x + 4} y={s.y + 5} />
+            <PreviewPlant x={s.x + s.w - 5} y={s.y + s.h - 5} />
+          </g>
+        );
+      })()}
+
+      {/* ── Department zones: desk clusters + employees ── */}
+      {(['dev', 'prod', 'art'] as const).map(id => {
+        const z = ZONES.find(zz => zz.id === id)!;
+        const s = zoneToSVG(z);
+        const zoneEmps = empByZone.get(id) ?? [];
+
+        return (
+          <g key={id}>
+            {/* Desk cluster in center of zone */}
+            <PreviewDeskCluster x={s.mx} y={s.my + 2} />
+
+            {/* Employee avatars seated at desks */}
             {zoneEmps.slice(0, 4).map((emp, i) => {
               const cols = 2;
               const row = Math.floor(i / cols);
               const col = i % cols;
-              const ex = x + 12 + col * 20 + 14;
-              const ey = y + 22 + row * 18;
-              const dotColor = ROLE_DOT[emp.role_slug] ?? '#64748b';
+              // Position employees at chair positions around the desk cluster
+              const chairOff = 14;
+              const wsOff = 7;
+              const ex = s.mx + (col === 0 ? -wsOff : wsOff);
+              const ey = s.my + 2 + (row === 0 ? -chairOff : chairOff);
               return (
-                <g key={emp.name}>
-                  <circle cx={ex} cy={ey} r={4.5} fill="#0f172a" stroke={dotColor} strokeWidth={0.6} />
-                  <text x={ex} y={ey + 1.5} textAnchor="middle" fontSize={3.5} fill="#e2e8f0"
-                    fontFamily="system-ui" fontWeight={500}>
-                    {emp.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </text>
-                </g>
+                <PreviewEmployeeAvatar
+                  key={emp.name}
+                  x={ex} y={ey}
+                  name={emp.name}
+                  role={emp.role_slug}
+                />
               );
             })}
           </g>
         );
       })}
+
+      {/* ── Corner plants ── */}
+      <PreviewPlant x={12} y={12} />
+      <PreviewPlant x={W - 12} y={12} />
+      <PreviewPlant x={12} y={H - 12} />
+      <PreviewPlant x={W - 12} y={H - 12} />
     </svg>
   );
 }
