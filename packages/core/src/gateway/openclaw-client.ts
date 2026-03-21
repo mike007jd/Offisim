@@ -102,6 +102,7 @@ export class OpenClawClient extends TypedEmitter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempt = 0;
+  private consecutivePingFailures = 0;
   /** Resolve/reject for the in-progress connect() promise */
   private connectResolve: (() => void) | null = null;
   private connectReject: ((e: Error) => void) | null = null;
@@ -401,19 +402,26 @@ export class OpenClawClient extends TypedEmitter {
       }, REQUEST_TIMEOUT_MS);
 
       this.pendingRequests.set(id, { resolve, reject, timeout });
-      this.sendFrame(frame);
+      const sent = this.sendFrame(frame);
+      if (!sent) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        reject(new Error(`RPC send failed: ${method} (socket not open)`));
+      }
     });
   }
 
-  private sendFrame(frame: WireFrame): void {
+  private sendFrame(frame: WireFrame): boolean {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       logger.warn('Attempted to send frame on non-open socket', { frameType: frame.type });
-      return;
+      return false;
     }
     try {
       this.ws.send(JSON.stringify(frame));
+      return true;
     } catch (err) {
       logger.error('Failed to send frame', err, { frameType: frame.type });
+      return false;
     }
   }
 
@@ -423,8 +431,20 @@ export class OpenClawClient extends TypedEmitter {
     this.stopPing();
     this.pingTimer = setInterval(() => {
       if (this.isConnected()) {
-        // fire-and-forget; ignore errors — connection health is monitored via close events
-        this.rpc('ping', {}).catch(() => {});
+        this.rpc('ping', {})
+          .then(() => {
+            this.consecutivePingFailures = 0;
+          })
+          .catch(() => {
+            this.consecutivePingFailures++;
+            logger.warn('Ping failed', { consecutivePingFailures: this.consecutivePingFailures });
+            if (this.consecutivePingFailures >= 3) {
+              logger.error('3 consecutive ping failures — forcing reconnect');
+              this.consecutivePingFailures = 0;
+              this.teardownSocket();
+              this.scheduleReconnect();
+            }
+          });
       }
     }, PING_INTERVAL_MS);
   }

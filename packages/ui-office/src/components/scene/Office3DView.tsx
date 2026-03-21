@@ -753,8 +753,8 @@ function EmployeeMarker({
 
   /** OpenClaw agents use the lobster model instead of the humanoid. */
   const isOpenClaw = emp.agent.role === 'openclaw';
-  /** Brand color from agent metadata, falling back to the default OpenClaw red. */
-  const openClawBrandColor = (emp.agent as { brandColor?: string }).brandColor ?? '#e74c3c';
+  // TODO: expose brandColor on AgentState once core runtime carries it
+  const openClawBrandColor = '#e74c3c';
 
   return (
     <group

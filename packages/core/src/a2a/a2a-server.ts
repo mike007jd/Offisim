@@ -102,18 +102,29 @@ export class A2ARequestHandler {
   // --- Internal: JSON-RPC dispatch -------------------------------------------
 
   private async handleJsonRpc(req: A2AHttpRequest): Promise<A2AHttpResponse> {
-    // Auth check — normalize header keys to lowercase for robustness
-    const normalizedHeaders: Record<string, string> = {};
-    for (const [key, val] of Object.entries(req.headers)) {
-      normalizedHeaders[key.toLowerCase()] = val;
-    }
-    const authHeader = normalizedHeaders['authorization'] ?? '';
+    // Auth check — look up the authorization header case-insensitively without copying all headers
+    const authHeader = req.headers['authorization'] ?? req.headers['Authorization'] ?? '';
     if (authHeader !== `Bearer ${this.config.token}`) {
       logger.warn('Unauthorized A2A request');
+      // Return HTTP 200 with JSON-RPC error to stay compliant with JSON-RPC 2.0 spec
       return {
-        status: 401,
+        status: 200,
         headers: JSON_HEADERS,
-        body: JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Unauthorized' } }),
+        body: JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Unauthorized' } }),
+      };
+    }
+
+    // Body size guard — reject payloads larger than 1 MB to avoid memory abuse
+    const MAX_BODY_BYTES = 1_048_576; // 1 MB
+    if (req.body && req.body.length > MAX_BODY_BYTES) {
+      return {
+        status: 200,
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Request body too large (max 1 MB)' },
+        }),
       };
     }
 

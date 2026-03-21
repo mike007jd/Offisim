@@ -9,28 +9,20 @@
  */
 
 import { employeeDeleted, employeeInstalled } from '@aics/core/browser';
+import type { OpenClawAgent, OpenClawConfig, ConnectionState } from '@aics/core/browser';
 import { useCallback, useState } from 'react';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { COMPANY_ID } from '../lib/constants.js';
 
 // ---------------------------------------------------------------------------
-// Types
+// Re-export core types that consumers of this hook may need
 // ---------------------------------------------------------------------------
 
-export interface OpenClawAgent {
-  id: string;
-  name: string;
-  description: string;
-  status: 'online' | 'offline';
-  model: string;
-  skills: string[];
-}
+export type { OpenClawAgent, OpenClawConfig };
 
-export interface OpenClawConfig {
-  url: string;
-  token: string;
-}
-
-export type OpenClawConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+/** Subset of ConnectionState values relevant to the hook's UI surface.
+ *  'authenticating' is included to match the full core ConnectionState. */
+export type OpenClawConnectionState = ConnectionState;
 
 export interface OpenClawGatewayInfo {
   version: string;
@@ -44,19 +36,18 @@ export interface OpenClawGatewayInfo {
 
 const STORAGE_KEY_CONFIG = 'offisim.openclaw.config';
 const STORAGE_KEY_INVITED = 'offisim.openclaw.invited';
-const COMPANY_ID = 'company-001';
 
 // ---------------------------------------------------------------------------
 // localStorage helpers
 // ---------------------------------------------------------------------------
 
-function loadConfig(): OpenClawConfig | null {
+function loadConfig(): Pick<OpenClawConfig, 'url' | 'token'> | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (typeof parsed?.url === 'string' && typeof parsed?.token === 'string') {
-      return parsed as OpenClawConfig;
+      return { url: parsed.url as string, token: parsed.token as string };
     }
     return null;
   } catch {
@@ -64,7 +55,7 @@ function loadConfig(): OpenClawConfig | null {
   }
 }
 
-function saveConfig(cfg: OpenClawConfig): void {
+function saveConfig(cfg: Pick<OpenClawConfig, 'url' | 'token'>): void {
   localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(cfg));
 }
 
@@ -138,7 +129,7 @@ async function mockConnect(_url: string, _token: string): Promise<void> {
 export function useOpenClaw() {
   const { eventBus } = useAicsRuntime();
 
-  const [config, setConfigState] = useState<OpenClawConfig | null>(loadConfig);
+  const [config, setConfigState] = useState<Pick<OpenClawConfig, 'url' | 'token'> | null>(loadConfig);
   const [connectionState, setConnectionState] = useState<OpenClawConnectionState>('disconnected');
   const [agents, setAgents] = useState<OpenClawAgent[]>([]);
   const [invitedIds, setInvitedIds] = useState<Set<string>>(loadInvitedIds);
@@ -151,7 +142,7 @@ export function useOpenClaw() {
       setError(null);
       try {
         await mockConnect(url, token);
-        const cfg: OpenClawConfig = { url, token };
+        const cfg: Pick<OpenClawConfig, 'url' | 'token'> = { url, token };
         saveConfig(cfg);
         setConfigState(cfg);
         setAgents(MOCK_AGENTS);

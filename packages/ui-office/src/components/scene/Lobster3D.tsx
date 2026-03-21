@@ -179,9 +179,25 @@ function LobsterTail({ colors }: { colors: LobsterColors }) {
 
 // ── Props ─────────────────────────────────────────────────────────────
 
+export type LobsterState =
+  | 'idle'
+  | 'executing'
+  | 'working'
+  | 'thinking'
+  | 'blocked'
+  | 'failed'
+  | 'meeting'
+  | 'talking'
+  | 'success'
+  | 'excited'
+  | 'resting'
+  | 'searching'
+  | 'reporting'
+  | 'paused';
+
 export interface Lobster3DProps {
   brandColor?: string;
-  state: string;
+  state: LobsterState | (string & {});
   name: string;
   isSelected?: boolean;
 }
@@ -201,8 +217,16 @@ export function Lobster3D({
   const antennaRRef = useRef<THREE.Group>(null);
   const tailRef = useRef<THREE.Group>(null);
 
-  // Memoize color palette — only recomputed when brandColor changes
-  const colors = useMemo(() => lobsterColors(brandColor), [brandColor]);
+  // Memoize color palette and derived hex strings — only recomputed when brandColor changes
+  const { colors, baseHex, darkHex, bellyHex } = useMemo(() => {
+    const c = lobsterColors(brandColor);
+    return {
+      colors: c,
+      baseHex: '#' + c.base.getHexString(),
+      darkHex: '#' + c.dark.getHexString(),
+      bellyHex: '#' + c.belly.getHexString(),
+    };
+  }, [brandColor]);
 
   useFrame((frameState) => {
     const t = frameState.clock.elapsedTime;
@@ -356,10 +380,6 @@ export function Lobster3D({
     }
   });
 
-  const baseHex = colors.base.getHexString();
-  const darkHex = colors.dark.getHexString();
-  const bellyHex = colors.belly.getHexString();
-
   return (
     <group ref={groupRef}>
       {/* ── Selection ring ── */}
@@ -373,7 +393,7 @@ export function Lobster3D({
       {/* ── Status foot ring ── */}
       <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.45, 0.56, 32]} />
-        <meshBasicMaterial color={`#${baseHex}`} transparent opacity={0.35} />
+        <meshBasicMaterial color={baseHex} transparent opacity={0.35} />
       </mesh>
 
       {/* ── Body (carapace) ── */}
@@ -381,7 +401,7 @@ export function Lobster3D({
       <mesh position={[0, 0.3, 0]} scale={[1.0, 0.72, 1.35]} castShadow>
         <sphereGeometry args={[0.38, 16, 12]} />
         <meshStandardMaterial
-          color={`#${baseHex}`}
+          color={baseHex}
           metalness={0.3}
           roughness={0.6}
         />
@@ -390,7 +410,7 @@ export function Lobster3D({
       <mesh position={[0, 0.22, 0.06]} scale={[0.65, 0.55, 1.1]} castShadow>
         <sphereGeometry args={[0.38, 14, 10]} />
         <meshStandardMaterial
-          color={`#${bellyHex}`}
+          color={bellyHex}
           metalness={0.15}
           roughness={0.7}
         />
@@ -398,7 +418,7 @@ export function Lobster3D({
       {/* Head section — smaller ellipsoid at front */}
       <mesh position={[0, 0.38, -0.36]} scale={[0.8, 0.65, 0.7]} castShadow>
         <sphereGeometry args={[0.25, 12, 10]} />
-        <meshStandardMaterial color={`#${darkHex}`} metalness={0.3} roughness={0.55} />
+        <meshStandardMaterial color={darkHex} metalness={0.3} roughness={0.55} />
       </mesh>
 
       {/* ── Tail ── */}

@@ -74,11 +74,11 @@ export function LobsterInvitePanel({ agents, invitedIds, onInvite, onRemove }: L
                       </Badge>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      {agent.description}
+                      {agent.description ?? ''}
                     </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-[10px] font-mono text-slate-500">{agent.model}</span>
-                      {agent.skills.map((skill) => (
+                      <span className="text-[10px] font-mono text-slate-500">{agent.model ?? 'unknown'}</span>
+                      {agent.skills?.map((skill) => (
                         <span
                           key={skill}
                           className="text-[10px] bg-slate-800 text-slate-400 rounded px-1 py-0.5"

@@ -57,29 +57,25 @@ export class A2AClient {
 
   /** Send a message and wait for the response (blocking mode). */
   async sendBlocking(message: string, agentId?: string): Promise<A2ATask> {
-    const targetAgent = agentId ?? this.peer.agentId;
-    logger.info('Sending blocking message', { peer: this.peer.name, agentId: targetAgent });
-    return this.rpc('message/send', {
-      message: {
-        role: 'user',
-        parts: [{ type: 'text', text: message }],
-        ...(targetAgent ? { agentId: targetAgent } : {}),
-      },
-      configuration: { blocking: true },
-    });
+    return this.sendMessage(message, true, agentId);
   }
 
   /** Send a message without waiting for completion (non-blocking mode). */
   async sendNonBlocking(message: string, agentId?: string): Promise<A2ATask> {
+    return this.sendMessage(message, false, agentId);
+  }
+
+  /** Shared implementation for blocking and non-blocking message send. */
+  private async sendMessage(message: string, blocking: boolean, agentId?: string): Promise<A2ATask> {
     const targetAgent = agentId ?? this.peer.agentId;
-    logger.info('Sending non-blocking message', { peer: this.peer.name, agentId: targetAgent });
+    logger.info('Sending message', { peer: this.peer.name, blocking, agentId: targetAgent });
     return this.rpc('message/send', {
       message: {
         role: 'user',
         parts: [{ type: 'text', text: message }],
         ...(targetAgent ? { agentId: targetAgent } : {}),
       },
-      configuration: { blocking: false },
+      configuration: { blocking },
     });
   }
 

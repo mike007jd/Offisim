@@ -21,8 +21,8 @@ export interface A2APeer {
   name: string;
   /** Base URL of the peer's A2A endpoint, e.g. http://100.101.169.105:18800 */
   url: string;
-  /** Bearer token for authenticating with this peer. */
-  token: string;
+  /** Bearer token for authenticating with this peer (optional — omit for open peers). */
+  token?: string;
   /** Default agent ID to target on this peer (optional). */
   agentId?: string;
 }
