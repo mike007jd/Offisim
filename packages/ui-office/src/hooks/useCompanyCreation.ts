@@ -27,12 +27,9 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
   const [templates] = useState<CompanyTemplate[]>(() => listTemplates());
 
   // Check if this is first run — only when repos are available.
-  // When repos is null (no provider configured), skip wizard entirely.
+  // When repos is null, stay in 'checking' state (don't skip wizard).
   useEffect(() => {
-    if (!repos) {
-      setStep('ready');
-      return;
-    }
+    if (!repos) return;
     (async () => {
       try {
         const employees = await repos.employees.findByCompany(COMPANY_ID);
