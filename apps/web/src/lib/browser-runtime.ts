@@ -192,19 +192,12 @@ export async function createBrowserRuntimeReposOnly(
   const repos = createMemoryRepositories();
   await seedCompany(repos);
 
-  // Minimal stubs — no LLM, no graph, no MCP
-  const checkpointer = createMemoryCheckpointSaver();
-  const graph = buildAicsGraph({ checkpointer });
-
-  const runtimeCtx = createRuntimeContext({
-    repos,
+  return {
     eventBus,
-    llmGateway: null as unknown as ReturnType<typeof createGateway>,
-    modelResolver: null as unknown as InstanceType<typeof ModelResolver>,
-    toolExecutor: null,
-    companyId: COMPANY_ID,
-    threadId: THREAD_ID,
-  });
-
-  return { eventBus, graph, runtimeCtx, installService: null, mcpToolExecutor: null, repos };
+    graph: null as unknown as RuntimeBundle['graph'],
+    runtimeCtx: null as unknown as RuntimeBundle['runtimeCtx'],
+    installService: null,
+    mcpToolExecutor: null,
+    repos,
+  };
 }

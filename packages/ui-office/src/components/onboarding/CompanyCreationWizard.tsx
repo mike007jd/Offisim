@@ -2,15 +2,13 @@ import {
   FlaskConical, PenTool, Rocket, Briefcase, Brain,
   Loader2, ChevronRight,
 } from 'lucide-react';
-import { Suspense, lazy, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { CompanyTemplate } from '@aics/core/browser';
 import { createAvatar } from '@dicebear/core';
 import { avataaars } from '@dicebear/collection';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
-import { ZONES } from '../../lib/zone-config.js';
+import { resolveZone } from '../../lib/zone-config.js';
 import { ROLE_LABELS } from '../../lib/roles.js';
-
-const Office3DView = lazy(() => import('../scene/Office3DView'));
 
 /* ── Template config ── */
 
@@ -41,16 +39,6 @@ function getAvatar(seed: string, size = 32): string {
   return uri;
 }
 
-/* ── Zone → role mapping for placing employees ── */
-function resolveZoneForRole(role: string): string {
-  const map: Record<string, string> = {
-    developer: 'dev', backend: 'dev', frontend: 'dev', fullstack: 'dev', devops: 'dev', engineering_manager: 'dev',
-    pm: 'prod', manager: 'prod', analyst: 'prod',
-    designer: 'art', ui_designer: 'art',
-  };
-  return map[role] ?? 'dev';
-}
-
 /* ── Component ── */
 
 interface Props { onComplete?: () => void }
@@ -69,7 +57,7 @@ export function CompanyCreationWizard({ onComplete }: Props) {
   }, [step, onComplete]);
 
   useEffect(() => {
-    if (!selectedTemplateId && templates.length > 0) setSelectedTemplateId(templates[0].id);
+    if (!selectedTemplateId && templates.length > 0) setSelectedTemplateId(templates[0]!.id);
   }, [selectedTemplateId, templates, setSelectedTemplateId]);
 
   if (step === 'checking') {
@@ -396,7 +384,7 @@ function computeTemplateZones(employees: CompanyTemplate['employees']) {
   // Find which departments have employees
   const deptMap = new Map<string, number>();
   for (const emp of employees) {
-    const dept = resolveZoneForRole(emp.role_slug);
+    const dept = resolveZone(emp.role_slug);
     deptMap.set(dept, (deptMap.get(dept) ?? 0) + 1);
   }
   const activeDepts = [...deptMap.keys()];
@@ -489,7 +477,7 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
   const empByZone = useMemo(() => {
     const map = new Map<string, typeof employees>();
     for (const emp of employees) {
-      const zoneId = resolveZoneForRole(emp.role_slug);
+      const zoneId = resolveZone(emp.role_slug);
       const list = map.get(zoneId) ?? [];
       list.push(emp);
       map.set(zoneId, list);

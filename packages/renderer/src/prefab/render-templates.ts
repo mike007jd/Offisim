@@ -57,11 +57,6 @@ function num(params: Record<string, unknown>, key: string, fallback: number): nu
   return typeof v === 'number' ? v : fallback;
 }
 
-function hex(params: Record<string, unknown>, key: string, fallback: number): number {
-  const v = params[key];
-  return typeof v === 'number' ? v : fallback;
-}
-
 // ── State-color maps ────────────────────────────────────────────
 
 const MONITOR_SCREEN_COLORS: Record<string, number> = {
@@ -100,7 +95,7 @@ const BOOK_GLOW_COLORS: Record<string, number> = {
 function templateDesk(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 50);
   const h = num(params, 'height', 28);
-  const color = hex(params, 'color', 0x5c4033);
+  const color = num(params, 'color', 0x5c4033);
   const legH = 4;
   const legW = 3;
   const topH = h - legH;
@@ -145,7 +140,7 @@ function templateMonitor(params: Record<string, unknown>, state: string): Graphi
 function templateChair(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 20);
   const h = num(params, 'height', 22);
-  const color = hex(params, 'color', 0x2d3748);
+  const color = num(params, 'color', 0x2d3748);
 
   const ctx = new GraphicsContext();
   // Seat
@@ -165,7 +160,7 @@ function templateChair(params: Record<string, unknown>, _state: string): Graphic
 function templateServerRack(params: Record<string, unknown>, state: string): GraphicsContext {
   const w = num(params, 'width', 20);
   const h = num(params, 'height', 36);
-  const color = hex(params, 'color', 0x2a2a3a);
+  const color = num(params, 'color', 0x2a2a3a);
   const ledColor = SERVER_LED_COLORS[state] ?? 0x22c55e;
 
   const ctx = new GraphicsContext();
@@ -234,7 +229,7 @@ function templateBookshelf(params: Record<string, unknown>, state: string): Grap
 function templateMeetingTable(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 100);
   const h = num(params, 'height', 60);
-  const color = hex(params, 'color', 0x4a3728);
+  const color = num(params, 'color', 0x4a3728);
 
   const ctx = new GraphicsContext();
   ctx.roundRect(-w / 2, -h / 2, w, h, 8);
@@ -247,7 +242,7 @@ function templateMeetingTable(params: Record<string, unknown>, _state: string): 
 function templateSofa(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 44);
   const h = num(params, 'height', 22);
-  const color = hex(params, 'color', 0x6b21a8);
+  const color = num(params, 'color', 0x6b21a8);
 
   const ctx = new GraphicsContext();
   // Seat
@@ -324,7 +319,7 @@ function templatePlant(params: Record<string, unknown>, _state: string): Graphic
 function templateCoffeeTable(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 24);
   const h = num(params, 'height', 16);
-  const color = hex(params, 'color', 0x78350f);
+  const color = num(params, 'color', 0x78350f);
 
   const ctx = new GraphicsContext();
   ctx.roundRect(-w / 2, -h / 2, w, h, 6);
@@ -359,7 +354,7 @@ function templateVendingMachine(params: Record<string, unknown>, _state: string)
 function templateReadingTable(params: Record<string, unknown>, _state: string): GraphicsContext {
   const w = num(params, 'width', 36);
   const h = num(params, 'height', 20);
-  const color = hex(params, 'color', 0x6b5b3a);
+  const color = num(params, 'color', 0x6b5b3a);
 
   const ctx = new GraphicsContext();
   ctx.roundRect(-w / 2, -h / 2, w, h, 4);

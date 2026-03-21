@@ -5,9 +5,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import gsap from 'gsap';
 import type { OfficeFloorPlan, ZoneBounds, DeskPosition } from '../layout/zone-layout-engine.js';
-import type { PrefabSeed } from '../core/types.js';
-import { PrefabRuntime } from '../prefab/prefab-runtime.js';
-import { getBuiltinPrefab } from '../prefab/builtin-catalog.js';
 import {
   drawDesk,
   drawChair,
@@ -495,30 +492,4 @@ export class FloorLayer {
     }
   }
 
-  // ── Prefab rendering path ──────────────────────────────────────
-
-  /**
-   * Create PrefabRuntime instances from seeds and add to the furniture layer.
-   * Returns the created runtimes for SceneEntityManager tracking.
-   *
-   * This is the prefab-driven rendering path — it coexists with the existing
-   * hardcoded furniture methods (drawDesks, drawFunctionalZones, etc.) which
-   * serve as fallback when no seeds are provided.
-   */
-  renderPrefabs(seeds: PrefabSeed[]): PrefabRuntime[] {
-    const runtimes: PrefabRuntime[] = [];
-    for (const seed of seeds) {
-      const def = getBuiltinPrefab(seed.prefabId);
-      if (!def) continue;
-      const runtime = new PrefabRuntime(seed.instanceId, def, seed.configOverrides);
-      runtime.container.x = seed.positionX;
-      runtime.container.y = seed.positionY;
-      if (seed.rotation) {
-        runtime.container.rotation = (seed.rotation * Math.PI) / 180;
-      }
-      this.container.addChild(runtime.container);
-      runtimes.push(runtime);
-    }
-    return runtimes;
-  }
 }
