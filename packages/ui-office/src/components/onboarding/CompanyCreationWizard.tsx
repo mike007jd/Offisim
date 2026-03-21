@@ -834,16 +834,16 @@ function computeTemplateZones(employees: CompanyTemplate['employees']) {
     deptId?: string; empCount?: number;
   }> = [];
 
-  const PAD = 6;
-  const W = 380;
-  const H = 260;
+  const PAD = 10;
+  const W = 640;
+  const H = 440;
 
   const infraZones: typeof zones = [];
   if (hasMeeting) infraZones.push({ id: 'mtg', label: 'MEETING ROOM', accent: '#94a3b8', type: 'infra', x: 0, y: 0, w: 0, h: 0 });
   if (hasServer) infraZones.push({ id: 'srv', label: 'SERVER ROOM', accent: '#06b6d4', type: 'infra', x: 0, y: 0, w: 0, h: 0 });
 
   const infraW = infraZones.length > 0 ? (W - PAD * 2 - (infraZones.length - 1) * PAD) / infraZones.length : 0;
-  const infraH = 60;
+  const infraH = 100;
   infraZones.forEach((z, i) => {
     z.x = PAD + i * (infraW + PAD);
     z.y = PAD;
@@ -858,7 +858,7 @@ function computeTemplateZones(employees: CompanyTemplate['employees']) {
 
   const row2Y = infraZones.length > 0 ? PAD + infraH + PAD : PAD;
   const supportW = supportZones.length > 0 ? (W - PAD * 2 - (supportZones.length - 1) * PAD) / supportZones.length : 0;
-  const supportH = 70;
+  const supportH = 120;
   supportZones.forEach((z, i) => {
     z.x = PAD + i * (supportW + PAD);
     z.y = row2Y;
@@ -897,8 +897,8 @@ function computeTemplateZones(employees: CompanyTemplate['employees']) {
 }
 
 function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'] }) {
-  const W = 380;
-  const H = 260;
+  const W = 640;
+  const H = 440;
   const [hoveredZone, setHoveredZone] = useState<string | null>(null);
 
   const zones = useMemo(() => computeTemplateZones(employees), [employees]);
@@ -948,7 +948,7 @@ function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'
               style={{ animation: 'wiz-glow-pulse 4s ease-in-out infinite', animationDelay: `${z.x * 10}ms` }} />
 
             {/* Zone label */}
-            <text x={z.x + 4} y={z.y + 8} fontSize={4.5} fill={z.accent} opacity={0.5}
+            <text x={z.x + 6} y={z.y + 14} fontSize={7} fill={z.accent} opacity={0.5}
               fontFamily="system-ui" fontWeight={700} letterSpacing={0.8}>
               {z.label}
             </text>
