@@ -350,14 +350,93 @@ export function CompanyCreationWizard({ onComplete }: Props) {
         </div>
       </div>
 
-      {/* ── Main content ── */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-6 pb-4">
+      {/* ── Main content: fixed floor plan (left) + scrollable info (right) ── */}
+      <div className="relative z-10 flex-1 flex min-h-0 overflow-hidden">
         {selected && meta ? (
-          <div key={selected.id} style={{ animation: 'wiz-fade-in 0.4s ease-out' }}>
-            <TemplateHero template={selected} meta={meta} />
-          </div>
+          <>
+            {/* LEFT: Floor plan — fixed, fills space */}
+            <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
+              style={{ animation: 'wiz-fade-in 0.4s ease-out' }}>
+              <div className="w-full h-full rounded-xl border border-white/[0.06] bg-white/[0.01] flex items-center justify-center p-2 overflow-hidden">
+                <Office2DPreview employees={selected.employees} />
+              </div>
+            </div>
+
+            {/* RIGHT: Info + Team + Workflows — scrollable */}
+            <div className="w-[340px] shrink-0 border-l border-white/[0.06] overflow-y-auto px-4 py-4 space-y-4"
+              key={`info-${selected.id}`} style={{ animation: 'wiz-fade-in 0.3s ease-out' }}>
+              {/* Template info header */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`${meta.accent}`}>{meta.icon}</div>
+                  <h2 className="text-sm font-bold text-white">{selected.name}</h2>
+                </div>
+                <p className="text-xs text-slate-500">{meta.tagline}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {meta.bestFor.map((tag) => (
+                    <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.06]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
+                  <span>{selected.employees.length} members</span>
+                  <span>·</span>
+                  <span>{selected.sops.length} workflow{selected.sops.length !== 1 ? 's' : ''}</span>
+                  <span>·</span>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
+                        backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
+                      }} />
+                    ))}
+                  </div>
+                </div>
+                {/* Capabilities */}
+                <div className="flex flex-col gap-1 mt-3">
+                  {meta.capabilities.map((cap) => (
+                    <div key={cap} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: meta.accentHex }} />
+                      {cap}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06]" />
+
+              {/* Team */}
+              <div>
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Team · {selected.employees.length}
+                </h3>
+                <div className="space-y-1.5">
+                  {selected.employees.map((emp, idx) => (
+                    <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 50}ms both` }}>
+                      <EmployeeCard name={emp.name} role={emp.role_slug} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Workflows */}
+              {selected.sops.length > 0 && (
+                <div>
+                  <div className="border-t border-white/[0.06] mb-4" />
+                  <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Workflows
+                  </h3>
+                  <div className="space-y-2">
+                    {selected.sops.map((sop) => (
+                      <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="flex-1 flex items-center justify-center py-20">
+          <div className="flex-1 flex items-center justify-center">
             <p className="text-sm text-slate-700">Select a template above</p>
           </div>
         )}
@@ -429,81 +508,7 @@ function BuildingAnimation() {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Template Hero — expanded detail view for the selected template
-   ══════════════════════════════════════════════════════════════════════════ */
-
-function TemplateHero({ template, meta }: { template: CompanyTemplate; meta: TemplateMeta }) {
-  return (
-    <div className="flex flex-col gap-4 pt-2 flex-1 min-h-0">
-      {/* ── Hero banner (compact single row) ── */}
-      <div className={`rounded-xl border border-white/[0.06] overflow-hidden bg-gradient-to-r ${meta.gradient} px-4 py-2.5 flex items-center gap-3`}>
-        <div className={`shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center ${meta.accentBg}`}>
-          <div className={`${meta.accent} scale-75`}>{meta.iconLg}</div>
-        </div>
-        <h2 className="text-sm font-bold text-white shrink-0">{template.name}</h2>
-        <span className="text-xs text-slate-500">—</span>
-        <p className="text-xs text-slate-400 truncate">{meta.tagline}</p>
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
-          {meta.bestFor.map((tag) => (
-            <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-500 border border-white/[0.04]">
-              {tag}
-            </span>
-          ))}
-          <span className="text-[9px] text-slate-600 ml-2">{template.employees.length} members</span>
-          <div className="flex gap-0.5 ml-2">
-            {Array.from({ length: 5 }, (_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
-                backgroundColor: i < meta.complexity ? meta.accentHex : 'rgba(255,255,255,0.06)',
-              }} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main content: team list (left, scrollable) + floor plan (right, large) ── */}
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-        {/* Left column: Team + Workflows (scrollable) */}
-        <div className="w-[320px] shrink-0 overflow-y-auto pr-1 space-y-4">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2 sticky top-0 bg-[#02040a] py-1 z-10">
-            <span>Your Team</span>
-            <span className="text-[10px] font-normal text-slate-700 normal-case tracking-normal">
-              {template.employees.length} members
-            </span>
-          </h3>
-          <div className="space-y-2">
-            {template.employees.map((emp, idx) => (
-              <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 60}ms both` }}>
-                <EmployeeCard name={emp.name} role={emp.role_slug} />
-              </div>
-            ))}
-          </div>
-
-          {template.sops.length > 0 && (
-            <div className="pt-2">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Workflows
-              </h3>
-              <div className="space-y-2">
-                {template.sops.map((sop) => (
-                  <WorkflowVisual key={sop.sop_id} sop={sop} accentHex={meta.accentHex} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right column: Floor plan (fills remaining space) */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Office Layout</h3>
-          <div className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.01] overflow-hidden flex items-center justify-center p-3">
-            <Office2DPreview employees={template.employees} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* TemplateHero removed — content inlined into main component layout */
 
 /* ══════════════════════════════════════════════════════════════════════════
    Employee Card — character profile with expandable detail
