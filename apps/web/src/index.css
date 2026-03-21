@@ -7,53 +7,96 @@
 @source "../../../packages/ui-core/src/**/*.ts";
 
 /*
- * Offisim Web Shell — Cyberpunk HUD Theme
- * Dark glassmorphism with blue accent, inspired by OffisimArt reference.
+ * Offisim Web Shell — Theme System
+ * Light/dark mode via CSS custom properties + class toggle on <html>.
+ * ThemeProvider in @aics/ui-office manages the .dark/.light class.
  */
-@theme {
-  /* ── Core palette ── */
-  --color-hud-black: #02040a;
-  --color-hud-dark: #0f172a;
-  --color-hud-mid: #1e293b;
-  --color-hud-light: #334155;
-  --color-hud-lighter: #475569;
-  --color-hud-border: rgba(255, 255, 255, 0.1);
 
-  /* ── Legacy palette aliases (prevent breakage in components not yet updated) ── */
-  --color-ocean-deep: #0f172a;
-  --color-ocean-mid: #1e293b;
-  --color-ocean-light: #334155;
+/* ── Light mode (default) ── */
+:root {
+  --surface: #ffffff;
+  --surface-light: #f8fafc;
+  --surface-lighter: #f1f5f9;
+  --surface-mid: #e2e8f0;
+  --border-val: rgba(0, 0, 0, 0.1);
+  --text-primary-val: #0f172a;
+  --text-secondary-val: #475569;
+  --text-muted-val: #94a3b8;
+  --accent-val: #2563eb;
+  --accent-hover-val: #1d4ed8;
+  --success-val: #059669;
+  --warning-val: #d97706;
+  --error-val: #dc2626;
+  --info-val: #2563eb;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb: rgba(100, 116, 139, 0.3);
+  --scrollbar-thumb-hover: rgba(100, 116, 139, 0.5);
+}
+
+/* ── Dark mode ── */
+:root.dark {
+  --surface: #02040a;
+  --surface-light: #0f172a;
+  --surface-lighter: #1e293b;
+  --surface-mid: #334155;
+  --border-val: rgba(255, 255, 255, 0.1);
+  --text-primary-val: #f1f5f9;
+  --text-secondary-val: #94a3b8;
+  --text-muted-val: #64748b;
+  --accent-val: #3b82f6;
+  --accent-hover-val: #2563eb;
+  --success-val: #10b981;
+  --warning-val: #f59e0b;
+  --error-val: #ef4444;
+  --info-val: #3b82f6;
+  --glass-bg: rgba(0, 0, 0, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
+}
+
+@theme inline {
+  /* ── Semantic surface tokens ── */
+  --color-surface: var(--surface);
+  --color-surface-light: var(--surface-light);
+  --color-surface-lighter: var(--surface-lighter);
+  --color-surface-mid: var(--surface-mid);
+  --color-border: var(--border-val);
+  --color-text-primary: var(--text-primary-val);
+  --color-text-secondary: var(--text-secondary-val);
+  --color-text-muted: var(--text-muted-val);
+  --color-accent: var(--accent-val);
+  --color-accent-hover: var(--accent-hover-val);
+  --color-success: var(--success-val);
+  --color-warning: var(--warning-val);
+  --color-error: var(--error-val);
+  --color-info: var(--info-val);
+
+  /* ── Legacy aliases (existing components reference these) ── */
+  --color-hud-black: var(--surface);
+  --color-hud-dark: var(--surface-light);
+  --color-hud-mid: var(--surface-lighter);
+  --color-hud-light: var(--surface-mid);
+  --color-hud-lighter: #475569;
+  --color-hud-border: var(--border-val);
+  --color-ocean-deep: var(--surface-light);
+  --color-ocean-mid: var(--surface-lighter);
+  --color-ocean-light: var(--surface-mid);
   --color-sand: #f8fafc;
   --color-shell: #94a3b8;
-  --color-lobster-red: #ef4444;
+  --color-lobster-red: var(--error-val);
   --color-coral-orange: #f97316;
-  --color-kelp-green: #10b981;
-  --color-sea-blue: #3b82f6;
+  --color-kelp-green: var(--success-val);
+  --color-sea-blue: var(--accent-val);
   --color-abyss: #020617;
   --color-pearl: #ffffff;
   --color-foam: #cbd5e1;
   --color-coral: #f97316;
 
-  /* ── Semantic aliases ── */
-  --color-surface: #02040a;
-  --color-surface-light: #0f172a;
-  --color-surface-lighter: #1e293b;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-info: #3b82f6;
-
-  /* ── Font families ── */
+  /* ── Fonts ── */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-
-  /* ── Keep old names working during transition ── */
   --font-pixel-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-pixel-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-pixel-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -61,7 +104,8 @@
 
 /* ── Base styles ── */
 body {
-  @apply bg-surface text-text-primary;
+  background-color: var(--surface);
+  color: var(--text-primary-val);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -70,28 +114,28 @@ body {
 
 /* ── Glass panel utility ── */
 .glass-panel {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--glass-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: 1.5rem;
 }
 
 .glass-panel-sm {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: 1rem;
 }
 
 /* ── Cyber button ── */
 .cyber-button {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--text-primary-val) 5%, transparent);
+  border: 1px solid var(--border-val);
   border-radius: 0.75rem;
   padding: 0.625rem 1rem;
-  color: #94a3b8;
+  color: var(--text-secondary-val);
   font-size: 0.625rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -100,28 +144,31 @@ body {
   cursor: pointer;
 }
 .cyber-button:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #93c5fd;
+  background: color-mix(in srgb, var(--accent-val) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-val) 40%, transparent);
+  color: var(--accent-val);
 }
 
-/* ── Noise overlay ── */
+/* ── Noise overlay (dark mode only) ── */
 .noise {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.015;
+  opacity: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+:root.dark .noise {
+  opacity: 0.015;
+}
 
-/* ── Scanline overlay ── */
+/* ── Scanline overlay (dark mode only) ── */
 .scanline {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9998;
-  opacity: 0.02;
+  opacity: 0;
   background: linear-gradient(
     rgba(18, 16, 16, 0) 50%,
     rgba(0, 0, 0, 0.25) 50%
@@ -134,6 +181,9 @@ body {
   );
   background-size: 100% 2px, 3px 100%;
 }
+:root.dark .scanline {
+  opacity: 0.02;
+}
 
 /* ── Custom scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar {
@@ -143,11 +193,11 @@ body {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: var(--scrollbar-thumb-hover);
 }
 
 ::-webkit-scrollbar {
@@ -158,11 +208,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
+  background: var(--scrollbar-thumb-hover);
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
@@ -170,14 +220,14 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 /* ── Keep legacy pixel classes working (mapped to new system) ── */
 .font-pixel-display { font-family: var(--font-sans); font-weight: 900; }
 .font-pixel-body { font-family: var(--font-sans); }
 .font-pixel-mono { font-family: var(--font-mono); }
-.pixel-border { border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; }
-.pixel-border-double { border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; }
-.pixel-inset { border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; }
+.pixel-border { border: 1px solid var(--border-val); border-radius: 0.75rem; }
+.pixel-border-double { border: 1px solid var(--border-val); border-radius: 0.75rem; }
+.pixel-inset { border: 1px solid var(--glass-border); border-radius: 0.5rem; }
 .pixel-press:active { transform: scale(0.98); }
