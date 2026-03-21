@@ -5,6 +5,7 @@ import {
   loadProviderConfig,
   saveProviderConfig,
 } from '../../lib/provider-config';
+import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
 import { PROVIDER_PRESETS } from './provider-presets';
 
@@ -110,6 +111,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             <TabsTrigger value="mcp" className="flex-1">
               MCP Servers
             </TabsTrigger>
+            <TabsTrigger value="openclaw" className="flex-1">
+              OpenClaw
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="provider">
@@ -188,6 +192,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
           <TabsContent value="mcp">
             <div className="pt-2">
               <McpConfigPanel />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="openclaw">
+            <div className="pt-2">
+              <OpenClawSettings />
             </div>
           </TabsContent>
         </Tabs>
