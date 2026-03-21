@@ -14,7 +14,7 @@ export function SceneCanvas({ reducedMotion = false, viewMode = '3D' }: SceneCan
   useScene(reducedMotion);
 
   return (
-    <div className="h-full w-full overflow-hidden bg-[#020617] relative">
+    <div className="h-full w-full overflow-hidden bg-surface relative">
       {/* SVG 2D View */}
       {viewMode === '2D' && (
         <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="text-[10px] font-mono text-slate-600 animate-pulse">LOADING 2D MAP...</div></div>}>

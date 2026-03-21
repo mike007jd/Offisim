@@ -101,7 +101,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
   if (!open) return null;
 
   return (
-    <div className="h-screen w-screen bg-[#02040a] flex flex-col overflow-hidden">
+    <div className="h-screen w-screen bg-surface flex flex-col overflow-hidden">
       {/* ── Top Bar ────────────────────────────────────────────────── */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-6">
         <div className="flex items-center gap-4">
@@ -149,7 +149,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       {/* ── Main Content ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* ── Left Panel: Character Preview (45%) ──────────────── */}
-        <div className="flex w-full lg:w-[45%] shrink-0 flex-col items-center justify-center bg-[#020409] max-h-[200px] lg:max-h-none">
+        <div className="flex w-full lg:w-[45%] shrink-0 flex-col items-center justify-center bg-surface max-h-[200px] lg:max-h-none">
           <div className="flex flex-col items-center gap-6">
             {/* Avatar Preview */}
             <div className="relative">

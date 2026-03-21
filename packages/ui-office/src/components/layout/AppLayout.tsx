@@ -33,7 +33,7 @@ export function AppLayout({
   }, [rightOpen]);
 
   return (
-    <div className="h-screen bg-[#02040a] text-slate-300 flex flex-col overflow-hidden relative">
+    <div className="h-screen bg-surface text-slate-300 flex flex-col overflow-hidden relative">
       <div className="noise" />
       <div className="scanline" />
 
