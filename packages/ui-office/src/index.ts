@@ -3,6 +3,7 @@
 // InstallDialog, OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from
 // the barrel — they are lazy-loaded via subpath exports (e.g. @aics/ui-office/wizard).
 export * from './components/ErrorBoundary.js';
+export { CompanyProvider, useCompany } from './components/company/CompanyContext.js';
 export * from './components/company/PolicyEditor.js';
 export * from './components/company/ZoneEditor.js';
 export * from './components/agents/AgentCard.js';
