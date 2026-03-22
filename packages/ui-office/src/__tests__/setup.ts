@@ -4,6 +4,7 @@
 //
 // jsdom also does not implement window.matchMedia — stub it too.
 
+import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 function createLocalStorageStub() {
