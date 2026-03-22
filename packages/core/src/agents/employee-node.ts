@@ -149,19 +149,27 @@ export async function employeeNode(
     return { pendingAssignments: [], completed: true };
   }
 
-  const employee = await repos.employees.findById(assignment.employeeId);
+  const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
+    | string
+    | undefined;
+
+  const employee = await repos.employees.findById(assignment.employeeId).catch(() => null);
   if (!employee) {
-    throw new GraphError(`Employee ${assignment.employeeId} not found`, 'employee');
+    // Employee was deleted mid-execution — skip this assignment gracefully
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(taskRunId, 'failed');
+      eventBus.emit(taskStateChanged(companyId, taskRunId, 'queued', 'failed', threadId));
+    }
+    return {
+      pendingAssignments: remaining,
+      currentStepOutputs: state.currentStepOutputs,
+    };
   }
 
   const company = await repos.companies.findById(companyId);
   if (!company) {
     throw new GraphError(`Company ${companyId} not found`, 'employee');
   }
-
-  const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
-    | string
-    | undefined;
 
   // Emit employee working state
   eventBus.emit(
@@ -322,6 +330,14 @@ export async function employeeNode(
           completedWork: string;
           remainingWork: string;
         };
+
+        // 0. Validate target employee still exists
+        const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
+        if (!targetEmp) {
+          // Target employee no longer exists — skip handoff, continue with current task
+          conversationHistory.push({ role: 'user', content: 'Handoff target employee no longer exists. Please complete the task yourself.' });
+          break;
+        }
 
         // 1. Write handoff record
         const handoffId = generateId('ho');

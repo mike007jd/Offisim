@@ -487,7 +487,7 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
             <button
               type="button"
               onClick={isCreateYourOwn ? onCreateYourOwn : create}
-              disabled={!selectedTemplateId || (!isCreateYourOwn && !runtimeReady)}
+              disabled={!selectedTemplateId || (!isCreateYourOwn && !runtimeReady) || !companyName.trim()}
               className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all mt-5"
               style={
                 (isCreateYourOwn || runtimeReady) && selectedTemplateId

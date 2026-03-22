@@ -103,7 +103,10 @@ export async function managerNode(
 
   // Get available employees
   const employees = await repos.employees.findByCompany(companyId);
-  const nonManagerEmployees = employees.filter((e) => e.role_slug !== 'manager' && e.enabled);
+  // System graph-node roles that should not receive task assignments.
+  // All other employees (including account_manager, project_manager, etc.) are assignable.
+  const GRAPH_ONLY_ROLES = new Set(['boss', 'hr']);
+  const nonManagerEmployees = employees.filter((e) => !GRAPH_ONLY_ROLES.has(e.role_slug) && e.enabled);
 
   const employeeList = nonManagerEmployees
     .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
@@ -152,7 +155,14 @@ export async function managerNode(
   }
 
   if (!decision) {
-    throw new GraphError('No employees available for assignment', 'manager');
+    // No employees available — route to HR so the system can suggest hiring
+    return {
+      managerDirective: {
+        intent: userContent,
+        recommendedEmployees: [],
+        constraints: 'hire',
+      },
+    };
   }
 
   // Map intent to constraints for routing (hire/assess_team → HR node)

@@ -983,6 +983,15 @@ export default function Office3DView({
 
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
+
+  // Clear selection when the selected employee no longer exists (e.g. deleted)
+  useEffect(() => {
+    if (selectedEmployeeId && !agents.has(selectedEmployeeId)) {
+      if (onDeselectEmployee) onDeselectEmployee();
+      else setLocalSelectedId(null);
+    }
+  }, [agents, selectedEmployeeId, onDeselectEmployee]);
+
   const [dragState, setDragState] = useState<DragState3D | null>(null);
   const dragStateRef = useRef<DragState3D | null>(null);
   dragStateRef.current = dragState;

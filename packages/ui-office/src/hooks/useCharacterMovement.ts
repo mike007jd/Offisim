@@ -100,9 +100,12 @@ export function useCharacterMovement(
     const g = groupRef.current;
     if (!g) return;
 
+    // Cap delta to prevent teleporting when tab returns from background
+    const clampedDelta = Math.min(delta, 0.05);
+
     // ── Squash animation (post-arrival) ──
     if (squashRef.current > 0) {
-      squashRef.current -= delta;
+      squashRef.current -= clampedDelta;
       const t = Math.max(0, squashRef.current / SQUASH_DURATION);
       const squashY = 1 - 0.05 * Math.sin(t * Math.PI); // 0.95 → 1.0
       g.scale.y = squashY;
@@ -145,7 +148,7 @@ export function useCharacterMovement(
 
     // Deceleration near arrival
     const speedMul = dist < DECEL_DISTANCE ? dist / DECEL_DISTANCE : 1;
-    const step = speed * speedMul * delta;
+    const step = speed * speedMul * clampedDelta;
     const actualStep = Math.min(step, dist);
 
     g.position.x += dirX * actualStep;
@@ -155,7 +158,7 @@ export function useCharacterMovement(
     g.rotation.y = Math.atan2(dirX, dirZ);
 
     // ── Walk cycle animation ──
-    walkTimeRef.current += delta;
+    walkTimeRef.current += clampedDelta;
     const t = walkTimeRef.current;
 
     // position.y is owned by useAgentAnimation; this hook only animates limbs.

@@ -56,7 +56,7 @@ export function useAgentStates(): Map<string, AgentState> {
           if (!next.has(row.employee_id)) {
             next.set(row.employee_id, {
               name: row.name,
-              role: row.role_slug,
+              role: row.role_slug ?? 'developer',
               state: 'idle',
               workstationId: row.workstation_id ?? null,
             });
@@ -95,7 +95,7 @@ export function useAgentStates(): Map<string, AgentState> {
         const { employeeId, name, roleSlug } = event.payload;
         setAgents((prev) => {
           const next = new Map(prev);
-          next.set(employeeId, { name, role: roleSlug, state: 'idle', workstationId: null });
+          next.set(employeeId, { name, role: roleSlug ?? 'developer', state: 'idle', workstationId: null });
           return next;
         });
       },
