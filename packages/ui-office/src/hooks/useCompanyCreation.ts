@@ -51,8 +51,11 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
 
   const runtimeReady = repos !== null;
 
+  // Guard against double-submit (e.g. Settings dialog opens during creation)
+  const [isCreating, setIsCreating] = useState(false);
+
   const create = useCallback(async () => {
-    if (!selectedTemplateId) return;
+    if (!selectedTemplateId || isCreating) return;
     if (!repos) {
       setError('Runtime is still initializing. Please wait a moment and try again.');
       return;
@@ -61,6 +64,17 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
       setError('No active company. Please wait a moment and try again.');
       return;
     }
+
+    // Prevent duplicate creation: check if employees already exist
+    try {
+      const existing = await repos.employees.findByCompany(activeCompanyId);
+      if (existing.length > 0) {
+        setStep('ready');
+        return;
+      }
+    } catch { /* proceed with creation */ }
+
+    setIsCreating(true);
     setStep('creating');
     setError(null);
     try {
@@ -76,8 +90,10 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create company');
       setStep('first-run');
+    } finally {
+      setIsCreating(false);
     }
-  }, [repos, selectedTemplateId, eventBus, activeCompanyId]);
+  }, [repos, selectedTemplateId, eventBus, activeCompanyId, isCreating]);
 
   return {
     step,
