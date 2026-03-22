@@ -42,3 +42,12 @@ export function saveProviderConfig(config: ProviderConfig): void {
 export function clearProviderConfig(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
+
+/** Build the subscription portion of GatewayConfig from ProviderConfig (shared by all runtimes). */
+export function buildSubscriptionGatewayConfig(config: ProviderConfig): { command?: string; args?: string[] } | undefined {
+  if (config.provider !== 'subscription') return undefined;
+  return {
+    command: config.acpCommand ?? 'claude',
+    args: config.acpArgs ?? ['acp'],
+  };
+}

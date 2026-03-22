@@ -30,6 +30,7 @@ import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 
@@ -133,12 +134,7 @@ export async function createBrowserRuntime(
     baseURL: proxyBaseURL ?? config.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
-    ...(config.provider === 'subscription' ? {
-      subscription: {
-        command: config.acpCommand ?? 'claude',
-        args: config.acpArgs ?? ['acp'],
-      },
-    } : {}),
+    subscription: buildSubscriptionGatewayConfig(config),
   });
 
   const modelResolver = new ModelResolver(null, {

@@ -54,9 +54,8 @@ export interface StudioStore {
   markClean: () => void;
 }
 
-let _nextId = 0;
 function generateId(): string {
-  return `studio-${Date.now()}-${_nextId++}`;
+  return `sp-${crypto.randomUUID()}`;
 }
 
 export const useStudioStore = create<StudioStore>((set, get) => ({

@@ -20,6 +20,8 @@ interface Props {
 
 export function AicsRuntimeProvider({ companyId, children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
+  const isRunningRef = useRef(false);
+  isRunningRef.current = isRunning;
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -287,9 +289,9 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     return {
       eventBus,
       isReady: runtime !== null && !isInitializing,
-      // Keep isRunning on the stable context for backward compatibility.
-      // New code should prefer useAicsRuntimeStatus().isRunning.
-      isRunning,
+      // isRunning lives in AicsRuntimeStatusContext — use useAicsRuntimeStatus().
+      // Kept here as a getter for backward compat (does NOT trigger re-render).
+      get isRunning() { return isRunningRef.current; },
       error,
       sendMessage,
       retryLastMessage,
@@ -304,7 +306,6 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [
-    isRunning,
     isInitializing,
     error,
     sendMessage,

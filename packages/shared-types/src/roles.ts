@@ -44,7 +44,7 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
   { slug: 'frontend',     label: 'Frontend Dev',  department: 'dev', isSystem: false },
   { slug: 'fullstack',    label: 'Fullstack Dev', department: 'dev', isSystem: false },
   { slug: 'data_engineer', label: 'Data Engineer', department: 'dev', isSystem: false },
-  { slug: 'devops',       label: 'DevOps',        department: 'ops', isSystem: false },
+  { slug: 'devops',       label: 'DevOps',        department: 'dev', isSystem: false },
   // Art
   { slug: 'designer',         label: 'Designer',         department: 'art', isSystem: false },
   { slug: 'artist',           label: 'Artist',           department: 'art', isSystem: false },
@@ -52,7 +52,7 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
   { slug: 'ux_designer',      label: 'UX Designer',      department: 'art', isSystem: false },
   { slug: 'graphic_designer',  label: 'Graphic Designer', department: 'art', isSystem: false },
   // Content
-  { slug: 'writer',          label: 'Writer',          department: 'content', isSystem: false },
+  { slug: 'writer',          label: 'Writer',          department: 'dev', isSystem: false },
   { slug: 'marketer',        label: 'Marketer',        department: 'content', isSystem: false },
   { slug: 'seo_specialist',  label: 'SEO Specialist',  department: 'content', isSystem: false },
   // Analysis / Product

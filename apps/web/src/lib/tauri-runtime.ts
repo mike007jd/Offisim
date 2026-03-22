@@ -13,6 +13,7 @@ import {
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -77,12 +78,7 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     baseURL: config.baseURL,
     defaultHeaders: config.defaultHeaders,
     dangerouslyAllowBrowser: true,
-    ...(config.provider === 'subscription' ? {
-      subscription: {
-        command: config.acpCommand ?? 'claude',
-        args: config.acpArgs ?? ['acp'],
-      },
-    } : {}),
+    subscription: buildSubscriptionGatewayConfig(config),
   });
 
   const modelResolver = new ModelResolver(null, {
