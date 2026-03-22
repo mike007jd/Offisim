@@ -3,7 +3,9 @@ import type { McpServerConfig } from '@aics/core/browser';
 import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
 import {
   AicsRuntimeContext,
+  AicsRuntimeStatusContext,
   type AicsRuntimeValue,
+  type AicsRuntimeStatusValue,
   isTauri,
   loadProviderConfig,
 } from '@aics/ui-office';
@@ -228,6 +230,21 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     }
   }, [version]);
 
+  // ---------------------------------------------------------------------------
+  // Volatile status — changes on every task execution (isRunning toggle).
+  // Separated so that consumers of stable values (repos, eventBus) don't
+  // re-render when isRunning flips.
+  // ---------------------------------------------------------------------------
+  const statusValue = useMemo<AicsRuntimeStatusValue>(
+    () => ({ isRunning, version }),
+    [isRunning, version],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Stable context — repos, eventBus, sendMessage, etc.
+  // Only rebuilds when the runtime itself changes (version/init), error changes,
+  // or MCP server set changes. NOT on isRunning toggles.
+  // ---------------------------------------------------------------------------
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getRuntime is a render-scoped function
   const value = useMemo<AicsRuntimeValue>(() => {
     // Runtime initialization is async (both browser and Tauri). On first render
@@ -270,6 +287,8 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     return {
       eventBus,
       isReady: runtime !== null && !isInitializing,
+      // Keep isRunning on the stable context for backward compatibility.
+      // New code should prefer useAicsRuntimeStatus().isRunning.
       isRunning,
       error,
       sendMessage,
@@ -298,5 +317,9 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     connectedMcpServers,
   ]);
 
-  return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;
+  return (
+    <AicsRuntimeStatusContext.Provider value={statusValue}>
+      <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>
+    </AicsRuntimeStatusContext.Provider>
+  );
 }

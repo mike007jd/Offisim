@@ -1,9 +1,10 @@
 import type { LlmStreamChunkPayload, RuntimeEvent } from '@aics/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { useAicsRuntime } from './aics-runtime-context';
+import { useAicsRuntime, useAicsRuntimeStatus } from './aics-runtime-context';
 
 export function useStreamingContent(): { content: string; isStreaming: boolean } {
-  const { eventBus, isRunning } = useAicsRuntime();
+  const { eventBus } = useAicsRuntime();
+  const { isRunning } = useAicsRuntimeStatus();
   const [content, setContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const accRef = useRef('');

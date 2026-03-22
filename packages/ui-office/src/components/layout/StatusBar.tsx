@@ -1,7 +1,7 @@
 import { Activity, Cpu, Database, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { usePipelineStage, STAGE_META } from '../../hooks/usePipelineStage';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useAicsRuntime, useAicsRuntimeStatus } from '../../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
 
@@ -10,7 +10,8 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ modelName }: StatusBarProps) {
-  const { isRunning, error } = useAicsRuntime();
+  const { error } = useAicsRuntime();
+  const { isRunning } = useAicsRuntimeStatus();
   const metrics = useDashboardMetrics();
   const pipelineStage = usePipelineStage();
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';

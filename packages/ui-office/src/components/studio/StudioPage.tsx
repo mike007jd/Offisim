@@ -192,6 +192,14 @@ export function StudioPage({
   // Camera focus callback — assigned by StudioCanvas, called on F/Home key
   const focusRef = useRef<((pos: [number, number, number]) => void) | null>(null);
 
+  // -- Company isolation: reset store when company changes ----------------------
+
+  useEffect(() => {
+    if (companyId) {
+      useStudioStore.getState().resetForCompany(companyId);
+    }
+  }, [companyId]);
+
   // -- beforeunload guard (Skill §15) ------------------------------------------
 
   const dirty = useStudioStore((s) => s.dirty);

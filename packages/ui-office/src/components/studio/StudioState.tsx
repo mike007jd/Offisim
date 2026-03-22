@@ -26,6 +26,7 @@ export const PLOT_SIZES: PlotSize[] = [
 
 export interface StudioStore {
   // State
+  companyId: string | null;
   tool: StudioTool;
   plotSize: PlotSize;
   placingPrefab: PrefabDefinition | null;
@@ -36,6 +37,7 @@ export interface StudioStore {
   gridSnap: boolean;
 
   // Actions
+  resetForCompany: (companyId: string) => void;
   setTool: (tool: StudioTool) => void;
   setPlotSize: (size: PlotSize) => void;
   startPlacement: (def: PrefabDefinition) => void;
@@ -58,6 +60,7 @@ function generateId(): string {
 }
 
 export const useStudioStore = create<StudioStore>((set, get) => ({
+  companyId: null,
   tool: 'select',
   plotSize: PLOT_SIZES[1]!, // 标准办公室
   placingPrefab: null,
@@ -66,6 +69,21 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   instances: [],
   dirty: false,
   gridSnap: true,
+
+  resetForCompany: (companyId) => {
+    if (get().companyId === companyId) return;
+    set({
+      companyId,
+      tool: 'select',
+      plotSize: PLOT_SIZES[1]!,
+      placingPrefab: null,
+      ghostRotation: 0,
+      selectedInstanceId: null,
+      instances: [],
+      dirty: false,
+      gridSnap: true,
+    });
+  },
 
   setTool: (tool) => {
     const current = get();

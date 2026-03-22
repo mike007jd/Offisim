@@ -9,7 +9,7 @@ import type {
 } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useAicsRuntime, useAicsRuntimeStatus } from '../runtime/aics-runtime-context';
 
 export interface DashboardMetrics {
   activeTaskCount: number;
@@ -98,7 +98,8 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus, isRunning, repos } = useAicsRuntime();
+  const { eventBus, repos } = useAicsRuntime();
+  const { isRunning } = useAicsRuntimeStatus();
   const { activeCompanyId } = useCompany();
   const [metrics, setMetrics] = useState<MetricsState>(INITIAL_METRICS);
 

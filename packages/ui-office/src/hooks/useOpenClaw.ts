@@ -190,7 +190,7 @@ export function useOpenClaw() {
         ),
       );
     },
-    [agents, eventBus],
+    [agents, eventBus, activeCompanyId],
   );
 
   const removeAgent = useCallback(
@@ -205,7 +205,7 @@ export function useOpenClaw() {
       // Emit employee.deleted so scene views remove the lobster puppet
       eventBus.emit(employeeDeleted(activeCompanyId!, agentId));
     },
-    [eventBus],
+    [eventBus, activeCompanyId],
   );
 
   return {

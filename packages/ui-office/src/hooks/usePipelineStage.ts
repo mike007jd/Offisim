@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GraphNodeEnteredPayload, RuntimeEvent, RoleSlug } from '@aics/shared-types';
 import { SYSTEM_ROLES } from '@aics/shared-types';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useAicsRuntime, useAicsRuntimeStatus } from '../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Shared pipeline stage hook — consumed by ChatPanel and StatusBar.
@@ -42,7 +42,8 @@ function nodeToPipelineStage(nodeName: string): PipelineStage {
  * Clears automatically 3 seconds after the runtime stops running.
  */
 export function usePipelineStage(): PipelineStage {
-  const { eventBus, isRunning } = useAicsRuntime();
+  const { eventBus } = useAicsRuntime();
+  const { isRunning } = useAicsRuntimeStatus();
   const [stage, setStage] = useState<PipelineStage>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
