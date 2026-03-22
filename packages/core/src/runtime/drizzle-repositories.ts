@@ -7,7 +7,7 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
-import type { BindingStatus, InstallState, NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type { BindingStatus, InstallState, NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
@@ -55,6 +55,7 @@ import type {
   NewLibraryDocument,
   LibraryDocumentRow,
   OfficeLayoutRow,
+  ProjectAssignmentRepository,
   ProjectRepository,
   RackRow,
   SlotRow,
@@ -1045,6 +1046,68 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const projectAssignments: ProjectAssignmentRepository = {
+    async assign(assignment: NewProjectAssignment) {
+      const row: ProjectAssignmentRow = {
+        ...assignment,
+        assigned_at: now(),
+      };
+      db.insert(schema.projectAssignments)
+        .values(row)
+        .onConflictDoNothing()
+        .run();
+      // Re-read to return whatever row exists (could be existing if duplicate)
+      const rows = db
+        .select()
+        .from(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, assignment.project_id),
+            eq(schema.projectAssignments.employee_id, assignment.employee_id),
+          ),
+        )
+        .all();
+      return (rows[0] as ProjectAssignmentRow | undefined) ?? row;
+    },
+    async unassign(projectId, employeeId) {
+      db.delete(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, projectId),
+            eq(schema.projectAssignments.employee_id, employeeId),
+          ),
+        )
+        .run();
+    },
+    async findByProject(projectId) {
+      return db
+        .select()
+        .from(schema.projectAssignments)
+        .where(eq(schema.projectAssignments.project_id, projectId))
+        .all() as ProjectAssignmentRow[];
+    },
+    async findByEmployee(employeeId) {
+      return db
+        .select()
+        .from(schema.projectAssignments)
+        .where(eq(schema.projectAssignments.employee_id, employeeId))
+        .all() as ProjectAssignmentRow[];
+    },
+    async isAssigned(projectId, employeeId) {
+      const rows = db
+        .select()
+        .from(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, projectId),
+            eq(schema.projectAssignments.employee_id, employeeId),
+          ),
+        )
+        .all();
+      return rows.length > 0;
+    },
+  };
+
   // Wraps a synchronous callback in a better-sqlite3 transaction.
   // All repo .run() calls inside fn() participate in the same transaction.
   // db.transaction(fn) for better-sqlite3 executes fn synchronously and returns T.
@@ -1083,6 +1146,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     officeLayouts,
     prefabInstances,
     projects,
+    projectAssignments,
     transact,
   };
 }

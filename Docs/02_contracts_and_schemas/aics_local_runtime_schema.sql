@@ -247,6 +247,15 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at  TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS project_assignments (
+  assignment_id TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  employee_id   TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+  role          TEXT NOT NULL DEFAULT 'member',
+  assigned_at   TEXT NOT NULL,
+  UNIQUE(project_id, employee_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_installed_packages_company ON installed_packages(company_id);
 CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installed_package_id);
 CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
@@ -257,3 +266,5 @@ CREATE INDEX IF NOT EXISTS idx_llm_calls_task_run ON llm_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_company ON prefab_instances(company_id);
 CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone ON prefab_instances(company_id, zone_id);
+CREATE INDEX IF NOT EXISTS idx_project_assignments_project ON project_assignments(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_assignments_employee ON project_assignments(employee_id);

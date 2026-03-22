@@ -252,6 +252,30 @@ export const projects = sqliteTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// 011 — Project assignments
+// ---------------------------------------------------------------------------
+
+export const projectAssignments = sqliteTable(
+  'project_assignments',
+  {
+    assignment_id: text('assignment_id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.employee_id, { onDelete: 'cascade' }),
+    role: text('role').notNull().default('member'),
+    assigned_at: text('assigned_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('project_assignments_proj_emp').on(table.project_id, table.employee_id),
+    index('idx_project_assignments_project').on(table.project_id),
+    index('idx_project_assignments_employee').on(table.employee_id),
+  ],
+);
+
 export const graphCheckpoints = sqliteTable(
   'graph_checkpoints',
   {

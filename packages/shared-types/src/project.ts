@@ -15,3 +15,13 @@ export interface ProjectRow {
 }
 
 export type NewProject = Omit<ProjectRow, 'created_at' | 'updated_at'>;
+
+export interface ProjectAssignmentRow {
+  assignment_id: string;
+  project_id: string;
+  employee_id: string;
+  role: string;
+  assigned_at: string;
+}
+
+export type NewProjectAssignment = Omit<ProjectAssignmentRow, 'assigned_at'>;

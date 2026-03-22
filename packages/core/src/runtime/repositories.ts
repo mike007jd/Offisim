@@ -1,12 +1,12 @@
 import type { NewEmployee } from '@aics/install-core';
-import type { NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type { NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
-export type { ProjectRow, NewProject, ProjectStatus };
+export type { ProjectRow, NewProject, ProjectStatus, ProjectAssignmentRow, NewProjectAssignment };
 
 /** Row types — mirror db-local schema shapes */
 
@@ -520,6 +520,18 @@ export interface ProjectRepository {
   delete(projectId: string): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Project assignments
+// ---------------------------------------------------------------------------
+
+export interface ProjectAssignmentRepository {
+  assign(assignment: NewProjectAssignment): Promise<ProjectAssignmentRow>;
+  unassign(projectId: string, employeeId: string): Promise<void>;
+  findByProject(projectId: string): Promise<ProjectAssignmentRow[]>;
+  findByEmployee(employeeId: string): Promise<ProjectAssignmentRow[]>;
+  isAssigned(projectId: string, employeeId: string): Promise<boolean>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -548,6 +560,7 @@ export interface RuntimeRepositories {
   officeLayouts: OfficeLayoutRepository;
   prefabInstances: PrefabInstanceRepository;
   projects: ProjectRepository;
+  projectAssignments: ProjectAssignmentRepository;
   /**
    * Wraps a synchronous callback in a DB transaction.
    * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.

@@ -123,5 +123,5 @@ export {
   ROLE_LABELS,
 } from './roles.js';
 
-export type { ProjectStatus, ProjectRow, NewProject } from './project.js';
+export type { ProjectStatus, ProjectRow, NewProject, ProjectAssignmentRow, NewProjectAssignment } from './project.js';
 export { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from './project.js';

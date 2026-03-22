@@ -4,7 +4,7 @@ import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
-import type { NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type { NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type {
   CheckpointRepository,
   CompanyRepository,
@@ -38,6 +38,7 @@ import type {
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  ProjectAssignmentRepository,
   ProjectRepository,
   RuntimeRepositories,
   SopTemplateRepository,
@@ -351,6 +352,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const officeLayouts = new MemoryOfficeLayoutRepository();
   const prefabInstances = createMemoryPrefabRepository();
   const projects = new MemoryProjectRepository();
+  const projectAssignments = new MemoryProjectAssignmentRepository();
 
   return {
     companies,
@@ -375,6 +377,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     officeLayouts,
     prefabInstances,
     projects,
+    projectAssignments,
     ...installRepos,
     seed,
   };
@@ -681,5 +684,41 @@ export class MemoryProjectRepository implements ProjectRepository {
 
   async delete(projectId: string): Promise<void> {
     this.store.delete(projectId);
+  }
+}
+
+export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepository {
+  private readonly store = new Map<string, ProjectAssignmentRow>();
+
+  private key(projectId: string, employeeId: string): string {
+    return `${projectId}::${employeeId}`;
+  }
+
+  async assign(assignment: NewProjectAssignment): Promise<ProjectAssignmentRow> {
+    const key = this.key(assignment.project_id, assignment.employee_id);
+    const existing = this.store.get(key);
+    if (existing) return existing;
+    const row: ProjectAssignmentRow = {
+      ...assignment,
+      assigned_at: new Date().toISOString(),
+    };
+    this.store.set(key, row);
+    return row;
+  }
+
+  async unassign(projectId: string, employeeId: string): Promise<void> {
+    this.store.delete(this.key(projectId, employeeId));
+  }
+
+  async findByProject(projectId: string): Promise<ProjectAssignmentRow[]> {
+    return [...this.store.values()].filter((a) => a.project_id === projectId);
+  }
+
+  async findByEmployee(employeeId: string): Promise<ProjectAssignmentRow[]> {
+    return [...this.store.values()].filter((a) => a.employee_id === employeeId);
+  }
+
+  async isAssigned(projectId: string, employeeId: string): Promise<boolean> {
+    return this.store.has(this.key(projectId, employeeId));
   }
 }
