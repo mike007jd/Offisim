@@ -1,5 +1,5 @@
 import {
-  FlaskConical, PenTool, Rocket, Briefcase, Brain,
+  FlaskConical, PenTool, Rocket, Briefcase, Brain, Wrench,
   Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -86,6 +86,18 @@ const TMPL: Record<string, TemplateMeta> = {
     complexity: 5,
     capabilities: ['ML research', 'Data analysis', 'Rapid prototyping'],
     gradient: 'from-cyan-500/20 via-cyan-600/10 to-transparent',
+  },
+  'create-your-own': {
+    icon: <Wrench className="h-4 w-4" />,
+    iconLg: <Wrench className="h-8 w-8" />,
+    accent: 'text-emerald-400',
+    accentHex: '#34d399',
+    accentBg: 'bg-emerald-500/10',
+    tagline: 'Design your office from scratch',
+    bestFor: ['Custom layout', 'Full creative control'],
+    complexity: 0,
+    capabilities: ['3D Studio Editor', 'Custom plot size', 'Free placement'],
+    gradient: 'from-emerald-600 to-teal-500',
   },
 };
 
@@ -192,6 +204,20 @@ const ZONE_TOOLTIPS: Record<string, string> = {
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Synthetic "Create Your Own" template — appended client-side, not in core
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const CREATE_YOUR_OWN_TEMPLATE: CompanyTemplate = {
+  id: 'create-your-own',
+  name: 'Create Your Own',
+  description: 'Design your office from scratch in the 3D Studio editor',
+  icon: '🛠',
+  employees: [],
+  sops: [],
+  layoutPreset: 'custom',
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
    Avatar cache
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -260,14 +286,25 @@ function ensureKeyframes() {
    Main Component
    ══════════════════════════════════════════════════════════════════════════ */
 
-interface Props { onComplete?: () => void }
+interface Props {
+  onComplete?: () => void;
+  onCreateYourOwn?: () => void;
+}
 
-export function CompanyCreationWizard({ onComplete }: Props) {
+export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
   const {
-    step, templates, selectedTemplateId, companyName,
+    step, templates: coreTemplates, selectedTemplateId, companyName,
     setSelectedTemplateId, setCompanyName, create, error,
     runtimeReady,
   } = useCompanyCreation();
+
+  // Append synthetic "Create Your Own" to core templates
+  const templates = useMemo(
+    () => [...coreTemplates, CREATE_YOUR_OWN_TEMPLATE],
+    [coreTemplates],
+  );
+
+  const isCreateYourOwn = selectedTemplateId === 'create-your-own';
 
   const prevStepRef = useRef(step);
   const [infoTab, setInfoTab] = useState<'team' | 'workflows'>('team');
@@ -357,27 +394,42 @@ export function CompanyCreationWizard({ onComplete }: Props) {
                 </div>
 
                 {/* Tab bar */}
-                <div className="flex">
-                  <button type="button" onClick={() => setInfoTab('team')}
-                    className={`pb-2 pr-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      infoTab === 'team' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
-                    }`}>
-                    Team · {selected.employees.length}
-                  </button>
-                  {selected.sops.length > 0 && (
-                    <button type="button" onClick={() => setInfoTab('workflows')}
-                      className={`pb-2 px-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                        infoTab === 'workflows' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
+                {!isCreateYourOwn && (
+                  <div className="flex">
+                    <button type="button" onClick={() => setInfoTab('team')}
+                      className={`pb-2 pr-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                        infoTab === 'team' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
                       }`}>
-                      Workflows · {selected.sops.length}
+                      Team · {selected.employees.length}
                     </button>
-                  )}
-                </div>
+                    {selected.sops.length > 0 && (
+                      <button type="button" onClick={() => setInfoTab('workflows')}
+                        className={`pb-2 px-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                          infoTab === 'workflows' ? 'text-white border-b-2 border-blue-400' : 'text-slate-600 hover:text-slate-400'
+                        }`}>
+                        Workflows · {selected.sops.length}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* ── Scrollable content ── */}
               <div className="flex-1 overflow-y-auto px-4 py-3">
-                {infoTab === 'team' || selected.sops.length === 0 ? (
+                {isCreateYourOwn ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
+                    <div className="text-emerald-400">{meta.iconLg}</div>
+                    <p className="text-sm text-slate-400">{meta.tagline}</p>
+                    <div className="space-y-2 w-full">
+                      {meta.capabilities.map((cap) => (
+                        <div key={cap} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                          <span className="text-xs text-slate-300">{cap}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : infoTab === 'team' || selected.sops.length === 0 ? (
                   <div className="space-y-1.5">
                     {selected.employees.map((emp, idx) => (
                       <div key={emp.name} style={{ animation: `wiz-card-in 0.4s ease-out ${idx * 50}ms both` }}>
@@ -395,7 +447,14 @@ export function CompanyCreationWizard({ onComplete }: Props) {
             <div className="flex-1 min-w-0 p-4 flex items-center justify-center" key={`fp-${selected.id}`}
               style={{ animation: 'wiz-fade-in 0.4s ease-out' }}>
               <div className="w-full h-full rounded-xl border border-white/[0.06] bg-white/[0.01] flex items-center justify-center p-2 overflow-hidden">
-                <Office2DPreview employees={selected.employees} />
+                {isCreateYourOwn ? (
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <Wrench className="h-12 w-12 text-emerald-400/40" />
+                    <p className="text-sm text-slate-600">Your custom office will be designed in the 3D Studio editor</p>
+                  </div>
+                ) : (
+                  <Office2DPreview employees={selected.employees} />
+                )}
               </div>
             </div>
           </>
@@ -427,16 +486,18 @@ export function CompanyCreationWizard({ onComplete }: Props) {
             </div>
             <button
               type="button"
-              onClick={create}
-              disabled={!selectedTemplateId || !runtimeReady}
+              onClick={isCreateYourOwn ? onCreateYourOwn : create}
+              disabled={!selectedTemplateId || (!isCreateYourOwn && !runtimeReady)}
               className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white hover:from-blue-500 hover:to-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all mt-5"
               style={
-                runtimeReady && selectedTemplateId
+                (isCreateYourOwn || runtimeReady) && selectedTemplateId
                   ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
                   : undefined
               }
             >
-              {!runtimeReady ? (
+              {isCreateYourOwn ? (
+                'Open Studio Editor'
+              ) : !runtimeReady ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" /> Initializing...
                 </span>
@@ -737,24 +798,26 @@ function PreviewEmployeeAvatar({ x, y, name, role }: { x: number; y: number; nam
   const dotColor = ROLE_DOT[role] ?? '#64748b';
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2);
   return (
-    <g transform={`translate(${x}, ${y})`} style={{ animation: `wiz-idle-bob 3s ease-in-out ${Math.random() * 2}s infinite` }}>
-      {/* Status aura */}
-      <circle cx="0" cy="0" r={5} fill={dotColor} opacity={0.12} />
-      {/* Avatar bg */}
-      <circle cx="0" cy="0" r={4} fill="var(--surface-lighter)" stroke={dotColor} strokeWidth={0.5} />
-      {/* Avatar image */}
-      <image href={avatarUri} x={-3.2} y={-3.2} width={6.4} height={6.4}
-        clipPath={`circle(3.2px at 3.2px 3.2px)`} />
-      {/* Fallback initials */}
-      <text x="0" y="1.5" textAnchor="middle" fontSize={3} fill="var(--text-primary-val)"
-        fontFamily="system-ui" fontWeight={600} style={{ pointerEvents: 'none' }}>
-        {initials}
-      </text>
-      {/* Name plate */}
-      <g transform="translate(0, 6.5)">
-        <rect x={-8} y={-2} width={16} height={4} rx={2} fill="var(--surface-light)" opacity={0.8} />
-        <text x="0" y="0.8" fill="var(--text-primary-val)" fontSize={2.2} fontWeight={600} textAnchor="middle"
-          fontFamily="system-ui">{name.split(' ')[0]}</text>
+    <g transform={`translate(${x}, ${y})`}>
+      <g style={{ animation: `wiz-idle-bob 3s ease-in-out ${Math.random() * 2}s infinite` }}>
+        {/* Status aura */}
+        <circle cx="0" cy="0" r={5} fill={dotColor} opacity={0.12} />
+        {/* Avatar bg */}
+        <circle cx="0" cy="0" r={4} fill="var(--surface-lighter)" stroke={dotColor} strokeWidth={0.5} />
+        {/* Avatar image */}
+        <image href={avatarUri} x={-3.2} y={-3.2} width={6.4} height={6.4}
+          clipPath={`circle(3.2px at 3.2px 3.2px)`} />
+        {/* Fallback initials */}
+        <text x="0" y="1.5" textAnchor="middle" fontSize={3} fill="var(--text-primary-val)"
+          fontFamily="system-ui" fontWeight={600} style={{ pointerEvents: 'none' }}>
+          {initials}
+        </text>
+        {/* Name plate */}
+        <g transform="translate(0, 6.5)">
+          <rect x={-8} y={-2} width={16} height={4} rx={2} fill="var(--surface-light)" opacity={0.8} />
+          <text x="0" y="0.8" fill="var(--text-primary-val)" fontSize={2.2} fontWeight={600} textAnchor="middle"
+            fontFamily="system-ui">{name.split(' ')[0]}</text>
+        </g>
       </g>
     </g>
   );
