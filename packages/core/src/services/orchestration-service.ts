@@ -27,6 +27,12 @@ export class OrchestrationService {
   private readonly threadLocks = new Map<string, Promise<unknown>>();
   private readonly threadQueueDepth = new Map<string, number>();
 
+  /**
+   * Per-thread AbortControllers — prep for Task 7 abort/stop support.
+   * Keyed by threadId. abortExecution(threadId) signals the running call.
+   */
+  private readonly currentAborts = new Map<string, AbortController>();
+
   constructor(
     private graph: {
       stream: (
@@ -36,6 +42,14 @@ export class OrchestrationService {
     },
     private runtimeCtx: RuntimeContext,
   ) {}
+
+  /**
+   * Abort the currently-running execution on the given thread.
+   * No-op if no execution is in progress for that thread.
+   */
+  abortExecution(threadId: string): void {
+    this.currentAborts.get(threadId)?.abort();
+  }
 
   /**
    * Send a meeting interrupt command.
@@ -89,8 +103,10 @@ export class OrchestrationService {
     targetEmployeeId?: string | null;
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
+    /** Override runtimeCtx.threadId — useful when service is long-lived across multiple threads. */
+    threadId?: string;
   }): Promise<AicsGraphState> {
-    const threadId = this.runtimeCtx.threadId;
+    const threadId = input.threadId ?? this.runtimeCtx.threadId;
 
     // Reject if queue is already too deep (prevents unbounded wait times)
     const depth = this.threadQueueDepth.get(threadId) ?? 0;
@@ -108,7 +124,7 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
-      return await this._executeInner(input);
+      return await this._executeInner({ ...input, threadId });
     } finally {
       release!();
       const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
@@ -129,19 +145,22 @@ export class OrchestrationService {
     targetEmployeeId?: string | null;
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
+    threadId: string;
   }): Promise<AicsGraphState> {
+    const threadId = input.threadId;
     const fullInput = {
-      threadId: this.runtimeCtx.threadId,
+      threadId,
       companyId: this.runtimeCtx.companyId,
+      entryMode: input.entryMode,
+      messages: input.messages,
       targetEmployeeId: input.targetEmployeeId ?? null,
       meetingId: input.meetingId ?? null,
       meetingInterrupt: input.meetingInterrupt ?? null,
-      ...input,
     };
 
     const config = {
       configurable: {
-        thread_id: this.runtimeCtx.threadId,
+        thread_id: threadId,
         runtimeCtx: this.runtimeCtx,
       },
     };
@@ -159,7 +178,7 @@ export class OrchestrationService {
         for (const [nodeName, nodeOutput] of Object.entries(update)) {
           lastNodeName = nodeName;
           this.runtimeCtx.eventBus.emit(
-            graphNodeExited(this.runtimeCtx.companyId, this.runtimeCtx.threadId, nodeName),
+            graphNodeExited(this.runtimeCtx.companyId, threadId, nodeName),
           );
           // Merge node output, accumulating messages to match graph.invoke() behavior
           const delta = nodeOutput as Partial<AicsGraphState>;

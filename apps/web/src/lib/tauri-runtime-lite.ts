@@ -39,6 +39,7 @@ export async function createTauriRuntimeReposOnly(
     eventBus,
     graph: null as unknown as RuntimeBundle['graph'],
     runtimeCtx: null as unknown as RuntimeBundle['runtimeCtx'],
+    orch: null,
     installService: null,
     mcpToolExecutor: null,
     repos,

@@ -126,15 +126,15 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       lastFailedMessageRef.current = null;
 
       try {
-        // Dynamically import OrchestrationService + HumanMessage to keep them
-        // out of the initial bundle (~200 KB+ savings combined).
-        const [{ OrchestrationService }, { HumanMessage }] = await Promise.all([
-          import('@aics/core/dist/services/orchestration-service.js'),
-          import('@langchain/core/messages'),
-        ]);
+        // HumanMessage is still dynamically imported to avoid including
+        // @langchain/core/messages in the initial bundle.
+        const { HumanMessage } = await import('@langchain/core/messages');
+        if (!runtime.orch) {
+          setError('Runtime not fully initialized (no orchestration service).');
+          return undefined;
+        }
         const entryMode = options?.targetEmployeeId ? 'direct_chat' : 'boss_chat';
-        const orch = new OrchestrationService(runtime.graph, runtime.runtimeCtx);
-        const result = await orch.execute({
+        const result = await runtime.orch.execute({
           entryMode,
           messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,

@@ -28,6 +28,7 @@ import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
 import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
+import type { OrchestrationService } from '@aics/core/dist/services/orchestration-service.js';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
@@ -101,6 +102,12 @@ export type RuntimeBundle = {
   eventBus: InMemoryEventBus;
   graph: ReturnType<typeof buildAicsGraph>;
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
+  /**
+   * Long-lived OrchestrationService instance — null in repos-only mode.
+   * Stored here so threadLocks survive across sendMessage() calls and
+   * thread serialization is actually effective.
+   */
+  orch: OrchestrationService | null;
   installService: InstallService | null;
   mcpToolExecutor: McpToolExecutor | null;
   repos: RuntimeRepositories;
@@ -182,7 +189,12 @@ export async function createBrowserRuntime(
     },
   });
 
-  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
+  const { OrchestrationService } = await import(
+    '@aics/core/dist/services/orchestration-service.js'
+  );
+  const orch = new OrchestrationService(graph, runtimeCtx);
+
+  return { eventBus, graph, runtimeCtx, orch, installService, mcpToolExecutor, repos };
 }
 
 /**
@@ -201,6 +213,7 @@ export async function createBrowserRuntimeReposOnly(
     eventBus,
     graph: null as unknown as RuntimeBundle['graph'],
     runtimeCtx: null as unknown as RuntimeBundle['runtimeCtx'],
+    orch: null,
     installService: null,
     mcpToolExecutor: null,
     repos,

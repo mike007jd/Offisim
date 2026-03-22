@@ -15,6 +15,7 @@ import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
+import type { RuntimeBundle } from './browser-runtime';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
@@ -64,7 +65,7 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
  *   bus avoids the "EventBus churn" problem where async init would create a
  *   different bus than what UI hooks subscribe to.
  */
-export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus, companyId: string) {
+export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus, companyId: string): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
   await seedTauriDb();
 
@@ -132,7 +133,12 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     },
   });
 
-  return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };
+  const { OrchestrationService } = await import(
+    '@aics/core/dist/services/orchestration-service.js'
+  );
+  const orch = new OrchestrationService(graph, runtimeCtx);
+
+  return { eventBus, graph, runtimeCtx, orch, installService, mcpToolExecutor, repos };
 }
 
 /**
