@@ -215,16 +215,16 @@ export function StudioGhost() {
     }
   });
 
-  if (!placingPrefab) return null;
-
-  const gridW = placingPrefab.gridSize[0];
-  const gridD = placingPrefab.gridSize[1];
-
   // ── Memoized footprint edge geometry (Skill §7: no inline THREE objects) ──
+  // Must be before any conditional return to satisfy React hooks rules.
+  const gridW = placingPrefab?.gridSize[0] ?? 1;
+  const gridD = placingPrefab?.gridSize[1] ?? 1;
   const footprintEdgeGeo = useMemo(
     () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)),
     [gridW, gridD],
   );
+
+  if (!placingPrefab) return null;
 
   return (
     <>
