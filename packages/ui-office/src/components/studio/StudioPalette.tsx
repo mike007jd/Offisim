@@ -239,8 +239,10 @@ function PrefabCard({
           textAlign: 'center',
           lineHeight: 1.2,
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical' as const,
+          wordBreak: 'break-word' as const,
           width: '100%',
         }}
       >

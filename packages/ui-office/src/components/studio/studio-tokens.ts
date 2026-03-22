@@ -106,7 +106,7 @@ export const FONT = {
 export const LAYOUT = {
   toolbarHeight: 44,
   bottomBarHeight: 40,
-  paletteWidth: 220,
+  paletteWidth: 240,
   propertiesWidth: 240,
   panelRadius: 0,
   cardRadius: 6,
