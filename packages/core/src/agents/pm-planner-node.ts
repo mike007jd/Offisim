@@ -8,6 +8,7 @@ import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { SopService } from '../services/sop-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 import { generateId } from '../utils/generate-id.js';
 
 const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
@@ -318,6 +319,7 @@ export async function pmPlannerNode(
         model: resolved.model,
         temperature: resolved.temperature,
         maxTokens: resolved.maxTokens,
+        signal: getConfigSignal(config),
       },
       { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
     );

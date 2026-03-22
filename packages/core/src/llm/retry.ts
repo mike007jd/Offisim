@@ -24,10 +24,14 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   config: RetryConfig,
   isRetryable: (error: unknown) => boolean,
+  signal?: AbortSignal,
 ): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
     try {
       return await fn();
     } catch (error) {

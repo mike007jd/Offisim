@@ -1,5 +1,5 @@
 import { ScrollArea } from '@aics/ui-core';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage, STAGE_META } from '../../hooks/usePipelineStage';
@@ -53,6 +53,7 @@ export function ChatPanel({
     isReady,
     error,
     clearError,
+    abortExecution,
   } = useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
@@ -251,7 +252,7 @@ export function ChatPanel({
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       <MeetingPanel agents={agents} />
 
-      {/* Pipeline status — inline, only visible while active */}
+      {/* Pipeline status + stop button — inline, only visible while active */}
       {pipelineStage && (
         <div className="flex items-center gap-1.5 px-3 py-1 border-t border-white/5">
           <span className="flex gap-0.5">
@@ -262,6 +263,17 @@ export function ChatPanel({
           <span className={`font-mono text-[10px] tracking-wide ${STAGE_META[pipelineStage].chatColorClass}`}>
             {STAGE_META[pipelineStage].chatLabel}
           </span>
+          {isRunning && (
+            <button
+              type="button"
+              onClick={abortExecution}
+              title="Stop execution"
+              className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+            >
+              <Square className="h-2.5 w-2.5 fill-current" />
+              <span>Stop</span>
+            </button>
+          )}
         </div>
       )}
 

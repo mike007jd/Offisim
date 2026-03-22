@@ -102,6 +102,7 @@ export class OpenAiAdapter implements LlmGateway {
       () => this.doChat(request),
       this.retryConfig,
       (error) => error instanceof LlmError && error.recoverable,
+      request.signal,
     );
   }
 
@@ -129,6 +130,7 @@ export class OpenAiAdapter implements LlmGateway {
       () => this.doChatStream(request),
       this.retryConfig,
       (error) => error instanceof LlmError && error.recoverable,
+      request.signal,
     );
   }
 

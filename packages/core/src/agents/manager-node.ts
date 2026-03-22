@@ -5,6 +5,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -133,6 +134,7 @@ export async function managerNode(
       model: resolved.model,
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
+      signal: getConfigSignal(config),
     },
     { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
   );

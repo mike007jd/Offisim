@@ -24,6 +24,7 @@ import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 import type { CitationRef } from '../graph/state.js';
 
@@ -307,6 +308,7 @@ export async function employeeNode(
         temperature: resolved.temperature,
         maxTokens: resolved.maxTokens,
         tools: allTools.length > 0 ? allTools : undefined,
+        signal: getConfigSignal(config),
       },
       { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
     );
@@ -523,6 +525,7 @@ export async function employeeNode(
           temperature: resolved.temperature,
           maxTokens: resolved.maxTokens,
           tools: allTools.length > 0 ? allTools : undefined,
+          signal: getConfigSignal(config),
         },
         { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
       );

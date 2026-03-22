@@ -194,6 +194,12 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     });
   }, []);
 
+  const abortExecution = useCallback(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.orch) return;
+    runtime.orch.abortExecution(runtime.runtimeCtx.threadId);
+  }, []);
+
   // Auto-connect saved MCP servers on runtime init
   // biome-ignore lint/correctness/useExhaustiveDependencies: version triggers reconnect on reinit
   useEffect(() => {
@@ -303,6 +309,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,
+      abortExecution,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [
@@ -316,6 +323,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     connectMcpServer,
     disconnectMcpServer,
     connectedMcpServers,
+    abortExecution,
   ]);
 
   return (

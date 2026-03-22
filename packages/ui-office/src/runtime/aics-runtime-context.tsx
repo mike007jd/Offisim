@@ -40,6 +40,8 @@ export interface AicsRuntimeValue {
   disconnectMcpServer: (name: string) => Promise<void>;
   /** Set of currently connected MCP server names. */
   connectedMcpServers: ReadonlySet<string>;
+  /** Abort the currently-running execution for the active thread. No-op if nothing is running. */
+  abortExecution: () => void;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);

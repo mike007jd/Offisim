@@ -117,6 +117,10 @@ export class OrchestrationService {
     }
     this.threadQueueDepth.set(threadId, depth + 1);
 
+    // Create AbortController for this execution and register it
+    const abort = new AbortController();
+    this.currentAborts.set(threadId, abort);
+
     // Serialize concurrent calls on the same threadId
     const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
     let release: () => void;
@@ -124,9 +128,10 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
-      return await this._executeInner({ ...input, threadId });
+      return await this._executeInner({ ...input, threadId, signal: abort.signal });
     } finally {
       release!();
+      this.currentAborts.delete(threadId);
       const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
       if (remaining <= 0) {
         this.threadQueueDepth.delete(threadId);
@@ -146,6 +151,7 @@ export class OrchestrationService {
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
     threadId: string;
+    signal: AbortSignal;
   }): Promise<AicsGraphState> {
     const threadId = input.threadId;
     const fullInput = {
@@ -162,6 +168,7 @@ export class OrchestrationService {
       configurable: {
         thread_id: threadId,
         runtimeCtx: this.runtimeCtx,
+        signal: input.signal,
       },
     };
 
@@ -175,6 +182,7 @@ export class OrchestrationService {
 
     try {
       for await (const update of stream) {
+        if (input.signal.aborted) break;
         for (const [nodeName, nodeOutput] of Object.entries(update)) {
           lastNodeName = nodeName;
           this.runtimeCtx.eventBus.emit(
@@ -194,6 +202,9 @@ export class OrchestrationService {
         }
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return finalState as AicsGraphState;
+      }
       const original = error instanceof Error ? error : new Error(String(error));
       const contextMsg = lastNodeName
         ? `Graph execution failed in node "${lastNodeName}": ${original.message}`
