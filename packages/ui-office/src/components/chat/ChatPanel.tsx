@@ -1,5 +1,6 @@
 import { ScrollArea } from '@aics/ui-core';
-import { ArrowLeft, Square } from 'lucide-react';
+import type { ProjectRow } from '@aics/shared-types';
+import { ArrowLeft, Folder, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage, STAGE_META } from '../../hooks/usePipelineStage';
@@ -30,6 +31,8 @@ interface ChatPanelProps {
   onShowDashboard?: () => void;
   /** Open cost view (for /budget command) */
   onShowBudget?: () => void;
+  /** Active project — when set, all messages use the project's threadId. */
+  activeProject?: ProjectRow | null;
 }
 
 let nextMsgId = 0;
@@ -45,6 +48,7 @@ export function ChatPanel({
   onSelectEmployee,
   onShowDashboard,
   onShowBudget,
+  activeProject,
 }: ChatPanelProps) {
   const {
     sendMessage,
@@ -118,6 +122,7 @@ export function ChatPanel({
 
     const response = await sendMessage(text, {
       targetEmployeeId: selectedEmployeeId ?? undefined,
+      threadId: activeProject?.thread_id ?? undefined,
     });
 
     const finalContent = lastStreamRef.current || response;
@@ -193,6 +198,14 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
+      {/* Project context banner — shown when a project is scoped */}
+      {activeProject && !isDirectChat && (
+        <div className="flex items-center gap-1.5 border-b border-white/5 px-3 h-7 bg-white/2">
+          <Folder className="h-3 w-3 text-slate-600 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 truncate">{activeProject.name}</span>
+        </div>
+      )}
+
       {/* Direct chat header — single compact line */}
       {isDirectChat && (
         <div className="flex items-center gap-2 border-b border-white/5 px-3 h-8">

@@ -11,6 +11,8 @@ import {
   Header,
   NotificationCenter,
   type ProviderConfig,
+  ProjectListPanel,
+  ProjectSelector,
   RightSidebar,
   StatusBar,
   loadProviderConfig,
@@ -20,6 +22,7 @@ import {
   useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
+  useProjects,
   useReducedMotion,
 } from '@aics/ui-office';
 import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
@@ -73,8 +76,13 @@ export function App({ onCompanySwitch }: AppProps) {
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
+  const [projectListOpen, setProjectListOpen] = useState(false);
   const { reinitRuntime, repos, eventBus } = useAicsRuntime();
   const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
+  const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
+    repos,
+    companyId: activeCompanyId ?? '',
+  });
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
@@ -251,6 +259,25 @@ export function App({ onCompanySwitch }: AppProps) {
                   onOpenCompanySelect={() => setView('company-select')}
                   onFileImport={installFlow.startFileImport}
                   notificationSlot={<NotificationCenter />}
+                  projectSlot={
+                    <div className="relative">
+                      <ProjectSelector
+                        projects={projects}
+                        activeProjectId={activeProjectId}
+                        onSelect={setActiveProjectId}
+                      />
+                      {projectListOpen && (
+                        <div className="absolute top-full mt-1 left-0 z-50">
+                          <ProjectListPanel
+                            projects={projects}
+                            activeProjectId={activeProjectId}
+                            onSelect={setActiveProjectId}
+                            onClose={() => setProjectListOpen(false)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  }
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   needsConfig={!providerConfig}
@@ -288,6 +315,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     onSelectEmployee={setSelectedEmployeeId}
                     onShowDashboard={() => setDashboardOpen(true)}
                     onShowBudget={() => setDashboardOpen(true)}
+                    activeProject={activeProject}
                   />
                 </ChatDrawer>
               }

@@ -73,6 +73,7 @@ export type {
   OfficeLayoutRow,
   NewOfficeLayout,
   OfficeLayoutRepository,
+  ProjectRepository,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';

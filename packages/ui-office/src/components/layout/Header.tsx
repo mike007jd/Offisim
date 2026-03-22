@@ -11,13 +11,15 @@ interface HeaderProps {
   onOpenCompanySelect?: () => void;
   onFileImport: (file: File) => void;
   notificationSlot?: ReactNode;
+  /** Slot for project selector dropdown — rendered in the left section. */
+  projectSlot?: ReactNode;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
   /** Show a red dot on the Settings icon when provider is not yet configured. */
   needsConfig?: boolean;
 }
 
-export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, onOpenStudio, onOpenCompanySelect, onFileImport, notificationSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
+export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, onOpenStudio, onOpenCompanySelect, onFileImport, notificationSlot, projectSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
   return (
     <header className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between px-4 rounded-xl border border-white/10 shadow-2xl">
       <div className="flex items-center space-x-3">
@@ -54,6 +56,9 @@ export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, on
             <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">{providerName}</span>
           </div>
         )}
+
+        {/* Project selector slot */}
+        {projectSlot}
       </div>
 
       <div className="flex items-center space-x-3">

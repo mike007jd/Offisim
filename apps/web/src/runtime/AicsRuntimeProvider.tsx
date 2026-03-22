@@ -100,11 +100,11 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     setVersion((v) => v + 1);
   }, []);
 
-  const lastFailedMessageRef = useRef<{ text: string; targetEmployeeId?: string } | null>(null);
+  const lastFailedMessageRef = useRef<{ text: string; targetEmployeeId?: string; threadId?: string } | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getRuntime is a render-scoped function that reads refs
   const sendMessage = useCallback(
-    async (text: string, options?: { targetEmployeeId?: string }): Promise<string | undefined> => {
+    async (text: string, options?: { targetEmployeeId?: string; threadId?: string }): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
 
       // Wait for async init if in progress (both Tauri and browser modes)
@@ -138,6 +138,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
           entryMode,
           messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
+          threadId: options?.threadId,
         });
         // Extract last AI message content from graph result
         const msgs = result.messages ?? [];
@@ -152,7 +153,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
-        lastFailedMessageRef.current = { text, targetEmployeeId: options?.targetEmployeeId };
+        lastFailedMessageRef.current = { text, targetEmployeeId: options?.targetEmployeeId, threadId: options?.threadId };
         return undefined;
       } finally {
         setIsRunning(false);
@@ -165,7 +166,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   const retryLastMessage = useCallback(async (): Promise<string | undefined> => {
     const last = lastFailedMessageRef.current;
     if (!last) return undefined;
-    return sendMessage(last.text, { targetEmployeeId: last.targetEmployeeId });
+    return sendMessage(last.text, { targetEmployeeId: last.targetEmployeeId, threadId: last.threadId });
   }, [sendMessage]);
 
   const clearError = useCallback(() => setError(null), []);

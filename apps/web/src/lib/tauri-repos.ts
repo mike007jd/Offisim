@@ -51,7 +51,9 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
+  ProjectRepository,
 } from '@aics/core/browser';
+import type { ProjectRow, NewProject, ProjectStatus } from '@aics/shared-types';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
@@ -145,6 +147,18 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .update(schema.graphThreads)
         .set({ status, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
+    },
+    async findByCompanyAndStatus(companyId, status) {
+      return (await db
+        .select()
+        .from(schema.graphThreads)
+        .where(
+          and(
+            eq(schema.graphThreads.company_id, companyId),
+            eq(schema.graphThreads.status, status),
+          ),
+        )
+        .orderBy(desc(schema.graphThreads.created_at))) as GraphThreadRow[];
     },
   };
 
@@ -930,6 +944,55 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const projects: ProjectRepository = {
+    async create(p: NewProject) {
+      const row: ProjectRow = { ...p, created_at: now(), updated_at: now() };
+      await db.insert(schema.projects).values(row);
+      return row;
+    },
+    async findById(projectId) {
+      const rows = await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.project_id, projectId));
+      return (rows[0] as ProjectRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.company_id, companyId))
+        .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
+    },
+    async findActiveByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.projects)
+        .where(
+          and(
+            eq(schema.projects.company_id, companyId),
+            inArray(schema.projects.status, ['planning', 'active', 'paused']),
+          ),
+        )
+        .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
+    },
+    async updateStatus(projectId, status: ProjectStatus) {
+      await db
+        .update(schema.projects)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.projects.project_id, projectId));
+    },
+    async update(projectId, patch) {
+      await db
+        .update(schema.projects)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.projects.project_id, projectId));
+    },
+    async delete(projectId) {
+      await db.delete(schema.projects).where(eq(schema.projects.project_id, projectId));
+    },
+  };
+
   return {
     companies,
     threads,
@@ -956,5 +1019,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     libraryDocuments,
     officeLayouts,
     prefabInstances,
+    projects,
   };
 }

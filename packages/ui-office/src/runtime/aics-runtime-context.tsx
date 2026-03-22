@@ -19,7 +19,7 @@ export interface AicsRuntimeValue {
   error: string | null;
   sendMessage: (
     text: string,
-    options?: { targetEmployeeId?: string },
+    options?: { targetEmployeeId?: string; threadId?: string },
   ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;
   clearError: () => void;

@@ -53,6 +53,8 @@ export * from './components/install/SkillReview.js';
 export * from './components/layout/AppLayout.js';
 export * from './components/notifications/NotificationCard.js';
 export * from './components/notifications/NotificationCenter.js';
+export * from './components/project/ProjectSelector.js';
+export * from './components/project/ProjectListPanel.js';
 export * from './components/layout/Header.js';
 export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
@@ -93,6 +95,7 @@ export * from './hooks/useTaskDashboard.js';
 export * from './hooks/useNotifications.js';
 export * from './hooks/useTaskQueue.js';
 export * from './hooks/useMeeting.js';
+export * from './hooks/useProjects.js';
 
 // Lib
 export * from './lib/env.js';
