@@ -150,10 +150,8 @@ export function StudioGhost() {
     if (groupRef.current) groupRef.current.layers.set(1);
   }, []);
 
-  // ── Layer assignment: invisible floor → Layer 1 ──────────────────
-  useEffect(() => {
-    if (floorRef.current) floorRef.current.layers.set(1);
-  }, []);
+  // NOTE: invisible floor stays on Layer 0 — it MUST receive R3F pointer events.
+  // Only the ghost visual group is on Layer 1 (not pickable for selection).
 
   // ── Apply ghost rotation when R key is pressed (without pointer move) ──
   useEffect(() => {
@@ -228,12 +226,11 @@ export function StudioGhost() {
 
   return (
     <>
-      {/* Invisible floor for raycast — Layer 1 (not pickable) */}
+      {/* Invisible floor for raycast — stays on Layer 0 so R3F events work */}
       <mesh
         ref={floorRef}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
-        layers={1}
         onPointerMove={(e) => {
           e.stopPropagation();
           const pos = e.point;
