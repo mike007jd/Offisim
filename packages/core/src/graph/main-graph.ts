@@ -126,6 +126,8 @@ async function stepAdvanceNode(
         state.threadId,
       ),
     );
+    // Track execution progress — thread is actively running
+    await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
   }
 
   return {

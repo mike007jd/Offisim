@@ -13,6 +13,7 @@ import {
   type ProviderConfig,
   ProjectListPanel,
   ProjectSelector,
+  ResumeBar,
   RightSidebar,
   StatusBar,
   loadProviderConfig,
@@ -77,7 +78,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const [projectListOpen, setProjectListOpen] = useState(false);
-  const { reinitRuntime, repos, eventBus } = useAicsRuntime();
+  const { reinitRuntime, repos, eventBus, unfinishedThreads, dismissUnfinishedThreads, resumeThread } = useAicsRuntime();
   const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
     repos,
@@ -246,6 +247,15 @@ export function App({ onCompanySwitch }: AppProps) {
         {/* ── Office view (default) ── */}
         {view === 'office' && (
           <>
+            {unfinishedThreads.length > 0 && (
+              <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+                <ResumeBar
+                  projects={unfinishedThreads}
+                  onResume={(threadId: string) => void resumeThread(threadId)}
+                  onDismiss={dismissUnfinishedThreads}
+                />
+              </div>
+            )}
             <AppLayout
               header={
                 <Header

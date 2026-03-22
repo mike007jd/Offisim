@@ -65,6 +65,7 @@ export type { MeetingPanelProps } from './components/office/MeetingPanel.js';
 export * from './components/onboarding/TemplateCard.js';
 export * from './components/pitch/PitchHall.js';
 export * from './components/plan/TaskDashboard.js';
+export * from './components/project/ResumeBar.js';
 export * from './components/plan/TaskItem.js';
 export * from './components/plan/TaskStepCard.js';
 export * from './components/scene/PerformanceHUD.js';

@@ -94,6 +94,9 @@ export async function errorHandlerNode(
       ? ' This error may be recoverable — you can retry the request.'
       : ' This error is not recoverable.';
 
+    if (runtimeCtx) {
+      await runtimeCtx.repos.threads.updateStatus(state.threadId, 'failed');
+    }
     return {
       completed: true,
       interruptReason: null,
@@ -113,6 +116,7 @@ export async function errorHandlerNode(
         threadId: state.threadId,
       }),
     );
+    await runtimeCtx.repos.threads.updateStatus(state.threadId, 'failed');
   }
 
   return {

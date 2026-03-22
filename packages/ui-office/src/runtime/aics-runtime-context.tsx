@@ -42,6 +42,15 @@ export interface AicsRuntimeValue {
   connectedMcpServers: ReadonlySet<string>;
   /** Abort the currently-running execution for the active thread. No-op if nothing is running. */
   abortExecution: () => void;
+  /** Threads detected as 'running' on startup (app crashed mid-execution). */
+  unfinishedThreads: ReadonlyArray<{ threadId: string; projectName: string }>;
+  /** Dismiss the unfinished-thread banner without resuming. */
+  dismissUnfinishedThreads: () => void;
+  /**
+   * Resume a thread that was left in 'running' status.
+   * Re-invokes the graph with background_sync entryMode on the given threadId.
+   */
+  resumeThread: (threadId: string) => Promise<void>;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);
