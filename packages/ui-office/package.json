@@ -39,6 +39,10 @@
     "./install": {
       "types": "./dist/components/install/InstallDialog.d.ts",
       "default": "./dist/components/install/InstallDialog.js"
+    },
+    "./studio": {
+      "types": "./dist/components/studio/StudioPage.d.ts",
+      "default": "./dist/components/studio/StudioPage.js"
     }
   },
   "scripts": {

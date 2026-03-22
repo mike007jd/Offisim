@@ -13,28 +13,41 @@ const CompanyCtx = createContext<CompanyContextValue | null>(null);
 interface CompanyProviderProps {
   repos: RuntimeRepositories | null;
   children: ReactNode;
+  /** Controlled active company ID — when provided, CompanyProvider defers to the parent. */
+  activeCompanyId?: string | null;
+  /** Called when user triggers switchCompany — lets the parent lift state above the runtime. */
+  onCompanySwitch?: (id: string) => void;
 }
 
-export function CompanyProvider({ repos, children }: CompanyProviderProps) {
+export function CompanyProvider({ repos, children, activeCompanyId: controlledId, onCompanySwitch }: CompanyProviderProps) {
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
+  const [internalId, setInternalId] = useState<string | null>(null);
+
+  // If parent provides controlledId, use it; otherwise fall back to internal state
+  const activeCompanyId = controlledId !== undefined ? controlledId : internalId;
 
   const refreshCompanies = useCallback(async () => {
     if (!repos) return;
     const all = await repos.companies.findAll();
     setCompanies(all);
-    // Auto-select first company if none selected (use functional update to avoid stale closure)
-    const first = all[0];
-    setActiveCompanyId((prev) => (prev == null && first != null) ? first.company_id : prev);
-  }, [repos]);
+    // Auto-select first company if none selected (only for uncontrolled mode)
+    if (controlledId === undefined) {
+      const first = all[0];
+      setInternalId((prev) => (prev == null && first != null) ? first.company_id : prev);
+    }
+  }, [repos, controlledId]);
 
   useEffect(() => {
     refreshCompanies();
   }, [refreshCompanies]);
 
   const switchCompany = useCallback((id: string) => {
-    setActiveCompanyId(id);
-  }, []);
+    if (onCompanySwitch) {
+      onCompanySwitch(id);
+    } else {
+      setInternalId(id);
+    }
+  }, [onCompanySwitch]);
 
   return (
     <CompanyCtx.Provider value={{ activeCompanyId, companies, switchCompany, refreshCompanies }}>

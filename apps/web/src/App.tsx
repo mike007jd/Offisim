@@ -5,6 +5,7 @@ import {
   AppLayout,
   ChatDrawer,
   ChatPanel,
+  CompanySelectionPage,
   EmployeeInspector,
   ErrorBoundary,
   Header,
@@ -51,10 +52,18 @@ const CompanyEditor = React.lazy(() =>
 const InstallDialog = React.lazy(() =>
   import('@aics/ui-office/install').then((m) => ({ default: m.InstallDialog })),
 );
+const StudioPage = React.lazy(() =>
+  import('@aics/ui-office/studio').then((m) => ({ default: m.StudioPage })),
+);
 
-type AppView = 'office' | 'employee-creator' | 'office-editor';
+type AppView = 'office' | 'employee-creator' | 'office-editor' | 'company-select' | 'studio';
 
-export function App() {
+interface AppProps {
+  /** Callback to propagate company switch up to main.tsx (re-keys AicsRuntimeProvider). */
+  onCompanySwitch: (id: string) => void;
+}
+
+export function App({ onCompanySwitch }: AppProps) {
   const [view, setView] = useState<AppView>('office');
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -63,8 +72,9 @@ export function App() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
+  const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const { reinitRuntime, repos, eventBus } = useAicsRuntime();
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
@@ -154,9 +164,31 @@ export function App() {
   }
 
   function handleWizardComplete() {
+    refreshCompanies();
     if (!providerConfig) {
       setSettingsOpen(true);
     }
+  }
+
+  /** Navigate to company selection, selecting a company triggers runtime switch. */
+  function handleSelectCompany(id: string) {
+    switchCompany(id);
+    onCompanySwitch(id);
+    setView('office');
+  }
+
+  /** Handle "Create Your Own" from wizard — opens Studio in create mode. */
+  function handleCreateYourOwn() {
+    setStudioMode('create');
+    setView('studio');
+  }
+
+  /** Handle Studio save — switch to the new/edited company and return to office. */
+  function handleStudioCompanyCreated(newId: string) {
+    switchCompany(newId);
+    onCompanySwitch(newId);
+    refreshCompanies();
+    setView('office');
   }
 
   return (
@@ -181,6 +213,28 @@ export function App() {
           </Suspense>
         )}
 
+        {view === 'company-select' && (
+          <CompanySelectionPage
+            onSelectCompany={handleSelectCompany}
+            onCreateNew={() => {
+              // Return to office so the wizard (rendered globally) can appear
+              setView('office');
+            }}
+          />
+        )}
+
+        {view === 'studio' && (
+          <Suspense fallback={null}>
+            <StudioPage
+              mode={studioMode}
+              companyId={activeCompanyId ?? undefined}
+              repos={repos}
+              onBack={() => setView('office')}
+              onCompanyCreated={handleStudioCompanyCreated}
+            />
+          </Suspense>
+        )}
+
         {/* ── Office view (default) ── */}
         {view === 'office' && (
           <>
@@ -192,6 +246,11 @@ export function App() {
                   onOpenCompanyEditor={companyEditor.open}
                   onOpenEmployeeCreator={() => setView('employee-creator')}
                   onOpenOfficeEditor={() => setView('office-editor')}
+                  onOpenStudio={() => {
+                    setStudioMode('edit');
+                    setView('studio');
+                  }}
+                  onOpenCompanySelect={() => setView('company-select')}
                   onFileImport={installFlow.startFileImport}
                   notificationSlot={<NotificationCenter />}
                   viewMode={viewMode}
@@ -279,7 +338,10 @@ export function App() {
           <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
         </Suspense>
         <Suspense fallback={null}>
-          <CompanyCreationWizard onComplete={handleWizardComplete} />
+          <CompanyCreationWizard
+            onComplete={handleWizardComplete}
+            onCreateYourOwn={handleCreateYourOwn}
+          />
         </Suspense>
       </>
     </ErrorBoundary>
