@@ -592,7 +592,55 @@ export const prefabInstances = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// 012 — Office layouts
+// 012 — Agent events (event sourcing)
+// ---------------------------------------------------------------------------
+
+export const agentEvents = sqliteTable(
+  'agent_events',
+  {
+    event_id: text('event_id').primaryKey(),
+    project_id: text('project_id').references(() => projects.project_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id').notNull(),
+    company_id: text('company_id').notNull(),
+    agent_name: text('agent_name').notNull(),
+    event_type: text('event_type').notNull(),
+    payload_json: text('payload_json').notNull(),
+    parent_event_id: text('parent_event_id'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_agent_events_project').on(table.project_id, table.created_at),
+    index('idx_agent_events_thread').on(table.thread_id, table.event_type),
+    index('idx_agent_events_agent').on(table.agent_name, table.event_type),
+    index('idx_agent_events_parent').on(table.parent_event_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 013 — Recovery knowledge (persistent learning)
+// ---------------------------------------------------------------------------
+
+export const recoveryKnowledge = sqliteTable(
+  'recovery_knowledge',
+  {
+    knowledge_id: text('knowledge_id').primaryKey(),
+    symptom: text('symptom').notNull(),
+    cause: text('cause').notNull(),
+    fix_strategy: text('fix_strategy').notNull(),
+    fix_config: text('fix_config'),
+    success_count: integer('success_count').notNull().default(0),
+    failure_count: integer('failure_count').notNull().default(0),
+    last_used_at: text('last_used_at'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_recovery_symptom').on(table.symptom, table.cause),
+    index('idx_recovery_strategy').on(table.fix_strategy),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Office layouts
 // ---------------------------------------------------------------------------
 
 export const officeLayouts = sqliteTable(

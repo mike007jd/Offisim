@@ -39,6 +39,7 @@ function makeState(overrides: Partial<AicsGraphState> = {}): AicsGraphState {
     meetingActionItems: [],
     meetingInterrupt: null,
     hrAssessment: null,
+    replanCount: 0,
     ...overrides,
   };
 }

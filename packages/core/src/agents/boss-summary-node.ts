@@ -12,6 +12,8 @@ import {
 import type { AicsGraphState, MeetingActionItem } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { EventConsolidator } from '../services/event-consolidator.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
@@ -78,6 +80,21 @@ export async function bossSummaryNode(
         state.threadId,
       ),
     );
+
+    // Consolidate execution events into experience memory (non-blocking, best-effort)
+    if (runtimeCtx.repos.agentEvents) {
+      const consolidator = new EventConsolidator(
+        runtimeCtx.repos.agentEvents,
+        runtimeCtx.repos.memories,
+        runtimeCtx.llmGateway,
+        runtimeCtx.eventBus,
+      );
+      consolidator.consolidate({
+        threadId: state.threadId,
+        companyId: runtimeCtx.companyId,
+        projectName: state.taskPlan.summary,
+      }).catch(() => {}); // fire-and-forget — must not block summary
+    }
   }
 
   // Emit directChatCompleted if this was a direct chat flow
@@ -147,6 +164,13 @@ export async function bossSummaryNode(
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'boss',
+      eventType: 'action',
+      payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
+    });
     return {
       completed: true,
       messages: [new AIMessage({ content })],
@@ -186,6 +210,14 @@ export async function bossSummaryNode(
   const finalContent = streamResult.fullContent + actionItemsSuffix;
   emitDeliverable(finalContent);
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: 'boss',
+    eventType: 'action',
+    payload: { action: 'summary', employeeResultCount: employeeResults.length, outputLength: finalContent.length },
+  });
 
   return {
     completed: true,

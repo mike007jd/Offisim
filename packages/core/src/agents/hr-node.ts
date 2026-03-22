@@ -12,6 +12,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface HrAssessmentResult {
@@ -136,6 +137,14 @@ export async function hrNode(
       hrRecommendation(companyId, assessmentText, result.suggestedRoles, state.threadId),
     );
   }
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: 'hr',
+    eventType: 'decision',
+    payload: { action: hrAction, suggestedRoles: result?.suggestedRoles, assessmentLength: assessmentText.length },
+  });
 
   return {
     hrAssessment: assessmentText,

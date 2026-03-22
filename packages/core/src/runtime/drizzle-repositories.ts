@@ -15,6 +15,8 @@ import type { InstallTransactionRepository } from '../repos/install-transaction-
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type {
+  AgentEventRepository,
+  AgentEventRow,
   CheckpointRepository,
   CompanyRepository,
   EmployeeRepository,
@@ -37,6 +39,7 @@ import type {
   MemoryRepository,
   ModelCostRateRepository,
   ModelCostRateRow,
+  NewAgentEvent,
   NewEmployeeVersion,
   NewGraphCheckpoint,
   NewGraphThread,
@@ -47,6 +50,7 @@ import type {
   NewModelCostRate,
   NewOfficeLayout,
   NewRack,
+  NewRecoveryKnowledge,
   NewRuntimeEvent,
   NewSlot,
   NewSopTemplate,
@@ -58,6 +62,8 @@ import type {
   ProjectAssignmentRepository,
   ProjectRepository,
   RackRow,
+  RecoveryKnowledgeRepository,
+  RecoveryKnowledgeRow,
   SlotRow,
   SopTemplateRow,
   RuntimeRepositories,
@@ -1108,6 +1114,176 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  // ---------------------------------------------------------------------------
+  // Agent events (event sourcing)
+  // ---------------------------------------------------------------------------
+
+  const agentEvents: AgentEventRepository = {
+    async append(event: NewAgentEvent) {
+      const row: AgentEventRow = {
+        ...event,
+        created_at: event.created_at ?? now(),
+      };
+      db.insert(schema.agentEvents).values(row).run();
+      return row;
+    },
+    async findByProject(projectId, opts) {
+      let query = db
+        .select()
+        .from(schema.agentEvents)
+        .where(
+          opts?.eventType
+            ? and(eq(schema.agentEvents.project_id, projectId), eq(schema.agentEvents.event_type, opts.eventType))
+            : eq(schema.agentEvents.project_id, projectId),
+        )
+        .orderBy(desc(schema.agentEvents.created_at));
+      if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+      return query.all() as AgentEventRow[];
+    },
+    async findByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.agentEvents)
+        .where(
+          opts?.eventType
+            ? and(eq(schema.agentEvents.thread_id, threadId), eq(schema.agentEvents.event_type, opts.eventType))
+            : eq(schema.agentEvents.thread_id, threadId),
+        )
+        .orderBy(desc(schema.agentEvents.created_at));
+      if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+      return query.all() as AgentEventRow[];
+    },
+    async findByAgent(agentName, opts) {
+      let query = db
+        .select()
+        .from(schema.agentEvents)
+        .where(
+          opts?.eventType
+            ? and(eq(schema.agentEvents.agent_name, agentName), eq(schema.agentEvents.event_type, opts.eventType))
+            : eq(schema.agentEvents.agent_name, agentName),
+        )
+        .orderBy(desc(schema.agentEvents.created_at));
+      if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+      return query.all() as AgentEventRow[];
+    },
+    async findCausalChain(eventId) {
+      // Walk parent_event_id chain iteratively (SQLite has no recursive CTE in Drizzle)
+      const chain: AgentEventRow[] = [];
+      let currentId: string | null = eventId;
+      const visited = new Set<string>();
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const rows = db
+          .select()
+          .from(schema.agentEvents)
+          .where(eq(schema.agentEvents.event_id, currentId))
+          .all() as AgentEventRow[];
+        if (rows.length === 0) break;
+        chain.push(rows[0]!);
+        currentId = rows[0]!.parent_event_id;
+      }
+      return chain;
+    },
+    async findRecent(threadId, limit) {
+      return db
+        .select()
+        .from(schema.agentEvents)
+        .where(eq(schema.agentEvents.thread_id, threadId))
+        .orderBy(desc(schema.agentEvents.created_at))
+        .limit(limit)
+        .all() as AgentEventRow[];
+    },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Recovery knowledge (persistent learning)
+  // ---------------------------------------------------------------------------
+
+  const recoveryKnowledge: RecoveryKnowledgeRepository = {
+    async upsert(entry: NewRecoveryKnowledge) {
+      const existing = db
+        .select()
+        .from(schema.recoveryKnowledge)
+        .where(
+          and(
+            eq(schema.recoveryKnowledge.symptom, entry.symptom),
+            eq(schema.recoveryKnowledge.cause, entry.cause),
+          ),
+        )
+        .all() as RecoveryKnowledgeRow[];
+      if (existing.length > 0) {
+        // Update strategy and config if changed
+        db.update(schema.recoveryKnowledge)
+          .set({ fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null })
+          .where(eq(schema.recoveryKnowledge.knowledge_id, existing[0]!.knowledge_id))
+          .run();
+        return { ...existing[0]!, fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null };
+      }
+      const row: RecoveryKnowledgeRow = {
+        ...entry,
+        fix_config: entry.fix_config ?? null,
+        success_count: 0,
+        failure_count: 0,
+        last_used_at: null,
+        created_at: now(),
+      };
+      db.insert(schema.recoveryKnowledge).values(row).run();
+      return row;
+    },
+    async findBySymptom(symptom) {
+      return db
+        .select()
+        .from(schema.recoveryKnowledge)
+        .where(eq(schema.recoveryKnowledge.symptom, symptom))
+        .all() as RecoveryKnowledgeRow[];
+    },
+    async findBestFix(symptom) {
+      const rows = db
+        .select()
+        .from(schema.recoveryKnowledge)
+        .where(eq(schema.recoveryKnowledge.symptom, symptom))
+        .all() as RecoveryKnowledgeRow[];
+      if (rows.length === 0) return null;
+      // Pick the fix with highest success rate; break ties by most recent use
+      return rows.sort((a, b) => {
+        const rateA = a.success_count + a.failure_count > 0
+          ? a.success_count / (a.success_count + a.failure_count)
+          : 0.5;
+        const rateB = b.success_count + b.failure_count > 0
+          ? b.success_count / (b.success_count + b.failure_count)
+          : 0.5;
+        if (rateB !== rateA) return rateB - rateA;
+        return (b.last_used_at ?? '').localeCompare(a.last_used_at ?? '');
+      })[0] ?? null;
+    },
+    async incrementSuccess(knowledgeId) {
+      db.update(schema.recoveryKnowledge)
+        .set({
+          success_count: sql`success_count + 1`,
+          last_used_at: now(),
+        })
+        .where(eq(schema.recoveryKnowledge.knowledge_id, knowledgeId))
+        .run();
+    },
+    async incrementFailure(knowledgeId) {
+      db.update(schema.recoveryKnowledge)
+        .set({
+          failure_count: sql`failure_count + 1`,
+          last_used_at: now(),
+        })
+        .where(eq(schema.recoveryKnowledge.knowledge_id, knowledgeId))
+        .run();
+    },
+    async findAll(opts) {
+      let query = db
+        .select()
+        .from(schema.recoveryKnowledge)
+        .orderBy(desc(schema.recoveryKnowledge.created_at));
+      if (opts?.limit) query = query.limit(opts.limit) as typeof query;
+      return query.all() as RecoveryKnowledgeRow[];
+    },
+  };
+
   // Wraps a synchronous callback in a better-sqlite3 transaction.
   // All repo .run() calls inside fn() participate in the same transaction.
   // db.transaction(fn) for better-sqlite3 executes fn synchronously and returns T.
@@ -1147,6 +1323,8 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     prefabInstances,
     projects,
     projectAssignments,
+    agentEvents,
+    recoveryKnowledge,
     transact,
   };
 }

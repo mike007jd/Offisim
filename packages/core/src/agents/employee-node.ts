@@ -15,16 +15,18 @@ import {
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
-import type { LlmMessage, ToolDef } from '../llm/gateway.js';
+import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { diagnoseAndRecover, recordRecoveryOutcome, type RecoveryDecision } from './recovery-agent.js';
 
 import type { CitationRef } from '../graph/state.js';
 
@@ -130,6 +132,124 @@ export function extractUsedCitations(
       docId: c.docId,
       snippet: c.snippet,
     }));
+}
+
+/** Maximum local recovery retries before escalating to error_handler. */
+const MAX_RECOVERY_RETRIES = 2;
+
+/**
+ * Attempt local recovery when an LLM call fails.
+ * Consults the recovery knowledge base, then tries the suggested fix strategy.
+ *
+ * Returns the LLM response if recovery succeeded, null if it failed.
+ */
+async function attemptLocalRecovery(
+  runtimeCtx: RuntimeContext,
+  config: Parameters<typeof employeeNode>[1],
+  errorMessage: string,
+  callArgs: {
+    systemPrompt: string;
+    taskDescription: string;
+    model: string;
+    provider: string;
+    temperature: number;
+    maxTokens: number;
+    tools: ToolDef[] | undefined;
+    taskRunId: string | undefined;
+  },
+): Promise<LlmResponse | null> {
+  const { repos, modelResolver } = runtimeCtx;
+  if (!repos.recoveryKnowledge) return null;
+
+  // Diagnose
+  let recovery: RecoveryDecision | null = null;
+  try {
+    recovery = await diagnoseAndRecover(
+      runtimeCtx,
+      config,
+      {
+        errorCode: 'LLM_CALL_FAILED',
+        message: errorMessage,
+        recoverable: true,
+        nodeName: 'employee',
+        provider: callArgs.provider,
+        model: callArgs.model,
+      },
+      runtimeCtx.threadId,
+      null,
+    );
+  } catch {
+    return null; // Diagnosis itself failed
+  }
+
+  if (!recovery || recovery.strategy === 'escalate') return null;
+
+  // Execute fix strategy
+  for (let attempt = 0; attempt < MAX_RECOVERY_RETRIES; attempt++) {
+    try {
+      let retryModel = callArgs.model;
+      let retryProvider = callArgs.provider;
+
+      if (recovery.strategy === 'retry_with_backoff') {
+        // Exponential backoff: 2s, 4s
+        const delayMs = 2000 * (2 ** attempt);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      } else if (recovery.strategy === 'switch_model') {
+        // Fall back to the system default model
+        const fallback = modelResolver.resolve(null);
+        retryModel = fallback.model;
+        retryProvider = fallback.provider;
+      } else if (recovery.strategy === 'skip_and_continue') {
+        // Mark as recovered with a skip message — don't retry the LLM call
+        await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, true, recovery.knowledgeId);
+        return { content: '[Task skipped due to error — recovery agent determined this task is non-critical]', toolCalls: [], usage: { inputTokens: 0, outputTokens: 0 } };
+      } else {
+        // replan_step or unknown — can't handle locally
+        return null;
+      }
+
+      const response = await recordedLlmCall(
+        runtimeCtx,
+        {
+          messages: [
+            { role: 'system', content: callArgs.systemPrompt },
+            { role: 'user', content: callArgs.taskDescription },
+          ],
+          model: retryModel,
+          temperature: callArgs.temperature,
+          maxTokens: callArgs.maxTokens,
+          tools: callArgs.tools,
+          signal: getConfigSignal(config),
+        },
+        { nodeName: 'employee', provider: retryProvider, model: retryModel, taskRunId: callArgs.taskRunId },
+      );
+
+      // Recovery succeeded
+      await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, true, recovery.knowledgeId);
+
+      await appendAgentEvent(runtimeCtx, {
+        threadId: runtimeCtx.threadId,
+        agentName: 'recovery',
+        eventType: 'recovery',
+        payload: {
+          symptom: 'LLM_CALL_FAILED',
+          cause: recovery.cause,
+          fix: recovery.strategy,
+          attempt: attempt + 1,
+          succeeded: true,
+          retryModel,
+        },
+      });
+
+      return response;
+    } catch {
+      // This retry attempt also failed — continue to next attempt
+    }
+  }
+
+  // All retries exhausted
+  await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, false, recovery.knowledgeId);
+  return null;
 }
 
 export async function employeeNode(
@@ -599,6 +719,14 @@ export async function employeeNode(
     // Extract citations actually used in the response
     const usedCitations = extractUsedCitations(llmResponse.content, citationMap);
 
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: `employee:${employee.employee_id}`,
+      eventType: 'action',
+      payload: { taskRunId, employeeName: employee.name, toolRounds: round, outputLength: llmResponse.content.length, citationCount: usedCitations.length },
+    });
+
     return {
       currentEmployeeId: employee.employee_id,
       currentTaskRunId: taskRunId ?? null,
@@ -617,6 +745,66 @@ export async function employeeNode(
     };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
+
+    // --- Recovery-aware retry: try to fix locally before escalating ---
+    const recovered = await attemptLocalRecovery(
+      runtimeCtx, config, errorMessage,
+      {
+        systemPrompt, taskDescription,
+        model: resolved.model, provider: resolved.provider,
+        temperature: resolved.temperature, maxTokens: resolved.maxTokens,
+        tools: allTools.length > 0 ? allTools : undefined,
+        taskRunId,
+      },
+    ).catch(() => null); // recovery itself must not throw
+
+    if (recovered) {
+      // Recovery succeeded — continue as if the original call worked
+      if (taskRunId) {
+        await repos.taskRuns.updateStatus(
+          taskRunId, 'completed',
+          JSON.stringify({ content: recovered.content }),
+        );
+        eventBus.emit(
+          taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId, employee.employee_id),
+        );
+        eventBus.emit(
+          taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
+        );
+      }
+      eventBus.emit(
+        taskSubtaskProgress(companyId, employee.employee_id, completedSoFar, taskLabel, 'done', totalAssignments, completedSoFar + 1, threadId),
+      );
+      eventBus.emit(
+        employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+      );
+
+      await appendAgentEvent(runtimeCtx, {
+        projectId: state.projectId,
+        threadId: state.threadId,
+        agentName: `employee:${employee.employee_id}`,
+        eventType: 'action',
+        payload: { taskRunId, employeeName: employee.name, recoveredFromError: true, outputLength: recovered.content.length },
+      }).catch(() => {});
+
+      return {
+        currentEmployeeId: employee.employee_id,
+        currentTaskRunId: taskRunId ?? null,
+        pendingAssignments: remaining,
+        messages: [new AIMessage({ content: `[${employee.name}]: ${recovered.content}` })],
+        currentStepOutputs: [
+          ...state.currentStepOutputs,
+          {
+            employeeId: employee.employee_id,
+            employeeName: employee.name,
+            content: recovered.content,
+            taskRunId: taskRunId ?? '',
+          },
+        ],
+      };
+    }
+
+    // --- Recovery failed or not available — escalate to error_handler ---
 
     // Emit employee state: executing → failed
     eventBus.emit(
@@ -659,6 +847,14 @@ export async function employeeNode(
       provider: resolved.provider,
       model: resolved.model,
     };
+
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: `employee:${employee.employee_id}`,
+      eventType: 'error',
+      payload: { errorCode: 'LLM_CALL_FAILED', message: errorMessage, employeeName: employee.name, taskRunId, provider: resolved.provider, model: resolved.model },
+    }).catch(() => {});  // error logging must not throw
 
     return {
       currentEmployeeId: employee.employee_id,

@@ -532,6 +532,61 @@ export interface ProjectAssignmentRepository {
   isAssigned(projectId: string, employeeId: string): Promise<boolean>;
 }
 
+// ---------------------------------------------------------------------------
+// Agent events (event sourcing)
+// ---------------------------------------------------------------------------
+
+export interface AgentEventRow {
+  event_id: string;
+  project_id: string | null;
+  thread_id: string;
+  company_id: string;
+  agent_name: string;
+  event_type: string;
+  payload_json: string;
+  parent_event_id: string | null;
+  created_at: string;
+}
+
+export type NewAgentEvent = Omit<AgentEventRow, 'created_at'> & { created_at?: string };
+
+export interface AgentEventRepository {
+  append(event: NewAgentEvent): Promise<AgentEventRow>;
+  findByProject(projectId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
+  findByThread(threadId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
+  findByAgent(agentName: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
+  findCausalChain(eventId: string): Promise<AgentEventRow[]>;
+  /** Recent events across all agents for a thread — used by Recovery Agent for context. */
+  findRecent(threadId: string, limit: number): Promise<AgentEventRow[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Recovery knowledge (persistent learning)
+// ---------------------------------------------------------------------------
+
+export interface RecoveryKnowledgeRow {
+  knowledge_id: string;
+  symptom: string;
+  cause: string;
+  fix_strategy: string;
+  fix_config: string | null;
+  success_count: number;
+  failure_count: number;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export type NewRecoveryKnowledge = Omit<RecoveryKnowledgeRow, 'success_count' | 'failure_count' | 'last_used_at' | 'created_at'>;
+
+export interface RecoveryKnowledgeRepository {
+  upsert(entry: NewRecoveryKnowledge): Promise<RecoveryKnowledgeRow>;
+  findBySymptom(symptom: string): Promise<RecoveryKnowledgeRow[]>;
+  findBestFix(symptom: string): Promise<RecoveryKnowledgeRow | null>;
+  incrementSuccess(knowledgeId: string): Promise<void>;
+  incrementFailure(knowledgeId: string): Promise<void>;
+  findAll(opts?: { limit?: number }): Promise<RecoveryKnowledgeRow[]>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -561,6 +616,10 @@ export interface RuntimeRepositories {
   prefabInstances: PrefabInstanceRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
+  /** Agent event sourcing — optional for backward compatibility. */
+  agentEvents?: AgentEventRepository;
+  /** Recovery knowledge base — optional for backward compatibility. */
+  recoveryKnowledge?: RecoveryKnowledgeRepository;
   /**
    * Wraps a synchronous callback in a DB transaction.
    * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.

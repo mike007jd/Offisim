@@ -7,6 +7,7 @@ import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { ProjectService } from '../services/project-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface BossDecision {
@@ -132,6 +133,14 @@ export async function bossNode(
     );
     projectId = project.project_id;
   }
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: projectId,
+    threadId: state.threadId,
+    agentName: 'boss',
+    eventType: 'decision',
+    payload: { action: decision?.action ?? 'delegate', reason: decision?.reason, isNewProject: decision?.isNewProject, projectName: decision?.projectName },
+  });
 
   return {
     routeDecision: route,

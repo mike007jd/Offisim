@@ -3,18 +3,8 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-
-/** Shape of structured error JSON stored in interruptReason */
-interface StructuredError {
-  errorCode: string;
-  message: string;
-  recoverable: boolean;
-  nodeName: string;
-  employeeId?: string;
-  taskRunId?: string;
-  provider?: string;
-  model?: string;
-}
+import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { diagnoseAndRecover, recordRecoveryOutcome, type StructuredError } from './recovery-agent.js';
 
 function tryParseStructuredError(raw: string): StructuredError | null {
   try {
@@ -88,6 +78,57 @@ export async function errorHandlerNode(
           },
         ),
       );
+      await appendAgentEvent(runtimeCtx, {
+        projectId: state.projectId,
+        threadId: state.threadId,
+        agentName: 'error',
+        eventType: 'error',
+        payload: { errorCode: structured.errorCode, message: structured.message, recoverable: structured.recoverable, nodeName: structured.nodeName, employeeId: structured.employeeId, provider: structured.provider, model: structured.model },
+      });
+
+      // --- Recovery Agent: attempt self-healing ---
+      if (structured.recoverable) {
+        try {
+          const recovery = await diagnoseAndRecover(
+            runtimeCtx,
+            config,
+            structured,
+            state.threadId,
+            state.projectId ?? null,
+          );
+
+          if (recovery && recovery.strategy !== 'escalate') {
+            // Record recovery attempt
+            await appendAgentEvent(runtimeCtx, {
+              projectId: state.projectId,
+              threadId: state.threadId,
+              agentName: 'recovery',
+              eventType: 'recovery',
+              payload: {
+                symptom: structured.errorCode,
+                cause: recovery.cause,
+                fix: recovery.strategy,
+                confidence: recovery.confidence,
+                prevented: false,
+              },
+            });
+
+            // For now, record the knowledge and escalate.
+            // Future: implement retry_with_backoff, switch_model, etc.
+            // The knowledge base will learn and improve over time.
+            await recordRecoveryOutcome(
+              runtimeCtx,
+              structured.errorCode,
+              recovery.cause,
+              recovery.strategy,
+              false,  // We can't actually retry in this graph position — mark as failed for now
+              recovery.knowledgeId,
+            );
+          }
+        } catch {
+          // Recovery diagnosis itself failed — continue with normal error handling
+        }
+      }
     }
 
     const recoverableHint = structured.recoverable
@@ -116,6 +157,13 @@ export async function errorHandlerNode(
         threadId: state.threadId,
       }),
     );
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'error',
+      eventType: 'error',
+      payload: { errorCode: 'UNKNOWN_ERROR', message: reason, recoverable: true },
+    });
     await runtimeCtx.repos.threads.updateStatus(state.threadId, 'failed');
   }
 

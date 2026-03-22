@@ -8,7 +8,9 @@ import { employeeNode } from '../agents/employee-node.js';
 import { errorHandlerNode } from '../agents/error-handler-node.js';
 import { hrNode } from '../agents/hr-node.js';
 import { managerNode } from '../agents/manager-node.js';
+import { pmHeartbeatNode } from '../agents/pm-heartbeat-node.js';
 import { pmPlannerNode } from '../agents/pm-planner-node.js';
+import { pmReplanNode } from '../agents/pm-replan-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -22,7 +24,14 @@ import {
   meetingTurnCheck,
   participantTurnNode,
 } from './meeting-subgraph.js';
-import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './state.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { AicsGraphAnnotation, type AicsGraphState } from './state.js';
+
+/** Max replans before escalating to user */
+const MAX_REPLAN_COUNT = 3;
+
+/** Detect if employee outputs signal a need to replan */
+const REPLAN_SIGNALS = ['REPLAN_NEEDED', 'infeasible', 'blocked', 'need alternative'] as const;
 
 /** @internal — exported for testing */
 export function routeFromStart(state: AicsGraphState): string {
@@ -35,6 +44,10 @@ export function routeFromStart(state: AicsGraphState): string {
       return 'meeting_end';
     }
     return 'meeting_resume';
+  }
+  // Heartbeat — proactive progress check (no-op if nothing changed)
+  if (state.entryMode === 'heartbeat') {
+    return 'pm_heartbeat';
   }
   // background_sync — periodic or auto-resume runs go through the boss for re-evaluation
   if (state.entryMode === 'background_sync') {
@@ -188,6 +201,15 @@ async function stepAdvanceNode(
 
   if (runtimeCtx) {
     await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
+
+    // Event sourcing: record step advance
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'pm',
+      eventType: 'action',
+      payload: { action: 'step_advance', completedSteps: stepsToComplete, totalCompleted: newCompletedIndices.length },
+    });
   }
 
   return {
@@ -196,6 +218,30 @@ async function stepAdvanceNode(
     currentStepOutputs: [],
     completedStepIndices: newCompletedIndices,
   };
+}
+
+/**
+ * Route from step_advance: either continue to step_dispatcher or trigger re-plan.
+ *
+ * REPLAN_NEEDED is detected when employee output contains replan signals
+ * AND replanCount hasn't exceeded the maximum (prevents infinite loops).
+ */
+/** @internal — exported for testing */
+export function routeFromStepAdvance(state: AicsGraphState): string {
+  // Check if any recent employee output signals a replan need
+  const outputs = state.currentStepOutputs.length > 0
+    ? state.currentStepOutputs
+    : (state.stepResults.at(-1)?.outputs ?? []);
+
+  const hasReplanSignal = outputs.some((o) =>
+    REPLAN_SIGNALS.some((signal) => o.content.includes(signal)),
+  );
+
+  if (hasReplanSignal && (state.replanCount ?? 0) < MAX_REPLAN_COUNT) {
+    return 'pm_replan';
+  }
+
+  return 'step_dispatcher';
 }
 
 export interface BuildGraphOptions {
@@ -232,6 +278,8 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
     .addNode('employee_direct_setup', (state, config) => employeeDirectSetupNode(state, config))
     .addNode('error_handler', (state, config) => errorHandlerNode(state, config))
     .addNode('hr', (state, config) => hrNode(state, config))
+    .addNode('pm_heartbeat', (state, config) => pmHeartbeatNode(state, config))
+    .addNode('pm_replan', (state, config) => pmReplanNode(state, config))
     .addNode('boss_summary', (state, config) => bossSummaryNode(state, config))
     .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
     .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
@@ -244,6 +292,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
       'employee_direct_setup',
       'meeting_resume',
       'meeting_end',
+      'pm_heartbeat',
     ])
     .addConditionalEdges('boss', routeFromBoss, [
       'manager',
@@ -260,7 +309,9 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
       'boss_summary',
       'error_handler',
     ])
-    .addEdge('step_advance', 'step_dispatcher')
+    .addConditionalEdges('step_advance', routeFromStepAdvance, ['step_dispatcher', 'pm_replan'])
+    .addEdge('pm_replan', 'step_dispatcher')
+    .addEdge('pm_heartbeat', END)
     .addEdge('employee_direct_setup', 'employee')
     .addEdge('meeting_start', 'participant_turn')
     .addConditionalEdges('participant_turn', meetingTurnCheck, [

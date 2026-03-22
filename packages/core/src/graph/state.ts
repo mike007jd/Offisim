@@ -87,7 +87,7 @@ export const AicsGraphAnnotation = Annotation.Root({
   threadId: Annotation<string>,
   companyId: Annotation<string>,
   entryMode: Annotation<
-    'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat'
+    'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat' | 'heartbeat'
   >,
 
   // Project scoping — null when running outside a project context
@@ -205,6 +205,12 @@ export const AicsGraphAnnotation = Annotation.Root({
   // HR assessment output — populated by hrNode, consumed by bossSummaryNode
   hrAssessment: Annotation<string | null>({
     default: () => null,
+    reducer: (_, v) => v,
+  }),
+
+  // Dynamic re-planning counter — max 3 replans per execution
+  replanCount: Annotation<number>({
+    default: () => 0,
     reducer: (_, v) => v,
   }),
 });

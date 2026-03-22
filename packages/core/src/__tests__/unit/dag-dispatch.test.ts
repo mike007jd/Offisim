@@ -57,6 +57,7 @@ function makeState(plan: TaskPlan, overrides?: Partial<AicsGraphState>): AicsGra
     handoffCount: 0,
     meetingActionItems: [],
     hrAssessment: null,
+    replanCount: 0,
     projectId: null,
     meetingInterrupt: null,
     dispatchedStepIndices: [],

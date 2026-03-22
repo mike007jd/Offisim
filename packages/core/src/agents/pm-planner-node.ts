@@ -9,6 +9,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { SopService } from '../services/sop-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 
 /** @internal — exported for testing */
@@ -302,6 +303,26 @@ export async function pmPlannerNode(
       .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
       .join('\n');
 
+    // --- Inject historical experience from company memory ---
+    let experienceSection = '';
+    if (runtimeCtx.memoryService) {
+      try {
+        const experiences = await runtimeCtx.memoryService.getRelevantMemories(
+          'pm',  // PM is the "employee" querying
+          companyId,
+          directive.intent,
+          5,
+        );
+        const companyExperiences = experiences.filter(m => m.scope === 'company' && m.category === 'experience');
+        if (companyExperiences.length > 0) {
+          experienceSection = '\n\nPast project experience (use as guidance, not rules):\n' +
+            companyExperiences.map(m => `- ${m.content}`).join('\n');
+        }
+      } catch {
+        // Non-critical — proceed without experience
+      }
+    }
+
     const resolved = modelResolver.resolve(null, 'pm');
 
     const llmResponse = await recordedLlmCall(
@@ -310,7 +331,7 @@ export async function pmPlannerNode(
         messages: [
           {
             role: 'system',
-            content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+            content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${experienceSection}`,
           },
           {
             role: 'user',
@@ -418,6 +439,14 @@ export async function pmPlannerNode(
       })),
     ),
   );
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: 'pm',
+    eventType: 'decision',
+    payload: { planId, stepCount: planSteps.length, summary: plan.summary, phases: [...new Set(planSteps.map(s => s.phase).filter(Boolean))] },
+  });
 
   return {
     taskPlan,

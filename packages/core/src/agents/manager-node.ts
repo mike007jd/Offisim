@@ -5,6 +5,7 @@ import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface LlmAssignment {
@@ -114,7 +115,7 @@ export async function managerNode(
     .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
     .join('\n');
 
-  // Get last user message
+  // Get last user message (needed for both fast path and LLM path)
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
 
   const userContent =
@@ -122,6 +123,29 @@ export async function managerNode(
       ? lastUserMessage.content
       : 'No user message found';
 
+  // --- Rule-based fast path: single employee, simple delegation ---
+  // When there's exactly one assignable employee AND the request is clearly work
+  // (not hiring/assessment), skip the LLM call to save tokens.
+  const HIRE_KEYWORDS = /\b(hire|recruit|assess|staffing)\b|团队评估|招聘|招人/i;
+  const looksLikeHiring = HIRE_KEYWORDS.test(userContent);
+  if (nonManagerEmployees.length === 1 && !looksLikeHiring) {
+    const soleEmployee = nonManagerEmployees[0]!;
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'manager',
+      eventType: 'decision',
+      payload: { intent: 'work', assignmentCount: 1, fastPath: true },
+    });
+    return {
+      managerDirective: {
+        intent: userContent,
+        recommendedEmployees: [soleEmployee.employee_id],
+      },
+    };
+  }
+
+  // --- LLM-based assignment (multiple employees) ---
   const llmResponse = await recordedLlmCall(
     runtimeCtx,
     {
@@ -170,6 +194,14 @@ export async function managerNode(
 
   // Map intent to constraints for routing (hire/assess_team → HR node)
   const constraints = decision.intent !== 'work' ? decision.intent : undefined;
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: 'manager',
+    eventType: 'decision',
+    payload: { intent: decision.intent, assignmentCount: decision.assignments.length, constraints },
+  });
 
   return {
     managerDirective: {

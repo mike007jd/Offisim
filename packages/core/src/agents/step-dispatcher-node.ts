@@ -9,6 +9,7 @@ import {
 } from '../events/event-factories.js';
 import type { AicsGraphState, PendingAssignment, PlanStep } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 
 /**
@@ -192,6 +193,14 @@ export async function stepDispatcherNode(
   // Update currentStepIndex to the lowest dispatched step (for backward compat
   // with any code that still reads currentStepIndex for display purposes).
   const lowestReadyIdx = Math.min(...readySteps.map((s) => s.stepIndex));
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: 'pm',
+    eventType: 'action',
+    payload: { action: 'dispatch', readyStepCount: readySteps.length, readyStepIndices: readySteps.map(s => s.stepIndex), assignmentCount: pendingAssignments.length },
+  });
 
   return {
     pendingAssignments,
