@@ -38,14 +38,14 @@ function checkOverlap(
   gridD: number,
   instances: { position: [number, number, number]; prefabId: string }[],
 ): boolean {
-  const halfW = (gridW * SNAP) * 0.9; // slight margin to allow edge-touching
-  const halfD = (gridD * SNAP) * 0.9;
+  const halfW = gridW * 0.9; // each grid unit ≈ 2 3D units, half = gridW, with slight margin
+  const halfD = gridD * 0.9;
 
   for (const inst of instances) {
     const def = getBuiltinPrefab(inst.prefabId);
     if (!def) continue;
-    const iHalfW = (def.gridSize[0] * SNAP) * 0.9;
-    const iHalfD = (def.gridSize[1] * SNAP) * 0.9;
+    const iHalfW = def.gridSize[0] * 0.9;
+    const iHalfD = def.gridSize[1] * 0.9;
 
     const ix = inst.position[0];
     const iz = inst.position[2];
@@ -169,22 +169,22 @@ export function StudioGhost() {
           />
         </mesh>
 
-        {/* Grid footprint — filled area */}
+        {/* Grid footprint — filled area (each grid unit ≈ 2 3D units) */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <planeGeometry args={[gridW * SNAP * 2, gridD * SNAP * 2]} />
+          <planeGeometry args={[gridW * 2.5, gridD * 2.5]} />
           <meshBasicMaterial
             color={COLOR_VALID}
             transparent
-            opacity={0.2}
+            opacity={0.15}
             side={THREE.DoubleSide}
             depthWrite={false}
           />
         </mesh>
 
-        {/* Grid footprint — wireframe border */}
-        <lineSegments position={[0, 0.015, 0]}>
-          <edgesGeometry args={[new THREE.PlaneGeometry(gridW * SNAP * 2, gridD * SNAP * 2)]} />
-          <lineBasicMaterial color={COLOR_VALID} transparent opacity={0.7} />
+        {/* Grid footprint — wireframe border (rotated to XZ plane) */}
+        <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+          <edgesGeometry args={[new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)]} />
+          <lineBasicMaterial color={COLOR_VALID} transparent opacity={0.8} />
         </lineSegments>
 
         {/* Size label (e.g., "2x2") */}
