@@ -25,9 +25,13 @@ export class InMemoryEventBus implements EventBus {
 
   // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   emit(event: RuntimeEvent<any>): void {
+    // Snapshot the array before iterating — handlers may call on()/once()/emit()
+    // during iteration.  New subscriptions added during this emit() will NOT
+    // fire for the current event (consistent, predictable ordering).
+    const snapshot = this.subscriptions.slice();
     const toRemove: Subscription[] = [];
 
-    for (const sub of this.subscriptions) {
+    for (const sub of snapshot) {
       if (sub.prefix === '' || event.type.startsWith(sub.prefix)) {
         try {
           sub.handler(event);

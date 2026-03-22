@@ -15,13 +15,17 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
  * Phase 3 may add `executeStream()` returning `AsyncIterable<GraphStreamEvent>`
  * for direct UI consumption.
  */
+/** Max queued execute() calls per thread before rejecting. */
+const MAX_QUEUE_DEPTH = 3;
+
 export class OrchestrationService {
   /**
    * Per-thread execution lock.
-   * Serializes concurrent execute() calls on the same threadId to prevent
-   * state races (shared repos, non-atomic DB updates).
+   * Instance-level (not static) — each OrchestrationService owns its locks,
+   * preventing cross-company leakage when multiple services exist.
    */
-  private static threadLocks = new Map<string, Promise<unknown>>();
+  private readonly threadLocks = new Map<string, Promise<unknown>>();
+  private readonly threadQueueDepth = new Map<string, number>();
 
   constructor(
     private graph: {
@@ -86,20 +90,35 @@ export class OrchestrationService {
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
   }): Promise<AicsGraphState> {
-    // Serialize concurrent calls on the same threadId
     const threadId = this.runtimeCtx.threadId;
-    const prev = OrchestrationService.threadLocks.get(threadId) ?? Promise.resolve();
+
+    // Reject if queue is already too deep (prevents unbounded wait times)
+    const depth = this.threadQueueDepth.get(threadId) ?? 0;
+    if (depth >= MAX_QUEUE_DEPTH) {
+      throw new Error(
+        `Thread "${threadId}" has ${depth} queued requests — rejecting to prevent unbounded wait. Try again later.`,
+      );
+    }
+    this.threadQueueDepth.set(threadId, depth + 1);
+
+    // Serialize concurrent calls on the same threadId
+    const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
     let release: () => void;
     const gate = new Promise<void>((r) => { release = r; });
-    OrchestrationService.threadLocks.set(threadId, gate);
+    this.threadLocks.set(threadId, gate);
     try {
-      await prev; // wait for any prior execution on this thread to finish
+      await prev;
       return await this._executeInner(input);
     } finally {
       release!();
-      // Clean up lock entry if nothing else queued behind us
-      if (OrchestrationService.threadLocks.get(threadId) === gate) {
-        OrchestrationService.threadLocks.delete(threadId);
+      const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
+      if (remaining <= 0) {
+        this.threadQueueDepth.delete(threadId);
+      } else {
+        this.threadQueueDepth.set(threadId, remaining);
+      }
+      if (this.threadLocks.get(threadId) === gate) {
+        this.threadLocks.delete(threadId);
       }
     }
   }

@@ -127,10 +127,19 @@ export async function participantTurnNode(
 
   const employee = await repos.employees.findById(currentParticipantId);
   if (!employee) {
-    throw new GraphError(
-      `Meeting participant ${currentParticipantId} not found`,
-      'participant_turn',
-    );
+    // Participant was deleted mid-meeting — skip to next participant gracefully
+    logger.warn(`Meeting participant ${currentParticipantId} not found — skipping turn`);
+    const nextIndex = turnState.participantIndex + 1;
+    const nextTurn: MeetingTurnState = { ...turnState, participantIndex: nextIndex };
+    return {
+      pendingAssignments: [
+        {
+          taskType: MEETING_STATE_TASK_TYPE,
+          employeeId: currentParticipantId,
+          inputJson: nextTurn as unknown as Record<string, unknown>,
+        },
+      ],
+    };
   }
 
   const company = await repos.companies.findById(companyId);
