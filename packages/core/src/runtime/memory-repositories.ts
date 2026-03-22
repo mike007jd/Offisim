@@ -3,6 +3,7 @@ import { InMemoryMemoryRepository } from '../repositories/memory-memory-reposito
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import type { NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type {
   CheckpointRepository,
   CompanyRepository,
@@ -36,6 +37,7 @@ import type {
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  ProjectRepository,
   RuntimeRepositories,
   SopTemplateRepository,
   SopTemplateRow,
@@ -103,7 +105,12 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
 
   const threads: ThreadRepository = {
     async create(t: NewGraphThread) {
-      const row: GraphThreadRow = { ...t, created_at: now(), updated_at: now() };
+      const row: GraphThreadRow = {
+        ...t,
+        project_id: t.project_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
       threadsMap.set(row.thread_id, row);
       return row;
     },
@@ -116,6 +123,11 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
       results.sort((a, b) => b.created_at.localeCompare(a.created_at));
       if (opts?.limit) results = results.slice(0, opts.limit);
       return results;
+    },
+    async findByCompanyAndStatus(companyId, status) {
+      return [...threadsMap.values()]
+        .filter((t) => t.company_id === companyId && t.status === status)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
     async updateStatus(id, status) {
       const row = threadsMap.get(id);
@@ -337,6 +349,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const libraryDocuments = new MemoryLibraryDocumentRepository();
   const officeLayouts = new MemoryOfficeLayoutRepository();
   const prefabInstances = createMemoryPrefabRepository();
+  const projects = new MemoryProjectRepository();
 
   return {
     companies,
@@ -360,6 +373,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     libraryDocuments,
     officeLayouts,
     prefabInstances,
+    projects,
     ...installRepos,
     seed,
   };
@@ -615,5 +629,56 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
 
   async listByThread(threadId: string): Promise<McpAuditRow[]> {
     return this.rows.filter((r) => r.thread_id === threadId);
+  }
+}
+
+export class MemoryProjectRepository implements ProjectRepository {
+  private readonly store = new Map<string, ProjectRow>();
+
+  async create(project: NewProject): Promise<ProjectRow> {
+    const row: ProjectRow = {
+      ...project,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.store.set(row.project_id, row);
+    return row;
+  }
+
+  async findById(projectId: string): Promise<ProjectRow | null> {
+    return this.store.get(projectId) ?? null;
+  }
+
+  async findByCompany(companyId: string): Promise<ProjectRow[]> {
+    return [...this.store.values()]
+      .filter((p) => p.company_id === companyId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
+  async findActiveByCompany(companyId: string): Promise<ProjectRow[]> {
+    return [...this.store.values()]
+      .filter((p) => p.company_id === companyId && p.status === 'active')
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
+  async updateStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    const row = this.store.get(projectId);
+    if (row) {
+      this.store.set(projectId, { ...row, status, updated_at: new Date().toISOString() });
+    }
+  }
+
+  async update(
+    projectId: string,
+    patch: Partial<Pick<ProjectRow, 'name' | 'description' | 'status'>>,
+  ): Promise<void> {
+    const row = this.store.get(projectId);
+    if (row) {
+      this.store.set(projectId, { ...row, ...patch, updated_at: new Date().toISOString() });
+    }
+  }
+
+  async delete(projectId: string): Promise<void> {
+    this.store.delete(projectId);
   }
 }

@@ -6,7 +6,7 @@ import type {
   InstalledPackageRow,
   NewEmployee,
 } from '@aics/install-core';
-import type { BindingStatus, InstallState } from '@aics/shared-types';
+import type { BindingStatus, InstallState, NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
@@ -54,6 +54,7 @@ import type {
   NewLibraryDocument,
   LibraryDocumentRow,
   OfficeLayoutRow,
+  ProjectRepository,
   RackRow,
   SlotRow,
   SopTemplateRow,
@@ -134,6 +135,19 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       }
 
       return query.all() as GraphThreadRow[];
+    },
+    async findByCompanyAndStatus(companyId, status) {
+      return db
+        .select()
+        .from(schema.graphThreads)
+        .where(
+          and(
+            eq(schema.graphThreads.company_id, companyId),
+            eq(schema.graphThreads.status, status),
+          ),
+        )
+        .orderBy(desc(schema.graphThreads.created_at))
+        .all() as GraphThreadRow[];
     },
     async updateStatus(id, status) {
       db.update(schema.graphThreads)
@@ -955,6 +969,61 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  const projects: ProjectRepository = {
+    async create(project: NewProject) {
+      const ts = now();
+      const row: ProjectRow = { ...project, created_at: ts, updated_at: ts };
+      db.insert(schema.projects).values(row).run();
+      return row;
+    },
+    async findById(projectId) {
+      const rows = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.project_id, projectId))
+        .all();
+      return (rows[0] as ProjectRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.company_id, companyId))
+        .orderBy(desc(schema.projects.updated_at))
+        .all() as ProjectRow[];
+    },
+    async findActiveByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.projects)
+        .where(
+          and(
+            eq(schema.projects.company_id, companyId),
+            eq(schema.projects.status, 'active'),
+          ),
+        )
+        .orderBy(desc(schema.projects.updated_at))
+        .all() as ProjectRow[];
+    },
+    async updateStatus(projectId, status: ProjectStatus) {
+      db.update(schema.projects)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.projects.project_id, projectId))
+        .run();
+    },
+    async update(projectId, patch) {
+      db.update(schema.projects)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.projects.project_id, projectId))
+        .run();
+    },
+    async delete(projectId) {
+      db.delete(schema.projects)
+        .where(eq(schema.projects.project_id, projectId))
+        .run();
+    },
+  };
+
   return {
     companies,
     threads,
@@ -981,5 +1050,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     libraryDocuments,
     officeLayouts,
     prefabInstances,
+    projects,
   };
 }

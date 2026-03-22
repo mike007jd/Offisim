@@ -1,9 +1,12 @@
 import type { NewEmployee } from '@aics/install-core';
+import type { NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
+
+export type { ProjectRow, NewProject, ProjectStatus };
 
 /** Row types — mirror db-local schema shapes */
 
@@ -13,6 +16,7 @@ export interface GraphThreadRow {
   entry_mode: string;
   root_task_id: string | null;
   status: string;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,7 +132,9 @@ export interface LlmCallRow {
 export type NewLlmCall = Omit<LlmCallRow, never>;
 
 /** New-row types (omit auto-generated fields) */
-export type NewGraphThread = Omit<GraphThreadRow, 'created_at' | 'updated_at'>;
+export type NewGraphThread = Omit<GraphThreadRow, 'created_at' | 'updated_at' | 'project_id'> & {
+  project_id?: string | null;
+};
 export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
 export type NewHandoffEvent = Omit<HandoffEventRow, never>;
@@ -152,6 +158,7 @@ export interface ThreadRepository {
     companyId: string,
     opts?: { limit?: number; status?: string },
   ): Promise<GraphThreadRow[]>;
+  findByCompanyAndStatus(companyId: string, status: string): Promise<GraphThreadRow[]>;
   updateStatus(threadId: string, status: string): Promise<void>;
 }
 
@@ -496,6 +503,23 @@ export interface OfficeLayoutRepository {
   delete(layoutId: string): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+export interface ProjectRepository {
+  create(project: NewProject): Promise<ProjectRow>;
+  findById(projectId: string): Promise<ProjectRow | null>;
+  findByCompany(companyId: string): Promise<ProjectRow[]>;
+  findActiveByCompany(companyId: string): Promise<ProjectRow[]>;
+  updateStatus(projectId: string, status: ProjectStatus): Promise<void>;
+  update(
+    projectId: string,
+    patch: Partial<Pick<ProjectRow, 'name' | 'description' | 'status'>>,
+  ): Promise<void>;
+  delete(projectId: string): Promise<void>;
+}
+
 /** Aggregated access point */
 export interface RuntimeRepositories {
   companies: CompanyRepository;
@@ -523,4 +547,5 @@ export interface RuntimeRepositories {
   libraryDocuments: LibraryDocumentRepository;
   officeLayouts: OfficeLayoutRepository;
   prefabInstances: PrefabInstanceRepository;
+  projects: ProjectRepository;
 }

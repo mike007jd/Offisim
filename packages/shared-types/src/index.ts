@@ -112,3 +112,5 @@ export type {
   PrefabInstanceRow,
   PrefabBinding,
 } from './prefab.js';
+
+export type { ProjectStatus, ProjectRow, NewProject } from './project.js';

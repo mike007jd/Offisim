@@ -127,9 +127,10 @@ CREATE TABLE IF NOT EXISTS install_transactions (
 CREATE TABLE IF NOT EXISTS graph_threads (
   thread_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  entry_mode TEXT NOT NULL, -- boss_chat | meeting | install_flow | background_sync
+  entry_mode TEXT NOT NULL, -- boss_chat | meeting | install_flow | background_sync | direct_chat
   root_task_id TEXT,
   status TEXT NOT NULL,
+  project_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -235,6 +236,17 @@ CREATE TABLE IF NOT EXISTS prefab_instances (
   updated_at    TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS projects (
+  project_id  TEXT PRIMARY KEY,
+  company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  thread_id   TEXT UNIQUE REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
+  name        TEXT NOT NULL,
+  description TEXT,
+  status      TEXT NOT NULL DEFAULT 'planning',
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_installed_packages_company ON installed_packages(company_id);
 CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installed_package_id);
 CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
@@ -243,4 +255,5 @@ CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(com
 CREATE INDEX IF NOT EXISTS idx_llm_calls_thread ON llm_calls(thread_id);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_task_run ON llm_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_company ON prefab_instances(company_id);
+CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone ON prefab_instances(company_id, zone_id);
