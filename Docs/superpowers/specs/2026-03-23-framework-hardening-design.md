@@ -1,7 +1,7 @@
 # Framework Hardening — Design Spec
 
 **Date:** 2026-03-23
-**Priority order:** DB Transactions → ThreadId → AbortController → Editor Deletion
+**Priority order:** DB Transactions → Directive Model → AbortController → Editor Deletion
 **Scope:** 4 architectural items, all design + all implementation in one session
 
 ---
@@ -72,96 +72,117 @@ withTransaction<T>(fn: () => T): T {
 
 ---
 
-## 2. ThreadId Redesign + Conversation Model
+## 2. Directive Model (replaces ThreadId + Conversation)
 
 ### Problem
 
-`threadId = 'thread-${companyId}'` — one thread per company. All conversation messages accumulate in a single checkpoint chain, growing without bound. LLM input cost scales linearly with history length.
+`threadId = 'thread-${companyId}'` — one thread per company. All messages accumulate in a single checkpoint chain, growing without bound. LLM input cost scales linearly with history length.
 
 ### Decision
 
-**Per-conversation threads** (like Claude/ChatGPT session model). Each conversation gets its own thread. Users can create new conversations and switch between them.
+**Per-directive threads.** Each boss directive gets its own thread for message isolation. Company state (employees, tasks, memory) remains in DB and is shared across all directives.
+
+Product concept: the boss issues "directives" (指令), not "conversations". The PM dispatches tasks from the directive to employees. The office scene shows employees actively working on their assigned tasks. Users see an active company, not a list of chat sessions.
+
+### State Separation
+
+```
+Company (persistent, shared)         Directive (isolated, per-thread)
+─────────────────────────            ────────────────────────────────
+employees, skills, memory  ←── DB    messages, plan, currentStep ←── LangGraph checkpoint
+tasks, taskRuns            ←── DB    execution progress          ←── LangGraph checkpoint
+office layout, prefabs     ←── DB
+```
+
+Graph nodes read company state from `repos.*` (DB), not from checkpoint. Graph nodes write results to both DB (persistent effects) and checkpoint (message continuity). This means: viewing an old directive shows its historical message log, but employee states always reflect the current company reality.
 
 ### Data Model
 
-New migration `010_conversations.sql`:
+No new table. Extend `graph_threads` with a `title` column:
 
 ```sql
-CREATE TABLE conversations (
-  conversation_id TEXT PRIMARY KEY,
-  company_id TEXT NOT NULL REFERENCES companies(company_id),
-  thread_id TEXT NOT NULL UNIQUE,
-  title TEXT,
-  status TEXT NOT NULL DEFAULT 'active'
-    CHECK(status IN ('active','archived')),
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX idx_conversations_company
-  ON conversations(company_id, updated_at DESC);
+-- Migration 010_directive_model.sql
+ALTER TABLE graph_threads ADD COLUMN title TEXT;
 ```
 
-Thread ID generation changes from `thread-${companyId}` to `thread-${crypto.randomUUID()}` (consistent with existing `generateId()` pattern, no new dependency).
+A "directive" is a `graph_threads` row with `entry_mode = 'boss_chat'` (or a new `'boss_directive'` value). Thread ID generation changes from `thread-${companyId}` to `thread-${crypto.randomUUID()}`.
 
-### Conversation Lifecycle
+### Directive Lifecycle
 
-1. User sends message → if no active conversation exists, auto-create one
-2. User clicks "+ New Conversation" → archive current, create new
-3. Title = first 30 chars of user's first message (no LLM summarization)
-4. Switching conversations loads that thread's latest checkpoint
+1. User sends message → if no active directive exists for this company, auto-create one (new graph_threads row + new LangGraph thread)
+2. User clicks "+ New Directive" → current directive marked `status = 'completed'`, new one created
+3. Title = first 30 chars of user's first message
+4. Switching to active directive reloads its thread's latest checkpoint
+5. Switching to completed directive shows read-only message history
 
 ### Message Pruning
 
-Simple window limit as a safety net. Pruning happens **inside the graph** (e.g., as a pre-processing step in `stepDispatcherNode` or a dedicated pruning node), where the full `state.messages` array from the checkpoint is accessible — NOT in `OrchestrationService.execute()` which only receives the new user message.
+Pruning happens at the **LLM call layer**, not in graph state. Graph state retains full message chain so nodes like `boss-summary-node` can scan all messages.
 
 ```typescript
-const MAX_CONTEXT_MESSAGES = 50;
-
-// Inside graph node (has access to full state.messages from checkpoint)
-if (state.messages.length > MAX_CONTEXT_MESSAGES) {
-  return { messages: state.messages.slice(-MAX_CONTEXT_MESSAGES) };
-}
+// In LLM gateway layer, before sending to provider
+const contextMessages = messages.length > MAX_CONTEXT_MESSAGES
+  ? messages.slice(-MAX_CONTEXT_MESSAGES)
+  : messages;
 ```
 
-No summarize-then-truncate. Direct truncation is sufficient for 1.0.
+`MAX_CONTEXT_MESSAGES = 50`. This only affects what the LLM sees — graph state and checkpoint are unaffected.
 
 ### Legacy Cleanup
 
-Execute **during migration** (in `010_conversations.sql` itself), before any new-format threads exist. This ensures the `LIKE 'thread-%'` pattern only matches old-format IDs:
+Execute **during migration** (in `010_directive_model.sql`), before any new-format threads exist:
 
 ```sql
--- Part of 010_conversations.sql, runs before app creates new conversations
 DELETE FROM checkpoints WHERE thread_id LIKE 'thread-%';
 DELETE FROM writes WHERE thread_id LIKE 'thread-%';
 ```
 
+### OrchestrationService Lifecycle Change
+
+OrchestrationService is promoted from per-call to **RuntimeBundle member** (long-lived). This makes `threadLocks` actually effective and provides a natural place to store the current execution's AbortController.
+
+```typescript
+// RuntimeBundle
+interface RuntimeBundle {
+  graph: CompiledStateGraph;
+  runtimeCtx: RuntimeContext;
+  orchestration: OrchestrationService;  // NEW: long-lived
+}
+```
+
+`threadLocks` key changes from `threadId` to `companyId` — 1.0 serializes all executions per company (no concurrent directives).
+
 ### UI Changes (Minimal)
 
-- Conversation list in sidebar or ChatBox header (company-scoped, ordered by updated_at DESC)
-- "+ New Conversation" button
-- Active conversation highlighted
+- Directive list in ChatBox header or sidebar (company-scoped, ordered by updated_at DESC)
+- Active directive: shows messages + accepts input
+- Completed directive: shows messages read-only
+- "+ New Directive" button
 - No search, no grouping, no deletion for 1.0
 
 ### Files Changed
 
 | Change | File |
 |--------|------|
-| New migration | `packages/db-local/src/migrations/010_conversations.sql` |
-| Schema | `packages/db-local/src/schema.ts` |
-| Repository interface | `packages/core/src/runtime/repositories.ts` |
-| Drizzle impl | `packages/core/src/runtime/drizzle-repositories.ts` |
-| Memory impl | `packages/core/src/runtime/memory-repositories.ts` |
+| New migration | `packages/db-local/src/migrations/010_directive_model.sql` |
+| Schema | `packages/db-local/src/schema.ts` — add title column to graphThreads |
 | ThreadId generation (Tauri) | `apps/web/src/lib/tauri-runtime.ts` |
 | ThreadId generation (Browser) | `apps/web/src/lib/browser-runtime.ts` |
-| Pruning | `packages/core/src/services/orchestration-service.ts` |
-| UI | `packages/ui-office/` — conversation list, new conversation button |
+| Orch lifecycle | `apps/web/src/runtime/AicsRuntimeProvider.tsx` — orch as RuntimeBundle member |
+| Pruning | `packages/core/src/llm/gateway.ts` — truncate before LLM call |
+| UI | `packages/ui-office/` — directive list, new directive button |
 
 ### Not Doing
 
-- No cross-conversation memory system (memory_entries exists but stays dormant)
+- No concurrent directives per company (1.0 is serial; parallel PM dispatch + employee cloning is 1.1)
+- No cross-directive memory system (memory_entries exists but stays dormant)
 - No LLM-generated titles
-- No auto-cleanup of archived conversations
-- No changes to `graph_checkpoints` custom table (confirmed unused)
+- No auto-cleanup of completed directives
+- No new `conversations` table (graph_threads is sufficient)
+
+### 1.1 Vision (not implemented now)
+
+Multiple active directives per company → PM dispatches tasks across directives → employees visually "split" working on different tasks → office scene shows a busy, multi-tasking company. threadLocks changes from companyId to threadId to allow concurrency.
 
 ---
 
@@ -188,22 +209,37 @@ User clicks "Stop" button
 
 ### Implementation
 
-**Per-message AbortController:**
+**Per-message AbortController** stored on the long-lived OrchestrationService:
 
 ```typescript
-// sendMessage handler
-const messageAbort = new AbortController();
-setCurrentAbort(messageAbort);
-await orch.execute(input, messageAbort.signal);
+// OrchestrationService (long-lived, on RuntimeBundle)
+private currentAbort: AbortController | null = null;
+
+async execute(input): Promise<AicsGraphState> {
+  this.currentAbort = new AbortController();
+  const signal = this.currentAbort.signal;
+  try {
+    // ... execute with signal
+  } finally {
+    this.currentAbort = null;
+  }
+}
+
+abort(): void {
+  this.currentAbort?.abort();
+}
 ```
 
-**OrchestrationService:**
+**OrchestrationService stream loop:**
 
 ```typescript
-async execute(input, signal?: AbortSignal): Promise<AicsGraphState> {
-  const stream = await this.graph.stream(fullInput, { streamMode: 'updates' });
+async execute(input): Promise<AicsGraphState> {
+  const stream = await this.graph.stream(fullInput, {
+    streamMode: 'updates',
+    configurable: { ...existingConfig, signal: this.currentAbort!.signal },
+  });
   for await (const update of stream) {
-    if (signal?.aborted) break;
+    if (this.currentAbort?.signal.aborted) break;
     // ... existing merge logic
   }
   return lastState;
@@ -212,15 +248,9 @@ async execute(input, signal?: AbortSignal): Promise<AicsGraphState> {
 
 **Node-level signal passthrough:**
 
-Signal is passed via LangGraph's `config.configurable` (per-execution), NOT on RuntimeContext (per-company lifecycle). This avoids conflicts when multiple executions queue on the same company.
+Signal is passed via LangGraph's `config.configurable` (per-execution), NOT on RuntimeContext (per-company lifecycle).
 
 ```typescript
-// OrchestrationService passes signal through config
-const stream = await this.graph.stream(fullInput, {
-  streamMode: 'updates',
-  configurable: { ...existingConfig, signal },
-});
-
 // Node reads signal from config
 const signal = config.configurable?.signal as AbortSignal | undefined;
 const response = await gateway.chat({ messages, model, signal });
@@ -245,7 +275,7 @@ async function withRetry<T>(fn, signal?): Promise<T> {
 
 ```typescript
 try {
-  await orch.execute(input, signal);
+  await orch.execute(input);
 } catch (e) {
   if (e instanceof DOMException && e.name === 'AbortError') {
     logger.info('Execution cancelled');
@@ -257,12 +287,12 @@ try {
 
 ### UI
 
-ChatBox send area: while executing, replace send button with a "Stop" button (square icon). Click aborts the current execution.
+ChatBox send area: while executing, replace send button with a "Stop" button (square icon). Click calls `orch.abort()`.
 
 ### Not Doing
 
 - No abort on company switch (multi-company concurrency is by design)
-- No abort on conversation switch (background execution continues, result saved to thread)
+- No abort on directive switch (background execution continues, result saved to thread)
 - No graceful node shutdown (break from for-await is sufficient)
 - No AbortSignal.reason differentiation
 
