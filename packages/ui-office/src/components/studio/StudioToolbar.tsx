@@ -44,10 +44,10 @@ interface ToolDef {
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'select', label: 'Select', shortcut: '1', Icon: MousePointer2 },
-  { id: 'move', label: 'Move', shortcut: '2', Icon: Move },
-  { id: 'rotate', label: 'Rotate', shortcut: '3', Icon: RotateCcw },
-  { id: 'place', label: 'Place', shortcut: '4', Icon: Plus },
+  { id: 'select', label: 'Select', shortcut: 'Q', Icon: MousePointer2 },
+  { id: 'move', label: 'Move', shortcut: 'W', Icon: Move },
+  { id: 'rotate', label: 'Rotate', shortcut: 'E', Icon: RotateCcw },
+  { id: 'place', label: 'Place', shortcut: 'P', Icon: Plus },
 ];
 
 // -- Styles -------------------------------------------------------------------
@@ -83,16 +83,20 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         return;
 
       switch (e.key) {
-        case '1':
+        case 'q':
+        case 'Q':
           setTool('select');
           break;
-        case '2':
-          setTool('move');
+        case 'w':
+        case 'W':
+          if (!e.metaKey && !e.ctrlKey) setTool('move');
           break;
-        case '3':
+        case 'e':
+        case 'E':
           setTool('rotate');
           break;
-        case '4':
+        case 'p':
+        case 'P':
           setTool('place');
           break;
         case 'g':

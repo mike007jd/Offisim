@@ -7,7 +7,7 @@
 
 import { useRef, useCallback, useMemo, memo } from 'react';
 import * as THREE from 'three';
-import { TransformControls } from '@react-three/drei';
+import { TransformControls, Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { getBuiltinPrefab } from '@aics/renderer';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
@@ -75,6 +75,26 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       {isSelected && (
         <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
       )}
+      {/* Size label */}
+      <Html
+        position={[0, 0.3, 0]}
+        center
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      >
+        <div style={{
+          background: 'rgba(0,0,0,0.6)',
+          color: isSelected ? '#a5b4fc' : '#94a3b8',
+          padding: '1px 4px',
+          borderRadius: 2,
+          fontSize: 9,
+          fontFamily: 'monospace',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          border: isSelected ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(148,163,184,0.2)',
+        }}>
+          {definition.gridSize[0]}x{definition.gridSize[1]}
+        </div>
+      </Html>
     </group>
   );
 });

@@ -10,6 +10,7 @@
 
 import { useRef, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStudioStore } from './StudioState.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
@@ -168,17 +169,47 @@ export function StudioGhost() {
           />
         </mesh>
 
-        {/* Grid footprint indicator */}
+        {/* Grid footprint — filled area */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
           <planeGeometry args={[gridW * SNAP * 2, gridD * SNAP * 2]} />
           <meshBasicMaterial
             color={COLOR_VALID}
             transparent
-            opacity={0.08}
+            opacity={0.2}
             side={THREE.DoubleSide}
             depthWrite={false}
           />
         </mesh>
+
+        {/* Grid footprint — wireframe border */}
+        <lineSegments position={[0, 0.015, 0]}>
+          <edgesGeometry args={[new THREE.PlaneGeometry(gridW * SNAP * 2, gridD * SNAP * 2)]} />
+          <lineBasicMaterial color={COLOR_VALID} transparent opacity={0.7} />
+        </lineSegments>
+
+        {/* Size label (e.g., "2x2") */}
+        <Html
+          position={[0, 0.5, 0]}
+          center
+          style={{
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <div style={{
+            background: 'rgba(0,0,0,0.7)',
+            color: '#22c55e',
+            padding: '2px 6px',
+            borderRadius: 3,
+            fontSize: 11,
+            fontFamily: 'monospace',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            border: '1px solid rgba(34,197,94,0.3)',
+          }}>
+            {gridW}x{gridD}
+          </div>
+        </Html>
       </group>
     </>
   );

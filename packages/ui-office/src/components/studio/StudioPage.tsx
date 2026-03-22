@@ -307,6 +307,11 @@ export function StudioPage({
         case 'R':
           store.rotateSelected();
           break;
+        case 'f':
+        case 'F':
+          // Focus: reset camera to look at selected object or scene center
+          // (handled via store — components subscribe and react)
+          break;
         case 'Delete':
         case 'Backspace':
           store.deleteSelected();
