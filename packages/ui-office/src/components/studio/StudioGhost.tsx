@@ -1,23 +1,68 @@
 /**
- * StudioGhost -- Ghost preview that follows the mouse during prefab placement.
+ * StudioGhost -- Ghost preview with placement validation feedback.
  *
- * Uses R3F's event system (NOT DOM events) for raycast-based positioning.
- * An invisible floor mesh captures pointer events, the ghost group follows
- * with grid snapping and plot boundary clamping.
+ * Shows a semi-transparent prefab following the mouse during placement.
+ * Green ground indicator = valid placement.
+ * Red ground indicator = overlapping with existing prefab (blocked).
+ *
+ * Collision detection uses AABB overlap on grid-snapped positions.
  */
 
-import { useRef } from 'react';
-import { useThree } from '@react-three/fiber';
-import type * as THREE from 'three';
+import { useRef, useMemo } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { useStudioStore } from './StudioState.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
+import { getBuiltinPrefab } from '@aics/renderer';
 
 function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;
 }
 
+const SNAP = 0.5;
+
+// Colors for placement feedback
+const COLOR_VALID = new THREE.Color('#22c55e');   // green
+const COLOR_BLOCKED = new THREE.Color('#ef4444');  // red
+
+/**
+ * Check if a new prefab at [x, z] with given grid size overlaps any existing instance.
+ * Uses AABB overlap on the XZ plane.
+ */
+function checkOverlap(
+  x: number,
+  z: number,
+  gridW: number,
+  gridD: number,
+  instances: { position: [number, number, number]; prefabId: string }[],
+): boolean {
+  const halfW = (gridW * SNAP) * 0.9; // slight margin to allow edge-touching
+  const halfD = (gridD * SNAP) * 0.9;
+
+  for (const inst of instances) {
+    const def = getBuiltinPrefab(inst.prefabId);
+    if (!def) continue;
+    const iHalfW = (def.gridSize[0] * SNAP) * 0.9;
+    const iHalfD = (def.gridSize[1] * SNAP) * 0.9;
+
+    const ix = inst.position[0];
+    const iz = inst.position[2];
+
+    // AABB overlap test
+    if (
+      Math.abs(x - ix) < halfW + iHalfW &&
+      Math.abs(z - iz) < halfD + iHalfD
+    ) {
+      return true; // overlapping
+    }
+  }
+  return false;
+}
+
 export function StudioGhost() {
   const groupRef = useRef<THREE.Group>(null!);
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const blockedRef = useRef(false);
   const { invalidate } = useThree();
 
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
@@ -25,12 +70,32 @@ export function StudioGhost() {
   const placeInstance = useStudioStore((s) => s.placeInstance);
   const cancelPlacement = useStudioStore((s) => s.cancelPlacement);
   const gridSnap = useStudioStore((s) => s.gridSnap);
+  const instances = useStudioStore((s) => s.instances);
 
-  const SNAP = 0.5;
   const halfW = plotSize.width / 2;
   const halfD = plotSize.depth / 2;
 
+  // Ring geometry for ground indicator (shared)
+  const ringGeo = useMemo(() => {
+    const geo = new THREE.RingGeometry(0.6, 0.8, 32);
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, []);
+
+  // Pulse animation for the ring
+  useFrame(({ clock }) => {
+    if (!ringRef.current || !placingPrefab) return;
+    const t = clock.getElapsedTime();
+    const mat = ringRef.current.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0.5 + Math.sin(t * 4) * 0.15;
+    mat.color = blockedRef.current ? COLOR_BLOCKED : COLOR_VALID;
+    invalidate();
+  });
+
   if (!placingPrefab) return null;
+
+  const gridW = placingPrefab.gridSize[0];
+  const gridD = placingPrefab.gridSize[1];
 
   return (
     <>
@@ -45,6 +110,11 @@ export function StudioGhost() {
           let z = gridSnap ? snap(pos.z, SNAP) : pos.z;
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
+
+          // Check collision
+          const isBlocked = checkOverlap(x, z, gridW, gridD, instances);
+          blockedRef.current = isBlocked;
+
           if (groupRef.current) {
             groupRef.current.position.set(x, 0, z);
             groupRef.current.visible = true;
@@ -58,6 +128,12 @@ export function StudioGhost() {
           let z = gridSnap ? snap(pos.z, SNAP) : pos.z;
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
+
+          // Block placement if overlapping
+          if (checkOverlap(x, z, gridW, gridD, instances)) {
+            return; // don't place
+          }
+
           placeInstance([x, 0, z], 'editor');
           invalidate();
         }}
@@ -71,9 +147,37 @@ export function StudioGhost() {
         <meshBasicMaterial visible={false} />
       </mesh>
 
-      {/* Ghost mesh */}
+      {/* Ghost mesh group */}
       <group ref={groupRef} visible={false}>
+        {/* The prefab preview */}
         <Prefab3D definition={placingPrefab} />
+
+        {/* Ground placement indicator ring */}
+        <mesh
+          ref={ringRef}
+          geometry={ringGeo}
+          position={[0, 0.02, 0]}
+        >
+          <meshBasicMaterial
+            color={COLOR_VALID}
+            transparent
+            opacity={0.6}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+
+        {/* Grid footprint indicator */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+          <planeGeometry args={[gridW * SNAP * 2, gridD * SNAP * 2]} />
+          <meshBasicMaterial
+            color={COLOR_VALID}
+            transparent
+            opacity={0.08}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
       </group>
     </>
   );

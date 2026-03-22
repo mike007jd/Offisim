@@ -1,12 +1,19 @@
 /**
- * StudioPalette -- Left sidebar showing all prefabs grouped by category.
+ * StudioPalette -- Left sidebar showing all prefabs in an icon grid view.
  *
- * Click a prefab to enter placement mode via StudioState.
- * Categories are collapsible with a toggle arrow.
- * Mirrors the existing PrefabPalette style but wired to useStudioStore.
+ * Inspired by game engine asset browsers (Godot, Unity).
+ * Categories as collapsible sections, prefabs as icon cards.
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import {
+  Monitor,
+  Server,
+  BookOpen,
+  Users,
+  Cpu,
+  Leaf,
+} from 'lucide-react';
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
@@ -16,17 +23,32 @@ import { useStudioStore } from './StudioState.js';
 interface CategoryMeta {
   id: SemanticCategory;
   label: string;
-  icon: string;
+  Icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
+  color: string;
 }
 
 const CATEGORIES: CategoryMeta[] = [
-  { id: 'workspace', label: 'Workspace', icon: '\u{1F5A5}' },
-  { id: 'compute', label: 'Compute', icon: '\u{1F5A7}' },
-  { id: 'knowledge', label: 'Knowledge', icon: '\u{1F4DA}' },
-  { id: 'collaboration', label: 'Collaboration', icon: '\u{1F91D}' },
-  { id: 'infrastructure', label: 'Infrastructure', icon: '\u26A1' },
-  { id: 'decorative', label: 'Decorative', icon: '\u{1F33F}' },
+  { id: 'workspace', label: 'Workspace', Icon: Monitor, color: '#60a5fa' },
+  { id: 'compute', label: 'Compute', Icon: Server, color: '#f97316' },
+  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, color: '#a78bfa' },
+  { id: 'collaboration', label: 'Collaboration', Icon: Users, color: '#34d399' },
+  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, color: '#facc15' },
+  { id: 'decorative', label: 'Decorative', Icon: Leaf, color: '#4ade80' },
 ];
+
+// Map prefab category to a per-item icon (reuse category icon)
+const CATEGORY_ICON_MAP: Record<SemanticCategory, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+  workspace: Monitor,
+  compute: Server,
+  knowledge: BookOpen,
+  collaboration: Users,
+  infrastructure: Cpu,
+  decorative: Leaf,
+};
+
+const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.id, c.color]),
+) as Record<SemanticCategory, string>;
 
 // -- Styles -------------------------------------------------------------------
 
@@ -71,7 +93,6 @@ export function StudioPalette() {
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Build catalog grouped by category (stable -- prefabs are static)
   const grouped = useMemo(() => {
     const all = getAllBuiltinPrefabs();
     const map = new Map<SemanticCategory, PrefabDefinition[]>();
@@ -93,7 +114,7 @@ export function StudioPalette() {
 
   return (
     <div style={PANEL_STYLE}>
-      <div style={HEADER_STYLE}>Prefabs</div>
+      <div style={HEADER_STYLE}>Assets</div>
       <div style={LIST_STYLE}>
         {CATEGORIES.map((cat) => {
           const items = grouped.get(cat.id) ?? [];
@@ -131,7 +152,7 @@ export function StudioPalette() {
                 >
                   &#9660;
                 </span>
-                <span>{cat.icon}</span>
+                <cat.Icon size={12} />
                 <span>{cat.label}</span>
                 <span
                   style={{
@@ -145,20 +166,30 @@ export function StudioPalette() {
                 </span>
               </button>
 
-              {/* Items */}
-              {!isCollapsed &&
-                items.map((prefab) => {
-                  const isActive =
-                    isPlacing && placingPrefab?.prefabId === prefab.prefabId;
-                  return (
-                    <PrefabItem
-                      key={prefab.prefabId}
-                      definition={prefab}
-                      isActive={isActive}
-                      onSelect={() => startPlacement(prefab)}
-                    />
-                  );
-                })}
+              {/* Grid of prefab cards */}
+              {!isCollapsed && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: 4,
+                    padding: '2px 8px 8px',
+                  }}
+                >
+                  {items.map((prefab) => {
+                    const isActive =
+                      isPlacing && placingPrefab?.prefabId === prefab.prefabId;
+                    return (
+                      <PrefabCard
+                        key={prefab.prefabId}
+                        definition={prefab}
+                        isActive={isActive}
+                        onSelect={() => startPlacement(prefab)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -167,9 +198,9 @@ export function StudioPalette() {
   );
 }
 
-// -- Prefab item row ----------------------------------------------------------
+// -- Prefab card (icon grid item) ---------------------------------------------
 
-function PrefabItem({
+function PrefabCard({
   definition,
   isActive,
   onSelect,
@@ -179,58 +210,51 @@ function PrefabItem({
   onSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-
-  const gridLabel = `${definition.gridSize[0]}x${definition.gridSize[1]}`;
+  const ItemIcon = CATEGORY_ICON_MAP[definition.category] ?? Monitor;
+  const color = CATEGORY_COLOR_MAP[definition.category] ?? '#94a3b8';
 
   return (
     <button
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      title={`${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: 8,
-        width: '100%',
-        padding: '5px 12px 5px 28px',
+        justifyContent: 'center',
+        gap: 4,
+        padding: '8px 4px',
+        borderRadius: 6,
         background: isActive
-          ? 'rgba(99, 102, 241, 0.2)'
+          ? 'rgba(99, 102, 241, 0.25)'
           : hovered
-            ? 'rgba(51, 65, 85, 0.3)'
-            : 'transparent',
-        border: 'none',
-        borderLeft: isActive
-          ? '2px solid #6366f1'
-          : '2px solid transparent',
+            ? 'rgba(51, 65, 85, 0.4)'
+            : 'rgba(30, 30, 50, 0.5)',
+        border: isActive
+          ? '1px solid rgba(99, 102, 241, 0.5)'
+          : '1px solid rgba(51, 65, 85, 0.3)',
         cursor: 'pointer',
-        textAlign: 'left',
         fontFamily: 'inherit',
-        transition: 'background 0.1s, border-color 0.1s',
+        transition: 'all 0.12s',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            color: isActive ? '#a5b4fc' : '#cbd5e1',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {definition.name}
-        </div>
-      </div>
+      <ItemIcon size={20} style={{ color: isActive ? '#a5b4fc' : color }} />
       <span
         style={{
           fontSize: 9,
-          fontFamily: 'monospace',
-          color: '#64748b',
-          flexShrink: 0,
+          fontWeight: 500,
+          color: isActive ? '#a5b4fc' : '#94a3b8',
+          textAlign: 'center',
+          lineHeight: 1.2,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          width: '100%',
         }}
       >
-        {gridLabel}
+        {definition.name}
       </span>
     </button>
   );
