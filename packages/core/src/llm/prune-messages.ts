@@ -11,8 +11,15 @@ export function pruneLlmMessages(
   messages: readonly LlmMessage[],
   max = MAX_LLM_CONTEXT_MESSAGES,
 ): readonly LlmMessage[] {
-  const system = messages.filter((m) => m.role === 'system');
-  const nonSystem = messages.filter((m) => m.role !== 'system');
+  if (messages.length <= max) return messages;
+
+  const system: LlmMessage[] = [];
+  const nonSystem: LlmMessage[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') system.push(m);
+    else nonSystem.push(m);
+  }
+
   if (nonSystem.length <= max) return messages;
   return [...system, ...nonSystem.slice(-max)];
 }

@@ -118,8 +118,12 @@ function runProjectRepoTests(label: string, getRepos: () => RuntimeRepositories)
       });
 
       const active = await repos.projects.findActiveByCompany('c-1');
-      expect(active).toHaveLength(1);
-      expect(active[0]!.project_id).toBe('p-active');
+      // findActiveByCompany returns planning + active + paused (not completed/archived)
+      expect(active).toHaveLength(2);
+      const ids = active.map((p) => p.project_id);
+      expect(ids).toContain('p-active');
+      expect(ids).toContain('p-planning');
+      expect(ids).not.toContain('p-completed');
     });
 
     it('updateStatus changes project status', async () => {

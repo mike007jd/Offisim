@@ -35,6 +35,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
 
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
+  const detectionDoneRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Stable EventBus — created once, shared across runtime reinitializations.
@@ -179,64 +180,30 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
 
   const dismissUnfinishedThreads = useCallback(() => setUnfinishedThreads([]), []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version ensures fresh runtime ref
-  const resumeThread = useCallback(
-    async (threadId: string): Promise<void> => {
-      let runtime = runtimeRef.current;
-      if (!runtime) {
-        if (initPromiseRef.current) {
-          runtime = await initPromiseRef.current;
-        } else {
-          runtime = await initRuntime();
-        }
-      }
-      if (!runtime?.runtimeCtx || !runtime?.graph) {
-        setError('Runtime not ready — cannot resume thread.');
-        return;
-      }
+  const resumeThread = useCallback(async (threadId: string): Promise<void> => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.orch) return;
 
-      setIsRunning(true);
-      setError(null);
+    setIsRunning(true);
+    setError(null);
 
-      try {
-        const [{ OrchestrationService }, { HumanMessage }, { createRuntimeContext }] =
-          await Promise.all([
-            import('@aics/core/dist/services/orchestration-service.js'),
-            import('@langchain/core/messages'),
-            import('@aics/core/dist/runtime/runtime-context.js'),
-          ]);
-
-        // Build a per-thread RuntimeContext for the target threadId
-        const threadCtx = createRuntimeContext({
-          repos: runtime.runtimeCtx.repos,
-          eventBus: runtime.runtimeCtx.eventBus,
-          llmGateway: runtime.runtimeCtx.llmGateway,
-          modelResolver: runtime.runtimeCtx.modelResolver,
-          toolExecutor: runtime.runtimeCtx.toolExecutor,
-          companyId: runtime.runtimeCtx.companyId,
-          threadId,
-          memoryService: runtime.runtimeCtx.memoryService,
-          workstationToolResolver: runtime.runtimeCtx.workstationToolResolver,
-          meetingInterruptBox: { pending: null },
-        });
-
-        const orch = new OrchestrationService(runtime.graph, threadCtx);
-        await orch.execute({
-          entryMode: 'background_sync',
-          messages: [new HumanMessage('Resume from last checkpoint')],
-        });
-
-        // Clear the resumed thread from the unfinished list
-        setUnfinishedThreads((prev) => prev.filter((t) => t.threadId !== threadId));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
-      } finally {
-        setIsRunning(false);
-      }
-    },
-    [version, initRuntime],
-  );
+    const { HumanMessage } = await import('@langchain/core/messages');
+    try {
+      await runtime.orch.execute({
+        entryMode: 'background_sync' as const,
+        messages: [new HumanMessage('Resume from last checkpoint')],
+        threadId,
+      });
+      // Clear the resumed thread from the unfinished list
+      setUnfinishedThreads((prev) => prev.filter((t) => t.threadId !== threadId));
+    } catch (err) {
+      console.error('Failed to resume thread:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsRunning(false);
+    }
+  }, []);
 
   // --- MCP server management ---
   const connectMcpServer = useCallback(async (config: McpServerConfig): Promise<number> => {
@@ -307,31 +274,36 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   }, [version]);
 
   // Startup detection — find threads that were left in 'running' status
-  // (e.g. app crashed or was closed mid-execution). Runs after runtime init.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version triggers re-detection on reinit
+  // (e.g. app crashed or was closed mid-execution). Runs once per mount.
   useEffect(() => {
+    if (detectionDoneRef.current) return;
     const runtime = runtimeRef.current;
     if (!runtime?.repos) return;
 
-    runtime.repos.threads
-      .findByCompany(companyId, { status: 'running' })
-      .then((threads: Array<{ thread_id: string; root_task_id: string | null }>) => {
+    detectionDoneRef.current = true;
+
+    (async () => {
+      try {
+        const threads = await runtime.repos.threads.findByCompany(companyId, { status: 'running' });
         if (threads.length === 0) {
           setUnfinishedThreads([]);
           return;
         }
-        // Use thread_id as display name since ProjectRepository is not yet available.
-        // Task 11 (Project UI) will enrich this with project names.
-        const enriched: UnfinishedThread[] = threads.map((t) => ({
-          threadId: t.thread_id,
-          projectName: t.root_task_id ?? t.thread_id,
-        }));
+        // Enrich with project names — single query, no N+1.
+        const allProjects = await runtime.repos.projects.findByCompany(companyId);
+        const enriched: UnfinishedThread[] = threads.map((t) => {
+          const project = allProjects.find((p) => p.thread_id === t.thread_id);
+          return {
+            threadId: t.thread_id,
+            projectName: project?.name ?? t.thread_id,
+          };
+        });
         setUnfinishedThreads(enriched);
-      })
-      .catch(() => {
+      } catch {
         // Silent fail — startup detection must never block the UI
-      });
-  }, [companyId, version]);
+      }
+    })();
+  }, [companyId]);
 
   // ---------------------------------------------------------------------------
   // Volatile status — changes on every task execution (isRunning toggle).

@@ -124,3 +124,4 @@ export {
 } from './roles.js';
 
 export type { ProjectStatus, ProjectRow, NewProject } from './project.js';
+export { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from './project.js';

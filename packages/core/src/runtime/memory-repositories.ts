@@ -3,6 +3,7 @@ import { InMemoryMemoryRepository } from '../repositories/memory-memory-reposito
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
 import type { NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type {
   CheckpointRepository,
@@ -657,7 +658,7 @@ export class MemoryProjectRepository implements ProjectRepository {
 
   async findActiveByCompany(companyId: string): Promise<ProjectRow[]> {
     return [...this.store.values()]
-      .filter((p) => p.company_id === companyId && p.status === 'active')
+      .filter((p) => p.company_id === companyId && (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status))
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   }
 

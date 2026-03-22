@@ -53,6 +53,7 @@ import type {
   ToolCallRow,
   ProjectRepository,
 } from '@aics/core/browser';
+import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
 import type { ProjectRow, NewProject, ProjectStatus } from '@aics/shared-types';
 import type {
   EmployeeVersionRepository,
@@ -971,7 +972,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(
           and(
             eq(schema.projects.company_id, companyId),
-            inArray(schema.projects.status, ['planning', 'active', 'paused']),
+            inArray(schema.projects.status, [...ACTIVE_PROJECT_STATUSES]),
           ),
         )
         .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];

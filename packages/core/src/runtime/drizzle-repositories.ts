@@ -6,6 +6,7 @@ import type {
   InstalledPackageRow,
   NewEmployee,
 } from '@aics/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
 import type { BindingStatus, InstallState, NewProject, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -1019,7 +1020,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .where(
           and(
             eq(schema.projects.company_id, companyId),
-            eq(schema.projects.status, 'active'),
+            inArray(schema.projects.status, [...ACTIVE_PROJECT_STATUSES]),
           ),
         )
         .orderBy(desc(schema.projects.updated_at))
@@ -1047,7 +1048,13 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   // Wraps a synchronous callback in a better-sqlite3 transaction.
   // All repo .run() calls inside fn() participate in the same transaction.
   // db.transaction(fn) for better-sqlite3 executes fn synchronously and returns T.
-  const transact = <T>(fn: () => T): T => db.transaction(fn) as unknown as T;
+  const transact = <T>(fn: () => T): T => {
+    const result = db.transaction(fn) as unknown as T;
+    if (result instanceof Promise) {
+      throw new Error('transact() callback must be synchronous — received Promise. Do not use async repo methods inside transact().');
+    }
+    return result;
+  };
 
   return {
     companies,

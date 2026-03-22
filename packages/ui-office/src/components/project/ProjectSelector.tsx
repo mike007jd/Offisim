@@ -1,5 +1,6 @@
 import { ChevronDown, Folder } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@aics/shared-types';
 import type { ProjectRow, ProjectStatus } from '@aics/shared-types';
 
 interface ProjectSelectorProps {
@@ -45,10 +46,10 @@ export function ProjectSelector({ projects, activeProjectId, onSelect }: Project
   }, [open]);
 
   const activeProjects = projects.filter((p) =>
-    (['planning', 'active', 'paused'] as ProjectStatus[]).includes(p.status),
+    (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status),
   );
   const completedProjects = projects.filter((p) =>
-    (['completed', 'archived'] as ProjectStatus[]).includes(p.status),
+    (COMPLETED_PROJECT_STATUSES as readonly string[]).includes(p.status),
   );
 
   const activeProject = projects.find((p) => p.project_id === activeProjectId) ?? null;
