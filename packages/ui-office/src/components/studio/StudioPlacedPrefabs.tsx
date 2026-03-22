@@ -53,6 +53,8 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
   isSelected,
   onSelect,
 }: PlacedPrefabItemProps) {
+  const { gl, invalidate } = useThree();
+
   const definition = useMemo(
     () => getBuiltinPrefab(instance.prefabId),
     [instance.prefabId],
@@ -70,6 +72,38 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
     [instance.id, onSelect],
   );
 
+  // Hover feedback — emissive highlight + pointer cursor (Skill §10)
+  const handlePointerOver = useCallback(
+    (e: THREE.Event) => {
+      (e as unknown as { stopPropagation: () => void }).stopPropagation();
+      const tool = useStudioStore.getState().tool;
+      if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
+      ((e as unknown as { eventObject: THREE.Group }).eventObject).traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.emissiveIntensity = 0.08;
+          child.material.emissive.set('#ffffff');
+        }
+      });
+      gl.domElement.style.cursor = 'pointer';
+      invalidate();
+    },
+    [gl, invalidate],
+  );
+
+  const handlePointerOut = useCallback(
+    (e: THREE.Event) => {
+      (e as unknown as { stopPropagation: () => void }).stopPropagation();
+      ((e as unknown as { eventObject: THREE.Group }).eventObject).traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.emissiveIntensity = 0;
+        }
+      });
+      gl.domElement.style.cursor = 'default';
+      invalidate();
+    },
+    [gl, invalidate],
+  );
+
   if (!definition) return null;
 
   return (
@@ -77,6 +111,8 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       position={instance.position}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
       onClick={handleClick}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     >
       <Prefab3D definition={definition} state="idle" />
       {isSelected && (
