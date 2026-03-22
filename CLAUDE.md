@@ -60,6 +60,8 @@ Offisim is built around four non-negotiable ideas:
   - `Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`
   - `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
   - `Docs/04_runtime_experience/ANIMATION_BACKLOG.md`
+- Studio 3D editor design rules (placement, selection, gizmo, UI conventions):
+  - `.claude/skills/studio-editor-design.md`
 
 ## Contracts
 
@@ -86,8 +88,10 @@ If a feature changes runtime behavior **and** contracts, update both.
 - Do not treat `apps/web` as a Next.js app.
 - `apps/market` is the only place where Next.js is intentional.
 - Do not introduce Framer Motion as the default animation system.
-  - Office/runtime motion belongs in PixiJS + GSAP.
   - DOM chrome should prefer CSS/native transitions unless a specific surface already chose another approach.
+- **Do not use `vite dev` / `npx vite` / `pnpm dev` for apps/web.**
+  Vite dev server causes excessive CPU/fan usage. Use `pnpm --filter @aics/desktop dev` (Tauri dev build) instead.
+  Build ui-office first if you changed that package: `pnpm --filter @aics/ui-office build`
 - Do not move core company execution into a hosted SaaS dependency by accident.
 - Do not hardcode provider-specific model assumptions inside employee packages, SOP packages, or templates.
 - Do not place secrets inside marketplace assets.
