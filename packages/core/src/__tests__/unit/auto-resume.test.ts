@@ -44,6 +44,8 @@ function makeBaseState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     meetingActionItems: [],
     hrAssessment: null,
     meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     ...overrides,
   };
 }

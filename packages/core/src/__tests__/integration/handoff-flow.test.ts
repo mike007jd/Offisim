@@ -105,10 +105,12 @@ describe('handoff flow (integration)', () => {
     expect(handoffTaskRun!.employee_id).toBe('e-design-1');
     expect(handoffTaskRun!.status).toBe('completed');
 
-    // Step outputs should contain both employees' work
-    expect(result.currentStepOutputs.length).toBeGreaterThanOrEqual(2);
-    const devOutput = result.currentStepOutputs.find((o: any) => o.employeeId === 'e-dev-1');
-    const designOutput = result.currentStepOutputs.find((o: any) => o.employeeId === 'e-design-1');
+    // Step outputs should contain both employees' work.
+    // After step_advance runs, outputs are moved from currentStepOutputs → stepResults.
+    const allOutputs = result.stepResults.flatMap((sr: any) => sr.outputs);
+    expect(allOutputs.length).toBeGreaterThanOrEqual(2);
+    const devOutput = allOutputs.find((o: any) => o.employeeId === 'e-dev-1');
+    const designOutput = allOutputs.find((o: any) => o.employeeId === 'e-design-1');
     expect(devOutput).toBeDefined();
     expect(designOutput).toBeDefined();
   });

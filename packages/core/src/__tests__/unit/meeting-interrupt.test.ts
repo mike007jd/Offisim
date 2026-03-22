@@ -37,6 +37,8 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     projectId: null,
     meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     ...overrides,
   };
 }
@@ -105,6 +107,8 @@ describe('meeting interrupt — meetingTurnCheck routing', () => {
   it('routes normally when meetingInterrupt is null', () => {
     const state = makeState({
       meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
       pendingAssignments: [
         {
           taskType: '__meeting_state',

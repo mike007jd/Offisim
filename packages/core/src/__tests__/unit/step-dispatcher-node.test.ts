@@ -67,6 +67,8 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     projectId: null,
     meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     ...overrides,
   };
 }
@@ -179,6 +181,10 @@ describe('stepDispatcherNode', () => {
     const state = makeState({
       taskPlan: plan,
       currentStepIndex: 1,
+      // Step 0 must be in completedStepIndices so the sequential fallback
+      // allows step 1 to dispatch (implicit dep: step 1 requires step 0 done).
+      dispatchedStepIndices: [0],
+      completedStepIndices: [0],
       stepResults: [
         {
           stepIndex: 0,

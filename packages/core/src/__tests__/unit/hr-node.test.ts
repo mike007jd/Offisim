@@ -41,6 +41,8 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     projectId: null,
     meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     ...overrides,
   };
 }

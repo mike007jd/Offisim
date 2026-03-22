@@ -172,6 +172,18 @@ export const AicsGraphAnnotation = Annotation.Root({
     default: () => [],
   }),
 
+  // DAG dispatch tracking
+  /** Indices of steps whose tasks have been queued (may still be running). */
+  dispatchedStepIndices: Annotation<number[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  /** Indices of steps that have fully completed (all tasks done). */
+  completedStepIndices: Annotation<number[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+
   // P2: Handoff guard rail counter (only employeeNode writes this)
   handoffCount: Annotation<number>({
     default: () => 0,

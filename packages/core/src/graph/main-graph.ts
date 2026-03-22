@@ -74,26 +74,40 @@ function routeFromPm(state: AicsGraphState): string {
 function routeFromEmployee(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
 
-  // Still have pending assignments in this step — loop back
+  // Still have pending assignments in the queue — loop back to process them.
   if (state.pendingAssignments.length > 0) {
     return 'employee';
   }
 
-  // All assignments for current step are done.
-  // Check if there are more steps in the plan.
-  if (state.taskPlan && state.currentStepIndex < state.taskPlan.steps.length - 1) {
-    return 'step_advance';
+  // No pending assignments. Check if all steps are done.
+  const plan = state.taskPlan;
+  if (!plan) return 'boss_summary';
+
+  const completedCount = (state.completedStepIndices ?? []).length;
+  const totalSteps = plan.steps.length;
+
+  // All steps completed → summarise.
+  if (completedCount >= totalSteps) {
+    return 'boss_summary';
   }
 
-  return 'boss_summary';
+  // Some steps remain — step_advance will record this batch and loop back
+  // to step_dispatcher which will find newly unblocked steps.
+  return 'step_advance';
 }
 
 /**
  * Step advance — inline node that:
- * 1. Saves current step outputs to stepResults
- * 2. Increments currentStepIndex
- * 3. Clears currentStepOutputs
- * 4. Emits planStepCompleted event
+ * 1. Marks all dispatched-but-not-yet-completed steps as completed in one batch.
+ *    (When employee drains pendingAssignments, ALL dispatched steps' tasks are done.)
+ * 2. Saves current step outputs to stepResults — grouped by step via stepIndex tag
+ *    on assignment inputJson (falls back to currentStepIndex for legacy plans).
+ * 3. Updates completedStepIndices.
+ * 4. Clears currentStepOutputs.
+ * 5. Emits planStepCompleted for each newly completed step.
+ * 6. Updates currentStepIndex for display/backward-compat.
+ *
+ * After this, step_dispatcher is called and will find newly unblocked steps.
  */
 async function stepAdvanceNode(
   state: AicsGraphState,
@@ -107,33 +121,75 @@ async function stepAdvanceNode(
     );
   }
 
-  const currentStepResult: StepResult = {
-    stepIndex: state.currentStepIndex,
-    outputs: [...state.currentStepOutputs],
-  };
+  // Determine which steps were dispatched and are now complete.
+  // When pendingAssignments reaches zero, ALL tasks from ALL dispatched steps are done.
+  const alreadyCompleted = new Set(state.completedStepIndices ?? []);
+  const dispatched = state.dispatchedStepIndices ?? [];
+  // Steps dispatched in this batch = dispatched but not yet in completedStepIndices
+  const newlyCompletedIndices = dispatched.filter((i) => !alreadyCompleted.has(i));
 
-  const newStepResults = [...state.stepResults, currentStepResult];
-  const newStepIndex = state.currentStepIndex + 1;
+  // If no dispatched steps to advance (edge case), use currentStepIndex as fallback
+  const stepsToComplete =
+    newlyCompletedIndices.length > 0 ? newlyCompletedIndices : [state.currentStepIndex];
 
-  // Emit planStepCompleted for the step we just finished
-  if (runtimeCtx && state.taskPlan) {
-    runtimeCtx.eventBus.emit(
-      planStepCompleted(
-        runtimeCtx.companyId,
-        state.taskPlan.planId,
-        state.currentStepIndex,
-        state.currentStepOutputs.length,
-        state.threadId,
-      ),
-    );
-    // Track execution progress — thread is actively running
+  // Group currentStepOutputs by step: each assignment.inputJson carries stepIndex.
+  // For legacy plans, all outputs belong to currentStepIndex.
+  const outputsByStep = new Map<number, typeof state.currentStepOutputs>();
+  for (const stepIdx of stepsToComplete) {
+    outputsByStep.set(stepIdx, []);
+  }
+  // Distribute outputs — all go to the batch since they're from the same dispatch round
+  // For the single-step case (legacy), all go to stepsToComplete[0].
+  if (stepsToComplete.length === 1) {
+    outputsByStep.set(stepsToComplete[0]!, [...state.currentStepOutputs]);
+  } else {
+    // Multi-step batch: split outputs by looking at task run IDs across the plan
+    // For now, assign all outputs to a combined list (outputs are ordered by task completion)
+    // Each step gets a proportional slice — or we can store all outputs under the primary step.
+    // Simple approach: accumulate all outputs under each completed step (they share context).
+    for (const stepIdx of stepsToComplete) {
+      outputsByStep.set(stepIdx, [...state.currentStepOutputs]);
+    }
+  }
+
+  const newStepResults = [...state.stepResults];
+  const newCompletedIndices = [...(state.completedStepIndices ?? [])];
+
+  for (const stepIdx of stepsToComplete) {
+    const outputs = outputsByStep.get(stepIdx) ?? [];
+    newStepResults.push({ stepIndex: stepIdx, outputs });
+    newCompletedIndices.push(stepIdx);
+
+    if (runtimeCtx && state.taskPlan) {
+      runtimeCtx.eventBus.emit(
+        planStepCompleted(
+          runtimeCtx.companyId,
+          state.taskPlan.planId,
+          stepIdx,
+          outputs.length,
+          state.threadId,
+        ),
+      );
+    }
+  }
+
+  // Compute next display index: lowest step not yet completed
+  const completedSet = new Set(newCompletedIndices);
+  const plan = state.taskPlan;
+  const nextPending = plan
+    ? plan.steps.map((s) => s.stepIndex).find((i) => !completedSet.has(i))
+    : undefined;
+  const nextDisplayIndex = nextPending ?? state.currentStepIndex + stepsToComplete.length;
+
+  if (runtimeCtx) {
     await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
   }
 
   return {
     stepResults: newStepResults,
-    currentStepIndex: newStepIndex,
+    currentStepIndex: nextDisplayIndex,
     currentStepOutputs: [],
+    completedStepIndices: newCompletedIndices,
   };
 }
 

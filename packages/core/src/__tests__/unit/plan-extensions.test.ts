@@ -249,11 +249,13 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     projectId: null,
     meetingInterrupt: null,
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     ...overrides,
   };
 }
 
-describe('stepDispatcherNode — sequential dispatch with DAG-annotated plan', () => {
+describe('stepDispatcherNode — DAG-aware dispatch with annotated plan', () => {
   let config: RunnableConfig;
   let repos: ReturnType<typeof createMemoryRepositories>;
 
@@ -305,7 +307,7 @@ describe('stepDispatcherNode — sequential dispatch with DAG-annotated plan', (
     });
   });
 
-  it('dispatches step 0 first regardless of dependsOnSteps being empty', async () => {
+  it('dispatches step 0 first (no dependencies, so ready immediately)', async () => {
     const state = makeState({ currentStepIndex: 0 });
     const result = await stepDispatcherNode(state, config);
 
@@ -314,11 +316,27 @@ describe('stepDispatcherNode — sequential dispatch with DAG-annotated plan', (
     expect(result.pendingAssignments![0]!.taskType).toBe('research');
   });
 
-  it('dispatches step 1 when currentStepIndex advances, honoring stepIndex order not DAG', async () => {
-    // Even though step 1 has dependsOnSteps: [0], dispatch is driven purely
-    // by currentStepIndex — the DAG field is data-only at this point.
+  it('does NOT dispatch step 1 until step 0 is in completedStepIndices (DAG dependency)', async () => {
+    // Step 1 has dependsOnSteps: [0]. Since completedStepIndices is empty,
+    // step 1 must NOT be dispatched.
+    const state = makeState({
+      currentStepIndex: 0,
+      dispatchedStepIndices: [0],
+      completedStepIndices: [], // step 0 dispatched but not yet complete
+    });
+
+    const result = await stepDispatcherNode(state, config);
+
+    // Neither step 0 (already dispatched) nor step 1 (dep not satisfied) should be dispatched
+    expect(result.pendingAssignments).toHaveLength(0);
+  });
+
+  it('dispatches step 1 once step 0 is complete, injecting dependency output', async () => {
+    // Step 0 is in completedStepIndices → step 1's dependency is satisfied.
     const state = makeState({
       currentStepIndex: 1,
+      dispatchedStepIndices: [0],
+      completedStepIndices: [0],
       stepResults: [
         {
           stepIndex: 0,
@@ -338,7 +356,7 @@ describe('stepDispatcherNode — sequential dispatch with DAG-annotated plan', (
 
     expect(result.pendingAssignments).toHaveLength(1);
     expect(result.pendingAssignments![0]!.taskType).toBe('code');
-    // dependsOnStepOutput: true — previous step output must be injected
+    // dependsOnStepOutput: true — dependency step output must be injected
     const description = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>)
       .description as string;
     expect(description).toContain('Implement feature');
