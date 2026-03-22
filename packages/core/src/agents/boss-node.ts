@@ -75,12 +75,14 @@ export async function bossNode(
   const { modelResolver } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'boss');
 
-  // Build messages for LLM
-  const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
+  // Build messages for LLM — use last N human messages for multi-turn context
+  const recentHumanMessages = state.messages
+    .filter((m) => m._getType() === 'human')
+    .slice(-3);
 
   const userContent =
-    typeof lastUserMessage?.content === 'string'
-      ? lastUserMessage.content
+    recentHumanMessages.length > 0
+      ? recentHumanMessages.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n---\n')
       : 'No user message found';
 
   const llmResponse = await recordedLlmCall(

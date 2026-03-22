@@ -107,15 +107,22 @@ function parsePmPlan(content: string): LlmPlan | null {
 
 /**
  * Match an SOP template by name against the user intent text.
- * Case-insensitive substring match.
+ * Uses word-boundary matching to avoid false positives
+ * (e.g. "I don't need code review" should NOT match "code review").
  */
 export function matchSopTemplate(
   templates: SopTemplateRow[],
   intentText: string,
 ): SopTemplateRow | null {
-  const lower = intentText.toLowerCase();
   for (const t of templates) {
-    if (lower.includes(t.name.toLowerCase())) {
+    const escaped = t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Require the template name to appear as a distinct phrase —
+    // preceded by start/whitespace/punctuation and followed by end/whitespace/punctuation
+    const pattern = new RegExp(
+      `(?:^|[\\s,."'!?])${escaped}(?:$|[\\s,."'!?])`,
+      'i',
+    );
+    if (pattern.test(intentText)) {
       return t;
     }
   }
@@ -182,7 +189,12 @@ export async function tryBuildSopPlan(
   const matched = matchSopTemplate(templates, intentText);
   if (!matched) return null;
 
-  const sopDef: SopDefinition = JSON.parse(matched.definition_json);
+  let sopDef: SopDefinition;
+  try {
+    sopDef = JSON.parse(matched.definition_json);
+  } catch {
+    return null; // Corrupt definition_json — skip this SOP
+  }
   const sopService = new SopService(repos.sopTemplates, eventBus);
 
   // Validate before using

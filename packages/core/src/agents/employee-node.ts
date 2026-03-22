@@ -30,6 +30,10 @@ import type { CitationRef } from '../graph/state.js';
 /** Maximum number of employee-to-employee handoffs per thread. */
 const MAX_HANDOFF_COUNT = 3;
 
+/** Maximum number of conversation messages sent to the LLM in a single call.
+ *  Prevents unbounded token growth in long direct-chat sessions. */
+const MAX_CONTEXT_MESSAGES = 20;
+
 /** Task type for handoff continuation tasks. */
 const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
@@ -431,49 +435,58 @@ export async function employeeNode(
         });
       }
 
-      // Handle virtual + MCP tool calls
-      const toolResults = [];
-      for (const toolCall of llmResponse.toolCalls) {
-        // Check for memory virtual tools
-        if (
-          memoryService &&
-          MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
-        ) {
-          const result = await handleMemoryTool(
-            toolCall.name as (typeof MEMORY_TOOL_NAMES)[number],
-            toolCall.arguments,
-            employee.employee_id,
-            companyId,
-            threadId,
-            runtimeCtx,
-          );
-          toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
-          continue;
-        }
+      // Handle virtual + MCP tool calls — execute in parallel for throughput.
+      // Each tool call is independent; a failing tool should not block others.
+      const settled = await Promise.allSettled(
+        llmResponse.toolCalls.map(async (toolCall) => {
+          // Check for memory virtual tools
+          if (
+            memoryService &&
+            MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
+          ) {
+            const result = await handleMemoryTool(
+              toolCall.name as (typeof MEMORY_TOOL_NAMES)[number],
+              toolCall.arguments,
+              employee.employee_id,
+              companyId,
+              threadId,
+              runtimeCtx,
+            );
+            return { callId: toolCall.id, name: toolCall.name, result };
+          }
 
-        // Non-memory, non-handoff tool calls — delegate to toolExecutor
-        // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries)
-        if (workstationToolResolver && !allowedMcpToolNames.has(toolCall.name)) {
-          toolResults.push({
-            callId: toolCall.id,
+          // Non-memory, non-handoff tool calls — delegate to toolExecutor
+          // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries)
+          if (workstationToolResolver && !allowedMcpToolNames.has(toolCall.name)) {
+            return {
+              callId: toolCall.id,
+              name: toolCall.name,
+              result: {
+                success: false,
+                result: null,
+                error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
+              },
+            };
+          }
+
+          const result = await toolExecutor.execute({
+            toolCallId: toolCall.id,
             name: toolCall.name,
-            result: {
-              success: false,
-              result: null,
-              error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
-            },
+            arguments: toolCall.arguments,
+            employeeId: employee.employee_id,
           });
-          continue;
-        }
+          return { callId: toolCall.id, name: toolCall.name, result };
+        }),
+      );
 
-        const result = await toolExecutor.execute({
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          arguments: toolCall.arguments,
-          employeeId: employee.employee_id,
-        });
-        toolResults.push({ callId: toolCall.id, name: toolCall.name, result });
-      }
+      // Unwrap settled results — failed tools get an error string instead of crashing the loop
+      const toolResults = settled.map((s, i) => {
+        if (s.status === 'fulfilled') return s.value;
+        const tc = llmResponse.toolCalls[i]!;
+        const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
+        logger.warn('Tool call failed', { toolName: tc.name, error: errMsg });
+        return { callId: tc.id, name: tc.name, result: `Tool execution failed: ${errMsg}` };
+      });
 
       // Append this round's assistant message (with tool calls) + tool results
       // to the running history using proper LLM message format.
@@ -494,11 +507,18 @@ export async function employeeNode(
         });
       }
 
-      // Follow-up LLM call with full accumulated history
+      // Trim conversation history to avoid unbounded token growth in long sessions.
+      // Keep the system message (first) + the last MAX_CONTEXT_MESSAGES messages.
+      const trimmedHistory =
+        conversationHistory.length > MAX_CONTEXT_MESSAGES + 1
+          ? [conversationHistory[0]!, ...conversationHistory.slice(-(MAX_CONTEXT_MESSAGES))]
+          : conversationHistory;
+
+      // Follow-up LLM call with (potentially trimmed) accumulated history
       llmResponse = await recordedLlmCall(
         runtimeCtx,
         {
-          messages: conversationHistory,
+          messages: trimmedHistory,
           model: resolved.model,
           temperature: resolved.temperature,
           maxTokens: resolved.maxTokens,

@@ -85,8 +85,9 @@ export async function hrNode(
   const teamRoster = employees
     .filter((e) => e.enabled)
     .map((e) => {
-      const persona = e.persona_json ? JSON.parse(e.persona_json) : {};
-      return `- ${e.name} (${e.role_slug}): ${persona.expertise ?? 'no expertise listed'}`;
+      let persona: Record<string, unknown> = {};
+      try { persona = JSON.parse(e.persona_json ?? '{}'); } catch { /* use default */ }
+      return `- ${e.name} (${e.role_slug}): ${(persona.expertise as string) ?? 'no expertise listed'}`;
     })
     .join('\n');
 
