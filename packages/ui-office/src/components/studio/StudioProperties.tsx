@@ -1,87 +1,60 @@
 /**
  * StudioProperties -- Right panel showing details for the selected instance.
  *
- * Only renders when an instance is selected. Shows prefab metadata,
- * position, rotation with +90 button, grid size, and a delete action.
+ * Always visible. When nothing is selected, shows an empty state message.
+ * When an instance is selected: prefab metadata, position, rotation, grid size, delete.
  */
 
 import { useMemo } from 'react';
+import { RotateCw, Trash2, BoxSelect } from 'lucide-react';
 import { getBuiltinPrefab } from '@aics/renderer';
 import { useStudioStore } from './StudioState.js';
+import {
+  STUDIO_COLORS,
+  SP,
+  FONT,
+  LAYOUT,
+  panelStyle,
+  sectionHeaderStyle,
+  labelStyle,
+  valueStyle,
+} from './studio-tokens.js';
 
 // -- Styles -------------------------------------------------------------------
 
-const PANEL_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  right: 0,
-  top: 48,
-  bottom: 48,
-  width: 240,
-  background: 'rgba(15, 15, 26, 0.95)',
-  borderLeft: '1px solid #333',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  zIndex: 10,
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  padding: '10px 14px',
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: 2,
-  textTransform: 'uppercase',
-  color: '#94a3b8',
-  borderBottom: '1px solid #333',
-  flexShrink: 0,
-};
-
 const SECTION_STYLE: React.CSSProperties = {
-  padding: '10px 14px',
-  borderBottom: '1px solid rgba(51,51,51,0.6)',
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 700,
-  letterSpacing: 1,
-  textTransform: 'uppercase',
-  color: '#64748b',
-  marginBottom: 4,
-};
-
-const VALUE_STYLE: React.CSSProperties = {
-  fontSize: 12,
-  color: '#e2e8f0',
-  fontWeight: 500,
+  padding: `${SP.md}px ${SP.lg}px`,
+  borderBottom: `1px solid ${STUDIO_COLORS.borderSubtle}`,
 };
 
 const ROW_STYLE: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  marginBottom: 2,
+  gap: SP.sm,
+  marginBottom: SP.xs / 2,
 };
 
 const SMALL_BTN: React.CSSProperties = {
-  padding: '3px 8px',
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid #333',
-  borderRadius: 3,
-  color: '#ccc',
-  fontSize: 10,
-  fontWeight: 600,
+  display: 'flex',
+  alignItems: 'center',
+  gap: SP.xs,
+  padding: `${SP.xs}px ${SP.sm}px`,
+  background: STUDIO_COLORS.surface2,
+  border: `1px solid ${STUDIO_COLORS.border}`,
+  borderRadius: LAYOUT.buttonRadius,
+  color: STUDIO_COLORS.textSecondary,
+  fontSize: FONT.sm,
+  fontWeight: FONT.semibold,
   cursor: 'pointer',
-  fontFamily: 'inherit',
+  fontFamily: FONT.family,
   transition: 'background 0.1s',
 };
 
 const DELETE_BTN: React.CSSProperties = {
   ...SMALL_BTN,
   width: '100%',
-  textAlign: 'center' as const,
-  background: 'rgba(239,68,68,0.15)',
+  justifyContent: 'center',
+  background: STUDIO_COLORS.errorMuted,
   borderColor: 'rgba(239,68,68,0.3)',
   color: '#fca5a5',
 };
@@ -104,75 +77,117 @@ export function StudioProperties() {
     [instance?.prefabId],
   );
 
-  // Only show when an instance is selected
-  if (!instance || !definition) return null;
-
-  const [x, , z] = instance.position;
-  const gridLabel = `${definition.gridSize[0]}\u00D7${definition.gridSize[1]}`;
-
   return (
-    <div style={PANEL_STYLE}>
-      <div style={HEADER_STYLE}>Properties</div>
+    <div style={panelStyle('right')}>
+      <div style={sectionHeaderStyle()}>Properties</div>
 
-      {/* Name + category */}
-      <div style={SECTION_STYLE}>
-        <div style={LABEL_STYLE}>Prefab</div>
-        <div style={VALUE_STYLE}>{definition.name}</div>
+      {/* Empty state */}
+      {(!instance || !definition) && (
         <div
           style={{
-            fontSize: 10,
-            color: '#64748b',
-            marginTop: 2,
-            textTransform: 'capitalize',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: SP.md,
+            padding: SP.xl,
           }}
         >
-          {definition.category}
-        </div>
-      </div>
-
-      {/* Position */}
-      <div style={SECTION_STYLE}>
-        <div style={LABEL_STYLE}>Position</div>
-        <div style={ROW_STYLE}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#f87171' }}>X</span>
-          <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#e2e8f0' }}>
-            {x.toFixed(1)}
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#60a5fa', marginLeft: 12 }}>Z</span>
-          <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#e2e8f0' }}>
-            {z.toFixed(1)}
+          <BoxSelect size={32} style={{ color: STUDIO_COLORS.textDisabled }} />
+          <span
+            style={{
+              fontSize: FONT.base,
+              color: STUDIO_COLORS.textTertiary,
+              textAlign: 'center',
+              lineHeight: 1.4,
+            }}
+          >
+            Select an object to view properties
           </span>
         </div>
-      </div>
+      )}
 
-      {/* Rotation */}
-      <div style={SECTION_STYLE}>
-        <div style={LABEL_STYLE}>Rotation</div>
-        <div style={ROW_STYLE}>
-          <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#e2e8f0' }}>
-            {instance.rotation}&deg;
-          </span>
-          <button onClick={rotateSelected} style={SMALL_BTN} title="Rotate +90\u00B0">
-            +90&deg;
-          </button>
-        </div>
-      </div>
+      {/* Selected instance details */}
+      {instance && definition && (() => {
+        const [x, , z] = instance.position;
+        const gridLabel = `${definition.gridSize[0]}\u00D7${definition.gridSize[1]}`;
 
-      {/* Grid size */}
-      <div style={SECTION_STYLE}>
-        <div style={LABEL_STYLE}>Grid Size</div>
-        <div style={VALUE_STYLE}>{gridLabel}</div>
-      </div>
+        return (
+          <>
+            {/* Name + category */}
+            <div style={SECTION_STYLE}>
+              <div style={labelStyle()}>Prefab</div>
+              <div style={valueStyle()}>{definition.name}</div>
+              <div
+                style={{
+                  fontSize: FONT.sm,
+                  color: STUDIO_COLORS.textTertiary,
+                  marginTop: SP.xs / 2,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {definition.category}
+              </div>
+            </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+            {/* Position */}
+            <div style={SECTION_STYLE}>
+              <div style={labelStyle()}>Position</div>
+              <div style={ROW_STYLE}>
+                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: '#f87171' }}>X</span>
+                <span style={{ ...valueStyle() }}>
+                  {x.toFixed(1)}
+                </span>
+                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.catWorkspace, marginLeft: SP.md }}>Z</span>
+                <span style={{ ...valueStyle() }}>
+                  {z.toFixed(1)}
+                </span>
+              </div>
+            </div>
 
-      {/* Delete */}
-      <div style={{ padding: '10px 14px' }}>
-        <button onClick={deleteSelected} style={DELETE_BTN}>
-          Delete Instance
-        </button>
-      </div>
+            {/* Rotation */}
+            <div style={SECTION_STYLE}>
+              <div style={labelStyle()}>Rotation</div>
+              <div style={ROW_STYLE}>
+                <span style={{ ...valueStyle() }}>
+                  {instance.rotation}&deg;
+                </span>
+                <button
+                  onClick={rotateSelected}
+                  aria-label="Rotate 90 degrees clockwise"
+                  title="Rotate +90\u00B0"
+                  style={SMALL_BTN}
+                >
+                  <RotateCw size={12} />
+                  <span>+90\u00B0</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Grid size */}
+            <div style={SECTION_STYLE}>
+              <div style={labelStyle()}>Grid Size</div>
+              <div style={valueStyle()}>{gridLabel}</div>
+            </div>
+
+            {/* Spacer */}
+            <div style={{ flex: 1 }} />
+
+            {/* Delete */}
+            <div style={{ padding: `${SP.md}px ${SP.lg}px` }}>
+              <button
+                onClick={deleteSelected}
+                aria-label="Delete selected instance"
+                style={DELETE_BTN}
+              >
+                <Trash2 size={12} />
+                <span>Delete Instance</span>
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

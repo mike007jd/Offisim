@@ -17,6 +17,14 @@ import {
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
+import {
+  STUDIO_COLORS,
+  SP,
+  FONT,
+  LAYOUT,
+  panelStyle,
+  sectionHeaderStyle,
+} from './studio-tokens.js';
 
 // -- Category metadata --------------------------------------------------------
 
@@ -24,16 +32,16 @@ interface CategoryMeta {
   id: SemanticCategory;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
-  color: string;
+  colorKey: keyof typeof STUDIO_COLORS;
 }
 
 const CATEGORIES: CategoryMeta[] = [
-  { id: 'workspace', label: 'Workspace', Icon: Monitor, color: '#60a5fa' },
-  { id: 'compute', label: 'Compute', Icon: Server, color: '#f97316' },
-  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, color: '#a78bfa' },
-  { id: 'collaboration', label: 'Collaboration', Icon: Users, color: '#34d399' },
-  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, color: '#facc15' },
-  { id: 'decorative', label: 'Decorative', Icon: Leaf, color: '#4ade80' },
+  { id: 'workspace', label: 'Workspace', Icon: Monitor, colorKey: 'catWorkspace' },
+  { id: 'compute', label: 'Compute', Icon: Server, colorKey: 'catCompute' },
+  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, colorKey: 'catKnowledge' },
+  { id: 'collaboration', label: 'Collaboration', Icon: Users, colorKey: 'catCollaboration' },
+  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, colorKey: 'catInfrastructure' },
+  { id: 'decorative', label: 'Decorative', Icon: Leaf, colorKey: 'catDecorative' },
 ];
 
 // Map prefab category to a per-item icon (reuse category icon)
@@ -46,42 +54,21 @@ const CATEGORY_ICON_MAP: Record<SemanticCategory, React.ComponentType<{ size?: n
   decorative: Leaf,
 };
 
-const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = Object.fromEntries(
-  CATEGORIES.map((c) => [c.id, c.color]),
-) as Record<SemanticCategory, string>;
+const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = {
+  workspace: STUDIO_COLORS.catWorkspace,
+  compute: STUDIO_COLORS.catCompute,
+  knowledge: STUDIO_COLORS.catKnowledge,
+  collaboration: STUDIO_COLORS.catCollaboration,
+  infrastructure: STUDIO_COLORS.catInfrastructure,
+  decorative: STUDIO_COLORS.catDecorative,
+};
 
 // -- Styles -------------------------------------------------------------------
-
-const PANEL_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  left: 0,
-  top: 48,
-  bottom: 48,
-  width: 220,
-  background: 'rgba(15, 15, 26, 0.95)',
-  borderRight: '1px solid #333',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  zIndex: 20,
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  padding: '10px 14px',
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: 2,
-  textTransform: 'uppercase',
-  color: '#94a3b8',
-  borderBottom: '1px solid #333',
-  flexShrink: 0,
-};
 
 const LIST_STYLE: React.CSSProperties = {
   flex: 1,
   overflowY: 'auto',
-  padding: '4px 0',
+  padding: `${SP.xs}px 0`,
 };
 
 // -- Component ----------------------------------------------------------------
@@ -113,38 +100,40 @@ export function StudioPalette() {
   const isPlacing = tool === 'place';
 
   return (
-    <div style={PANEL_STYLE}>
-      <div style={HEADER_STYLE}>Assets</div>
+    <div style={panelStyle('left')}>
+      <div style={sectionHeaderStyle()}>Assets</div>
       <div style={LIST_STYLE}>
         {CATEGORIES.map((cat) => {
           const items = grouped.get(cat.id) ?? [];
           const isCollapsed = collapsed[cat.id] ?? false;
+          const catColor = STUDIO_COLORS[cat.colorKey];
 
           return (
             <div key={cat.id}>
               {/* Category header */}
               <button
                 onClick={() => toggleCategory(cat.id)}
+                aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${cat.label} category (${items.length} items)`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
+                  gap: SP.sm,
                   width: '100%',
-                  padding: '6px 12px',
+                  padding: `${SP.sm}px ${SP.md}px`,
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: '#94a3b8',
-                  fontFamily: 'inherit',
+                  fontSize: FONT.base,
+                  fontWeight: FONT.bold,
+                  color: STUDIO_COLORS.textSecondary,
+                  fontFamily: FONT.family,
                 }}
               >
                 <span
                   style={{
-                    fontSize: 9,
-                    color: '#64748b',
+                    fontSize: FONT.xs,
+                    color: STUDIO_COLORS.textTertiary,
                     transition: 'transform 0.15s',
                     transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                     display: 'inline-block',
@@ -152,14 +141,14 @@ export function StudioPalette() {
                 >
                   &#9660;
                 </span>
-                <cat.Icon size={12} />
+                <cat.Icon size={12} style={{ color: catColor }} />
                 <span>{cat.label}</span>
                 <span
                   style={{
                     marginLeft: 'auto',
-                    fontSize: 9,
-                    color: '#64748b',
-                    fontWeight: 500,
+                    fontSize: FONT.xs,
+                    color: STUDIO_COLORS.textTertiary,
+                    fontWeight: FONT.medium,
                   }}
                 >
                   {items.length}
@@ -172,8 +161,8 @@ export function StudioPalette() {
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: 4,
-                    padding: '2px 8px 8px',
+                    gap: SP.xs,
+                    padding: `${SP.xs / 2}px ${SP.sm}px ${SP.sm}px`,
                   }}
                 >
                   {items.map((prefab) => {
@@ -211,41 +200,42 @@ function PrefabCard({
 }) {
   const [hovered, setHovered] = useState(false);
   const ItemIcon = CATEGORY_ICON_MAP[definition.category] ?? Monitor;
-  const color = CATEGORY_COLOR_MAP[definition.category] ?? '#94a3b8';
+  const color = CATEGORY_COLOR_MAP[definition.category] ?? STUDIO_COLORS.textSecondary;
 
   return (
     <button
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      aria-label={`Place ${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       title={`${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
-        padding: '8px 4px',
-        borderRadius: 6,
+        gap: SP.xs,
+        padding: `${SP.sm}px ${SP.xs}px`,
+        borderRadius: LAYOUT.cardRadius,
         background: isActive
-          ? 'rgba(99, 102, 241, 0.25)'
+          ? STUDIO_COLORS.accentMuted
           : hovered
-            ? 'rgba(51, 65, 85, 0.4)'
-            : 'rgba(30, 30, 50, 0.5)',
+            ? STUDIO_COLORS.surface2
+            : STUDIO_COLORS.surface1,
         border: isActive
-          ? '1px solid rgba(99, 102, 241, 0.5)'
-          : '1px solid rgba(51, 65, 85, 0.3)',
+          ? `1px solid ${STUDIO_COLORS.borderActive}`
+          : `1px solid ${STUDIO_COLORS.borderSubtle}`,
         cursor: 'pointer',
-        fontFamily: 'inherit',
+        fontFamily: FONT.family,
         transition: 'all 0.12s',
       }}
     >
-      <ItemIcon size={20} style={{ color: isActive ? '#a5b4fc' : color }} />
+      <ItemIcon size={20} style={{ color: isActive ? STUDIO_COLORS.accentText : color }} />
       <span
         style={{
-          fontSize: 9,
-          fontWeight: 500,
-          color: isActive ? '#a5b4fc' : '#94a3b8',
+          fontSize: FONT.xs,
+          fontWeight: FONT.medium,
+          color: isActive ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
           textAlign: 'center',
           lineHeight: 1.2,
           overflow: 'hidden',

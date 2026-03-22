@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { useStudioStore } from './StudioState.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { getBuiltinPrefab } from '@aics/renderer';
+import { STUDIO_COLORS } from './studio-tokens.js';
 
 function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;
@@ -21,9 +22,9 @@ function snap(v: number, grid: number): number {
 
 const SNAP = 0.5;
 
-// Colors for placement feedback
-const COLOR_VALID = new THREE.Color('#22c55e');   // green
-const COLOR_BLOCKED = new THREE.Color('#ef4444');  // red
+// Colors for placement feedback — sourced from design tokens
+const COLOR_VALID = new THREE.Color(STUDIO_COLORS.ghostValid);
+const COLOR_BLOCKED = new THREE.Color(STUDIO_COLORS.ghostBlocked);
 
 /**
  * Check if a new prefab at [x, z] with given grid size overlaps any existing instance.

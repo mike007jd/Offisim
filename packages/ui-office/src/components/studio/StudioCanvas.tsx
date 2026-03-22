@@ -3,6 +3,7 @@ import { OrbitControls, Grid } from '@react-three/drei';
 import { useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useStudioStore } from './StudioState.js';
+import { STUDIO_COLORS } from './studio-tokens.js';
 
 /** Subscribes to Zustand store changes and triggers R3F invalidate.
  *  Required because frameloop="demand" won't re-render on state changes automatically. */
@@ -21,7 +22,7 @@ function PlotBoundary() {
   );
   return (
     <lineSegments position={[0, 0.01, 0]} geometry={geo}>
-      <lineBasicMaterial color="#6366f1" transparent opacity={0.6} />
+      <lineBasicMaterial color={STUDIO_COLORS.plotBorder} transparent opacity={0.6} />
     </lineSegments>
   );
 }
@@ -55,8 +56,8 @@ function StudioScene() {
         infiniteGrid
         cellSize={0.5}
         sectionSize={2}
-        cellColor="#333"
-        sectionColor="#555"
+        cellColor={STUDIO_COLORS.gridMinor}
+        sectionColor={STUDIO_COLORS.gridMajor}
         fadeDistance={maxDim * 1.5}
         fadeStrength={1.5}
         position={[0, -0.01, 0]}
@@ -82,7 +83,7 @@ export function StudioCanvas({ children }: StudioCanvasProps) {
       frameloop="demand"
       camera={{ position: [20, 20, 20], fov: 50, near: 0.1, far: 500 }}
       onPointerMissed={onPointerMissed}
-      style={{ background: '#111' }}
+      style={{ background: STUDIO_COLORS.canvasBg }}
     >
       <StudioScene />
       {children}

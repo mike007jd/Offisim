@@ -6,47 +6,14 @@
  */
 
 import { useStudioStore, PLOT_SIZES, type PlotSize } from './StudioState.js';
-
-// -- Styles -------------------------------------------------------------------
-
-const BAR_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: 48,
-  background: 'rgba(15, 15, 26, 0.95)',
-  borderTop: '1px solid #333',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  padding: '0 14px',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  zIndex: 10,
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 700,
-  letterSpacing: 1,
-  textTransform: 'uppercase',
-  color: '#64748b',
-  marginRight: 8,
-  flexShrink: 0,
-};
-
-const BTN_BASE: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  padding: '4px 14px',
-  border: '1px solid transparent',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  transition: 'background 0.1s, border-color 0.1s',
-};
+import {
+  STUDIO_COLORS,
+  SP,
+  FONT,
+  panelStyle,
+  toolButtonStyle,
+  labelStyle,
+} from './studio-tokens.js';
 
 // -- Component ----------------------------------------------------------------
 
@@ -55,23 +22,38 @@ export function StudioPlotSelector() {
   const setPlotSize = useStudioStore((s) => s.setPlotSize);
 
   return (
-    <div style={BAR_STYLE}>
-      <span style={LABEL_STYLE}>Plot Size</span>
+    <div style={panelStyle('bottom')}>
+      <span
+        style={{
+          ...labelStyle(),
+          marginBottom: 0,
+          marginRight: SP.sm,
+          flexShrink: 0,
+        }}
+      >
+        Plot Size
+      </span>
       {PLOT_SIZES.map((size: PlotSize) => {
         const active = plotSize.name === size.name;
         return (
           <button
             key={size.name}
             onClick={() => setPlotSize(size)}
+            aria-label={`Set plot size to ${size.name} (${size.width} x ${size.depth})`}
             style={{
-              ...BTN_BASE,
-              background: active ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
-              color: active ? '#a5b4fc' : '#ccc',
-              borderColor: active ? 'rgba(99,102,241,0.5)' : 'transparent',
+              ...toolButtonStyle(active),
+              flexDirection: 'column',
+              padding: `${SP.xs}px ${SP.lg}px`,
             }}
           >
-            <span style={{ fontSize: 11, fontWeight: 600 }}>{size.name}</span>
-            <span style={{ fontSize: 9, fontFamily: 'monospace', color: active ? '#818cf8' : '#64748b' }}>
+            <span style={{ fontSize: FONT.base, fontWeight: FONT.semibold }}>{size.name}</span>
+            <span
+              style={{
+                fontSize: FONT.xs,
+                fontFamily: FONT.mono,
+                color: active ? STUDIO_COLORS.accentHover : STUDIO_COLORS.textTertiary,
+              }}
+            >
               {size.width}&times;{size.depth}
             </span>
           </button>

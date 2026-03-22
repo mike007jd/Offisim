@@ -6,17 +6,26 @@
  * (create or edit) via RuntimeRepositories.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useStudioStore } from './StudioState.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioPalette } from './StudioPalette.js';
+import { StudioProperties } from './StudioProperties.js';
+import { StudioPlotSelector } from './StudioPlotSelector.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
+import {
+  STUDIO_COLORS,
+  SP,
+  FONT,
+  LAYOUT,
+} from './studio-tokens.js';
 import type { RuntimeRepositories } from '@aics/core/browser';
 import type { PrefabInstanceRow } from '@aics/shared-types';
 
-// ── Props ────────────────────────────────────────────────────────
+// -- Props --------------------------------------------------------------------
 
 export interface StudioPageProps {
   mode: 'create' | 'edit';
@@ -26,40 +35,144 @@ export interface StudioPageProps {
   onCompanyCreated?: (companyId: string) => void;
 }
 
-// ── Styles ───────────────────────────────────────────────────────
+// -- Styles -------------------------------------------------------------------
 
 const ROOT_STYLE: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: '#111',
-  fontFamily: 'Inter, system-ui, sans-serif',
+  background: STUDIO_COLORS.canvasBg,
+  fontFamily: FONT.family,
   zIndex: 50, // above normal office UI
 };
 
 const CANVAS_CONTAINER: React.CSSProperties = {
   position: 'absolute',
-  top: 48,
-  left: 220,
-  right: 0,
-  bottom: 48,
+  top: LAYOUT.toolbarHeight,
+  left: LAYOUT.paletteWidth,
+  right: LAYOUT.propertiesWidth,
+  bottom: LAYOUT.bottomBarHeight,
 };
 
-const BOTTOM_BAR: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: 48,
-  background: 'rgba(15, 15, 26, 0.95)',
-  borderTop: '1px solid #333',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '0 14px',
-  gap: 8,
-  zIndex: 10,
-};
+// -- Inline modal for company name --------------------------------------------
 
-// ── Component ────────────────────────────────────────────────────
+function CompanyNameModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState('My Company');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.select();
+  }, []);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (trimmed) onConfirm(trimmed);
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: STUDIO_COLORS.surface0,
+          border: `1px solid ${STUDIO_COLORS.border}`,
+          borderRadius: LAYOUT.cardRadius,
+          padding: SP.xxl,
+          width: 340,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: SP.lg,
+        }}
+      >
+        <div
+          style={{
+            fontSize: FONT.xl,
+            fontWeight: FONT.semibold,
+            color: STUDIO_COLORS.textPrimary,
+            fontFamily: FONT.family,
+          }}
+        >
+          Company Name
+        </div>
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSubmit();
+            if (e.key === 'Escape') onCancel();
+          }}
+          aria-label="Company name"
+          style={{
+            width: '100%',
+            padding: `${SP.sm}px ${SP.md}px`,
+            background: STUDIO_COLORS.surface1,
+            border: `1px solid ${STUDIO_COLORS.borderActive}`,
+            borderRadius: LAYOUT.buttonRadius,
+            color: STUDIO_COLORS.textPrimary,
+            fontSize: FONT.md,
+            fontFamily: FONT.family,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: SP.sm, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            aria-label="Cancel"
+            style={{
+              padding: `${SP.sm}px ${SP.lg}px`,
+              background: STUDIO_COLORS.surface2,
+              border: `1px solid ${STUDIO_COLORS.border}`,
+              borderRadius: LAYOUT.buttonRadius,
+              color: STUDIO_COLORS.textSecondary,
+              fontSize: FONT.base,
+              fontFamily: FONT.family,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            aria-label="Create company"
+            style={{
+              padding: `${SP.sm}px ${SP.lg}px`,
+              background: STUDIO_COLORS.accentMuted,
+              border: `1px solid ${STUDIO_COLORS.borderActive}`,
+              borderRadius: LAYOUT.buttonRadius,
+              color: STUDIO_COLORS.accentText,
+              fontSize: FONT.base,
+              fontWeight: FONT.semibold,
+              fontFamily: FONT.family,
+              cursor: 'pointer',
+            }}
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Component ----------------------------------------------------------------
 
 export function StudioPage({
   mode,
@@ -69,11 +182,18 @@ export function StudioPage({
   onCompanyCreated,
 }: StudioPageProps) {
   const [saving, setSaving] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [loading, setLoading] = useState(mode === 'edit');
 
-  // ── Load existing data (edit mode) ───────────────────────────
+  // Pending save resolver when waiting for company name
+  const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
+
+  // -- Load existing data (edit mode) -----------------------------------------
 
   useEffect(() => {
     if (mode === 'edit' && companyId && repos) {
+      setLoading(true);
       repos.prefabInstances.findByCompany(companyId).then((rows) => {
         const instances = rows.map((r) => ({
           id: r.instance_id,
@@ -83,13 +203,15 @@ export function StudioPage({
           zoneId: r.zone_id,
         }));
         useStudioStore.getState().setInstances(instances);
+        setLoading(false);
       });
     } else {
       useStudioStore.getState().setInstances([]);
+      setLoading(false);
     }
   }, [mode, companyId, repos]);
 
-  // ── Save flow ────────────────────────────────────────────────
+  // -- Save flow --------------------------------------------------------------
 
   const handleSave = useCallback(async () => {
     if (!repos) return;
@@ -99,7 +221,13 @@ export function StudioPage({
       let targetCompanyId = companyId;
 
       if (mode === 'create') {
-        const name = window.prompt('Company name:', 'My Company');
+        // Show inline modal and wait for the name
+        const name = await new Promise<string | null>((resolve) => {
+          pendingSaveRef.current = resolve;
+          setShowNameModal(true);
+        });
+        pendingSaveRef.current = null;
+
         if (!name) {
           setSaving(false);
           return;
@@ -146,17 +274,21 @@ export function StudioPage({
 
       useStudioStore.getState().markClean();
 
+      // Show save success flash
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 2000);
+
       if (mode === 'create' && targetCompanyId && onCompanyCreated) {
         onCompanyCreated(targetCompanyId);
       } else {
-        onBack();
+        // In edit mode, stay on page (flash shows success)
       }
     } finally {
       setSaving(false);
     }
   }, [repos, companyId, mode, onBack, onCompanyCreated]);
 
-  // ── Keyboard shortcuts (non-tool shortcuts) ──────────────────
+  // -- Keyboard shortcuts (non-tool shortcuts) --------------------------------
   // Tool shortcuts (1-4, G) are handled by StudioToolbar.
   // We handle: r/R rotate, Delete/Backspace delete, Escape, Ctrl+S.
 
@@ -195,49 +327,72 @@ export function StudioPage({
     return () => window.removeEventListener('keydown', handler);
   }, [handleSave]);
 
-  // ── Plot selector state (bottom bar) ─────────────────────────
-
-  const plotSize = useStudioStore((s) => s.plotSize);
-
-  // ── Render ───────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
 
   return (
     <div style={ROOT_STYLE}>
       {/* Top toolbar: tools, grid toggle, save, back */}
-      <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} />
+      <StudioToolbar
+        onSave={handleSave}
+        onBack={onBack}
+        saving={saving}
+        saveFlash={saveFlash}
+      />
 
       {/* Left palette: prefab catalog */}
       <StudioPalette />
 
+      {/* Right panel: properties */}
+      <StudioProperties />
+
       {/* 3D canvas area */}
       <div style={CANVAS_CONTAINER}>
-        <StudioCanvas>
-          <StudioPlacedPrefabs />
-          <StudioGhost />
-        </StudioCanvas>
+        {loading ? (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: STUDIO_COLORS.canvasBg,
+            }}
+          >
+            <Loader2
+              size={32}
+              style={{
+                color: STUDIO_COLORS.textTertiary,
+                animation: 'spin 1s linear infinite',
+              }}
+            />
+          </div>
+        ) : (
+          <StudioCanvas>
+            <StudioPlacedPrefabs />
+            <StudioGhost />
+          </StudioCanvas>
+        )}
       </div>
 
-      {/* Bottom bar: plot size display (StudioPlotSelector placeholder) */}
-      <div style={BOTTOM_BAR}>
-        <span
-          style={{
-            fontSize: 11,
-            color: '#94a3b8',
-            fontWeight: 600,
+      {/* Bottom bar: plot size selector */}
+      <StudioPlotSelector />
+
+      {/* Inline modal for company name (create mode) */}
+      {showNameModal && (
+        <CompanyNameModal
+          onConfirm={(name) => {
+            setShowNameModal(false);
+            pendingSaveRef.current?.(name);
           }}
-        >
-          {plotSize.name}
-        </span>
-        <span
-          style={{
-            fontSize: 10,
-            fontFamily: 'monospace',
-            color: '#64748b',
+          onCancel={() => {
+            setShowNameModal(false);
+            pendingSaveRef.current?.(null);
           }}
-        >
-          {plotSize.width} x {plotSize.depth}
-        </span>
-      </div>
+        />
+      )}
+
+      {/* CSS keyframes for loader spinner */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

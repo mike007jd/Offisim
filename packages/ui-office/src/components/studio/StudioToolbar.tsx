@@ -6,7 +6,24 @@
  */
 
 import { useEffect, useCallback } from 'react';
+import {
+  MousePointer2,
+  Move,
+  RotateCcw,
+  Plus,
+  Grid3x3,
+  ArrowLeft,
+  Save,
+} from 'lucide-react';
 import { useStudioStore, type StudioTool } from './StudioState.js';
+import {
+  STUDIO_COLORS,
+  SP,
+  FONT,
+  panelStyle,
+  toolButtonStyle,
+  kbdStyle,
+} from './studio-tokens.js';
 
 // -- Types --------------------------------------------------------------------
 
@@ -14,6 +31,7 @@ interface StudioToolbarProps {
   onSave: () => void;
   onBack: () => void;
   saving?: boolean;
+  saveFlash?: boolean;
 }
 
 // -- Tool definitions ---------------------------------------------------------
@@ -22,60 +40,23 @@ interface ToolDef {
   id: StudioTool;
   label: string;
   shortcut: string;
-  icon: string;
+  Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'select', label: 'Select', shortcut: '1', icon: '\u25B3' },
-  { id: 'move', label: 'Move', shortcut: '2', icon: '\u2725' },
-  { id: 'rotate', label: 'Rotate', shortcut: '3', icon: '\u21BB' },
-  { id: 'place', label: 'Place', shortcut: '4', icon: '\u271A' },
+  { id: 'select', label: 'Select', shortcut: '1', Icon: MousePointer2 },
+  { id: 'move', label: 'Move', shortcut: '2', Icon: Move },
+  { id: 'rotate', label: 'Rotate', shortcut: '3', Icon: RotateCcw },
+  { id: 'place', label: 'Place', shortcut: '4', Icon: Plus },
 ];
 
 // -- Styles -------------------------------------------------------------------
 
-const BAR_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 48,
-  background: 'rgba(15, 15, 26, 0.95)',
-  borderBottom: '1px solid #333',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-  padding: '0 10px',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  zIndex: 10,
-};
-
-const TOOL_BTN_BASE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-  padding: '4px 10px',
-  border: '1px solid transparent',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 11,
-  fontWeight: 600,
-  fontFamily: 'inherit',
-  transition: 'background 0.1s, border-color 0.1s',
-};
-
-const SHORTCUT_STYLE: React.CSSProperties = {
-  fontSize: 9,
-  fontFamily: 'monospace',
-  opacity: 0.5,
-  marginLeft: 2,
-};
-
 const SEPARATOR: React.CSSProperties = {
   width: 1,
-  height: 24,
-  background: '#333',
-  margin: '0 6px',
+  height: SP.xxl,
+  background: STUDIO_COLORS.border,
+  margin: `0 ${SP.sm}px`,
   flexShrink: 0,
 };
 
@@ -83,7 +64,7 @@ const SPACER: React.CSSProperties = { flex: 1 };
 
 // -- Component ----------------------------------------------------------------
 
-export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
+export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolbarProps) {
   const tool = useStudioStore((s) => s.tool);
   const setTool = useStudioStore((s) => s.setTool);
   const gridSnap = useStudioStore((s) => s.gridSnap);
@@ -128,18 +109,21 @@ export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const canSave = dirty && !saving;
+
   return (
-    <div style={BAR_STYLE}>
+    <div style={panelStyle('top')}>
       {/* Back */}
       <button
         onClick={onBack}
+        aria-label="Back to company selection"
         style={{
-          ...TOOL_BTN_BASE,
-          background: 'rgba(255,255,255,0.05)',
-          color: '#ccc',
+          ...toolButtonStyle(false),
+          gap: SP.xs,
         }}
       >
-        &larr; Back
+        <ArrowLeft size={14} />
+        <span>Back</span>
       </button>
 
       <div style={SEPARATOR} />
@@ -151,16 +135,12 @@ export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
           <button
             key={t.id}
             onClick={() => setTool(t.id)}
-            style={{
-              ...TOOL_BTN_BASE,
-              background: active ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
-              color: active ? '#a5b4fc' : '#ccc',
-              borderColor: active ? 'rgba(99,102,241,0.5)' : 'transparent',
-            }}
+            aria-label={`${t.label} tool (${t.shortcut})`}
+            style={toolButtonStyle(active)}
           >
-            <span>{t.icon}</span>
+            <t.Icon size={14} />
             <span>{t.label}</span>
-            <span style={SHORTCUT_STYLE}>{t.shortcut}</span>
+            <kbd style={kbdStyle()}>{t.shortcut}</kbd>
           </button>
         );
       })}
@@ -170,16 +150,12 @@ export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
       {/* Grid snap toggle */}
       <button
         onClick={toggleGridSnap}
-        style={{
-          ...TOOL_BTN_BASE,
-          background: gridSnap ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
-          color: gridSnap ? '#a5b4fc' : '#ccc',
-          borderColor: gridSnap ? 'rgba(99,102,241,0.5)' : 'transparent',
-        }}
-        title="Toggle grid snap (G)"
+        aria-label={`Toggle grid snap (G) — currently ${gridSnap ? 'on' : 'off'}`}
+        style={toolButtonStyle(gridSnap)}
       >
-        <span>#</span>
+        <Grid3x3 size={14} />
         <span>Grid</span>
+        <kbd style={kbdStyle()}>G</kbd>
       </button>
 
       <div style={SEPARATOR} />
@@ -187,9 +163,9 @@ export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
       {/* Item count */}
       <span
         style={{
-          fontSize: 11,
-          fontFamily: 'monospace',
-          color: '#94a3b8',
+          fontSize: FONT.base,
+          fontFamily: FONT.mono,
+          color: STUDIO_COLORS.textSecondary,
         }}
       >
         {instanceCount} item{instanceCount !== 1 ? 's' : ''}
@@ -200,16 +176,23 @@ export function StudioToolbar({ onSave, onBack, saving }: StudioToolbarProps) {
       {/* Save */}
       <button
         onClick={onSave}
-        disabled={!dirty || saving}
+        disabled={!canSave}
+        aria-label={saving ? 'Saving in progress' : 'Save layout (Ctrl+S)'}
         style={{
-          ...TOOL_BTN_BASE,
-          background: dirty && !saving ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.03)',
-          color: dirty && !saving ? '#a5b4fc' : '#555',
-          borderColor: dirty && !saving ? 'rgba(99,102,241,0.5)' : 'transparent',
-          cursor: dirty && !saving ? 'pointer' : 'not-allowed',
+          ...toolButtonStyle(canSave),
+          cursor: canSave ? 'pointer' : 'not-allowed',
+          ...(saveFlash
+            ? {
+                background: STUDIO_COLORS.successMuted,
+                color: STUDIO_COLORS.success,
+                borderColor: STUDIO_COLORS.success,
+              }
+            : {}),
         }}
       >
-        {saving ? 'Saving\u2026' : 'Save'}
+        <Save size={14} />
+        <span>{saving ? 'Saving\u2026' : saveFlash ? 'Saved!' : 'Save'}</span>
+        <kbd style={kbdStyle()}>{'\u2318'}S</kbd>
       </button>
     </div>
   );
