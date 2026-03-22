@@ -17,6 +17,9 @@ import type { ZoneDef } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { STATE_LABELS } from '../../lib/state-labels';
+import { useSceneOrchestrator, type CeremonyState } from '../../hooks/useSceneOrchestrator';
+import { getPhaseColor } from '../../lib/ceremony-visuals';
+import { truncate } from '../../lib/format-time';
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -198,6 +201,11 @@ const EmployeeNode = memo(function EmployeeNode({
   const avatarUri = useMemo(() => getAvatarUri(seed), [seed]);
   const statusColor = STATUS_COLORS[agent.state] ?? '#64748b';
 
+  const isActive = agent.state !== 'idle';
+  const isBlocked = agent.state === 'blocked' || agent.state === 'failed';
+  const isSuccess = agent.state === 'success';
+  const isWorking = agent.state === 'executing' || agent.state === 'thinking' || agent.state === 'searching';
+
   return (
     <g
       transform={`translate(${x}, ${y})`}
@@ -218,24 +226,66 @@ const EmployeeNode = memo(function EmployeeNode({
       {selected && (
         <circle cx="0" cy="0" r="26" fill="none" stroke="var(--accent-val)" strokeWidth="2.5" opacity={0.9} />
       )}
-      {/* Status aura */}
-      <circle cx="0" cy="0" r="22" fill={statusColor} opacity="0.15" />
-      {/* Avatar background */}
-      <circle cx="0" cy="0" r="18" fill="var(--surface-lighter)" stroke={statusColor} strokeWidth="2.5" />
+      {/* Status aura — with pulse animation for active states */}
+      <circle
+        cx="0" cy="0" r="22"
+        fill={statusColor}
+        opacity="0.15"
+        style={{ transition: 'fill 0.4s ease, opacity 0.4s ease' }}
+      >
+        {isActive && (
+          <animate attributeName="r" values="22;25;22" dur={isBlocked ? '2s' : '1.5s'} repeatCount="indefinite" />
+        )}
+        {isActive && (
+          <animate attributeName="opacity" values="0.15;0.25;0.15" dur={isBlocked ? '2s' : '1.5s'} repeatCount="indefinite" />
+        )}
+      </circle>
+      {/* Avatar background — smooth color transition */}
+      <circle
+        cx="0" cy="0" r="18"
+        fill="var(--surface-lighter)"
+        stroke={statusColor}
+        strokeWidth={isActive ? '3' : '2.5'}
+        style={{ transition: 'stroke 0.4s ease, stroke-width 0.3s ease' }}
+      />
       {/* Avatar image */}
       <image
         href={avatarUri}
         x="-16" y="-16" width="32" height="32"
         clipPath="circle(16px at center)"
       />
-      {/* Status pip */}
-      <circle cx="12" cy="12" r="5" fill={statusColor} stroke="var(--surface-light)" strokeWidth="2" />
+      {/* Status pip — with pulse for working states */}
+      <circle
+        cx="12" cy="12"
+        r="5"
+        fill={statusColor}
+        stroke="var(--surface-light)"
+        strokeWidth="2"
+        style={{ transition: 'fill 0.3s ease' }}
+      >
+        {isWorking && (
+          <animate attributeName="r" values="5;6.5;5" dur="1s" repeatCount="indefinite" />
+        )}
+        {isBlocked && (
+          <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
+        )}
+      </circle>
       {/* Status bubble — floats above avatar for non-idle states */}
-      {agent.state !== 'idle' && STATE_LABELS[agent.state] && (
-        <g transform="translate(0, -28)">
-          <rect x={-22} y={-8} width={44} height={14} rx={7} fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} />
-          <text x={0} y={1} textAnchor="middle" fontSize={7} fontFamily="monospace" fill="rgba(255,255,255,0.8)">
-            {STATE_LABELS[agent.state]}
+      {isActive && STATE_LABELS[agent.state] && (
+        <g transform="translate(0, -28)" style={{ opacity: 1 }}>
+          <rect
+            x={-22} y={-8} width={44} height={14} rx={7}
+            fill={isBlocked ? 'rgba(239,68,68,0.25)' : isSuccess ? 'rgba(34,197,94,0.25)' : 'rgba(0,0,0,0.7)'}
+            stroke={isBlocked ? 'rgba(239,68,68,0.4)' : isSuccess ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}
+            strokeWidth={0.5}
+            style={{ transition: 'fill 0.3s ease, stroke 0.3s ease' }}
+          />
+          <text
+            x={0} y={1}
+            textAnchor="middle" fontSize={7} fontFamily="monospace"
+            fill={isBlocked ? '#fca5a5' : isSuccess ? '#86efac' : 'rgba(255,255,255,0.8)'}
+          >
+            {isBlocked ? '⚠ ' : isSuccess ? '✓ ' : ''}{STATE_LABELS[agent.state]}
           </text>
         </g>
       )}
@@ -282,6 +332,54 @@ function DragGhost({ svgX, svgY, seed, statusColor, name }: {
   );
 }
 
+// ── Meeting bubble (SVG) ──────────────────────────────────────────────
+
+function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
+  if (ceremony.phase === 'idle' || !ceremony.bubbleText) return null;
+
+  // MTG zone center in SVG coords: cx=-10, cz=-8, toSVG(-10, -8, 14, 6) → center
+  const mtg = toSVG(-10, -8, 14, 6);
+  const bx = mtg.x + mtg.w / 2;
+  const by = mtg.y - 30; // above the zone
+
+  return (
+    <g>
+      {/* Blurred background pill */}
+      <rect
+        x={bx - 140} y={by - 16}
+        width="280" height="32" rx="16"
+        fill="rgba(0,0,0,0.65)"
+        stroke="rgba(255,255,255,0.10)"
+        strokeWidth="1"
+      />
+      {/* Phase indicator dot — color matches 3D bubble */}
+      <circle cx={bx - 120} cy={by} r="4" fill={getPhaseColor(ceremony.phase)} opacity="0.8">
+        <animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.5s" repeatCount="indefinite" />
+      </circle>
+      {/* Text */}
+      <text
+        x={bx - 108} y={by + 4}
+        fill="rgba(255,255,255,0.85)"
+        fontSize="12" fontWeight="600"
+        fontFamily="monospace"
+      >
+        {truncate(ceremony.bubbleText, 35)}
+      </text>
+      {/* Participant count */}
+      {ceremony.participantIds.size > 0 && (
+        <text
+          x={bx + 125} y={by + 4}
+          fill="rgba(255,255,255,0.35)"
+          fontSize="9" fontFamily="monospace"
+          textAnchor="end"
+        >
+          {ceremony.participantIds.size}p
+        </text>
+      )}
+    </g>
+  );
+}
+
 // ── Main 2D View ──────────────────────────────────────────────────────
 
 interface Office2DViewProps {
@@ -298,6 +396,9 @@ export default function Office2DView({
   const agents = useAgentStates();
   const { activeCompanyId } = useCompany();
   const { eventBus } = useAicsRuntime();
+
+  // ── Scene choreography (ceremony orchestration) ──
+  const ceremony = useSceneOrchestrator({ companyId: activeCompanyId!, eventBus, agents });
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -520,16 +621,73 @@ export default function Office2DView({
   };
 
   // Group employees by zone for desk cluster assignment.
-  // resolveEmployeeZone uses the persisted workstationId from AgentState, with role as fallback.
+  // Idle employees go to rest area (space = state).
   const zoneEmployees = useMemo(() => {
     const map = new Map<string, Array<{ agent: AgentState; seed: string; empId: string }>>();
     for (const z of ZONES) map.set(z.id, []);
     for (const [empId, agent] of agents) {
-      const zId = resolveEmployeeZone(agent);
+      const zId = agent.state === 'idle' ? 'rest' : resolveEmployeeZone(agent);
       map.get(zId)?.push({ agent, seed: agent.name, empId });
     }
     return map;
   }, [agents]);
+
+  // ── Ceremony-aware employee SVG positions ──
+  // During active ceremony, override employee positions with CSS transitions.
+  const ceremonyActive = ceremony.phase !== 'idle';
+  const employeeCeremonyPositions = useMemo(() => {
+    if (!ceremonyActive) return new Map<string, { x: number; y: number }>();
+
+    const positions = new Map<string, { x: number; y: number }>();
+    const mtgSvg = toSVG(-10, -8, 14, 6);
+    const mtgCx = mtgSvg.x + mtgSvg.w / 2;
+    const mtgCy = mtgSvg.y + mtgSvg.h / 2;
+    const restSvg = toSVG(8, 2, 14, 8);
+    const restCx = restSvg.x + restSvg.w / 2;
+    const restCy = restSvg.y + restSvg.h / 2;
+
+    const allEmps = [...agents.entries()];
+    const mtgRadius = 100; // SVG px
+
+    allEmps.forEach(([empId], idx) => {
+      const isDispatched = ceremony.dispatchedIds.has(empId);
+      const isParticipant = ceremony.participantIds.has(empId);
+
+      if (ceremony.phase === 'dismissing') {
+        // Everyone goes to rest
+        const angle = (idx / Math.max(allEmps.length, 1)) * Math.PI * 1.5 + 0.3;
+        positions.set(empId, {
+          x: restCx + Math.cos(angle) * 60,
+          y: restCy + Math.sin(angle) * 40,
+        });
+      } else if (ceremony.phase === 'working' && isDispatched) {
+        // Dispatched employees at workstations — use zone-based position (don't override)
+        // Let them stay at their desk (no entry in map → default rendering)
+      } else if (isDispatched && (ceremony.phase === 'dispatching')) {
+        // Dispatched: move to their work zone
+        const agent = agents.get(empId);
+        const zoneId = agent ? resolveEmployeeZone(agent) : 'dev';
+        const zone = ZONES.find(z => z.id === zoneId);
+        if (zone) {
+          const zoneSvg = toSVG(zone.cx, zone.cz, zone.w, zone.d);
+          positions.set(empId, {
+            x: zoneSvg.x + zoneSvg.w / 2 + (idx % 2 === 0 ? -40 : 40),
+            y: zoneSvg.y + zoneSvg.h / 2 + (idx % 3 === 0 ? -30 : 30),
+          });
+        }
+      } else if (isParticipant || ceremony.phase === 'gathering' || ceremony.phase === 'analyzing' || ceremony.phase === 'planning') {
+        // Gathering at MTG in semicircle
+        const angle = Math.PI * ((idx + 1) / (allEmps.length + 2));
+        positions.set(empId, {
+          x: mtgCx + Math.cos(angle) * mtgRadius,
+          y: mtgCy + Math.sin(angle) * mtgRadius * 0.6,
+        });
+      }
+    });
+
+    return positions;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- use size as stable proxy for Sets (avoid ref churn)
+  }, [ceremonyActive, ceremony.phase, ceremony.participantIds.size, ceremony.dispatchedIds.size, agents]);
 
   // Determine if an active drag is happening (past threshold)
   const isDragging = dragState?.active ?? false;
@@ -677,6 +835,36 @@ export default function Office2DView({
             </g>;
           })()}
 
+          {/* Rest area employees — idle employees scattered naturally */}
+          {(() => {
+            const restZ = ZONES.find(z => z.id === 'rest')!;
+            const rs = toSVG(restZ.cx, restZ.cz, restZ.w, restZ.d);
+            const rcx = rs.x + rs.w / 2;
+            const rcy = rs.y + rs.h / 2;
+            const restEmps = zoneEmployees.get('rest') ?? [];
+            return restEmps.map((emp, idx) => {
+              if (employeeCeremonyPositions.has(emp.empId)) return null;
+              // Scatter in a natural cluster within the rest area
+              const angle = (idx / Math.max(restEmps.length, 1)) * Math.PI * 1.5 + 0.3;
+              const radius = 60 + (idx % 3) * 40;
+              const ex = rcx + Math.cos(angle) * radius;
+              const ey = rcy + Math.sin(angle) * radius * 0.7;
+              return (
+                <EmployeeNode
+                  key={emp.empId}
+                  x={ex}
+                  y={ey}
+                  agent={emp.agent}
+                  seed={emp.seed}
+                  selected={selectedEmployeeId === emp.empId}
+                  dimmed={isDragging && dragState?.employeeId === emp.empId}
+                  onClick={() => handleEmployeeClick(emp.empId)}
+                  onDragStart={(e) => handleEmployeeDragStart(emp.empId, emp.agent, emp.seed, e)}
+                />
+              );
+            });
+          })()}
+
           {/* Department employees — each in their own quadrant within the zone */}
           {(['dev', 'prod', 'art'] as const).map(id => {
             const z = ZONES.find(zz => zz.id === id)!;
@@ -701,8 +889,8 @@ export default function Office2DView({
                       <rect x="-14" y="-4" width="28" height="3" fill="#0ea5e9" opacity="0.5" />
                       {/* Chair */}
                       <circle cx="0" cy={dy < 0 ? 32 : -32} r="10" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
-                      {/* Employee avatar at chair */}
-                      {emp && (
+                      {/* Employee avatar at chair — hidden during ceremony (rendered in overlay) */}
+                      {emp && !employeeCeremonyPositions.has(emp.empId) && (
                         <EmployeeNode
                           x={0}
                           y={dy < 0 ? 32 : -32}
@@ -728,6 +916,31 @@ export default function Office2DView({
           <PlantSVG x={1930} y={1430} />
           <PlantSVG x={1030} y={1430} />
 
+          {/* ── Ceremony position overlay — employees with CSS-transitioned positions ── */}
+          {ceremonyActive && [...employeeCeremonyPositions.entries()].map(([empId, pos]) => {
+            const agent = agents.get(empId);
+            if (!agent) return null;
+            const isHighlighted = ceremony.dispatchedIds.has(empId) && ceremony.phase === 'dispatching';
+            return (
+              <g
+                key={`ceremony-${empId}`}
+                style={{
+                  transition: 'transform 2s ease-in-out',
+                  transform: `translate(${pos.x}px, ${pos.y}px)`,
+                }}
+              >
+                <EmployeeNode
+                  x={0}
+                  y={0}
+                  agent={agent}
+                  seed={agent.name}
+                  selected={selectedEmployeeId === empId || isHighlighted}
+                  onClick={() => handleEmployeeClick(empId)}
+                />
+              </g>
+            );
+          })}
+
           {/* ── Drag ghost overlay ── */}
           {isDragging && dragState && (
             <DragGhost
@@ -738,6 +951,9 @@ export default function Office2DView({
               name={dragState.employeeName}
             />
           )}
+
+          {/* ── Meeting bubble (SVG overlay above MTG zone) ── */}
+          <MeetingBubble2D ceremony={ceremony} />
         </svg>
       </div>
     </div>

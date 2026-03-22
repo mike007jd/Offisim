@@ -1,17 +1,7 @@
-import { Badge, Card, CardContent, CardHeader, CardTitle, type BadgeProps } from '@aics/ui-core';
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
-
-const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
-  idle: 'secondary',
-  assigned: 'info',
-  thinking: 'info',
-  executing: 'success',
-  meeting: 'default',
-  blocked: 'error',
-  failed: 'error',
-  waiting: 'warning',
-};
+import { STATE_VARIANTS } from '../../lib/state-variants';
 
 interface CompanyStatusCardProps {
   agents: Map<string, AgentState>;

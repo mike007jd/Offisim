@@ -46,7 +46,9 @@ import type {
   PlanStepCompletedPayload,
   PlanStepStartedPayload,
   RuntimeEvent,
+  TaskAssignmentDispatchedPayload,
   TaskAssignmentPayload,
+  TaskSubtaskProgressPayload,
   TaskState,
   TaskStatePayload,
 } from '@aics/shared-types';
@@ -104,6 +106,47 @@ export function taskAssignmentChanged(
     threadId,
     timestamp: Date.now(),
     payload: { taskRunId, employeeId, action },
+  };
+}
+
+export function taskAssignmentDispatched(
+  companyId: string,
+  employeeId: string,
+  employeeName: string,
+  stepLabel: string,
+  stepIndex: number,
+  totalSteps: number,
+  threadId?: string,
+): RuntimeEvent<TaskAssignmentDispatchedPayload> {
+  return {
+    type: 'task.assignment.dispatched',
+    entityId: employeeId,
+    entityType: 'task',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { employeeId, employeeName, stepLabel, stepIndex, totalSteps },
+  };
+}
+
+export function taskSubtaskProgress(
+  companyId: string,
+  employeeId: string,
+  stepIndex: number,
+  label: string,
+  status: 'queued' | 'running' | 'done' | 'failed',
+  totalSteps: number,
+  completedSteps: number,
+  threadId?: string,
+): RuntimeEvent<TaskSubtaskProgressPayload> {
+  return {
+    type: 'task.subtask.progress',
+    entityId: employeeId,
+    entityType: 'task',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { employeeId, stepIndex, label, status, totalSteps, completedSteps },
   };
 }
 

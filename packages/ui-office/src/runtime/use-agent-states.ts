@@ -4,10 +4,25 @@ import type {
   EmployeeStatePayload,
   EmployeeUpdatedPayload,
   RuntimeEvent,
+  TaskAssignmentDispatchedPayload,
+  TaskSubtaskProgressPayload,
 } from '@aics/shared-types';
 import { useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from './aics-runtime-context';
+
+export interface AgentTaskInfo {
+  stepLabel: string;
+  stepIndex: number;
+  totalSteps: number;
+}
+
+export interface SubTaskInfo {
+  stepIndex: number;
+  label: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  startedAt?: number;
+}
 
 export interface AgentState {
   name: string;
@@ -15,6 +30,10 @@ export interface AgentState {
   state: string;
   taskRunId?: string;
   workstationId?: string | null;
+  /** Current task assignment from step dispatcher. */
+  currentTask?: AgentTaskInfo | null;
+  /** Sub-task progress list for parallel task tracking. */
+  subTasks?: SubTaskInfo[];
 }
 
 /**
@@ -60,7 +79,10 @@ export function useAgentStates(): Map<string, AgentState> {
           if (existing && existing.state === next && existing.taskRunId === taskRunId) return prev;
           if (!existing) return prev;
           const next2 = new Map(prev);
-          next2.set(employeeId, { ...existing, state: next, taskRunId });
+          // Clear currentTask and subTasks when employee returns to idle
+          const currentTask = next === 'idle' ? null : existing.currentTask;
+          const subTasks = next === 'idle' ? undefined : existing.subTasks;
+          next2.set(employeeId, { ...existing, state: next, taskRunId, currentTask, subTasks });
           return next2;
         });
       },
@@ -115,6 +137,51 @@ export function useAgentStates(): Map<string, AgentState> {
       },
     );
 
+    // Task dispatched — update currentTask info for scene choreography
+    const unsubDispatched = eventBus.on(
+      'task.assignment.dispatched',
+      (event: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
+        const { employeeId, stepLabel, stepIndex, totalSteps } = event.payload;
+        setAgents((prev) => {
+          const existing = prev.get(employeeId);
+          if (!existing) return prev;
+          const next = new Map(prev);
+          next.set(employeeId, {
+            ...existing,
+            currentTask: { stepLabel, stepIndex, totalSteps },
+          });
+          return next;
+        });
+      },
+    );
+
+    // Subtask progress — build up sub-task list per employee
+    const unsubSubtask = eventBus.on(
+      'task.subtask.progress',
+      (event: RuntimeEvent<TaskSubtaskProgressPayload>) => {
+        const { employeeId, stepIndex, label, status } = event.payload;
+        setAgents((prev) => {
+          const existing = prev.get(employeeId);
+          if (!existing) return prev;
+          const subTasks = [...(existing.subTasks ?? [])];
+          const idx = subTasks.findIndex(s => s.stepIndex === stepIndex);
+          const entry: SubTaskInfo = {
+            stepIndex, label,
+            status,
+            startedAt: status === 'running' ? Date.now() : subTasks[idx]?.startedAt,
+          };
+          if (idx >= 0) {
+            subTasks[idx] = entry;
+          } else {
+            subTasks.push(entry);
+          }
+          const next = new Map(prev);
+          next.set(employeeId, { ...existing, subTasks });
+          return next;
+        });
+      },
+    );
+
     // Employee deleted — remove entry
     const unsubDeleted = eventBus.on(
       'employee.deleted',
@@ -134,6 +201,8 @@ export function useAgentStates(): Map<string, AgentState> {
       unsubUpdated();
       unsubDeleted();
       unsubWorkstation();
+      unsubDispatched();
+      unsubSubtask();
     };
   }, [eventBus]);
 

@@ -103,6 +103,23 @@ export interface TaskAssignmentPayload {
   readonly action: 'assigned' | 'unassigned';
 }
 
+export interface TaskAssignmentDispatchedPayload {
+  readonly employeeId: string;
+  readonly employeeName: string;
+  readonly stepLabel: string;
+  readonly stepIndex: number;
+  readonly totalSteps: number;
+}
+
+export interface TaskSubtaskProgressPayload {
+  readonly employeeId: string;
+  readonly stepIndex: number;
+  readonly label: string;
+  readonly status: 'queued' | 'running' | 'done' | 'failed';
+  readonly totalSteps: number;
+  readonly completedSteps: number;
+}
+
 export interface MeetingStatePayload {
   readonly meetingId: string;
   readonly prev: MeetingState;

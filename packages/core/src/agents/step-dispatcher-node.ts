@@ -4,6 +4,7 @@ import {
   graphNodeEntered,
   planStepStarted,
   taskAssignmentChanged,
+  taskAssignmentDispatched,
   taskStateChanged,
 } from '../events/event-factories.js';
 import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
@@ -56,6 +57,8 @@ export async function stepDispatcherNode(
     }
   }
 
+  const totalSteps = plan.steps.length;
+
   for (const task of currentStep.tasks) {
     const taskRunId = task.taskRunId;
 
@@ -69,6 +72,20 @@ export async function stepDispatcherNode(
         taskAssignmentChanged(companyId, taskRunId, task.employeeId, 'assigned', threadId),
       );
     }
+
+    // Emit dispatched event for scene choreography (look up employee name)
+    const emp = await repos.employees.findById(task.employeeId).catch(() => null);
+    eventBus.emit(
+      taskAssignmentDispatched(
+        companyId,
+        task.employeeId,
+        emp?.name ?? task.employeeId,
+        task.description,
+        stepIdx,
+        totalSteps,
+        threadId,
+      ),
+    );
 
     // Build task description, optionally injecting previous step output
     let description = task.description;

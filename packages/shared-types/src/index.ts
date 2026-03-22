@@ -33,6 +33,8 @@ export type {
   EmployeeStatePayload,
   TaskStatePayload,
   TaskAssignmentPayload,
+  TaskAssignmentDispatchedPayload,
+  TaskSubtaskProgressPayload,
   MeetingStatePayload,
   LlmCallStartedPayload,
   LlmCallCompletedPayload,

@@ -45,6 +45,23 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'claude-sonnet-4-20250514',
     },
   },
+  subscription: {
+    label: '订阅制 (Subscription)',
+    defaults: {
+      provider: 'subscription',
+      model: 'default',
+      apiKey: '',
+    },
+  },
+  lmstudio: {
+    label: 'LM Studio (Local)',
+    defaults: {
+      provider: 'openai-compat',
+      baseURL: 'http://localhost:1234/v1',
+      model: 'qwen/qwen3.5-9b',
+      apiKey: 'lm-studio',
+    },
+  },
   custom: {
     label: 'Custom (OpenAI-compatible)',
     defaults: {

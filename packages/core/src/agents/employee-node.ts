@@ -12,6 +12,7 @@ import {
   memoryAccessed,
   taskAssignmentChanged,
   taskStateChanged,
+  taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import type { LlmMessage, ToolDef } from '../llm/gateway.js';
@@ -167,6 +168,13 @@ export async function employeeNode(
     employeeStateChanged(companyId, employee.employee_id, 'idle', 'executing', threadId, taskRunId),
   );
 
+  // Track subtask progress scoped to THIS employee (not all employees in the queue)
+  const myAssignments = state.pendingAssignments.filter(a => a.employeeId === employee.employee_id);
+  const myRemaining = remaining.filter(a => a.employeeId === employee.employee_id);
+  const totalAssignments = myAssignments.length;
+  const completedSoFar = totalAssignments - myRemaining.length - 1;
+  const taskLabel = ((assignment.inputJson as Record<string, unknown>).description as string)?.slice(0, 60) ?? 'Task';
+
   // Update task run status
   if (taskRunId) {
     await repos.taskRuns.updateStatus(taskRunId, 'running');
@@ -174,6 +182,16 @@ export async function employeeNode(
       taskStateChanged(companyId, taskRunId, 'queued', 'running', threadId, employee.employee_id),
     );
   }
+
+  // Emit subtask running progress
+  eventBus.emit(
+    taskSubtaskProgress(
+      companyId, employee.employee_id,
+      completedSoFar, taskLabel, 'running',
+      totalAssignments, completedSoFar,
+      threadId,
+    ),
+  );
 
   const resolved = modelResolver.resolve(null, employee.role_slug);
   const taskDescription =
@@ -500,6 +518,16 @@ export async function employeeNode(
       );
     }
 
+    // Emit subtask done progress
+    eventBus.emit(
+      taskSubtaskProgress(
+        companyId, employee.employee_id,
+        completedSoFar, taskLabel, 'done',
+        totalAssignments, completedSoFar + 1,
+        threadId,
+      ),
+    );
+
     // Emit employee idle state
     eventBus.emit(
       employeeStateChanged(
@@ -570,6 +598,16 @@ export async function employeeNode(
         taskStateChanged(companyId, taskRunId, 'running', 'failed', threadId, employee.employee_id),
       );
     }
+
+    // Emit subtask failed progress
+    eventBus.emit(
+      taskSubtaskProgress(
+        companyId, employee.employee_id,
+        completedSoFar, taskLabel, 'failed',
+        totalAssignments, completedSoFar,
+        threadId,
+      ),
+    );
 
     // Build structured error JSON for error_handler node to parse
     const structuredError = {

@@ -75,3 +75,19 @@ export const STATUS_COLORS: Record<string, string> = {
   executing: '#10b981', meeting: '#a855f7', blocked: '#ef4444', waiting: '#f59e0b',
   reporting: '#06b6d4', success: '#22c55e', failed: '#ef4444', paused: '#475569',
 };
+
+/** Workstation seat positions relative to zone center [x, y, z]. */
+export const SEAT_OFFSETS: readonly [number, number, number][] = [
+  [-0.8, 0, -1.6], [0.8, 0, -1.6],
+  [-0.8, 0, 1.6], [0.8, 0, 1.6],
+];
+
+/** Get the 3D world center of a zone by ID. Returns rest zone if not found. */
+export function getZoneCenter3D(zoneId: string): [number, number, number] {
+  const zone = ZONES.find(z => z.id === zoneId);
+  if (!zone) {
+    const rest = ZONES.find(z => z.id === 'rest')!;
+    return [rest.cx, 0, rest.cz];
+  }
+  return [zone.cx, 0, zone.cz];
+}

@@ -1,35 +1,10 @@
-import { Badge, Button, type BadgeProps } from '@aics/ui-core';
+import { Badge, Button } from '@aics/ui-core';
 import { MessageSquare, Pencil, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 import { ROLE_LABELS } from '../../lib/roles';
-
-// ---------------------------------------------------------------------------
-// State badge config (mirrored from AgentCard)
-// ---------------------------------------------------------------------------
-
-const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
-  idle: 'secondary',
-  assigned: 'info',
-  thinking: 'info',
-  executing: 'success',
-  meeting: 'default',
-  blocked: 'error',
-  failed: 'error',
-  waiting: 'warning',
-};
-
-const STATUS_DOTS: Record<string, string> = {
-  idle: 'bg-slate-400',
-  assigned: 'bg-blue-500',
-  thinking: 'bg-blue-500',
-  executing: 'bg-emerald-500',
-  meeting: 'bg-purple-500',
-  blocked: 'bg-red-500',
-  failed: 'bg-red-500',
-  waiting: 'bg-amber-500',
-};
+import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
 
 // ---------------------------------------------------------------------------
 // Props
