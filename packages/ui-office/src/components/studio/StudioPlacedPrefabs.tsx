@@ -34,6 +34,10 @@ const highlightRingMat = new THREE.MeshBasicMaterial({
   depthWrite: false,
 });
 
+// Pre-allocated objects for handleObjectChange (Skill §7: no allocations in hot path)
+const _pos = new THREE.Vector3();
+const _euler = new THREE.Euler();
+
 // ---------------------------------------------------------------------------
 // PlacedPrefabItem — memoized single prefab instance
 // ---------------------------------------------------------------------------
@@ -58,6 +62,9 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
     (e: THREE.Event) => {
       // Prevent OrbitControls / canvas pointerMissed from firing
       (e as unknown as { stopPropagation: () => void }).stopPropagation();
+      // Only allow selection with appropriate tools (Skill §2)
+      const tool = useStudioStore.getState().tool;
+      if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
       onSelect(instance.id);
     },
     [instance.id, onSelect],
@@ -146,15 +153,13 @@ export function StudioPlacedPrefabs() {
     if (!group || !selectedId) return;
 
     if (transformMode === 'translate') {
-      // Read world position from the group
-      const pos = new THREE.Vector3();
-      group.getWorldPosition(pos);
-      updatePosition(selectedId, [pos.x, pos.y, pos.z]);
+      // Read world position from the group (re-use pre-allocated vector)
+      group.getWorldPosition(_pos);
+      updatePosition(selectedId, [_pos.x, _pos.y, _pos.z]);
     } else {
       // Read Y rotation (euler) and snap to nearest 90-degree increment
-      const euler = new THREE.Euler();
-      euler.setFromQuaternion(group.quaternion, 'YXZ');
-      const degrees = THREE.MathUtils.radToDeg(euler.y);
+      _euler.setFromQuaternion(group.quaternion, 'YXZ');
+      const degrees = THREE.MathUtils.radToDeg(_euler.y);
       // Snap to 0/90/180/270
       const snapped = (((Math.round(degrees / 90) * 90) % 360) + 360) % 360;
       updateRotation(selectedId, snapped as 0 | 90 | 180 | 270);

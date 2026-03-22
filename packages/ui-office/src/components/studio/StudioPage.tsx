@@ -305,7 +305,11 @@ export function StudioPage({
       switch (e.key) {
         case 'r':
         case 'R':
-          store.rotateSelected();
+          if (store.placingPrefab) {
+            store.rotateGhost();
+          } else {
+            store.rotateSelected();
+          }
           break;
         case 'f':
         case 'F':

@@ -29,6 +29,7 @@ export interface StudioStore {
   tool: StudioTool;
   plotSize: PlotSize;
   placingPrefab: PrefabDefinition | null;
+  ghostRotation: 0 | 90 | 180 | 270;
   selectedInstanceId: string | null;
   instances: PlacedInstance[];
   dirty: boolean;
@@ -39,6 +40,7 @@ export interface StudioStore {
   setPlotSize: (size: PlotSize) => void;
   startPlacement: (def: PrefabDefinition) => void;
   cancelPlacement: () => void;
+  rotateGhost: () => void;
   placeInstance: (position: [number, number, number], zoneId: string) => void;
   selectInstance: (id: string | null) => void;
   deleteSelected: () => void;
@@ -59,6 +61,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   tool: 'select',
   plotSize: PLOT_SIZES[1]!, // 标准办公室
   placingPrefab: null,
+  ghostRotation: 0,
   selectedInstanceId: null,
   instances: [],
   dirty: false,
@@ -67,17 +70,23 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setTool: (tool) => set({ tool, placingPrefab: tool !== 'place' ? null : get().placingPrefab }),
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
-  startPlacement: (def) => set({ tool: 'place', placingPrefab: def, selectedInstanceId: null }),
-  cancelPlacement: () => set({ tool: 'select', placingPrefab: null }),
+  startPlacement: (def) => set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
+  cancelPlacement: () => set({ tool: 'select', placingPrefab: null, ghostRotation: 0 }),
+
+  rotateGhost: () => {
+    const ROTATIONS: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
+    const idx = ROTATIONS.indexOf(get().ghostRotation);
+    set({ ghostRotation: ROTATIONS[(idx + 1) % 4]! });
+  },
 
   placeInstance: (position, zoneId) => {
-    const { placingPrefab, instances } = get();
+    const { placingPrefab, ghostRotation, instances } = get();
     if (!placingPrefab) return;
     const instance: PlacedInstance = {
       id: generateId(),
       prefabId: placingPrefab.prefabId,
       position,
-      rotation: 0,
+      rotation: ghostRotation,
       zoneId,
     };
     set({ instances: [...instances, instance], dirty: true });

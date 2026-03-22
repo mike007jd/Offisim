@@ -32,24 +32,34 @@ function snap(v: number, grid: number): number {
 const SNAP = 0.5;
 
 /**
- * Check if a new prefab at [x, z] with given grid size overlaps any existing instance.
- * Uses AABB overlap on the XZ plane.
+ * Return [width, depth] after applying rotation (swap dimensions for 90/270).
+ */
+function getRotatedSize(w: number, d: number, rotation: number): [number, number] {
+  return (rotation % 180 === 0) ? [w, d] : [d, w];
+}
+
+/**
+ * Check if a new prefab at [x, z] with given grid size and rotation overlaps any existing instance.
+ * Uses AABB overlap on the XZ plane, accounting for rotation of both the ghost and existing instances.
  */
 function checkOverlap(
   x: number,
   z: number,
   gridW: number,
   gridD: number,
-  instances: { position: [number, number, number]; prefabId: string }[],
+  ghostRotation: number,
+  instances: { position: [number, number, number]; rotation: number; prefabId: string }[],
 ): boolean {
-  const halfW = gridW * 0.9; // each grid unit ≈ 2 3D units, half = gridW, with slight margin
-  const halfD = gridD * 0.9;
+  const [gw, gd] = getRotatedSize(gridW, gridD, ghostRotation);
+  const halfW = gw * 0.9; // slight margin for edge-touching
+  const halfD = gd * 0.9;
 
   for (const inst of instances) {
     const def = getBuiltinPrefab(inst.prefabId);
     if (!def) continue;
-    const iHalfW = def.gridSize[0] * 0.9;
-    const iHalfD = def.gridSize[1] * 0.9;
+    const [iw, id] = getRotatedSize(def.gridSize[0], def.gridSize[1], inst.rotation);
+    const iHalfW = iw * 0.9;
+    const iHalfD = id * 0.9;
 
     const ix = inst.position[0];
     const iz = inst.position[2];
@@ -76,6 +86,7 @@ export function StudioGhost() {
   const { invalidate } = useThree();
 
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
+  const ghostRotation = useStudioStore((s) => s.ghostRotation);
   const plotSize = useStudioStore((s) => s.plotSize);
   const placeInstance = useStudioStore((s) => s.placeInstance);
   const cancelPlacement = useStudioStore((s) => s.cancelPlacement);
@@ -143,6 +154,14 @@ export function StudioGhost() {
   useEffect(() => {
     if (floorRef.current) floorRef.current.layers.set(1);
   }, []);
+
+  // ── Apply ghost rotation when R key is pressed (without pointer move) ──
+  useEffect(() => {
+    if (groupRef.current && placingPrefab) {
+      groupRef.current.rotation.y = (ghostRotation * Math.PI) / 180;
+      invalidate();
+    }
+  }, [ghostRotation, placingPrefab, invalidate]);
 
   // Ring geometry for ground indicator (shared)
   const ringGeo = useMemo(() => {
@@ -223,12 +242,14 @@ export function StudioGhost() {
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
 
-          // Check collision
-          const isBlocked = checkOverlap(x, z, gridW, gridD, instances);
+          // Check collision (rotation-aware)
+          const curGhostRotation = useStudioStore.getState().ghostRotation;
+          const isBlocked = checkOverlap(x, z, gridW, gridD, curGhostRotation, instances);
           blockedRef.current = isBlocked;
 
           if (groupRef.current) {
             groupRef.current.position.set(x, 0, z);
+            groupRef.current.rotation.y = (curGhostRotation * Math.PI) / 180;
             groupRef.current.visible = true;
           }
           invalidate();
@@ -241,8 +262,9 @@ export function StudioGhost() {
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
 
-          // Block placement if overlapping
-          if (checkOverlap(x, z, gridW, gridD, instances)) {
+          // Block placement if overlapping (rotation-aware)
+          const curGhostRotation = useStudioStore.getState().ghostRotation;
+          if (checkOverlap(x, z, gridW, gridD, curGhostRotation, instances)) {
             return; // don't place
           }
 
