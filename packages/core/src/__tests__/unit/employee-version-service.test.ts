@@ -196,6 +196,57 @@ describe('EmployeeVersionService', () => {
     });
   });
 
+  describe('createVersion with transact', () => {
+    it('calls transact exactly once for the write phase', async () => {
+      const versionRepo = new MemoryEmployeeVersionRepository();
+      const employeeRepo = createMockEmployeeRepo();
+      const eventBus = new InMemoryEventBus();
+
+      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
+      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+
+      const service = new EmployeeVersionService(versionRepo, employeeRepo, eventBus, mockTransact);
+      // Note: with memory repos the Drizzle "synchronous promise" assumption doesn't hold,
+      // so the return value may be undefined — we only assert transact was called.
+      await service.createVersion('emp-1', 'create').catch(() => {
+        // may throw on `captured!` being undefined with async memory repos — that's expected
+      });
+
+      // transact must have been invoked exactly once (write-phase wrapping)
+      expect(mockTransact).toHaveBeenCalledOnce();
+    });
+
+    it('works normally (async path) when transact is not provided', async () => {
+      const versionRepo = new MemoryEmployeeVersionRepository();
+      const employeeRepo = createMockEmployeeRepo();
+      const eventBus = new InMemoryEventBus();
+
+      // No transact argument — uses the async fallback path
+      const service = new EmployeeVersionService(versionRepo, employeeRepo, eventBus);
+      const v = await service.createVersion('emp-1', 'update');
+
+      expect(v.version_num).toBe(1);
+      expect(v.change_type).toBe('update');
+    });
+
+    it('emits event even when transact is used', async () => {
+      const versionRepo = new MemoryEmployeeVersionRepository();
+      const employeeRepo = createMockEmployeeRepo();
+      const eventBus = new InMemoryEventBus();
+
+      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
+      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+      const service = new EmployeeVersionService(versionRepo, employeeRepo, eventBus, mockTransact);
+
+      const events: unknown[] = [];
+      eventBus.on('employee.version.created', (e) => events.push(e));
+
+      await service.createVersion('emp-1', 'create');
+
+      expect(events).toHaveLength(1);
+    });
+  });
+
   describe('diffVersions', () => {
     it('returns empty array for identical snapshots', () => {
       const versionRepo = new MemoryEmployeeVersionRepository();

@@ -24,7 +24,8 @@ import {
 } from './meeting-subgraph.js';
 import { AicsGraphAnnotation, type AicsGraphState, type StepResult } from './state.js';
 
-function routeFromStart(state: AicsGraphState): string {
+/** @internal — exported for testing */
+export function routeFromStart(state: AicsGraphState): string {
   if (state.entryMode === 'direct_chat' && state.targetEmployeeId) {
     return 'employee_direct_setup';
   }
@@ -42,7 +43,8 @@ function routeFromStart(state: AicsGraphState): string {
   return 'boss';
 }
 
-function routeFromBoss(state: AicsGraphState): string {
+/** @internal — exported for testing */
+export function routeFromBoss(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
   switch (state.routeDecision) {
     case 'delegate_manager':
@@ -56,7 +58,8 @@ function routeFromBoss(state: AicsGraphState): string {
   }
 }
 
-function routeFromManager(state: AicsGraphState): string {
+/** @internal — exported for testing */
+export function routeFromManager(state: AicsGraphState): string {
   // If the manager directive indicates a hiring or team assessment intent, route to HR
   if (state.managerDirective?.constraints === 'hire' || state.managerDirective?.constraints === 'assess_team') {
     return 'hr';
@@ -64,14 +67,16 @@ function routeFromManager(state: AicsGraphState): string {
   return 'pm_planner';
 }
 
-function routeFromPm(state: AicsGraphState): string {
+/** @internal — exported for testing */
+export function routeFromPm(state: AicsGraphState): string {
   if (!state.taskPlan || state.taskPlan.steps.length === 0) {
     return 'boss_summary';
   }
   return 'step_dispatcher';
 }
 
-function routeFromEmployee(state: AicsGraphState): string {
+/** @internal — exported for testing */
+export function routeFromEmployee(state: AicsGraphState): string {
   if (state.interruptReason) return 'error_handler';
 
   // Still have pending assignments in the queue — loop back to process them.
