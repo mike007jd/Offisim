@@ -663,7 +663,30 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return db.select().from(schema.modelCostRates).all() as ModelCostRateRow[];
     },
     async upsert(rate: NewModelCostRate) {
-      const existing = db
+      const ts = now();
+      const rateId = `mcr-${crypto.randomUUID()}`;
+      const values: ModelCostRateRow = {
+        rate_id: rateId,
+        ...rate,
+        created_at: ts,
+      };
+      db.insert(schema.modelCostRates)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [
+            schema.modelCostRates.provider,
+            schema.modelCostRates.model_pattern,
+            schema.modelCostRates.effective_from,
+          ],
+          set: {
+            input_cost_per_mtok: rate.input_cost_per_mtok,
+            output_cost_per_mtok: rate.output_cost_per_mtok,
+            effective_until: rate.effective_until,
+          },
+        })
+        .run();
+      // Fetch the persisted row (rate_id may differ if conflict resolved via DO UPDATE)
+      const persisted = db
         .select()
         .from(schema.modelCostRates)
         .where(
@@ -674,19 +697,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
           ),
         )
         .all() as ModelCostRateRow[];
-      if (existing.length > 0) {
-        const row = existing[0]!;
-        db.update(schema.modelCostRates)
-          .set({
-            input_cost_per_mtok: rate.input_cost_per_mtok,
-            output_cost_per_mtok: rate.output_cost_per_mtok,
-            effective_until: rate.effective_until,
-          })
-          .where(eq(schema.modelCostRates.rate_id, row.rate_id))
-          .run();
-        return { ...row, ...rate };
-      }
-      return this.create(rate);
+      return persisted[0] as ModelCostRateRow;
     },
   };
 
@@ -931,16 +942,25 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return (rows[0] as OfficeLayoutRow | undefined) ?? null;
     },
     async setActive(companyId, layoutId) {
-      // Deactivate all layouts for this company first
-      db.update(schema.officeLayouts)
-        .set({ is_active: 0, updated_at: now() })
-        .where(eq(schema.officeLayouts.company_id, companyId))
-        .run();
-      // Activate the target layout
-      db.update(schema.officeLayouts)
-        .set({ is_active: 1, updated_at: now() })
-        .where(eq(schema.officeLayouts.layout_id, layoutId))
-        .run();
+      db.transaction((tx) => {
+        tx.update(schema.officeLayouts)
+          .set({ is_active: 0, updated_at: now() })
+          .where(eq(schema.officeLayouts.company_id, companyId))
+          .run();
+        const result = tx
+          .update(schema.officeLayouts)
+          .set({ is_active: 1, updated_at: now() })
+          .where(
+            and(
+              eq(schema.officeLayouts.layout_id, layoutId),
+              eq(schema.officeLayouts.company_id, companyId),
+            ),
+          )
+          .run();
+        if (result.changes === 0) {
+          throw new Error(`Layout ${layoutId} not found for company ${companyId}`);
+        }
+      });
     },
     async update(layoutId, patch) {
       db.update(schema.officeLayouts)
