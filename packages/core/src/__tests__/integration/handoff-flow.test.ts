@@ -140,7 +140,7 @@ describe('handoff flow (integration)', () => {
         source_asset_id: null,
         source_package_id: null,
         name: 'PM Bot',
-        role_slug: 'pm',
+        role_slug: 'product_manager',
         workstation_id: null,
         persona_json: JSON.stringify({ expertise: 'project management' }),
         config_json: null,

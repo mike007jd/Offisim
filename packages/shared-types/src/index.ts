@@ -33,8 +33,6 @@ export type {
   EmployeeStatePayload,
   TaskStatePayload,
   TaskAssignmentPayload,
-  TaskAssignmentDispatchedPayload,
-  TaskSubtaskProgressPayload,
   MeetingStatePayload,
   LlmCallStartedPayload,
   LlmCallCompletedPayload,
@@ -87,6 +85,8 @@ export type {
   KnowledgeSearchStartedPayload,
   KnowledgeSearchCompletedPayload,
   PrefabStateChangedPayload,
+  TaskAssignmentDispatchedPayload,
+  TaskSubtaskProgressPayload,
 } from './events.js';
 
 export type {
@@ -114,3 +114,11 @@ export type {
   PrefabInstanceRow,
   PrefabBinding,
 } from './prefab.js';
+
+export type { RoleSlug, Department, RoleEntry } from './roles.js';
+export {
+  ROLE_REGISTRY,
+  ROLE_TO_DEPARTMENT,
+  SYSTEM_ROLES,
+  ROLE_LABELS,
+} from './roles.js';

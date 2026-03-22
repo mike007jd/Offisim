@@ -48,7 +48,7 @@ describe('ModelResolver', () => {
 
   it('falls back to company default when no match', () => {
     const resolver = new ModelResolver(DEFAULT_POLICY);
-    const result = resolver.resolve(undefined, 'designer');
+    const result = resolver.resolve(undefined, 'ux_designer');
     expect(result.provider).toBe('anthropic');
     expect(result.model).toBe('claude-sonnet-4-20250514');
     expect(result.temperature).toBe(0.7);

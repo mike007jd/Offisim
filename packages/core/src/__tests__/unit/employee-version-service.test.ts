@@ -163,7 +163,7 @@ describe('EmployeeVersionService', () => {
 
       // Modify employee
       employee.name = 'Bob';
-      employee.role_slug = 'designer';
+      employee.role_slug = 'ux_designer';
       // v2: after edit
       await service.createVersion('emp-1', 'update');
 

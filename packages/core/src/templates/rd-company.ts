@@ -111,7 +111,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
     // ── PROD department (2 PMs) ──
     {
       name: 'Sophie Park',
-      role_slug: 'pm',
+      role_slug: 'project_manager',
       persona_json: JSON.stringify({
         expertise:
           'Product strategy and user research with expertise in roadmapping, OKR frameworks, and data-driven prioritization. Skilled in competitive analysis, market sizing, and customer interview synthesis. Proficient with analytics platforms and A/B testing methodologies. Strong background in agile ceremonies and cross-functional alignment.',
@@ -135,7 +135,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
     },
     {
       name: 'Ryan Torres',
-      role_slug: 'analyst',
+      role_slug: 'qa',
       persona_json: JSON.stringify({
         expertise:
           'Data analysis and quality assurance with deep knowledge of metrics frameworks, statistical testing, and user behavior modeling. Expert in SQL, dashboard design (Metabase, Grafana), and cohort analysis. Skilled in defining KPIs, building anomaly detection rules, and writing post-mortem reports with root-cause analysis.',
@@ -160,7 +160,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
     // ── ART department (2 designers) ──
     {
       name: 'Zara Okafor',
-      role_slug: 'designer',
+      role_slug: 'ux_designer',
       persona_json: JSON.stringify({
         expertise:
           'UI/UX design with mastery of design systems, component libraries, and prototyping tools (Figma, Framer). Deep understanding of information architecture, user flow mapping, and usability heuristics. Experienced in design token systems, responsive layout strategies, and cross-platform design adaptation (web, desktop, mobile).',
@@ -217,7 +217,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
         {
           step_id: 'requirements',
           label: 'Requirements Analysis',
-          role_slug: 'pm',
+          role_slug: 'project_manager',
           instruction:
             'Analyze the feature request and produce a comprehensive requirements document. Include: (1) Problem statement with user impact assessment, (2) Functional requirements as numbered items with clear acceptance criteria for each, (3) Non-functional requirements covering performance, security, and accessibility, (4) Edge cases and error scenarios with expected behavior, (5) Out-of-scope items explicitly listed to prevent scope creep. Format as a structured PRD with sections clearly labeled.',
           output_key: 'requirements_doc',
@@ -226,7 +226,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
         {
           step_id: 'design',
           label: 'UI/UX Design',
-          role_slug: 'designer',
+          role_slug: 'ux_designer',
           instruction:
             'Based on the requirements_doc, create detailed UI/UX design specifications. Produce: (1) User flow diagram showing all paths including error and edge-case flows, (2) Wireframes for each screen state (empty, loading, populated, error), (3) Visual design specs with exact spacing, colors from the design token system, and typography, (4) Interaction specifications for hover, focus, active, and disabled states, (5) Responsive behavior notes for different viewport sizes. Annotate every design decision with rationale tied back to the requirements.',
           output_key: 'design_assets',
@@ -253,7 +253,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
         {
           step_id: 'review',
           label: 'Code Review & QA',
-          role_slug: 'analyst',
+          role_slug: 'qa',
           instruction:
             'Perform a thorough review of code_changes against requirements_doc, design_assets, and architecture_doc. Evaluate: (1) Correctness — does the implementation satisfy every acceptance criterion? (2) Code quality — naming, structure, DRY compliance, SOLID principles, (3) Security — input validation, authorization checks, data sanitization, (4) Performance — unnecessary re-renders, N+1 queries, bundle size impact, (5) Test coverage — are edge cases from requirements tested? Rate each area on a 1-5 scale. Categorize issues as critical (must fix), major (should fix), or minor (nice to fix). Provide specific fix instructions for each issue.',
           output_key: 'review_report',
@@ -270,7 +270,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
         {
           step_id: 'bug-triage',
           label: 'Bug Triage & Analysis',
-          role_slug: 'pm',
+          role_slug: 'project_manager',
           instruction:
             'Analyze the bug report and produce a structured triage document. Include: (1) Severity classification (P0-critical/P1-high/P2-medium/P3-low) with justification based on user impact and affected population, (2) Steps to reproduce with expected vs. actual behavior, (3) Affected components and potential blast radius, (4) Regression risk assessment — is this a new bug or a regression? (5) Acceptance criteria for the fix — what specific behavior change constitutes "fixed". Format as a structured triage ticket.',
           output_key: 'triage_doc',
@@ -297,7 +297,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
         {
           step_id: 'verify',
           label: 'Verification & Regression Check',
-          role_slug: 'analyst',
+          role_slug: 'qa',
           instruction:
             'Verify the fix_changes against the triage_doc acceptance criteria. Check: (1) The original bug is resolved — walk through reproduction steps and confirm expected behavior, (2) The regression test correctly fails without the fix and passes with it, (3) No new issues introduced — review adjacent functionality for side effects, (4) Performance impact — does the fix introduce any measurable overhead? Output a verification report with pass/fail status and confidence level.',
           output_key: 'verification_report',

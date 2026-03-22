@@ -1,8 +1,17 @@
+import type { RoleSlug } from '@aics/shared-types';
 import { Code2, LayoutDashboard, Palette, Search, Server, TrendingUp, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 import { cn } from '@aics/ui-core';
 
-const ROLE_CARDS = [
+interface RoleCard {
+  readonly value: RoleSlug;
+  readonly label: string;
+  readonly description: string;
+  readonly icon: LucideIcon;
+}
+
+const ROLE_CARDS: readonly RoleCard[] = [
   {
     value: 'pm',
     label: 'Product Manager',
@@ -45,7 +54,7 @@ const ROLE_CARDS = [
     description: 'Leads teams and coordinates work',
     icon: Users,
   },
-] as const;
+];
 
 interface RoleStepProps {
   formData: EmployeeFormData;

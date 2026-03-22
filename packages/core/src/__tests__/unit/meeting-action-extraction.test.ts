@@ -73,7 +73,7 @@ const DEV_EMPLOYEE: EmployeeRow = makeEmployee({
 const DESIGNER_EMPLOYEE: EmployeeRow = makeEmployee({
   employee_id: 'e-des-1',
   name: 'Design Bot',
-  role_slug: 'designer',
+  role_slug: 'ux_designer',
 });
 
 // --- Tests ---

@@ -99,8 +99,13 @@ export function WorkstationMesh3D({
         <boxGeometry args={[3.0, 0.6, 0.05]} />
         <meshPhysicalMaterial color={sc.partition} transmission={0.9} opacity={1} roughness={0.1} ior={1.5} thickness={0.05} transparent />
       </mesh>
-      {/* 4 workstations */}
-      {([[-0.8, -0.8, 0.2], [0.8, -0.8, -0.2], [-0.8, 0.8, Math.PI - 0.2], [0.8, 0.8, Math.PI + 0.2]] as [number, number, number][]).map(([x, z, rot], i) => (
+      {/* 4 workstations — laptops face OUTWARD toward the employee/chair */}
+      {([
+        [-0.8, -0.8, Math.PI + 0.2],  // top-left: screen faces -z (toward chair)
+        [0.8, -0.8, Math.PI - 0.2],   // top-right: screen faces -z
+        [-0.8, 0.8, -0.2],            // bottom-left: screen faces +z (toward chair)
+        [0.8, 0.8, 0.2],              // bottom-right: screen faces +z
+      ] as [number, number, number][]).map(([x, z, rot], i) => (
         <group key={`ws-${i}`} position={[x, 0, z]}>
           <Laptop position={[0, 0.775, 0]} rotation={[0, rot, 0]} />
           <OfficeChair position={[0, 0, z < 0 ? -0.8 : 0.8]} rotation={[0, z < 0 ? Math.PI : 0, 0]} />

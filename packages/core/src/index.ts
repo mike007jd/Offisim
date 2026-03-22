@@ -69,6 +69,9 @@ export type { InstallTransactionRepository } from './repos/install-transaction-r
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
 export type { InstalledAssetRepository } from './repos/installed-asset-repository.js';
 export type { AssetBindingRepository } from './repos/asset-binding-repository.js';
+export type { PrefabInstanceRepository } from './repos/prefab-instance-repository.js';
+export { createMemoryPrefabRepository } from './runtime/memory-prefab-repository.js';
+export { PrefabService } from './services/prefab-service.js';
 export type {
   LlmGateway,
   LlmRequest,
@@ -129,6 +132,8 @@ export { AnthropicAdapter } from './llm/anthropic-adapter.js';
 export type { AnthropicAdapterOptions } from './llm/anthropic-adapter.js';
 export { OpenAiAdapter } from './llm/openai-adapter.js';
 export type { OpenAiAdapterOptions } from './llm/openai-adapter.js';
+export { SubscriptionAdapter } from './llm/subscription-adapter.js';
+export type { SubscriptionAdapterOptions } from './llm/subscription-adapter.js';
 export { createGateway } from './llm/gateway-factory.js';
 export type { GatewayConfig } from './llm/gateway-factory.js';
 export { ModelResolver } from './llm/model-resolver.js';

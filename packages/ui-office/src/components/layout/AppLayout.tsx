@@ -53,12 +53,12 @@ export function AppLayout({
           {leftOpen ? (
             <>
               <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">{agentPanel}</div>
-              {/* Collapse handle — vertical center of right edge */}
+              {/* Collapse handle — inside panel, top-right corner */}
               <button
                 onClick={() => setLeftOpen(false)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/60 border border-white/10 border-r-0 rounded-l-lg px-1 py-4 hover:bg-blue-900/40 transition-all"
+                className="absolute right-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
               >
-                <ChevronLeft className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronLeft className="w-3 h-3 text-slate-400" />
               </button>
             </>
           ) : (
@@ -88,12 +88,12 @@ export function AppLayout({
           {rightOpen ? (
             <>
               <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">{eventLog}</div>
-              {/* Collapse handle — vertical center of left edge */}
+              {/* Collapse handle — inside panel, top-left corner */}
               <button
                 onClick={() => setRightOpen(false)}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/60 border border-white/10 border-l-0 rounded-r-lg px-1 py-4 hover:bg-blue-900/40 transition-all"
+                className="absolute left-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
               >
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronRight className="w-3 h-3 text-slate-400" />
               </button>
             </>
           ) : (

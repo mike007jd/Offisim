@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GraphNodeEnteredPayload, RuntimeEvent } from '@aics/shared-types';
+import type { GraphNodeEnteredPayload, RuntimeEvent, RoleSlug } from '@aics/shared-types';
+import { SYSTEM_ROLES } from '@aics/shared-types';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
@@ -29,8 +30,10 @@ export const STAGE_META: Record<NonNullable<PipelineStage>, StageMeta> = {
 function nodeToPipelineStage(nodeName: string): PipelineStage {
   const lower = nodeName.toLowerCase();
   if (lower === 'manager') return 'routing';
-  if (lower === 'pm' || lower === 'project_manager' || lower === 'planner') return 'planning';
+  if (lower === 'pm' || lower === 'product_manager' || lower === 'project_manager' || lower === 'planner') return 'planning';
   if (lower.includes('deliver') || lower === 'boss_summary' || lower === 'boss') return 'delivering';
+  // Any system role we haven't already matched goes to 'routing'
+  if (SYSTEM_ROLES.has(lower as RoleSlug)) return 'routing';
   return 'executing';
 }
 

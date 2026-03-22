@@ -68,7 +68,7 @@ describe('employeeNode — handoff via Command', () => {
       makeEmployee({
         employee_id: 'e-design-1',
         name: 'Design Bot',
-        role_slug: 'designer',
+        role_slug: 'ux_designer',
         persona_json: JSON.stringify({ expertise: 'UI/UX design' }),
       }),
     ]);

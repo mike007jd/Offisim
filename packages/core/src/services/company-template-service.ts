@@ -1,4 +1,5 @@
-import type { PrefabInstanceRow } from '@aics/shared-types';
+import type { PrefabInstanceRow, RoleSlug } from '@aics/shared-types';
+import { ROLE_TO_DEPARTMENT } from '@aics/shared-types';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
@@ -11,32 +12,8 @@ import type {
 import type { CompanyTemplate } from '../templates/index.js';
 import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
 
-// ── Role → Department mapping ──────────────────────────────────────
-// Inlined to avoid circular dependency on @aics/renderer.
-// Must stay in sync with packages/renderer/src/tokens/departments.ts.
-
-const ROLE_TO_DEPARTMENT: ReadonlyMap<string, string> = new Map([
-  // dev
-  ['developer', 'dev'],
-  ['engineer', 'dev'],
-  ['backend', 'dev'],
-  ['frontend', 'dev'],
-  ['fullstack', 'dev'],
-  // product
-  ['pm', 'product'],
-  ['product_manager', 'product'],
-  ['researcher', 'product'],
-  ['analyst', 'product'],
-  ['manager', 'product'],
-  // art
-  ['designer', 'art'],
-  ['artist', 'art'],
-  ['ui_designer', 'art'],
-  ['ux_designer', 'art'],
-]);
-
 function resolveRoleDepartment(roleSlug: string): string | null {
-  return ROLE_TO_DEPARTMENT.get(roleSlug) ?? null;
+  return ROLE_TO_DEPARTMENT.get(roleSlug as RoleSlug) ?? null;
 }
 
 // ── Default prefab layouts per utility zone type ───────────────────

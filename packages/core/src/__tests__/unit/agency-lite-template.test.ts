@@ -92,11 +92,11 @@ describe('Agency Lite template', () => {
 
   it('covers the required role slugs', () => {
     const roles = agencyLiteTemplate.employees.map((e) => e.role_slug);
-    expect(roles).toContain('manager');
-    expect(roles).toContain('pm');
-    expect(roles).toContain('designer');
+    expect(roles).toContain('account_manager');
+    expect(roles).toContain('project_manager');
+    expect(roles).toContain('graphic_designer');
     expect(roles).toContain('developer');
-    expect(roles).toContain('analyst');
+    expect(roles).toContain('qa');
   });
 
   it('uses agency-studio layout preset', () => {

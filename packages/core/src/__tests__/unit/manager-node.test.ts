@@ -166,7 +166,7 @@ describe('managerNode', () => {
     const designer = makeEmployee({
       employee_id: 'e-design-1',
       name: 'Designer Bot',
-      role_slug: 'designer',
+      role_slug: 'ux_designer',
     });
     repos.seed.employees([designer]);
 

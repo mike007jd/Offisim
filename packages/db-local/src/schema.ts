@@ -518,6 +518,32 @@ export const libraryDocuments = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// 009 — Prefab instances
+// ---------------------------------------------------------------------------
+
+export const prefabInstances = sqliteTable(
+  'prefab_instances',
+  {
+    instance_id: text('instance_id').primaryKey(),
+    company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+    prefab_id: text('prefab_id').notNull(),
+    zone_id: text('zone_id').notNull(),
+    position_x: real('position_x').notNull().default(0),
+    position_y: real('position_y').notNull().default(0),
+    rotation: integer('rotation').notNull().default(0),
+    bindings_json: text('bindings_json'),
+    config_json: text('config_json'),
+    enabled: integer('enabled').notNull().default(1),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_prefab_instances_company').on(table.company_id),
+    index('idx_prefab_instances_zone').on(table.company_id, table.zone_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // 012 — Office layouts
 // ---------------------------------------------------------------------------
 

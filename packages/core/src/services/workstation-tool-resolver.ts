@@ -1,3 +1,6 @@
+import type { RoleSlug } from '@aics/shared-types';
+import { SYSTEM_ROLES } from '@aics/shared-types';
+
 import type { ToolDef } from '../llm/gateway.js';
 import type {
   EmployeeRepository,
@@ -6,14 +9,6 @@ import type {
   WorkstationRackRepository,
 } from '../runtime/repositories.js';
 import type { ToolExecutor } from '../runtime/tool-executor.js';
-
-/**
- * Role slugs that grant company-wide MCP tool access regardless of workstation.
- *
- * System agents (Manager, HR, PM) operate at the company level and are not
- * bound to a physical desk. They always see all available MCP tools.
- */
-const SYSTEM_ROLE_SLUGS = new Set(['manager', 'hr', 'pm', 'boss']);
 
 export interface WorkstationToolResolverDeps {
   readonly employees: EmployeeRepository;
@@ -63,7 +58,7 @@ export class WorkstationToolResolver {
     if (!employee) return [];
 
     // System agents get company-wide tool access
-    if (SYSTEM_ROLE_SLUGS.has(employee.role_slug)) {
+    if (SYSTEM_ROLES.has(employee.role_slug as RoleSlug)) {
       return this.toolExecutor.listAvailable(companyId);
     }
 

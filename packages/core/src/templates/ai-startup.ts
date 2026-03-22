@@ -14,7 +14,7 @@ export const aiStartupTemplate: CompanyTemplate = {
     // ── Research & ML ──
     {
       name: 'Dmitri Volkov',
-      role_slug: 'developer',
+      role_slug: 'researcher',
       persona_json: JSON.stringify({
         expertise:
           'Machine learning research with deep expertise in transformer architectures, attention mechanisms, and self-supervised learning. Experienced in experiment design with rigorous ablation studies and statistical significance testing. Proficient in PyTorch, JAX, and Weights & Biases for experiment tracking. Strong publication record in NeurIPS/ICML-tier venues. Expert in reading and synthesizing research papers, identifying reproducibility issues, and proposing novel architecture modifications.',
@@ -88,7 +88,7 @@ export const aiStartupTemplate: CompanyTemplate = {
     // ── Product ──
     {
       name: 'Sam Rivera',
-      role_slug: 'pm',
+      role_slug: 'product_manager',
       persona_json: JSON.stringify({
         expertise:
           'AI product strategy with expertise in translating ML research capabilities into user-facing products. Deep knowledge of AI product patterns: conversational interfaces, recommendation systems, content generation, and classification-based workflows. Skilled in user research for AI-powered features — understanding trust calibration, explainability requirements, and failure tolerance. Experienced in competitive analysis of AI products, pricing models for compute-intensive features, and responsible AI product practices.',
@@ -138,7 +138,7 @@ export const aiStartupTemplate: CompanyTemplate = {
     // ── Design ──
     {
       name: 'Chloe Kim',
-      role_slug: 'designer',
+      role_slug: 'ux_designer',
       persona_json: JSON.stringify({
         expertise:
           'AI interaction design with specialization in conversational UX, data visualization, and trust-building interfaces. Expert in designing for AI uncertainty — confidence indicators, explainability panels, and graceful error handling. Proficient in prototyping AI interactions with realistic latency and failure simulations. Deep knowledge of human-AI interaction research, including appropriate automation levels, user control patterns, and feedback mechanisms. Skilled in designing dashboards that make complex ML metrics accessible to non-technical users.',
@@ -172,7 +172,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'literature-review',
           label: 'Literature Review',
-          role_slug: 'developer',
+          role_slug: 'researcher',
           instruction:
             'Conduct a systematic literature review relevant to the model or task being evaluated. Cover: (1) State-of-the-art models and their reported performance on standard benchmarks (include specific numbers), (2) Recent architectural innovations that might improve performance (published in last 12 months), (3) Known failure modes and limitations of current approaches, (4) Evaluation methodologies used in the field — which metrics matter and why, (5) Relevant datasets and their characteristics (size, quality, biases). Produce a structured technical summary with: paper citations (author, year, venue), key contributions of each, comparative performance table, and recommended evaluation approach for our specific use case. Flag any papers with reproducibility concerns.',
           output_key: 'literature_summary',
@@ -199,7 +199,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'eval-report',
           label: 'Evaluation Report',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Synthesize the benchmark_results into a stakeholder-ready evaluation report. Structure: (1) Executive summary — 3-sentence verdict on whether the model meets our quality bar, (2) Key findings table — metric, our model, best baseline, delta, and interpretation, (3) Strength analysis — where the model excels and why, with example outputs, (4) Weakness analysis — where the model falls short, with failure examples and user impact assessment, (5) Cost-performance analysis — is the quality improvement worth the cost difference vs. alternatives? (6) Recommendation — one of: Ship (quality sufficient), Iterate (specific improvements needed with suggestions), or Pivot (fundamental approach change required), with detailed justification. Include appendix with raw benchmark data for technical stakeholders.',
           output_key: 'eval_report',
@@ -217,7 +217,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'feature-scoping',
           label: 'Feature Scoping',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Define the AI feature scope with ML-specific considerations. Document: (1) User problem — what pain point does this solve, with evidence from user research or support data, (2) Success metrics — define both product metrics (engagement, retention, task completion) and model metrics (accuracy, latency, cost per request), (3) Model requirements — what capabilities does the model need? What input/output format? What quality bar is acceptable? (4) Data requirements — what training/evaluation data exists? What needs to be collected? (5) Risk assessment — what happens when the model is wrong? What\'s the worst-case user experience? (6) Fallback strategy — how does the feature work when the AI is unavailable, slow, or produces low-confidence results? Produce a one-page spec with numbered acceptance criteria that cover both happy path and failure modes.',
           output_key: 'feature_spec',
@@ -226,7 +226,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'ux-design',
           label: 'AI UX Design',
-          role_slug: 'designer',
+          role_slug: 'ux_designer',
           instruction:
             'Design the user-facing interaction for the AI feature based on the feature_spec. Address AI-specific UX challenges: (1) Loading states — design for variable AI response times (200ms to 30s), including skeleton UIs and progressive content reveal for streaming, (2) Confidence display — how to communicate AI certainty to users without overwhelming them (e.g., subtle indicators vs. explicit scores), (3) Error handling — design for model errors, timeouts, content policy blocks, and rate limits with user-friendly messaging, (4) User control — provide mechanisms for users to correct, regenerate, or provide feedback on AI outputs, (5) Transparency — how much of the AI\'s reasoning to expose and where. Produce wireframes for all states (empty, loading, streaming, complete, error, low-confidence) and an interaction flow diagram covering the complete user journey.',
           output_key: 'ux_design',
@@ -253,7 +253,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'launch-readiness',
           label: 'Launch Readiness Review',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Conduct a final launch readiness review across the feature_spec, feature_implementation, and model_integration. Verify: (1) All acceptance criteria from the spec are met — walk through each one with pass/fail, (2) UX design was implemented faithfully — compare wireframes to implementation for each state, (3) Model quality meets the defined bar — review test results from model integration, (4) Error handling works end-to-end — manually trigger each failure mode and verify graceful degradation, (5) Monitoring and alerting is in place — confirm telemetry, dashboards, and alert thresholds, (6) Rollback plan — how to disable the feature quickly if something goes wrong in production. Output a launch decision document: ship/delay/rework with specific reasoning.',
           output_key: 'launch_decision',
@@ -270,7 +270,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'paper-analysis',
           label: 'Paper Deep Analysis',
-          role_slug: 'developer',
+          role_slug: 'researcher',
           instruction:
             'Perform a rigorous analysis of the target research paper. Cover: (1) Core contribution — what is the paper\'s novel insight in one paragraph, distinguishing genuinely new ideas from incremental improvements, (2) Method description — explain the proposed approach in enough detail that an ML engineer could implement it, including architecture diagrams (described textually), loss functions, and training procedures, (3) Results analysis — scrutinize the experimental setup: are baselines fair? Are datasets standard? Are ablations sufficient? Do confidence intervals support the claims? (4) Reproducibility assessment — rate 1-5 based on: code availability, dataset access, hyperparameter disclosure, compute requirements disclosure, (5) Relevance score — how applicable is this to our current product/research direction, with specific use cases identified. Output a structured paper review document with clear sections.',
           output_key: 'paper_review',
@@ -306,7 +306,7 @@ export const aiStartupTemplate: CompanyTemplate = {
         {
           step_id: 'decision-report',
           label: 'Adoption Decision Report',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Compile the paper_review, feasibility_report, prototype_results, and benchmark_report into an adoption decision document. Include: (1) Executive summary — does this paper\'s technique improve our product, by how much, and at what cost? (2) Quality impact — side-by-side comparison with current approach on metrics that matter to users, (3) Infrastructure impact — what changes are needed to deploy this in production, with effort estimate, (4) Risk analysis — what could go wrong in production that the prototype wouldn\'t catch (distribution shift, scale effects, edge cases), (5) Recommendation — one of: Adopt (proceed to production implementation), Adapt (use the core idea but modify the approach), Monitor (promising but not ready, re-evaluate in N months), or Pass (doesn\'t meet our bar), with detailed justification for each. Include a proposed next-steps timeline if the recommendation is Adopt or Adapt.',
           output_key: 'decision_report',

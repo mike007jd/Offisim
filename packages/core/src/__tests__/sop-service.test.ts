@@ -108,8 +108,8 @@ describe('SopService', () => {
       const def = makeDefinition({
         steps: [
           { step_id: 's1', label: 'Research', role_slug: 'researcher', instruction: 'Research', dependencies: [], output_key: 'r' },
-          { step_id: 's2', label: 'Design', role_slug: 'designer', instruction: 'Design', dependencies: [], output_key: 'd' },
-          { step_id: 's3', label: 'Merge', role_slug: 'pm', instruction: 'Merge results', dependencies: ['s1', 's2'], output_key: 'm' },
+          { step_id: 's2', label: 'Design', role_slug: 'ux_designer', instruction: 'Design', dependencies: [], output_key: 'd' },
+          { step_id: 's3', label: 'Merge', role_slug: 'product_manager', instruction: 'Merge results', dependencies: ['s1', 's2'], output_key: 'm' },
         ],
       });
       const batches = service.getExecutionOrder(def);

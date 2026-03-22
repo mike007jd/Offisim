@@ -78,6 +78,7 @@ export type { InstallTransactionRepository } from './repos/install-transaction-r
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
 export type { InstalledAssetRepository } from './repos/installed-asset-repository.js';
 export type { AssetBindingRepository } from './repos/asset-binding-repository.js';
+export type { PrefabInstanceRepository } from './repos/prefab-instance-repository.js';
 export type {
   LlmGateway,
   LlmRequest,

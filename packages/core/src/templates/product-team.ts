@@ -13,7 +13,7 @@ export const productTeamTemplate: CompanyTemplate = {
   employees: [
     {
       name: 'Ava Mitchell',
-      role_slug: 'pm',
+      role_slug: 'product_manager',
       persona_json: JSON.stringify({
         expertise:
           'Product management and requirements engineering with deep expertise in user story mapping, acceptance criteria definition, and edge case identification. Skilled in competitive analysis, market sizing, and product-market fit assessment. Proficient in prioritization frameworks (RICE, MoSCoW, Kano) and stakeholder alignment. Experienced in writing PRDs that engineers actually read — structured, precise, and free of ambiguity.',
@@ -85,7 +85,7 @@ export const productTeamTemplate: CompanyTemplate = {
     },
     {
       name: 'Raj Patel',
-      role_slug: 'analyst',
+      role_slug: 'qa',
       persona_json: JSON.stringify({
         expertise:
           'Code review and quality analysis with deep knowledge of security vulnerabilities (OWASP Top 10), performance anti-patterns, and architectural code smells. Expert in static analysis tooling, type-safety auditing, and dependency risk assessment. Skilled in structured critique that distinguishes between subjective style preferences and objective quality issues. Proficient in load testing, memory profiling, and bundle size analysis.',
@@ -118,7 +118,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'specify',
           label: 'Requirements Specification',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Analyze the request and produce a precise, implementation-ready specification. The spec must include: (1) Problem statement — what user pain point does this solve and how do we know it\'s real, (2) Functional requirements — numbered list with each requirement having a clear acceptance criterion that can be verified programmatically, (3) Non-functional requirements — performance targets, accessibility level, security constraints, (4) Edge cases — at least 5 edge cases with expected behavior for each, (5) Out-of-scope — explicitly list what this feature does NOT do to prevent scope creep, (6) Dependencies — what existing systems/APIs/data does this feature rely on. Use structured format with numbered requirements. Every requirement should be testable — if you can\'t write a test for it, it\'s not specific enough.',
           output_key: 'spec_doc',
@@ -145,7 +145,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'review',
           label: 'Code Review & Security Audit',
-          role_slug: 'analyst',
+          role_slug: 'qa',
           instruction:
             'Perform a comprehensive review of the implementation against the spec_doc and design_doc. Review across five dimensions: (1) Correctness — walk through each acceptance criterion in the spec and verify the implementation satisfies it, noting pass/fail for each, (2) Design adherence — compare implemented interfaces, data models, and error handling against the design doc, flag any deviations, (3) Security — check input validation, authorization, data sanitization, and injection vulnerability vectors per OWASP guidelines, (4) Performance — identify N+1 queries, unnecessary re-renders, missing indexes, and bundle size impact, (5) Maintainability — naming clarity, abstraction appropriateness, test quality, and documentation completeness. Output a structured review table with each issue categorized by severity (critical/major/minor), the specific file and line range, and a concrete fix suggestion. Include an overall ship/no-ship recommendation with justification.',
           output_key: 'review_report',
@@ -162,7 +162,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'collect',
           label: 'Feedback Collection & Cleaning',
-          role_slug: 'analyst',
+          role_slug: 'qa',
           instruction:
             'Collect and normalize user feedback from all available sources. Process: (1) Aggregate feedback from support tickets, user interviews, app store reviews, social mentions, and in-app surveys, (2) Remove duplicates and merge related feedback items, (3) Standardize each item with: source, date, user segment (free/paid/enterprise), verbatim quote, and your interpretation of the underlying need, (4) Tag each item with affected product area and sentiment (positive/negative/neutral/mixed). Output a cleaned feedback dataset with at least these columns: ID, source, date, segment, verbatim, interpreted_need, product_area, sentiment. Include summary statistics: total items, items by source, items by sentiment, items by product area.',
           output_key: 'feedback_dataset',
@@ -171,7 +171,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'categorize',
           label: 'Theme Analysis & Clustering',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Analyze the feedback_dataset to identify recurring themes and patterns. Produce: (1) Theme clusters — group related feedback items into 5-10 themes, each with a descriptive label and 1-sentence summary, (2) Frequency analysis — how many feedback items map to each theme, broken down by user segment, (3) Severity assessment — rate each theme\'s impact on user satisfaction (1-5) and frequency (1-5), plot on an impact-frequency matrix, (4) Trend analysis — are any themes increasing or decreasing over time? (5) Unexpected findings — any feedback patterns that don\'t fit existing assumptions about user needs. For each theme, include 2-3 representative verbatim quotes that capture the range of the theme.',
           output_key: 'theme_analysis',
@@ -180,7 +180,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'prioritize',
           label: 'Prioritized Action Plan',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Transform the theme_analysis into a prioritized action plan. For each theme, define: (1) Proposed solution — what would we build or change to address this theme? (2) RICE score — Reach (how many users affected), Impact (how much it improves their experience, 0.25-3x), Confidence (how sure are we this will work, %), Effort (person-weeks), (3) Dependency mapping — does this action depend on or unlock other actions? (4) Quick wins — any themes that can be addressed with <1 week of effort and high confidence? (5) Strategic bets — any themes that require significant investment but could be transformative? Sort actions by RICE score descending. Mark the top 3 as "recommended for next cycle" with clear justification.',
           output_key: 'action_plan',
@@ -198,7 +198,7 @@ export const productTeamTemplate: CompanyTemplate = {
         {
           step_id: 'stakeholder-report',
           label: 'Stakeholder Report',
-          role_slug: 'pm',
+          role_slug: 'product_manager',
           instruction:
             'Compile the complete feedback analysis into a stakeholder presentation. Include: (1) Executive summary — "What our users are telling us" in 3-5 bullet points, (2) Key themes with impact visualization (describe the impact-frequency matrix), (3) Recommended actions with RICE scores and rationale, (4) Preliminary solution specs for top 3 actions, (5) Investment ask — total effort and timeline for recommended actions, (6) Success metrics and how we\'ll track them. Write for a mixed audience of product, engineering, and business stakeholders. Lead with user impact, follow with technical feasibility, close with business case.',
           output_key: 'stakeholder_report',

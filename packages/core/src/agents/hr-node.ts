@@ -1,3 +1,4 @@
+import { ROLE_REGISTRY } from '@aics/shared-types';
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { GraphError } from '../errors.js';
@@ -17,6 +18,9 @@ interface HrAssessmentResult {
   suggestedRoles?: string[];
 }
 
+/** Build the HR system prompt with the canonical role slug list from ROLE_REGISTRY. */
+const HIREABLE_SLUGS = ROLE_REGISTRY.filter((r) => !r.isSystem).map((r) => r.slug);
+
 const HR_SYSTEM_PROMPT = `You are the HR Advisor AI — responsible for team composition analysis, recruitment assessment, and onboarding guidance.
 
 Given the current team roster and the request, provide your assessment. Respond with JSON only:
@@ -31,7 +35,7 @@ Rules:
 - For team assessment: analyze current team strengths/weaknesses, identify skill gaps
 - For onboarding: provide context about team dynamics and working patterns
 - Be specific and actionable in your recommendations
-- suggestedRoles should use role_slug format (e.g. "developer", "designer", "pm", "analyst")`;
+- suggestedRoles MUST use canonical role_slug values: ${HIREABLE_SLUGS.join(', ')}`;
 
 function parseHrAssessment(content: string): HrAssessmentResult | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;

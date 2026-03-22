@@ -1,5 +1,10 @@
 // ── Department & zone configuration ────────────────────────────────
 // Maps role_slug → department, defines zone layout for the office floor.
+//
+// TODO: Migrate roleSlugs lists and resolveEmployeeDepartment() to derive
+// from @aics/shared-types ROLE_REGISTRY / ROLE_TO_DEPARTMENT instead of
+// maintaining an independent mapping here.  The canonical source of truth
+// for role → department is now packages/shared-types/src/roles.ts.
 
 export interface DepartmentConfig {
   readonly id: string;

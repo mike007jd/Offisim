@@ -3,11 +3,12 @@
  *
  * Contains:
  * - View/Edit mode toggle
- * - Save layout button (no-op for now — future DB persistence)
+ * - Save layout button (persists to localStorage)
  * - Reset button (clears all editor-placed prefabs)
  * - Placement count badge
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './EditorMode.js';
 
 // ── Styles ───────────────────────────────────────────────────────
@@ -44,10 +45,26 @@ const BTN_BASE: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+// ── Save button styles by flash state ─────────────────────────────
+const SAVE_STYLES: Record<'idle' | 'saved' | 'error', Pick<React.CSSProperties, 'background' | 'borderColor'>> = {
+  idle:  { background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' },
+  saved: { background: 'rgba(16, 185, 129, 0.35)', borderColor: 'rgba(16, 185, 129, 0.6)' },
+  error: { background: 'rgba(239, 68, 68, 0.2)',   borderColor: 'rgba(16, 185, 129, 0.3)' },
+};
+
+const SAVE_LABELS: Record<'idle' | 'saved' | 'error', string> = {
+  idle: 'Save', saved: 'Saved!', error: 'Error',
+};
+
 // ── Component ────────────────────────────────────────────────────
 
 export function EditorToolbar() {
-  const { mode, toggleMode, placedPrefabs, resetAll, activeTool, cancelPlacement } = useEditor();
+  const { mode, toggleMode, placedPrefabs, resetAll, activeTool, cancelPlacement, saveLayout } = useEditor();
+  const [saveFlash, setSaveFlash] = useState<'idle' | 'saved' | 'error'>('idle');
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
 
   const isEdit = mode === 'edit';
   const isPlacing = activeTool === 'place';
@@ -98,22 +115,18 @@ export function EditorToolbar() {
             </button>
           )}
 
-          {/* Save (placeholder) */}
+          {/* Save layout to localStorage */}
           <button
-            onClick={() => {
-              // Future: persist to DB
-              // For now just log
-              console.log('[Editor] Save layout:', placedPrefabs);
+            onClick={async () => {
+              clearTimeout(flashTimer.current);
+              const ok = await saveLayout();
+              setSaveFlash(ok ? 'saved' : 'error');
+              flashTimer.current = setTimeout(() => setSaveFlash('idle'), 1500);
             }}
-            style={{
-              ...BTN_BASE,
-              background: 'rgba(16, 185, 129, 0.15)',
-              borderColor: 'rgba(16, 185, 129, 0.3)',
-              color: '#6ee7b7',
-            }}
+            style={{ ...BTN_BASE, ...SAVE_STYLES[saveFlash], color: '#6ee7b7' }}
           >
             <SaveIcon />
-            Save
+            {SAVE_LABELS[saveFlash]}
           </button>
 
           {/* Reset */}

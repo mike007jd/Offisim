@@ -13,9 +13,16 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { PrefabDefinition } from '@aics/shared-types';
+
+// ── localStorage persistence (fallback only) ────────────────────
+const STORAGE_KEY = 'aics:editor:placedPrefabs';
+
+/** Callback for persisting editor prefabs to the runtime repository. */
+export type SaveToRepoFn = (prefabs: PlacedPrefab[]) => Promise<boolean>;
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -68,6 +75,8 @@ export interface EditorActions {
   updateRotation: (id: string, rotation: number) => void;
   /** Reset all editor-placed prefabs. */
   resetAll: () => void;
+  /** Persist placed prefabs to repo (or localStorage fallback). Returns true on success. */
+  saveLayout: () => Promise<boolean>;
 }
 
 // ── Context ──────────────────────────────────────────────────────
@@ -91,17 +100,38 @@ export function useEditorMaybe() {
 
 // ── Provider ─────────────────────────────────────────────────────
 
-let _nextId = 1;
 function generateId(): string {
-  return `editor-prefab-${Date.now()}-${_nextId++}`;
+  return `ep-${crypto.randomUUID()}`;
 }
 
-export function EditorProvider({ children }: { children: React.ReactNode }) {
+interface EditorProviderProps {
+  children: React.ReactNode;
+  /** When provided, saveLayout writes to the repo instead of just localStorage. */
+  saveToRepo?: SaveToRepoFn;
+  /** Initial prefabs to load (from DB). Takes precedence over localStorage. */
+  initialPrefabs?: PlacedPrefab[];
+}
+
+export function EditorProvider({ children, saveToRepo, initialPrefabs }: EditorProviderProps) {
   const [mode, setModeState] = useState<'view' | 'edit'>('view');
   const [activeTool, setActiveTool] = useState<EditorTool | null>(null);
   const [placingPrefab, setPlacingPrefab] = useState<PrefabDefinition | null>(null);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
-  const [placedPrefabs, setPlacedPrefabs] = useState<PlacedPrefab[]>([]);
+  const [placedPrefabs, setPlacedPrefabs] = useState<PlacedPrefab[]>(() => {
+    if (initialPrefabs && initialPrefabs.length > 0) return initialPrefabs;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as PlacedPrefab[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Refs for stable callbacks — avoids cascade context re-renders on every prefab change
+  const placedPrefabsRef = useRef(placedPrefabs);
+  placedPrefabsRef.current = placedPrefabs;
+  const saveToRepoRef = useRef(saveToRepo);
+  saveToRepoRef.current = saveToRepo;
 
   const toggleMode = useCallback(() => {
     setModeState((prev) => {
@@ -184,6 +214,16 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     setSelectedInstanceId(null);
     setPlacingPrefab(null);
     setActiveTool('select');
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  }, []);
+
+  const saveLayout = useCallback(async (): Promise<boolean> => {
+    const current = placedPrefabsRef.current;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch { /* ignore */ }
+    if (saveToRepoRef.current) {
+      return saveToRepoRef.current(current);
+    }
+    return true;
   }, []);
 
   const value = useMemo(
@@ -203,6 +243,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       updatePosition,
       updateRotation,
       resetAll,
+      saveLayout,
     }),
     [
       mode,
@@ -220,6 +261,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       updatePosition,
       updateRotation,
       resetAll,
+      saveLayout,
     ],
   );
 

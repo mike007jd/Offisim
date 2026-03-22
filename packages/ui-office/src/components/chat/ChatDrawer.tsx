@@ -1,12 +1,19 @@
 import { ChevronUp, MessageSquare } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 interface ChatDrawerProps {
   children: ReactNode;
+  /** Increment to auto-expand the drawer (e.g. when a direct chat is requested). */
+  requestOpen?: number;
 }
 
-export function ChatDrawer({ children }: ChatDrawerProps) {
+export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
   const [open, setOpen] = useState(false);
+
+  // Auto-expand when parent signals a chat request
+  useEffect(() => {
+    if (requestOpen) setOpen(true);
+  }, [requestOpen]);
 
   return (
     <div
