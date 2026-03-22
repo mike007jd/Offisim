@@ -118,7 +118,8 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   // Seed default cost rates (idempotent — skips if rates already exist)
   await seedCostRates(repos);
 
-  // Install service — Drizzle-backed repos for persistent install state
+  // Install service — Drizzle-backed repos for persistent install state.
+  // Pass repos.transact so materialize() wraps all writes in one SQLite transaction.
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
@@ -128,6 +129,7 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
       environment: 'desktop',
       schemaVersion: '2026-03',
     },
+    transact: repos.transact,
   });
 
   return { eventBus, graph, runtimeCtx, installService, mcpToolExecutor, repos };

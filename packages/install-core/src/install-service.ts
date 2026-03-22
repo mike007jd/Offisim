@@ -50,6 +50,11 @@ export interface InstallServiceDeps {
   readonly events: InstallEventEmitter;
   readonly companyId: string;
   readonly environment: RuntimeEnvironment;
+  /**
+   * Optional DB transaction wrapper from the Drizzle runtime.
+   * When provided, materialize() wraps all writes in a single SQLite transaction.
+   */
+  readonly transact?: <T>(fn: () => T) => T;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +94,14 @@ export class InstallService {
   private readonly events: InstallEventEmitter;
   private readonly companyId: string;
   private readonly environment: RuntimeEnvironment;
+  private readonly transact: (<T>(fn: () => T) => T) | undefined;
 
   constructor(deps: InstallServiceDeps) {
     this.repos = deps.repos;
     this.events = deps.events;
     this.companyId = deps.companyId;
     this.environment = deps.environment;
+    this.transact = deps.transact;
   }
 
   // -------------------------------------------------------------------------
@@ -394,10 +401,10 @@ export class InstallService {
     // ready_to_install -> materializing
     await this.transition(installTxnId, state, 'materializing', txn.target_package_id ?? undefined);
 
-    // Materialize
+    // Materialize — pass transact so all writes are atomic in Drizzle environments
     let result: MaterializeResult;
     try {
-      result = await materialize(plan, bindings, this.repos, this.companyId, installTxnId);
+      result = await materialize(plan, bindings, this.repos, this.companyId, installTxnId, this.transact);
     } catch (err) {
       // Materialization failed -> attempt rollback
       const errorMsg = err instanceof Error ? err.message : String(err);

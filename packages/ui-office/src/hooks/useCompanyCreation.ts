@@ -70,6 +70,7 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
         repos.officeLayouts,
         eventBus,
         repos.prefabInstances,
+        repos.transact,
       );
       await service.materializeTemplate(selectedTemplateId, activeCompanyId);
       setStep('ready');

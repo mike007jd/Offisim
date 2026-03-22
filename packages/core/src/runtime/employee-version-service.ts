@@ -17,6 +17,7 @@ export class EmployeeVersionService {
     private readonly versionRepo: EmployeeVersionRepository,
     private readonly employeeRepo: EmployeeRepository,
     private readonly eventBus: EventBus,
+    private readonly transact?: <T>(fn: () => T) => T,
   ) {}
 
   /** Snapshot current employee state as a new version. */
@@ -25,6 +26,7 @@ export class EmployeeVersionService {
     changeType: 'create' | 'update' | 'rollback',
     createdBy = 'user',
   ): Promise<EmployeeVersionRow> {
+    // Read phase — these are reads only and happen outside the transaction.
     const employee = await this.employeeRepo.findById(employeeId);
     if (!employee) {
       throw new Error(`Employee not found: ${employeeId}`);
@@ -60,14 +62,32 @@ export class EmployeeVersionService {
       }
     }
 
-    const row = await this.versionRepo.create({
+    // Write phase — wrap in a transaction if available.
+    // versionRepo.create() is a synchronous .run() under Drizzle/better-sqlite3,
+    // wrapped in Promise.resolve(). The microtask resolves before any event-loop
+    // yield, so the transaction scope holds for the single write below.
+    const newVersionData = {
       employee_id: employeeId,
       version_num: nextNum,
       change_type: changeType,
       snapshot_json: snapshot,
       change_summary: changeSummary,
       created_by: createdBy,
-    });
+    };
+
+    let row: EmployeeVersionRow;
+    if (this.transact) {
+      let captured: EmployeeVersionRow | undefined;
+      this.transact(() => {
+        void this.versionRepo.create(newVersionData).then((r) => {
+          captured = r;
+        });
+      });
+      // captured is set because the Drizzle Promise resolves synchronously
+      row = captured!;
+    } else {
+      row = await this.versionRepo.create(newVersionData);
+    }
 
     this.eventBus.emit(
       employeeVersionCreated(employee.company_id, employeeId, nextNum, changeType),
