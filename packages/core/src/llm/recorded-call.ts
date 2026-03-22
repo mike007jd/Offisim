@@ -5,6 +5,7 @@ import { Logger } from '../services/logger.js';
 const logger = new Logger('llm');
 import { generateId } from '../utils/generate-id.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
+import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
 
@@ -35,7 +36,8 @@ export async function recordedLlmCall(
   );
 
   try {
-    const response = await ctx.llmGateway.chat(request);
+    const prunedRequest = { ...request, messages: pruneLlmMessages(request.messages) };
+    const response = await ctx.llmGateway.chat(prunedRequest);
     const latencyMs = Date.now() - startedAt;
 
     try {
@@ -131,7 +133,8 @@ export async function recordedLlmStream(
   );
 
   try {
-    const stream = ctx.llmGateway.chatStream(request);
+    const prunedRequest = { ...request, messages: pruneLlmMessages(request.messages) };
+    const stream = ctx.llmGateway.chatStream(prunedRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
 
