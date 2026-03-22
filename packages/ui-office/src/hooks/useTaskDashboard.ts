@@ -8,6 +8,7 @@ import type {
   TaskStatePayload,
 } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ function findTask(steps: DashboardStep[], taskRunId: string): [number, number] {
 
 export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDashboardState {
   const { eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [state, setState] = useState<InternalState>(INITIAL);
   const stateRef = useRef<InternalState>(INITIAL);
   const agentsRef = useRef(agents);
@@ -263,7 +265,7 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
       offTaskState();
       offTaskAssign();
     };
-  }, [eventBus, update]);
+  }, [eventBus, update, activeCompanyId]);
 
   const toggleStep = useCallback(
     (stepIndex: number) => {

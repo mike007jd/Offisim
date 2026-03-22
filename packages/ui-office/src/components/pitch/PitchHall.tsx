@@ -236,7 +236,7 @@ export function PitchHall() {
       off();
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     };
-  }, [eventBus]);
+  }, [eventBus, activeCompanyId]);
 
   const handleSaveAsSop = useCallback(
     async (item: Deliverable) => {

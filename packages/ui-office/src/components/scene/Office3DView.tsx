@@ -1029,6 +1029,7 @@ export default function Office3DView({
 
   // ── Task flow line event subscription ──
   useEffect(() => {
+    setFlowLines([]); // Clear stale flow lines on company switch
     const unsub = eventBus.on('task.state.changed', (event: RuntimeEvent) => {
       const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
       if (payload?.taskState !== 'active') return;
@@ -1052,7 +1053,7 @@ export default function Office3DView({
       });
     });
     return () => { unsub(); };
-  }, [eventBus]);
+  }, [eventBus, activeCompanyId]);
 
   const handleSelectEmployee = useCallback((id: string) => {
     if (onSelectEmployee) {

@@ -1,6 +1,6 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { errorOccurred, graphNodeEntered } from '../events/event-factories.js';
+import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
@@ -50,6 +50,21 @@ export async function errorHandlerNode(
   }
 
   const reason = state.interruptReason ?? 'An unknown error occurred';
+
+  // Cancel any remaining queued tasks that will never be executed.
+  // Without this, tasks stay 'queued' in the DB forever after an LLM failure.
+  if (runtimeCtx && state.pendingAssignments.length > 0) {
+    const { repos, eventBus, companyId } = runtimeCtx;
+    for (const assignment of state.pendingAssignments) {
+      const taskRunId = assignment.inputJson?.taskRunId as string | undefined;
+      if (taskRunId) {
+        await repos.taskRuns.updateStatus(taskRunId, 'cancelled');
+        eventBus.emit(
+          taskStateChanged(companyId, taskRunId, 'queued', 'cancelled', state.threadId, assignment.employeeId),
+        );
+      }
+    }
+  }
 
   // Try to parse structured error from interruptReason
   const structured = tryParseStructuredError(reason);

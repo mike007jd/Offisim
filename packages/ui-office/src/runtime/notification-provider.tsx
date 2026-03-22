@@ -1,5 +1,6 @@
 import type { NotificationPayload, RuntimeEvent } from '@aics/shared-types';
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCompany } from '../components/company/CompanyContext.js';
 import type { UseNotificationsResult, Notification } from '../hooks/useNotifications';
 import { useAicsRuntime } from './aics-runtime-context';
 
@@ -16,9 +17,11 @@ export const NotificationContext = createContext<UseNotificationsResult | null>(
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
+    setNotifications([]); // Clear stale notifications on company switch
     const off = eventBus.on(
       'notification.',
       (e: RuntimeEvent<NotificationPayload>) => {
@@ -45,7 +48,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       },
     );
     return off;
-  }, [eventBus]);
+  }, [eventBus, activeCompanyId]);
 
   const markRead = useCallback((id: string) => {
     setNotifications((prev) =>

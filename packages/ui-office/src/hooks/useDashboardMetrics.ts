@@ -182,6 +182,16 @@ export function useDashboardMetrics(): DashboardMetrics {
   }, []);
 
   useEffect(() => {
+    // Reset accumulators on company switch so data doesn't bleed across companies
+    activeTasksRef.current.clear();
+    employeeStatesRef.current.clear();
+    costAccRef.current = { totalCost: 0 };
+    costByTaskRef.current.clear();
+    completedTasksRef.current = 0;
+    totalTasksRef.current = 0;
+    bossMessagesRef.current = 0;
+    setMetrics(INITIAL_METRICS);
+
     // --- LLM tokens (from llm.call.completed for totals) ---
     const unsubLlm = eventBus.on(
       'llm.call.completed',
@@ -321,7 +331,7 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubEmployee();
       unsubBoss();
     };
-  }, [eventBus, updateMetrics]);
+  }, [eventBus, updateMetrics, activeCompanyId]);
 
   const getTaskCost = useCallback((taskRunId: string): number => {
     return costByTaskRef.current.get(taskRunId) ?? 0;

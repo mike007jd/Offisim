@@ -16,6 +16,13 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
  * for direct UI consumption.
  */
 export class OrchestrationService {
+  /**
+   * Per-thread execution lock.
+   * Serializes concurrent execute() calls on the same threadId to prevent
+   * state races (shared repos, non-atomic DB updates).
+   */
+  private static threadLocks = new Map<string, Promise<unknown>>();
+
   constructor(
     private graph: {
       stream: (
@@ -73,6 +80,31 @@ export class OrchestrationService {
   }
 
   async execute(input: {
+    entryMode: AicsGraphState['entryMode'];
+    messages: BaseMessage[];
+    targetEmployeeId?: string | null;
+    meetingId?: string | null;
+    meetingInterrupt?: MeetingInterrupt | null;
+  }): Promise<AicsGraphState> {
+    // Serialize concurrent calls on the same threadId
+    const threadId = this.runtimeCtx.threadId;
+    const prev = OrchestrationService.threadLocks.get(threadId) ?? Promise.resolve();
+    let release: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    OrchestrationService.threadLocks.set(threadId, gate);
+    try {
+      await prev; // wait for any prior execution on this thread to finish
+      return await this._executeInner(input);
+    } finally {
+      release!();
+      // Clean up lock entry if nothing else queued behind us
+      if (OrchestrationService.threadLocks.get(threadId) === gate) {
+        OrchestrationService.threadLocks.delete(threadId);
+      }
+    }
+  }
+
+  private async _executeInner(input: {
     entryMode: AicsGraphState['entryMode'];
     messages: BaseMessage[];
     targetEmployeeId?: string | null;
