@@ -23,15 +23,17 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   const [baseURL, setBaseURL] = useState('');
   const [model, setModel] = useState('');
   const [defaultHeaders, setDefaultHeaders] = useState('');
+  const [acpCommand, setAcpCommand] = useState('claude');
 
   useEffect(() => {
     if (open) {
       const saved = loadProviderConfig();
       if (saved) {
-        setApiKey(saved.apiKey);
+        setApiKey(saved.apiKey ?? '');
         setBaseURL(saved.baseURL ?? '');
-        setModel(saved.model);
+        setModel(saved.model ?? '');
         setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
+        setAcpCommand(saved.acpCommand ?? 'claude');
         const match = Object.entries(PROVIDER_PRESETS).find(
           ([, p]) => p.defaults.provider === saved.provider && p.defaults.baseURL === saved.baseURL,
         );
@@ -55,6 +57,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
       setBaseURL(p.defaults.baseURL ?? '');
       setModel(p.defaults.model ?? '');
       setDefaultHeaders(p.defaults.defaultHeaders ? JSON.stringify(p.defaults.defaultHeaders) : '');
+      setAcpCommand(p.defaults.acpCommand ?? 'claude');
     }
   }
 
@@ -77,14 +80,18 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
     const config: ProviderConfig = {
       provider: p?.defaults.provider ?? 'openai-compat',
-      apiKey,
-      model,
-      ...(effectiveBaseURL ? { baseURL: effectiveBaseURL } : {}),
+      apiKey: isSubscription ? '' : apiKey,
+      model: isSubscription ? 'default' : model,
+      ...(effectiveBaseURL && !isSubscription ? { baseURL: effectiveBaseURL } : {}),
       ...(parsedHeaders
         ? { defaultHeaders: parsedHeaders }
         : p?.defaults.defaultHeaders
           ? { defaultHeaders: p.defaults.defaultHeaders }
           : {}),
+      ...(isSubscription ? {
+        acpCommand: acpCommand || 'claude',
+        acpArgs: ['acp'],
+      } : {}),
     };
     saveProviderConfig(config);
     onSave(config);
@@ -92,6 +99,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     onSaveSuccess?.();
   }
 
+  const isSubscription = preset === 'subscription';
   const showBaseURL = preset === 'custom' || preset === 'kimi' || preset === 'openrouter';
 
   return (
@@ -136,18 +144,44 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </Select>
               </div>
 
-              <div>
-                <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
-                  API Key
-                </label>
-                <Input
-                  id="settings-api-key"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                />
-              </div>
+              {isSubscription ? (
+                <>
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                    <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
+                    <p className="text-[10px] text-slate-400">
+                      使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。
+                      无需 API Key，直接使用订阅额度。
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="settings-acp-command" className="text-sm text-shell mb-1 block">
+                      CLI 命令
+                    </label>
+                    <Input
+                      id="settings-acp-command"
+                      value={acpCommand}
+                      onChange={(e) => setAcpCommand(e.target.value)}
+                      placeholder="claude"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      ACP server 命令路径。默认 &quot;claude&quot;（Claude Code CLI）。
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
+                    API Key
+                  </label>
+                  <Input
+                    id="settings-api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                  />
+                </div>
+              )}
 
               {showBaseURL && (
                 <div>
@@ -170,20 +204,22 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </div>
               )}
 
-              <div>
-                <label htmlFor="settings-model" className="text-sm text-shell mb-1 block">
-                  Model
-                </label>
-                <Input
-                  id="settings-model"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="model-name"
-                />
-              </div>
+              {!isSubscription && (
+                <div>
+                  <label htmlFor="settings-model" className="text-sm text-shell mb-1 block">
+                    Model
+                  </label>
+                  <Input
+                    id="settings-model"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="model-name"
+                  />
+                </div>
+              )}
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
-              <Button onClick={handleSave} disabled={!apiKey || !model}>
+              <Button onClick={handleSave} disabled={isSubscription ? false : (!apiKey || !model)}>
                 Save Configuration
               </Button>
             </div>

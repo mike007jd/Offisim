@@ -77,6 +77,12 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     baseURL: config.baseURL,
     defaultHeaders: config.defaultHeaders,
     dangerouslyAllowBrowser: true,
+    ...(config.provider === 'subscription' ? {
+      subscription: {
+        command: config.acpCommand ?? 'claude',
+        args: config.acpArgs ?? ['acp'],
+      },
+    } : {}),
   });
 
   const modelResolver = new ModelResolver(null, {

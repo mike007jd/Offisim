@@ -133,6 +133,12 @@ export async function createBrowserRuntime(
     baseURL: proxyBaseURL ?? config.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
+    ...(config.provider === 'subscription' ? {
+      subscription: {
+        command: config.acpCommand ?? 'claude',
+        args: config.acpArgs ?? ['acp'],
+      },
+    } : {}),
   });
 
   const modelResolver = new ModelResolver(null, {

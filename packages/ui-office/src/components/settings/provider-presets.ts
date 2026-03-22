@@ -51,6 +51,8 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       provider: 'subscription',
       model: 'default',
       apiKey: '',
+      acpCommand: 'claude',
+      acpArgs: ['acp'],
     },
   },
   lmstudio: {

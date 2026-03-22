@@ -120,6 +120,12 @@ function resetSlotCounters() {
   zoneSlotCounters.clear();
 }
 
+/** Clean up module-level state for a company (call on unmount / company switch). */
+export function clearCompanyState(companyId: string): void {
+  companyHandles.delete(companyId);
+  zoneSlotCounters.delete(companyId);
+}
+
 // ── Hook ────────────────────────────────────────────────────────
 
 interface OrchestratorDeps {
@@ -142,6 +148,24 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
   agentsRef.current = agents;
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
+
+  // Timer tracking — clear all pending timeouts on unmount
+  const timerRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const safeTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = setTimeout(() => { timerRefs.current.delete(id); fn(); }, ms);
+    timerRefs.current.add(id);
+    return id;
+  }, []);
+
+  // Cleanup module-level Maps and pending timers on unmount / company switch
+  const activeCompanyId = companyId;
+  useEffect(() => {
+    return () => {
+      clearCompanyState(activeCompanyId);
+      timerRefs.current.forEach(clearTimeout);
+      timerRefs.current.clear();
+    };
+  }, [activeCompanyId]);
 
   /** Move all enabled employees to MTG semicircle positions. */
   const gatherAll = useCallback((_version: number) => {
@@ -181,7 +205,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
     const targetPos = getWorkstationPos(zoneId, slot);
 
     // Highlight: briefly stop for 0.5s then dispatch (we just dispatch immediately with a small delay effect)
-    setTimeout(() => {
+    safeTimeout(() => {
       if (ceremonyVersionRef.current !== version) return; // interrupted
       handle.moveTo(targetPos, 4);
     }, 500);
@@ -190,7 +214,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
       ...prev,
       dispatchedIds: new Set([...prev.dispatchedIds, employeeId]),
     }));
-  }, []);
+  }, [safeTimeout]);
 
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
   const startEndCeremony = useCallback((summaryText: string, version: number) => {
@@ -208,7 +232,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
 
     // Guard: 0 employees → skip straight to dismiss
     if (dispatchedIds.length === 0) {
-      setTimeout(() => {
+      safeTimeout(() => {
         if (ceremonyVersionRef.current !== version) return;
         setCeremony({ phase: 'idle', bubbleText: '', participantIds: new Set(), dispatchedIds: new Set() });
       }, 1500);
@@ -228,7 +252,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
           arrivedCount++;
           if (arrivedCount >= dispatchedIds.length && ceremonyVersionRef.current === version) {
             // All gathered — show summary for 1.5s then dismiss
-            setTimeout(() => {
+            safeTimeout(() => {
               if (ceremonyVersionRef.current !== version) return;
               setCeremony(prev => ({ ...prev, phase: 'dismissing', bubbleText: '' }));
               for (const empId of dispatchedIds) {
@@ -236,7 +260,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
                 h?.moveTo(getRestPos(), 4);
               }
               // After 3s, ceremony is fully done
-              setTimeout(() => {
+              safeTimeout(() => {
                 if (ceremonyVersionRef.current !== version) return;
                 setCeremony({
                   phase: 'idle',
@@ -250,7 +274,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         },
       );
     });
-  }, []);
+  }, [safeTimeout]);
 
   // ── EventBus subscriptions ──
   useEffect(() => {
@@ -271,7 +295,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         }
         hasActivePlan = false;
         // Brief delay to visually separate the reset from the new gathering
-        setTimeout(() => {
+        safeTimeout(() => {
           if (ceremonyVersionRef.current !== version) return; // another interrupt happened
           gatherAll(version);
           setCeremony(prev => ({
@@ -324,7 +348,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
 
         // If this is the last step, switch to working phase
         if (stepIndex === totalSteps - 1) {
-          setTimeout(() => {
+          safeTimeout(() => {
             setCeremony(prev => {
               if (prev.phase !== 'dispatching') return prev;
               // Dismiss undispatched employees to rest
@@ -399,8 +423,11 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
       unsubDispatch();
       unsubChunk();
       unsubPlan();
+      // Clear all pending ceremony timeouts on effect teardown
+      timerRefs.current.forEach(clearTimeout);
+      timerRefs.current.clear();
     };
-  }, [eventBus, gatherAll, dispatchEmployee, startEndCeremony]);
+  }, [eventBus, gatherAll, dispatchEmployee, startEndCeremony, safeTimeout]);
 
   return ceremony;
 }

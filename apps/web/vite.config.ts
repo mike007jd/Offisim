@@ -29,6 +29,8 @@ export default defineConfig({
           'api.moonshot.cn',
           'api.openai.com',
           'api.anthropic.com',
+          'localhost',
+          '127.0.0.1',
         ]);
 
         server.middlewares.use(

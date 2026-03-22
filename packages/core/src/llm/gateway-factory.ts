@@ -3,6 +3,7 @@ import { AnthropicAdapter } from './anthropic-adapter.js';
 import type { LlmGateway } from './gateway.js';
 import { OpenAiAdapter } from './openai-adapter.js';
 import type { RetryConfig } from './retry.js';
+import type { SubscriptionAdapterOptions } from './subscription-adapter.js';
 
 export interface GatewayConfig {
   provider: LlmProvider;
@@ -15,6 +16,8 @@ export interface GatewayConfig {
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
+  /** Subscription-mode (ACP) options — command path, args, env */
+  subscription?: SubscriptionAdapterOptions;
 }
 
 /**
@@ -46,6 +49,12 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
       });
+    case 'subscription': {
+      // Dynamic require — keeps node:child_process out of browser bundles.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { SubscriptionAdapter } = require('./subscription-adapter.js') as typeof import('./subscription-adapter.js');
+      return new SubscriptionAdapter(config.subscription);
+    }
     default:
       throw new Error(`Unknown provider: ${config.provider as string}`);
   }

@@ -1,0 +1,51 @@
+import { render } from '@testing-library/react';
+import type { CompanyTemplate } from '@aics/core/browser';
+import { CompanyCreationWizard } from '../components/onboarding/CompanyCreationWizard.js';
+import { useCompanyCreation } from '../hooks/useCompanyCreation.js';
+
+vi.mock('../hooks/useCompanyCreation.js', () => ({
+  useCompanyCreation: vi.fn(),
+}));
+
+const mockedUseCompanyCreation = vi.mocked(useCompanyCreation);
+
+const TEMPLATE: CompanyTemplate = {
+  id: 'rd-company',
+  name: 'R&D Company',
+  employees: [
+    { name: 'Kai Nakamura', role_slug: 'developer', system_prompt: 'Builds full-stack features.' },
+    { name: 'Ryan Torres', role_slug: 'product_manager', system_prompt: 'Turns goals into plans.' },
+    { name: 'Jamie Reeves', role_slug: 'ux_designer', system_prompt: 'Designs polished interfaces.' },
+  ],
+  sops: [],
+};
+
+describe('CompanyCreationWizard', () => {
+  beforeEach(() => {
+    mockedUseCompanyCreation.mockReturnValue({
+      step: 'first-run',
+      templates: [TEMPLATE],
+      selectedTemplateId: TEMPLATE.id,
+      companyName: 'My AI Company',
+      setSelectedTemplateId: vi.fn(),
+      setCompanyName: vi.fn(),
+      create: vi.fn(),
+      error: null,
+      runtimeReady: true,
+    });
+  });
+
+  it('keeps bob animation off the translated SVG group so employee placement stays stable', () => {
+    const { container } = render(<CompanyCreationWizard />);
+
+    const animatedGroups = Array.from(container.querySelectorAll('svg g'))
+      .filter((group) => group.getAttribute('style')?.includes('wiz-idle-bob'));
+
+    expect(animatedGroups).toHaveLength(TEMPLATE.employees.length);
+
+    for (const group of animatedGroups) {
+      expect(group.getAttribute('transform')).toBeNull();
+      expect(group.parentElement?.getAttribute('transform')).toMatch(/^translate\(/);
+    }
+  });
+});

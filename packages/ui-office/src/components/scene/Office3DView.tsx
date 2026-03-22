@@ -147,6 +147,10 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
     ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6)
     : 0.4;
 
+  // Memoize edge PlaneGeometry to avoid GPU leak on every render
+  const edgePlaneGeo = useMemo(() => new THREE.PlaneGeometry(size[0], size[1]), [size[0], size[1]]);
+  useEffect(() => () => { edgePlaneGeo.dispose(); }, [edgePlaneGeo]);
+
   return (
     <group position={position}>
       {/* Zone floor overlay */}
@@ -154,7 +158,7 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
         <planeGeometry args={size} />
         <meshStandardMaterial color={color} transparent opacity={floorOpacity} />
         <lineSegments>
-          <edgesGeometry args={[new THREE.PlaneGeometry(size[0], size[1])]} />
+          <edgesGeometry args={[edgePlaneGeo]} />
           <lineBasicMaterial color={color} transparent opacity={borderOpacity} />
         </lineSegments>
       </mesh>
