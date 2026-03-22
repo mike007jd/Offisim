@@ -20,7 +20,9 @@ Respond with JSON only:
   "steps": [
     {
       "stepIndex": 0,
+      "phase": "phase name (optional, for grouping related steps)",
       "description": "what this step accomplishes",
+      "dependsOnSteps": [],
       "tasks": [
         {
           "taskType": "research" | "writing" | "analysis" | "review" | "code" | "general",
@@ -34,15 +36,19 @@ Respond with JSON only:
 }
 
 Rules:
-- Steps execute sequentially (step 0 finishes before step 1 starts)
+- Steps execute sequentially by stepIndex order
 - Tasks within a step execute in parallel
 - Set dependsOnStepOutput: true when a task needs results from the previous step
 - Assign tasks to the most appropriate employee
-- Keep plans practical: 1-4 steps for most requests`;
+- For simple requests: 1-4 steps
+- For complex projects: use phases to group related steps (e.g. "研究", "设计", "开发", "测试")
+- dependsOnSteps is reserved for future parallel step execution — set it accurately but steps still run in order`;
 
-interface LlmPlanStep {
+export interface LlmPlanStep {
   stepIndex: number;
   description: string;
+  phase?: string;
+  dependsOnSteps?: number[];
   tasks: Array<{
     taskType: string;
     employeeId: string;
@@ -56,7 +62,7 @@ interface LlmPlan {
   steps: LlmPlanStep[];
 }
 
-function parsePmPlan(content: string): LlmPlan | null {
+export function parsePmPlan(content: string): LlmPlan | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
   if (!parsed) return null;
   if (typeof parsed.summary !== 'string') return null;
@@ -94,6 +100,10 @@ function parsePmPlan(content: string): LlmPlan | null {
         stepIndex: step.stepIndex,
         description: step.description,
         tasks,
+        phase: typeof step.phase === 'string' ? step.phase : undefined,
+        dependsOnSteps: Array.isArray(step.dependsOnSteps)
+          ? step.dependsOnSteps.filter((n): n is number => typeof n === 'number')
+          : undefined,
       });
     }
   }
@@ -358,6 +368,8 @@ export async function pmPlannerNode(
       stepIndex: llmStep.stepIndex,
       description: llmStep.description,
       tasks: planTasks,
+      phase: llmStep.phase,
+      dependsOnSteps: llmStep.dependsOnSteps,
     });
   }
 

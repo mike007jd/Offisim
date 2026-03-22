@@ -19,6 +19,10 @@ export interface PlanStep {
   stepIndex: number;
   description: string;
   tasks: PlanTask[];
+  /** Grouping label for multi-phase projects, e.g. "需求调研", "核心开发" */
+  phase?: string;
+  /** DAG: which steps must complete before this one starts. Reserved for future parallel dispatch. */
+  dependsOnSteps?: number[];
 }
 
 export interface TaskPlan {
