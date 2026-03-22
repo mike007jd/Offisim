@@ -11,6 +11,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 import { initializeRuntimeBundle } from './initialize-runtime';
 
+export interface UnfinishedThread {
+  threadId: string;
+  projectName: string;
+}
+
 interface Props {
   companyId: string;
   children: React.ReactNode;
@@ -22,6 +27,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   const [version, setVersion] = useState(0);
   const [isInitializing, setIsInitializing] = useState(false);
   const [connectedMcpServers, setConnectedMcpServers] = useState<ReadonlySet<string>>(new Set());
+  const [unfinishedThreads, setUnfinishedThreads] = useState<UnfinishedThread[]>([]);
 
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
@@ -166,6 +172,67 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const dismissUnfinishedThreads = useCallback(() => setUnfinishedThreads([]), []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version ensures fresh runtime ref
+  const resumeThread = useCallback(
+    async (threadId: string): Promise<void> => {
+      let runtime = runtimeRef.current;
+      if (!runtime) {
+        if (initPromiseRef.current) {
+          runtime = await initPromiseRef.current;
+        } else {
+          runtime = await initRuntime();
+        }
+      }
+      if (!runtime?.runtimeCtx || !runtime?.graph) {
+        setError('Runtime not ready — cannot resume thread.');
+        return;
+      }
+
+      setIsRunning(true);
+      setError(null);
+
+      try {
+        const [{ OrchestrationService }, { HumanMessage }, { createRuntimeContext }] =
+          await Promise.all([
+            import('@aics/core/dist/services/orchestration-service.js'),
+            import('@langchain/core/messages'),
+            import('@aics/core/dist/runtime/runtime-context.js'),
+          ]);
+
+        // Build a per-thread RuntimeContext for the target threadId
+        const threadCtx = createRuntimeContext({
+          repos: runtime.runtimeCtx.repos,
+          eventBus: runtime.runtimeCtx.eventBus,
+          llmGateway: runtime.runtimeCtx.llmGateway,
+          modelResolver: runtime.runtimeCtx.modelResolver,
+          toolExecutor: runtime.runtimeCtx.toolExecutor,
+          companyId: runtime.runtimeCtx.companyId,
+          threadId,
+          memoryService: runtime.runtimeCtx.memoryService,
+          workstationToolResolver: runtime.runtimeCtx.workstationToolResolver,
+          meetingInterruptBox: { pending: null },
+        });
+
+        const orch = new OrchestrationService(runtime.graph, threadCtx);
+        await orch.execute({
+          entryMode: 'background_sync',
+          messages: [new HumanMessage('Resume from last checkpoint')],
+        });
+
+        // Clear the resumed thread from the unfinished list
+        setUnfinishedThreads((prev) => prev.filter((t) => t.threadId !== threadId));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+      } finally {
+        setIsRunning(false);
+      }
+    },
+    [version, initRuntime],
+  );
+
   // --- MCP server management ---
   const connectMcpServer = useCallback(async (config: McpServerConfig): Promise<number> => {
     const runtime = runtimeRef.current;
@@ -228,6 +295,33 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     }
   }, [version]);
 
+  // Startup detection — find threads that were left in 'running' status
+  // (e.g. app crashed or was closed mid-execution). Runs after runtime init.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version triggers re-detection on reinit
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime?.repos) return;
+
+    runtime.repos.threads
+      .findByCompany(companyId, { status: 'running' })
+      .then((threads: Array<{ thread_id: string; root_task_id: string | null }>) => {
+        if (threads.length === 0) {
+          setUnfinishedThreads([]);
+          return;
+        }
+        // Use thread_id as display name since ProjectRepository is not yet available.
+        // Task 11 (Project UI) will enrich this with project names.
+        const enriched: UnfinishedThread[] = threads.map((t) => ({
+          threadId: t.thread_id,
+          projectName: t.root_task_id ?? t.thread_id,
+        }));
+        setUnfinishedThreads(enriched);
+      })
+      .catch(() => {
+        // Silent fail — startup detection must never block the UI
+      });
+  }, [companyId, version]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getRuntime is a render-scoped function
   const value = useMemo<AicsRuntimeValue>(() => {
     // Runtime initialization is async (both browser and Tauri). On first render
@@ -282,6 +376,9 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,
+      unfinishedThreads,
+      dismissUnfinishedThreads,
+      resumeThread,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [
@@ -296,6 +393,9 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     connectMcpServer,
     disconnectMcpServer,
     connectedMcpServers,
+    unfinishedThreads,
+    dismissUnfinishedThreads,
+    resumeThread,
   ]);
 
   return <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>;

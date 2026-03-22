@@ -35,6 +35,15 @@ export interface AicsRuntimeValue {
   disconnectMcpServer: (name: string) => Promise<void>;
   /** Set of currently connected MCP server names. */
   connectedMcpServers: ReadonlySet<string>;
+  /** Threads detected as 'running' on startup (app crashed mid-execution). */
+  unfinishedThreads: ReadonlyArray<{ threadId: string; projectName: string }>;
+  /** Dismiss the unfinished-thread banner without resuming. */
+  dismissUnfinishedThreads: () => void;
+  /**
+   * Resume a thread that was left in 'running' status.
+   * Re-invokes the graph with background_sync entryMode on the given threadId.
+   */
+  resumeThread: (threadId: string) => Promise<void>;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);
