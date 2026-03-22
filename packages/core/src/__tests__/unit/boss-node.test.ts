@@ -40,6 +40,7 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     meetingActionItems: [],
     hrAssessment: null,
     meetingInterrupt: null,
+    projectId: null,
     ...overrides,
   };
 }

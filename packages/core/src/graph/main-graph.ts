@@ -35,6 +35,10 @@ function routeFromStart(state: AicsGraphState): string {
     }
     return 'meeting_resume';
   }
+  // background_sync — periodic or auto-resume runs go through the boss for re-evaluation
+  if (state.entryMode === 'background_sync') {
+    return 'boss';
+  }
   return 'boss';
 }
 

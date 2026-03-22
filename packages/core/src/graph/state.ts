@@ -90,6 +90,12 @@ export const AicsGraphAnnotation = Annotation.Root({
     'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat'
   >,
 
+  // Project scoping — null when running outside a project context
+  projectId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+
   // Direct chat target
   targetEmployeeId: Annotation<string | null>({
     reducer: (_prev, next) => next,

@@ -5,12 +5,16 @@ import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { ProjectService } from '../services/project-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess';
   reason?: string;
   reply?: string;
+  isNewProject?: boolean;
+  projectName?: string;
 }
 
 const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordinator of this company.
@@ -20,14 +24,18 @@ Analyze the user's message and decide how to handle it. Respond with JSON only:
 {
   "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess",
   "reason": "brief explanation",
-  "reply": "only if action is direct_reply"
+  "reply": "only if action is direct_reply",
+  "isNewProject": true | false,
+  "projectName": "short name — only if isNewProject is true"
 }
 
 Rules:
 - "delegate": for tasks requiring employee work (coding, design, analysis, etc.)
 - "direct_reply": for simple greetings, status questions, or things you can answer directly
 - "meeting": when the user explicitly asks for a team meeting or discussion
-- "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")`;
+- "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")
+- "isNewProject": set to true when the user describes a substantial project, multi-phase work, or long-term initiative (NOT a simple question or single task). Examples: "build a full e-commerce site", "launch a new product", "create a complete mobile app". Single tasks like "fix this bug" or "write a summary" should be false.
+- "projectName": a concise 2-5 word name for the project (only when isNewProject is true)`;
 
 function parseBossDecision(content: string): BossDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -39,6 +47,8 @@ function parseBossDecision(content: string): BossDecision | null {
       action,
       reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
       reply: typeof parsed.reply === 'string' ? parsed.reply : undefined,
+      isNewProject: parsed.isNewProject === true,
+      projectName: typeof parsed.projectName === 'string' ? parsed.projectName : undefined,
     };
   }
   return null;
@@ -95,6 +105,7 @@ export async function bossNode(
       model: resolved.model,
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
+      signal: getConfigSignal(config),
     },
     { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
   );
@@ -109,8 +120,21 @@ export async function bossNode(
       ? decision.reply
       : (decision?.reason ?? llmResponse.content);
 
+  // Project intent detection — create a project when the boss flags a substantial initiative
+  let projectId: string | null = state.projectId ?? null;
+  if (decision?.isNewProject && decision.projectName && !state.projectId) {
+    const projectService = new ProjectService(runtimeCtx);
+    const project = await projectService.createProject(
+      decision.projectName,
+      // Pass the user's original message as description for context
+      replyContent,
+    );
+    projectId = project.project_id;
+  }
+
   return {
     routeDecision: route,
     messages: [new AIMessage({ content: replyContent })],
+    ...(projectId !== (state.projectId ?? null) ? { projectId } : {}),
   };
 }
