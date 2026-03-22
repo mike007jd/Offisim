@@ -1,14 +1,12 @@
 import { Button } from '@aics/ui-core';
-import { Building2, Settings, UserPlus, LayoutGrid, PenTool, FolderOpen } from 'lucide-react';
+import { Settings, UserPlus, PenTool, FolderOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
 interface HeaderProps {
   providerName?: string;
   onOpenSettings: () => void;
-  onOpenCompanyEditor?: () => void;
   onOpenEmployeeCreator?: () => void;
-  onOpenOfficeEditor?: () => void;
   onOpenStudio?: () => void;
   onOpenCompanySelect?: () => void;
   onFileImport: (file: File) => void;
@@ -19,7 +17,7 @@ interface HeaderProps {
   needsConfig?: boolean;
 }
 
-export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOpenEmployeeCreator, onOpenOfficeEditor, onOpenStudio, onOpenCompanySelect, onFileImport, notificationSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
+export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, onOpenStudio, onOpenCompanySelect, onFileImport, notificationSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
   return (
     <header className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between px-4 rounded-xl border border-white/10 shadow-2xl">
       <div className="flex items-center space-x-3">
@@ -66,11 +64,6 @@ export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOp
             <UserPlus className="h-4 w-4 text-slate-400 hover:text-blue-400" />
           </Button>
         )}
-        {onOpenOfficeEditor && (
-          <Button variant="ghost" size="icon" onClick={onOpenOfficeEditor} title="Office Editor" className="hover:bg-white/5">
-            <LayoutGrid className="h-4 w-4 text-slate-400 hover:text-blue-400" />
-          </Button>
-        )}
         {onOpenStudio && (
           <Button variant="ghost" size="icon" onClick={onOpenStudio} title="Studio Editor" className="hover:bg-white/5">
             <PenTool className="h-4 w-4 text-slate-400 hover:text-emerald-400" />
@@ -79,11 +72,6 @@ export function Header({ providerName, onOpenSettings, onOpenCompanyEditor, onOp
         {onOpenCompanySelect && (
           <Button variant="ghost" size="icon" onClick={onOpenCompanySelect} title="Switch Company" className="hover:bg-white/5">
             <FolderOpen className="h-4 w-4 text-slate-400 hover:text-violet-400" />
-          </Button>
-        )}
-        {onOpenCompanyEditor && (
-          <Button variant="ghost" size="icon" onClick={onOpenCompanyEditor} title="Company Settings" className="hover:bg-white/5">
-            <Building2 className="h-4 w-4 text-slate-400 hover:text-blue-400" />
           </Button>
         )}
         <div className="h-6 w-px bg-white/10" />

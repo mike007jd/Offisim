@@ -243,9 +243,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 <Header
                   providerName={providerConfig?.model}
                   onOpenSettings={() => setSettingsOpen(true)}
-                  onOpenCompanyEditor={companyEditor.open}
                   onOpenEmployeeCreator={() => setView('employee-creator')}
-                  onOpenOfficeEditor={() => setView('office-editor')}
                   onOpenStudio={() => {
                     setStudioMode('edit');
                     setView('studio');
