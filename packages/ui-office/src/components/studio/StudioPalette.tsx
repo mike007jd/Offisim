@@ -17,6 +17,7 @@ import {
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
+import { PrefabThumbnail } from './PrefabThumbnail.js';
 import {
   STUDIO_COLORS,
   SP,
@@ -43,16 +44,6 @@ const CATEGORIES: CategoryMeta[] = [
   { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, colorKey: 'catInfrastructure' },
   { id: 'decorative', label: 'Decorative', Icon: Leaf, colorKey: 'catDecorative' },
 ];
-
-// Map prefab category to a per-item icon (reuse category icon)
-const CATEGORY_ICON_MAP: Record<SemanticCategory, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
-  workspace: Monitor,
-  compute: Server,
-  knowledge: BookOpen,
-  collaboration: Users,
-  infrastructure: Cpu,
-  decorative: Leaf,
-};
 
 const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = {
   workspace: STUDIO_COLORS.catWorkspace,
@@ -199,7 +190,6 @@ function PrefabCard({
   onSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const ItemIcon = CATEGORY_ICON_MAP[definition.category] ?? Monitor;
   const color = CATEGORY_COLOR_MAP[definition.category] ?? STUDIO_COLORS.textSecondary;
 
   return (
@@ -214,8 +204,8 @@ function PrefabCard({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: SP.xs,
-        padding: `${SP.sm}px ${SP.xs}px`,
+        gap: 2,
+        padding: `${SP.sm}px ${SP.xs}px ${SP.xs}px`,
         borderRadius: LAYOUT.cardRadius,
         background: isActive
           ? STUDIO_COLORS.accentMuted
@@ -230,14 +220,18 @@ function PrefabCard({
         transition: 'all 0.12s',
       }}
     >
-      <ItemIcon size={20} style={{ color: isActive ? STUDIO_COLORS.accentText : color }} />
+      <PrefabThumbnail
+        prefabId={definition.prefabId}
+        size={32}
+        color={isActive ? STUDIO_COLORS.accentText : color}
+      />
       <span
         style={{
-          fontSize: FONT.xs,
+          fontSize: 8,
           fontWeight: FONT.medium,
-          color: isActive ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
+          color: isActive ? STUDIO_COLORS.accentText : STUDIO_COLORS.textTertiary,
           textAlign: 'center',
-          lineHeight: 1.2,
+          lineHeight: 1.15,
           overflow: 'hidden',
           display: '-webkit-box',
           WebkitLineClamp: 2,
