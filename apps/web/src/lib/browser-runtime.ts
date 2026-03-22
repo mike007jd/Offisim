@@ -30,7 +30,7 @@ import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { COMPANY_ID, THREAD_ID, type ProviderConfig } from '@aics/ui-office';
+import type { ProviderConfig } from '@aics/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 
 // ---------------------------------------------------------------------------
@@ -60,11 +60,11 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   };
 }
 
-async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>): Promise<void> {
+async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>, companyId: string): Promise<void> {
   const now = new Date().toISOString();
 
   const company: CompanyRow = {
-    company_id: COMPANY_ID,
+    company_id: companyId,
     name: 'AICS Demo Company',
     status: 'active',
     workspace_root: null,
@@ -114,9 +114,11 @@ export type RuntimeBundle = {
 export async function createBrowserRuntime(
   config: ProviderConfig,
   eventBus: InMemoryEventBus,
+  companyId: string,
 ): Promise<RuntimeBundle> {
+  const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories();
-  await seedCompany(repos);
+  await seedCompany(repos, companyId);
 
   const proxyBaseURL =
     IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -145,7 +147,7 @@ export async function createBrowserRuntime(
 
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
-    companyId: COMPANY_ID,
+    companyId,
     clientFactory: new BrowserMcpClientFactory(),
   });
 
@@ -153,8 +155,8 @@ export async function createBrowserRuntime(
     mcpToolExecutor,
     repos.mcpAudit,
     eventBus,
-    COMPANY_ID,
-    THREAD_ID,
+    companyId,
+    threadId,
   );
 
   const runtimeCtx = createRuntimeContext({
@@ -163,14 +165,14 @@ export async function createBrowserRuntime(
     llmGateway: gateway,
     modelResolver,
     toolExecutor,
-    companyId: COMPANY_ID,
-    threadId: THREAD_ID,
+    companyId,
+    threadId,
   });
 
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
-    companyId: COMPANY_ID,
+    companyId,
     environment: {
       runtimeVersion: '0.1.0',
       environment: 'desktop',
@@ -188,9 +190,10 @@ export async function createBrowserRuntime(
  */
 export async function createBrowserRuntimeReposOnly(
   eventBus: InMemoryEventBus,
+  companyId: string,
 ): Promise<RuntimeBundle> {
   const repos = createMemoryRepositories();
-  await seedCompany(repos);
+  await seedCompany(repos, companyId);
 
   return {
     eventBus,

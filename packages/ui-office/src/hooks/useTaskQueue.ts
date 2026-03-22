@@ -1,7 +1,7 @@
 import type { TaskRunRow } from '@aics/core/browser';
 import type { RuntimeEvent, TaskStatePayload } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface TaskQueueState {
@@ -24,6 +24,7 @@ const COMPLETED_STATUSES = ['completed', 'failed', 'cancelled'];
  */
 export function useTaskQueue(): TaskQueueState {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [state, setState] = useState<TaskQueueState>({
     activeTasks: [],
     pendingTasks: [],
@@ -36,14 +37,14 @@ export function useTaskQueue(): TaskQueueState {
   const pendingRefreshRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!repos) return;
+    if (!repos || !activeCompanyId) return;
 
     try {
       const [active, pending, completed, counts] = await Promise.all([
-        repos.taskRuns.findQueue(COMPANY_ID, { statuses: ACTIVE_STATUSES, limit: 20 }),
-        repos.taskRuns.findQueue(COMPANY_ID, { statuses: PENDING_STATUSES, limit: 20 }),
-        repos.taskRuns.findQueue(COMPANY_ID, { statuses: COMPLETED_STATUSES, limit: 10 }),
-        repos.taskRuns.countByStatus(COMPANY_ID),
+        repos.taskRuns.findQueue(activeCompanyId, { statuses: ACTIVE_STATUSES, limit: 20 }),
+        repos.taskRuns.findQueue(activeCompanyId, { statuses: PENDING_STATUSES, limit: 20 }),
+        repos.taskRuns.findQueue(activeCompanyId, { statuses: COMPLETED_STATUSES, limit: 10 }),
+        repos.taskRuns.countByStatus(activeCompanyId),
       ]);
 
       setState({
@@ -57,7 +58,7 @@ export function useTaskQueue(): TaskQueueState {
       console.error('[useTaskQueue] refresh failed:', err);
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   // Initial load
   useEffect(() => {

@@ -6,7 +6,7 @@ import {
   employeeWorkstationChanged,
 } from '@aics/core/browser';
 import { useCallback, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface AvatarAppearance {
@@ -126,6 +126,7 @@ export interface UseEmployeeEditorReturn {
 
 export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -210,13 +211,13 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           config_json: configJson,
         };
         await repos.employees.update(employeeId, patch);
-        eventBus.emit(employeeUpdated(COMPANY_ID, employeeId, formData.name, formData.role_slug));
+        eventBus.emit(employeeUpdated(activeCompanyId!, employeeId, formData.name, formData.role_slug));
 
         // Emit workstation change if it differs from original
         if (formData.workstation_id !== originalData.workstation_id) {
           eventBus.emit(
             employeeWorkstationChanged(
-              COMPANY_ID,
+              activeCompanyId!,
               employeeId,
               originalData.workstation_id,
               formData.workstation_id,
@@ -228,7 +229,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       } else {
         // Create new employee
         const result = await repos.employees.create({
-          company_id: COMPANY_ID,
+          company_id: activeCompanyId!,
           name: formData.name,
           role_slug: formData.role_slug,
           source_asset_id: null,
@@ -237,7 +238,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           config_json: configJson,
         });
         eventBus.emit(
-          employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug),
+          employeeCreated(activeCompanyId!, result.employee_id, formData.name, formData.role_slug),
         );
         // Snapshot initial state as version 1
         await versionService?.createVersion(result.employee_id, 'create');
@@ -268,7 +269,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     setIsSaving(true);
     try {
       await repos.employees.delete(employeeId);
-      eventBus.emit(employeeDeleted(COMPANY_ID, employeeId));
+      eventBus.emit(employeeDeleted(activeCompanyId!, employeeId));
       setIsOpen(false);
       setEmployeeId(null);
       setFormData(DEFAULT_FORM);

@@ -1,6 +1,6 @@
 import { employeeCreated } from '@aics/core/browser';
 import { useCallback, useReducer, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
 import { DEFAULT_APPEARANCE } from './useEmployeeEditor';
@@ -154,6 +154,7 @@ export interface UseInterviewWizardReturn {
 export function useInterviewWizard(): UseInterviewWizardReturn {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
   const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStepName = WIZARD_STEPS[state.currentStep] as WizardStep;
@@ -207,8 +208,9 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
         maxTokens: formData.maxTokens,
       });
 
+      if (!activeCompanyId) throw new Error('No active company');
       const result = await repos.employees.create({
-        company_id: COMPANY_ID,
+        company_id: activeCompanyId,
         name: formData.name,
         role_slug: formData.role_slug,
         source_asset_id: null,
@@ -218,7 +220,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
       });
 
       eventBus.emit(
-        employeeCreated(COMPANY_ID, result.employee_id, formData.name, formData.role_slug),
+        employeeCreated(activeCompanyId, result.employee_id, formData.name, formData.role_slug),
       );
       await versionService?.createVersion(result.employee_id, 'create');
 

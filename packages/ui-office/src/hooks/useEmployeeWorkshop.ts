@@ -1,7 +1,7 @@
 import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
 import { employeeUpdated } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants.js';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export interface UseEmployeeWorkshopReturn {
@@ -23,20 +23,21 @@ export interface UseEmployeeWorkshopReturn {
 
 export function useEmployeeWorkshop(): UseEmployeeWorkshopReturn {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadEmployees = useCallback(async () => {
-    if (!repos) return;
+    if (!repos || !activeCompanyId) return;
     setIsLoading(true);
     try {
-      const rows = await repos.employees.findByCompany(COMPANY_ID);
+      const rows = await repos.employees.findByCompany(activeCompanyId);
       setEmployees(rows);
     } finally {
       setIsLoading(false);
     }
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   // Reload when workshop opens.
   useEffect(() => {
@@ -54,15 +55,15 @@ export function useEmployeeWorkshop(): UseEmployeeWorkshopReturn {
       await repos.employees.update(id, patch);
       // Emit event so other subscribers stay in sync.
       const updated = employees.find((e) => e.employee_id === id);
-      if (updated) {
+      if (updated && activeCompanyId) {
         const name = patch.name ?? updated.name;
         const roleSlug = patch.role_slug ?? updated.role_slug;
-        eventBus.emit(employeeUpdated(COMPANY_ID, id, name, roleSlug));
+        eventBus.emit(employeeUpdated(activeCompanyId, id, name, roleSlug));
       }
       // Refresh list
       await loadEmployees();
     },
-    [repos, eventBus, employees, loadEmployees],
+    [repos, eventBus, employees, loadEmployees, activeCompanyId],
   );
 
   const batchUpdateModel = useCallback(

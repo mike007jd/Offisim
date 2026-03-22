@@ -12,7 +12,7 @@ import { employeeDeleted, employeeInstalled } from '@aics/core/browser';
 import type { OpenClawAgent, OpenClawConfig, ConnectionState } from '@aics/core/browser';
 import { useCallback, useState } from 'react';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
-import { COMPANY_ID } from '../lib/constants.js';
+import { useCompany } from '../components/company/CompanyContext.js';
 
 // ---------------------------------------------------------------------------
 // Re-export core types that consumers of this hook may need
@@ -128,6 +128,7 @@ async function mockConnect(_url: string, _token: string): Promise<void> {
 
 export function useOpenClaw() {
   const { eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
 
   const [config, setConfigState] = useState<Pick<OpenClawConfig, 'url' | 'token'> | null>(loadConfig);
   const [connectionState, setConnectionState] = useState<OpenClawConnectionState>('disconnected');
@@ -181,7 +182,7 @@ export function useOpenClaw() {
       // Emit employee.installed so scene views add a lobster puppet
       eventBus.emit(
         employeeInstalled(
-          COMPANY_ID,
+          activeCompanyId!,
           agentId,
           agent.name,
           `openclaw-invite-${Date.now()}`,
@@ -202,7 +203,7 @@ export function useOpenClaw() {
       });
 
       // Emit employee.deleted so scene views remove the lobster puppet
-      eventBus.emit(employeeDeleted(COMPANY_ID, agentId));
+      eventBus.emit(employeeDeleted(activeCompanyId!, agentId));
     },
     [eventBus],
   );

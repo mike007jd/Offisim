@@ -91,6 +91,20 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(eq(schema.companies.company_id, id));
       return (rows[0] as CompanyRow | undefined) ?? null;
     },
+    async findAll() {
+      const rows = await db.select().from(schema.companies);
+      return rows as CompanyRow[];
+    },
+    async create(company: CompanyRow) {
+      await db.insert(schema.companies).values(company);
+      return company;
+    },
+    async update(companyId: string, fields: Partial<Pick<CompanyRow, 'name' | 'status'>>) {
+      await db
+        .update(schema.companies)
+        .set({ ...fields, updated_at: now() })
+        .where(eq(schema.companies.company_id, companyId));
+    },
   };
 
   const threads: ThreadRepository = {
@@ -878,6 +892,44 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  // ── Prefab instances ──────────────────────────────────────────────
+  const prefabInstances: RuntimeRepositories['prefabInstances'] = {
+    async create(instance) {
+      await db.insert(schema.prefabInstances).values(instance);
+      return instance;
+    },
+    async findById(instanceId) {
+      const rows = await db.select().from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.instance_id, instanceId));
+      return (rows[0] ?? null) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findById']>>;
+    },
+    async findByCompanyAndZone(companyId, zoneId) {
+      return (await db.select().from(schema.prefabInstances)
+        .where(and(
+          eq(schema.prefabInstances.company_id, companyId),
+          eq(schema.prefabInstances.zone_id, zoneId),
+        ))) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+    },
+    async findByCompany(companyId) {
+      return (await db.select().from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.company_id, companyId))) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+    },
+    async update(instanceId, fields) {
+      await db.update(schema.prefabInstances).set({
+        ...fields,
+        updated_at: new Date().toISOString(),
+      }).where(eq(schema.prefabInstances.instance_id, instanceId));
+    },
+    async delete(instanceId) {
+      await db.delete(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.instance_id, instanceId));
+    },
+    async deleteByCompany(companyId) {
+      await db.delete(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.company_id, companyId));
+    },
+  };
+
   return {
     companies,
     threads,
@@ -903,5 +955,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     workstationRacks,
     libraryDocuments,
     officeLayouts,
+    prefabInstances,
   };
 }

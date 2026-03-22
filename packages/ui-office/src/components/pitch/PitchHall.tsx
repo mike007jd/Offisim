@@ -20,7 +20,7 @@ import {
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
-import { COMPANY_ID } from '../../lib/constants';
+import { useCompany } from '../company/CompanyContext.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 
 // ---------------------------------------------------------------------------
@@ -210,6 +210,7 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
 export function PitchHall() {
   const deliverables = useDeliverables();
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);
 
   // Track newest deliverable id for brief highlight, clear after 3s
@@ -280,7 +281,7 @@ export function PitchHall() {
       const sopTemplateId = `sop_${crypto.randomUUID()}`;
       await repos.sopTemplates.create({
         sop_template_id: sopTemplateId,
-        company_id: COMPANY_ID,
+        company_id: activeCompanyId!,
         name: item.title,
         description: definition.description,
         definition_json: JSON.stringify(definition),
@@ -292,7 +293,7 @@ export function PitchHall() {
         type: 'sop.template.created',
         entityId: sopTemplateId,
         entityType: 'plan',
-        companyId: COMPANY_ID,
+        companyId: activeCompanyId!,
         threadId: item.threadId,
         timestamp: Date.now(),
         payload: { sopTemplateId, name: item.title },

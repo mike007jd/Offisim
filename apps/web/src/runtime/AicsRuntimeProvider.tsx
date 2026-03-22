@@ -1,18 +1,22 @@
-import {
-  EmployeeVersionService,
-  InMemoryEventBus,
-} from '@aics/core/browser';
+import { EmployeeVersionService, InMemoryEventBus } from '@aics/core/browser';
 import type { McpServerConfig } from '@aics/core/browser';
 import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
+import {
+  AicsRuntimeContext,
+  type AicsRuntimeValue,
+  isTauri,
+  loadProviderConfig,
+} from '@aics/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AicsRuntimeContext, type AicsRuntimeValue, COMPANY_ID, isTauri, loadProviderConfig } from '@aics/ui-office';
 import type { RuntimeBundle } from '../lib/browser-runtime';
+import { initializeRuntimeBundle } from './initialize-runtime';
 
 interface Props {
+  companyId: string;
   children: React.ReactNode;
 }
 
-export function AicsRuntimeProvider({ children }: Props) {
+export function AicsRuntimeProvider({ companyId, children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -40,41 +44,23 @@ export function AicsRuntimeProvider({ children }: Props) {
   // Activate NotificationBridge once — subscribes to runtime events on the
   // stable EventBus and emits `notification.created` for the UI.
   useEffect(() => {
-    const bridge = new NotificationBridge(eventBusRef.current, COMPANY_ID);
+    const bridge = new NotificationBridge(eventBusRef.current, companyId);
     bridge.activate();
     notificationBridgeRef.current = bridge;
     return () => {
       bridge.deactivate();
       notificationBridgeRef.current = null;
     };
-  }, []);
+  }, [companyId]);
 
   // Async runtime init (Tauri + browser modes — both async due to seedCostRates)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
-
     const eventBus = eventBusRef.current;
-
-    if (isTauri()) {
-      if (!config) return null; // Tauri requires config for DB init
-      const { createTauriRuntime } = await import('../lib/tauri-runtime');
-      const runtime = await createTauriRuntime(config, eventBus);
-      runtimeRef.current = runtime;
-      return runtime;
-    }
-
-    // Browser mode — dynamically import to code-split heavy deps (LangGraph, OpenAI SDK, etc.)
-    const { createBrowserRuntime, createBrowserRuntimeReposOnly } = await import('../lib/browser-runtime');
-    if (!config) {
-      // No provider configured — init repos only (allows company creation, browsing)
-      const runtime = await createBrowserRuntimeReposOnly(eventBus);
-      runtimeRef.current = runtime;
-      return runtime;
-    }
-    const runtime = await createBrowserRuntime(config, eventBus);
+    const runtime = await initializeRuntimeBundle(config, eventBus, isTauri(), companyId);
     runtimeRef.current = runtime;
     return runtime;
-  }, []);
+  }, [companyId]);
 
   function getRuntime(): RuntimeBundle | null {
     return runtimeRef.current ?? null;
@@ -152,7 +138,8 @@ export function AicsRuntimeProvider({ children }: Props) {
         // Extract last AI message content from graph result
         const msgs = result.messages ?? [];
         for (let i = msgs.length - 1; i >= 0; i--) {
-          const m = msgs[i]!;
+          const m = msgs[i];
+          if (!m) continue;
           if (m._getType() === 'ai' && typeof m.content === 'string' && m.content) {
             return m.content;
           }
@@ -262,10 +249,12 @@ export function AicsRuntimeProvider({ children }: Props) {
       window.__AICS_DEBUG__ = {
         eventBus,
         installService: runtime?.installService ?? null,
-        getSceneState: existingGetSceneState ?? (() => ({
-          employeeCount: 0,
-          employeeIds: [] as string[],
-        })),
+        getSceneState:
+          existingGetSceneState ??
+          (() => ({
+            employeeCount: 0,
+            employeeIds: [] as string[],
+          })),
       };
     }
 

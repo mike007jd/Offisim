@@ -8,7 +8,7 @@ import type {
   TaskStatePayload,
 } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface DashboardMetrics {
@@ -99,6 +99,7 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  */
 export function useDashboardMetrics(): DashboardMetrics {
   const { eventBus, isRunning, repos } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [metrics, setMetrics] = useState<MetricsState>(INITIAL_METRICS);
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
@@ -117,8 +118,8 @@ export function useDashboardMetrics(): DashboardMetrics {
   // Load initial employee count from repos on mount (same pattern as useAgentStates).
   // Without this, the status bar shows "0/0 agents" until an employee.created event fires.
   useEffect(() => {
-    if (!repos) return;
-    repos.employees.findByCompany(COMPANY_ID).then((rows) => {
+    if (!repos || !activeCompanyId) return;
+    repos.employees.findByCompany(activeCompanyId).then((rows) => {
       const states = employeeStatesRef.current;
       for (const row of rows) {
         if (!states.has(row.employee_id)) {
@@ -132,7 +133,7 @@ export function useDashboardMetrics(): DashboardMetrics {
         }));
       }
     });
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   // Reset all accumulators when a new run starts
   useEffect(() => {

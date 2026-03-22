@@ -2,7 +2,7 @@ import { RackSlotService } from '@aics/core/browser';
 import type { RackWithSlots } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
-import { COMPANY_ID } from '../lib/constants.js';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export interface UseRackSlotReturn {
@@ -19,6 +19,7 @@ export interface UseRackSlotReturn {
 
 export function useRackSlot(): UseRackSlotReturn {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [racks, setRacks] = useState<RackWithSlots[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,16 +29,16 @@ export function useRackSlot(): UseRackSlotReturn {
   }, [repos, eventBus]);
 
   const refresh = useCallback(async () => {
-    if (!repos) { setLoading(false); return; }
+    if (!repos || !activeCompanyId) { setLoading(false); return; }
     setLoading(true);
     try {
       const service = getService();
-      const result = await service.listRacks(COMPANY_ID);
+      const result = await service.listRacks(activeCompanyId);
       setRacks(result);
     } finally {
       setLoading(false);
     }
-  }, [repos, getService]);
+  }, [repos, getService, activeCompanyId]);
 
   useEffect(() => {
     void refresh();
@@ -45,12 +46,13 @@ export function useRackSlot(): UseRackSlotReturn {
 
   const createRack = useCallback(
     async (label: string, providerType: string) => {
+      if (!activeCompanyId) throw new Error('No active company');
       const service = getService();
-      const id = await service.createRack(COMPANY_ID, label, providerType);
+      const id = await service.createRack(activeCompanyId, label, providerType);
       await refresh();
       return id;
     },
-    [getService, refresh],
+    [getService, refresh, activeCompanyId],
   );
 
   const deleteRack = useCallback(

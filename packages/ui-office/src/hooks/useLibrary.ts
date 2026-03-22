@@ -2,7 +2,7 @@ import { LibraryService } from '@aics/core/browser';
 import type { LibraryDocumentRow } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
-import { COMPANY_ID } from '../lib/constants.js';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export interface UseLibraryReturn {
@@ -17,6 +17,7 @@ export interface UseLibraryReturn {
 
 export function useLibrary(): UseLibraryReturn {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [documents, setDocuments] = useState<LibraryDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,18 +28,18 @@ export function useLibrary(): UseLibraryReturn {
   }, [repos, eventBus]);
 
   const refresh = useCallback(async () => {
-    if (!repos) { setLoading(false); return; }
+    if (!repos || !activeCompanyId) { setLoading(false); return; }
     setLoading(true);
     try {
       const service = getService();
       const docs = searchQuery
-        ? await service.search(COMPANY_ID, searchQuery)
-        : await service.listDocuments(COMPANY_ID);
+        ? await service.search(activeCompanyId, searchQuery)
+        : await service.listDocuments(activeCompanyId);
       setDocuments(docs);
     } finally {
       setLoading(false);
     }
-  }, [repos, getService, searchQuery]);
+  }, [repos, getService, searchQuery, activeCompanyId]);
 
   useEffect(() => {
     void refresh();
@@ -55,7 +56,8 @@ export function useLibrary(): UseLibraryReturn {
   const uploadDocument = useCallback(
     async (title: string, content: string, sourceType: string = 'file') => {
       const service = getService();
-      const id = await service.uploadDocument(COMPANY_ID, title, content, sourceType);
+      if (!activeCompanyId) throw new Error('No active company');
+      const id = await service.uploadDocument(activeCompanyId, title, content, sourceType);
       await refresh();
       return id;
     },

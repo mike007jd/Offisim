@@ -3,7 +3,6 @@ import { ToastBanner, useToasts } from '@aics/ui-core';
 import {
   AgentPanel,
   AppLayout,
-  COMPANY_ID,
   ChatDrawer,
   ChatPanel,
   EmployeeInspector,
@@ -16,6 +15,7 @@ import {
   loadProviderConfig,
   useAgentStates,
   useAicsRuntime,
+  useCompany,
   useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
@@ -62,7 +62,9 @@ export function App() {
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
+  const [chatOpenToken, setChatOpenToken] = useState(0);
   const { reinitRuntime, repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
@@ -115,14 +117,14 @@ export function App() {
 
   const handleCreatorDeploy = useCallback(
     async ({ name, role, seed }: { name: string; role: string; seed: string }) => {
-      if (!repos?.employees) {
+      if (!repos?.employees || !activeCompanyId) {
         addToast('Runtime not ready — please wait a moment', 'error');
         return;
       }
       try {
         addToast(`Deploying ${name} (${role})…`, 'info');
         const result = await repos.employees.create({
-          company_id: COMPANY_ID,
+          company_id: activeCompanyId,
           name,
           role_slug: role,
           source_asset_id: null,
@@ -135,7 +137,7 @@ export function App() {
           }),
           config_json: JSON.stringify({ modelPreference: '', temperature: 0.7, maxTokens: 4096 }),
         });
-        eventBus.emit(employeeCreated(COMPANY_ID, result.employee_id, name, role));
+        eventBus.emit(employeeCreated(activeCompanyId, result.employee_id, name, role));
         addToast(`${name} deployed successfully`, 'success');
         setView('office');
       } catch (err) {
@@ -143,7 +145,7 @@ export function App() {
         addToast(`Failed to deploy ${name}`, 'error');
       }
     },
-    [repos, eventBus, addToast],
+    [repos, eventBus, addToast, activeCompanyId],
   );
 
   function handleSaveConfig(config: ProviderConfig) {
@@ -200,18 +202,27 @@ export function App() {
               agentPanel={
                 <AgentPanel
                   agents={agents}
-                  onSelectEmployee={setSelectedEmployeeId}
+                  onSelectEmployee={(id) => {
+                    setSelectedEmployeeId(id);
+                    setChatOpenToken((t) => t + 1);
+                  }}
                   selectedEmployeeId={selectedEmployeeId}
                   onOpenCreator={() => setView('employee-creator')}
                 />
               }
               sceneCanvas={
                 <Suspense fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}>
-                  <SceneCanvas reducedMotion={reducedMotion} viewMode={viewMode} />
+                  <SceneCanvas
+                    reducedMotion={reducedMotion}
+                    viewMode={viewMode}
+                    selectedEmployeeId={selectedEmployeeId}
+                    onSelectEmployee={setSelectedEmployeeId}
+                    onDeselectEmployee={() => setSelectedEmployeeId(null)}
+                  />
                 </Suspense>
               }
               chatDrawer={
-                <ChatDrawer>
+                <ChatDrawer requestOpen={chatOpenToken}>
                   <ChatPanel
                     onOpenSettings={() => setSettingsOpen(true)}
                     selectedEmployeeId={selectedEmployeeId}
@@ -244,7 +255,10 @@ export function App() {
                 companyEditor.open();
                 console.info('[EmployeeInspector] Open editor for', id);
               }}
-              onStartChat={(id) => setSelectedEmployeeId(id)}
+              onStartChat={(id) => {
+                setSelectedEmployeeId(id);
+                setChatOpenToken((t) => t + 1);
+              }}
             />
           </>
         )}

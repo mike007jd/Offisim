@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanyPolicy } from '../components/company/PolicyEditor';
 import { DEFAULT_COMPANY_POLICY } from '../components/company/PolicyEditor';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export type { CompanyPolicy };
@@ -37,6 +37,7 @@ export interface UseCompanyEditorReturn {
  */
 export function useCompanyEditor(): UseCompanyEditorReturn {
   const { repos } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
   const [company, setCompany] = useState<CompanyInfo | null>(null);
@@ -48,10 +49,10 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !activeCompanyId) return;
 
     async function load() {
-      const companyRow = await repos?.companies.findById(COMPANY_ID).catch(() => null);
+      const companyRow = await repos?.companies.findById(activeCompanyId!).catch(() => null);
       let info: CompanyInfo;
       if (companyRow) {
         let desc = '';
@@ -64,7 +65,7 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
         info = DEFAULT_COMPANY;
       }
 
-      const layoutRow = await repos?.officeLayouts.findActive(COMPANY_ID).catch(() => null);
+      const layoutRow = await repos?.officeLayouts.findActive(activeCompanyId!).catch(() => null);
       let loadedPolicy: CompanyPolicy = DEFAULT_COMPANY_POLICY;
 
       if (layoutRow?.layout_json) {
@@ -88,7 +89,7 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
     }
 
     void load();
-  }, [isOpen, repos]);
+  }, [isOpen, repos, activeCompanyId]);
 
   const isDirty = useMemo(
     () =>
@@ -108,10 +109,11 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
   const updatePolicy = useCallback((p: CompanyPolicy) => setPolicy(p), []);
 
   const save = useCallback(async () => {
+    if (!activeCompanyId) return;
     setIsSaving(true);
     try {
       if (repos) {
-        const layoutRow = await repos.officeLayouts.findActive(COMPANY_ID).catch(() => null);
+        const layoutRow = await repos.officeLayouts.findActive(activeCompanyId).catch(() => null);
         // Preserve existing keys in layout_json (especially zoneProps from OfficeEditorOverlay)
         let existing: Record<string, unknown> = {};
         try {
@@ -124,12 +126,12 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
         } else {
           const newLayout = await repos.officeLayouts.create({
             layout_id: `layout-${Date.now()}`,
-            company_id: COMPANY_ID,
+            company_id: activeCompanyId,
             name: 'Default Layout',
             layout_json: layoutJson,
             is_active: 1,
           });
-          await repos.officeLayouts.setActive(COMPANY_ID, newLayout.layout_id);
+          await repos.officeLayouts.setActive(activeCompanyId, newLayout.layout_id);
         }
       }
 
@@ -139,7 +141,7 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
     } finally {
       setIsSaving(false);
     }
-  }, [repos, company, policy]);
+  }, [repos, company, policy, activeCompanyId]);
 
   const open = useCallback(() => setIsOpen(true), []);
 

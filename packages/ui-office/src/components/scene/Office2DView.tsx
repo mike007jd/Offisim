@@ -15,7 +15,7 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { ZONES, STATUS_COLORS, DROP_TARGET_ZONES, resolveEmployeeZone } from '../../lib/zone-config.js';
 import type { ZoneDef } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
-import { COMPANY_ID } from '../../lib/constants';
+import { useCompany } from '../company/CompanyContext.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -91,74 +91,6 @@ function getAvatarUri(seed: string): string {
 }
 
 // ── SVG Furniture Components ──────────────────────────────────────────
-
-/**
- * DeskCluster SVG — matches 3D DeskCluster exactly.
- * 3D: 3.2x3.2 units = 160x160 SVG pixels.
- * Big desk surface + cross glass partition + 4 workstations with laptops + 4 chairs outside.
- */
-const DeskClusterSVG = memo(function DeskClusterSVG({ x, y, employees, selectedEmployeeId, draggedEmployeeId, onEmployeeClick, onEmployeeDragStart }: {
-  x: number; y: number;
-  employees: Array<{ agent: AgentState; seed: string; empId: string } | null>;
-  selectedEmployeeId: string | null;
-  draggedEmployeeId: string | null;
-  onEmployeeClick: (empId: string) => void;
-  onEmployeeDragStart: (empId: string, agent: AgentState, seed: string, e: React.PointerEvent) => void;
-}) {
-  // 3.2 units * 50 px/unit = 160px
-  const S = 160;
-  const half = S / 2;
-  // Workstation offsets: 0.8 units = 40px from center
-  const wsOff = 40;
-  // Chair offsets: 1.6 units = 80px from center (outside desk)
-  const chairOff = 80;
-
-  // 4 seat positions: [dx, dz, chairDz, chairRotation]
-  const seats: [number, number, number][] = [
-    [-wsOff, -wsOff, -chairOff], // top-left
-    [wsOff, -wsOff, -chairOff],  // top-right
-    [-wsOff, wsOff, chairOff],   // bottom-left
-    [wsOff, wsOff, chairOff],    // bottom-right
-  ];
-
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      {/* Desk surface */}
-      <rect x={-half} y={-half} width={S} height={S} rx="8" fill="var(--surface-mid)" stroke="var(--surface-mid)" strokeWidth="1.5" />
-      {/* Glass partitions (cross) */}
-      <line x1="0" y1={-half} x2="0" y2={half} stroke="var(--text-secondary-val)" strokeWidth="3" strokeOpacity="0.5" />
-      <line x1={-half} y1="0" x2={half} y2="0" stroke="var(--text-secondary-val)" strokeWidth="3" strokeOpacity="0.5" />
-
-      {/* 4 workstations */}
-      {seats.map(([dx, dz, cdz], i) => (
-        <g key={i}>
-          {/* Laptop/keyboard on desk */}
-          <g transform={`translate(${dx}, ${dz})`}>
-            <rect x="-12" y="-4" width="24" height="10" rx="2" fill="var(--surface-mid)" />
-            <rect x="-18" y={dz < 0 ? -16 : 6} width="36" height="6" rx="1" fill="var(--surface-light)" />
-            <rect x="-16" y={dz < 0 ? -18 : 8} width="32" height="4" fill="#0ea5e9" opacity="0.6" />
-          </g>
-          {/* Chair outside desk */}
-          <circle cx={dx} cy={cdz} r="12" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
-          <rect x={dx - 8} y={cdz < 0 ? cdz + 4 : cdz - 12} width="16" height="8" rx="4" fill="var(--surface-light)" />
-          {/* Employee avatar at chair position */}
-          {employees[i] && (
-            <EmployeeNode
-              x={dx}
-              y={cdz}
-              agent={employees[i]!.agent}
-              seed={employees[i]!.seed}
-              selected={selectedEmployeeId === employees[i]!.empId}
-              dimmed={draggedEmployeeId === employees[i]!.empId}
-              onClick={() => onEmployeeClick(employees[i]!.empId)}
-              onDragStart={(e) => onEmployeeDragStart(employees[i]!.empId, employees[i]!.agent, employees[i]!.seed, e)}
-            />
-          )}
-        </g>
-      ))}
-    </g>
-  );
-});
 
 const MeetingTableSVG = memo(function MeetingTableSVG({ x, y }: { x: number; y: number }) {
   return (
@@ -352,14 +284,27 @@ function DragGhost({ svgX, svgY, seed, statusColor, name }: {
 
 // ── Main 2D View ──────────────────────────────────────────────────────
 
-export default function Office2DView() {
+interface Office2DViewProps {
+  selectedEmployeeId?: string | null;
+  onSelectEmployee?: (id: string) => void;
+  onDeselectEmployee?: () => void;
+}
+
+export default function Office2DView({
+  selectedEmployeeId: externalSelectedId = null,
+  onSelectEmployee,
+  onDeselectEmployee,
+}: Office2DViewProps) {
   const agents = useAgentStates();
+  const { activeCompanyId } = useCompany();
   const { eventBus } = useAicsRuntime();
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  // Use external state if provided, otherwise fall back to local
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+  const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
 
@@ -510,7 +455,7 @@ export default function Office2DView() {
             type: 'employee.workstation.drop-requested',
             entityId: dragState.employeeId,
             entityType: 'employee',
-            companyId: COMPANY_ID,
+            companyId: activeCompanyId!,
             timestamp: Date.now(),
             payload: {
               employeeId: dragState.employeeId,
@@ -543,24 +488,32 @@ export default function Office2DView() {
   };
 
   const handleEmployeeClick = (empId: string) => {
-    setSelectedEmployeeId(empId);
+    if (onSelectEmployee) {
+      onSelectEmployee(empId);
+    } else {
+      setLocalSelectedId(empId);
+    }
     eventBus.emit({
       type: 'scene.employee.selected',
       entityId: empId,
       entityType: 'employee',
-      companyId: COMPANY_ID,
+      companyId: activeCompanyId!,
       timestamp: Date.now(),
       payload: { employeeId: empId, source: 'scene' },
     });
   };
 
   const handleDeselect = () => {
-    setSelectedEmployeeId(null);
+    if (onDeselectEmployee) {
+      onDeselectEmployee();
+    } else {
+      setLocalSelectedId(null);
+    }
     eventBus.emit({
       type: 'ui.selection.changed',
       entityId: '',
       entityType: 'employee',
-      companyId: COMPANY_ID,
+      companyId: activeCompanyId!,
       timestamp: Date.now(),
       payload: { entityId: null, source: 'scene' },
     });
@@ -724,26 +677,47 @@ export default function Office2DView() {
             </g>;
           })()}
 
-          {/* Department desk clusters — 1:1 matching 3D positions */}
+          {/* Department employees — each in their own quadrant within the zone */}
           {(['dev', 'prod', 'art'] as const).map(id => {
             const z = ZONES.find(zz => zz.id === id)!;
             const s = toSVG(z.cx, z.cz, z.w, z.d);
+            const cx = s.x + s.w / 2;
+            const cy = s.y + s.h / 2;
             const emps = zoneEmployees.get(id) ?? [];
-            // Fill 4 slots: employee or null
-            const slots: Array<{ agent: AgentState; seed: string; empId: string } | null> = [
-              emps[0] ?? null, emps[1] ?? null, emps[2] ?? null, emps[3] ?? null,
-            ];
+            // 4 quadrant positions spread across the zone (30% from center)
+            const qx = s.w * 0.28;
+            const qy = s.h * 0.25;
+            const quads: [number, number][] = [[-qx, -qy], [qx, -qy], [-qx, qy], [qx, qy]];
             return (
-              <DeskClusterSVG
-                key={id}
-                x={s.x + s.w / 2}
-                y={s.y + s.h / 2}
-                employees={slots}
-                selectedEmployeeId={selectedEmployeeId}
-                draggedEmployeeId={isDragging ? dragState!.employeeId : null}
-                onEmployeeClick={handleEmployeeClick}
-                onEmployeeDragStart={handleEmployeeDragStart}
-              />
+              <g key={id}>
+                {/* Individual desks + employees at quadrant positions */}
+                {quads.map(([dx, dy], i) => {
+                  const emp = emps[i] ?? null;
+                  return (
+                    <g key={i} transform={`translate(${cx + dx}, ${cy + dy})`}>
+                      {/* Mini desk */}
+                      <rect x="-28" y="-22" width="56" height="44" rx="4" fill="var(--surface-mid)" opacity="0.6" />
+                      <rect x="-16" y="-2" width="32" height="6" rx="1" fill="var(--surface-light)" />
+                      <rect x="-14" y="-4" width="28" height="3" fill="#0ea5e9" opacity="0.5" />
+                      {/* Chair */}
+                      <circle cx="0" cy={dy < 0 ? 32 : -32} r="10" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
+                      {/* Employee avatar at chair */}
+                      {emp && (
+                        <EmployeeNode
+                          x={0}
+                          y={dy < 0 ? 32 : -32}
+                          agent={emp.agent}
+                          seed={emp.seed}
+                          selected={selectedEmployeeId === emp.empId}
+                          dimmed={isDragging && dragState?.employeeId === emp.empId}
+                          onClick={() => handleEmployeeClick(emp.empId)}
+                          onDragStart={(e) => handleEmployeeDragStart(emp.empId, emp.agent, emp.seed, e)}
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
             );
           })}
 

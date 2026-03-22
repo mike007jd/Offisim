@@ -2,7 +2,7 @@ import { CostCalculationService } from '@aics/core/browser';
 import type { CostAggregate } from '@aics/core/browser';
 import type { LlmUsageRecordedPayload, RuntimeEvent } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface CostSummary {
@@ -28,6 +28,7 @@ const INITIAL_SUMMARY: CostSummary = {
  */
 export function useCostDashboard() {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [summary, setSummary] = useState<CostSummary>(INITIAL_SUMMARY);
   const [byModel, setByModel] = useState<CostAggregate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,12 +37,12 @@ export function useCostDashboard() {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!repos) return;
+    if (!repos || !activeCompanyId) return;
 
     const service = new CostCalculationService(repos.costRates, repos.llmCalls, repos.threads);
 
     try {
-      const dashboard = await service.getDashboardSummary(COMPANY_ID);
+      const dashboard = await service.getDashboardSummary(activeCompanyId);
 
       setSummary({
         totalCost: dashboard.totalCost,
@@ -55,7 +56,7 @@ export function useCostDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   // Initial load
   useEffect(() => {

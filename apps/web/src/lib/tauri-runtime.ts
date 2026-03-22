@@ -13,7 +13,7 @@ import {
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { COMPANY_ID, THREAD_ID, type ProviderConfig } from '@aics/ui-office';
+import type { ProviderConfig } from '@aics/ui-office';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
@@ -63,7 +63,8 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
  *   bus avoids the "EventBus churn" problem where async init would create a
  *   different bus than what UI hooks subscribe to.
  */
-export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus) {
+export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus, companyId: string) {
+  const threadId = `thread-${companyId}`;
   await seedTauriDb();
 
   const db = createTauriDrizzleDb();
@@ -91,7 +92,7 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   // MCP tool executor — TauriMcpClientFactory supports both stdio (via Rust bridge) and SSE
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
-    companyId: COMPANY_ID,
+    companyId,
     clientFactory: new TauriMcpClientFactory(),
   });
 
@@ -100,8 +101,8 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     mcpToolExecutor,
     repos.mcpAudit,
     eventBus,
-    COMPANY_ID,
-    THREAD_ID,
+    companyId,
+    threadId,
   );
 
   const runtimeCtx = createRuntimeContext({
@@ -110,8 +111,8 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
     llmGateway: gateway,
     modelResolver,
     toolExecutor,
-    companyId: COMPANY_ID,
-    threadId: THREAD_ID,
+    companyId,
+    threadId,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)
@@ -121,7 +122,7 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
-    companyId: COMPANY_ID,
+    companyId,
     environment: {
       runtimeVersion: '0.1.0',
       environment: 'desktop',

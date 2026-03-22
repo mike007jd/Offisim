@@ -6,7 +6,7 @@ import type {
   RuntimeEvent,
 } from '@aics/shared-types';
 import { useEffect, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from './aics-runtime-context';
 
 export interface AgentState {
@@ -24,12 +24,13 @@ export interface AgentState {
  */
 export function useAgentStates(): Map<string, AgentState> {
   const { eventBus, repos } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [agents, setAgents] = useState<Map<string, AgentState>>(new Map());
 
   // Load employees from repos on mount (replaces hardcoded seed)
   useEffect(() => {
-    if (!repos) return;
-    repos.employees.findByCompany(COMPANY_ID).then((rows) => {
+    if (!repos || !activeCompanyId) return;
+    repos.employees.findByCompany(activeCompanyId).then((rows) => {
       setAgents((prev) => {
         const next = new Map(prev);
         for (const row of rows) {
@@ -45,7 +46,7 @@ export function useAgentStates(): Map<string, AgentState> {
         return next;
       });
     });
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   useEffect(() => {
     // Employee state changes (runtime activity)

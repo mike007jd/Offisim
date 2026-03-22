@@ -12,6 +12,7 @@ import { computeUpgradeDiff, readPackageFile } from '@aics/install-core';
 import { RegistryApiError, RegistryClient } from '@aics/registry-client';
 import { useCallback, useRef, useState } from 'react';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export type InstallStep =
@@ -54,10 +55,10 @@ export interface InstallFlowActions {
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const COMPANY_ID = 'company-001';
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const { installService, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
@@ -93,7 +94,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       for (const empId of employeeIds) {
         eventBus.emit(
           employeeInstalled(
-            COMPANY_ID,
+            activeCompanyId!,
             empId,
             activePlan.manifest.package.title,
             txnId,

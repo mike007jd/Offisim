@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
-import { COMPANY_ID } from '../../lib/constants';
+import { useCompany } from '../company/CompanyContext.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { ZONES, DROP_TARGET_ZONES, STATUS_COLORS as _STATUS_COLORS, resolveEmployeeZone } from '../../lib/zone-config.js';
 import type { RuntimeEvent } from '@aics/shared-types';
@@ -397,12 +397,12 @@ function StatusBubble3D({ state, taskDesc, blockReason }: {
  * Workstation positions relative to zone center,
  * used for placing employees within department desk clusters.
  */
-/** Chair/seat positions — OUTSIDE the desk, where employees sit */
+/** Chair/seat positions — matches WorkstationMesh3D internal chair offsets */
 const SEAT_POSITIONS: [number, number, number][] = [
-  [-0.8, 0, -1.8],
-  [0.8, 0, -1.8],
-  [-0.8, 0, 1.8],
-  [0.8, 0, 1.8],
+  [-0.8, 0, -1.6],   // top-left chair (ws[-0.8,-0.8] + chair at z=-0.8)
+  [0.8, 0, -1.6],    // top-right chair
+  [-0.8, 0, 1.6],    // bottom-left chair (ws[-0.8,0.8] + chair at z=+0.8)
+  [0.8, 0, 1.6],     // bottom-right chair
 ];
 
 interface PlacedEmployee {
@@ -552,7 +552,7 @@ function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
   return (
     <group>
       {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={onFloorClick}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onFloorClick?.()}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial color="#020617" roughness={0.9} />
       </mesh>
@@ -920,11 +920,23 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
 
 // ── Main 3D View ────────────────────────────────────────────────────
 
-export default function Office3DView() {
+interface Office3DViewProps {
+  selectedEmployeeId?: string | null;
+  onSelectEmployee?: (id: string) => void;
+  onDeselectEmployee?: () => void;
+}
+
+export default function Office3DView({
+  selectedEmployeeId: externalSelectedId = null,
+  onSelectEmployee,
+  onDeselectEmployee,
+}: Office3DViewProps) {
   const agents = useAgentStates();
   const placed = usePlacedEmployees(agents);
-  const { eventBus } = useAicsRuntime();
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const { eventBus, repos } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+  const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
   const [dragState, setDragState] = useState<DragState3D | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [flowLines, setFlowLines] = useState<FlowLineData[]>([]);
@@ -986,28 +998,36 @@ export default function Office3DView() {
   }, [eventBus]);
 
   const handleSelectEmployee = useCallback((id: string) => {
-    setSelectedEmployeeId(id);
+    if (onSelectEmployee) {
+      onSelectEmployee(id);
+    } else {
+      setLocalSelectedId(id);
+    }
     eventBus.emit({
       type: 'scene.employee.selected',
       entityId: id,
       entityType: 'employee',
-      companyId: COMPANY_ID,
+      companyId: activeCompanyId!,
       timestamp: Date.now(),
       payload: { employeeId: id, source: 'scene' },
     });
-  }, [eventBus]);
+  }, [eventBus, onSelectEmployee]);
 
   const handleDeselect = useCallback(() => {
-    setSelectedEmployeeId(null);
+    if (onDeselectEmployee) {
+      onDeselectEmployee();
+    } else {
+      setLocalSelectedId(null);
+    }
     eventBus.emit({
       type: 'ui.selection.changed',
       entityId: '',
       entityType: 'employee',
-      companyId: COMPANY_ID,
+      companyId: activeCompanyId!,
       timestamp: Date.now(),
       payload: { entityId: null, source: 'scene' },
     });
-  }, [eventBus]);
+  }, [eventBus, onDeselectEmployee]);
 
   // ── Drag-to-assign handlers ──
 
@@ -1063,7 +1083,7 @@ export default function Office3DView() {
           type: 'employee.workstation.drop-requested',
           entityId: ds.employeeId,
           entityType: 'employee',
-          companyId: COMPANY_ID,
+          companyId: activeCompanyId!,
           timestamp: Date.now(),
           payload: {
             employeeId: ds.employeeId,
@@ -1089,8 +1109,57 @@ export default function Office3DView() {
     document.body.style.cursor = 'default';
   }, []);
 
+  // ── Editor ↔ DB bridge ──
+  const saveToRepo = useCallback(async (prefabs: import('./editor/EditorMode.js').PlacedPrefab[]): Promise<boolean> => {
+    if (!repos?.prefabInstances) return false;
+    try {
+      // Delete existing editor-placed prefabs, then re-create all
+      await repos.prefabInstances.deleteByCompany(activeCompanyId!);
+      const now = new Date().toISOString();
+      for (const p of prefabs) {
+        await repos.prefabInstances.create({
+          instance_id: p.id,
+          company_id: activeCompanyId!,
+          prefab_id: p.prefabId,
+          zone_id: p.zoneId,
+          position_x: p.position[0],
+          position_y: p.position[2], // 3D z → DB y
+          rotation: p.rotation as 0 | 90 | 180 | 270,
+          bindings_json: null,
+          config_json: null,
+          enabled: 1,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+      eventBus.emit({
+        type: 'prefab.state.changed',
+        entityId: activeCompanyId!,
+        entityType: 'company',
+        companyId: activeCompanyId!,
+        timestamp: Date.now(),
+        payload: { action: 'layout-saved', count: prefabs.length },
+      });
+      return true;
+    } catch (err) {
+      console.error('[Office3DView] Failed to save layout:', err);
+      return false;
+    }
+  }, [repos, eventBus]);
+
+  // Convert loaded prefab instances to editor PlacedPrefab format
+  const editorInitialPrefabs = useMemo(() =>
+    prefabInstances.map(({ instance }) => ({
+      id: instance.instance_id,
+      prefabId: instance.prefab_id,
+      position: [instance.position_x, 0, instance.position_y] as [number, number, number],
+      rotation: instance.rotation,
+      zoneId: instance.zone_id,
+    })),
+  [prefabInstances]);
+
   return (
-    <EditorProvider>
+    <EditorProvider saveToRepo={saveToRepo} initialPrefabs={editorInitialPrefabs}>
       <Office3DViewInner
         agents={agents}
         placed={placed}

@@ -1,6 +1,6 @@
 import type { SopTemplateRow } from '@aics/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { COMPANY_ID } from '../lib/constants';
+import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export interface SopTemplate {
@@ -45,19 +45,20 @@ export interface UseSopsResult {
 
 export function useSops(): UseSopsResult {
   const { repos, eventBus } = useAicsRuntime();
+  const { activeCompanyId } = useCompany();
   const [sops, setSops] = useState<SopTemplate[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refreshSops = useCallback(async () => {
-    if (!repos) return;
+    if (!repos || !activeCompanyId) return;
     setLoading(true);
     try {
-      const rows = await repos.sopTemplates.findByCompany(COMPANY_ID);
+      const rows = await repos.sopTemplates.findByCompany(activeCompanyId);
       setSops(rows.map(toSopTemplate));
     } finally {
       setLoading(false);
     }
-  }, [repos]);
+  }, [repos, activeCompanyId]);
 
   // Initial load
   useEffect(() => {
