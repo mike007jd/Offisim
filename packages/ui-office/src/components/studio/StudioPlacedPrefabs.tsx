@@ -205,11 +205,10 @@ export function StudioPlacedPrefabs() {
     invalidate();
   }, [selectedId, transformMode, updatePosition, updateRotation, invalidate]);
 
-  // Non-selected instances (rendered as memoized items)
-  const nonSelectedInstances = useMemo(
-    () => instances.filter((i) => i.id !== selectedId),
-    [instances, selectedId],
-  );
+  // Non-selected instances — inline filter instead of useMemo.
+  // The memo was broken: instances ref changes every drag frame (PERF-3 mitigates this,
+  // but inline is simpler and equally fast for <100 items). (PERF-5)
+  const nonSelectedInstances = instances.filter((i) => i.id !== selectedId);
 
   // Selected instance definition
   const selectedDefinition = useMemo(

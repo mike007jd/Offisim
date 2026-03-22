@@ -7,11 +7,39 @@ import { STUDIO_COLORS } from './studio-tokens.js';
 
 type OrbitControlsRef = React.ComponentRef<typeof OrbitControls>;
 
-/** Subscribes to Zustand store changes and triggers R3F invalidate.
- *  Required because frameloop="demand" won't re-render on state changes automatically. */
+/** Rendering-relevant store fields — changes to these require a canvas invalidate.
+ *  `tool` affects TransformControls mode/enabled/visible in the 3D scene. */
+function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
+  return {
+    instances: s.instances,
+    selectedInstanceId: s.selectedInstanceId,
+    placingPrefab: s.placingPrefab,
+    ghostRotation: s.ghostRotation,
+    plotSize: s.plotSize,
+    gridSnap: s.gridSnap,
+    tool: s.tool,
+  };
+}
+
+/** Subscribes to rendering-relevant Zustand store fields and triggers R3F invalidate.
+ *  Required because frameloop="demand" won't re-render on state changes automatically.
+ *  Only invalidates when fields that affect 3D rendering actually change (PERF-1). */
 function InvalidateBridge() {
   const { invalidate } = useThree();
-  useEffect(() => useStudioStore.subscribe(() => invalidate()), [invalidate]);
+  useEffect(() => {
+    let prev = pickRenderFields(useStudioStore.getState());
+    return useStudioStore.subscribe((state) => {
+      const next = pickRenderFields(state);
+      // Shallow compare — only invalidate when a rendering-relevant field changed
+      for (const key of Object.keys(next) as Array<keyof typeof next>) {
+        if (next[key] !== prev[key]) {
+          prev = next;
+          invalidate();
+          return;
+        }
+      }
+    });
+  }, [invalidate]);
   return null;
 }
 

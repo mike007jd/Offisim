@@ -91,7 +91,7 @@ export function StudioGhost() {
   const placeInstance = useStudioStore((s) => s.placeInstance);
   const cancelPlacement = useStudioStore((s) => s.cancelPlacement);
   const gridSnap = useStudioStore((s) => s.gridSnap);
-  const instances = useStudioStore((s) => s.instances);
+  // instances is read via getState() in event handlers to avoid stale closure (PERF-4)
 
   const halfW = plotSize.width / 2;
   const halfD = plotSize.depth / 2;
@@ -242,9 +242,9 @@ export function StudioGhost() {
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
 
-          // Check collision (rotation-aware)
-          const curGhostRotation = useStudioStore.getState().ghostRotation;
-          const isBlocked = checkOverlap(x, z, gridW, gridD, curGhostRotation, instances);
+          // Check collision (rotation-aware) — read from getState() to avoid stale closure (PERF-4)
+          const { ghostRotation: curGhostRotation, instances: currentInstances } = useStudioStore.getState();
+          const isBlocked = checkOverlap(x, z, gridW, gridD, curGhostRotation, currentInstances);
           blockedRef.current = isBlocked;
 
           if (groupRef.current) {
@@ -262,9 +262,9 @@ export function StudioGhost() {
           x = Math.max(-halfW, Math.min(halfW, x));
           z = Math.max(-halfD, Math.min(halfD, z));
 
-          // Block placement if overlapping (rotation-aware)
-          const curGhostRotation = useStudioStore.getState().ghostRotation;
-          if (checkOverlap(x, z, gridW, gridD, curGhostRotation, instances)) {
+          // Block placement if overlapping (rotation-aware) — read from getState() (PERF-4)
+          const { ghostRotation: curGhostRotation, instances: currentInstances } = useStudioStore.getState();
+          if (checkOverlap(x, z, gridW, gridD, curGhostRotation, currentInstances)) {
             return; // don't place
           }
 

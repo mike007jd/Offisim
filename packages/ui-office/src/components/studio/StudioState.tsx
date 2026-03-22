@@ -67,7 +67,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   dirty: false,
   gridSnap: true,
 
-  setTool: (tool) => set({ tool, placingPrefab: tool !== 'place' ? null : get().placingPrefab }),
+  setTool: (tool) => {
+    const current = get();
+    const placingPrefab = tool !== 'place' ? null : current.placingPrefab;
+    if (current.tool === tool && current.placingPrefab === placingPrefab) return;
+    set({ tool, placingPrefab });
+  },
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
   startPlacement: (def) => set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
@@ -103,15 +108,25 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
 
-  updatePosition: (id, position) => set((s) => ({
-    instances: s.instances.map((i) => (i.id === id ? { ...i, position } : i)),
-    dirty: true,
-  })),
+  updatePosition: (id, position) => set((s) => {
+    const inst = s.instances.find((i) => i.id === id);
+    // Skip if position unchanged — avoids new array allocation every drag frame (PERF-3)
+    if (inst && inst.position[0] === position[0] && inst.position[1] === position[1] && inst.position[2] === position[2]) return s;
+    return {
+      instances: s.instances.map((i) => (i.id === id ? { ...i, position } : i)),
+      dirty: true,
+    };
+  }),
 
-  updateRotation: (id, rotation) => set((s) => ({
-    instances: s.instances.map((i) => (i.id === id ? { ...i, rotation } : i)),
-    dirty: true,
-  })),
+  updateRotation: (id, rotation) => set((s) => {
+    const inst = s.instances.find((i) => i.id === id);
+    // Skip if rotation unchanged — avoids new array allocation (PERF-3)
+    if (inst && inst.rotation === rotation) return s;
+    return {
+      instances: s.instances.map((i) => (i.id === id ? { ...i, rotation } : i)),
+      dirty: true,
+    };
+  }),
 
   rotateSelected: () => {
     const { selectedInstanceId, instances } = get();
