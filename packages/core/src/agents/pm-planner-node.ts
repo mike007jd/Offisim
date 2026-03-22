@@ -11,7 +11,8 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { generateId } from '../utils/generate-id.js';
 
-const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
+/** @internal — exported for testing */
+export const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
 
 Given the user's intent and available employees with their capabilities, create a step-by-step plan.
 

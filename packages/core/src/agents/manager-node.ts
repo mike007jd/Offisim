@@ -18,7 +18,8 @@ interface ManagerDecision {
   assignments: LlmAssignment[];
 }
 
-const MANAGER_SYSTEM_PROMPT = `You are the Manager AI — responsible for task splitting and employee assignment.
+/** @internal — exported for testing */
+export const MANAGER_SYSTEM_PROMPT = `You are the Manager AI — responsible for task splitting and employee assignment.
 
 Given the user's request and available employees, decide how to handle it.
 

@@ -17,7 +17,8 @@ interface BossDecision {
   projectName?: string;
 }
 
-const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordinator of this company.
+/** @internal — exported for testing */
+export const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordinator of this company.
 
 Analyze the user's message and decide how to handle it. Respond with JSON only:
 
