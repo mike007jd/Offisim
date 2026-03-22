@@ -189,6 +189,21 @@ export function StudioPage({
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
 
+  // -- beforeunload guard (Skill §15) ------------------------------------------
+
+  const dirty = useStudioStore((s) => s.dirty);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  // TODO: place success scale bounce + delete fade animations — see Skill §14 timings
+
   // -- Load existing data (edit mode) -----------------------------------------
 
   useEffect(() => {

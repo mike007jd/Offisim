@@ -177,27 +177,45 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
 
       <div style={SPACER} />
 
-      {/* Save */}
-      <button
-        onClick={onSave}
-        disabled={!canSave}
-        aria-label={saving ? 'Saving in progress' : 'Save layout (Ctrl+S)'}
-        style={{
-          ...toolButtonStyle(canSave),
-          cursor: canSave ? 'pointer' : 'not-allowed',
-          ...(saveFlash
-            ? {
-                background: STUDIO_COLORS.successMuted,
-                color: STUDIO_COLORS.success,
-                borderColor: STUDIO_COLORS.success,
-              }
-            : {}),
-        }}
-      >
-        <Save size={14} />
-        <span>{saving ? 'Saving\u2026' : saveFlash ? 'Saved!' : 'Save'}</span>
-        <kbd style={kbdStyle()}>{'\u2318'}S</kbd>
-      </button>
+      {/* Save — wrapped for dirty indicator dot */}
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={onSave}
+          disabled={!canSave}
+          aria-label={saving ? 'Saving in progress' : 'Save layout (Ctrl+S)'}
+          style={{
+            ...toolButtonStyle(canSave),
+            cursor: canSave ? 'pointer' : 'not-allowed',
+            ...(saveFlash
+              ? {
+                  background: STUDIO_COLORS.successMuted,
+                  color: STUDIO_COLORS.success,
+                  borderColor: STUDIO_COLORS.success,
+                }
+              : {}),
+          }}
+        >
+          <Save size={14} />
+          <span>{saving ? 'Saving\u2026' : saveFlash ? 'Saved!' : 'Save'}</span>
+          <kbd style={kbdStyle()}>{'\u2318'}S</kbd>
+        </button>
+        {/* Dirty amber dot — Skill §15 */}
+        {dirty && !saveFlash && (
+          <div
+            style={{
+              position: 'absolute',
+              top: -2,
+              right: -2,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: STUDIO_COLORS.warning,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        {/* TODO: save success scale bounce animation — see Skill §14 timings */}
+      </div>
     </div>
   );
 }
