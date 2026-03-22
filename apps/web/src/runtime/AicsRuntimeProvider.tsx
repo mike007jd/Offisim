@@ -289,6 +289,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
           runtime.repos.employeeVersions,
           runtime.repos.employees,
           eventBus,
+          runtime.repos.transact,
         )
       : null;
 

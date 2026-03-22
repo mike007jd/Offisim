@@ -548,4 +548,10 @@ export interface RuntimeRepositories {
   officeLayouts: OfficeLayoutRepository;
   prefabInstances: PrefabInstanceRepository;
   projects: ProjectRepository;
+  /**
+   * Wraps a synchronous callback in a DB transaction.
+   * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.
+   * All repo .run() calls inside the callback share the same SQLite transaction.
+   */
+  transact?<T>(fn: () => T): T;
 }

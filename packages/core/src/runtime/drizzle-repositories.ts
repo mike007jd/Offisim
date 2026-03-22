@@ -1044,6 +1044,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  // Wraps a synchronous callback in a better-sqlite3 transaction.
+  // All repo .run() calls inside fn() participate in the same transaction.
+  // db.transaction(fn) for better-sqlite3 executes fn synchronously and returns T.
+  const transact = <T>(fn: () => T): T => db.transaction(fn) as unknown as T;
+
   return {
     companies,
     threads,
@@ -1071,5 +1076,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     officeLayouts,
     prefabInstances,
     projects,
+    transact,
   };
 }
