@@ -20,11 +20,21 @@ Zero `db.transaction()` calls across the entire codebase. 8 multi-step write ope
 
 ### Interface
 
-Add `withTransaction<T>(fn: () => T): T` to `RuntimeRepositories`:
+Add `withTransaction` to `RuntimeRepositories`.
+
+Note: better-sqlite3 is synchronous, but repo methods are declared async. The Drizzle implementation uses `db.transaction()` which is synchronous — all repo calls inside the callback execute synchronously under the hood (better-sqlite3 `.run()` is sync). The async interface is preserved for memory-repo compatibility.
+
+Also add to `InstallRepositories` (used by `materializer.ts`), since it's a separate interface from `RuntimeRepositories`.
 
 ```typescript
 // repositories.ts
 export interface RuntimeRepositories {
+  // ... existing repos
+  withTransaction<T>(fn: () => T): T;
+}
+
+// install-core/src/types.ts
+export interface InstallRepositories {
   // ... existing repos
   withTransaction<T>(fn: () => T): T;
 }
@@ -56,7 +66,7 @@ withTransaction<T>(fn: () => T): T {
 
 ### Not Doing
 
-- No nested transactions / savepoints (SQLite support is limited)
+- No nested transactions / savepoints (better-sqlite3 `db.transaction()` API does not expose savepoints)
 - No EventBus + DB distributed transactions (EventBus is fire-and-forget)
 - No transaction wrapping for single-UPDATE operations (e.g., taskRun status)
 
@@ -91,7 +101,7 @@ CREATE INDEX idx_conversations_company
   ON conversations(company_id, updated_at DESC);
 ```
 
-Thread ID generation changes from `thread-${companyId}` to `thread-${nanoid()}`.
+Thread ID generation changes from `thread-${companyId}` to `thread-${crypto.randomUUID()}` (consistent with existing `generateId()` pattern, no new dependency).
 
 ### Conversation Lifecycle
 
@@ -102,14 +112,14 @@ Thread ID generation changes from `thread-${companyId}` to `thread-${nanoid()}`.
 
 ### Message Pruning
 
-Simple window limit as a safety net:
+Simple window limit as a safety net. Pruning happens **inside the graph** (e.g., as a pre-processing step in `stepDispatcherNode` or a dedicated pruning node), where the full `state.messages` array from the checkpoint is accessible — NOT in `OrchestrationService.execute()` which only receives the new user message.
 
 ```typescript
 const MAX_CONTEXT_MESSAGES = 50;
 
-// In OrchestrationService.execute() entry
+// Inside graph node (has access to full state.messages from checkpoint)
 if (state.messages.length > MAX_CONTEXT_MESSAGES) {
-  state.messages = state.messages.slice(-MAX_CONTEXT_MESSAGES);
+  return { messages: state.messages.slice(-MAX_CONTEXT_MESSAGES) };
 }
 ```
 
@@ -117,11 +127,12 @@ No summarize-then-truncate. Direct truncation is sufficient for 1.0.
 
 ### Legacy Cleanup
 
-On first launch after migration, delete old-format checkpoints:
+Execute **during migration** (in `010_conversations.sql` itself), before any new-format threads exist. This ensures the `LIKE 'thread-%'` pattern only matches old-format IDs:
 
 ```sql
-DELETE FROM checkpoints WHERE thread_id LIKE 'thread-%'
-  AND thread_id NOT IN (SELECT thread_id FROM conversations);
+-- Part of 010_conversations.sql, runs before app creates new conversations
+DELETE FROM checkpoints WHERE thread_id LIKE 'thread-%';
+DELETE FROM writes WHERE thread_id LIKE 'thread-%';
 ```
 
 ### UI Changes (Minimal)
@@ -140,7 +151,8 @@ DELETE FROM checkpoints WHERE thread_id LIKE 'thread-%'
 | Repository interface | `packages/core/src/runtime/repositories.ts` |
 | Drizzle impl | `packages/core/src/runtime/drizzle-repositories.ts` |
 | Memory impl | `packages/core/src/runtime/memory-repositories.ts` |
-| ThreadId generation | `apps/web/src/lib/tauri-runtime.ts` |
+| ThreadId generation (Tauri) | `apps/web/src/lib/tauri-runtime.ts` |
+| ThreadId generation (Browser) | `apps/web/src/lib/browser-runtime.ts` |
 | Pruning | `packages/core/src/services/orchestration-service.ts` |
 | UI | `packages/ui-office/` — conversation list, new conversation button |
 
@@ -200,13 +212,18 @@ async execute(input, signal?: AbortSignal): Promise<AicsGraphState> {
 
 **Node-level signal passthrough:**
 
-Nodes read signal from `runtimeCtx` (set per-execution, not globally):
+Signal is passed via LangGraph's `config.configurable` (per-execution), NOT on RuntimeContext (per-company lifecycle). This avoids conflicts when multiple executions queue on the same company.
 
 ```typescript
-const response = await gateway.chat({
-  messages, model,
-  signal,  // from execute parameter, threaded through
+// OrchestrationService passes signal through config
+const stream = await this.graph.stream(fullInput, {
+  streamMode: 'updates',
+  configurable: { ...existingConfig, signal },
 });
+
+// Node reads signal from config
+const signal = config.configurable?.signal as AbortSignal | undefined;
+const response = await gateway.chat({ messages, model, signal });
 ```
 
 **withRetry fix:**
@@ -275,10 +292,18 @@ Remove `packages/ui-office/src/components/scene/editor/` (entire directory):
 - `SelectionOutline.tsx`
 - `index.ts`
 
+### Additional Files to Clean Up
+
+- `OfficeEditorOverlay.tsx` — wrapper component outside the editor/ directory, also delete
+- `useCompanyEditor.ts` — hook referencing office-editor, delete or refactor
+- `CompanyEditor.tsx` — has `onOpenOfficeEditor` prop, change to navigate to Studio
+- `index.ts` re-exports — remove office-editor re-exports from ui-office barrel
+
 ### App.tsx
 
 - Remove `view === 'office-editor'` branch and lazy import of `OfficeEditorOverlay`
 - Remove `'office-editor'` from view type union
+- Change `onOpenOfficeEditor` callback to `onOpenStudio` (or equivalent), pointing to `view = 'studio'`
 - All "edit office" entry points redirect to `view = 'studio'`
 
 ### Office3DView
