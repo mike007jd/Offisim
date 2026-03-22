@@ -337,12 +337,14 @@ export function App({ onCompanySwitch }: AppProps) {
         <Suspense fallback={null}>
           <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
         </Suspense>
-        <Suspense fallback={null}>
-          <CompanyCreationWizard
-            onComplete={handleWizardComplete}
-            onCreateYourOwn={handleCreateYourOwn}
-          />
-        </Suspense>
+        {view === 'office' && (
+          <Suspense fallback={null}>
+            <CompanyCreationWizard
+              onComplete={handleWizardComplete}
+              onCreateYourOwn={handleCreateYourOwn}
+            />
+          </Suspense>
+        )}
       </>
     </ErrorBoundary>
   );

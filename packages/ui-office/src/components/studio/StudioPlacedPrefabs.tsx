@@ -183,20 +183,22 @@ export function StudioPlacedPrefabs() {
         </group>
       )}
 
-      {/* TransformControls — always mounted, enabled only when appropriate */}
-      <TransformControls
-        object={selectedGroupRef}
-        enabled={transformEnabled}
-        visible={transformEnabled}
-        mode={transformMode}
-        translationSnap={0.5}
-        rotationSnap={Math.PI / 2}
-        showX={true}
-        showY={transformMode === 'rotate'}
-        showZ={true}
-        space="world"
-        onObjectChange={handleObjectChange}
-      />
+      {/* TransformControls — only mounted when a target exists (drei TC crashes on null object) */}
+      {selectedInstance && selectedDefinition && (
+        <TransformControls
+          object={selectedGroupRef}
+          enabled={transformEnabled}
+          visible={transformEnabled}
+          mode={transformMode}
+          translationSnap={0.5}
+          rotationSnap={Math.PI / 2}
+          showX={true}
+          showY={transformMode === 'rotate'}
+          showZ={true}
+          space="world"
+          onObjectChange={handleObjectChange}
+        />
+      )}
     </>
   );
 }

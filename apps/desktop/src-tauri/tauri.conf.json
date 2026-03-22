@@ -5,7 +5,7 @@
   "identifier": "com.offisim.desktop",
   "build": {
     "beforeDevCommand": "pnpm --filter @aics/web dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5176",
     "beforeBuildCommand": "pnpm --filter @aics/web build",
     "frontendDist": "../../web/dist"
   },

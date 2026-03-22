@@ -5,7 +5,7 @@
       "name": "web-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@aics/web", "dev"],
-      "port": 5173
+      "port": 5176
     }
   ]
 }
