@@ -222,10 +222,34 @@ export const graphThreads = sqliteTable(
     entry_mode: text('entry_mode').notNull(),
     root_task_id: text('root_task_id'),
     status: text('status').notNull(),
+    project_id: text('project_id'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
   (table) => [index('idx_graph_threads_company').on(table.company_id, table.created_at)],
+);
+
+// ---------------------------------------------------------------------------
+// 010 — Projects
+// ---------------------------------------------------------------------------
+
+export const projects = sqliteTable(
+  'projects',
+  {
+    project_id: text('project_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id'),
+    name: text('name').notNull(),
+    description: text('description'),
+    status: text('status').notNull().default('planning'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_projects_company').on(table.company_id, table.status, table.updated_at),
+  ],
 );
 
 export const graphCheckpoints = sqliteTable(

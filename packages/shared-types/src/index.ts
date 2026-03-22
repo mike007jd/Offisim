@@ -122,3 +122,5 @@ export {
   SYSTEM_ROLES,
   ROLE_LABELS,
 } from './roles.js';
+
+export type { ProjectStatus, ProjectRow, NewProject } from './project.js';
