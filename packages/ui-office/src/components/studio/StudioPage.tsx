@@ -189,6 +189,9 @@ export function StudioPage({
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
 
+  // Camera focus callback — assigned by StudioCanvas, called on F/Home key
+  const focusRef = useRef<((pos: [number, number, number]) => void) | null>(null);
+
   // -- beforeunload guard (Skill §15) ------------------------------------------
 
   const dirty = useStudioStore((s) => s.dirty);
@@ -327,9 +330,18 @@ export function StudioPage({
           }
           break;
         case 'f':
-        case 'F':
-          // Focus: reset camera to look at selected object or scene center
-          // (handled via store — components subscribe and react)
+        case 'F': {
+          // Focus camera on selected instance (Skill §3)
+          const sel = store.selectedInstanceId;
+          if (sel && focusRef.current) {
+            const inst = store.instances.find((i) => i.id === sel);
+            if (inst) focusRef.current(inst.position);
+          }
+          break;
+        }
+        case 'Home':
+          // Reset camera to default view (Skill §4)
+          if (focusRef.current) focusRef.current([0, 0, 0]);
           break;
         case 'Delete':
         case 'Backspace':
@@ -391,7 +403,7 @@ export function StudioPage({
             />
           </div>
         ) : (
-          <StudioCanvas>
+          <StudioCanvas focusRef={focusRef}>
             <StudioPlacedPrefabs />
             <StudioGhost />
           </StudioCanvas>

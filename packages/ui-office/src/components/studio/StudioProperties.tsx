@@ -55,8 +55,8 @@ const DELETE_BTN: React.CSSProperties = {
   width: '100%',
   justifyContent: 'center',
   background: STUDIO_COLORS.errorMuted,
-  borderColor: 'rgba(239,68,68,0.3)',
-  color: '#fca5a5',
+  borderColor: STUDIO_COLORS.errorMuted,
+  color: STUDIO_COLORS.error,
 };
 
 // -- Component ----------------------------------------------------------------
@@ -135,7 +135,7 @@ export function StudioProperties() {
             <div style={SECTION_STYLE}>
               <div style={labelStyle()}>Position</div>
               <div style={ROW_STYLE}>
-                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: '#f87171' }}>X</span>
+                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}>X</span>
                 <span style={{ ...valueStyle() }}>
                   {x.toFixed(1)}
                 </span>

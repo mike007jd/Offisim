@@ -12,6 +12,7 @@ import { useThree } from '@react-three/fiber';
 import { getBuiltinPrefab } from '@aics/renderer';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { useStudioStore, type PlacedInstance } from './StudioState.js';
+import { STUDIO_COLORS } from './studio-tokens.js';
 
 // ---------------------------------------------------------------------------
 // Highlight ring geometry (shared across all instances)
@@ -126,14 +127,14 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       >
         <div style={{
           background: 'rgba(0,0,0,0.6)',
-          color: isSelected ? '#a5b4fc' : '#94a3b8',
+          color: isSelected ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
           padding: '1px 4px',
           borderRadius: 2,
           fontSize: 9,
           fontFamily: 'monospace',
           fontWeight: 600,
           whiteSpace: 'nowrap',
-          border: isSelected ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(148,163,184,0.2)',
+          border: isSelected ? `1px solid ${STUDIO_COLORS.borderActive}` : `1px solid ${STUDIO_COLORS.borderSubtle}`,
         }}>
           {definition.gridSize[0]}x{definition.gridSize[1]}
         </div>

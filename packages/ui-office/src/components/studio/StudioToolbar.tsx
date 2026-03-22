@@ -143,7 +143,6 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
             style={toolButtonStyle(active)}
           >
             <t.Icon size={14} />
-            <span>{t.label}</span>
             <kbd style={kbdStyle()}>{t.shortcut}</kbd>
           </button>
         );
@@ -158,7 +157,6 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         style={toolButtonStyle(gridSnap)}
       >
         <Grid3x3 size={14} />
-        <span>Grid</span>
         <kbd style={kbdStyle()}>G</kbd>
       </button>
 

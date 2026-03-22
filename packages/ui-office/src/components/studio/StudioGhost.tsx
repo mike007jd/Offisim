@@ -336,14 +336,14 @@ export function StudioGhost() {
         >
           <div style={{
             background: 'rgba(0,0,0,0.7)',
-            color: '#22c55e',
+            color: STUDIO_COLORS.success,
             padding: '2px 6px',
             borderRadius: 3,
             fontSize: 11,
             fontFamily: 'monospace',
             fontWeight: 600,
             whiteSpace: 'nowrap',
-            border: '1px solid rgba(34,197,94,0.3)',
+            border: `1px solid ${STUDIO_COLORS.successMuted}`,
           }}>
             {gridW}x{gridD}
           </div>
