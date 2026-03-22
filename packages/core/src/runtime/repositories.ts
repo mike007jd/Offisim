@@ -3,6 +3,7 @@ import type { AssetBindingRepository } from '../repos/asset-binding-repository.j
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
+import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
 /** Row types — mirror db-local schema shapes */
 
@@ -139,6 +140,9 @@ export type NewRuntimeEvent = Omit<RuntimeEventRow, never>;
 
 export interface CompanyRepository {
   findById(companyId: string): Promise<CompanyRow | null>;
+  findAll(): Promise<CompanyRow[]>;
+  create(company: CompanyRow): Promise<CompanyRow>;
+  update(companyId: string, fields: Partial<Pick<CompanyRow, 'name' | 'status'>>): Promise<void>;
 }
 
 export interface ThreadRepository {
@@ -518,4 +522,5 @@ export interface RuntimeRepositories {
   workstationRacks: WorkstationRackRepository;
   libraryDocuments: LibraryDocumentRepository;
   officeLayouts: OfficeLayoutRepository;
+  prefabInstances: PrefabInstanceRepository;
 }

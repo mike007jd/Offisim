@@ -2,6 +2,7 @@ import type { NewEmployee } from '@aics/install-core';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
+import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import type {
   CheckpointRepository,
   CompanyRepository,
@@ -84,6 +85,19 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const companies: CompanyRepository = {
     async findById(id) {
       return companiesMap.get(id) ?? null;
+    },
+    async findAll() {
+      return [...companiesMap.values()];
+    },
+    async create(company) {
+      companiesMap.set(company.company_id, company);
+      return company;
+    },
+    async update(companyId, fields) {
+      const row = companiesMap.get(companyId);
+      if (row) {
+        companiesMap.set(companyId, { ...row, ...fields, updated_at: now() });
+      }
     },
   };
 
@@ -322,6 +336,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
   const workstationRacksRepo = new MemoryWorkstationRackRepository();
   const libraryDocuments = new MemoryLibraryDocumentRepository();
   const officeLayouts = new MemoryOfficeLayoutRepository();
+  const prefabInstances = createMemoryPrefabRepository();
 
   return {
     companies,
@@ -344,6 +359,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     workstationRacks: workstationRacksRepo,
     libraryDocuments,
     officeLayouts,
+    prefabInstances,
     ...installRepos,
     seed,
   };

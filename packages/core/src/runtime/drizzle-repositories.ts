@@ -86,6 +86,19 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
           : never) ?? null
       );
     },
+    async findAll() {
+      return db.select().from(schema.companies).all() as Awaited<ReturnType<CompanyRepository['findAll']>>;
+    },
+    async create(company) {
+      db.insert(schema.companies).values(company).run();
+      return company;
+    },
+    async update(companyId, fields) {
+      db.update(schema.companies)
+        .set({ ...fields, updated_at: now() })
+        .where(eq(schema.companies.company_id, companyId))
+        .run();
+    },
   };
 
   const threads: ThreadRepository = {
@@ -843,6 +856,45 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  // ── Prefab instances ──────────────────────────────────────────────
+  const prefabInstances: RuntimeRepositories['prefabInstances'] = {
+    async create(instance) {
+      db.insert(schema.prefabInstances).values(instance).run();
+      return instance;
+    },
+    async findById(instanceId) {
+      const rows = db.select().from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.instance_id, instanceId)).all();
+      return (rows[0] ?? null) as ReturnType<RuntimeRepositories['prefabInstances']['findById']> extends Promise<infer R> ? R : never;
+    },
+    async findByCompanyAndZone(companyId, zoneId) {
+      return db.select().from(schema.prefabInstances)
+        .where(and(
+          eq(schema.prefabInstances.company_id, companyId),
+          eq(schema.prefabInstances.zone_id, zoneId),
+        )).all() as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+    },
+    async findByCompany(companyId) {
+      return db.select().from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.company_id, companyId))
+        .all() as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+    },
+    async update(instanceId, fields) {
+      db.update(schema.prefabInstances).set({
+        ...fields,
+        updated_at: now(),
+      }).where(eq(schema.prefabInstances.instance_id, instanceId)).run();
+    },
+    async delete(instanceId) {
+      db.delete(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.instance_id, instanceId)).run();
+    },
+    async deleteByCompany(companyId) {
+      db.delete(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.company_id, companyId)).run();
+    },
+  };
+
   const officeLayouts: RuntimeRepositories['officeLayouts'] = {
     async create(layout: NewOfficeLayout) {
       const ts = now();
@@ -928,5 +980,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     workstationRacks,
     libraryDocuments,
     officeLayouts,
+    prefabInstances,
   };
 }
