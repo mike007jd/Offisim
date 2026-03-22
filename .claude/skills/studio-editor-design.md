@@ -218,7 +218,85 @@ Industry standard (matches Unity/Unreal/Godot):
 
 ---
 
-## 10. Anti-Patterns (Do NOT Do)
+## 10. Hover Feedback
+
+- `onPointerOver`: set mesh `emissive` to `#ffffff`, `emissiveIntensity: 0.08`
+- `onPointerOut`: reset `emissiveIntensity` to `0`
+- Cursor: `'pointer'` via `gl.domElement.style.cursor`
+- No delay — instant response
+- Only when tool is 'select', 'move', or 'rotate' (not during placement)
+
+---
+
+## 11. Ghost Material Strategy
+
+**Do NOT clone original materials and modify opacity.** Use a fresh simple material:
+
+```
+MeshStandardMaterial({
+  color: isValid ? '#00ff88' : '#ff4444',
+  emissive: isValid ? '#00ff88' : '#ff4444',
+  emissiveIntensity: 0.6,
+  transparent: true,
+  opacity: isValid ? 0.4 : 0.35,
+  depthWrite: false,
+  side: DoubleSide,
+})
+```
+
+Apply on mount via `useEffect` — traverse children, replace each mesh's material with the ghost material. Dispose in cleanup.
+
+---
+
+## 12. Raycaster & Layers
+
+| Layer | Purpose |
+|-------|---------|
+| 0 | Selectable prefab meshes |
+| 1 | Ghost / footprint (not pickable) |
+| 2 | Gizmo (not pickable) |
+| 3 | Grid / helpers (not pickable) |
+
+- Ground plane raycast: `new THREE.Plane(new Vector3(0, 1, 0), 0)`
+- Object picking: `raycaster.intersectObjects(selectableGroup.children, true)`
+- Always take `intersects[0]`, walk up `.parent` to find the top-level prefab group
+
+---
+
+## 13. Status Bar
+
+- Height: 28px, bottom of editor
+- Content: left = selection info ("3 objects selected"), center = mouse coordinates ("X: 12.0  Z: 8.5"), right = grid/snap status
+- Font: 11px monospace
+- Background: `rgba(15, 23, 42, 0.9)`
+
+---
+
+## 14. Animation Timings
+
+| Action | Animation | Duration | Easing |
+|--------|-----------|----------|--------|
+| Place success | scale 1.0→1.08→1.0, opacity 0.5→1.0 | 250ms | easeOutBack |
+| Delete | scale 1.0→1.05→0.0, opacity→0 | 200ms | easeInBack |
+| Focus (F key) | camera smooth fly to target | 500ms | easeInOutCubic |
+| Camera reset (Home) | camera fly to default | 400ms | easeInOutCubic |
+| Save toast enter | slide from right | 200ms | easeOut |
+| Save toast exit | fade right | 150ms | easeIn |
+| Button hover | background transition | 100ms | ease-out |
+| Panel expand/collapse | height transition | 150ms | ease-out |
+
+---
+
+## 15. Unsaved Changes
+
+- Dirty indicator: amber dot (6px, `#f59e0b`) on Save button
+- `dirty = true` after any prefab add/delete/move/rotate
+- `dirty = false` after save
+- `beforeunload` event warns user if dirty
+
+---
+
+## 16. Anti-Patterns (Do NOT Do)
 
 | Anti-Pattern | Why | Do Instead |
 |-------------|-----|-----------|
@@ -226,8 +304,13 @@ Industry standard (matches Unity/Unreal/Godot):
 | `window.prompt()` | Breaks visual flow, can't style | Inline modal dialog |
 | Hardcoded hex colors in components | Can't theme, hard to maintain | Import from `studio-tokens.ts` |
 | `new THREE.Geometry()` in JSX args | Memory leak on re-render | `useMemo` |
-| Footprint smaller than mesh | Looks broken, user can't see it | Footprint = mesh size * 1.1-1.2 |
+| Footprint smaller than mesh | Looks broken, user can't see it | Footprint = mesh bounds * 1.2 |
 | Footprint intersecting mesh | Looks like a bug | `y=0.02` (above ground, below mesh) |
 | `setState` in `useFrame` | React re-render every frame = flicker | Use refs or Zustand `getState()` |
-| Conditional `<TransformControls>` mount/unmount | Material recompilation cost | Use `enabled` prop |
+| Conditional `<TransformControls>` mount/unmount | Material recompilation cost | Use `enabled` prop (exception: mount/unmount based on selection existence is OK) |
 | Opacity 0.08 for visual indicators | Invisible to users | Minimum 0.15 for fills, 0.6 for lines |
+| Cloning original materials for ghost | Texture/normal map interference | Use fresh simple MeshStandardMaterial |
+| Free rotation (arbitrary degrees) | Breaks grid alignment and collision | 90-degree steps only (0/90/180/270) |
+| Scale tool on prefabs | Breaks footprint and collision detection | Disable scale — different sizes = different prefabs |
+| No hover feedback | User doesn't know what's interactive | emissive highlight + cursor pointer |
+| Lerp/smooth ghost movement | Placement must feel precise and instant | Direct position.copy() with snap |
