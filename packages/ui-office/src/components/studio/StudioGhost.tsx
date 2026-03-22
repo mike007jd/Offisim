@@ -6,9 +6,17 @@
  * Red ground indicator = overlapping with existing prefab (blocked).
  *
  * Collision detection uses AABB overlap on grid-snapped positions.
+ *
+ * Material strategy (Skill §11):
+ *   Two pre-built MeshStandardMaterial instances (valid/blocked).
+ *   On mount: traverse ghost children and replace every mesh material with validMat.
+ *   In useFrame: swap material refs ONLY when blocked state changes (no per-frame traversal).
+ *
+ * Layers (Skill §12):
+ *   Ghost group and invisible floor are on Layer 1 (not pickable).
  */
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -22,10 +30,6 @@ function snap(v: number, grid: number): number {
 }
 
 const SNAP = 0.5;
-
-// Colors for placement feedback — sourced from design tokens
-const COLOR_VALID = new THREE.Color(STUDIO_COLORS.ghostValid);
-const COLOR_BLOCKED = new THREE.Color(STUDIO_COLORS.ghostBlocked);
 
 /**
  * Check if a new prefab at [x, z] with given grid size overlaps any existing instance.
@@ -63,8 +67,12 @@ function checkOverlap(
 
 export function StudioGhost() {
   const groupRef = useRef<THREE.Group>(null!);
+  const floorRef = useRef<THREE.Mesh>(null!);
   const ringRef = useRef<THREE.Mesh>(null!);
+  const filledPlaneMatRef = useRef<THREE.MeshBasicMaterial>(null!);
+  const wireMatRef = useRef<THREE.LineBasicMaterial>(null!);
   const blockedRef = useRef(false);
+  const prevBlockedRef = useRef(false);
   const { invalidate } = useThree();
 
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
@@ -77,6 +85,65 @@ export function StudioGhost() {
   const halfW = plotSize.width / 2;
   const halfD = plotSize.depth / 2;
 
+  // ── Ghost materials (Skill §11) ──────────────────────────────────
+  const validMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: STUDIO_COLORS.ghostValid,
+    emissive: STUDIO_COLORS.ghostValid,
+    emissiveIntensity: 0.6,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  }), []);
+
+  const blockedMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: STUDIO_COLORS.ghostBlocked,
+    emissive: STUDIO_COLORS.ghostBlocked,
+    emissiveIntensity: 0.6,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  }), []);
+
+  // Dispose ghost materials on unmount
+  useEffect(() => {
+    return () => {
+      validMat.dispose();
+      blockedMat.dispose();
+    };
+  }, [validMat, blockedMat]);
+
+  // On placingPrefab change: traverse ghost children and assign validMat
+  useEffect(() => {
+    if (!placingPrefab || !groupRef.current) return;
+    // Reset blocked tracking so the useFrame swap fires on first real check
+    prevBlockedRef.current = false;
+    blockedRef.current = false;
+
+    // Small delay to let Prefab3D mount its meshes
+    const raf = requestAnimationFrame(() => {
+      if (!groupRef.current) return;
+      groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.material = validMat;
+        }
+      });
+      invalidate();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [placingPrefab, validMat, invalidate]);
+
+  // ── Layer assignment (Skill §12): ghost group → Layer 1 ──────────
+  useEffect(() => {
+    if (groupRef.current) groupRef.current.layers.set(1);
+  }, []);
+
+  // ── Layer assignment: invisible floor → Layer 1 ──────────────────
+  useEffect(() => {
+    if (floorRef.current) floorRef.current.layers.set(1);
+  }, []);
+
   // Ring geometry for ground indicator (shared)
   const ringGeo = useMemo(() => {
     const geo = new THREE.RingGeometry(0.6, 0.8, 32);
@@ -84,14 +151,49 @@ export function StudioGhost() {
     return geo;
   }, []);
 
-  // Pulse animation for the ring
+  // ── Ring pulse animation ─────────────────────────────────────────
+  // NOTE: No invalidate() call here — onPointerMove already invalidates.
+  // Calling invalidate() in useFrame creates an infinite render loop in
+  // frameloop="demand" mode (Skill §7).
   useFrame(({ clock }) => {
     if (!ringRef.current || !placingPrefab) return;
     const t = clock.getElapsedTime();
     const mat = ringRef.current.material as THREE.MeshBasicMaterial;
     mat.opacity = 0.5 + Math.sin(t * 4) * 0.15;
-    mat.color = blockedRef.current ? COLOR_BLOCKED : COLOR_VALID;
-    invalidate();
+  });
+
+  // ── Material swap useFrame (only on blocked state change) ────────
+  useFrame(() => {
+    if (!placingPrefab || !groupRef.current) return;
+    const isBlocked = blockedRef.current;
+    if (isBlocked === prevBlockedRef.current) return; // no change, skip
+    prevBlockedRef.current = isBlocked;
+
+    // Swap ghost mesh materials
+    const mat = isBlocked ? blockedMat : validMat;
+    groupRef.current.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.material = mat;
+    });
+
+    // Swap ring color
+    if (ringRef.current) {
+      const ringMat = ringRef.current.material as THREE.MeshBasicMaterial;
+      ringMat.color.set(isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid);
+    }
+
+    // Swap footprint filled plane color
+    if (filledPlaneMatRef.current) {
+      filledPlaneMatRef.current.color.set(
+        isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
+      );
+    }
+
+    // Swap footprint wireframe border color
+    if (wireMatRef.current) {
+      wireMatRef.current.color.set(
+        isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
+      );
+    }
   });
 
   if (!placingPrefab) return null;
@@ -99,12 +201,20 @@ export function StudioGhost() {
   const gridW = placingPrefab.gridSize[0];
   const gridD = placingPrefab.gridSize[1];
 
+  // ── Memoized footprint edge geometry (Skill §7: no inline THREE objects) ──
+  const footprintEdgeGeo = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)),
+    [gridW, gridD],
+  );
+
   return (
     <>
-      {/* Invisible floor for raycast */}
+      {/* Invisible floor for raycast — Layer 1 (not pickable) */}
       <mesh
+        ref={floorRef}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
+        layers={1}
         onPointerMove={(e) => {
           e.stopPropagation();
           const pos = e.point;
@@ -149,8 +259,8 @@ export function StudioGhost() {
         <meshBasicMaterial visible={false} />
       </mesh>
 
-      {/* Ghost mesh group */}
-      <group ref={groupRef} visible={false}>
+      {/* Ghost mesh group — Layer 1 (not pickable) */}
+      <group ref={groupRef} visible={false} layers={1}>
         {/* The prefab preview */}
         <Prefab3D definition={placingPrefab} />
 
@@ -161,7 +271,7 @@ export function StudioGhost() {
           position={[0, 0.02, 0]}
         >
           <meshBasicMaterial
-            color={COLOR_VALID}
+            color={STUDIO_COLORS.ghostValid}
             transparent
             opacity={0.6}
             side={THREE.DoubleSide}
@@ -169,11 +279,12 @@ export function StudioGhost() {
           />
         </mesh>
 
-        {/* Grid footprint — filled area (each grid unit ≈ 2 3D units) */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        {/* Grid footprint — filled area (y=0.02, above ground, below mesh) */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <planeGeometry args={[gridW * 2.5, gridD * 2.5]} />
           <meshBasicMaterial
-            color={COLOR_VALID}
+            ref={filledPlaneMatRef}
+            color={STUDIO_COLORS.ghostValid}
             transparent
             opacity={0.15}
             side={THREE.DoubleSide}
@@ -183,8 +294,13 @@ export function StudioGhost() {
 
         {/* Grid footprint — wireframe border (rotated to XZ plane) */}
         <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <edgesGeometry args={[new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)]} />
-          <lineBasicMaterial color={COLOR_VALID} transparent opacity={0.8} />
+          <primitive object={footprintEdgeGeo} attach="geometry" />
+          <lineBasicMaterial
+            ref={wireMatRef}
+            color={STUDIO_COLORS.ghostValid}
+            transparent
+            opacity={0.8}
+          />
         </lineSegments>
 
         {/* Size label (e.g., "2x2") */}
