@@ -25,16 +25,6 @@ import {
   ServerRackMesh3D,
   PlantMesh3D,
 } from './prefabs/index.js';
-import {
-  EditorProvider,
-  useEditorMaybe,
-  EditorToolbar,
-  PrefabPalette,
-  PropertiesPanel,
-  GhostPrefab,
-  EditorGrid,
-  EditorPlacedPrefabs,
-} from './editor/index.js';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
 // zone-config uses { cx, cz, w, d } (2D/logical coords).
@@ -979,7 +969,7 @@ export default function Office3DView({
 }: Office3DViewProps) {
   const agents = useAgentStates();
   const placed = usePlacedEmployees(agents);
-  const { eventBus, repos } = useAicsRuntime();
+  const { eventBus } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
 
   // ── Scene choreography (ceremony orchestration) ──
@@ -1168,85 +1158,34 @@ export default function Office3DView({
     document.body.style.cursor = 'default';
   }, []);
 
-  // ── Editor ↔ DB bridge ──
-  const saveToRepo = useCallback(async (prefabs: import('./editor/EditorMode.js').PlacedPrefab[]): Promise<boolean> => {
-    if (!repos?.prefabInstances) return false;
-    try {
-      // Delete existing editor-placed prefabs, then re-create all
-      await repos.prefabInstances.deleteByCompany(activeCompanyId!);
-      const now = new Date().toISOString();
-      for (const p of prefabs) {
-        await repos.prefabInstances.create({
-          instance_id: p.id,
-          company_id: activeCompanyId!,
-          prefab_id: p.prefabId,
-          zone_id: p.zoneId,
-          position_x: p.position[0],
-          position_y: p.position[2], // 3D z → DB y
-          rotation: p.rotation as 0 | 90 | 180 | 270,
-          bindings_json: null,
-          config_json: null,
-          enabled: 1,
-          created_at: now,
-          updated_at: now,
-        });
-      }
-      eventBus.emit({
-        type: 'prefab.state.changed',
-        entityId: activeCompanyId!,
-        entityType: 'company',
-        companyId: activeCompanyId!,
-        timestamp: Date.now(),
-        payload: { action: 'layout-saved', count: prefabs.length },
-      });
-      return true;
-    } catch (err) {
-      console.error('[Office3DView] Failed to save layout:', err);
-      return false;
-    }
-  }, [repos, eventBus]);
-
-  // Convert loaded prefab instances to editor PlacedPrefab format
-  const editorInitialPrefabs = useMemo(() =>
-    prefabInstances.map(({ instance }) => ({
-      id: instance.instance_id,
-      prefabId: instance.prefab_id,
-      position: [instance.position_x, 0, instance.position_y] as [number, number, number],
-      rotation: instance.rotation,
-      zoneId: instance.zone_id,
-    })),
-  [prefabInstances]);
-
   return (
-    <EditorProvider saveToRepo={saveToRepo} initialPrefabs={editorInitialPrefabs}>
-      <Office3DViewInner
-        agents={agents}
-        placed={placed}
-        selectedEmployeeId={selectedEmployeeId}
-        isDragging={isDragging}
-        dragState={dragState}
-        hoveredZoneId={hoveredZoneId}
-        flowLines={flowLines}
-        setFlowLines={setFlowLines}
-        controlsRef={controlsRef}
-        hasPrefabData={hasPrefabData}
-        prefabInstances={prefabInstances}
-        zoneActivity={zoneActivity}
-        activeCount={activeCount}
-        blockedCount={blockedCount}
-        ceremony={ceremony}
-        handleDeselect={handleDeselect}
-        handleSelectEmployee={handleSelectEmployee}
-        handleEmployeeDragStart={handleEmployeeDragStart}
-        handleDragMove={handleDragMove}
-        handleDragEnd={handleDragEnd}
-        handleDragCancel={handleDragCancel}
-      />
-    </EditorProvider>
+    <Office3DViewInner
+      agents={agents}
+      placed={placed}
+      selectedEmployeeId={selectedEmployeeId}
+      isDragging={isDragging}
+      dragState={dragState}
+      hoveredZoneId={hoveredZoneId}
+      flowLines={flowLines}
+      setFlowLines={setFlowLines}
+      controlsRef={controlsRef}
+      hasPrefabData={hasPrefabData}
+      prefabInstances={prefabInstances}
+      zoneActivity={zoneActivity}
+      activeCount={activeCount}
+      blockedCount={blockedCount}
+      ceremony={ceremony}
+      handleDeselect={handleDeselect}
+      handleSelectEmployee={handleSelectEmployee}
+      handleEmployeeDragStart={handleEmployeeDragStart}
+      handleDragMove={handleDragMove}
+      handleDragEnd={handleDragEnd}
+      handleDragCancel={handleDragCancel}
+    />
   );
 }
 
-// ── Inner view (needs EditorProvider above it) ───────────────────
+// ── Inner view ───────────────────────────────────────────────────
 
 function Office3DViewInner({
   agents,
@@ -1293,9 +1232,6 @@ function Office3DViewInner({
   handleDragEnd: (worldX: number, worldZ: number) => void;
   handleDragCancel: () => void;
 }) {
-  const editor = useEditorMaybe();
-  const isEditMode = editor?.mode === 'edit';
-
   return (
     <div className="w-full h-full bg-slate-950" style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}>
       <Canvas shadows camera={{ position: [0, 22, 28], fov: 45 }}>
@@ -1321,9 +1257,6 @@ function Office3DViewInner({
 
         {/* Room shell — floor click deselects */}
         <RoomShell onFloorClick={handleDeselect} />
-
-        {/* ── Editor grid overlay (visible only in edit mode) ── */}
-        <EditorGrid />
 
         {/* ── Zone overlays (with drag highlight and activity glow) ── */}
         {ZONES_3D.map((z) => (
@@ -1379,12 +1312,6 @@ function Office3DViewInner({
             <PlantMesh3D position={[0, 0, 13]} />
           </>
         )}
-
-        {/* ── Editor-placed prefabs (from editor local state) ── */}
-        <EditorPlacedPrefabs />
-
-        {/* ── Ghost prefab (placement preview) ── */}
-        <GhostPrefab />
 
         {/* ── Employees ── */}
         {placed.map((emp) => (
@@ -1456,10 +1383,6 @@ function Office3DViewInner({
         />
       </Canvas>
 
-      {/* ── Editor DOM overlays (rendered outside Canvas) ── */}
-      <EditorToolbar />
-      {isEditMode && <PrefabPalette />}
-      {isEditMode && <PropertiesPanel />}
     </div>
   );
 }
