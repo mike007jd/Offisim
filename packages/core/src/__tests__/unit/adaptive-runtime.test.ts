@@ -376,16 +376,35 @@ describe('Phase D: Dynamic Re-Planning', () => {
     expect(routeFromStepAdvance(state)).toBe('step_dispatcher');
   });
 
-  it('routeFromStepAdvance detects various replan signals', () => {
-    for (const signal of ['infeasible', 'blocked', 'need alternative']) {
-      const state = makeState({
-        stepResults: [
-          { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: `This is ${signal} because of X`, taskRunId: 'tr-1' }] },
-        ],
-        replanCount: 0,
-      });
-      expect(routeFromStepAdvance(state)).toBe('pm_replan');
-    }
+  it('routeFromStepAdvance detects explicit replan signals', () => {
+    // [SIGNAL:REPLAN_NEEDED] marker format
+    const markerState = makeState({
+      stepResults: [
+        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'This is [SIGNAL:REPLAN_NEEDED] because of X', taskRunId: 'tr-1' }] },
+      ],
+      replanCount: 0,
+    });
+    expect(routeFromStepAdvance(markerState)).toBe('pm_replan');
+
+    // Standalone REPLAN_NEEDED literal (backward compat)
+    const literalState = makeState({
+      stepResults: [
+        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'Status: REPLAN_NEEDED due to dependency failure', taskRunId: 'tr-1' }] },
+      ],
+      replanCount: 0,
+    });
+    expect(routeFromStepAdvance(literalState)).toBe('pm_replan');
+  });
+
+  it('routeFromStepAdvance does NOT trigger replan on common English words', () => {
+    // "blocked" as a normal word should NOT trigger replan
+    const state = makeState({
+      stepResults: [
+        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'The request was blocked by the firewall', taskRunId: 'tr-1' }] },
+      ],
+      replanCount: 0,
+    });
+    expect(routeFromStepAdvance(state)).toBe('step_dispatcher');
   });
 
   it('replanCount field exists in state annotation with default 0', () => {

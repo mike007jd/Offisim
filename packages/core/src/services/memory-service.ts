@@ -150,7 +150,7 @@ export class MemoryService {
     companyId: string,
     taskContent: string,
     threadId: string,
-    opts?: { skip?: boolean },
+    opts?: { skip?: boolean; signal?: AbortSignal },
   ): Promise<void> {
     if (opts?.skip) return;
 
@@ -165,6 +165,7 @@ export class MemoryService {
         model: 'default',
         temperature: 0.3,
         maxTokens: 1024,
+        signal: opts?.signal,
       });
       rawResponse = response.content;
     } catch (error) {

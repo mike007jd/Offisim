@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Syne } from 'next/font/google';
 import { AuthProvider } from '@aics/ui-market';
 import { SITE_URL } from '../lib/url';
@@ -63,12 +64,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="ml-1 text-sm text-[var(--text-muted)]">Market</span>
                 </div>
                 <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
-                  <a href="/search" className="hover:text-[var(--text-secondary)] transition-colors">
+                  <Link href="/search" className="hover:text-[var(--text-secondary)] transition-colors">
                     Browse
-                  </a>
-                  <a href="/dashboard" className="hover:text-[var(--text-secondary)] transition-colors">
+                  </Link>
+                  <Link href="/dashboard" className="hover:text-[var(--text-secondary)] transition-colors">
                     Creators
-                  </a>
+                  </Link>
                   <span className="text-[var(--border-bright)]">·</span>
                   <span>Open Source Runtime + Talent Market</span>
                 </div>

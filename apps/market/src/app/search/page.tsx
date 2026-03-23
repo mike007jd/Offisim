@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ListingCard, SearchFilters } from '@aics/ui-market';
 import { Suspense } from 'react';
 import { getRegistryClient } from '../../lib/registry';
@@ -96,7 +97,7 @@ export default async function SearchPage({ searchParams }: Props) {
                 if (params.sort) qs.set('sort', params.sort);
                 qs.set('page', String(p));
                 return (
-                  <a
+                  <Link
                     key={p}
                     href={`/search?${qs}`}
                     className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
@@ -106,7 +107,7 @@ export default async function SearchPage({ searchParams }: Props) {
                     }`}
                   >
                     {p}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
@@ -115,12 +116,12 @@ export default async function SearchPage({ searchParams }: Props) {
       ) : (
         <div className="card rounded-lg py-16 text-center">
           <p className="text-[var(--text-muted)]">No assets found matching your criteria.</p>
-          <a
+          <Link
             href="/search"
             className="mt-4 inline-block text-sm text-[var(--accent-indigo)] hover:underline"
           >
             Clear filters
-          </a>
+          </Link>
         </div>
       )}
     </div>

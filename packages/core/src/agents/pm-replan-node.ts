@@ -1,14 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { GraphError } from '../errors.js';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 const PM_REPLAN_PROMPT = `You are the PM AI. The current plan has been partially executed, but a problem was reported.
 
@@ -105,10 +104,7 @@ export async function pmReplanNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'pm_replan');
-  }
+  const runtimeCtx = getRuntime(config, 'pm_replan');
 
   runtimeCtx.eventBus.emit(
     graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan'),

@@ -10,6 +10,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
+import { getRuntime } from '../utils/get-runtime.js';
 import type { AicsGraphState, MeetingActionItem } from './state.js';
 
 const logger = new Logger('meeting');
@@ -42,10 +43,7 @@ export async function meetingStartNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_start');
-  }
+  const runtimeCtx = getRuntime(config, 'meeting_start');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
 
@@ -112,10 +110,7 @@ export async function participantTurnNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'participant_turn');
-  }
+  const runtimeCtx = getRuntime(config, 'participant_turn');
 
   const { modelResolver, repos, companyId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);
@@ -260,10 +255,7 @@ export async function meetingPausedNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_paused');
-  }
+  const runtimeCtx = getRuntime(config, 'meeting_paused');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);
@@ -313,10 +305,7 @@ export async function meetingResumeNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_resume');
-  }
+  const runtimeCtx = getRuntime(config, 'meeting_resume');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);
@@ -354,10 +343,8 @@ export async function meetingInjectNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_inject');
-  }
+  // Validate runtime exists (throws if missing) even though this node doesn't use it directly
+  getRuntime(config, 'meeting_inject');
 
   const bossComment = state.meetingInterrupt?.bossComment ?? '(No comment provided)';
   const turnState = parseMeetingTurnState(state);
@@ -544,10 +531,7 @@ export async function meetingEndNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'meeting_end');
-  }
+  const runtimeCtx = getRuntime(config, 'meeting_end');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
   const turnState = parseMeetingTurnState(state);

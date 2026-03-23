@@ -17,6 +17,7 @@ export const VALID_KINDS = [
   'company_template',
   'office_layout',
   'bundle',
+  'prefab',
 ] as const;
 
 export const VALID_RISK_CLASSES = ['data_asset', 'logic_asset', 'privileged_asset'] as const;
@@ -95,6 +96,34 @@ export const ReportCreateSchema = z.object({
   details: z.string().max(1000).optional(),
 });
 export type ReportCreateBody = z.infer<typeof ReportCreateSchema>;
+
+// ── Register Creator ──
+
+const HANDLE_REGEX = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+
+export const RegisterCreatorSchema = z.object({
+  handle: z
+    .string()
+    .min(3, 'handle must be at least 3 characters')
+    .max(30, 'handle must be at most 30 characters')
+    .regex(HANDLE_REGEX, 'handle must be lowercase alphanumeric, may contain . _ - as separators'),
+  display_name: z
+    .string()
+    .min(1, 'display_name is required')
+    .max(100, 'display_name must be at most 100 characters'),
+  bio: z.string().max(500).optional(),
+});
+export type RegisterCreatorBody = z.infer<typeof RegisterCreatorSchema>;
+
+// ── Listing Status Patch ──
+
+export const ListingStatusPatchSchema = z.object({
+  status: z.enum(['listed', 'hidden', 'retired'], {
+    errorMap: () => ({ message: 'status must be one of: listed, hidden, retired' }),
+  }),
+  reason: z.string().max(500).optional(),
+});
+export type ListingStatusPatchBody = z.infer<typeof ListingStatusPatchSchema>;
 
 // ── Search Params ──
 

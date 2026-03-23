@@ -9,14 +9,109 @@ import {
   reviews,
 } from '@aics/db-platform';
 import { and, desc, eq, inArray } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { ReportCreateSchema, SearchParamsSchema } from '../schemas/index.js';
+import { ListingStatusPatchSchema, ReportCreateSchema, SearchParamsSchema } from '../schemas/index.js';
 import { searchListings } from '../services/search.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
 const market = new Hono<PlatformEnv>();
+
+// ── Shared listing detail builder (used by both by-id and by-slug routes) ──
+
+type ListingRow = typeof listings.$inferSelect;
+type CreatorRow = typeof creators.$inferSelect;
+
+async function buildListingDetail(
+  db: PostgresJsDatabase,
+  listing: ListingRow,
+  creator: CreatorRow,
+) {
+  const listingId = listing.listing_id;
+
+  const [latestVersion] = await db
+    .select()
+    .from(packageVersions)
+    .where(and(eq(packageVersions.listing_id, listingId), eq(packageVersions.status, 'active')))
+    .orderBy(desc(packageVersions.published_at))
+    .limit(1);
+
+  const tags = await db
+    .select({ tag: listingTags.tag })
+    .from(listingTags)
+    .where(eq(listingTags.listing_id, listingId));
+
+  const previews = await db
+    .select()
+    .from(listingPreviews)
+    .where(eq(listingPreviews.listing_id, listingId))
+    .orderBy(listingPreviews.sort_order);
+
+  const manifest = latestVersion?.manifest_json as Record<string, unknown> | undefined;
+
+  return {
+    listing_id: listing.listing_id,
+    slug: listing.slug,
+    kind: listing.kind,
+    title: listing.title,
+    summary: listing.summary ?? '',
+    description: listing.description ?? '',
+    creator: {
+      creator_id: creator.creator_id,
+      handle: creator.handle,
+      display_name: creator.display_name,
+      verification_state: creator.verification_state,
+    },
+    status: listing.status,
+    latest_version: latestVersion?.version ?? '0.0.0',
+    rating: listing.rating_avg ?? 0,
+    install_count: listing.install_count ?? 0,
+    tags: tags.map((t) => t.tag),
+    version: latestVersion
+      ? {
+          package_id: latestVersion.package_id,
+          package_version_id: latestVersion.package_version_id,
+          version: latestVersion.version,
+          runtime_range: latestVersion.runtime_range,
+          schema_version: latestVersion.schema_version,
+          environments: latestVersion.environments,
+          risk_class: latestVersion.risk_class,
+          published_at: latestVersion.published_at.toISOString(),
+          changelog: latestVersion.changelog,
+        }
+      : undefined,
+    requirements: {
+      required_capabilities:
+        (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
+      required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
+      recommended_models:
+        (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
+    },
+    permissions: {
+      risk_class:
+        (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
+      declares_secrets:
+        (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
+      filesystem_scope:
+        (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
+      network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
+    },
+    lineage: manifest?.lineage ?? undefined,
+    previews: previews.map((p) => ({
+      kind: p.kind,
+      url: p.url,
+      alt: p.alt_text,
+    })),
+  };
+}
+
+// ── Allowed status transitions for creators ──
+const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+  listed: ['hidden', 'retired'],
+  hidden: ['listed', 'retired'],
+};
 
 // GET /v1/market/search
 market.get('/search', async (c) => {
@@ -125,87 +220,7 @@ market.get('/listings/:listingId', async (c) => {
     .limit(1);
 
   if (!row) throw new HTTPException(404, { message: 'Listing not found' });
-
-  const listing = row.listings;
-  const creator = row.creators;
-
-  // Latest active version
-  const [latestVersion] = await db
-    .select()
-    .from(packageVersions)
-    .where(and(eq(packageVersions.listing_id, listingId), eq(packageVersions.status, 'active')))
-    .orderBy(desc(packageVersions.published_at))
-    .limit(1);
-
-  // Tags
-  const tags = await db
-    .select({ tag: listingTags.tag })
-    .from(listingTags)
-    .where(eq(listingTags.listing_id, listingId));
-
-  // Previews
-  const previews = await db
-    .select()
-    .from(listingPreviews)
-    .where(eq(listingPreviews.listing_id, listingId))
-    .orderBy(listingPreviews.sort_order);
-
-  const manifest = latestVersion?.manifest_json as Record<string, unknown> | undefined;
-
-  return c.json({
-    listing_id: listing.listing_id,
-    slug: listing.slug,
-    kind: listing.kind,
-    title: listing.title,
-    summary: listing.summary ?? '',
-    description: listing.description ?? '',
-    creator: {
-      creator_id: creator.creator_id,
-      handle: creator.handle,
-      display_name: creator.display_name,
-      verification_state: creator.verification_state,
-    },
-    status: listing.status,
-    latest_version: latestVersion?.version ?? '0.0.0',
-    rating: listing.rating_avg ?? 0,
-    install_count: listing.install_count ?? 0,
-    tags: tags.map((t) => t.tag),
-    version: latestVersion
-      ? {
-          package_id: latestVersion.package_id,
-          package_version_id: latestVersion.package_version_id,
-          version: latestVersion.version,
-          runtime_range: latestVersion.runtime_range,
-          schema_version: latestVersion.schema_version,
-          environments: latestVersion.environments,
-          risk_class: latestVersion.risk_class,
-          published_at: latestVersion.published_at.toISOString(),
-          changelog: latestVersion.changelog,
-        }
-      : undefined,
-    requirements: {
-      required_capabilities:
-        (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
-      required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
-      recommended_models:
-        (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
-    },
-    permissions: {
-      risk_class:
-        (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
-      declares_secrets:
-        (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
-      filesystem_scope:
-        (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
-      network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
-    },
-    lineage: manifest?.lineage ?? undefined,
-    previews: previews.map((p) => ({
-      kind: p.kind,
-      url: p.url,
-      alt: p.alt_text,
-    })),
-  });
+  return c.json(await buildListingDetail(db, row.listings, row.creators));
 });
 
 // GET /v1/market/listings/by-slug/:slug
@@ -221,88 +236,7 @@ market.get('/listings/by-slug/:slug', async (c) => {
     .limit(1);
 
   if (!row) throw new HTTPException(404, { message: 'Listing not found' });
-
-  const listing = row.listings;
-  const creator = row.creators;
-  const listingId = listing.listing_id;
-
-  // Latest active version
-  const [latestVersion] = await db
-    .select()
-    .from(packageVersions)
-    .where(and(eq(packageVersions.listing_id, listingId), eq(packageVersions.status, 'active')))
-    .orderBy(desc(packageVersions.published_at))
-    .limit(1);
-
-  // Tags
-  const tags = await db
-    .select({ tag: listingTags.tag })
-    .from(listingTags)
-    .where(eq(listingTags.listing_id, listingId));
-
-  // Previews
-  const previews = await db
-    .select()
-    .from(listingPreviews)
-    .where(eq(listingPreviews.listing_id, listingId))
-    .orderBy(listingPreviews.sort_order);
-
-  const manifest = latestVersion?.manifest_json as Record<string, unknown> | undefined;
-
-  return c.json({
-    listing_id: listing.listing_id,
-    slug: listing.slug,
-    kind: listing.kind,
-    title: listing.title,
-    summary: listing.summary ?? '',
-    description: listing.description ?? '',
-    creator: {
-      creator_id: creator.creator_id,
-      handle: creator.handle,
-      display_name: creator.display_name,
-      verification_state: creator.verification_state,
-    },
-    status: listing.status,
-    latest_version: latestVersion?.version ?? '0.0.0',
-    rating: listing.rating_avg ?? 0,
-    install_count: listing.install_count ?? 0,
-    tags: tags.map((t) => t.tag),
-    version: latestVersion
-      ? {
-          package_id: latestVersion.package_id,
-          package_version_id: latestVersion.package_version_id,
-          version: latestVersion.version,
-          runtime_range: latestVersion.runtime_range,
-          schema_version: latestVersion.schema_version,
-          environments: latestVersion.environments,
-          risk_class: latestVersion.risk_class,
-          published_at: latestVersion.published_at.toISOString(),
-          changelog: latestVersion.changelog,
-        }
-      : undefined,
-    requirements: {
-      required_capabilities:
-        (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],
-      required_mcps: (manifest?.requirements as Record<string, unknown>)?.required_mcps ?? [],
-      recommended_models:
-        (manifest?.requirements as Record<string, unknown>)?.recommended_models ?? [],
-    },
-    permissions: {
-      risk_class:
-        (manifest?.permissions as Record<string, unknown>)?.risk_class ?? latestVersion?.risk_class,
-      declares_secrets:
-        (manifest?.permissions as Record<string, unknown>)?.declares_secrets ?? false,
-      filesystem_scope:
-        (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
-      network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
-    },
-    lineage: manifest?.lineage ?? undefined,
-    previews: previews.map((p) => ({
-      kind: p.kind,
-      url: p.url,
-      alt: p.alt_text,
-    })),
-  });
+  return c.json(await buildListingDetail(db, row.listings, row.creators));
 });
 
 // GET /v1/market/listings/:listingId/versions
@@ -583,20 +517,16 @@ market.get('/listings/:listingId/lineage', async (c) => {
   return c.json({ ancestors, descendants });
 });
 
-// PATCH /v1/market/listings/:listingId/status — creator self-delist or admin takedown
+// PATCH /v1/market/listings/:listingId/status — creator status management
 market.patch('/listings/:listingId/status', requireAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId')!;
   const { listingId } = c.req.param();
-  const body = (await c.req.json()) as { status: string; reason?: string };
-
-  if (body.status !== 'delisted') {
-    throw new HTTPException(400, { message: 'Only "delisted" status is supported via this endpoint' });
-  }
+  const body = ListingStatusPatchSchema.parse(await c.req.json());
 
   // Verify ownership: listing must belong to this creator
   const [listing] = await db
-    .select({ listing_id: listings.listing_id, creator_id: listings.creator_id })
+    .select({ listing_id: listings.listing_id, creator_id: listings.creator_id, status: listings.status })
     .from(listings)
     .where(eq(listings.listing_id, listingId))
     .limit(1);
@@ -613,15 +543,23 @@ market.patch('/listings/:listingId/status', requireAuth, async (c) => {
     .limit(1);
 
   if (!creator || creator.creator_id !== listing.creator_id) {
-    throw new HTTPException(403, { message: 'Only the listing creator can delist' });
+    throw new HTTPException(403, { message: 'Only the listing creator can change listing status' });
+  }
+
+  // Validate state transition
+  const allowed = ALLOWED_TRANSITIONS[listing.status];
+  if (!allowed || !allowed.includes(body.status)) {
+    throw new HTTPException(400, {
+      message: `Cannot transition from '${listing.status}' to '${body.status}'. Allowed: ${allowed?.join(', ') ?? 'none'}`,
+    });
   }
 
   await db
     .update(listings)
-    .set({ status: 'delisted', updated_at: new Date() })
+    .set({ status: body.status, updated_at: new Date() })
     .where(eq(listings.listing_id, listingId));
 
-  return c.json({ ok: true, listing_id: listingId, status: 'delisted' });
+  return c.json({ ok: true, listing_id: listingId, status: body.status });
 });
 
 export { market };

@@ -15,6 +15,7 @@ import {
   VersionTable,
 } from '@aics/ui-market';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { formatInstallCount, kindLabel } from '@aics/ui-market';
 import { getRegistryClient } from '../../../lib/registry';
@@ -267,13 +268,13 @@ export default async function ListingPage({ params }: Props) {
               <h3 className="mb-3 text-sm font-bold text-[var(--text-primary)]">Tags</h3>
               <div className="flex flex-wrap gap-1.5">
                 {listing.tags.map((tag) => (
-                  <a
+                  <Link
                     key={tag}
                     href={`/search?tag=${tag}`}
                     className="rounded-md border border-[var(--border)] bg-[var(--bg-surface)] px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:border-[var(--border-bright)] transition-colors"
                   >
                     {tag}
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>

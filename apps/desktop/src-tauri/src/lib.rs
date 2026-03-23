@@ -38,28 +38,7 @@ fn migrations() -> Vec<Migration> {
         Migration {
             version: 6,
             description: "langgraph checkpoint tables",
-            sql: "CREATE TABLE IF NOT EXISTS checkpoints (
-  thread_id TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  parent_checkpoint_id TEXT,
-  type TEXT,
-  checkpoint BLOB,
-  metadata BLOB,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
-);
-
-CREATE TABLE IF NOT EXISTS writes (
-  thread_id TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  task_id TEXT NOT NULL,
-  idx INTEGER NOT NULL,
-  channel TEXT NOT NULL,
-  type TEXT,
-  value BLOB,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
-);",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/006_langgraph_checkpoints.sql"),
             kind: MigrationKind::Up,
         },
         Migration {
@@ -102,6 +81,42 @@ CREATE TABLE IF NOT EXISTS writes (
             version: 13,
             description: "library documents",
             sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/013_library_documents.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 14,
+            description: "workstation-rack bindings",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/014_workstation_racks.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 15,
+            description: "prefab instances",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/015_prefab_instances.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 16,
+            description: "projects and graph_threads fix",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/016_projects.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 17,
+            description: "project-employee assignments",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/017_project_assignments.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 18,
+            description: "agent events for event sourcing",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/018_agent_events.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 19,
+            description: "recovery knowledge",
+            sql: include_str!("../../../../Docs/03_migrations/aics_migrations_local_v0.1/019_recovery_knowledge.sql"),
             kind: MigrationKind::Up,
         },
     ]

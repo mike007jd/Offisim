@@ -1,14 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { GraphError } from '../errors.js';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { ProjectService } from '../services/project-service.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess';
@@ -76,10 +75,7 @@ export async function bossNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'boss');
-  }
+  const runtimeCtx = getRuntime(config, 'boss');
 
   // Announce node entry
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss'));
@@ -142,9 +138,14 @@ export async function bossNode(
     payload: { action: decision?.action ?? 'delegate', reason: decision?.reason, isNewProject: decision?.isNewProject, projectName: decision?.projectName },
   });
 
+  // Prefix direct_reply messages with [Boss]: so the UI can display agent identity.
+  // Non-direct-reply messages are consumed by downstream graph nodes and don't need the prefix.
+  const messageContent =
+    route === 'direct_reply' ? `[Boss]: ${replyContent}` : replyContent;
+
   return {
     routeDecision: route,
-    messages: [new AIMessage({ content: replyContent })],
+    messages: [new AIMessage({ content: messageContent })],
     ...(projectId !== (state.projectId ?? null) ? { projectId } : {}),
   };
 }

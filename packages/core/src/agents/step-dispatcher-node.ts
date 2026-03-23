@@ -1,5 +1,4 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { GraphError } from '../errors.js';
 import {
   graphNodeEntered,
   planStepStarted,
@@ -8,9 +7,9 @@ import {
   taskStateChanged,
 } from '../events/event-factories.js';
 import type { AicsGraphState, PendingAssignment, PlanStep } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 /**
  * Step dispatcher node — DAG-aware dispatch.
@@ -28,10 +27,7 @@ export async function stepDispatcherNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'step_dispatcher');
-  }
+  const runtimeCtx = getRuntime(config, 'step_dispatcher');
 
   // Announce node entry
   runtimeCtx.eventBus.emit(

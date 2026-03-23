@@ -331,41 +331,41 @@ export interface UiSelectionPayload {
 // --- P2: Meeting Action, Handoff, Memory Events ---
 
 export interface MeetingActionCreatedPayload {
-  meetingId: string;
-  actionItemId: string;
-  description: string;
-  assigneeEmployeeId: string;
-  priority: 'high' | 'medium' | 'low';
-  dependsOn: string[];
+  readonly meetingId: string;
+  readonly actionItemId: string;
+  readonly description: string;
+  readonly assigneeEmployeeId: string;
+  readonly priority: 'high' | 'medium' | 'low';
+  readonly dependsOn: string[];
 }
 
 export interface HandoffInitiatedPayload {
-  handoffId: string;
-  threadId: string;
-  fromEmployeeId: string;
-  toEmployeeId: string;
-  reason: string;
-  taskRunId: string;
+  readonly handoffId: string;
+  readonly threadId: string;
+  readonly fromEmployeeId: string;
+  readonly toEmployeeId: string;
+  readonly reason: string;
+  readonly taskRunId: string;
 }
 
 export interface HandoffCompletedPayload {
-  handoffId: string;
-  toEmployeeId: string;
-  taskRunId: string;
+  readonly handoffId: string;
+  readonly toEmployeeId: string;
+  readonly taskRunId: string;
 }
 
 export interface MemoryCreatedPayload {
-  memoryId: string;
-  employeeId: string;
-  scope: 'employee' | 'team' | 'company';
-  category: 'experience' | 'decision' | 'knowledge' | 'preference';
-  contentPreview: string;
+  readonly memoryId: string;
+  readonly employeeId: string;
+  readonly scope: 'employee' | 'team' | 'company';
+  readonly category: 'experience' | 'decision' | 'knowledge' | 'preference';
+  readonly contentPreview: string;
 }
 
 export interface MemoryAccessedPayload {
-  memoryId: string;
-  employeeId: string;
-  query: string;
+  readonly memoryId: string;
+  readonly employeeId: string;
+  readonly query: string;
 }
 
 // --- Runtime Completion: Workstation & Version Events ---

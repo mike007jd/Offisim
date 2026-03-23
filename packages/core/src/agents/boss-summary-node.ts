@@ -11,10 +11,10 @@ import {
 } from '../events/event-factories.js';
 import type { AicsGraphState, MeetingActionItem } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -47,7 +47,7 @@ export async function bossSummaryNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
+  const runtimeCtx = getRuntime(config, 'boss_summary', { optional: true });
 
   // Announce node entry
   if (runtimeCtx) {
@@ -130,7 +130,7 @@ export async function bossSummaryNode(
     }
     return {
       completed: true,
-      messages: [new AIMessage({ content: 'Task processing complete.' })],
+      messages: [new AIMessage({ content: '[Boss]: Task processing complete.' })],
     };
   }
 
@@ -164,13 +164,15 @@ export async function bossSummaryNode(
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
-    await appendAgentEvent(runtimeCtx, {
-      projectId: state.projectId,
-      threadId: state.threadId,
-      agentName: 'boss',
-      eventType: 'action',
-      payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
-    });
+    if (runtimeCtx) {
+      await appendAgentEvent(runtimeCtx, {
+        projectId: state.projectId,
+        threadId: state.threadId,
+        agentName: 'boss',
+        eventType: 'action',
+        payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
+      });
+    }
     return {
       completed: true,
       messages: [new AIMessage({ content })],
@@ -221,6 +223,6 @@ export async function bossSummaryNode(
 
   return {
     completed: true,
-    messages: [new AIMessage({ content: finalContent })],
+    messages: [new AIMessage({ content: `[Boss]: ${finalContent}` })],
   };
 }

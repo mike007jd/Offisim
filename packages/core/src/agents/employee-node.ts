@@ -26,6 +26,7 @@ import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { getRuntime } from '../utils/get-runtime.js';
 import { diagnoseAndRecover, recordRecoveryOutcome, type RecoveryDecision } from './recovery-agent.js';
 
 import type { CitationRef } from '../graph/state.js';
@@ -256,10 +257,7 @@ export async function employeeNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState> | Command> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'employee');
-  }
+  const runtimeCtx = getRuntime(config, 'employee');
 
   // Announce node entry
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'));
@@ -699,21 +697,18 @@ export async function employeeNode(
       ),
     );
 
-    // Reflect and remember — skip for direct_chat and handoff_continuation
+    // Reflect and remember — fire-and-forget (non-blocking).
+    // Skip for direct_chat and handoff_continuation.
     if (memoryService) {
       const skipReflection =
         state.entryMode === 'direct_chat' || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
-      try {
-        await memoryService.reflectAndRemember(
-          employee.employee_id,
-          companyId,
-          `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
-          threadId,
-          { skip: skipReflection },
-        );
-      } catch {
-        // Reflection failure is non-critical
-      }
+      memoryService.reflectAndRemember(
+        employee.employee_id,
+        companyId,
+        `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
+        threadId,
+        { skip: skipReflection, signal: getConfigSignal(config) },
+      ).catch((err) => logger.warn('reflectAndRemember failed (non-blocking)', err));
     }
 
     // Extract citations actually used in the response

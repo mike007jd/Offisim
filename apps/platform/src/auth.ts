@@ -3,6 +3,24 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
 import { db } from './db.js';
 
+// ── Auth secret guard ──
+const nodeEnv = process.env.NODE_ENV ?? 'development';
+const authSecret = process.env.BETTER_AUTH_SECRET;
+
+if (!authSecret && nodeEnv === 'production') {
+  console.error(
+    '[startup] FATAL: BETTER_AUTH_SECRET is not set in production. ' +
+      'Refusing to start with a default secret. ' +
+      'Set BETTER_AUTH_SECRET to a strong random string (≥32 chars).',
+  );
+  process.exit(1);
+} else if (!authSecret) {
+  console.warn(
+    '[startup] WARNING: BETTER_AUTH_SECRET is not set — using insecure default. ' +
+      'This is acceptable for local development only.',
+  );
+}
+
 /**
  * Better Auth instance for the AICS platform.
  *
@@ -18,7 +36,7 @@ import { db } from './db.js';
  */
 export const auth = betterAuth({
   basePath: '/api/auth',
-  secret: process.env.BETTER_AUTH_SECRET ?? 'aics-dev-secret-change-in-production',
+  secret: authSecret ?? 'aics-dev-secret-change-in-production',
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:4100',
 
   database: drizzleAdapter(db, {

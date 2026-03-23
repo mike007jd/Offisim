@@ -1,6 +1,5 @@
 import type { SopDefinition, SopStep } from '@aics/shared-types';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { GraphError } from '../errors.js';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
@@ -11,6 +10,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 /** @internal — exported for testing */
 export const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
@@ -224,10 +224,7 @@ export async function pmPlannerNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'pm_planner');
-  }
+  const runtimeCtx = getRuntime(config, 'pm_planner');
 
   // Announce node entry
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner'));

@@ -1,4 +1,5 @@
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
+import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 
 interface Persona {
   expertise?: string;
@@ -29,15 +30,15 @@ export function buildEmployeePrompt(
   const lines: string[] = [`You are ${employee.name}, a ${employee.role_slug} at ${company.name}.`];
 
   if (persona.expertise) {
-    lines.push(`Your expertise: ${persona.expertise}`);
+    lines.push(`Your expertise: ${sanitizeForPrompt(persona.expertise, 500)}`);
   }
   const style = persona.style ?? persona.tone;
   if (style) {
-    lines.push(`Communication style: ${style}`);
+    lines.push(`Communication style: ${sanitizeForPrompt(style, 500)}`);
   }
   const instructions = persona.customInstructions ?? persona.constraints;
   if (instructions) {
-    lines.push(`Additional instructions: ${instructions}`);
+    lines.push(`Additional instructions: ${sanitizeForPrompt(instructions, 1000)}`);
   }
 
   lines.push('');

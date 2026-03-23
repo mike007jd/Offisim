@@ -13,7 +13,6 @@ import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { pmReplanNode } from '../agents/pm-replan-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import {
   meetingEndNode,
@@ -25,13 +24,20 @@ import {
   participantTurnNode,
 } from './meeting-subgraph.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { getRuntime } from '../utils/get-runtime.js';
 import { AicsGraphAnnotation, type AicsGraphState } from './state.js';
 
 /** Max replans before escalating to user */
 const MAX_REPLAN_COUNT = 3;
 
-/** Detect if employee outputs signal a need to replan */
-const REPLAN_SIGNALS = ['REPLAN_NEEDED', 'infeasible', 'blocked', 'need alternative'] as const;
+/**
+ * Detect if employee outputs signal a need to replan.
+ *
+ * Uses explicit marker format `[SIGNAL:X]` to avoid false positives from
+ * common English words like "blocked" appearing in normal task output.
+ * The `REPLAN_NEEDED` literal is also accepted (backward compat).
+ */
+const REPLAN_SIGNAL_RE = /\[SIGNAL:REPLAN_NEEDED\]|\bREPLAN_NEEDED\b/i;
 
 /** @internal — exported for testing */
 export function routeFromStart(state: AicsGraphState): string {
@@ -131,7 +137,7 @@ async function stepAdvanceNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx?: RuntimeContext }).runtimeCtx;
+  const runtimeCtx = getRuntime(config, 'step_advance', { optional: true });
 
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
@@ -233,9 +239,7 @@ export function routeFromStepAdvance(state: AicsGraphState): string {
     ? state.currentStepOutputs
     : (state.stepResults.at(-1)?.outputs ?? []);
 
-  const hasReplanSignal = outputs.some((o) =>
-    REPLAN_SIGNALS.some((signal) => o.content.includes(signal)),
-  );
+  const hasReplanSignal = outputs.some((o) => REPLAN_SIGNAL_RE.test(o.content));
 
   if (hasReplanSignal && (state.replanCount ?? 0) < MAX_REPLAN_COUNT) {
     return 'pm_replan';

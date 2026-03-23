@@ -5,7 +5,7 @@ import {
   graphNodeEntered,
 } from '../events/event-factories.js';
 import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 /**
  * Lightweight setup node for direct employee chat.
@@ -16,7 +16,7 @@ export async function employeeDirectSetupNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx?: RuntimeContext })?.runtimeCtx;
+  const runtimeCtx = getRuntime(config, 'employee_direct_setup', { optional: true });
 
   // Announce node entry (best-effort)
   if (runtimeCtx) {

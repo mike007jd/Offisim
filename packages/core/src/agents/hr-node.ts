@@ -1,7 +1,6 @@
 import { ROLE_REGISTRY } from '@aics/shared-types';
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { GraphError } from '../errors.js';
 import {
   graphNodeEntered,
   hrAssessmentCompleted,
@@ -10,10 +9,10 @@ import {
 } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 interface HrAssessmentResult {
   assessment: string;
@@ -66,10 +65,7 @@ export async function hrNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx: RuntimeContext }).runtimeCtx;
-  if (!runtimeCtx) {
-    throw new GraphError('RuntimeContext not found in config.configurable', 'hr');
-  }
+  const runtimeCtx = getRuntime(config, 'hr');
 
   // Announce node entry
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'hr'));

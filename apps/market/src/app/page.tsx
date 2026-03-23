@@ -1,6 +1,7 @@
 export const revalidate = 60;
 
 import type { ListingSummary } from '@aics/registry-client';
+import Link from 'next/link';
 import { ArrowRight, Download, Search, Star } from 'lucide-react';
 import { getRegistryClient } from '../lib/registry';
 import { SHOWCASE_LISTINGS, SHOWCASE_STATS, CATEGORIES, type ShowcaseListing } from '../lib/showcase';
@@ -75,14 +76,14 @@ export default async function Home() {
         <h2 className="text-xs font-medium uppercase tracking-widest text-[var(--text-muted)]">Categories</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
-            <a
+            <Link
               key={cat.kind}
               href={`/search?kind=${cat.kind}`}
               className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-bright)] hover:text-[var(--text-primary)] transition-colors"
             >
               {cat.title}
               <span className="ml-1.5 text-[var(--text-muted)]">{cat.count}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
@@ -93,9 +94,9 @@ export default async function Home() {
           <h2 className="font-display text-lg font-semibold">
             {hasRealData ? 'Popular' : 'Showcase'}
           </h2>
-          <a href="/search" className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+          <Link href="/search" className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
             View all <ArrowRight size={12} />
-          </a>
+          </Link>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {hasRealData
@@ -115,12 +116,12 @@ export default async function Home() {
           Download Offisim Desktop and start assembling your team.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <a
+          <Link
             href="/search"
             className="rounded-lg bg-[var(--accent-indigo)] px-6 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition-colors"
           >
             Browse Assets
-          </a>
+          </Link>
           <a
             href="https://github.com"
             target="_blank"
@@ -172,7 +173,7 @@ function ShowcaseCard({ listing }: { listing: ShowcaseListing }) {
 
 function RealCard({ listing }: { listing: ListingSummary }) {
   return (
-    <a href={`/listing/${listing.slug}`} className="card flex flex-col p-4">
+    <Link href={`/listing/${listing.slug}`} className="card flex flex-col p-4">
       <div className="flex items-center justify-between">
         <span className={`badge-${listing.kind} rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase`}>
           {KIND_LABELS[listing.kind] ?? listing.kind}
@@ -195,6 +196,6 @@ function RealCard({ listing }: { listing: ListingSummary }) {
           {formatCount(listing.install_count)}
         </span>
       </div>
-    </a>
+    </Link>
   );
 }

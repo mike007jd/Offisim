@@ -52,7 +52,7 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
   { slug: 'ux_designer',      label: 'UX Designer',      department: 'art', isSystem: false },
   { slug: 'graphic_designer',  label: 'Graphic Designer', department: 'art', isSystem: false },
   // Content
-  { slug: 'writer',          label: 'Writer',          department: 'dev', isSystem: false },
+  { slug: 'writer',          label: 'Writer',          department: 'content', isSystem: false },
   { slug: 'marketer',        label: 'Marketer',        department: 'content', isSystem: false },
   { slug: 'seo_specialist',  label: 'SEO Specialist',  department: 'content', isSystem: false },
   // Analysis / Product

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DashboardStats, DraftCard, ListingCard, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
 import type { PublishDraft, ListingSummary } from '@aics/registry-client';
@@ -85,12 +86,12 @@ export default function DashboardPage() {
     <div className="space-y-10">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
-        <a
+        <Link
           href="/dashboard/publish"
           className="rounded-md bg-[var(--accent-indigo)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
         >
           New Listing
-        </a>
+        </Link>
       </div>
 
       <DashboardStats
@@ -110,12 +111,12 @@ export default function DashboardPage() {
         ) : (
           <div className="rounded-lg border border-dashed border-[var(--border-bright)] py-10 text-center">
             <p className="text-sm text-[var(--text-muted)]">No published listings yet.</p>
-            <a
+            <Link
               href="/dashboard/publish"
               className="mt-3 inline-block text-sm font-medium text-[var(--accent-indigo)] hover:underline"
             >
               Create your first listing
-            </a>
+            </Link>
           </div>
         )}
       </section>

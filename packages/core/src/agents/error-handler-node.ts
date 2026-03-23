@@ -2,8 +2,8 @@ import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { getRuntime } from '../utils/get-runtime.js';
 import { diagnoseAndRecover, recordRecoveryOutcome, type StructuredError } from './recovery-agent.js';
 
 function tryParseStructuredError(raw: string): StructuredError | null {
@@ -32,7 +32,7 @@ export async function errorHandlerNode(
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
   // Announce node entry (best-effort — error handler must not throw)
-  const runtimeCtx = (config.configurable as { runtimeCtx?: RuntimeContext })?.runtimeCtx;
+  const runtimeCtx = getRuntime(config, 'error_handler', { optional: true });
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
       graphNodeEntered(runtimeCtx.companyId, state.threadId, 'error_handler'),

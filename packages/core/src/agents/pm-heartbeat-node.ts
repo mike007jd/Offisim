@@ -1,8 +1,8 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { getRuntime } from '../utils/get-runtime.js';
 
 /**
  * PM Heartbeat node — proactive progress check.
@@ -19,7 +19,7 @@ export async function pmHeartbeatNode(
   state: AicsGraphState,
   config: RunnableConfig,
 ): Promise<Partial<AicsGraphState>> {
-  const runtimeCtx = (config.configurable as { runtimeCtx?: RuntimeContext })?.runtimeCtx;
+  const runtimeCtx = getRuntime(config, 'pm_heartbeat', { optional: true });
   if (!runtimeCtx) return {};
 
   runtimeCtx.eventBus.emit(

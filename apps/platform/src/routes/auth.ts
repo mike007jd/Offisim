@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { sha256 } from '../lib/crypto.js';
 import { requireAuth } from '../middleware/auth.js';
+import { RegisterCreatorSchema } from '../schemas/index.js';
 import type { PlatformEnv } from '../types.js';
 
 const authRoute = new Hono<PlatformEnv>();
@@ -12,14 +13,10 @@ const authRoute = new Hono<PlatformEnv>();
 // Requires authentication (Better Auth session or API token).
 // Body: { handle: string; display_name: string; bio?: string }
 authRoute.post('/register-creator', requireAuth, async (c) => {
-  const body = await c.req.json<{ handle?: string; display_name?: string; bio?: string }>();
-  const handle = body.handle?.trim();
-  const displayName = body.display_name?.trim();
+  const body = RegisterCreatorSchema.parse(await c.req.json());
+  const handle = body.handle;
+  const displayName = body.display_name;
   const bio = body.bio?.trim() ?? null;
-
-  if (!handle || !displayName) {
-    throw new HTTPException(400, { message: 'handle and display_name are required' });
-  }
 
   const db = c.get('db');
   const userId = c.get('userId')!;
