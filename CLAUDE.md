@@ -102,6 +102,25 @@ If a feature changes runtime behavior **and** contracts, update both.
 - Reuse existing repo packages and primitives before adding new abstractions.
 - Keep code readable, explicit, and easy for another agent to continue.
 
+## Known technical debt
+
+Pre-existing issues that must not be mistaken for regressions:
+
+- `apps/platform` typecheck: `better-auth` drizzleAdapter type mismatch, `market.ts` PostgresJsDatabase generic incompatibility
+- `packages/core` tests: `project-assignment.test.ts` null-vs-undefined, `employee-version-service.test.ts` Mock generic, `get-signal.test.ts` stale ts-expect-error
+- `apps/web`: `tauri-repos.ts` missing `projectAssignments` property, `tauri-seed.ts` unused import
+- `useSceneOrchestrator`: `zoneSlotCounters.delete(companyId)` in `clearCompanyState()` is dead code — keys are zone IDs not company IDs; actual cleanup is `resetSlotCounters().clear()`
+- E2E tests (Playwright) not configured
+- `tauri dev` smoke test not yet verified
+
+Resource lifecycle patterns (established 2026-03-24):
+
+- **Runtime dispose**: `disposeRuntime()` in `runtime-context.ts` — call on company switch / unmount. Covers LlmGateway, McpToolExecutor, NotificationBridge, EventBus.
+- **Three.js in R3F**: every `useMemo(() => new THREE.Geometry/Material)` must pair with `useEffect(() => () => { geo.dispose() }, [geo])`. See StudioGhost.tsx validMat/blockedMat as canonical pattern.
+- **EventBus**: all `eventBus.on()` must return unsub in useEffect cleanup. Currently 100% compliant across 18 hooks + 8 components.
+- **LLM message pruning**: `recordedLlmCall` / `recordedLlmStream` in `recorded-call.ts` is the sole LLM entry point for all graph nodes — pruning happens there. Services that call `gateway.chat()` directly must wrap with `pruneLlmMessages()` themselves.
+- **Module-level state**: `useSceneOrchestrator` has module-level Maps (`companyHandles`, `zoneSlotCounters`) with FIFO caps. Acceptable but monitor — prefer component-local state for new code.
+
 ## Validation rules
 
 Before marking work complete, run the checks relevant to the touched scope.
