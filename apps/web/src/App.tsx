@@ -59,6 +59,9 @@ const InstallDialog = React.lazy(() =>
 const StudioPage = React.lazy(() =>
   import('@aics/ui-office/studio').then((m) => ({ default: m.StudioPage })),
 );
+const KanbanOverlay = React.lazy(() =>
+  import('@aics/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
+);
 
 type AppView = 'office' | 'employee-creator' | 'office-editor' | 'company-select' | 'studio';
 
@@ -72,12 +75,14 @@ export function App({ onCompanySwitch }: AppProps) {
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [kanbanOpen, setKanbanOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const [projectListOpen, setProjectListOpen] = useState(false);
+  const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const { reinitRuntime, repos, eventBus, unfinishedThreads, dismissUnfinishedThreads, resumeThread } = useAicsRuntime();
   const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
@@ -91,11 +96,16 @@ export function App({ onCompanySwitch }: AppProps) {
   const { toasts, addToast, dismissToast } = useToasts();
 
   // Keyboard shortcut: Cmd+D / Ctrl+D toggles Boss Dashboard overlay
+  // Keyboard shortcut: Cmd+J / Ctrl+J toggles Kanban Board overlay
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
         e.preventDefault();
         setDashboardOpen((prev) => !prev);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setKanbanOpen((prev) => !prev);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -326,12 +336,14 @@ export function App({ onCompanySwitch }: AppProps) {
                     onShowDashboard={() => setDashboardOpen(true)}
                     onShowBudget={() => setDashboardOpen(true)}
                     activeProject={activeProject}
+                    onUserMessage={setLastUserRequest}
                   />
                 </ChatDrawer>
               }
               eventLog={
                 <RightSidebar
                   onOpenDashboard={() => setDashboardOpen(true)}
+                  onOpenKanban={() => setKanbanOpen(true)}
                   focusOutputsToken={focusOutputsToken}
                 />
               }
@@ -340,6 +352,15 @@ export function App({ onCompanySwitch }: AppProps) {
             {dashboardOpen && (
               <Suspense fallback={null}>
                 <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+              </Suspense>
+            )}
+            {kanbanOpen && (
+              <Suspense fallback={null}>
+                <KanbanOverlay
+                  open={kanbanOpen}
+                  onClose={() => setKanbanOpen(false)}
+                  requestText={lastUserRequest ?? undefined}
+                />
               </Suspense>
             )}
             <EmployeeInspector

@@ -43,6 +43,10 @@
     "./studio": {
       "types": "./dist/components/studio/StudioPage.d.ts",
       "default": "./dist/components/studio/StudioPage.js"
+    },
+    "./kanban": {
+      "types": "./dist/components/kanban/index.d.ts",
+      "default": "./src/components/kanban/index.ts"
     }
   },
   "scripts": {
@@ -60,6 +64,8 @@
     "@aics/renderer": "workspace:*",
     "@aics/shared-types": "workspace:*",
     "@aics/ui-core": "workspace:*",
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "lucide-react": "^0.577.0",
