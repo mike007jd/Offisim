@@ -161,12 +161,13 @@ export function StudioGhost() {
     }
   }, [ghostRotation, placingPrefab, invalidate]);
 
-  // Ring geometry for ground indicator (shared)
+  // Ring geometry for ground indicator (disposed on unmount)
   const ringGeo = useMemo(() => {
     const geo = new THREE.RingGeometry(0.6, 0.8, 32);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
+  useEffect(() => () => { ringGeo.dispose(); }, [ringGeo]);
 
   // ── Ring pulse animation ─────────────────────────────────────────
   // NOTE: No invalidate() call here — onPointerMove already invalidates.
@@ -221,6 +222,7 @@ export function StudioGhost() {
     () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)),
     [gridW, gridD],
   );
+  useEffect(() => () => { footprintEdgeGeo.dispose(); }, [footprintEdgeGeo]);
 
   if (!placingPrefab) return null;
 

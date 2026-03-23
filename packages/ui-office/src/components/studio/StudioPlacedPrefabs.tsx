@@ -5,7 +5,7 @@
  * Memoized items to prevent TransformControls flicker.
  */
 
-import { useRef, useCallback, useMemo, memo } from 'react';
+import { useRef, useCallback, useMemo, useEffect, memo } from 'react';
 import * as THREE from 'three';
 import { TransformControls, Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
@@ -15,25 +15,12 @@ import { useStudioStore, type PlacedInstance } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
 // ---------------------------------------------------------------------------
-// Highlight ring geometry (shared across all instances)
+// Highlight ring constants
 // ---------------------------------------------------------------------------
 
 const RING_INNER = 0.8;
 const RING_OUTER = 1.0;
 const RING_SEGMENTS = 32;
-
-const highlightRingGeo = new THREE.RingGeometry(RING_INNER, RING_OUTER, RING_SEGMENTS);
-
-// Rotate ring to lie flat on XZ plane (RingGeometry defaults to XY)
-highlightRingGeo.rotateX(-Math.PI / 2);
-
-const highlightRingMat = new THREE.MeshBasicMaterial({
-  color: '#6366f1',
-  transparent: true,
-  opacity: 0.7,
-  side: THREE.DoubleSide,
-  depthWrite: false,
-});
 
 // Pre-allocated objects for handleObjectChange (Skill §7: no allocations in hot path)
 const _pos = new THREE.Vector3();
@@ -47,12 +34,16 @@ interface PlacedPrefabItemProps {
   instance: PlacedInstance;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  highlightRingGeo: THREE.RingGeometry;
+  highlightRingMat: THREE.MeshBasicMaterial;
 }
 
 const PlacedPrefabItem = memo(function PlacedPrefabItem({
   instance,
   isSelected,
   onSelect,
+  highlightRingGeo,
+  highlightRingMat,
 }: PlacedPrefabItemProps) {
   const { gl, invalidate } = useThree();
 
@@ -157,6 +148,26 @@ export function StudioPlacedPrefabs() {
 
   const { invalidate } = useThree();
 
+  // Highlight ring geometry + material (disposed on unmount)
+  const highlightRingGeo = useMemo(() => {
+    const geo = new THREE.RingGeometry(RING_INNER, RING_OUTER, RING_SEGMENTS);
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, []);
+  const highlightRingMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#6366f1',
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  }), []);
+  useEffect(() => {
+    return () => {
+      highlightRingGeo.dispose();
+      highlightRingMat.dispose();
+    };
+  }, [highlightRingGeo, highlightRingMat]);
+
   // Ref for the group that wraps the selected instance (TransformControls target)
   // Cast needed: drei TransformControls expects RefObject<Object3D> (non-nullable)
   const selectedGroupRef = useRef<THREE.Group>(null!);
@@ -225,6 +236,8 @@ export function StudioPlacedPrefabs() {
           instance={inst}
           isSelected={false}
           onSelect={handleSelect}
+          highlightRingGeo={highlightRingGeo}
+          highlightRingMat={highlightRingMat}
         />
       ))}
 

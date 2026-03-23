@@ -50,6 +50,7 @@ function PlotBoundary() {
     () => new THREE.EdgesGeometry(new THREE.BoxGeometry(plotSize.width, 0.02, plotSize.depth)),
     [plotSize.width, plotSize.depth],
   );
+  useEffect(() => () => { geo.dispose(); }, [geo]);
   return (
     <lineSegments position={[0, 0.01, 0]} geometry={geo}>
       <lineBasicMaterial color={STUDIO_COLORS.plotBorder} transparent opacity={0.6} />

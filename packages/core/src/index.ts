@@ -1,7 +1,7 @@
 // @aics/core — Phase 6 Install Pipeline
 
 // --- Types ---
-export type { RuntimeContext, MeetingInterruptBox } from './runtime/runtime-context.js';
+export type { RuntimeContext, MeetingInterruptBox, DisposableRuntime } from './runtime/runtime-context.js';
 export type {
   RuntimeRepositories,
   CompanyRow,
@@ -104,7 +104,7 @@ export type { ThreadForkService } from './services/thread-fork-service.js';
 
 // --- Factories ---
 export { buildAicsGraph } from './graph/main-graph.js';
-export { createRuntimeContext } from './runtime/runtime-context.js';
+export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export {
   createMemoryRepositories,

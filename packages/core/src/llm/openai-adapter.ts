@@ -255,6 +255,10 @@ export class OpenAiAdapter implements LlmGateway {
     };
   }
 
+  dispose(): void {
+    // Stateless HTTP adapter — nothing to release.
+  }
+
   private mapError(error: unknown): LlmError {
     if (error instanceof OpenAI.APIError) {
       return new LlmError(error.message, this.providerLabel, error.status);

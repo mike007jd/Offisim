@@ -234,6 +234,10 @@ export class AnthropicAdapter implements LlmGateway {
     };
   }
 
+  dispose(): void {
+    // Stateless HTTP adapter — nothing to release.
+  }
+
   private mapError(error: unknown): LlmError {
     if (error instanceof Anthropic.APIError) {
       return new LlmError(error.message, 'anthropic', error.status);

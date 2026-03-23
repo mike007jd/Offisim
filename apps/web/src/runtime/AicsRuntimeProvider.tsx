@@ -1,6 +1,7 @@
 import { EmployeeVersionService, InMemoryEventBus } from '@aics/core/browser';
 import type { McpServerConfig } from '@aics/core/browser';
 import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
+import { disposeRuntime } from '@aics/core/dist/runtime/runtime-context.js';
 import {
   AicsRuntimeContext,
   AicsRuntimeStatusContext,
@@ -64,6 +65,21 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     };
   }, [companyId]);
 
+  // Full dispose on unmount — release gateway, MCP connections, EventBus subs.
+  useEffect(() => {
+    return () => {
+      const runtime = runtimeRef.current;
+      if (runtime) {
+        disposeRuntime({
+          llmGateway: runtime.runtimeCtx?.llmGateway,
+          eventBus: eventBusRef.current,
+          toolExecutor: runtime.mcpToolExecutor ?? undefined,
+          notificationBridge: notificationBridgeRef.current ?? undefined,
+        });
+      }
+    };
+  }, []);
+
   // Async runtime init (Tauri + browser modes — both async due to seedCostRates)
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
@@ -98,10 +114,18 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   }, [initRuntime, version]);
 
   const reinitRuntime = useCallback(() => {
-    // TODO: In Tauri mode, the old TauriCheckpointSaver and TauriDrizzleDb hold
-    // references to the shared DB connection. Since getTauriDb() is a module-level
-    // singleton, the connection survives reinit. Old eventBus subscriptions are
-    // cleaned up by consuming components' useEffect return functions.
+    // Dispose the OLD runtime's disposable resources (gateway, MCP connections)
+    // before creating a new one. The EventBus is intentionally NOT disposed here
+    // — it's shared across reinits so UI hooks stay subscribed.
+    const oldRuntime = runtimeRef.current;
+    if (oldRuntime) {
+      disposeRuntime({
+        llmGateway: oldRuntime.runtimeCtx?.llmGateway,
+        // eventBus intentionally omitted: keep shared EventBus alive across reinits
+        toolExecutor: oldRuntime.mcpToolExecutor ?? undefined,
+        notificationBridge: notificationBridgeRef.current ?? undefined,
+      });
+    }
     runtimeRef.current = null;
     initPromiseRef.current = null;
     setVersion((v) => v + 1);

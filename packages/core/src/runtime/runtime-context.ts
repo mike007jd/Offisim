@@ -31,6 +31,24 @@ export interface RuntimeContext {
   readonly meetingInterruptBox: MeetingInterruptBox;
 }
 
+export interface DisposableRuntime {
+  readonly llmGateway?: LlmGateway;
+  readonly eventBus?: EventBus;
+  readonly toolExecutor?: { dispose?: () => void | Promise<void> };
+  readonly notificationBridge?: { deactivate: () => void };
+}
+
+export function disposeRuntime(d: DisposableRuntime): void {
+  d.llmGateway?.dispose();
+  d.notificationBridge?.deactivate();
+  if (d.toolExecutor && typeof d.toolExecutor.dispose === 'function') {
+    // McpToolExecutor.dispose() is async but we fire-and-forget here —
+    // the connections will be GC'd even if close() hasn't finished.
+    void d.toolExecutor.dispose();
+  }
+  d.eventBus?.removeAll();
+}
+
 export function createRuntimeContext(deps: {
   repos: RuntimeRepositories;
   eventBus: EventBus;

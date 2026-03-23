@@ -65,6 +65,10 @@ export class MockLlmGateway implements LlmGateway {
     };
   }
 
+  dispose(): void {
+    // No-op for mock.
+  }
+
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
     // Use stream-specific responses first, then fall back to chat()
     const response =

@@ -217,6 +217,14 @@ export function useDashboardMetrics(): DashboardMetrics {
         if (taskRunId) {
           const current = costByTaskRef.current.get(taskRunId) ?? 0;
           costByTaskRef.current.set(taskRunId, current + callCost);
+
+          // Prune oldest entries if map grows too large (long-running session defense)
+          if (costByTaskRef.current.size > 5000) {
+            const keys = Array.from(costByTaskRef.current.keys());
+            for (let i = 0; i < keys.length - 2500; i++) {
+              costByTaskRef.current.delete(keys[i]!);
+            }
+          }
         }
         const newTotal = costAccRef.current.totalCost;
         updateMetrics((prev) => ({

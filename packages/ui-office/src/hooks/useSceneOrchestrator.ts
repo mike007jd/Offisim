@@ -95,7 +95,21 @@ function getMovementHandles(companyId: string): Map<string, CharacterMovementHan
 }
 
 export function registerMovementHandle(companyId: string, employeeId: string, handle: CharacterMovementHandle) {
-  getHandleMap(companyId).set(employeeId, handle);
+  // Safety cap: evict oldest company entries if too many accumulate (FIFO by Map insertion order)
+  if (!companyHandles.has(companyId) && companyHandles.size >= 5) {
+    const oldest = companyHandles.keys().next().value;
+    if (oldest !== undefined) companyHandles.delete(oldest);
+  }
+
+  const map = getHandleMap(companyId);
+  map.set(employeeId, handle);
+
+  // Warn if a single company accumulates too many handles (likely a leak)
+  if (map.size > 200) {
+    console.warn(
+      `[useSceneOrchestrator] company "${companyId}" has ${map.size} movement handles — possible leak`,
+    );
+  }
 }
 
 export function unregisterMovementHandle(companyId: string, employeeId: string) {

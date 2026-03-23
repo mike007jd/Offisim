@@ -54,5 +54,5 @@ export interface LlmGateway {
   chat(request: LlmRequest): Promise<LlmResponse>;
   chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk>;
   /** Release adapter resources (child processes, connections). No-op for stateless adapters. */
-  dispose?(): void;
+  dispose(): void;
 }

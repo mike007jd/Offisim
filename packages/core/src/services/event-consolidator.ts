@@ -1,5 +1,6 @@
 import type { EventBus } from '../events/event-bus.js';
 import type { LlmGateway } from '../llm/gateway.js';
+import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { AgentEventRepository, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
@@ -74,11 +75,12 @@ export class EventConsolidator {
 
     let rawResponse: string;
     try {
+      const messages = pruneLlmMessages([
+        { role: 'system', content: CONSOLIDATE_PROMPT + eventsText },
+        { role: 'user', content: `Summarize the execution experience${projectLabel}.` },
+      ]);
       const response = await this.llmGateway.chat({
-        messages: [
-          { role: 'system', content: CONSOLIDATE_PROMPT + eventsText },
-          { role: 'user', content: `Summarize the execution experience${projectLabel}.` },
-        ],
+        messages,
         model: 'default',
         temperature: 0.3,
         maxTokens: 512,

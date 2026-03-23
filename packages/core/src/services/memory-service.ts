@@ -5,6 +5,7 @@ import { Logger } from './logger.js';
 const logger = new Logger('memory');
 import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway } from '../llm/gateway.js';
+import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
@@ -157,11 +158,12 @@ export class MemoryService {
     // Ask LLM to extract memories
     let rawResponse: string;
     try {
+      const messages = pruneLlmMessages([
+        { role: 'system', content: REFLECT_PROMPT + taskContent },
+        { role: 'user', content: 'Extract memories from the task above.' },
+      ]);
       const response = await this.llmGateway.chat({
-        messages: [
-          { role: 'system', content: REFLECT_PROMPT + taskContent },
-          { role: 'user', content: 'Extract memories from the task above.' },
-        ],
+        messages,
         model: 'default',
         temperature: 0.3,
         maxTokens: 1024,
