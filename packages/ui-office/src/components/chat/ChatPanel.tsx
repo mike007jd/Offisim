@@ -1,9 +1,9 @@
 import { ScrollArea } from '@aics/ui-core';
 import type { ProjectRow } from '@aics/shared-types';
-import { ArrowLeft, Folder, Square } from 'lucide-react';
+import { ArrowLeft, Folder } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
-import { usePipelineStage, STAGE_META } from '../../hooks/usePipelineStage';
+import { usePipelineStage } from '../../hooks/usePipelineStage';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
@@ -12,6 +12,7 @@ import { ErrorBanner } from '../error/ErrorBanner';
 import { MeetingPanel } from '../office/MeetingPanel';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
+import { PipelineProgress } from './PipelineProgress';
 import { StreamingBubble } from './StreamingBubble';
 
 interface ChatMessage {
@@ -33,6 +34,8 @@ interface ChatPanelProps {
   onShowBudget?: () => void;
   /** Active project — when set, all messages use the project's threadId. */
   activeProject?: ProjectRow | null;
+  /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
+  onUserMessage?: (text: string) => void;
 }
 
 let nextMsgId = 0;
@@ -49,6 +52,7 @@ export function ChatPanel({
   onShowDashboard,
   onShowBudget,
   activeProject,
+  onUserMessage,
 }: ChatPanelProps) {
   const {
     sendMessage,
@@ -117,6 +121,11 @@ export function ChatPanel({
   async function handleSend(text: string) {
     lastStreamRef.current = '';
     errorTargetRef.current = targetKey;
+
+    // Notify parent of user message (only for team chat, not direct employee chat)
+    if (!selectedEmployeeId) {
+      onUserMessage?.(text);
+    }
 
     addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
 
@@ -265,30 +274,12 @@ export function ChatPanel({
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       <MeetingPanel agents={agents} />
 
-      {/* Pipeline status + stop button — inline, only visible while active */}
-      {pipelineStage && (
-        <div className="flex items-center gap-1.5 px-3 py-1 border-t border-white/5">
-          <span className="flex gap-0.5">
-            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_META[pipelineStage].chatColorClass} opacity-80`} style={{ animationDelay: '0ms' }} />
-            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_META[pipelineStage].chatColorClass} opacity-60`} style={{ animationDelay: '120ms' }} />
-            <span className={`w-1 h-1 rounded-full animate-bounce ${STAGE_META[pipelineStage].chatColorClass} opacity-40`} style={{ animationDelay: '240ms' }} />
-          </span>
-          <span className={`font-mono text-[10px] tracking-wide ${STAGE_META[pipelineStage].chatColorClass}`}>
-            {STAGE_META[pipelineStage].chatLabel}
-          </span>
-          {isRunning && (
-            <button
-              type="button"
-              onClick={abortExecution}
-              title="Stop execution"
-              className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-            >
-              <Square className="h-2.5 w-2.5 fill-current" />
-              <span>Stop</span>
-            </button>
-          )}
-        </div>
-      )}
+      {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
+      <PipelineProgress
+        stage={pipelineStage}
+        isRunning={isRunning}
+        onAbort={abortExecution}
+      />
 
       {/* Input */}
       <ChatInput

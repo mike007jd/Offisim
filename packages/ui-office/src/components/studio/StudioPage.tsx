@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { useStudioStore } from './StudioState.js';
+import { useStudioStore, STUDIO_TEMP_PREFIX } from './StudioState.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioPalette } from './StudioPalette.js';
@@ -279,7 +279,7 @@ export function StudioPage({
         const now = new Date().toISOString();
         for (const inst of state.instances) {
           const row: PrefabInstanceRow = {
-            instance_id: inst.id.startsWith('studio-')
+            instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX)
               ? crypto.randomUUID()
               : inst.id,
             company_id: targetCompanyId,

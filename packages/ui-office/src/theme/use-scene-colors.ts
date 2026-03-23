@@ -30,10 +30,10 @@ export interface SceneColors {
 }
 
 const DARK_SCENE: SceneColors = {
-  floor: '#1e293b',
+  floor: '#253347',
   desk: '#e2e8f0',
   deskEdge: '#cbd5e1',
-  furniture: '#1e293b',
+  furniture: '#2d3b4f',
   furnitureDark: '#0f172a',
   furnitureLight: '#334155',
   partition: '#94a3b8',

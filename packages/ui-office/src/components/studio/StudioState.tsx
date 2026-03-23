@@ -54,8 +54,11 @@ export interface StudioStore {
   markClean: () => void;
 }
 
+/** Prefix for temporary Studio placement IDs (replaced with real UUIDs on save) */
+export const STUDIO_TEMP_PREFIX = 'sp-';
+
 function generateId(): string {
-  return `sp-${crypto.randomUUID()}`;
+  return `${STUDIO_TEMP_PREFIX}${crypto.randomUUID()}`;
 }
 
 export const useStudioStore = create<StudioStore>((set, get) => ({

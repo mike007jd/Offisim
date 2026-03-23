@@ -1,5 +1,7 @@
 import { ChevronUp, MessageSquare } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+
+const STORAGE_KEY = 'aics-chat-open';
 
 interface ChatDrawerProps {
   children: ReactNode;
@@ -8,22 +10,41 @@ interface ChatDrawerProps {
 }
 
 export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved !== null ? saved === 'true' : true; // default open on first visit
+    } catch {
+      return true;
+    }
+  });
 
   // Auto-expand when parent signals a chat request
   useEffect(() => {
     if (requestOpen) setOpen(true);
   }, [requestOpen]);
 
+  const toggle = useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      } catch {
+        // localStorage unavailable — silently ignore
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div
       className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300"
-      style={{ height: open ? '32vh' : '40px' }}
+      style={{ height: open ? '38vh' : '40px' }}
     >
       {/* Toggle bar */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className="w-full h-10 px-4 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
       >
         <div className="flex items-center space-x-2">
@@ -43,7 +64,7 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
         className="overflow-hidden transition-opacity duration-300"
         style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
       >
-        <div className="h-[calc(32vh-40px)] overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="h-[calc(38vh-40px)] overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );

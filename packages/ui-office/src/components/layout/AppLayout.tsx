@@ -45,7 +45,7 @@ export function AppLayout({
 
         {/* ══════ LEFT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className="my-4 border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
           style={{ width: leftOpen ? '280px' : '44px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
@@ -80,7 +80,7 @@ export function AppLayout({
 
         {/* ══════ RIGHT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/40 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className="my-4 border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
           style={{ width: rightOpen ? '280px' : '44px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />

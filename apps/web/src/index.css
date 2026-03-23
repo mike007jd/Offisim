@@ -36,8 +36,8 @@
 
 /* ── Dark mode ── */
 :root.dark {
-  --surface: #02040a;
-  --surface-light: #0f172a;
+  --surface: #0c1118;
+  --surface-light: #151d2e;
   --surface-lighter: #1e293b;
   --surface-mid: #334155;
   --border-val: rgba(255, 255, 255, 0.1);

@@ -12,9 +12,9 @@
 
 export const STUDIO_COLORS = {
   // Surfaces (darkest → lightest)
-  bg: '#0a0a14',
-  surface0: 'rgba(15, 15, 26, 0.97)',  // panels, overlays
-  surface1: 'rgba(25, 25, 42, 0.95)',   // cards, inputs
+  bg: '#0c1118',
+  surface0: 'rgba(17, 24, 39, 0.97)',  // panels, overlays
+  surface1: 'rgba(30, 41, 59, 0.95)',   // cards, inputs
   surface2: 'rgba(35, 35, 55, 0.9)',    // hover, elevated
 
   // Borders
@@ -52,7 +52,7 @@ export const STUDIO_COLORS = {
   catDecorative: '#4ade80',
 
   // 3D scene
-  canvasBg: '#0f0f1a',
+  canvasBg: '#111827',
   gridMajor: '#555',
   gridMinor: '#333',
   plotBorder: '#6366f1',

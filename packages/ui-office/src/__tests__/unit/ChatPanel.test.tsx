@@ -53,6 +53,12 @@ vi.mock('../../hooks/useErrorTracking.js', () => ({
 vi.mock('../../hooks/usePipelineStage.js', () => ({
   usePipelineStage: () => null,
   STAGE_META: {},
+  PIPELINE_STEPS: ['boss', 'manager', 'planning', 'executing', 'summary'],
+}));
+
+// Mock PipelineProgress (imported by ChatPanel)
+vi.mock('../../components/chat/PipelineProgress.js', () => ({
+  PipelineProgress: () => null,
 }));
 
 vi.mock('../../components/company/CompanyContext.js', () => ({
