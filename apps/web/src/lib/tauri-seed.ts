@@ -1,5 +1,3 @@
-import { getTauriDb } from './tauri-db';
-
 /**
  * Seed the Tauri SQLite database with default company + employees
  * on first launch. Checks if already seeded by looking for company-001.

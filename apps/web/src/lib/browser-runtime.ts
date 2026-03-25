@@ -19,14 +19,14 @@ import type {
   InMemoryEventBus,
   RuntimeRepositories,
 } from '@aics/core/browser';
+import { createMemoryCheckpointSaver } from '@aics/core/dist/graph/checkpoint-saver.js';
 // Heavy imports — direct dist paths to bypass the @aics/core barrel alias.
 // These modules pull in @langchain/langgraph, openai SDK, etc.
 import { buildAicsGraph } from '@aics/core/dist/graph/main-graph.js';
-import { createMemoryCheckpointSaver } from '@aics/core/dist/graph/checkpoint-saver.js';
 import { createGateway } from '@aics/core/dist/llm/gateway-factory.js';
 import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
-import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
+import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
 import type { OrchestrationService } from '@aics/core/dist/services/orchestration-service.js';
 import { InstallService } from '@aics/install-core';
@@ -62,7 +62,10 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   };
 }
 
-async function seedCompany(repos: ReturnType<typeof createMemoryRepositories>, companyId: string): Promise<void> {
+async function seedCompany(
+  repos: ReturnType<typeof createMemoryRepositories>,
+  companyId: string,
+): Promise<void> {
   const now = new Date().toISOString();
 
   const company: CompanyRow = {
@@ -137,7 +140,7 @@ export async function createBrowserRuntime(
 
   const gateway = createGateway({
     provider: config.provider,
-    apiKey: config.apiKey,
+    apiKey: config.apiKey ?? '',
     baseURL: proxyBaseURL ?? config.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,

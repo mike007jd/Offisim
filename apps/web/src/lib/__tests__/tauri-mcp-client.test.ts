@@ -15,6 +15,13 @@ vi.mock('../browser-mcp-client', () => ({
 import { invoke } from '@tauri-apps/api/core';
 import { TauriMcpClientFactory } from '../tauri-mcp-client';
 
+type DesktopMcpServerConfig = {
+  name: string;
+  transport: 'stdio' | 'sse';
+  registeredServerId?: string;
+  url?: string;
+};
+
 describe('TauriMcpClientFactory', () => {
   let factory: TauriMcpClientFactory;
 
@@ -43,18 +50,20 @@ describe('TauriMcpClientFactory', () => {
     const conn = await factory.createClient({
       name: 'my-mcp',
       transport: 'stdio',
-      command: '/usr/bin/mcp',
-    });
+      registeredServerId: 'mcp-123',
+    } as DesktopMcpServerConfig);
 
-    expect(invoke).toHaveBeenCalledWith('plugin:mcp_bridge|mcp_spawn', expect.any(Object));
+    expect(invoke).toHaveBeenCalledWith('plugin:mcp_bridge|mcp_connect_registered', {
+      request: { serverId: 'mcp-123' },
+    });
     expect(conn.tools).toHaveLength(1);
     expect(conn.tools[0]!.name).toBe('read');
   });
 
-  it('throws if stdio has no command', async () => {
-    await expect(factory.createClient({ name: 'bad', transport: 'stdio' })).rejects.toThrow(
-      'no command',
-    );
+  it('throws if stdio has no registered server id', async () => {
+    await expect(
+      factory.createClient({ name: 'bad', transport: 'stdio' } as DesktopMcpServerConfig),
+    ).rejects.toThrow('registered server id');
   });
 
   it('callTool invokes Rust bridge mcp_call_tool', async () => {
@@ -67,8 +76,8 @@ describe('TauriMcpClientFactory', () => {
     const conn = await factory.createClient({
       name: 'my-mcp',
       transport: 'stdio',
-      command: '/usr/bin/mcp',
-    });
+      registeredServerId: 'mcp-123',
+    } as DesktopMcpServerConfig);
 
     vi.mocked(invoke).mockResolvedValueOnce({ content: 'file data' });
     await conn.callTool('read', { path: '/tmp/test.txt' });
@@ -90,8 +99,8 @@ describe('TauriMcpClientFactory', () => {
     const conn = await factory.createClient({
       name: 'my-mcp',
       transport: 'stdio',
-      command: '/usr/bin/mcp',
-    });
+      registeredServerId: 'mcp-123',
+    } as DesktopMcpServerConfig);
 
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
     await conn.close();

@@ -10,6 +10,8 @@ pub enum McpBridgeError {
     SpawnFailed(String, String),
     #[error("Initialize handshake failed: {0}")]
     InitFailed(String),
+    #[error("MCP registry error: {0}")]
+    Registry(String),
     #[error("Tool call timed out after {0}ms")]
     CallTimeout(u64),
     #[error("JSON-RPC error: code={code}, message={message}")]

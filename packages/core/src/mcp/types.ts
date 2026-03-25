@@ -9,6 +9,8 @@
 export interface McpServerConfig {
   readonly name: string;
   readonly transport: 'stdio' | 'sse';
+  /** Rust-side registered server identifier for desktop stdio servers */
+  readonly registeredServerId?: string;
   /** Command to execute for stdio transport */
   readonly command?: string;
   /** Arguments for the stdio command */

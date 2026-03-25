@@ -10,20 +10,6 @@
     "sql:allow-execute",
     "sql:allow-close",
     "cors-fetch:default",
-    "deep-link:default",
-    "fs:default",
-    {
-      "identifier": "fs:allow-read-text-file",
-      "allow": [
-        { "path": "$APPDATA/**" },
-        { "path": "$DOWNLOAD/**" }
-      ]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": [
-        { "path": "$APPDATA/**" }
-      ]
-    }
+    "deep-link:default"
   ]
 }

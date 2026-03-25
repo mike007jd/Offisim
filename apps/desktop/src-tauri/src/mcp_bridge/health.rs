@@ -1,8 +1,8 @@
-use crate::mcp_bridge::process_manager::{ManagedProcess, ProcessState};
 use crate::mcp_bridge::jsonrpc_framer::write_message;
+use crate::mcp_bridge::process_manager::{ManagedProcess, ProcessState};
 use crate::mcp_bridge::types::JsonRpcMessage;
-use tokio::time::{interval, timeout, Duration};
 use rand::Rng;
+use tokio::time::{interval, timeout, Duration};
 
 pub struct HealthConfig {
     pub interval: Duration,
@@ -39,9 +39,9 @@ pub fn backoff_delay(attempt: u32, base: Duration, max: Duration) -> Duration {
 /// Check if process is still alive.
 pub fn is_process_alive(process: &mut ManagedProcess) -> bool {
     match process.child.try_wait() {
-        Ok(None) => true,   // still running
+        Ok(None) => true,     // still running
         Ok(Some(_)) => false, // exited
-        Err(_) => false,     // error checking
+        Err(_) => false,      // error checking
     }
 }
 
@@ -56,10 +56,7 @@ pub async fn ping_check(process: &mut ManagedProcess, ping_timeout: Duration) ->
         return false;
     }
 
-    match timeout(ping_timeout, rx).await {
-        Ok(Ok(_)) => true,
-        _ => false,
-    }
+    matches!(timeout(ping_timeout, rx).await, Ok(Ok(_)))
 }
 
 /// Run health monitoring loop for a single server.
@@ -68,7 +65,11 @@ pub async fn ping_check(process: &mut ManagedProcess, ping_timeout: Duration) ->
 /// State machine: Ready → (ping fail) → Unhealthy → (reconnect attempts) → Ready or Dead
 pub async fn health_monitor_loop(
     server_name: String,
-    registry: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, ManagedProcess>>>,
+    registry: std::sync::Arc<
+        tokio::sync::Mutex<
+            std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<ManagedProcess>>>,
+        >,
+    >,
     config: HealthConfig,
 ) {
     let mut tick = interval(config.interval);
@@ -77,20 +78,24 @@ pub async fn health_monitor_loop(
     loop {
         tick.tick().await;
 
-        let mut servers = registry.lock().await;
-        let Some(process) = servers.get_mut(&server_name) else {
+        let process_handle = {
+            let servers = registry.lock().await;
+            servers.get(&server_name).cloned()
+        };
+        let Some(process_handle) = process_handle else {
             break; // Server removed, stop monitoring
         };
+        let mut process = process_handle.lock().await;
 
         // Signal 1: Process liveness
-        if !is_process_alive(process) {
+        if !is_process_alive(&mut process) {
             eprintln!("[mcp_bridge] {} process exited", server_name);
             process.state = ProcessState::Dead;
             break;
         }
 
         // Signal 2: MCP ping
-        let ping_ok = ping_check(process, config.ping_timeout).await;
+        let ping_ok = ping_check(&mut process, config.ping_timeout).await;
 
         if ping_ok {
             if process.state == ProcessState::Unhealthy {
@@ -105,25 +110,37 @@ pub async fn health_monitor_loop(
         consecutive_failures += 1;
         process.state = ProcessState::Unhealthy;
         process.consecutive_failures = consecutive_failures;
-        eprintln!("[mcp_bridge] {} ping failed (attempt {})", server_name, consecutive_failures);
+        eprintln!(
+            "[mcp_bridge] {} ping failed (attempt {})",
+            server_name, consecutive_failures
+        );
 
         if consecutive_failures >= config.max_retries {
-            eprintln!("[mcp_bridge] {} marked dead after {} failures", server_name, consecutive_failures);
+            eprintln!(
+                "[mcp_bridge] {} marked dead after {} failures",
+                server_name, consecutive_failures
+            );
             process.state = ProcessState::Dead;
             break;
         }
 
         // Attempt reconnect: kill old process, re-spawn
         let old_config = process.config.clone();
-        drop(servers); // Release lock before async reconnect
+        drop(process);
 
-        let delay = backoff_delay(consecutive_failures - 1, config.base_delay, config.max_delay);
+        let delay = backoff_delay(
+            consecutive_failures - 1,
+            config.base_delay,
+            config.max_delay,
+        );
         tokio::time::sleep(delay).await;
 
         // Re-acquire lock and attempt respawn
         let mut servers = registry.lock().await;
-        if let Some(mut old_process) = servers.remove(&server_name) {
-            old_process.kill().await;
+        if let Some(old_process) = servers.remove(&server_name) {
+            drop(servers);
+            old_process.lock().await.kill().await;
+            servers = registry.lock().await;
         }
 
         match ManagedProcess::spawn(old_config.clone()).await {
@@ -133,7 +150,10 @@ pub async fn health_monitor_loop(
                         eprintln!("[mcp_bridge] {} reconnected successfully", server_name);
                         new_process.state = ProcessState::Ready;
                         consecutive_failures = 0;
-                        servers.insert(server_name.clone(), new_process);
+                        servers.insert(
+                            server_name.clone(),
+                            std::sync::Arc::new(tokio::sync::Mutex::new(new_process)),
+                        );
                     }
                     Err(e) => {
                         eprintln!("[mcp_bridge] {} reconnect init failed: {}", server_name, e);

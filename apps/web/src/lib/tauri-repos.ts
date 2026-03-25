@@ -17,6 +17,7 @@ import type {
   InstallTransactionRepository,
   InstalledAssetRepository,
   InstalledPackageRepository,
+  LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
   McpAuditRow,
@@ -28,33 +29,30 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
+  NewOfficeLayout,
+  NewRack,
   NewRuntimeEvent,
+  NewSlot,
+  NewSopTemplate,
   NewTaskRun,
   NewToolCall,
-  NewSopTemplate,
-  NewRack,
-  NewSlot,
-  NewLibraryDocument,
-  NewOfficeLayout,
-  WorkstationRackRow,
-  RuntimeRepositories,
-  SopTemplateRow,
-  RackRow,
-  SlotRow,
-  LibraryDocumentRow,
   OfficeLayoutRow,
+  ProjectRepository,
+  RackRow,
+  RuntimeRepositories,
+  SlotRow,
+  SopTemplateRow,
   TaskRunRepository,
   TaskRunRow,
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-  ProjectRepository,
+  WorkstationRackRow,
 } from '@aics/core/browser';
-import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
-import type { ProjectRow, NewProject, ProjectStatus } from '@aics/shared-types';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
@@ -71,6 +69,14 @@ import type {
   InstalledPackageRow,
   NewEmployee,
 } from '@aics/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
+import type {
+  NewProject,
+  NewProjectAssignment,
+  ProjectAssignmentRow,
+  ProjectRow,
+  ProjectStatus,
+} from '@aics/shared-types';
 import type { BindingStatus, InstallState } from '@aics/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
@@ -529,9 +535,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .split(/\s+/)
         .filter((w) => w.length >= 3);
       if (queryWords.length > 0) {
-        conditions.push(
-          sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`,
-        );
+        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${`%${queryWords[0]}%`}`);
       }
       const limit = opts.limit ?? 10;
       const rows = await db
@@ -630,14 +634,14 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(eq(schema.modelCostRates.provider, provider))) as ModelCostRateRow[];
       const matching = rows.filter((r) => {
         const regex = new RegExp(
-          '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+          `^${r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
           'i',
         );
         return regex.test(model);
       });
       if (matching.length === 0) return null;
       matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-      return matching[0]!;
+      return matching[0] ?? null;
     },
     async findAll() {
       return (await db.select().from(schema.modelCostRates)) as ModelCostRateRow[];
@@ -654,7 +658,10 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
           ),
         )) as ModelCostRateRow[];
       if (existing.length > 0) {
-        const row = existing[0]!;
+        const row = existing[0];
+        if (!row) {
+          throw new Error('Expected existing model cost rate row to be present.');
+        }
         await db
           .update(schema.modelCostRates)
           .set({
@@ -723,10 +730,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return row;
     },
     async findById(rackId) {
-      const rows = await db
-        .select()
-        .from(schema.racks)
-        .where(eq(schema.racks.rack_id, rackId));
+      const rows = await db.select().from(schema.racks).where(eq(schema.racks.rack_id, rackId));
       return (rows[0] as RackRow | undefined) ?? null;
     },
     async findByCompany(companyId) {
@@ -812,9 +816,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .limit(limit)) as LibraryDocumentRow[];
     },
     async delete(docId) {
-      await db
-        .delete(schema.libraryDocuments)
-        .where(eq(schema.libraryDocuments.doc_id, docId));
+      await db.delete(schema.libraryDocuments).where(eq(schema.libraryDocuments.doc_id, docId));
     },
   };
 
@@ -871,9 +873,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(eq(schema.officeLayouts.layout_id, layoutId));
     },
     async delete(layoutId: string) {
-      await db
-        .delete(schema.officeLayouts)
-        .where(eq(schema.officeLayouts.layout_id, layoutId));
+      await db.delete(schema.officeLayouts).where(eq(schema.officeLayouts.layout_id, layoutId));
     },
   };
 
@@ -914,33 +914,50 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return instance;
     },
     async findById(instanceId) {
-      const rows = await db.select().from(schema.prefabInstances)
+      const rows = await db
+        .select()
+        .from(schema.prefabInstances)
         .where(eq(schema.prefabInstances.instance_id, instanceId));
-      return (rows[0] ?? null) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findById']>>;
+      return (rows[0] ?? null) as Awaited<
+        ReturnType<RuntimeRepositories['prefabInstances']['findById']>
+      >;
     },
     async findByCompanyAndZone(companyId, zoneId) {
-      return (await db.select().from(schema.prefabInstances)
-        .where(and(
-          eq(schema.prefabInstances.company_id, companyId),
-          eq(schema.prefabInstances.zone_id, zoneId),
-        ))) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+      return (await db
+        .select()
+        .from(schema.prefabInstances)
+        .where(
+          and(
+            eq(schema.prefabInstances.company_id, companyId),
+            eq(schema.prefabInstances.zone_id, zoneId),
+          ),
+        )) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
     },
     async findByCompany(companyId) {
-      return (await db.select().from(schema.prefabInstances)
-        .where(eq(schema.prefabInstances.company_id, companyId))) as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+      return (await db
+        .select()
+        .from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.company_id, companyId))) as Awaited<
+        ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>
+      >;
     },
     async update(instanceId, fields) {
-      await db.update(schema.prefabInstances).set({
-        ...fields,
-        updated_at: new Date().toISOString(),
-      }).where(eq(schema.prefabInstances.instance_id, instanceId));
+      await db
+        .update(schema.prefabInstances)
+        .set({
+          ...fields,
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(schema.prefabInstances.instance_id, instanceId));
     },
     async delete(instanceId) {
-      await db.delete(schema.prefabInstances)
+      await db
+        .delete(schema.prefabInstances)
         .where(eq(schema.prefabInstances.instance_id, instanceId));
     },
     async deleteByCompany(companyId) {
-      await db.delete(schema.prefabInstances)
+      await db
+        .delete(schema.prefabInstances)
         .where(eq(schema.prefabInstances.company_id, companyId));
     },
   };
@@ -994,6 +1011,61 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const projectAssignments: RuntimeRepositories['projectAssignments'] = {
+    async assign(assignment: NewProjectAssignment) {
+      const row: ProjectAssignmentRow = {
+        ...assignment,
+        assigned_at: now(),
+      };
+      await db.insert(schema.projectAssignments).values(row).onConflictDoNothing();
+
+      const rows = await db
+        .select()
+        .from(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, assignment.project_id),
+            eq(schema.projectAssignments.employee_id, assignment.employee_id),
+          ),
+        );
+      return (rows[0] as ProjectAssignmentRow | undefined) ?? row;
+    },
+    async unassign(projectId, employeeId) {
+      await db
+        .delete(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, projectId),
+            eq(schema.projectAssignments.employee_id, employeeId),
+          ),
+        );
+    },
+    async findByProject(projectId) {
+      return (await db
+        .select()
+        .from(schema.projectAssignments)
+        .where(eq(schema.projectAssignments.project_id, projectId))) as ProjectAssignmentRow[];
+    },
+    async findByEmployee(employeeId) {
+      return (await db
+        .select()
+        .from(schema.projectAssignments)
+        .where(eq(schema.projectAssignments.employee_id, employeeId))) as ProjectAssignmentRow[];
+    },
+    async isAssigned(projectId, employeeId) {
+      const rows = await db
+        .select()
+        .from(schema.projectAssignments)
+        .where(
+          and(
+            eq(schema.projectAssignments.project_id, projectId),
+            eq(schema.projectAssignments.employee_id, employeeId),
+          ),
+        );
+      return rows.length > 0;
+    },
+  };
+
   return {
     companies,
     threads,
@@ -1021,5 +1093,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     officeLayouts,
     prefabInstances,
     projects,
+    projectAssignments,
   };
 }

@@ -1,5 +1,6 @@
 mod deep_link;
 mod mcp_bridge;
+mod provider_secrets;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -125,13 +126,18 @@ fn migrations() -> Vec<Migration> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            provider_secrets::provider_secret_status,
+            provider_secrets::provider_secret_set,
+            provider_secrets::provider_secret_clear,
+            provider_secrets::provider_chat,
+        ])
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:aics.db", migrations())
                 .build(),
         )
         .plugin(tauri_plugin_cors_fetch::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(mcp_bridge::init())
         .setup(|app| {

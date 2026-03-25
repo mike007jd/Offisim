@@ -1,8 +1,31 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aics/ui-core';
 import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core/browser';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@aics/ui-core';
 import { useCallback, useEffect, useState } from 'react';
+import {
+  loadStoredBrowserMcpServers,
+  listDesktopMcpServers,
+  registerDesktopMcpServer,
+  unregisterDesktopMcpServer,
+} from '../../lib/desktop-mcp-registry';
 import { isTauri } from '../../lib/env';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+
+type DesktopCoreMcpServerConfig = CoreMcpServerConfig & {
+  registeredServerId?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,15 +34,17 @@ import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 export type McpTransport = 'stdio' | 'sse';
 
 export interface McpServerConfig {
+  serverId?: string;
   /** Unique display name for this server */
   name: string;
   /** Transport type */
   transport: McpTransport;
-  /**
-   * For stdio: the shell command to launch the server (e.g. "npx mcp-server-foo").
-   * For sse: the URL endpoint (e.g. "http://localhost:3001/sse").
-   */
-  commandOrUrl: string;
+  /** For stdio transport. */
+  command?: string;
+  /** Extra stdio args. */
+  args?: string[];
+  /** For SSE transport. */
+  url?: string;
 }
 
 const STORAGE_KEY = 'aics:mcp-servers';
@@ -29,19 +54,36 @@ const STORAGE_KEY = 'aics:mcp-servers';
 // ---------------------------------------------------------------------------
 
 function loadMcpServers(): McpServerConfig[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as McpServerConfig[];
-  } catch {
-    return [];
-  }
+  return loadStoredBrowserMcpServers().map((server) => ({
+    name: server.name,
+    transport: server.transport,
+    command: server.command,
+    args: server.args,
+    url: server.url,
+  }));
 }
 
 function saveMcpServers(servers: McpServerConfig[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
+}
+
+function parseArgs(raw: string): string[] {
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function resetFormState(setters: {
+  setName: (value: string) => void;
+  setCommand: (value: string) => void;
+  setArgsText: (value: string) => void;
+  setUrl: (value: string) => void;
+}) {
+  setters.setName('');
+  setters.setCommand('');
+  setters.setArgsText('');
+  setters.setUrl('');
 }
 
 /** Convert UI config to core McpServerConfig for the executor. */
@@ -49,9 +91,11 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
   return {
     name: cfg.name,
     transport: cfg.transport,
-    url: cfg.transport === 'sse' ? cfg.commandOrUrl : undefined,
-    command: cfg.transport === 'stdio' ? cfg.commandOrUrl : undefined,
-  };
+    registeredServerId: cfg.serverId,
+    url: cfg.transport === 'sse' ? cfg.url : undefined,
+    command: cfg.transport === 'stdio' ? cfg.command : undefined,
+    args: cfg.transport === 'stdio' ? cfg.args : undefined,
+  } as DesktopCoreMcpServerConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,25 +110,60 @@ export function McpConfigPanel() {
   // Form state
   const [name, setName] = useState('');
   const [transport, setTransport] = useState<McpTransport>('sse');
-  const [commandOrUrl, setCommandOrUrl] = useState('');
+  const [command, setCommand] = useState('');
+  const [argsText, setArgsText] = useState('');
+  const [url, setUrl] = useState('');
   const [formError, setFormError] = useState('');
 
   // Persist whenever servers change
   useEffect(() => {
-    saveMcpServers(servers);
+    if (!isTauri()) saveMcpServers(servers);
   }, [servers]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let cancelled = false;
+    void listDesktopMcpServers()
+      .then((records) => {
+        if (cancelled) return;
+        setServers(
+          records.map((record) => ({
+            serverId: record.serverId,
+            name: record.name,
+            transport: record.transport,
+            command: record.command,
+            args: record.args,
+            url: record.url,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setFormError('Failed to load desktop MCP registry.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAdd = useCallback(async () => {
     setFormError('');
     const trimmedName = name.trim();
-    const trimmedCmd = commandOrUrl.trim();
+    const trimmedCommand = command.trim();
+    const trimmedUrl = url.trim();
+    const args = parseArgs(argsText);
 
     if (!trimmedName) {
       setFormError('Server name is required.');
       return;
     }
-    if (!trimmedCmd) {
-      setFormError(transport === 'stdio' ? 'Command is required.' : 'URL is required.');
+    if (transport === 'stdio' && !trimmedCommand) {
+      setFormError('Command is required.');
+      return;
+    }
+    if (transport === 'sse' && !trimmedUrl) {
+      setFormError('URL is required.');
       return;
     }
     if (servers.some((s) => s.name === trimmedName)) {
@@ -92,7 +171,28 @@ export function McpConfigPanel() {
       return;
     }
 
-    const newConfig: McpServerConfig = { name: trimmedName, transport, commandOrUrl: trimmedCmd };
+    let newConfig: McpServerConfig;
+    if (isTauri()) {
+      const record = await registerDesktopMcpServer({
+        name: trimmedName,
+        transport,
+        ...(transport === 'stdio' ? { command: trimmedCommand, args } : { url: trimmedUrl }),
+      });
+      newConfig = {
+        serverId: record.serverId,
+        name: record.name,
+        transport: record.transport,
+        command: record.command,
+        args: record.args,
+        url: record.url,
+      };
+    } else {
+      newConfig = {
+        name: trimmedName,
+        transport,
+        ...(transport === 'stdio' ? { command: trimmedCommand, args } : { url: trimmedUrl }),
+      };
+    }
 
     // Save to list first
     setServers((prev) => [...prev, newConfig]);
@@ -111,18 +211,20 @@ export function McpConfigPanel() {
     }
 
     // Reset form
-    setName('');
-    setCommandOrUrl('');
-  }, [name, transport, commandOrUrl, servers, isReady, connectMcpServer]);
+    resetFormState({ setName, setCommand, setArgsText, setUrl });
+  }, [name, transport, command, url, argsText, servers, isReady, connectMcpServer]);
 
   const handleRemove = useCallback(
-    async (serverName: string) => {
-      setServers((prev) => prev.filter((s) => s.name !== serverName));
+    async (server: McpServerConfig) => {
+      setServers((prev) => prev.filter((s) => s.name !== server.name));
       // Disconnect from runtime
       try {
-        await disconnectMcpServer(serverName);
+        await disconnectMcpServer(server.name);
       } catch {
         // Ignore — server might not be connected
+      }
+      if (isTauri() && server.serverId) {
+        await unregisterDesktopMcpServer(server.serverId);
       }
     },
     [disconnectMcpServer],
@@ -186,28 +288,48 @@ export function McpConfigPanel() {
           </div>
 
           <div>
-            <label htmlFor="mcp-command-or-url" className="text-xs text-shell mb-1 block">
+            <label htmlFor="mcp-command" className="text-xs text-shell mb-1 block">
               {transport === 'stdio' ? 'Command' : 'URL'}
             </label>
             <Input
-              id="mcp-command-or-url"
-              value={commandOrUrl}
-              onChange={(e) => setCommandOrUrl(e.target.value)}
+              id="mcp-command"
+              value={transport === 'stdio' ? command : url}
+              onChange={(e) => {
+                if (transport === 'stdio') setCommand(e.target.value);
+                else setUrl(e.target.value);
+              }}
               placeholder={
-                transport === 'stdio'
-                  ? 'npx @modelcontextprotocol/server-fs /path'
-                  : 'http://localhost:3001/sse'
+                transport === 'stdio' ? '/usr/local/bin/mcp-server' : 'http://localhost:3001/sse'
               }
               className="h-8 text-sm"
             />
           </div>
+
+          {transport === 'stdio' && (
+            <div>
+              <label htmlFor="mcp-args" className="text-xs text-shell mb-1 block">
+                Arguments (optional, one per line)
+              </label>
+              <Input
+                id="mcp-args"
+                value={argsText}
+                onChange={(e) => setArgsText(e.target.value)}
+                placeholder="--project&#10;/path/to/workspace"
+                className="h-8 text-sm"
+              />
+            </div>
+          )}
 
           {formError && <p className="text-xs text-error">{formError}</p>}
 
           <Button
             onClick={handleAdd}
             size="sm"
-            disabled={!name.trim() || !commandOrUrl.trim() || connecting !== null}
+            disabled={
+              !name.trim() ||
+              (transport === 'stdio' ? !command.trim() : !url.trim()) ||
+              connecting !== null
+            }
             className="self-end"
           >
             {connecting ? 'Connecting…' : 'Add & Connect'}
@@ -245,7 +367,9 @@ export function McpConfigPanel() {
                     <p className="text-[11px] text-ocean-light truncate mt-0.5">
                       <span className="font-mono">{server.transport}</span>
                       {' \u2014 '}
-                      {server.commandOrUrl}
+                      {server.transport === 'stdio'
+                        ? [server.command ?? '', ...(server.args ?? [])].filter(Boolean).join(' ')
+                        : (server.url ?? '')}
                     </p>
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -263,7 +387,7 @@ export function McpConfigPanel() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemove(server.name)}
+                      onClick={() => handleRemove(server)}
                       className="text-ocean-light hover:text-error h-7 px-2"
                     >
                       <svg

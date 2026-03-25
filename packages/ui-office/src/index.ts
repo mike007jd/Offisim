@@ -101,6 +101,8 @@ export * from './hooks/useProjects.js';
 
 // Lib
 export * from './lib/env.js';
+export * from './lib/desktop-mcp-registry.js';
+export * from './lib/desktop-provider-secrets.js';
 export * from './lib/provider-config.js';
 
 // Runtime

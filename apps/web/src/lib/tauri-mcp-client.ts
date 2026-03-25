@@ -1,4 +1,9 @@
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core/browser';
+import type {
+  McpClientFactory,
+  McpConnection,
+  McpServerConfig,
+  McpToolDef,
+} from '@aics/core/browser';
 /**
  * MCP client factory for Tauri desktop environment.
  *
@@ -14,24 +19,26 @@ interface McpSpawnResult {
   state: string;
 }
 
+type DesktopMcpServerConfig = McpServerConfig & {
+  readonly registeredServerId?: string;
+};
+
 export class TauriMcpClientFactory implements McpClientFactory {
   private readonly sseFallback = new BrowserMcpClientFactory();
 
   async createClient(config: McpServerConfig): Promise<McpConnection> {
+    const desktopConfig = config as DesktopMcpServerConfig;
     if (config.transport === 'sse') {
       return this.sseFallback.createClient(config);
     }
 
-    if (!config.command) {
-      throw new Error(`MCP server '${config.name}' uses stdio but has no command specified.`);
+    if (!desktopConfig.registeredServerId) {
+      throw new Error(`MCP server '${config.name}' uses stdio but has no registered server id.`);
     }
 
-    const result = await invoke<McpSpawnResult>('plugin:mcp_bridge|mcp_spawn', {
-      config: {
-        name: config.name,
-        command: config.command,
-        args: config.args ?? [],
-        env: config.env ?? {},
+    const result = await invoke<McpSpawnResult>('plugin:mcp_bridge|mcp_connect_registered', {
+      request: {
+        serverId: desktopConfig.registeredServerId,
       },
     });
 

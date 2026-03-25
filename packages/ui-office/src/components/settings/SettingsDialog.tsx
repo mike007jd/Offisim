@@ -1,5 +1,28 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@aics/ui-core';
 import { useEffect, useState } from 'react';
+import {
+  clearProviderSecret,
+  getProviderSecretStatus,
+  setProviderSecret,
+} from '../../lib/desktop-provider-secrets';
+import { isTauri } from '../../lib/env';
 import {
   type ProviderConfig,
   loadProviderConfig,
@@ -24,9 +47,15 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   const [model, setModel] = useState('');
   const [defaultHeaders, setDefaultHeaders] = useState('');
   const [acpCommand, setAcpCommand] = useState('claude');
+  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    let cancelled = false;
+
+    async function loadState() {
       const saved = loadProviderConfig();
       if (saved) {
         setApiKey(saved.apiKey ?? '');
@@ -47,7 +76,23 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setModel(defaultPreset?.defaults.model ?? '');
         setDefaultHeaders('');
       }
+
+      if (isTauri()) {
+        try {
+          const status = await getProviderSecretStatus();
+          if (!cancelled) setHasStoredApiKey(status.hasApiKey);
+        } catch {
+          if (!cancelled) setHasStoredApiKey(false);
+        }
+      } else {
+        setHasStoredApiKey(Boolean(saved?.apiKey));
+      }
     }
+
+    void loadState();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   function handlePresetChange(value: string) {
@@ -63,40 +108,67 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
   const [saveError, setSaveError] = useState('');
 
-  function handleSave() {
+  async function handleSave() {
     setSaveError('');
-    const p = PROVIDER_PRESETS[preset];
-    const effectiveBaseURL = baseURL || p?.defaults.baseURL;
+    try {
+      setIsSaving(true);
+      const p = PROVIDER_PRESETS[preset];
+      const effectiveBaseURL = baseURL || p?.defaults.baseURL;
 
-    let parsedHeaders: Record<string, string> | undefined;
-    if (defaultHeaders) {
-      try {
-        parsedHeaders = JSON.parse(defaultHeaders);
-      } catch {
-        setSaveError('Invalid JSON in Default Headers field.');
+      let parsedHeaders: Record<string, string> | undefined;
+      if (defaultHeaders) {
+        try {
+          parsedHeaders = JSON.parse(defaultHeaders);
+        } catch {
+          setSaveError('Invalid JSON in Default Headers field.');
+          return;
+        }
+      }
+
+      if (isTauri()) {
+        if (isSubscription) {
+          await clearProviderSecret();
+          setHasStoredApiKey(false);
+        } else if (apiKey.trim()) {
+          await setProviderSecret(apiKey.trim());
+          setHasStoredApiKey(true);
+        } else if (!hasStoredApiKey) {
+          setSaveError('API Key is required.');
+          return;
+        }
+      } else if (!isSubscription && !apiKey.trim()) {
+        setSaveError('API Key is required.');
         return;
       }
-    }
 
-    const config: ProviderConfig = {
-      provider: p?.defaults.provider ?? 'openai-compat',
-      apiKey: isSubscription ? '' : apiKey,
-      model: isSubscription ? 'default' : model,
-      ...(effectiveBaseURL && !isSubscription ? { baseURL: effectiveBaseURL } : {}),
-      ...(parsedHeaders
-        ? { defaultHeaders: parsedHeaders }
-        : p?.defaults.defaultHeaders
-          ? { defaultHeaders: p.defaults.defaultHeaders }
+      const config: ProviderConfig = {
+        provider: p?.defaults.provider ?? 'openai-compat',
+        apiKey: isSubscription ? '' : apiKey.trim() || undefined,
+        model: isSubscription ? 'default' : model,
+        ...(effectiveBaseURL && !isSubscription ? { baseURL: effectiveBaseURL } : {}),
+        ...(parsedHeaders
+          ? { defaultHeaders: parsedHeaders }
+          : p?.defaults.defaultHeaders
+            ? { defaultHeaders: p.defaults.defaultHeaders }
+            : {}),
+        ...(isSubscription
+          ? {
+              acpCommand: acpCommand || 'claude',
+              acpArgs: ['acp'],
+            }
           : {}),
-      ...(isSubscription ? {
-        acpCommand: acpCommand || 'claude',
-        acpArgs: ['acp'],
-      } : {}),
-    };
-    saveProviderConfig(config);
-    onSave(config);
-    onOpenChange(false);
-    onSaveSuccess?.();
+      };
+
+      saveProviderConfig(config);
+      onSave(loadProviderConfig() ?? config);
+      onOpenChange(false);
+      onSaveSuccess?.();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSaveError(message);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const isSubscription = preset === 'subscription';
@@ -149,8 +221,8 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                   <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
                     <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
                     <p className="text-[10px] text-slate-400">
-                      使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。
-                      无需 API Key，直接使用订阅额度。
+                      使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。 无需 API
+                      Key，直接使用订阅额度。
                     </p>
                   </div>
                   <div>
@@ -178,8 +250,13 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
+                    placeholder={hasStoredApiKey ? 'Stored securely on this device' : 'sk-...'}
                   />
+                  {isTauri() && hasStoredApiKey && (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Leave blank to keep the API key already stored securely on this device.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -219,8 +296,11 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               )}
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
-              <Button onClick={handleSave} disabled={isSubscription ? false : (!apiKey || !model)}>
-                Save Configuration
+              <Button
+                onClick={() => void handleSave()}
+                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredApiKey)}
+              >
+                {isSaving ? 'Saving…' : 'Save Configuration'}
               </Button>
             </div>
           </TabsContent>

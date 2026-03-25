@@ -1,19 +1,15 @@
+import { DEFAULT_COST_RATES, bindingStateChanged, installStateChanged } from '@aics/core/browser';
+import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
 // Heavy imports — direct dist paths to bypass the @aics/core barrel alias.
 import { buildAicsGraph } from '@aics/core/dist/graph/main-graph.js';
 import { createGateway } from '@aics/core/dist/llm/gateway-factory.js';
 import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
-import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
+import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
-import {
-  DEFAULT_COST_RATES,
-  bindingStateChanged,
-  installStateChanged,
-} from '@aics/core/browser';
-import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
+import { buildSubscriptionGatewayConfig, createDesktopProviderGateway } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import type { RuntimeBundle } from './browser-runtime';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
@@ -65,7 +61,11 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
  *   bus avoids the "EventBus churn" problem where async init would create a
  *   different bus than what UI hooks subscribe to.
  */
-export async function createTauriRuntime(config: ProviderConfig, eventBus: InMemoryEventBus, companyId: string): Promise<RuntimeBundle> {
+export async function createTauriRuntime(
+  config: ProviderConfig,
+  eventBus: InMemoryEventBus,
+  companyId: string,
+): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
   await seedTauriDb();
 
@@ -73,14 +73,17 @@ export async function createTauriRuntime(config: ProviderConfig, eventBus: InMem
   const repos = createTauriRepositories(db);
 
   // No proxy needed — tauri-plugin-cors-fetch hooks fetch() transparently
-  const gateway = createGateway({
-    provider: config.provider,
-    apiKey: config.apiKey,
-    baseURL: config.baseURL,
-    defaultHeaders: config.defaultHeaders,
-    dangerouslyAllowBrowser: true,
-    subscription: buildSubscriptionGatewayConfig(config),
-  });
+  const gateway =
+    config.provider === 'subscription'
+      ? createGateway({
+          provider: config.provider,
+          apiKey: '',
+          baseURL: config.baseURL,
+          defaultHeaders: config.defaultHeaders,
+          dangerouslyAllowBrowser: true,
+          subscription: buildSubscriptionGatewayConfig(config),
+        })
+      : createDesktopProviderGateway(config);
 
   const modelResolver = new ModelResolver(null, {
     provider: config.provider,

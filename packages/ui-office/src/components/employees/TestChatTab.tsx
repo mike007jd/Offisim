@@ -1,10 +1,12 @@
-import { Button, ScrollArea, Textarea, cn } from '@aics/ui-core';
 import type { LlmGateway, LlmMessage } from '@aics/core/browser';
+import { Button, ScrollArea, Textarea, cn } from '@aics/ui-core';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { EmployeeFormData } from '../../hooks/useEmployeeEditor';
-import { loadProviderConfig } from '../../lib/provider-config';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
+import { createDesktopProviderGateway } from '../../lib/desktop-provider-secrets';
+import { isTauri } from '../../lib/env';
+import { loadProviderConfig } from '../../lib/provider-config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,9 +40,6 @@ async function createTestGateway(): Promise<LlmGateway | null> {
   const config = loadProviderConfig();
   if (!config) return null;
 
-  // Dynamic import keeps LLM SDKs out of the initial bundle
-  const { createGateway } = await import('@aics/core');
-
   const isDev = typeof window !== 'undefined' && '__VITE_DEV_SERVER_URL' in window;
   const proxyBaseURL =
     isDev && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -49,9 +48,20 @@ async function createTestGateway(): Promise<LlmGateway | null> {
       ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
       : config.defaultHeaders;
 
+  if (isTauri()) {
+    return createDesktopProviderGateway({
+      ...config,
+      baseURL: config.baseURL,
+      defaultHeaders: config.defaultHeaders,
+    });
+  }
+
+  // Dynamic import keeps LLM SDKs out of the initial bundle
+  const { createGateway } = await import('@aics/core');
+
   return createGateway({
     provider: config.provider,
-    apiKey: config.apiKey,
+    apiKey: config.apiKey ?? '',
     baseURL: proxyBaseURL ?? config.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
@@ -75,7 +85,7 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  });
 
   const handleClear = useCallback(() => {
     setMessages([]);
@@ -154,8 +164,8 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
       {/* Header with clear button */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-400 font-mono">
-          Test chat with <span className="text-orange-400">{employeeName || 'this employee'}</span>
-          {' '}(unsaved config)
+          Test chat with <span className="text-orange-400">{employeeName || 'this employee'}</span>{' '}
+          (unsaved config)
         </span>
         {!isEmpty && (
           <Button
@@ -184,18 +194,15 @@ export function TestChatTab({ formData, employeeName }: TestChatTabProps) {
             <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
               <MessageSquare className="h-8 w-8 text-slate-400/40" />
               <p className="text-xs text-slate-400/60 font-mono max-w-[240px]">
-                Send a message to test this employee's personality and configuration.
-                Uses current form values, not saved data.
+                Send a message to test this employee's personality and configuration. Uses current
+                form values, not saved data.
               </p>
             </div>
           ) : (
             messages.map((msg) => {
               const isUser = msg.role === 'user';
               return (
-                <div
-                  key={msg.id}
-                  className={cn('flex', isUser ? 'justify-end' : 'justify-start')}
-                >
+                <div key={msg.id} className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
                   <div
                     className={cn(
                       'max-w-[80%] border-2 px-3 py-1.5 text-xs whitespace-pre-wrap',

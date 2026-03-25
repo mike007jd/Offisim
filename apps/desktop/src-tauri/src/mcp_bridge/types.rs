@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::registry_store::McpTransport;
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct McpProcessConfig {
     pub name: String,
@@ -8,6 +10,23 @@ pub struct McpProcessConfig {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpConnectRequest {
+    pub server_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisteredMcpServerSummary {
+    pub server_id: String,
+    pub name: String,
+    pub transport: McpTransport,
+    pub command: Option<String>,
+    pub args: Vec<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

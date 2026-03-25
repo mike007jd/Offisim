@@ -1,17 +1,19 @@
 import { EmployeeVersionService, InMemoryEventBus } from '@aics/core/browser';
 import type { McpServerConfig } from '@aics/core/browser';
-import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
 import { disposeRuntime } from '@aics/core/dist/runtime/runtime-context.js';
+import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
 import {
   AicsRuntimeContext,
   AicsRuntimeStatusContext,
-  type AicsRuntimeValue,
   type AicsRuntimeStatusValue,
+  type AicsRuntimeValue,
   isTauri,
+  loadStoredBrowserMcpServers,
   loadProviderConfig,
 } from '@aics/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
+import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { initializeRuntimeBundle } from './initialize-runtime';
 
 export interface UnfinishedThread {
@@ -23,6 +25,10 @@ interface Props {
   companyId: string;
   children: React.ReactNode;
 }
+
+type DesktopMcpServerConfig = McpServerConfig & {
+  registeredServerId?: string;
+};
 
 export function AicsRuntimeProvider({ companyId, children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
@@ -131,11 +137,18 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     setVersion((v) => v + 1);
   }, []);
 
-  const lastFailedMessageRef = useRef<{ text: string; targetEmployeeId?: string; threadId?: string } | null>(null);
+  const lastFailedMessageRef = useRef<{
+    text: string;
+    targetEmployeeId?: string;
+    threadId?: string;
+  } | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getRuntime is a render-scoped function that reads refs
   const sendMessage = useCallback(
-    async (text: string, options?: { targetEmployeeId?: string; threadId?: string }): Promise<string | undefined> => {
+    async (
+      text: string,
+      options?: { targetEmployeeId?: string; threadId?: string },
+    ): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
 
       // Wait for async init if in progress (both Tauri and browser modes)
@@ -184,7 +197,11 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
-        lastFailedMessageRef.current = { text, targetEmployeeId: options?.targetEmployeeId, threadId: options?.threadId };
+        lastFailedMessageRef.current = {
+          text,
+          targetEmployeeId: options?.targetEmployeeId,
+          threadId: options?.threadId,
+        };
         return undefined;
       } finally {
         setIsRunning(false);
@@ -197,7 +214,10 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   const retryLastMessage = useCallback(async (): Promise<string | undefined> => {
     const last = lastFailedMessageRef.current;
     if (!last) return undefined;
-    return sendMessage(last.text, { targetEmployeeId: last.targetEmployeeId, threadId: last.threadId });
+    return sendMessage(last.text, {
+      targetEmployeeId: last.targetEmployeeId,
+      threadId: last.threadId,
+    });
   }, [sendMessage]);
 
   const clearError = useCallback(() => setError(null), []);
@@ -265,36 +285,59 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     const runtime = runtimeRef.current;
     if (!runtime?.mcpToolExecutor) return;
 
-    // Read saved configs from localStorage (same key as McpConfigPanel)
-    try {
-      const raw = localStorage.getItem('aics:mcp-servers');
-      if (!raw) return;
-      const configs = JSON.parse(raw) as Array<{
-        name: string;
-        transport: string;
-        commandOrUrl: string;
-      }>;
-      if (!Array.isArray(configs)) return;
-
-      for (const cfg of configs) {
-        const serverConfig: McpServerConfig = {
-          name: cfg.name,
-          transport: cfg.transport as 'stdio' | 'sse',
-          url: cfg.transport === 'sse' ? cfg.commandOrUrl : undefined,
-          command: cfg.transport === 'stdio' ? cfg.commandOrUrl : undefined,
-        };
-        runtime.mcpToolExecutor
-          .addServer(serverConfig)
-          .then(() => {
-            setConnectedMcpServers((prev) => new Set([...prev, cfg.name]));
-          })
-          .catch((err) => {
-            console.warn(`[MCP] Failed to auto-connect server '${cfg.name}':`, err);
-          });
+    const connectSavedServers = async () => {
+      if (isTauri()) {
+        const configs = await listDesktopMcpServers();
+        const executor = runtime.mcpToolExecutor;
+        if (!executor) return;
+        for (const cfg of configs) {
+          const serverConfig: DesktopMcpServerConfig = {
+            name: cfg.name,
+            transport: cfg.transport,
+            registeredServerId: cfg.serverId,
+            url: cfg.url,
+          };
+          executor
+            .addServer(serverConfig)
+            .then(() => {
+              setConnectedMcpServers((prev) => new Set([...prev, cfg.name]));
+            })
+            .catch((err) => {
+              console.warn(`[MCP] Failed to auto-connect server '${cfg.name}':`, err);
+            });
+        }
+        return;
       }
-    } catch {
-      // Ignore parse errors
-    }
+
+      try {
+        const configs = loadStoredBrowserMcpServers();
+        if (configs.length === 0) return;
+
+        const executor = runtime.mcpToolExecutor;
+        if (!executor) return;
+        for (const cfg of configs) {
+          const serverConfig: McpServerConfig = {
+            name: cfg.name,
+            transport: cfg.transport,
+            url: cfg.url,
+            command: cfg.command,
+            args: cfg.args,
+          };
+          executor
+            .addServer(serverConfig)
+            .then(() => {
+              setConnectedMcpServers((prev) => new Set([...prev, cfg.name]));
+            })
+            .catch((err) => {
+              console.warn(`[MCP] Failed to auto-connect server '${cfg.name}':`, err);
+            });
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    };
+
+    void connectSavedServers();
   }, [version]);
 
   // Startup detection — find threads that were left in 'running' status
@@ -389,7 +432,9 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       isReady: runtime !== null && !isInitializing,
       // isRunning lives in AicsRuntimeStatusContext — use useAicsRuntimeStatus().
       // Kept here as a getter for backward compat (does NOT trigger re-render).
-      get isRunning() { return isRunningRef.current; },
+      get isRunning() {
+        return isRunningRef.current;
+      },
       error,
       sendMessage,
       retryLastMessage,

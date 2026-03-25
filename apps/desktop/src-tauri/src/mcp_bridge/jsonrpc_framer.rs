@@ -1,15 +1,12 @@
 use crate::mcp_bridge::types::JsonRpcMessage;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
-use tokio::process::{ChildStdin, ChildStdout};
-use tokio::sync::{mpsc, oneshot};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
+use tokio::sync::{mpsc, oneshot};
 
 /// Reads NDJSON from stdout, parses into JsonRpcMessage, dispatches to channel.
-pub async fn read_loop(
-    stdout: ChildStdout,
-    tx: mpsc::UnboundedSender<JsonRpcMessage>,
-) {
+pub async fn read_loop(stdout: ChildStdout, tx: mpsc::Sender<JsonRpcMessage>) {
     let reader = BufReader::new(stdout);
     let mut lines = reader.lines();
     while let Ok(Some(line)) = lines.next_line().await {
@@ -19,13 +16,24 @@ pub async fn read_loop(
         }
         match serde_json::from_str::<JsonRpcMessage>(trimmed) {
             Ok(msg) => {
-                if tx.send(msg).is_err() {
+                if tx.send(msg).await.is_err() {
                     break; // receiver dropped
                 }
             }
             Err(e) => {
                 eprintln!("[mcp_bridge] malformed JSON-RPC line: {e}");
             }
+        }
+    }
+}
+
+pub async fn drain_stderr(stderr: ChildStderr) {
+    let reader = BufReader::new(stderr);
+    let mut lines = reader.lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            eprintln!("[mcp_bridge][stderr] {trimmed}");
         }
     }
 }
@@ -68,20 +76,6 @@ impl RequestTracker {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().unwrap().insert(id, tx);
         rx
-    }
-
-    /// Try to match an incoming message to a pending request.
-    /// Returns true if matched (response), false if not (notification).
-    pub fn try_resolve(&self, msg: &JsonRpcMessage) -> bool {
-        if let Some(id_val) = &msg.id {
-            if let Some(id_num) = id_val.as_i64() {
-                if let Some(tx) = self.pending.lock().unwrap().remove(&id_num) {
-                    let _ = tx.send(msg.clone());
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     pub fn clone_inner(&self) -> RequestTrackerInner {
