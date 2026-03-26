@@ -25,7 +25,10 @@ export function VersionTable({ versions }: { versions: VersionSummary[] }) {
               <td className="py-2">
                 <div className="flex gap-1">
                   {v.environments.map((env) => (
-                    <span key={env} className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-xs">
+                    <span
+                      key={env}
+                      className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-xs"
+                    >
                       {env}
                     </span>
                   ))}

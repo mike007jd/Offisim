@@ -18,6 +18,9 @@ describe('validateSkill', () => {
     const result = validateSkill(makeSkill(), 'web_limited');
     expect(result.valid).toBe(true);
     expect(result.warnings).toHaveLength(0);
+    expect(result.capabilityIndex?.strategy).toBe('index-first');
+    expect(result.capabilityIndex?.instructionMode).toBe('deferred');
+    expect(result.capabilityIndex?.requiredCapabilities).toEqual([]);
   });
 
   it('warns about required binaries (browser cannot check)', () => {
@@ -27,8 +30,8 @@ describe('validateSkill', () => {
     );
     expect(result.valid).toBe(true); // warnings, not failures
     expect(result.warnings).toHaveLength(2);
-    expect(result.warnings[0]!.type).toBe('missing_bin');
-    expect(result.warnings[0]!.detail).toContain('git');
+    expect(result.warnings[0]?.type).toBe('missing_bin');
+    expect(result.warnings[0]?.detail).toContain('git');
   });
 
   it('warns about required env vars (browser cannot check)', () => {
@@ -37,13 +40,39 @@ describe('validateSkill', () => {
       'web_limited',
     );
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]!.type).toBe('missing_env');
+    expect(result.warnings[0]?.type).toBe('missing_env');
+  });
+
+  it('builds a structured capability index from tools and requirements', () => {
+    const result = validateSkill(
+      makeSkill({
+        requirements: { bins: ['git'], env: ['GITHUB_TOKEN'], config: ['~/.gitconfig'] },
+        metadata: { allowedTools: ['Read', 'Grep'] },
+      }),
+      'desktop',
+    );
+
+    expect(result.capabilityIndex).toBeDefined();
+    expect(result.capabilityIndex?.requiredCapabilities).toEqual([
+      'tool:Read',
+      'tool:Grep',
+      'binary:git',
+      'env:GITHUB_TOKEN',
+      'config:~/.gitconfig',
+    ]);
+    expect(result.capabilityIndex?.capabilities.map((cap) => `${cap.kind}:${cap.key}`)).toEqual([
+      'tool:Read',
+      'tool:Grep',
+      'binary:git',
+      'env:GITHUB_TOKEN',
+      'config:~/.gitconfig',
+    ]);
   });
 
   it('warns about unsupported OS when environment does not match', () => {
     const result = validateSkill(makeSkill({ metadata: { os: ['linux'] } }), 'web_limited');
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]!.type).toBe('unsupported_os');
+    expect(result.warnings[0]?.type).toBe('unsupported_os');
   });
 
   it('no OS warning when os list is empty', () => {

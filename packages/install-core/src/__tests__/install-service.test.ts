@@ -39,6 +39,27 @@ interface MemoryStore {
   employees: Array<NewEmployee & { employee_id: string }>;
 }
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
+function requireTransaction(store: MemoryStore, installTxnId: string): InstallTransactionRow {
+  return requireDefined(
+    store.transactions.find((transaction) => transaction.install_txn_id === installTxnId),
+    `Expected transaction ${installTxnId}`,
+  );
+}
+
+function requireBinding(store: MemoryStore, bindingKey: string): AssetBindingRow {
+  return requireDefined(
+    store.bindings.find((binding) => binding.binding_key === bindingKey),
+    `Expected binding ${bindingKey}`,
+  );
+}
+
 function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore } {
   const store: MemoryStore = {
     transactions: [],
@@ -243,10 +264,10 @@ describe('InstallService', () => {
 
     it('creates a transaction row in the store', async () => {
       const archive = createValidArchive();
-      await svc.importFile(archive);
+      const result = await svc.importFile(archive);
 
       expect(store.transactions).toHaveLength(1);
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, result.installTxnId);
       expect(txn.company_id).toBe(COMPANY_ID);
       expect(txn.source_type).toBe('file');
       expect(txn.actor_type).toBe('user');
@@ -273,18 +294,21 @@ describe('InstallService', () => {
 
       expect(result.plan?.needsConfirmation).toBe(true);
 
-      const lastEvent = installEvents[installEvents.length - 1]!;
+      const lastEvent = requireDefined(
+        installEvents[installEvents.length - 1],
+        'Expected last install event',
+      );
       expect(lastEvent.next).toBe('awaiting_confirmation');
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, result.installTxnId);
       expect(txn.state).toBe('awaiting_confirmation');
     });
 
     it('ends in awaiting_bindings when bindings exist and no confirmation needed', async () => {
       const archive = createValidArchive();
-      await svc.importFile(archive);
+      const result = await svc.importFile(archive);
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, result.installTxnId);
       // TEST_MANIFEST has recommended_models -> bindings exist, no privileged
       expect(txn.state).toBe('awaiting_bindings');
     });
@@ -296,7 +320,7 @@ describe('InstallService', () => {
       expect(result.error).toBeDefined();
       expect(result.plan).toBeUndefined();
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, result.installTxnId);
       expect(txn.state).toBe('failed');
       expect(txn.finished_at).not.toBeNull();
     });
@@ -315,7 +339,7 @@ describe('InstallService', () => {
       expect(result.error).toBeDefined();
       expect(result.error).toContain('Compatibility');
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, result.installTxnId);
       expect(txn.state).toBe('failed');
     });
   });
@@ -339,7 +363,7 @@ describe('InstallService', () => {
       await svc.confirmBindings(importResult.installTxnId, bindings);
 
       // Check final state
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, importResult.installTxnId);
       expect(txn.state).toBe('installed');
       expect(txn.finished_at).not.toBeNull();
 
@@ -351,16 +375,12 @@ describe('InstallService', () => {
       expect(store.bindings).toHaveLength(2);
 
       // Check the confirmed binding
-      const confirmedBinding = store.bindings.find(
-        (b) => b.binding_key === 'test-writer-default:reasoning-heavy',
-      )!;
+      const confirmedBinding = requireBinding(store, 'test-writer-default:reasoning-heavy');
       expect(confirmedBinding.binding_value_json).toBe('{"provider":"openai","model":"gpt-4o"}');
       expect(confirmedBinding.status).toBe('satisfied');
 
       // The unconfirmed optional binding should be skipped
-      const skippedBinding = store.bindings.find(
-        (b) => b.binding_key === 'test-writer-default:cheap-draft',
-      )!;
+      const skippedBinding = requireBinding(store, 'test-writer-default:cheap-draft');
       expect(skippedBinding.status).toBe('skipped');
     });
 
@@ -369,7 +389,9 @@ describe('InstallService', () => {
       const importResult = await svc.importFile(archive);
 
       // Verify we're in awaiting_confirmation
-      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
+      expect(requireTransaction(store, importResult.installTxnId).state).toBe(
+        'awaiting_confirmation',
+      );
 
       const bindings: BindingConfirmation[] = [
         {
@@ -381,7 +403,7 @@ describe('InstallService', () => {
 
       await svc.confirmBindings(importResult.installTxnId, bindings);
 
-      expect(store.transactions[0]?.state).toBe('installed');
+      expect(requireTransaction(store, importResult.installTxnId).state).toBe('installed');
       expect(store.packages).toHaveLength(1);
     });
 
@@ -411,11 +433,13 @@ describe('InstallService', () => {
       const archive = createPrivilegedArchive();
       const importResult = await svc.importFile(archive);
 
-      expect(store.transactions[0]?.state).toBe('awaiting_confirmation');
+      expect(requireTransaction(store, importResult.installTxnId).state).toBe(
+        'awaiting_confirmation',
+      );
 
       await svc.cancel(importResult.installTxnId);
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, importResult.installTxnId);
       expect(txn.state).toBe('cancelled');
       expect(txn.finished_at).not.toBeNull();
     });
@@ -425,7 +449,7 @@ describe('InstallService', () => {
       const importResult = await svc.importFile(archive);
 
       // Should be in awaiting_bindings
-      expect(store.transactions[0]?.state).toBe('awaiting_bindings');
+      expect(requireTransaction(store, importResult.installTxnId).state).toBe('awaiting_bindings');
 
       // Cancel — since awaiting_bindings can't go to cancelled, it goes to failed
       // Actually per state machine, awaiting_bindings can only go to ready_to_install
@@ -433,7 +457,7 @@ describe('InstallService', () => {
       // The cancel method handles this by logging a warning
       await svc.cancel(importResult.installTxnId);
 
-      const txn = store.transactions[0]!;
+      const txn = requireTransaction(store, importResult.installTxnId);
       // The state machine doesn't allow awaiting_bindings -> failed or cancelled
       // So the cancel logs a warning and calls finish with 'failed'
       expect(txn.finished_at).not.toBeNull();

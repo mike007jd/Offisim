@@ -12,6 +12,7 @@
 import { installReceipts, listings, packageVersions } from '@aics/db-platform';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { requireAuth } from '../middleware/auth.js';
 import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
@@ -30,7 +31,11 @@ const installRoute = new Hono<PlatformEnv>();
  */
 installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const body = InstallReceiptSchema.parse(await c.req.json());
 
   // Generate a receipt ID (deterministic for idempotency: user + listing + version)

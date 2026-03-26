@@ -5,6 +5,45 @@ import { _resetRateLimitStore } from '../middleware/rate-limit.js';
 import { installRoute } from '../routes/install.js';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+
+type InstallReceiptResponse =
+  | {
+      install_receipt_id: string;
+      listing_id: string;
+      package_version_id: string;
+      status: 'recorded' | 'already_exists';
+    }
+  | {
+      error: {
+        code: string;
+        message: string;
+        details?: {
+          message: string;
+        }[];
+      };
+    };
+
+type DownloadResponse =
+  | {
+      package_version_id: string;
+      artifact_url: string;
+      artifact_sha256: string | null;
+      artifact_size_bytes: number | null;
+    }
+  | {
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+function assertDefined<T>(value: T | null | undefined, message: string): asserts value is T {
+  if (value == null) {
+    throw new Error(message);
+  }
+}
+
 // ── Helpers ──
 
 const LISTING_ID = '11111111-1111-1111-1111-111111111111';
@@ -42,17 +81,17 @@ function createMockDb(results: unknown[][]) {
       }
       if (prop === 'transaction') {
         // transaction(async (tx) => ...) — tx uses the same mock
-        return vi.fn(async (cb: (tx: any) => Promise<unknown>) => {
-          return cb(new Proxy({}, handler));
+        return vi.fn(async (cb: (tx: MockDb) => Promise<unknown>) => {
+          return cb(new Proxy({}, handler) as MockDb);
         });
       }
       return vi.fn();
     },
   };
-  return new Proxy({}, handler) as any;
+  return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: any, userId?: string) {
+function createApp(mockDb: MockDb, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
@@ -123,8 +162,14 @@ describe('Install Route', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = (await res.json()) as Record<string, any>;
-      expect(body.error.details[0].message).toContain('install_source');
+      const body = (await res.json()) as InstallReceiptResponse;
+      if (!('error' in body)) {
+        throw new Error('Expected validation error response');
+      }
+      assertDefined(body.error.details, 'Expected validation error details');
+      const firstDetail = body.error.details[0];
+      assertDefined(firstDetail, 'Expected validation error details');
+      expect(firstDetail.message).toContain('install_source');
     });
 
     it('creates receipt and returns recorded status for new install', async () => {
@@ -145,7 +190,10 @@ describe('Install Route', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as Record<string, any>;
+      const body = (await res.json()) as InstallReceiptResponse;
+      if ('error' in body) {
+        throw new Error('Expected success response');
+      }
       expect(body.install_receipt_id).toContain(USER_ID);
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.package_version_id).toBe(VERSION_ID);
@@ -153,9 +201,7 @@ describe('Install Route', () => {
     });
 
     it('returns already_exists for duplicate receipt (idempotent)', async () => {
-      const mockDb = createMockDb([
-        [],
-      ]);
+      const mockDb = createMockDb([[]]);
       const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {
@@ -169,7 +215,10 @@ describe('Install Route', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as Record<string, any>;
+      const body = (await res.json()) as InstallReceiptResponse;
+      if ('error' in body) {
+        throw new Error('Expected success response');
+      }
       expect(body.status).toBe('already_exists');
     });
   });
@@ -182,7 +231,10 @@ describe('Install Route', () => {
       const res = await app.request(`/v1/install/download/${VERSION_ID}`);
 
       expect(res.status).toBe(404);
-      const body = (await res.json()) as Record<string, any>;
+      const body = (await res.json()) as DownloadResponse;
+      if (!('error' in body)) {
+        throw new Error('Expected error response');
+      }
       expect(body.error.code).toBe('NOT_FOUND');
     });
 
@@ -202,7 +254,10 @@ describe('Install Route', () => {
       const res = await app.request(`/v1/install/download/${VERSION_ID}`);
 
       expect(res.status).toBe(404);
-      const body = (await res.json()) as Record<string, any>;
+      const body = (await res.json()) as DownloadResponse;
+      if (!('error' in body)) {
+        throw new Error('Expected error response');
+      }
       expect(body.error.code).toBe('NO_ARTIFACT');
     });
 
@@ -222,7 +277,10 @@ describe('Install Route', () => {
       const res = await app.request(`/v1/install/download/${VERSION_ID}`);
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as Record<string, any>;
+      const body = (await res.json()) as DownloadResponse;
+      if ('error' in body) {
+        throw new Error('Expected success response');
+      }
       expect(body.artifact_url).toBe('https://cdn.example.com/pkg.aicspkg');
       expect(body.artifact_sha256).toBe('abc123');
       expect(body.artifact_size_bytes).toBe(1024);

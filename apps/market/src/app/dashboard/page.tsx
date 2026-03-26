@@ -1,10 +1,16 @@
 'use client';
 
+import type { ListingSummary, PublishDraft } from '@aics/registry-client';
+import { RegistryClient } from '@aics/registry-client';
+import {
+  DashboardStats,
+  DraftCard,
+  ListingCard,
+  PLATFORM_API_URL,
+  useAuthContext,
+} from '@aics/ui-market';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { DashboardStats, DraftCard, ListingCard, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
-import type { PublishDraft, ListingSummary } from '@aics/registry-client';
-import { RegistryClient } from '@aics/registry-client';
 
 function getClient() {
   return new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' });
@@ -101,7 +107,9 @@ export default function DashboardPage() {
       />
 
       <section>
-        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">Your Listings</h2>
+        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">
+          Your Listings
+        </h2>
         {listings.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {listings.map((listing) => (
@@ -122,7 +130,9 @@ export default function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">Drafts</h2>
+        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--text-primary)]">
+          Drafts
+        </h2>
         {drafts.length > 0 ? (
           <div className="flex flex-col gap-2">
             {drafts.map((draft) => (

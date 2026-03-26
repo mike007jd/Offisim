@@ -1,9 +1,9 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Syne } from 'next/font/google';
 import { AuthProvider } from '@aics/ui-market';
+import type { Metadata } from 'next';
+import { Syne } from 'next/font/google';
+import Link from 'next/link';
+import { siteJsonLd, stringifyJsonLd } from '../lib/jsonld';
 import { SITE_URL } from '../lib/url';
-import { siteJsonLd } from '../lib/jsonld';
 import { MarketNav } from './MarketNav';
 import './globals.css';
 
@@ -47,10 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={syne.variable}>
       <body className="min-h-screen antialiased">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd()) }}
-        />
+        <script type="application/ld+json">{stringifyJsonLd(siteJsonLd())}</script>
         <AuthProvider>
           <MarketNav />
           <main>{children}</main>
@@ -64,10 +61,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="ml-1 text-sm text-[var(--text-muted)]">Market</span>
                 </div>
                 <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
-                  <Link href="/search" className="hover:text-[var(--text-secondary)] transition-colors">
+                  <Link
+                    href="/search"
+                    className="hover:text-[var(--text-secondary)] transition-colors"
+                  >
                     Browse
                   </Link>
-                  <Link href="/dashboard" className="hover:text-[var(--text-secondary)] transition-colors">
+                  <Link
+                    href="/dashboard"
+                    className="hover:text-[var(--text-secondary)] transition-colors"
+                  >
                     Creators
                   </Link>
                   <span className="text-[var(--border-bright)]">·</span>

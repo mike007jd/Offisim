@@ -4,10 +4,115 @@
  * Validation has two tiers:
  *   - Hard errors (valid:false): empty name, empty instructions, size limits
  *   - Soft warnings (valid:true): binary/env/config/OS checks the environment can't verify
+ *
+ * DeerFlow-style extension:
+ *   - Build an index-first capability descriptor so the UI can review a compact
+ *     skill summary before any full content is consumed at execution time.
  */
 
 import type { SupportedEnvironment } from '@aics/asset-schema';
-import type { ParsedSkill, SkillValidationIssue, SkillValidationResult } from './types.js';
+import type {
+  ParsedSkill,
+  SkillCapabilityDescriptor,
+  SkillCapabilityIndex,
+  SkillValidationIssue,
+  SkillValidationResult,
+} from './types.js';
+
+const INSTRUCTION_EXCERPT_LIMIT = 320;
+
+function trimCapabilityKey(value: string): string {
+  return value.trim();
+}
+
+function capabilityLabel(kind: SkillCapabilityDescriptor['kind'], key: string): string {
+  switch (kind) {
+    case 'tool':
+      return `Tool: ${key}`;
+    case 'mcp':
+      return `MCP: ${key}`;
+    case 'binary':
+      return `Binary: ${key}`;
+    case 'env':
+      return `Environment: ${key}`;
+    case 'config':
+      return `Config: ${key}`;
+  }
+}
+
+function buildCapabilityToken(kind: SkillCapabilityDescriptor['kind'], key: string): string {
+  return `${kind}:${key}`;
+}
+
+function appendCapability(
+  seen: Set<string>,
+  capabilities: SkillCapabilityDescriptor[],
+  requiredCapabilities: string[],
+  kind: SkillCapabilityDescriptor['kind'],
+  key: string,
+): void {
+  const trimmed = trimCapabilityKey(key);
+  if (!trimmed) return;
+
+  const token = buildCapabilityToken(kind, trimmed);
+  if (seen.has(token)) return;
+
+  seen.add(token);
+  capabilities.push({
+    kind,
+    key: trimmed,
+    label: capabilityLabel(kind, trimmed),
+  });
+  requiredCapabilities.push(token);
+}
+
+function buildInstructionExcerpt(instructions: string): string {
+  const trimmed = instructions.trim();
+  if (trimmed.length <= INSTRUCTION_EXCERPT_LIMIT) return trimmed;
+  return `${trimmed.slice(0, INSTRUCTION_EXCERPT_LIMIT).trimEnd()}...`;
+}
+
+/**
+ * Build a structured index for a parsed skill.
+ *
+ * The output is intentionally compact: review surfaces can render the index
+ * first, then fetch/show the full instructions only when the skill is activated.
+ */
+export function buildSkillCapabilityIndex(skill: ParsedSkill): SkillCapabilityIndex {
+  const seen = new Set<string>();
+  const capabilities: SkillCapabilityDescriptor[] = [];
+  const requiredCapabilities: string[] = [];
+
+  for (const tool of skill.metadata.allowedTools ?? []) {
+    appendCapability(seen, capabilities, requiredCapabilities, 'tool', tool);
+  }
+
+  for (const mcp of skill.requirements.mcps ?? []) {
+    appendCapability(seen, capabilities, requiredCapabilities, 'mcp', mcp.name);
+  }
+
+  for (const bin of skill.requirements.bins ?? []) {
+    appendCapability(seen, capabilities, requiredCapabilities, 'binary', bin);
+  }
+
+  for (const envVar of skill.requirements.env ?? []) {
+    appendCapability(seen, capabilities, requiredCapabilities, 'env', envVar);
+  }
+
+  for (const configPath of skill.requirements.config ?? []) {
+    appendCapability(seen, capabilities, requiredCapabilities, 'config', configPath);
+  }
+
+  return {
+    strategy: 'index-first',
+    instructionMode: 'deferred',
+    summary: skill.description,
+    instructionExcerpt: buildInstructionExcerpt(skill.instructions),
+    instructionLength: skill.instructions.length,
+    requiredCapabilities,
+    capabilities,
+  };
+}
 
 /**
  * Validate a parsed skill's requirements against the current environment.
@@ -103,5 +208,18 @@ export function validateSkill(
     }
   }
 
-  return { valid: errors.length === 0, errors, warnings };
+  const result: SkillValidationResult = {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+
+  Object.defineProperty(result, 'capabilityIndex', {
+    value: buildSkillCapabilityIndex(skill),
+    enumerable: false,
+    configurable: true,
+    writable: false,
+  });
+
+  return result;
 }

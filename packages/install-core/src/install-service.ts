@@ -14,7 +14,7 @@ import type { MaterializeResult } from './materializer.js';
 import { SkillParseError, parseSkill } from './openclaw/skill-parser.js';
 import { skillToManifest } from './openclaw/skill-to-manifest.js';
 import { validateSkill } from './openclaw/skill-validator.js';
-import type { SkillValidationResult } from './openclaw/types.js';
+import type { ParsedSkill, SkillValidationResult } from './openclaw/types.js';
 import { isTerminalState, validateTransition } from './state-machine.js';
 import type {
   BindingConfirmation,
@@ -247,7 +247,7 @@ export class InstallService {
     await this.repos.installTransactions.create(txnRow);
 
     // 2. Parse SKILL.md
-    let skill;
+    let skill: ParsedSkill;
     try {
       skill = parseSkill(content);
     } catch (err) {
@@ -404,7 +404,14 @@ export class InstallService {
     // Materialize — pass transact so all writes are atomic in Drizzle environments
     let result: MaterializeResult;
     try {
-      result = await materialize(plan, bindings, this.repos, this.companyId, installTxnId, this.transact);
+      result = await materialize(
+        plan,
+        bindings,
+        this.repos,
+        this.companyId,
+        installTxnId,
+        this.transact,
+      );
     } catch (err) {
       // Materialization failed -> attempt rollback
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -443,9 +450,11 @@ export class InstallService {
       if (!req) continue;
       const confirmation = bindings.find((c) => c.bindingKey === req.bindingKey);
       if (confirmation) {
+        const bindingId = result.bindingIds[i];
+        if (!bindingId) continue;
         this.events.emitBindingState(
           this.companyId,
-          result.bindingIds[i]!,
+          bindingId,
           installTxnId,
           confirmation.bindingType,
           confirmation.bindingKey,

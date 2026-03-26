@@ -5,6 +5,54 @@ import { publish } from '../routes/publish.js';
 import { validateManifest } from '../services/validation.js';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+
+type DraftResponse = {
+  draft_id: string;
+  creator_id: string;
+  listing_id: string | null;
+  kind: string;
+  title: string;
+  summary: string | null;
+  status: string;
+  validation_state: string;
+  validation_report?: unknown;
+  manifest_json?: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
+type DraftListResponse = {
+  drafts: Array<DraftResponse>;
+};
+
+type ValidationErrorResponse = {
+  error: {
+    code: string;
+    message: string;
+    details: {
+      errors: string[];
+      warnings: string[];
+    };
+  };
+};
+
+type SubmitResponse = {
+  draft_id: string;
+  moderation_job_id: string;
+  status: string;
+};
+
+type ManifestUpdateResponse = {
+  validation_state: string;
+};
+
+function assertDefined<T>(value: T | null | undefined, message: string): asserts value is T {
+  if (value == null) {
+    throw new Error(message);
+  }
+}
+
 // ── Shared Test Data ──
 
 const USER_ID = '33333333-3333-3333-3333-333333333333';
@@ -108,10 +156,10 @@ function createMockDb(results: unknown[][]) {
       return vi.fn();
     },
   };
-  return new Proxy({}, handler) as any;
+  return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: any, userId?: string) {
+function createApp(mockDb: MockDb, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
@@ -244,7 +292,7 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(201);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as DraftResponse;
       expect(body.draft_id).toBe(DRAFT_ID);
       expect(body.status).toBe('draft');
       expect(body.validation_state).toBe('unknown');
@@ -311,9 +359,11 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as DraftListResponse;
       expect(body.drafts).toHaveLength(1);
-      expect(body.drafts[0].draft_id).toBe(DRAFT_ID);
+      const firstDraft = body.drafts[0];
+      assertDefined(firstDraft, 'Expected one draft');
+      expect(firstDraft.draft_id).toBe(DRAFT_ID);
     });
   });
 
@@ -332,7 +382,7 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as DraftResponse;
       expect(body.draft_id).toBe(DRAFT_ID);
       expect(body.kind).toBe('employee');
     });
@@ -380,7 +430,7 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ManifestUpdateResponse;
       expect(body.validation_state).toBe('valid');
     });
 
@@ -408,7 +458,7 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ValidationErrorResponse;
       expect(body.error.code).toBe('VALIDATION_FAILED');
       expect(body.error.details.errors.length).toBeGreaterThan(0);
     });
@@ -488,7 +538,7 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(202);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as SubmitResponse;
       expect(body.draft_id).toBe(DRAFT_ID);
       expect(body.moderation_job_id).toBe(JOB_ID);
       expect(body.status).toBe('queued');

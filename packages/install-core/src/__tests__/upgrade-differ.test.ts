@@ -6,17 +6,49 @@ import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';
 /**
  * Helper: create a manifest with deep overrides via JSON round-trip.
  */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function withOverrides(overrides: Record<string, unknown>): PackageManifest {
-  const base = JSON.parse(JSON.stringify(TEST_MANIFEST));
+  const base: unknown = JSON.parse(JSON.stringify(TEST_MANIFEST));
+  if (!isRecord(base)) {
+    throw new Error('TEST_MANIFEST clone must be an object');
+  }
+
   for (const [path, value] of Object.entries(overrides)) {
     const keys = path.split('.');
-    let obj = base;
+    let obj: unknown = base;
     for (let i = 0; i < keys.length - 1; i++) {
-      obj = obj[keys[i]!];
+      if (!isRecord(obj)) {
+        throw new Error(`Cannot descend into override path: ${path}`);
+      }
+
+      const key = keys[i];
+      if (key === undefined) {
+        throw new Error(`Invalid override path: ${path}`);
+      }
+
+      const next = obj[key];
+      if (!isRecord(next)) {
+        throw new Error(`Cannot descend into override path: ${path}`);
+      }
+
+      obj = next;
     }
-    obj[keys[keys.length - 1]!] = value;
+
+    const lastKey = keys[keys.length - 1];
+    if (lastKey === undefined) {
+      throw new Error(`Invalid override path: ${path}`);
+    }
+
+    if (!isRecord(obj)) {
+      throw new Error(`Cannot descend into override path: ${path}`);
+    }
+
+    obj[lastKey] = value;
   }
-  return base as PackageManifest;
+  return base as unknown as PackageManifest;
 }
 
 describe('upgrade-differ', () => {
@@ -42,10 +74,10 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'package.title');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('info');
-      expect(entry!.category).toBe('metadata');
-      expect(entry!.oldValue).toBe('Test Writer');
-      expect(entry!.newValue).toBe('New Title');
+      expect(entry?.severity).toBe('info');
+      expect(entry?.category).toBe('metadata');
+      expect(entry?.oldValue).toBe('Test Writer');
+      expect(entry?.newValue).toBe('New Title');
     });
 
     it('detects summary change as info', () => {
@@ -59,7 +91,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'package.kind');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('breaking');
+      expect(entry?.severity).toBe('breaking');
     });
 
     it('detects license change as warning', () => {
@@ -67,7 +99,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'package.license');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
 
     it('detects spec_version change as warning', () => {
@@ -75,7 +107,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'spec_version');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
 
     it('detects tag changes', () => {
@@ -84,8 +116,8 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(oldM, newM);
       const entry = diff.entries.find((e) => e.field === 'package.tags');
       expect(entry).toBeDefined();
-      expect(entry!.description).toContain('Added tags: coder');
-      expect(entry!.description).toContain('Removed tags: writer');
+      expect(entry?.description).toContain('Added tags: coder');
+      expect(entry?.description).toContain('Removed tags: writer');
     });
   });
 
@@ -98,7 +130,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'compatibility.runtime_range');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
 
     it('detects schema_version change as breaking + sets requiresMigration', () => {
@@ -107,7 +139,7 @@ describe('upgrade-differ', () => {
       expect(diff.requiresMigration).toBe(true);
       const entry = diff.entries.find((e) => e.field === 'compatibility.schema_version');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('breaking');
+      expect(entry?.severity).toBe('breaking');
     });
 
     it('detects dropped environment support as breaking', () => {
@@ -116,11 +148,10 @@ describe('upgrade-differ', () => {
       });
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find(
-        (e) =>
-          e.field === 'compatibility.supported_environments' && e.severity === 'breaking',
+        (e) => e.field === 'compatibility.supported_environments' && e.severity === 'breaking',
       );
       expect(entry).toBeDefined();
-      expect(entry!.description).toContain('docker');
+      expect(entry?.description).toContain('docker');
     });
 
     it('detects added environment support as info', () => {
@@ -129,11 +160,10 @@ describe('upgrade-differ', () => {
       });
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find(
-        (e) =>
-          e.field === 'compatibility.supported_environments' && e.severity === 'info',
+        (e) => e.field === 'compatibility.supported_environments' && e.severity === 'info',
       );
       expect(entry).toBeDefined();
-      expect(entry!.description).toContain('web_limited');
+      expect(entry?.description).toContain('web_limited');
     });
   });
 
@@ -150,7 +180,7 @@ describe('upgrade-differ', () => {
         (e) => e.field === 'requirements.required_capabilities' && e.severity === 'warning',
       );
       expect(entry).toBeDefined();
-      expect(entry!.description).toContain('code_execution');
+      expect(entry?.description).toContain('code_execution');
     });
 
     it('detects new required MCPs as warning', () => {
@@ -184,8 +214,8 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.risk_class');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('breaking');
-      expect(entry!.description).toContain('ESCALATED');
+      expect(entry?.severity).toBe('breaking');
+      expect(entry?.description).toContain('ESCALATED');
     });
 
     it('detects risk class de-escalation as info', () => {
@@ -193,7 +223,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.risk_class');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('info');
+      expect(entry?.severity).toBe('info');
     });
 
     it('detects filesystem scope escalation as breaking', () => {
@@ -201,8 +231,8 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.filesystem_scope');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('breaking');
-      expect(entry!.description).toContain('ESCALATED');
+      expect(entry?.severity).toBe('breaking');
+      expect(entry?.description).toContain('ESCALATED');
     });
 
     it('detects network scope escalation as breaking', () => {
@@ -210,7 +240,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.network_scope');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('breaking');
+      expect(entry?.severity).toBe('breaking');
     });
 
     it('detects new secret declaration as warning', () => {
@@ -218,7 +248,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.declares_secrets');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
 
     it('detects new secret slots as warning', () => {
@@ -228,7 +258,7 @@ describe('upgrade-differ', () => {
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
       const entry = diff.entries.find((e) => e.field === 'permissions.secret_slots_required');
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
   });
 
@@ -252,7 +282,7 @@ describe('upgrade-differ', () => {
         (e) => e.category === 'assets' && e.description.includes('Added'),
       );
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('info');
+      expect(entry?.severity).toBe('info');
     });
 
     it('detects removed assets as warning', () => {
@@ -262,7 +292,7 @@ describe('upgrade-differ', () => {
         (e) => e.category === 'assets' && e.description.includes('Removed'),
       );
       expect(entry).toBeDefined();
-      expect(entry!.severity).toBe('warning');
+      expect(entry?.severity).toBe('warning');
     });
 
     it('detects asset kind change as breaking', () => {
@@ -275,9 +305,7 @@ describe('upgrade-differ', () => {
         ],
       });
       const diff = computeUpgradeDiff(TEST_MANIFEST, newM);
-      const entry = diff.entries.find(
-        (e) => e.category === 'assets' && e.severity === 'breaking',
-      );
+      const entry = diff.entries.find((e) => e.category === 'assets' && e.severity === 'breaking');
       expect(entry).toBeDefined();
     });
   });

@@ -32,7 +32,10 @@ let corsOrigins: string[];
 
 if (rawCorsOrigins) {
   // Explicit whitelist provided — use it
-  corsOrigins = rawCorsOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+  corsOrigins = rawCorsOrigins
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 } else if (nodeEnv === 'production') {
   // Production without explicit CORS_ORIGINS — refuse to start with wildcard
   console.error(

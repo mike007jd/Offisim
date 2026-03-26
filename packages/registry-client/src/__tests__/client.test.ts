@@ -24,7 +24,11 @@ describe('RegistryClient', () => {
       expect.stringContaining('/v1/market/search?'),
       expect.objectContaining({ method: 'GET' }),
     );
-    const calledUrl = (fetchMock as any).mock.calls[0][0] as string;
+    const firstCall = vi.mocked(fetchMock).mock.calls[0];
+    if (!firstCall) {
+      throw new Error('Expected fetch to be called');
+    }
+    const calledUrl = String(firstCall[0]);
     expect(calledUrl).toContain('q=coder');
     expect(calledUrl).toContain('kind=employee');
     expect(calledUrl).toContain('page=2');
@@ -46,8 +50,12 @@ describe('RegistryClient', () => {
     const client = new RegistryClient({ baseUrl: BASE, authToken: 'tok123', fetch: fetchMock });
 
     await client.getMyLibrary();
-    const headers = (fetchMock as any).mock.calls[0][1].headers;
-    expect(headers['Authorization']).toBe('Bearer tok123');
+    const firstCall = vi.mocked(fetchMock).mock.calls[0];
+    if (!firstCall) {
+      throw new Error('Expected fetch to be called');
+    }
+    const headers = new Headers(firstCall[1]?.headers);
+    expect(headers.get('Authorization')).toBe('Bearer tok123');
   });
 
   it('throws RegistryApiError on non-2xx', async () => {

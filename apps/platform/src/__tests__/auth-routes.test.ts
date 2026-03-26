@@ -4,6 +4,24 @@ import { errorHandler } from '../middleware/error-handler.js';
 import { authRoute } from '../routes/auth.js';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+
+type RegisterCreatorResponse = {
+  creator_id: string;
+  user_id: string;
+  handle: string;
+  display_name: string;
+  bio: string | null;
+  verification_state: string;
+  created_at: string;
+};
+
+type ErrorResponse = {
+  error: {
+    message: string;
+  };
+};
+
 // ── Helpers ──
 
 const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -52,10 +70,10 @@ function createMockDb(results: unknown[][]) {
       return vi.fn();
     },
   };
-  return new Proxy({}, handler) as any;
+  return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: any, userId?: string) {
+function createApp(mockDb: MockDb, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
@@ -107,7 +125,7 @@ describe('Auth Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as RegisterCreatorResponse;
       expect(body.handle).toBe('devuser');
       expect(body.display_name).toBe('Dev User');
       expect(body.creator_id).toBe(CREATOR_ID);
@@ -128,7 +146,7 @@ describe('Auth Routes', () => {
       });
 
       expect(res.status).toBe(409);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ErrorResponse;
       expect(body.error.message).toMatch(/taken/i);
     });
 
@@ -146,7 +164,7 @@ describe('Auth Routes', () => {
       });
 
       expect(res.status).toBe(409);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ErrorResponse;
       expect(body.error.message).toMatch(/already has a creator/i);
     });
 

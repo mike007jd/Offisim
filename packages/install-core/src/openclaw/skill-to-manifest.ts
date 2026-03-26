@@ -4,9 +4,15 @@
  * The materializer operates on PackageManifest, so we need to wrap
  * the skill's data into that shape. The resulting manifest is synthetic
  * (never existed as a ZIP archive, has zero integrity hashes).
+ *
+ * DeerFlow-style bridge:
+ * - keep the full skill body available for later activation
+ * - surface a compact capability index first so review/UI can reason about
+ *   the skill without flattening all instructions into the foreground
  */
 
 import type { PackageManifest } from '@aics/asset-schema';
+import { buildSkillCapabilityIndex } from './skill-validator.js';
 import type { ParsedSkill } from './types.js';
 
 /**
@@ -44,6 +50,7 @@ const ZERO_HASH = '0'.repeat(64);
  * - package.id = 'openclaw-skill-{slug}' (prefixed to avoid collisions)
  * - permissions = data_asset / none / none (local skill, minimal perms)
  * - instructions stored in manifest.custom.openclaw_instructions
+ * - capability index stored in manifest.custom.openclaw_skill_index
  * - integrity = zero hashes (synthetic, no archive)
  *
  * @param skill - Parsed OpenClaw skill.
@@ -53,6 +60,7 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
   const slug = slugify(skill.name);
   const packageId = `openclaw-skill-${slug}`;
   const assetId = `skill-${slug}`;
+  const capabilityIndex = buildSkillCapabilityIndex(skill);
 
   return {
     spec_version: '1.0.0',
@@ -71,7 +79,7 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
       supported_environments: ['desktop', 'web_limited'],
     },
     requirements: {
-      required_capabilities: [],
+      required_capabilities: capabilityIndex.requiredCapabilities,
       required_mcps: (skill.requirements.mcps ?? []).map((m) => m.name),
     },
     permissions: {
@@ -93,11 +101,16 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
     },
     custom: {
       openclaw_source: 'local_import',
+      openclaw_instruction_mode: capabilityIndex.instructionMode,
+      openclaw_instruction_excerpt: capabilityIndex.instructionExcerpt,
       openclaw_instructions: skill.instructions,
       openclaw_emoji: skill.metadata.emoji,
       openclaw_homepage: skill.metadata.homepage,
+      openclaw_supported_os: skill.metadata.os,
+      openclaw_user_invocable: skill.metadata.userInvocable ?? true,
       openclaw_requirements: skill.requirements,
       openclaw_allowed_tools: skill.metadata.allowedTools,
+      openclaw_skill_index: capabilityIndex,
     },
   };
 }

@@ -29,9 +29,7 @@ function StarSelector({
           onMouseEnter={() => setHovered(star)}
           onClick={() => onChange(star)}
           className={`text-2xl transition-colors disabled:cursor-not-allowed ${
-            star <= (hovered || value)
-              ? 'text-yellow-400'
-              : 'text-[var(--text-muted)]'
+            star <= (hovered || value) ? 'text-yellow-400' : 'text-[var(--text-muted)]'
           }`}
           aria-label={`${star} star${star > 1 ? 's' : ''}`}
         >
@@ -51,11 +49,7 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   if (!auth.user) {
-    return (
-      <p className="text-sm text-[var(--text-muted)] italic">
-        Sign in to leave a review.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)] italic">Sign in to leave a review.</p>;
   }
 
   if (submitted) {
@@ -105,13 +99,18 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Your rating</label>
+      <fieldset className="space-y-1">
+        <legend className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+          Your rating
+        </legend>
         <StarSelector value={rating} onChange={setRating} disabled={submitting} />
-      </div>
+      </fieldset>
 
       <div>
-        <label htmlFor="review-comment" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+        <label
+          htmlFor="review-comment"
+          className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+        >
           Comment (optional, max 500 chars)
         </label>
         <textarea
@@ -128,7 +127,10 @@ export function ReviewForm({ listingId }: ReviewFormProps) {
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]">
+        <p
+          role="alert"
+          className="rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]"
+        >
           {error}
         </p>
       )}

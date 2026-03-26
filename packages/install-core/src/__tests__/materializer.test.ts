@@ -22,6 +22,13 @@ interface MemoryStore {
   employees: Array<NewEmployee & { employee_id: string }>;
 }
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore } {
   const store: MemoryStore = {
     packages: [],
@@ -126,7 +133,7 @@ describe('materializer / materialize', () => {
     const result = await materialize(plan, [], repos, companyId, installTxnId);
 
     expect(store.packages).toHaveLength(1);
-    const pkg = store.packages[0]!;
+    const pkg = requireDefined(store.packages[0], 'Expected installed package row');
     expect(pkg.installed_package_id).toBe(result.installedPackageId);
     expect(pkg.company_id).toBe(companyId);
     expect(pkg.package_id).toBe('aics.employee.test-writer');
@@ -147,7 +154,7 @@ describe('materializer / materialize', () => {
     const result = await materialize(plan, [], repos, companyId, installTxnId);
 
     expect(store.assets).toHaveLength(1);
-    const asset = store.assets[0]!;
+    const asset = requireDefined(store.assets[0], 'Expected installed asset row');
     expect(asset.installed_asset_id).toBe(result.installedAssetIds[0]);
     expect(asset.installed_package_id).toBe(result.installedPackageId);
     expect(asset.asset_id).toBe('test-writer-default');
@@ -166,7 +173,7 @@ describe('materializer / materialize', () => {
     expect(store.employees).toHaveLength(1);
     expect(result.employeeIds).toHaveLength(1);
 
-    const emp = store.employees[0]!;
+    const emp = requireDefined(store.employees[0], 'Expected installed employee row');
     expect(emp.company_id).toBe(companyId);
     expect(emp.name).toBe('Test Writer');
     expect(emp.role_slug).toBe('test-writer-default');
@@ -215,7 +222,7 @@ describe('materializer / materialize', () => {
     expect(store.bindings).toHaveLength(1);
     expect(result.bindingIds).toHaveLength(1);
 
-    const binding = store.bindings[0]!;
+    const binding = requireDefined(store.bindings[0], 'Expected satisfied binding row');
     expect(binding.binding_type).toBe('model_profile');
     expect(binding.binding_key).toBe('test-writer-default:reasoning-heavy');
     expect(binding.binding_value_json).toBe('{"provider":"openai","model":"gpt-4o"}');
@@ -229,7 +236,7 @@ describe('materializer / materialize', () => {
     await materialize(plan, [], repos, companyId, installTxnId);
 
     expect(store.bindings).toHaveLength(1);
-    const binding = store.bindings[0]!;
+    const binding = requireDefined(store.bindings[0], 'Expected skipped binding row');
     expect(binding.status).toBe('skipped');
     expect(binding.binding_value_json).toBeNull();
   });
@@ -251,7 +258,7 @@ describe('materializer / materialize', () => {
     await materialize(plan, [], repos, companyId, installTxnId);
 
     expect(store.bindings).toHaveLength(1);
-    const binding = store.bindings[0]!;
+    const binding = requireDefined(store.bindings[0], 'Expected pending binding row');
     expect(binding.status).toBe('pending');
   });
 

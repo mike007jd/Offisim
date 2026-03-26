@@ -3,6 +3,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { _resetRateLimitStore, rateLimit } from '../middleware/rate-limit.js';
 import type { PlatformEnv } from '../types.js';
 
+type RateLimitedResponse = {
+  error: {
+    code: string;
+    message: string;
+    retry_after: number;
+  };
+};
+
 afterEach(() => {
   _resetRateLimitStore();
 });
@@ -45,7 +53,7 @@ describe('Rate Limit Middleware', () => {
     // Third request should be rate limited
     const res = await app.request('/test');
     expect(res.status).toBe(429);
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as RateLimitedResponse;
     expect(body.error.code).toBe('RATE_LIMITED');
     expect(body.error.retry_after).toBeGreaterThan(0);
     expect(res.headers.get('Retry-After')).toBeTruthy();

@@ -41,9 +41,7 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
                 {draft.title || 'Untitled'}
               </h3>
             </div>
-            {draft.permissions?.risk_class && (
-              <RiskBadge risk={draft.permissions.risk_class} />
-            )}
+            {draft.permissions?.risk_class && <RiskBadge risk={draft.permissions.risk_class} />}
           </div>
 
           <p className="mt-2 text-sm text-[var(--text-secondary)] line-clamp-2">
@@ -75,7 +73,9 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
           <div className="flex items-center gap-3">
             <KindIcon kind={draft.kind} size={24} />
             <div>
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">{draft.title || 'Untitled'}</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                {draft.title || 'Untitled'}
+              </h2>
               <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
                 <span>v{displayVersion}</span>
                 <span className="text-[var(--text-muted)]">&middot;</span>
@@ -91,7 +91,9 @@ export function PublishPreview({ draft }: PublishPreviewProps) {
           {draft.description && (
             <div className="mt-4">
               <h3 className="mb-1 text-sm font-semibold text-[var(--text-primary)]">Description</h3>
-              <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">{draft.description}</p>
+              <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">
+                {draft.description}
+              </p>
             </div>
           )}
 

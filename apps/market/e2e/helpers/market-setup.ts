@@ -11,13 +11,15 @@ const AUTH_STORAGE_KEY = 'aics-auth-token';
 export async function injectAuth(page: Page): Promise<void> {
   await page.evaluate((key) => {
     const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
-    const payload = btoa(JSON.stringify({
-      sub: 'e2e-user-1',
-      email: 'e2e@test.local',
-      display_name: 'E2E Test User',
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }));
+    const payload = btoa(
+      JSON.stringify({
+        sub: 'e2e-user-1',
+        email: 'e2e@test.local',
+        display_name: 'E2E Test User',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    );
     const mockJwt = `${header}.${payload}.e2e-signature`;
     localStorage.setItem(key, mockJwt);
   }, AUTH_STORAGE_KEY);

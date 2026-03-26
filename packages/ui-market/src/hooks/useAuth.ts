@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useSession, signIn, signUp, signOut } from '../lib/auth-client.js';
+import { signIn, signOut, signUp, useSession } from '../lib/auth-client.js';
 import { PLATFORM_API_URL } from '../lib/config.js';
 
 export interface AuthUser {
@@ -56,14 +56,14 @@ export function useAuth(): UseAuthResult {
   const loginWithGithub = useCallback(async () => {
     await signIn.social({
       provider: 'github',
-      callbackURL: window.location.origin + '/dashboard',
+      callbackURL: `${window.location.origin}/dashboard`,
     });
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
     await signIn.social({
       provider: 'google',
-      callbackURL: window.location.origin + '/dashboard',
+      callbackURL: `${window.location.origin}/dashboard`,
     });
   }, []);
 

@@ -2,6 +2,21 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+type JsonBody = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+  userId?: string | null;
+};
+
+function assertDefined<T>(value: T | null | undefined, message: string): asserts value is T {
+  if (value == null) {
+    throw new Error(message);
+  }
+}
+
 /**
  * Auth middleware tests.
  *
@@ -18,7 +33,7 @@ describe('Auth Middleware', () => {
     const app = new Hono<PlatformEnv>();
     // Inject mock db
     app.use('*', async (c, next) => {
-      c.set('db', {} as any);
+      c.set('db', {} as MockDb);
       await next();
     });
     app.get('/protected', requireAuth, (c) => {
@@ -27,7 +42,8 @@ describe('Auth Middleware', () => {
 
     const res = await app.request('/protected');
     expect(res.status).toBe(401);
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as JsonBody;
+    assertDefined(body.error, 'Expected error response');
     expect(body.error.code).toBe('UNAUTHORIZED');
     expect(body.error.message).toBe('Authentication required');
   });
@@ -37,7 +53,7 @@ describe('Auth Middleware', () => {
 
     const app = new Hono<PlatformEnv>();
     app.use('*', async (c, next) => {
-      c.set('db', {} as any);
+      c.set('db', {} as MockDb);
       c.set('userId', 'user-ok');
       await next();
     });
@@ -47,7 +63,7 @@ describe('Auth Middleware', () => {
 
     const res = await app.request('/protected');
     expect(res.status).toBe(200);
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as JsonBody;
     expect(body.userId).toBe('user-ok');
   });
 
@@ -60,7 +76,7 @@ describe('Auth Middleware', () => {
 
     const res = await app.request('/test');
     expect(res.status).toBe(200);
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as JsonBody;
     expect(body.userId).toBeNull();
   });
 });

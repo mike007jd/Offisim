@@ -7,6 +7,13 @@ import {
   validateTransition,
 } from '../state-machine.js';
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe('state-machine', () => {
   // -----------------------------------------------------------------------
   // Happy path: full forward chain
@@ -25,8 +32,8 @@ describe('state-machine', () => {
 
     it('allows the complete happy-path chain created -> ... -> installed', () => {
       for (let i = 0; i < happyPath.length - 1; i++) {
-        const from = happyPath[i]!;
-        const to = happyPath[i + 1]!;
+        const from = requireDefined(happyPath[i], `Missing state at index ${i}`);
+        const to = requireDefined(happyPath[i + 1], `Missing state at index ${i + 1}`);
         const result = validateTransition(from, to);
         expect(result.valid, `${from} -> ${to} should be valid`).toBe(true);
       }

@@ -1,5 +1,9 @@
-import type { ListingDetail, CreatorProfile } from '@aics/registry-client';
+import type { CreatorProfile, ListingDetail } from '@aics/registry-client';
 import { SITE_URL } from './url';
+
+export function stringifyJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
 
 /** JSON-LD for a marketplace listing (SoftwareApplication schema). */
 export function listingJsonLd(listing: ListingDetail) {

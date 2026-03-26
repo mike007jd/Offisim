@@ -41,13 +41,15 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
 
   if (filters.q) {
     const pattern = `%${filters.q}%`;
-    conditions.push(
-      or(
-        ilike(listings.title, pattern),
-        ilike(listings.summary, pattern),
-        ilike(creators.display_name, pattern),
-      )!,
+    const textSearch = or(
+      ilike(listings.title, pattern),
+      ilike(listings.summary, pattern),
+      ilike(creators.display_name, pattern),
     );
+
+    if (textSearch) {
+      conditions.push(textSearch);
+    }
   }
 
   // Tag filter requires subquery
@@ -62,7 +64,8 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
   const where = and(...conditions);
 
   // Sort
-  let orderBy;
+  const relevanceOrder = desc(sql`${listings.rating_avg} * ln(${listings.install_count} + 1)`);
+  let orderBy = relevanceOrder;
   switch (filters.sort) {
     case 'newest':
       orderBy = desc(listings.created_at);
@@ -76,10 +79,9 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
     case 'installs':
       orderBy = desc(listings.install_count);
       break;
-    case 'relevance':
     default:
       // Simple relevance score: rating * ln(installs + 1)
-      orderBy = desc(sql`${listings.rating_avg} * ln(${listings.install_count} + 1)`);
+      orderBy = relevanceOrder;
       break;
   }
 

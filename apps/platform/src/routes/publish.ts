@@ -24,7 +24,11 @@ publish.use('/*', requireAuth);
 // GET /v1/publish/me — get the authenticated user's creator profile (null if not a creator)
 publish.get('/me', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
 
@@ -48,7 +52,11 @@ publish.get('/me', async (c) => {
 // POST /v1/publish/drafts — create a new draft
 publish.post('/drafts', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const body = DraftCreateSchema.parse(await c.req.json());
 
   // Get creator for this user
@@ -72,7 +80,11 @@ publish.post('/drafts', async (c) => {
       validation_state: 'unknown',
     })
     .returning();
-  const draft = rows[0]!;
+  const [draft] = rows;
+
+  if (!draft) {
+    throw new HTTPException(500, { message: 'Failed to create draft' });
+  }
 
   return c.json(
     {
@@ -91,7 +103,11 @@ publish.post('/drafts', async (c) => {
 // GET /v1/publish/drafts — list my drafts
 publish.get('/drafts', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const statusFilter = c.req.query('status') as
     | 'draft'
     | 'validated'
@@ -107,10 +123,7 @@ publish.get('/drafts', async (c) => {
   }
 
   const whereClause = statusFilter
-    ? and(
-        eq(publishDrafts.creator_id, creator.creator_id),
-        eq(publishDrafts.status, statusFilter),
-      )
+    ? and(eq(publishDrafts.creator_id, creator.creator_id), eq(publishDrafts.status, statusFilter))
     : eq(publishDrafts.creator_id, creator.creator_id);
 
   const drafts = await db
@@ -138,7 +151,11 @@ publish.get('/drafts', async (c) => {
 // GET /v1/publish/drafts/:draftId — get draft status
 publish.get('/drafts/:draftId', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const draftId = c.req.param('draftId');
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
@@ -174,7 +191,11 @@ publish.get('/drafts/:draftId', async (c) => {
 // DELETE /v1/publish/drafts/:draftId — delete a draft (only non-submitted drafts)
 publish.delete('/drafts/:draftId', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const draftId = c.req.param('draftId');
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
@@ -204,7 +225,11 @@ publish.delete('/drafts/:draftId', async (c) => {
 // PUT /v1/publish/drafts/:draftId/manifest — attach manifest to draft
 publish.put('/drafts/:draftId/manifest', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const draftId = c.req.param('draftId');
   const body = ManifestUploadSchema.parse(await c.req.json());
 
@@ -239,7 +264,11 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
     })
     .where(eq(publishDrafts.draft_id, draftId))
     .returning();
-  const updated = updateRows[0]!;
+  const [updated] = updateRows;
+
+  if (!updated) {
+    throw new HTTPException(500, { message: 'Failed to update draft' });
+  }
 
   if (!validation.valid) {
     return c.json(
@@ -269,7 +298,11 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
 // POST /v1/publish/submit — submit draft for review
 publish.post('/submit', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const body = SubmitDraftSchema.parse(await c.req.json());
 
   const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
@@ -309,7 +342,11 @@ publish.post('/submit', async (c) => {
       status: 'pending',
     })
     .returning();
-  const job = jobRows[0]!;
+  const [job] = jobRows;
+
+  if (!job) {
+    throw new HTTPException(500, { message: 'Failed to create moderation job' });
+  }
 
   // 1.0: auto-process moderation (synchronous for simplicity)
   await processModerationJob(db, job.job_id);

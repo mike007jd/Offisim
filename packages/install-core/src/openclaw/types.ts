@@ -20,6 +20,34 @@ export interface ParsedSkill {
   readonly metadata: SkillMetadata;
 }
 
+export type SkillCapabilityKind = 'tool' | 'mcp' | 'binary' | 'env' | 'config';
+
+export interface SkillCapabilityDescriptor {
+  /** Capability bucket used to group the skill's loading requirements. */
+  readonly kind: SkillCapabilityKind;
+  /** Raw capability key, e.g. `git`, `GITHUB_TOKEN`, `Read`. */
+  readonly key: string;
+  /** Human-readable label shown in review UI. */
+  readonly label: string;
+}
+
+export interface SkillCapabilityIndex {
+  /** DeerFlow-style index-first loading mode. */
+  readonly strategy: 'index-first';
+  /** Full instruction body is deferred until activation. */
+  readonly instructionMode: 'deferred';
+  /** Short skill summary surfaced during review. */
+  readonly summary: string;
+  /** Truncated instruction preview for the install UI. */
+  readonly instructionExcerpt: string;
+  /** Full instruction length, useful for preview metadata. */
+  readonly instructionLength: number;
+  /** Declarative capabilities required by the skill. */
+  readonly requiredCapabilities: readonly string[];
+  /** Structured capability entries for UI and downstream runtime hooks. */
+  readonly capabilities: readonly SkillCapabilityDescriptor[];
+}
+
 export interface RequiredMcp {
   readonly name: string;
   readonly description: string;
@@ -66,6 +94,8 @@ export interface SkillValidationResult {
   readonly errors: readonly SkillValidationIssue[];
   /** Soft warnings the user should review */
   readonly warnings: readonly SkillValidationIssue[];
+  /** Index-first capability summary for progressive loading / review. */
+  readonly capabilityIndex?: SkillCapabilityIndex;
 }
 
 /** @deprecated Use SkillValidationIssue instead */

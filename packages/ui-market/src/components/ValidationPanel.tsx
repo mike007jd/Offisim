@@ -96,7 +96,8 @@ function runChecks(manifest: Record<string, unknown>): CheckResult[] {
       pass: !JSON.stringify(manifest)
         .toLowerCase()
         .match(/"(api_key|secret|password|token|private_key)"\s*:/),
-      message: 'Manifest appears to contain embedded secrets. Remove all secrets before publishing.',
+      message:
+        'Manifest appears to contain embedded secrets. Remove all secrets before publishing.',
     },
   ];
 }
@@ -120,7 +121,9 @@ export function ValidationPanel({ manifest }: ValidationPanelProps) {
             : 'bg-[rgba(244,63,94,0.1)] text-[var(--accent-rose)] border border-[rgba(244,63,94,0.2)]'
         }`}
       >
-        {allPass ? 'Ready to submit — all checks passed.' : `${failCount} issue${failCount !== 1 ? 's' : ''} found. Fix before submitting.`}
+        {allPass
+          ? 'Ready to submit — all checks passed.'
+          : `${failCount} issue${failCount !== 1 ? 's' : ''} found. Fix before submitting.`}
       </div>
 
       {/* Check list */}
@@ -133,10 +136,18 @@ export function ValidationPanel({ manifest }: ValidationPanelProps) {
             >
               {check.pass ? '✓' : '✗'}
             </span>
-            <span className={check.pass ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)] font-medium'}>
+            <span
+              className={
+                check.pass
+                  ? 'text-[var(--text-secondary)]'
+                  : 'text-[var(--text-primary)] font-medium'
+              }
+            >
               {check.label}
               {!check.pass && check.message && (
-                <span className="ml-1 font-normal text-[var(--accent-rose)]">— {check.message}</span>
+                <span className="ml-1 font-normal text-[var(--accent-rose)]">
+                  — {check.message}
+                </span>
               )}
             </span>
           </li>

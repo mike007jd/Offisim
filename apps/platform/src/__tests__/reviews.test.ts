@@ -4,6 +4,20 @@ import { errorHandler } from '../middleware/error-handler.js';
 import { reviewsRoute } from '../routes/reviews.js';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+
+type ReviewResponse = {
+  review_id: string;
+  listing_id: string;
+  user_id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  moderation_state: string;
+  created_at: string;
+  updated_at: string;
+};
+
 // ── Helpers ──
 
 const LISTING_ID = '11111111-1111-1111-1111-111111111111';
@@ -51,10 +65,10 @@ function createMockDb(results: unknown[][]) {
       return vi.fn();
     },
   };
-  return new Proxy({}, handler) as any;
+  return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: any, userId?: string) {
+function createApp(mockDb: MockDb, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
@@ -156,7 +170,7 @@ describe('Reviews Route', () => {
       });
 
       expect(res.status).toBe(201);
-      const json = (await res.json()) as any;
+      const json = (await res.json()) as ReviewResponse;
       expect(json.review_id).toBe(REVIEW_ID);
       expect(json.rating).toBe(4);
     });
@@ -191,7 +205,7 @@ describe('Reviews Route', () => {
       });
 
       expect(res.status).toBe(200);
-      const json = (await res.json()) as any;
+      const json = (await res.json()) as ReviewResponse;
       expect(json.rating).toBe(5);
     });
   });

@@ -1,6 +1,7 @@
-import { createMiddleware } from 'hono/factory';
-import { eq } from 'drizzle-orm';
 import { apiTokens, users } from '@aics/db-platform';
+import { eq } from 'drizzle-orm';
+import { createMiddleware } from 'hono/factory';
+import { HTTPException } from 'hono/http-exception';
 import { auth } from '../auth.js';
 import { sha256 } from '../lib/crypto.js';
 import type { PlatformEnv } from '../types.js';
@@ -144,3 +145,11 @@ export const requireAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   }
   await next();
 });
+
+export function getRequiredUserId(c: { get: (key: 'userId') => string | undefined }): string {
+  const userId = c.get('userId');
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Authentication required' });
+  }
+  return userId;
+}

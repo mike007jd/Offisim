@@ -33,7 +33,10 @@ export function HistoryList({ items }: HistoryListProps) {
         </thead>
         <tbody className="divide-y divide-[var(--border)]">
           {items.map((item) => (
-            <tr key={`${item.listing.listing_id}-${item.version.version}`} className="hover:bg-[var(--bg-tertiary)]">
+            <tr
+              key={`${item.listing.listing_id}-${item.version.version}`}
+              className="hover:bg-[var(--bg-tertiary)]"
+            >
               <td className="py-3 pr-4">
                 <a
                   href={`/listing/${item.listing.slug}`}
@@ -42,7 +45,9 @@ export function HistoryList({ items }: HistoryListProps) {
                   {item.listing.title}
                 </a>
                 {item.listing.creator && (
-                  <p className="text-xs text-[var(--text-muted)]">by @{item.listing.creator.handle}</p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    by @{item.listing.creator.handle}
+                  </p>
                 )}
               </td>
               <td className="py-3 pr-4">
@@ -51,7 +56,9 @@ export function HistoryList({ items }: HistoryListProps) {
                 </span>
               </td>
               <td className="py-3 pr-4">
-                <span className="font-mono text-xs text-[var(--text-secondary)]">v{item.version.version}</span>
+                <span className="font-mono text-xs text-[var(--text-secondary)]">
+                  v{item.version.version}
+                </span>
               </td>
               <td className="py-3 pr-4 text-xs text-[var(--text-muted)]">
                 {formatDate(item.saved_at)}

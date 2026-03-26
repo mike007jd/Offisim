@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { validateSkill } from '../../openclaw/skill-validator.js';
 import type { ParsedSkill } from '../../openclaw/types.js';
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 const baseSkill: ParsedSkill = {
   name: 'Test Skill',
   description: 'A test skill',
@@ -27,9 +34,9 @@ describe('validateSkill', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(2);
-    expect(result.warnings[0]!.type).toBe('missing_bin');
-    expect(result.warnings[0]!.severity).toBe('warning');
-    expect(result.warnings[1]!.type).toBe('missing_bin');
+    expect(result.warnings[0]?.type).toBe('missing_bin');
+    expect(result.warnings[0]?.severity).toBe('warning');
+    expect(result.warnings[1]?.type).toBe('missing_bin');
   });
 
   it('returns a missing_env warning for each required env var', () => {
@@ -41,8 +48,8 @@ describe('validateSkill', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(2);
-    expect(result.warnings[0]!.type).toBe('missing_env');
-    expect(result.warnings[0]!.severity).toBe('warning');
+    expect(result.warnings[0]?.type).toBe('missing_env');
+    expect(result.warnings[0]?.severity).toBe('warning');
   });
 
   it('returns a missing_config warning for each required config path', () => {
@@ -53,7 +60,7 @@ describe('validateSkill', () => {
     const result = validateSkill(skill, 'web_limited');
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
-    expect(result.warnings[0]!.type).toBe('missing_config');
+    expect(result.warnings[0]?.type).toBe('missing_config');
   });
 
   it('returns unsupported_os warning when OS specified and environment is not desktop', () => {
@@ -62,8 +69,8 @@ describe('validateSkill', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]!.type).toBe('unsupported_os');
-    expect(result.warnings[0]!.severity).toBe('warning');
+    expect(result.warnings[0]?.type).toBe('unsupported_os');
+    expect(result.warnings[0]?.severity).toBe('warning');
   });
 
   it('does not warn about OS when environment is desktop', () => {
@@ -117,7 +124,8 @@ describe('validateSkill', () => {
   it('returns empty name error with correct type and severity', () => {
     const skill: ParsedSkill = { ...baseSkill, name: '' };
     const result = validateSkill(skill, 'desktop');
-    expect(result.errors[0]!).toEqual({
+    const firstError = requireDefined(result.errors[0], 'Expected empty_name error');
+    expect(firstError).toEqual({
       type: 'empty_name',
       detail: 'Skill name is required',
       severity: 'error',
@@ -128,15 +136,15 @@ describe('validateSkill', () => {
     const skill: ParsedSkill = { ...baseSkill, instructions: '   ' };
     const result = validateSkill(skill, 'desktop');
     expect(result.valid).toBe(false);
-    expect(result.errors[0]!.type).toBe('empty_instructions');
-    expect(result.errors[0]!.severity).toBe('error');
+    expect(result.errors[0]?.type).toBe('empty_instructions');
+    expect(result.errors[0]?.severity).toBe('error');
   });
 
   it('returns name_too_long error when name exceeds 128 characters', () => {
     const skill: ParsedSkill = { ...baseSkill, name: 'A'.repeat(129) };
     const result = validateSkill(skill, 'desktop');
     expect(result.valid).toBe(false);
-    expect(result.errors[0]!.type).toBe('name_too_long');
+    expect(result.errors[0]?.type).toBe('name_too_long');
   });
 
   it('accumulates multiple errors', () => {
@@ -156,8 +164,8 @@ describe('validateSkill', () => {
     const result = validateSkill(skill, 'desktop', new Set());
     expect(result.valid).toBe(true);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]!.type).toBe('missing_mcp');
-    expect(result.warnings[0]!.severity).toBe('warning');
+    expect(result.warnings[0]?.type).toBe('missing_mcp');
+    expect(result.warnings[0]?.severity).toBe('warning');
   });
 
   it('does not warn for connected MCP server', () => {

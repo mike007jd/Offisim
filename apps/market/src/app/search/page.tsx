@@ -1,13 +1,39 @@
 export const dynamic = 'force-dynamic';
 
+import type { SearchParams, SearchResponse } from '@aics/registry-client';
+import { ListingCard, SearchFilters } from '@aics/ui-market';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ListingCard, SearchFilters } from '@aics/ui-market';
 import { Suspense } from 'react';
 import { getRegistryClient } from '../../lib/registry';
 
 interface Props {
   searchParams: Promise<Record<string, string | undefined>>;
+}
+
+const SEARCH_KINDS: Array<NonNullable<SearchParams['kind']>> = [
+  'employee',
+  'skill',
+  'sop',
+  'company_template',
+  'office_layout',
+  'bundle',
+  'prefab',
+];
+
+const SEARCH_SORTS: Array<NonNullable<SearchParams['sort']>> = [
+  'relevance',
+  'newest',
+  'updated',
+  'rating',
+  'installs',
+];
+
+function pickSearchParam<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+): T | undefined {
+  return value && allowed.includes(value as T) ? (value as T) : undefined;
 }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
@@ -30,13 +56,13 @@ export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
   const client = getRegistryClient();
 
-  let result;
+  let result: SearchResponse;
   try {
     result = await client.searchListings({
       q: params.q,
-      kind: params.kind as any,
+      kind: pickSearchParam(params.kind, SEARCH_KINDS),
       tag: params.tag,
-      sort: (params.sort as any) ?? 'relevance',
+      sort: pickSearchParam(params.sort, SEARCH_SORTS) ?? 'relevance',
       page: params.page ? Number.parseInt(params.page, 10) : 1,
       per_page: 20,
     });

@@ -34,15 +34,12 @@ export function ReportDialog({ listingId }: ReportDialogProps) {
     setError(null);
 
     try {
-      const res = await fetch(
-        `${PLATFORM_API_URL}/v1/market/listings/${listingId}/reports`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ reason, details: details.trim() || undefined }),
-        },
-      );
+      const res = await fetch(`${PLATFORM_API_URL}/v1/market/listings/${listingId}/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ reason, details: details.trim() || undefined }),
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: { message: 'Report failed' } }));
@@ -75,7 +72,9 @@ export function ReportDialog({ listingId }: ReportDialogProps) {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-lg bg-[var(--bg-secondary)] p-6 shadow-none border border-[var(--border-bright)]">
-            <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">Report Listing</h3>
+            <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+              Report Listing
+            </h3>
 
             {submitted ? (
               <div className="py-6 text-center">
@@ -86,10 +85,15 @@ export function ReportDialog({ listingId }: ReportDialogProps) {
             ) : (
               <form onSubmit={handleSubmit}>
                 <fieldset className="mb-4">
-                  <legend className="mb-2 text-sm font-medium text-[var(--text-secondary)]">Reason</legend>
+                  <legend className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
+                    Reason
+                  </legend>
                   <div className="space-y-2">
                     {REPORT_REASONS.map((r) => (
-                      <label key={r.value} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                      <label
+                        key={r.value}
+                        className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"
+                      >
                         <input
                           type="radio"
                           name="report-reason"
@@ -105,7 +109,10 @@ export function ReportDialog({ listingId }: ReportDialogProps) {
                 </fieldset>
 
                 <div className="mb-4">
-                  <label htmlFor="report-details" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+                  <label
+                    htmlFor="report-details"
+                    className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+                  >
                     Additional details (optional)
                   </label>
                   <textarea
@@ -121,7 +128,10 @@ export function ReportDialog({ listingId }: ReportDialogProps) {
                 </div>
 
                 {error && (
-                  <p role="alert" className="mb-3 rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]">
+                  <p
+                    role="alert"
+                    className="mb-3 rounded-md bg-[rgba(244,63,94,0.1)] px-3 py-2 text-sm text-[var(--accent-rose)]"
+                  >
                     {error}
                   </p>
                 )}

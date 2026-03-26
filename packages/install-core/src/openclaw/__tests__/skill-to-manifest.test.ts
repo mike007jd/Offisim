@@ -31,14 +31,44 @@ describe('skillToManifest', () => {
   it('creates one employee asset with the skill as entrypoint', () => {
     const manifest = skillToManifest(SKILL);
     expect(manifest.assets).toHaveLength(1);
-    expect(manifest.assets[0]!.kind).toBe('employee');
-    expect(manifest.assets[0]!.asset_id).toContain('code-reviewer');
-    expect(manifest.assets[0]!.default_enabled).toBe(true);
+    expect(manifest.assets[0]?.kind).toBe('employee');
+    expect(manifest.assets[0]?.asset_id).toContain('code-reviewer');
+    expect(manifest.assets[0]?.default_enabled).toBe(true);
   });
 
   it('stores skill instructions in custom.openclaw_instructions', () => {
     const manifest = skillToManifest(SKILL);
     expect(manifest.custom?.openclaw_instructions).toBe(SKILL.instructions);
+  });
+
+  it('creates an index-first skill descriptor with structured capabilities', () => {
+    const manifest = skillToManifest(SKILL);
+    const index = manifest.custom?.openclaw_skill_index as
+      | {
+          strategy: string;
+          instructionMode: string;
+          requiredCapabilities: ReadonlyArray<string>;
+          capabilities: ReadonlyArray<{ kind: string; key: string; label: string }>;
+          instructionExcerpt: string;
+        }
+      | undefined;
+
+    expect(index).toBeDefined();
+    expect(index?.strategy).toBe('index-first');
+    expect(index?.instructionMode).toBe('deferred');
+    expect(index?.requiredCapabilities).toEqual([
+      'tool:Read',
+      'tool:Grep',
+      'binary:git',
+      'env:GITHUB_TOKEN',
+    ]);
+    expect(index?.capabilities.map((cap) => `${cap.kind}:${cap.key}`)).toEqual([
+      'tool:Read',
+      'tool:Grep',
+      'binary:git',
+      'env:GITHUB_TOKEN',
+    ]);
+    expect(index?.instructionExcerpt).toContain('code review expert');
   });
 
   it('stores skill metadata in custom.openclaw_metadata', () => {
@@ -93,6 +123,30 @@ describe('skillToManifest', () => {
     };
     const manifest = skillToManifest(withMcps);
     expect(manifest.requirements.required_mcps).toEqual(['github', 'slack']);
+  });
+
+  it('maps all indexed capabilities into manifest.requirements.required_capabilities', () => {
+    const withMcps: ParsedSkill = {
+      ...SKILL,
+      requirements: {
+        ...SKILL.requirements,
+        bins: ['git', 'node'],
+        env: ['GITHUB_TOKEN', 'OPENAI_API_KEY'],
+        config: ['~/.gitconfig'],
+        mcps: [{ name: 'github', description: 'GitHub API', transport: 'stdio' as const }],
+      },
+    };
+    const manifest = skillToManifest(withMcps);
+    expect(manifest.requirements.required_capabilities).toEqual([
+      'tool:Read',
+      'tool:Grep',
+      'mcp:github',
+      'binary:git',
+      'binary:node',
+      'env:GITHUB_TOKEN',
+      'env:OPENAI_API_KEY',
+      'config:~/.gitconfig',
+    ]);
   });
 
   it('defaults required_mcps to empty array when no mcps', () => {

@@ -191,7 +191,7 @@ metadata:
 You are a code review expert.
 `;
 
-const NO_FRONTMATTER_MD = `Just plain markdown without frontmatter`;
+const NO_FRONTMATTER_MD = 'Just plain markdown without frontmatter';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -230,8 +230,8 @@ describe('InstallService.importSkill', () => {
 
     expect(result.error).toBeUndefined();
     expect(result.plan).toBeDefined();
-    expect(result.plan!.manifest.package.title).toBe('test-coder');
-    expect(result.plan!.manifest.package.kind).toBe('employee');
+    expect(result.plan?.manifest.package.title).toBe('test-coder');
+    expect(result.plan?.manifest.package.kind).toBe('employee');
     expect(result.installTxnId).toBeTruthy();
   });
 
@@ -239,7 +239,9 @@ describe('InstallService.importSkill', () => {
     await svc.importSkill(VALID_SKILL_MD);
 
     expect(store.transactions).toHaveLength(1);
-    const txn = store.transactions[0]!;
+    const [txn] = store.transactions;
+    expect(txn).toBeDefined();
+    if (!txn) throw new Error('Expected install transaction');
     expect(txn.company_id).toBe(COMPANY_ID);
     expect(txn.source_type).toBe('file');
     expect(txn.source_ref).toBe('openclaw-skill');
@@ -249,46 +251,59 @@ describe('InstallService.importSkill', () => {
   it('stores instructions in custom.openclaw_instructions on the manifest', async () => {
     const result = await svc.importSkill(VALID_SKILL_MD);
 
-    expect(result.plan!.manifest.custom?.openclaw_instructions).toContain('coding assistant');
+    expect(result.plan?.manifest.custom?.openclaw_instructions).toContain('coding assistant');
+  });
+
+  it('stores a structured capability index on the manifest and validation result', async () => {
+    const result = await svc.importSkill(SKILL_WITH_REQUIREMENTS_MD);
+
+    expect(result.skillValidation?.capabilityIndex?.strategy).toBe('index-first');
+    expect(result.plan?.manifest.custom?.openclaw_skill_index).toBeDefined();
+    expect(result.plan?.manifest.requirements.required_capabilities).toEqual([
+      'binary:git',
+      'env:GITHUB_TOKEN',
+    ]);
   });
 
   it('stores skill validation warnings on the result', async () => {
     const result = await svc.importSkill(VALID_SKILL_MD);
 
     expect(result.skillValidation).toBeDefined();
-    expect(result.skillValidation!.valid).toBe(true);
+    expect(result.skillValidation?.valid).toBe(true);
     // No requirements in the simple fixture → no warnings
-    expect(result.skillValidation!.warnings).toHaveLength(0);
+    expect(result.skillValidation?.warnings).toHaveLength(0);
   });
 
   it('stores skill validation warnings when requirements present', async () => {
     const result = await svc.importSkill(SKILL_WITH_REQUIREMENTS_MD);
 
     expect(result.skillValidation).toBeDefined();
-    expect(result.skillValidation!.valid).toBe(true);
+    expect(result.skillValidation?.valid).toBe(true);
     // Should have warnings for bins (git) and env (GITHUB_TOKEN)
-    expect(result.skillValidation!.warnings.length).toBeGreaterThanOrEqual(2);
+    expect(result.skillValidation?.warnings.length).toBeGreaterThanOrEqual(2);
   });
 
   it('ends in ready_to_install for simple skills (no bindings)', async () => {
     await svc.importSkill(VALID_SKILL_MD);
 
-    const txn = store.transactions[0]!;
+    const [txn] = store.transactions;
+    expect(txn).toBeDefined();
+    if (!txn) throw new Error('Expected install transaction');
     expect(txn.state).toBe('ready_to_install');
   });
 
   it('produces a plan with zero hashes (synthetic package)', async () => {
     const result = await svc.importSkill(VALID_SKILL_MD);
 
-    expect(result.plan!.packageHash).toBe('0'.repeat(64));
-    expect(result.plan!.manifestHash).toBe('0'.repeat(64));
+    expect(result.plan?.packageHash).toBe('0'.repeat(64));
+    expect(result.plan?.manifestHash).toBe('0'.repeat(64));
   });
 
   it('produces a plan with needsConfirmation: false', async () => {
     const result = await svc.importSkill(VALID_SKILL_MD);
 
-    expect(result.plan!.needsConfirmation).toBe(false);
-    expect(result.plan!.confirmationReasons).toEqual([]);
+    expect(result.plan?.needsConfirmation).toBe(false);
+    expect(result.plan?.confirmationReasons).toEqual([]);
   });
 
   // -----------------------------------------------------------------------
@@ -306,7 +321,9 @@ describe('InstallService.importSkill', () => {
   it('transitions to failed on parse error', async () => {
     await svc.importSkill(NO_FRONTMATTER_MD);
 
-    const txn = store.transactions[0]!;
+    const [txn] = store.transactions;
+    expect(txn).toBeDefined();
+    if (!txn) throw new Error('Expected failed install transaction');
     expect(txn.state).toBe('failed');
     expect(txn.finished_at).not.toBeNull();
     expect(txn.error_code).toBe('skill_parse_failed');
@@ -329,7 +346,9 @@ describe('InstallService.importSkill', () => {
     expect(result.error).toBeDefined();
     expect(result.error).toContain('Compatibility');
 
-    const txn = store.transactions[0]!;
+    const [txn] = store.transactions;
+    expect(txn).toBeDefined();
+    if (!txn) throw new Error('Expected failed install transaction');
     expect(txn.state).toBe('failed');
   });
 
@@ -347,7 +366,9 @@ describe('InstallService.importSkill', () => {
     expect(materializeResult.installedPackageId).toBeTruthy();
 
     // Check final state
-    const txn = store.transactions[0]!;
+    const [txn] = store.transactions;
+    expect(txn).toBeDefined();
+    if (!txn) throw new Error('Expected installed transaction');
     expect(txn.state).toBe('installed');
     expect(txn.finished_at).not.toBeNull();
 
@@ -362,7 +383,9 @@ describe('InstallService.importSkill', () => {
     await svc.confirmBindings(importResult.installTxnId, []);
 
     expect(store.employees).toHaveLength(1);
-    const emp = store.employees[0]!;
+    const [emp] = store.employees;
+    expect(emp).toBeDefined();
+    if (!emp) throw new Error('Expected installed employee');
     expect(emp.name).toBe('test-coder');
     expect(emp.source_package_id).toContain('openclaw-skill');
   });

@@ -1,7 +1,7 @@
 'use client';
 
+import { LoginDialog, useAuthContext } from '@aics/ui-market';
 import Link from 'next/link';
-import { useAuthContext, LoginDialog } from '@aics/ui-market';
 import { useState } from 'react';
 
 export function MarketNav() {

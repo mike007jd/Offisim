@@ -9,12 +9,16 @@ import {
   reviews,
 } from '@aics/db-platform';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { ListingStatusPatchSchema, ReportCreateSchema, SearchParamsSchema } from '../schemas/index.js';
-import { searchListings } from '../services/search.js';
+import type { PlatformDb } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import {
+  ListingStatusPatchSchema,
+  ReportCreateSchema,
+  SearchParamsSchema,
+} from '../schemas/index.js';
+import { searchListings } from '../services/search.js';
 import type { PlatformEnv } from '../types.js';
 
 const market = new Hono<PlatformEnv>();
@@ -24,11 +28,7 @@ const market = new Hono<PlatformEnv>();
 type ListingRow = typeof listings.$inferSelect;
 type CreatorRow = typeof creators.$inferSelect;
 
-async function buildListingDetail(
-  db: PostgresJsDatabase,
-  listing: ListingRow,
-  creator: CreatorRow,
-) {
+async function buildListingDetail(db: PlatformDb, listing: ListingRow, creator: CreatorRow) {
   const listingId = listing.listing_id;
 
   const [latestVersion] = await db
@@ -313,7 +313,11 @@ market.get('/listings/:listingId/reviews', async (c) => {
 // POST /v1/market/listings/:listingId/reports — report a listing
 market.post('/listings/:listingId/reports', requireAuth, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const listingId = c.req.param('listingId');
   const body = ReportCreateSchema.parse(await c.req.json());
 
@@ -354,8 +358,11 @@ market.post('/listings/:listingId/reports', requireAuth, async (c) => {
       status: 'open',
     })
     .returning();
+  const [flag] = rows;
 
-  const flag = rows[0]!;
+  if (!flag) {
+    throw new HTTPException(500, { message: 'Failed to create report' });
+  }
   return c.json(
     {
       flag_id: flag.flag_id,
@@ -520,13 +527,21 @@ market.get('/listings/:listingId/lineage', async (c) => {
 // PATCH /v1/market/listings/:listingId/status — creator status management
 market.patch('/listings/:listingId/status', requireAuth, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const { listingId } = c.req.param();
   const body = ListingStatusPatchSchema.parse(await c.req.json());
 
   // Verify ownership: listing must belong to this creator
   const [listing] = await db
-    .select({ listing_id: listings.listing_id, creator_id: listings.creator_id, status: listings.status })
+    .select({
+      listing_id: listings.listing_id,
+      creator_id: listings.creator_id,
+      status: listings.status,
+    })
     .from(listings)
     .where(eq(listings.listing_id, listingId))
     .limit(1);

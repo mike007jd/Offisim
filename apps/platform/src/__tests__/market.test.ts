@@ -5,6 +5,125 @@ import { creatorsRoute } from '../routes/creators.js';
 import { market } from '../routes/market.js';
 import type { PlatformEnv } from '../types.js';
 
+type MockDb = PlatformEnv['Variables']['db'];
+
+type SearchResponse = {
+  items: Array<{
+    listing_id: string;
+    slug: string;
+    kind: string;
+    title: string;
+    summary: string;
+    creator: {
+      creator_id: string;
+      handle: string;
+      display_name: string;
+      verification_state: string;
+    };
+    status: string;
+    latest_version: string;
+    rating: number;
+    install_count: number;
+    tags: string[];
+  }>;
+  page: number;
+  per_page: number;
+  total: number;
+};
+
+type ListingDetailResponse = {
+  listing_id: string;
+  slug: string;
+  kind: string;
+  title: string;
+  summary: string;
+  description: string;
+  creator: {
+    creator_id: string;
+    handle: string;
+    display_name: string;
+    verification_state: string;
+  };
+  status: string;
+  latest_version: string;
+  rating: number;
+  install_count: number;
+  tags: string[];
+  version?: {
+    package_id: string;
+    package_version_id: string;
+    version: string;
+    runtime_range: string;
+    schema_version: string;
+    environments: string[];
+    risk_class: string;
+    published_at: string;
+    changelog: string | null;
+  };
+  requirements?: {
+    required_capabilities: unknown[];
+    required_mcps: unknown[];
+    recommended_models: unknown[];
+  };
+  permissions?: {
+    risk_class: string | null;
+    declares_secrets: boolean;
+    filesystem_scope: string;
+    network_scope: string;
+  };
+  lineage?: unknown;
+  previews?: Array<{
+    kind: string;
+    url: string;
+    alt: string | null;
+  }>;
+};
+
+type VersionsResponse = {
+  listing_id: string;
+  versions: Array<{
+    package_id: string;
+    package_version_id: string;
+    version: string;
+    runtime_range: string;
+    schema_version: string;
+    environments: string[];
+    risk_class: string;
+    published_at: string;
+    changelog: string | null;
+  }>;
+};
+
+type ReviewsResponse = {
+  listing_id: string;
+  reviews: Array<{
+    review_id: string;
+    listing_id: string;
+    user_id: string;
+    rating: number;
+    title: string | null;
+    body: string | null;
+    moderation_state: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+};
+
+type CreatorResponse = {
+  handle: string;
+  display_name: string;
+  verification_state: string;
+  listings: Array<{
+    title: string;
+  }>;
+};
+
+function assertDefined<T>(value: T | null | undefined, message: string): asserts value is T {
+  if (value == null) {
+    throw new Error(message);
+  }
+}
+
 // ── Helpers ──
 
 const LISTING_ID = '11111111-1111-1111-1111-111111111111';
@@ -114,10 +233,10 @@ function createMockDb(results: unknown[][]) {
       return vi.fn();
     },
   };
-  return new Proxy({}, handler) as any;
+  return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: any) {
+function createApp(mockDb: MockDb) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
@@ -152,15 +271,17 @@ describe('Market Routes', () => {
       const res = await app.request('/v1/market/search?per_page=5');
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as SearchResponse;
       expect(body).toHaveProperty('items');
       expect(body).toHaveProperty('page', 1);
       expect(body).toHaveProperty('per_page', 5);
       expect(body).toHaveProperty('total', 1);
       expect(body.items).toHaveLength(1);
-      expect(body.items[0].title).toBe('Test Listing');
-      expect(body.items[0].tags).toEqual(['automation']);
-      expect(body.items[0].creator.handle).toBe('testcreator');
+      const firstItem = body.items[0];
+      assertDefined(firstItem, 'Expected one search result');
+      expect(firstItem.title).toBe('Test Listing');
+      expect(firstItem.tags).toEqual(['automation']);
+      expect(firstItem.creator.handle).toBe('testcreator');
     });
 
     it('returns empty results', async () => {
@@ -173,7 +294,7 @@ describe('Market Routes', () => {
       const res = await app.request('/v1/market/search');
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as SearchResponse;
       expect(body.items).toEqual([]);
       expect(body.total).toBe(0);
     });
@@ -209,7 +330,7 @@ describe('Market Routes', () => {
       const res = await app.request('/v1/market/search?per_page=100');
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as SearchResponse;
       expect(body.per_page).toBe(100);
     });
   });
@@ -238,14 +359,17 @@ describe('Market Routes', () => {
       const res = await app.request(`/v1/market/listings/${LISTING_ID}`);
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ListingDetailResponse;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.title).toBe('Test Listing');
       expect(body.creator.handle).toBe('testcreator');
       expect(body.version?.version).toBe('1.0.0');
       expect(body.tags).toEqual(['productivity']);
+      assertDefined(body.previews, 'Expected previews');
       expect(body.previews).toHaveLength(1);
-      expect(body.previews[0].kind).toBe('screenshot');
+      const firstPreview = body.previews[0];
+      assertDefined(firstPreview, 'Expected one preview');
+      expect(firstPreview.kind).toBe('screenshot');
     });
 
     it('returns 404 for non-existent listing', async () => {
@@ -272,11 +396,13 @@ describe('Market Routes', () => {
       const res = await app.request(`/v1/market/listings/${LISTING_ID}/versions`);
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as VersionsResponse;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.versions).toHaveLength(1);
-      expect(body.versions[0].version).toBe('1.0.0');
-      expect(body.versions[0].risk_class).toBe('sandboxed');
+      const firstVersion = body.versions[0];
+      assertDefined(firstVersion, 'Expected one version');
+      expect(firstVersion.version).toBe('1.0.0');
+      expect(firstVersion.risk_class).toBe('sandboxed');
     });
 
     it('returns 404 for non-existent listing', async () => {
@@ -305,11 +431,13 @@ describe('Market Routes', () => {
       const res = await app.request(`/v1/market/listings/${LISTING_ID}/reviews`);
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as ReviewsResponse;
       expect(body.listing_id).toBe(LISTING_ID);
       expect(body.reviews).toHaveLength(1);
-      expect(body.reviews[0].rating).toBe(5);
-      expect(body.reviews[0].title).toBe('Great package');
+      const firstReview = body.reviews[0];
+      assertDefined(firstReview, 'Expected one review');
+      expect(firstReview.rating).toBe(5);
+      expect(firstReview.title).toBe('Great package');
     });
 
     it('returns 404 for non-existent listing', async () => {
@@ -317,7 +445,7 @@ describe('Market Routes', () => {
       const app = createApp(mockDb);
 
       const res = await app.request(
-        `/v1/market/listings/00000000-0000-0000-0000-000000000000/reviews`,
+        '/v1/market/listings/00000000-0000-0000-0000-000000000000/reviews',
       );
       expect(res.status).toBe(404);
     });
@@ -338,12 +466,14 @@ describe('Creators Route', () => {
       const res = await app.request('/v1/market/creators/testcreator');
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as CreatorResponse;
       expect(body.handle).toBe('testcreator');
       expect(body.display_name).toBe('Test Creator');
       expect(body.verification_state).toBe('verified');
       expect(body.listings).toHaveLength(1);
-      expect(body.listings[0].title).toBe('Test Listing');
+      const firstListing = body.listings[0];
+      assertDefined(firstListing, 'Expected one listing');
+      expect(firstListing.title).toBe('Test Listing');
     });
 
     it('returns 404 for non-existent creator', async () => {

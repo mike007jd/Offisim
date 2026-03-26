@@ -104,6 +104,8 @@ export { validateSkill } from './openclaw/index.js';
 export { skillToManifest } from './openclaw/index.js';
 export type {
   ParsedSkill,
+  SkillCapabilityDescriptor,
+  SkillCapabilityIndex,
   SkillRequirements,
   SkillMetadata,
   SkillValidationResult,

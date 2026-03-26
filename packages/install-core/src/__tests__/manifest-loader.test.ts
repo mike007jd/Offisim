@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { extractPackage } from '../manifest-loader.js';
 import { TEST_MANIFEST, computeSha256, createTestPkg } from './fixtures/create-test-pkg.js';
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe('manifest-loader / extractPackage', () => {
   // -----------------------------------------------------------------------
   // Valid ZIP
@@ -30,7 +37,10 @@ describe('manifest-loader / extractPackage', () => {
     expect(result.packageHash).toBe(expectedPkgHash);
 
     // Manifest hash matches hash of the manifest.json bytes inside the zip
-    const manifestBytes = result.files.get('manifest.json')!;
+    const manifestBytes = requireDefined(
+      result.files.get('manifest.json'),
+      'Expected manifest.json bytes in extracted files',
+    );
     const expectedManifestHash = await computeSha256(manifestBytes);
     expect(result.manifestHash).toBe(expectedManifestHash);
   });

@@ -60,7 +60,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     return;
   }
 
-  const manifest = draft.manifest_json as Record<string, any>;
+  const manifest = draft.manifest_json as DraftManifest;
 
   // Create or update listing
   let listingId = draft.listing_id;
@@ -79,7 +79,13 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         status: 'listed',
       })
       .returning();
-    listingId = newListingRows[0]!.listing_id;
+    const [newListing] = newListingRows;
+
+    if (!newListing) {
+      throw new Error('Failed to create listing');
+    }
+
+    listingId = newListing.listing_id;
   } else {
     // Update existing listing
     await db
@@ -93,20 +99,29 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   }
 
   // Create package version
-  const versionRows = await db.insert(packageVersions).values({
-    listing_id: listingId,
-    package_id: manifest.package.id,
-    version: manifest.package.version,
-    manifest_json: manifest,
-    runtime_range: manifest.compatibility.runtime_range,
-    schema_version: manifest.compatibility.schema_version,
-    environments: manifest.compatibility.supported_environments,
-    risk_class: manifest.permissions.risk_class,
-    artifact_url: draft.artifact_id ?? undefined,
-    changelog: manifest.package.summary,
-    status: 'active',
-  }).returning();
-  const versionId = versionRows[0]!.package_version_id;
+  const versionRows = await db
+    .insert(packageVersions)
+    .values({
+      listing_id: listingId,
+      package_id: manifest.package.id,
+      version: manifest.package.version,
+      manifest_json: manifest,
+      runtime_range: manifest.compatibility.runtime_range,
+      schema_version: manifest.compatibility.schema_version,
+      environments: manifest.compatibility.supported_environments,
+      risk_class: manifest.permissions.risk_class,
+      artifact_url: draft.artifact_id ?? undefined,
+      changelog: manifest.package.summary,
+      status: 'active',
+    })
+    .returning();
+  const [version] = versionRows;
+
+  if (!version) {
+    throw new Error('Failed to create package version');
+  }
+
+  const versionId = version.package_version_id;
 
   // Write lineage record if manifest contains lineage info
   const lineage = manifest.lineage as
@@ -147,7 +162,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   }
 
   // Update tags (batch insert)
-  const tags: string[] = manifest.package.tags;
+  const tags: string[] = manifest.package.tags ?? [];
   if (Array.isArray(tags) && tags.length > 0) {
     await db
       .insert(listingTags)
@@ -171,14 +186,32 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     .where(eq(moderationJobs.job_id, jobId));
 }
 
+type DraftManifest = {
+  package: {
+    id: string;
+    version: string;
+    summary: string;
+    tags?: string[];
+  };
+  compatibility: {
+    runtime_range: string;
+    schema_version: string;
+    supported_environments: string[];
+  };
+  permissions: {
+    risk_class: string;
+  };
+  lineage?: {
+    origin_listing_id?: string;
+    origin_package_id?: string;
+    forked_from_version?: string;
+  };
+};
+
 function generateSlug(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 80) +
-    '-' +
-    Date.now().toString(36)
-  );
+  return `${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80)}-${Date.now().toString(36)}`;
 }

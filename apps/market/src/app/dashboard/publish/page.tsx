@@ -1,8 +1,8 @@
 'use client';
 
+import { PublishWizard, useAuthContext } from '@aics/ui-market';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { PublishWizard, useAuthContext } from '@aics/ui-market';
 
 export default function PublishPage() {
   const { user, isLoading } = useAuthContext();
@@ -28,7 +28,9 @@ export default function PublishPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-2xl font-bold text-[var(--text-primary)]">New Listing</h1>
+      <h1 className="mb-6 font-display text-2xl font-bold text-[var(--text-primary)]">
+        New Listing
+      </h1>
       <PublishWizard onComplete={() => router.push('/dashboard')} />
     </div>
   );

@@ -12,6 +12,15 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+type ManifestWarningsShape = {
+  previews?: {
+    readme_path?: unknown;
+  };
+  package?: {
+    summary?: unknown;
+  };
+};
+
 /** Map top-level required field paths to legacy error messages */
 const TOP_LEVEL_LABELS: Record<string, string> = {
   spec_version: 'Missing spec_version',
@@ -48,7 +57,7 @@ export function validateManifest(json: unknown): ValidationResult {
   }
 
   // Warnings (advisory only — not schema errors)
-  const manifest = json as Record<string, any>;
+  const manifest = json as ManifestWarningsShape;
   if (!manifest.previews?.readme_path) warnings.push('No readme_path in previews');
   if (!manifest.package?.summary)
     warnings.push('No package.summary — recommended for marketplace display');

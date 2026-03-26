@@ -92,11 +92,7 @@ function formatValue(v: unknown): string {
 // Diff logic per section
 // ---------------------------------------------------------------------------
 
-function diffMetadata(
-  oldM: PackageManifest,
-  newM: PackageManifest,
-  entries: DiffEntry[],
-): void {
+function diffMetadata(oldM: PackageManifest, newM: PackageManifest, entries: DiffEntry[]): void {
   const oldPkg = oldM.package;
   const newPkg = newM.package;
 
@@ -323,9 +319,7 @@ function diffRequirements(
       category: 'requirements',
       severity: 'info',
       description: [
-        modelDiff.added.length > 0
-          ? `New recommended models: ${modelDiff.added.join(', ')}`
-          : '',
+        modelDiff.added.length > 0 ? `New recommended models: ${modelDiff.added.join(', ')}` : '',
         modelDiff.removed.length > 0
           ? `Removed recommended models: ${modelDiff.removed.join(', ')}`
           : '',
@@ -338,11 +332,7 @@ function diffRequirements(
   }
 }
 
-function diffPermissions(
-  oldM: PackageManifest,
-  newM: PackageManifest,
-  entries: DiffEntry[],
-): void {
+function diffPermissions(oldM: PackageManifest, newM: PackageManifest, entries: DiffEntry[]): void {
   const oldP = oldM.permissions;
   const newP = newM.permissions;
 
@@ -443,11 +433,7 @@ function diffPermissions(
   }
 }
 
-function diffAssets(
-  oldM: PackageManifest,
-  newM: PackageManifest,
-  entries: DiffEntry[],
-): void {
+function diffAssets(oldM: PackageManifest, newM: PackageManifest, entries: DiffEntry[]): void {
   const oldIds = new Set(oldM.assets.map((a) => a.asset_id));
   const newIds = new Set(newM.assets.map((a) => a.asset_id));
 
@@ -477,7 +463,8 @@ function diffAssets(
   // Check for kind changes in shared assets
   for (const newAsset of newM.assets) {
     if (!oldIds.has(newAsset.asset_id)) continue;
-    const oldAsset = oldM.assets.find((a) => a.asset_id === newAsset.asset_id)!;
+    const oldAsset = oldM.assets.find((a) => a.asset_id === newAsset.asset_id);
+    if (!oldAsset) continue;
     if (oldAsset.kind !== newAsset.kind) {
       entries.push({
         field: `assets.${newAsset.asset_id}.kind`,

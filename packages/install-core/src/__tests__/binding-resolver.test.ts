@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { resolveBindings } from '../binding-resolver.js';
 import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe('binding-resolver / resolveBindings', () => {
   // -----------------------------------------------------------------------
   // Manifest with recommended_models
@@ -14,7 +21,7 @@ describe('binding-resolver / resolveBindings', () => {
     expect(bindings).toHaveLength(2);
 
     // First binding: reasoning-heavy
-    const b0 = bindings[0]!;
+    const b0 = requireDefined(bindings[0], 'Expected first binding');
     expect(b0.assetId).toBe('test-writer-default');
     expect(b0.assetKind).toBe('employee');
     expect(b0.bindingType).toBe('model_profile');
@@ -24,7 +31,7 @@ describe('binding-resolver / resolveBindings', () => {
     expect(b0.providerHints).toEqual(['openai', 'anthropic']);
 
     // Second binding: cheap-draft
-    const b1 = bindings[1]!;
+    const b1 = requireDefined(bindings[1], 'Expected second binding');
     expect(b1.bindingKey).toBe('test-writer-default:cheap-draft');
     expect(b1.hint).toBe('for bulk work');
     expect(b1.providerHints).toBeUndefined(); // cheap-draft has no provider_hints in TEST_MANIFEST

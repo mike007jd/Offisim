@@ -32,7 +32,9 @@ test.describe('Smoke: Homepage', () => {
   });
 
   test('category grid renders browsable categories', async ({ page }) => {
-    const categoryLinks = page.getByRole('link').filter({ hasText: /employee|skill|sop|template|layout|bundle/i });
+    const categoryLinks = page
+      .getByRole('link')
+      .filter({ hasText: /employee|skill|sop|template|layout|bundle/i });
     const count = await categoryLinks.count();
     expect(count).toBeGreaterThan(0);
   });
@@ -48,7 +50,8 @@ test.describe('Smoke: Homepage', () => {
 
     const content = await jsonLd.first().textContent();
     expect(content).toBeTruthy();
-    const parsed = JSON.parse(content!);
+    if (!content) throw new Error('Expected JSON-LD script content');
+    const parsed = JSON.parse(content);
     expect(parsed['@context']).toBe('https://schema.org');
   });
 });

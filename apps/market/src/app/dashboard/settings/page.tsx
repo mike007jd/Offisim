@@ -1,7 +1,7 @@
 'use client';
 
+import { PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
 import { useCallback, useEffect, useState } from 'react';
-import { useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
 
 interface ApiToken {
   token_id: string;
@@ -110,7 +110,9 @@ export default function SettingsPage() {
     <div className="space-y-10">
       <div>
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">Manage your API tokens for CLI and programmatic access.</p>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          Manage your API tokens for CLI and programmatic access.
+        </p>
       </div>
 
       {/* Create new token */}
@@ -118,7 +120,10 @@ export default function SettingsPage() {
         <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">Create API Token</h2>
         <form onSubmit={handleCreate} className="flex flex-col gap-3 max-w-md">
           <div>
-            <label htmlFor="token-name" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+            <label
+              htmlFor="token-name"
+              className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+            >
               Token name
             </label>
             <input
@@ -133,7 +138,10 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label htmlFor="token-expires" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+            <label
+              htmlFor="token-expires"
+              className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+            >
               Expires in (days, optional)
             </label>
             <input

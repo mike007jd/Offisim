@@ -1,4 +1,4 @@
-import { creators, users, apiTokens } from '@aics/db-platform';
+import { apiTokens, creators, users } from '@aics/db-platform';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -19,7 +19,11 @@ authRoute.post('/register-creator', requireAuth, async (c) => {
   const bio = body.bio?.trim() ?? null;
 
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
 
   // Check for handle uniqueness
   const [existingHandle] = await db
@@ -94,14 +98,14 @@ authRoute.post('/tokens', requireAuth, async (c) => {
   }
 
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
 
   // Look up ba_user_id for the current user
-  const [aicsUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.user_id, userId))
-    .limit(1);
+  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
   if (!aicsUser?.ba_user_id) {
     throw new HTTPException(400, { message: 'User is not linked to an auth account' });
@@ -146,13 +150,13 @@ authRoute.post('/tokens', requireAuth, async (c) => {
 // GET /v1/auth/tokens — List API tokens for current user (no raw tokens)
 authRoute.get('/tokens', requireAuth, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
 
-  const [aicsUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.user_id, userId))
-    .limit(1);
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+
+  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
   if (!aicsUser?.ba_user_id) {
     return c.json({ tokens: [] });
@@ -185,13 +189,13 @@ authRoute.get('/tokens', requireAuth, async (c) => {
 authRoute.delete('/tokens/:tokenId', requireAuth, async (c) => {
   const tokenId = c.req.param('tokenId');
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
 
-  const [aicsUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.user_id, userId))
-    .limit(1);
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+
+  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
   if (!aicsUser?.ba_user_id) {
     throw new HTTPException(404, { message: 'Token not found' });

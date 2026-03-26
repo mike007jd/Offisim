@@ -1,10 +1,10 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { CreatorNav, LoginDialog, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
 import { RegistryClient } from '@aics/registry-client';
 import type { MyCreatorProfile } from '@aics/registry-client';
+import { CreatorNav, LoginDialog, PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout, registerCreator } = useAuthContext();
@@ -43,9 +43,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setRegisterError(null);
     setRegistering(true);
     try {
-      await registerCreator(handle.trim(), user?.displayName ?? handle.trim(), bio.trim() || undefined);
+      await registerCreator(
+        handle.trim(),
+        user?.displayName ?? handle.trim(),
+        bio.trim() || undefined,
+      );
       // Re-fetch profile after registration
-      const data = await new RegistryClient({ baseUrl: PLATFORM_API_URL, credentials: 'include' }).getMyCreatorProfile();
+      const data = await new RegistryClient({
+        baseUrl: PLATFORM_API_URL,
+        credentials: 'include',
+      }).getMyCreatorProfile();
       setCreatorProfile(data.creator);
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : 'Registration failed');
@@ -93,7 +100,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </p>
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="creator-handle" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+            <label
+              htmlFor="creator-handle"
+              className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+            >
               Handle
             </label>
             <input
@@ -108,7 +118,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
           </div>
           <div>
-            <label htmlFor="creator-bio" className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+            <label
+              htmlFor="creator-bio"
+              className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+            >
               Bio (optional)
             </label>
             <textarea

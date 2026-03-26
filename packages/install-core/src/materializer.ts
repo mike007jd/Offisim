@@ -21,6 +21,17 @@ import type {
   NewEmployee,
 } from './types.js';
 
+interface InstalledSkillRuntimeConfig {
+  readonly skillName: string;
+  readonly summary: string;
+  readonly instructionMode?: string;
+  readonly instructionExcerpt?: string;
+  readonly instructions?: string;
+  readonly capabilityIndex?: unknown;
+  readonly allowedTools?: readonly string[];
+  readonly userInvocable?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Result type
 // ---------------------------------------------------------------------------
@@ -43,6 +54,46 @@ function generateId(): string {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function buildInstalledEmployeePersona(plan: InstallPlan): string | undefined {
+  const summary = plan.manifest.package.summary?.trim();
+  if (!summary) return undefined;
+  return JSON.stringify({
+    expertise: summary,
+  });
+}
+
+function buildInstalledEmployeeConfig(plan: InstallPlan): string | undefined {
+  const custom = plan.manifest.custom as Record<string, unknown> | undefined;
+  if (!custom?.openclaw_skill_index) return undefined;
+
+  const runtimeSkill: InstalledSkillRuntimeConfig = {
+    skillName: plan.manifest.package.title,
+    summary: plan.manifest.package.summary ?? '',
+    instructionMode:
+      typeof custom.openclaw_instruction_mode === 'string'
+        ? custom.openclaw_instruction_mode
+        : undefined,
+    instructionExcerpt:
+      typeof custom.openclaw_instruction_excerpt === 'string'
+        ? custom.openclaw_instruction_excerpt
+        : undefined,
+    instructions:
+      typeof custom.openclaw_instructions === 'string' ? custom.openclaw_instructions : undefined,
+    capabilityIndex: custom.openclaw_skill_index,
+    allowedTools: Array.isArray(custom.openclaw_allowed_tools)
+      ? (custom.openclaw_allowed_tools as readonly string[])
+      : undefined,
+    userInvocable:
+      typeof custom.openclaw_user_invocable === 'boolean'
+        ? custom.openclaw_user_invocable
+        : undefined,
+  };
+
+  return JSON.stringify({
+    runtimeSkill,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +183,8 @@ export async function materialize(
             role_slug: asset.asset_id,
             source_asset_id: asset.asset_id,
             source_package_id: manifest.package.id,
+            persona_json: buildInstalledEmployeePersona(plan),
+            config_json: buildInstalledEmployeeConfig(plan),
           };
           // The Drizzle repo wraps a sync .run() in Promise.resolve().
           // We capture the result via a synchronously-settled promise chain.
@@ -224,6 +277,8 @@ export async function materialize(
         role_slug: asset.asset_id,
         source_asset_id: asset.asset_id,
         source_package_id: manifest.package.id,
+        persona_json: buildInstalledEmployeePersona(plan),
+        config_json: buildInstalledEmployeeConfig(plan),
       };
       const { employee_id } = await repos.employees.create(empData);
       employeeIds.push(employee_id);

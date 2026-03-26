@@ -6,21 +6,27 @@ test.describe('Smoke: Dashboard', () => {
     await navigateTo(page, '/dashboard');
 
     // Dashboard layout shows "Sign in to access your creator dashboard." when unauthenticated
-    await expect(page.getByText('Sign in to access your creator dashboard.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sign in to access your creator dashboard.')).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test('dashboard renders authenticated state after login', async ({ page }) => {
     await navigateAuthenticated(page, '/dashboard');
 
     // Login prompt should be gone after auth injection
-    await expect(page.getByText('Sign in to access your creator dashboard.')).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sign in to access your creator dashboard.')).not.toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test('dashboard history page is accessible when authenticated', async ({ page }) => {
     await navigateAuthenticated(page, '/dashboard/history');
 
     // The history page should render (even if empty) without the login prompt
-    await expect(page.getByText('Sign in to access your creator dashboard.')).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sign in to access your creator dashboard.')).not.toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test('dashboard renders without JavaScript errors', async ({ page }) => {

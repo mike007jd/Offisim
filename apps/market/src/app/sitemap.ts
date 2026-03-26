@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { SITE_URL } from '../lib/url';
 import { getRegistryClient } from '../lib/registry';
+import { SITE_URL } from '../lib/url';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [

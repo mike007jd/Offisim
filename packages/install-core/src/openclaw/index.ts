@@ -1,5 +1,7 @@
 export type {
   ParsedSkill,
+  SkillCapabilityDescriptor,
+  SkillCapabilityIndex,
   SkillRequirements,
   SkillMetadata,
   SkillValidationResult,

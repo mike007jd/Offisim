@@ -14,12 +14,12 @@ import {
   ReviewList,
   VersionTable,
 } from '@aics/ui-market';
+import { formatInstallCount, kindLabel } from '@aics/ui-market';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { formatInstallCount, kindLabel } from '@aics/ui-market';
+import { listingJsonLd, stringifyJsonLd } from '../../../lib/jsonld';
 import { getRegistryClient } from '../../../lib/registry';
-import { listingJsonLd } from '../../../lib/jsonld';
 import { SITE_URL } from '../../../lib/url';
 
 interface Props {
@@ -67,17 +67,12 @@ export default async function ListingPage({ params }: Props) {
     client
       .listListingReviews(listing.listing_id)
       .catch(() => ({ listing_id: listing.listing_id, reviews: [] })),
-    client
-      .getListingForks(listing.listing_id)
-      .catch(() => ({ forks: [] })),
+    client.getListingForks(listing.listing_id).catch(() => ({ forks: [] })),
   ]);
 
   return (
     <div className="mx-auto max-w-content px-6 py-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing)) }}
-      />
+      <script type="application/ld+json">{stringifyJsonLd(listingJsonLd(listing))}</script>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
@@ -166,7 +161,9 @@ export default async function ListingPage({ params }: Props) {
                 {listing.requirements.required_capabilities &&
                   listing.requirements.required_capabilities.length > 0 && (
                     <div>
-                      <span className="font-medium text-[var(--text-secondary)]">Capabilities: </span>
+                      <span className="font-medium text-[var(--text-secondary)]">
+                        Capabilities:{' '}
+                      </span>
                       <span className="text-[var(--text-muted)]">
                         {listing.requirements.required_capabilities.join(', ')}
                       </span>
@@ -175,7 +172,9 @@ export default async function ListingPage({ params }: Props) {
                 {listing.requirements.required_mcps &&
                   listing.requirements.required_mcps.length > 0 && (
                     <div>
-                      <span className="font-medium text-[var(--text-secondary)]">Required MCPs: </span>
+                      <span className="font-medium text-[var(--text-secondary)]">
+                        Required MCPs:{' '}
+                      </span>
                       <span className="text-[var(--text-muted)]">
                         {listing.requirements.required_mcps.join(', ')}
                       </span>

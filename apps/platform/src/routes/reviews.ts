@@ -11,7 +11,11 @@ const reviewsRoute = new Hono<PlatformEnv>();
 // POST /v1/reviews — create or update a review
 reviewsRoute.post('/', requireAuth, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId')!;
+  const userId = c.get('userId');
+
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
   const body = ReviewCreateSchema.parse(await c.req.json());
 
   // Verify listing exists

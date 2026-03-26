@@ -1,12 +1,12 @@
 'use client';
 
-import { useReducer } from 'react';
 import { RegistryClient } from '@aics/registry-client';
+import { useReducer } from 'react';
+import { PLATFORM_API_URL } from '../lib/config.js';
 import { useAuthContext } from './AuthProvider.js';
 import { ManifestEditor } from './ManifestEditor.js';
-import { ValidationPanel, validateManifestClient } from './ValidationPanel.js';
 import { PublishPreview, type PublishPreviewDraft } from './PublishPreview.js';
-import { PLATFORM_API_URL } from '../lib/config.js';
+import { ValidationPanel, validateManifestClient } from './ValidationPanel.js';
 
 const ASSET_KINDS = [
   { value: 'employee', label: 'Employee' },
@@ -165,7 +165,9 @@ function StepIndicator({ steps, currentStep }: { steps: typeof STEPS; currentSte
               {idx < steps.length - 1 && (
                 <div
                   className={`mx-2 mb-4 h-0.5 w-10 flex-shrink-0 sm:w-16 ${
-                    step.number < currentStep ? 'bg-[var(--accent-indigo)]' : 'bg-[var(--bg-elevated)]'
+                    step.number < currentStep
+                      ? 'bg-[var(--accent-indigo)]'
+                      : 'bg-[var(--bg-elevated)]'
                   }`}
                 />
               )}
@@ -179,7 +181,10 @@ function StepIndicator({ steps, currentStep }: { steps: typeof STEPS; currentSte
 
 function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+    <label
+      htmlFor={htmlFor}
+      className="mb-1 block text-sm font-medium text-[var(--text-secondary)]"
+    >
       {children}
     </label>
   );
@@ -378,9 +383,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
               id="wiz-tags"
               type="text"
               value={formData.tags}
-              onChange={(e) =>
-                dispatch({ type: 'SET_FORM', field: 'tags', value: e.target.value })
-              }
+              onChange={(e) => dispatch({ type: 'SET_FORM', field: 'tags', value: e.target.value })}
               placeholder="productivity, automation, hr"
               className={inputCls}
             />
@@ -428,7 +431,8 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
               description: formData.description,
               tags,
               version:
-                typeof (manifest as { package?: { version?: string } }).package?.version === 'string'
+                typeof (manifest as { package?: { version?: string } }).package?.version ===
+                'string'
                   ? (manifest as { package?: { version?: string } }).package?.version
                   : undefined,
               permissions:
@@ -472,7 +476,9 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
                   )}
                   {state.draftId && (
                     <div className="flex gap-2">
-                      <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">Draft ID</dt>
+                      <dt className="min-w-[80px] font-medium text-[var(--text-muted)]">
+                        Draft ID
+                      </dt>
                       <dd className="font-mono text-xs">{state.draftId}</dd>
                     </div>
                   )}

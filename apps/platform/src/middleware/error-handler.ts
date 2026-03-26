@@ -1,4 +1,5 @@
 import type { ErrorHandler } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { ZodError } from 'zod';
 import type { PlatformEnv } from '../types.js';
 
@@ -22,7 +23,9 @@ export const errorHandler: ErrorHandler<PlatformEnv> = (err, c) => {
 
   console.error(`[${c.get('requestId')}] Unhandled error:`, err);
 
-  const status = 'status' in err && typeof err.status === 'number' ? err.status : 500;
+  const status = (
+    'status' in err && typeof err.status === 'number' ? err.status : 500
+  ) as ContentfulStatusCode;
   return c.json(
     {
       error: {
@@ -30,6 +33,6 @@ export const errorHandler: ErrorHandler<PlatformEnv> = (err, c) => {
         message: status === 500 ? 'Internal server error' : err.message,
       },
     },
-    status as any,
+    status,
   );
 };

@@ -3,6 +3,13 @@ import { checkIntegrity } from '../integrity-checker.js';
 import { extractPackage } from '../manifest-loader.js';
 import { computeSha256, createTestPkg } from './fixtures/create-test-pkg.js';
 
+function requireDefined<T>(value: T | null | undefined, message: string): T {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe('integrity-checker / checkIntegrity', () => {
   // -----------------------------------------------------------------------
   // Helper: extract a test package and patch its manifest integrity to match
@@ -14,7 +21,10 @@ describe('integrity-checker / checkIntegrity', () => {
     const extracted = await extractPackage(archive);
 
     // Compute real hash for the asset file
-    const assetBytes = extracted.files.get('assets/employee.test-writer.json')!;
+    const assetBytes = requireDefined(
+      extracted.files.get('assets/employee.test-writer.json'),
+      'Expected asset bytes in extracted files',
+    );
     const assetHash = await computeSha256(assetBytes);
 
     // Rebuild archive with correct file hashes in manifest

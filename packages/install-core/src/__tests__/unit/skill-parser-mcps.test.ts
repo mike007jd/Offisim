@@ -12,9 +12,9 @@ Instructions here
 `;
     const result = parseSkill(content);
     expect(result.requirements.mcps).toHaveLength(1);
-    expect(result.requirements.mcps![0]!.name).toBe('github');
-    expect(result.requirements.mcps![0]!.transport).toBe('stdio');
-    expect(result.requirements.mcps![0]!.registryUrl).toBe('https://example.com');
+    expect(result.requirements.mcps?.[0]?.name).toBe('github');
+    expect(result.requirements.mcps?.[0]?.transport).toBe('stdio');
+    expect(result.requirements.mcps?.[0]?.registryUrl).toBe('https://example.com');
   });
 
   it('returns undefined mcps when not specified', () => {

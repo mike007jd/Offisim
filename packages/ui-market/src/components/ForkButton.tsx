@@ -37,6 +37,8 @@ export function ForkButton({ listingId, version, forkCount }: ForkButtonProps) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
       >
         <circle cx="12" cy="18" r="3" />
         <circle cx="6" cy="6" r="3" />

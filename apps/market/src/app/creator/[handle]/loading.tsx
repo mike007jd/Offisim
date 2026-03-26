@@ -1,5 +1,6 @@
 /** Creator profile loading skeleton — matches profile header + listings grid. */
 export default function CreatorLoading() {
+  const skeletonCards = ['skeleton-1', 'skeleton-2', 'skeleton-3'];
   return (
     <div className="mx-auto max-w-content px-6 py-8">
       <div className="animate-pulse">
@@ -17,8 +18,8 @@ export default function CreatorLoading() {
         <div className="space-y-4">
           <div className="h-5 w-36 rounded bg-[var(--bg-tertiary)]" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-40 rounded-lg bg-[var(--bg-tertiary)]" />
+            {skeletonCards.map((card) => (
+              <div key={card} className="h-40 rounded-lg bg-[var(--bg-tertiary)]" />
             ))}
           </div>
         </div>

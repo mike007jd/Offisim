@@ -55,7 +55,10 @@ function ensureCleanup() {
 function getClientKey(c: { req: { header: (name: string) => string | undefined } }): string {
   const forwarded = c.req.header('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0]!.trim();
+    const [firstForwarded] = forwarded.split(',');
+    if (firstForwarded) {
+      return firstForwarded.trim();
+    }
   }
   const realIp = c.req.header('x-real-ip');
   if (realIp) {
@@ -68,7 +71,13 @@ function getClientKey(c: { req: { header: (name: string) => string | undefined }
 /**
  * Consume one token from the bucket. Returns remaining tokens or -1 if exhausted.
  */
-function consumeToken(key: string, config: RateLimitConfig): { remaining: number; retryAfter: number } {
+function consumeToken(
+  key: string,
+  config: RateLimitConfig,
+): {
+  remaining: number;
+  retryAfter: number;
+} {
   const now = Date.now();
   let bucket = store.get(key);
 

@@ -2,8 +2,8 @@
 
 import { Download, MonitorDown, Package } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
-import { InstallModal } from './InstallModal.js';
 import { downloadArtifact } from '../lib/download-artifact.js';
+import { InstallModal } from './InstallModal.js';
 
 type InstallState = 'idle' | 'opening' | 'downloading' | 'error';
 

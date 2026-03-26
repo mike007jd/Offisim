@@ -1,15 +1,15 @@
 'use client';
 
 import type { PublishDraft } from '@aics/registry-client';
-import { KindIcon } from './KindIcon.js';
 import { formatDate } from '../lib/format.js';
+import { KindIcon } from './KindIcon.js';
 
-const STATUS_BADGE: Record<
-  PublishDraft['status'],
-  { label: string; className: string }
-> = {
+const STATUS_BADGE: Record<PublishDraft['status'], { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]' },
-  validated: { label: 'Validated', className: 'bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)]' },
+  validated: {
+    label: 'Validated',
+    className: 'bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)]',
+  },
   submitted: { label: 'Submitted', className: 'bg-[rgba(234,179,8,0.15)] text-[var(--warning)]' },
   approved: { label: 'Approved', className: 'bg-[rgba(34,197,94,0.15)] text-[var(--success)]' },
   rejected: { label: 'Rejected', className: 'bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)]' },

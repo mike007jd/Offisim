@@ -5,8 +5,8 @@ import { ListingCard } from '@aics/ui-market';
 import { Globe, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { creatorJsonLd, stringifyJsonLd } from '../../../lib/jsonld';
 import { getRegistryClient } from '../../../lib/registry';
-import { creatorJsonLd } from '../../../lib/jsonld';
 import { SITE_URL } from '../../../lib/url';
 
 interface Props {
@@ -50,10 +50,7 @@ export default async function CreatorPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-content px-6 py-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(creatorJsonLd(creator)) }}
-      />
+      <script type="application/ld+json">{stringifyJsonLd(creatorJsonLd(creator))}</script>
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--text-primary)]">

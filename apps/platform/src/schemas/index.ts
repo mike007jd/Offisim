@@ -71,8 +71,14 @@ export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const InstallReceiptSchema = z.object({
-  listing_id: z.string().min(1, 'listing_id is required').regex(UUID_REGEX, 'listing_id must be a valid UUID'),
-  package_version_id: z.string().min(1, 'package_version_id is required').regex(UUID_REGEX, 'package_version_id must be a valid UUID'),
+  listing_id: z
+    .string()
+    .min(1, 'listing_id is required')
+    .regex(UUID_REGEX, 'listing_id must be a valid UUID'),
+  package_version_id: z
+    .string()
+    .min(1, 'package_version_id is required')
+    .regex(UUID_REGEX, 'package_version_id must be a valid UUID'),
   install_source: z.enum(['registry', 'url', 'file'], {
     errorMap: () => ({ message: 'install_source must be registry, url, or file' }),
   }),
@@ -91,7 +97,9 @@ export const VALID_REPORT_REASONS = [
 
 export const ReportCreateSchema = z.object({
   reason: z.enum(VALID_REPORT_REASONS, {
-    errorMap: () => ({ message: 'reason must be one of: spam, malicious_code, copyright, misleading, other' }),
+    errorMap: () => ({
+      message: 'reason must be one of: spam, malicious_code, copyright, misleading, other',
+    }),
   }),
   details: z.string().max(1000).optional(),
 });

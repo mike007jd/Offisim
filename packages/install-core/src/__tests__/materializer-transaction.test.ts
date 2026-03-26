@@ -223,7 +223,11 @@ describe('materializer / transact rollback', () => {
     // Use a fresh set of repos that share the same store
     const { repos } = createTransactableRepos();
     // Override store reference to the shared one
-    (repos.installedPackages as { create: (p: InstalledPackageRow) => Promise<InstalledPackageRow> }).create = async (pkg) => {
+    (
+      repos.installedPackages as {
+        create: (p: InstalledPackageRow) => Promise<InstalledPackageRow>;
+      }
+    ).create = async (pkg) => {
       store.packages.push(pkg);
       return pkg;
     };
@@ -292,7 +296,7 @@ describe('materializer / transact rollback', () => {
 
     // Pre-existing package must survive (rollback only undoes the failed install)
     expect(store.packages).toHaveLength(1);
-    expect(store.packages[0]!.installed_package_id).toBe('existing-pkg-id');
+    expect(store.packages[0]?.installed_package_id).toBe('existing-pkg-id');
 
     // No assets or employees from the failed install
     expect(store.assets).toHaveLength(0);

@@ -294,27 +294,36 @@ describe('OpenClaw Skill Import — Integration', () => {
       expect(result.error).toBeUndefined();
       expect(result.plan).toBeDefined();
 
-      const pkg = result.plan!.manifest.package;
+      const plan = result.plan;
+      if (!plan) throw new Error('Expected plan to be defined');
+
+      const pkg = plan.manifest.package;
+      expect(pkg).toBeDefined();
+      if (!pkg) throw new Error('Expected manifest package');
       expect(pkg.title).toBe('Senior Code Reviewer');
       expect(pkg.kind).toBe('employee');
       expect(pkg.id).toContain('openclaw-skill');
 
       // Instructions stored in custom
-      const custom = result.plan!.manifest.custom;
-      expect(custom?.openclaw_instructions).toContain('senior code reviewer');
-      expect(custom?.openclaw_instructions).toContain('Core Responsibilities');
-      expect(custom?.openclaw_instructions).toContain('Review Guidelines');
-      expect(custom?.openclaw_instructions).toContain('Communication Style');
-      expect(custom?.openclaw_source).toBe('local_import');
+      const custom = plan.manifest.custom;
+      expect(custom).toBeDefined();
+      if (!custom) throw new Error('Expected manifest custom data to be defined');
+      expect(custom.openclaw_instructions).toContain('senior code reviewer');
+      expect(custom.openclaw_instructions).toContain('Core Responsibilities');
+      expect(custom.openclaw_instructions).toContain('Review Guidelines');
+      expect(custom.openclaw_instructions).toContain('Communication Style');
+      expect(custom.openclaw_source).toBe('local_import');
     });
 
     it('has skill validation warnings for bins and env', async () => {
       const result = await svc.importSkill(REALISTIC_SKILL_MD);
 
       expect(result.skillValidation).toBeDefined();
-      expect(result.skillValidation!.valid).toBe(true);
+      expect(result.skillValidation?.valid).toBe(true);
 
-      const warnings = result.skillValidation!.warnings;
+      const warnings = result.skillValidation?.warnings;
+      expect(warnings).toBeDefined();
+      if (!warnings) throw new Error('Expected validation warnings');
       // bins: git, node → 2 warnings; env: GITHUB_TOKEN, OPENAI_API_KEY → 2 warnings = 4 total
       expect(warnings.length).toBeGreaterThanOrEqual(4);
 
@@ -341,14 +350,16 @@ describe('OpenClaw Skill Import — Integration', () => {
 
       // Verify employee details
       expect(store.employees).toHaveLength(1);
-      const emp = store.employees[0]!;
+      const emp = store.employees[0];
+      if (!emp) throw new Error('Expected one employee row');
       expect(emp.company_id).toBe(COMPANY_ID);
       expect(emp.name).toBe('Senior Code Reviewer');
       expect(emp.source_package_id).toContain('openclaw-skill');
 
       // Verify installed_packages row
       expect(store.packages).toHaveLength(1);
-      const pkg = store.packages[0]!;
+      const pkg = store.packages[0];
+      if (!pkg) throw new Error('Expected one installed package row');
       expect(pkg.company_id).toBe(COMPANY_ID);
       expect(pkg.package_kind).toBe('employee');
       expect(pkg.package_id).toContain('openclaw-skill');
@@ -357,12 +368,14 @@ describe('OpenClaw Skill Import — Integration', () => {
 
       // Verify installed_assets row
       expect(store.assets).toHaveLength(1);
-      const asset = store.assets[0]!;
+      const asset = store.assets[0];
+      if (!asset) throw new Error('Expected one installed asset row');
       expect(asset.asset_kind).toBe('employee');
       expect(asset.installed_package_id).toBe(materializeResult.installedPackageId);
 
       // Verify transaction finished with state 'installed'
-      const txn = store.transactions[0]!;
+      const txn = store.transactions[0];
+      if (!txn) throw new Error('Expected one transaction row');
       expect(txn.state).toBe('installed');
       expect(txn.finished_at).not.toBeNull();
       expect(txn.source_ref).toBe('openclaw-skill');
@@ -416,7 +429,8 @@ describe('OpenClaw Skill Import — Integration', () => {
       expect(result.plan).toBeUndefined();
 
       // Transaction should exist and be failed
-      const txn = store.transactions[0]!;
+      const txn = store.transactions[0];
+      if (!txn) throw new Error('Expected one transaction row');
       expect(txn.state).toBe('failed');
       expect(txn.finished_at).not.toBeNull();
     });
@@ -438,7 +452,8 @@ describe('OpenClaw Skill Import — Integration', () => {
       expect(result.error).toBeDefined();
       expect(result.error).toContain('Compatibility');
 
-      const txn = store.transactions[0]!;
+      const txn = store.transactions[0];
+      if (!txn) throw new Error('Expected one transaction row');
       expect(txn.state).toBe('failed');
     });
 
@@ -458,7 +473,7 @@ describe('OpenClaw Skill Import — Integration', () => {
 
       // Skill validation runs before compatibility check, so it should still be present
       expect(result.skillValidation).toBeDefined();
-      expect(result.skillValidation!.valid).toBe(true);
+      expect(result.skillValidation?.valid).toBe(true);
     });
   });
 
@@ -475,7 +490,8 @@ describe('OpenClaw Skill Import — Integration', () => {
       await svc.cancel(importResult.installTxnId);
 
       // Transaction should be in a terminal state
-      const txn = store.transactions[0]!;
+      const txn = store.transactions[0];
+      if (!txn) throw new Error('Expected one transaction row');
       expect(txn.finished_at).not.toBeNull();
 
       // confirmBindings should fail on a terminal transaction
@@ -515,15 +531,15 @@ describe('OpenClaw Skill Import — Integration', () => {
 
       // Both packages should exist
       expect(store.packages).toHaveLength(2);
-      expect(store.packages[0]!.package_id).not.toBe(store.packages[1]!.package_id);
+      expect(store.packages[0]?.package_id).not.toBe(store.packages[1]?.package_id);
 
       // Both assets should exist
       expect(store.assets).toHaveLength(2);
 
       // Both transactions should be installed
       expect(store.transactions).toHaveLength(2);
-      expect(store.transactions[0]!.state).toBe('installed');
-      expect(store.transactions[1]!.state).toBe('installed');
+      expect(store.transactions[0]?.state).toBe('installed');
+      expect(store.transactions[1]?.state).toBe('installed');
     });
 
     it('sequential imports have distinct transaction IDs', async () => {
@@ -547,23 +563,23 @@ describe('OpenClaw Skill Import — Integration', () => {
 
       expect(result.error).toBeUndefined();
       expect(result.skillValidation).toBeDefined();
-      expect(result.skillValidation!.valid).toBe(true);
-      expect(result.skillValidation!.warnings).toHaveLength(0);
+      expect(result.skillValidation?.valid).toBe(true);
+      expect(result.skillValidation?.warnings).toHaveLength(0);
     });
 
     it('minimal skill still produces correct plan and materializes', async () => {
       const importResult = await svc.importSkill(MINIMAL_SKILL_MD);
       expect(importResult.plan).toBeDefined();
-      expect(importResult.plan!.manifest.package.title).toBe('simple-helper');
-      expect(importResult.plan!.needsConfirmation).toBe(false);
-      expect(importResult.plan!.bindings).toHaveLength(0);
+      expect(importResult.plan?.manifest.package.title).toBe('simple-helper');
+      expect(importResult.plan?.needsConfirmation).toBe(false);
+      expect(importResult.plan?.bindings).toHaveLength(0);
 
       const materializeResult = await svc.confirmBindings(importResult.installTxnId, []);
       expect(materializeResult.employeeIds).toHaveLength(1);
 
       expect(store.employees).toHaveLength(1);
-      expect(store.employees[0]!.name).toBe('simple-helper');
-      expect(store.packages[0]!.install_state).toBe('installed');
+      expect(store.employees[0]?.name).toBe('simple-helper');
+      expect(store.packages[0]?.install_state).toBe('installed');
     });
   });
 
@@ -575,23 +591,33 @@ describe('OpenClaw Skill Import — Integration', () => {
     it('metadata fields (emoji, homepage, license) are preserved in manifest', async () => {
       const result = await svc.importSkill(REALISTIC_SKILL_MD);
 
-      const custom = result.plan!.manifest.custom!;
+      const plan = result.plan;
+      expect(plan).toBeDefined();
+      if (!plan) throw new Error('Expected plan to be defined');
+      const custom = plan.manifest.custom;
+      expect(custom).toBeDefined();
+      if (!custom) throw new Error('Expected manifest custom data to be defined');
       expect(custom.openclaw_emoji).toBe('R');
       expect(custom.openclaw_homepage).toBe('https://github.com/example/senior-reviewer');
-      expect(result.plan!.manifest.package.license).toBe('Apache-2.0');
+      expect(plan.manifest.package.license).toBe('Apache-2.0');
     });
 
     it('synthetic package has zero hashes', async () => {
       const result = await svc.importSkill(REALISTIC_SKILL_MD);
 
-      expect(result.plan!.packageHash).toBe('0'.repeat(64));
-      expect(result.plan!.manifestHash).toBe('0'.repeat(64));
+      expect(result.plan?.packageHash).toBe('0'.repeat(64));
+      expect(result.plan?.manifestHash).toBe('0'.repeat(64));
     });
 
     it('permissions are data_asset with no filesystem/network scope', async () => {
       const result = await svc.importSkill(REALISTIC_SKILL_MD);
 
-      const perms = result.plan!.manifest.permissions;
+      const plan = result.plan;
+      if (!plan) throw new Error('Expected plan to be defined');
+
+      const perms = plan.manifest.permissions;
+      expect(perms).toBeDefined();
+      if (!perms) throw new Error('Expected manifest permissions');
       expect(perms.risk_class).toBe('data_asset');
       expect(perms.declares_secrets).toBe(false);
       expect(perms.filesystem_scope).toBe('none');
@@ -609,7 +635,7 @@ describe('OpenClaw Skill Import — Integration', () => {
       expect(store.transactions).toHaveLength(2);
       expect(store.employees).toHaveLength(2);
       // Both employees share the same name (from the same skill)
-      expect(store.employees[0]!.name).toBe(store.employees[1]!.name);
+      expect(store.employees[0]?.name).toBe(store.employees[1]?.name);
     });
   });
 });

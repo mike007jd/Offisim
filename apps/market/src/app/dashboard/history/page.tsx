@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { HistoryList, useAuthContext, PLATFORM_API_URL } from '@aics/ui-market';
 import { RegistryClient } from '@aics/registry-client';
 import type { LibraryItem } from '@aics/registry-client';
+import { HistoryList, PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
+import { useEffect, useState } from 'react';
 
 export default function HistoryPage() {
   const { user, isLoading: authLoading } = useAuthContext();
@@ -51,7 +51,9 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-xl font-bold text-[var(--text-primary)]">Install History</h1>
+      <h1 className="mb-6 font-display text-xl font-bold text-[var(--text-primary)]">
+        Install History
+      </h1>
       <HistoryList items={items} />
     </div>
   );

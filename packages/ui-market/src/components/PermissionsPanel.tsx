@@ -24,7 +24,9 @@ export function PermissionsPanel({ permissions }: { permissions: PermissionSumma
         </div>
         <div className="flex items-center gap-2">
           <Wifi size={14} className="text-[var(--text-muted)]" />
-          <span className="text-[var(--text-secondary)]">Network: {permissions.network_scope ?? 'none'}</span>
+          <span className="text-[var(--text-secondary)]">
+            Network: {permissions.network_scope ?? 'none'}
+          </span>
         </div>
         {permissions.declares_secrets && (
           <div className="flex items-center gap-2 text-[var(--warning)]">
