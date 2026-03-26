@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
 import type { PrefabInstanceRow } from '@aics/shared-types';
+import { describe, expect, it, vi } from 'vitest';
 import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';
 
 function makePrefabInstance(overrides?: Partial<PrefabInstanceRow>): PrefabInstanceRow {
   return {
-    instance_id: 'pi-' + Math.random().toString(36).slice(2, 8),
+    instance_id: `pi-${Math.random().toString(36).slice(2, 8)}`,
     company_id: 'co-1',
     prefab_id: 'workstation-standard',
     zone_id: 'zone-dev',
@@ -39,20 +39,32 @@ describe('MemoryPrefabInstanceRepository', () => {
 
   it('findByCompanyAndZone() filters correctly', async () => {
     const repo = createMemoryPrefabRepository();
-    await repo.create(makePrefabInstance({ instance_id: 'pi-1', company_id: 'co-1', zone_id: 'zone-dev' }));
-    await repo.create(makePrefabInstance({ instance_id: 'pi-2', company_id: 'co-1', zone_id: 'zone-art' }));
-    await repo.create(makePrefabInstance({ instance_id: 'pi-3', company_id: 'co-2', zone_id: 'zone-dev' }));
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-1', company_id: 'co-1', zone_id: 'zone-dev' }),
+    );
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-2', company_id: 'co-1', zone_id: 'zone-art' }),
+    );
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-3', company_id: 'co-2', zone_id: 'zone-dev' }),
+    );
 
     const results = await repo.findByCompanyAndZone('co-1', 'zone-dev');
     expect(results).toHaveLength(1);
-    expect(results[0]!.instance_id).toBe('pi-1');
+    expect(results[0]?.instance_id).toBe('pi-1');
   });
 
   it('findByCompany() returns all for a company', async () => {
     const repo = createMemoryPrefabRepository();
-    await repo.create(makePrefabInstance({ instance_id: 'pi-1', company_id: 'co-1', zone_id: 'zone-dev' }));
-    await repo.create(makePrefabInstance({ instance_id: 'pi-2', company_id: 'co-1', zone_id: 'zone-art' }));
-    await repo.create(makePrefabInstance({ instance_id: 'pi-3', company_id: 'co-2', zone_id: 'zone-dev' }));
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-1', company_id: 'co-1', zone_id: 'zone-dev' }),
+    );
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-2', company_id: 'co-1', zone_id: 'zone-art' }),
+    );
+    await repo.create(
+      makePrefabInstance({ instance_id: 'pi-3', company_id: 'co-2', zone_id: 'zone-dev' }),
+    );
 
     const results = await repo.findByCompany('co-1');
     expect(results).toHaveLength(2);
@@ -72,13 +84,13 @@ describe('MemoryPrefabInstanceRepository', () => {
 
     const updated = await repo.findById('pi-1');
     expect(updated).not.toBeNull();
-    expect(updated!.position_x).toBe(100);
-    expect(updated!.rotation).toBe(90);
-    expect(updated!.updated_at).toBe('2026-01-01T01:00:00.000Z');
-    expect(updated!.updated_at).not.toBe(original.updated_at);
+    expect(updated?.position_x).toBe(100);
+    expect(updated?.rotation).toBe(90);
+    expect(updated?.updated_at).toBe('2026-01-01T01:00:00.000Z');
+    expect(updated?.updated_at).not.toBe(original.updated_at);
     // Fields not in the update should remain unchanged
-    expect(updated!.position_y).toBe(original.position_y);
-    expect(updated!.prefab_id).toBe(original.prefab_id);
+    expect(updated?.position_y).toBe(original.position_y);
+    expect(updated?.prefab_id).toBe(original.prefab_id);
 
     vi.useRealTimers();
   });

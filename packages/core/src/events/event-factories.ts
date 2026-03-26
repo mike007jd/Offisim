@@ -31,26 +31,26 @@ import type {
   McpToolCalledPayload,
   McpToolResultPayload,
   MeetingActionCreatedPayload,
-  NotificationDismissedPayload,
-  NotificationPayload,
-  RackBoundPayload,
-  RackUnboundPayload,
-  SlotAssignedPayload,
-  SlotRemovedPayload,
   MeetingState,
   MeetingStatePayload,
   MemoryAccessedPayload,
   MemoryCreatedPayload,
+  NotificationDismissedPayload,
+  NotificationPayload,
   PlanCompletedPayload,
   PlanCreatedPayload,
   PlanStepCompletedPayload,
   PlanStepStartedPayload,
+  RackBoundPayload,
+  RackUnboundPayload,
   RuntimeEvent,
+  SlotAssignedPayload,
+  SlotRemovedPayload,
   TaskAssignmentDispatchedPayload,
   TaskAssignmentPayload,
-  TaskSubtaskProgressPayload,
   TaskState,
   TaskStatePayload,
+  TaskSubtaskProgressPayload,
 } from '@aics/shared-types';
 
 export function employeeStateChanged(
@@ -760,10 +760,7 @@ export function rackBound(
   };
 }
 
-export function rackUnbound(
-  companyId: string,
-  rackId: string,
-): RuntimeEvent<RackUnboundPayload> {
+export function rackUnbound(companyId: string, rackId: string): RuntimeEvent<RackUnboundPayload> {
   return {
     type: 'rack.unbound',
     entityId: rackId,

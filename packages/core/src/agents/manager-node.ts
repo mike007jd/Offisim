@@ -2,10 +2,10 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getConfigSignal } from '../utils/get-signal.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -52,9 +52,10 @@ function parseManagerDecision(content: string): ManagerDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
   if (!parsed) return null;
 
-  const intent = typeof parsed.intent === 'string' && VALID_INTENTS.has(parsed.intent)
-    ? (parsed.intent as ManagerDecision['intent'])
-    : 'work';
+  const intent =
+    typeof parsed.intent === 'string' && VALID_INTENTS.has(parsed.intent)
+      ? (parsed.intent as ManagerDecision['intent'])
+      : 'work';
 
   // For hire/assess_team, assignments can be empty
   if (!Array.isArray(parsed.assignments)) {
@@ -105,7 +106,9 @@ export async function managerNode(
   // System graph-node roles that should not receive task assignments.
   // All other employees (including account_manager, project_manager, etc.) are assignable.
   const GRAPH_ONLY_ROLES = new Set(['boss', 'hr']);
-  const nonManagerEmployees = employees.filter((e) => !GRAPH_ONLY_ROLES.has(e.role_slug) && e.enabled);
+  const nonManagerEmployees = employees.filter(
+    (e) => !GRAPH_ONLY_ROLES.has(e.role_slug) && e.enabled,
+  );
 
   const employeeList = nonManagerEmployees
     .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
@@ -125,7 +128,10 @@ export async function managerNode(
   const HIRE_KEYWORDS = /\b(hire|recruit|assess|staffing)\b|团队评估|招聘|招人/i;
   const looksLikeHiring = HIRE_KEYWORDS.test(userContent);
   if (nonManagerEmployees.length === 1 && !looksLikeHiring) {
-    const soleEmployee = nonManagerEmployees[0]!;
+    const soleEmployee = nonManagerEmployees[0];
+    if (!soleEmployee) {
+      throw new Error('Expected one assignable employee in manager fast path');
+    }
     await appendAgentEvent(runtimeCtx, {
       projectId: state.projectId,
       threadId: state.threadId,

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 /**
  * Tests for atomic DB operations in drizzle-repositories:
  *   - setActive(): two-UPDATE sequence wrapped in a transaction
@@ -6,8 +8,6 @@
 import * as schema from '@aics/db-local';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzleRepositories } from '../../runtime/drizzle-repositories.js';
 
@@ -66,7 +66,13 @@ describe('setActive — transaction atomicity', () => {
     const db = createTestDb();
     repos = createDrizzleRepositories(db);
     db.insert(schema.companies)
-      .values({ company_id: 'c-1', name: 'Test Corp', status: 'active', created_at: TS, updated_at: TS })
+      .values({
+        company_id: 'c-1',
+        name: 'Test Corp',
+        status: 'active',
+        created_at: TS,
+        updated_at: TS,
+      })
       .run();
   });
 
@@ -103,9 +109,7 @@ describe('setActive — transaction atomicity', () => {
       is_active: 1,
     });
 
-    await expect(repos.officeLayouts.setActive('c-1', 'nonexistent')).rejects.toThrow(
-      /not found/,
-    );
+    await expect(repos.officeLayouts.setActive('c-1', 'nonexistent')).rejects.toThrow(/not found/);
 
     // The previous layout must still be active (transaction rolled back)
     const l1 = await repos.officeLayouts.findById('l-1');

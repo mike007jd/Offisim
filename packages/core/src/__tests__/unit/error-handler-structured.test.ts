@@ -64,7 +64,7 @@ describe('errorHandlerNode — structured error parsing', () => {
     eventBus.on('', (e) => events.push(e));
 
     const gateway = new MockLlmGateway();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -100,7 +100,7 @@ describe('errorHandlerNode — structured error parsing', () => {
     expect(result.interruptReason).toBeNull();
 
     // Message should include the error code and recoverability hint
-    const msg = result.messages![0]!.content as string;
+    const msg = result.messages?.[0]?.content as string;
     expect(msg).toContain('LLM_CALL_FAILED');
     expect(msg).toContain('Rate limit exceeded');
     expect(msg).toContain('recoverable');
@@ -108,14 +108,14 @@ describe('errorHandlerNode — structured error parsing', () => {
     // Should emit error.occurred event
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
     expect(errorEvents).toHaveLength(1);
-    expect(errorEvents[0]!.payload.errorCode).toBe('LLM_CALL_FAILED');
-    expect(errorEvents[0]!.payload.message).toBe('Rate limit exceeded');
-    expect(errorEvents[0]!.payload.recoverable).toBe(true);
-    expect(errorEvents[0]!.payload.nodeName).toBe('employee');
-    expect(errorEvents[0]!.payload.employeeId).toBe('e-dev-1');
-    expect(errorEvents[0]!.payload.taskRunId).toBe('tr-test-1');
-    expect(errorEvents[0]!.payload.provider).toBe('anthropic');
-    expect(errorEvents[0]!.payload.model).toBe('claude-sonnet-4-20250514');
+    expect(errorEvents[0]?.payload.errorCode).toBe('LLM_CALL_FAILED');
+    expect(errorEvents[0]?.payload.message).toBe('Rate limit exceeded');
+    expect(errorEvents[0]?.payload.recoverable).toBe(true);
+    expect(errorEvents[0]?.payload.nodeName).toBe('employee');
+    expect(errorEvents[0]?.payload.employeeId).toBe('e-dev-1');
+    expect(errorEvents[0]?.payload.taskRunId).toBe('tr-test-1');
+    expect(errorEvents[0]?.payload.provider).toBe('anthropic');
+    expect(errorEvents[0]?.payload.model).toBe('claude-sonnet-4-20250514');
   });
 
   it('handles non-recoverable structured error', async () => {
@@ -129,11 +129,11 @@ describe('errorHandlerNode — structured error parsing', () => {
     const state = makeState({ interruptReason: structuredError });
     const result = await errorHandlerNode(state, config);
 
-    const msg = result.messages![0]!.content as string;
+    const msg = result.messages?.[0]?.content as string;
     expect(msg).toContain('not recoverable');
 
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
-    expect(errorEvents[0]!.payload.recoverable).toBe(false);
+    expect(errorEvents[0]?.payload.recoverable).toBe(false);
   });
 
   it('falls back to UNKNOWN_ERROR for plain string interruptReason', async () => {
@@ -143,16 +143,16 @@ describe('errorHandlerNode — structured error parsing', () => {
     expect(result.completed).toBe(true);
     expect(result.interruptReason).toBeNull();
 
-    const msg = result.messages![0]!.content as string;
+    const msg = result.messages?.[0]?.content as string;
     expect(msg).toContain('Something went wrong unexpectedly');
     expect(msg).toContain('recoverable');
 
     // Should emit error.occurred with UNKNOWN_ERROR
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
     expect(errorEvents).toHaveLength(1);
-    expect(errorEvents[0]!.payload.errorCode).toBe('UNKNOWN_ERROR');
-    expect(errorEvents[0]!.payload.recoverable).toBe(true);
-    expect(errorEvents[0]!.payload.nodeName).toBe('unknown');
+    expect(errorEvents[0]?.payload.errorCode).toBe('UNKNOWN_ERROR');
+    expect(errorEvents[0]?.payload.recoverable).toBe(true);
+    expect(errorEvents[0]?.payload.nodeName).toBe('unknown');
   });
 
   it('falls back to UNKNOWN_ERROR for invalid JSON interruptReason', async () => {
@@ -161,7 +161,7 @@ describe('errorHandlerNode — structured error parsing', () => {
 
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
     expect(errorEvents).toHaveLength(1);
-    expect(errorEvents[0]!.payload.errorCode).toBe('UNKNOWN_ERROR');
+    expect(errorEvents[0]?.payload.errorCode).toBe('UNKNOWN_ERROR');
   });
 
   it('falls back to UNKNOWN_ERROR for JSON without errorCode field', async () => {
@@ -170,7 +170,7 @@ describe('errorHandlerNode — structured error parsing', () => {
 
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
     expect(errorEvents).toHaveLength(1);
-    expect(errorEvents[0]!.payload.errorCode).toBe('UNKNOWN_ERROR');
+    expect(errorEvents[0]?.payload.errorCode).toBe('UNKNOWN_ERROR');
   });
 
   it('handles null interruptReason gracefully', async () => {
@@ -181,6 +181,6 @@ describe('errorHandlerNode — structured error parsing', () => {
     // Falls through to plain string path with 'An unknown error occurred'
     const errorEvents = events.filter((e) => e.type === 'error.occurred');
     expect(errorEvents).toHaveLength(1);
-    expect(errorEvents[0]!.payload.errorCode).toBe('UNKNOWN_ERROR');
+    expect(errorEvents[0]?.payload.errorCode).toBe('UNKNOWN_ERROR');
   });
 });

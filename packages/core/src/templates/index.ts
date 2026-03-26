@@ -23,7 +23,13 @@ export interface CompanyTemplate {
   layoutPreset: string;
 }
 
-const TEMPLATES: CompanyTemplate[] = [rdCompanyTemplate, contentStudioTemplate, productTeamTemplate, agencyLiteTemplate, aiStartupTemplate];
+const TEMPLATES: CompanyTemplate[] = [
+  rdCompanyTemplate,
+  contentStudioTemplate,
+  productTeamTemplate,
+  agencyLiteTemplate,
+  aiStartupTemplate,
+];
 
 export function listTemplates(): CompanyTemplate[] {
   return TEMPLATES;

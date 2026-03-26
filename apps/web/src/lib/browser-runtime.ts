@@ -28,10 +28,15 @@ import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
+import { MemoryService } from '@aics/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@aics/core/dist/services/orchestration-service.js';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { buildSubscriptionGatewayConfig } from '@aics/ui-office';
+import {
+  buildSubscriptionGatewayConfig,
+  createDefaultRuntimePolicy,
+  normalizeRuntimePolicy,
+} from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 
@@ -147,11 +152,15 @@ export async function createBrowserRuntime(
     subscription: buildSubscriptionGatewayConfig(config),
   });
 
-  const modelResolver = new ModelResolver(null, {
-    provider: config.provider,
-    model: config.model,
-    temperature: 0.7,
-    maxTokens: 4096,
+  const runtimePolicy = config.runtimePolicy
+    ? normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model)
+    : createDefaultRuntimePolicy(config.provider, config.model);
+
+  const modelResolver = new ModelResolver(runtimePolicy, {
+    provider: runtimePolicy.modelPolicy.default.provider,
+    model: runtimePolicy.modelPolicy.default.model,
+    temperature: runtimePolicy.modelPolicy.default.temperature ?? 0.7,
+    maxTokens: runtimePolicy.modelPolicy.default.maxTokens ?? 4096,
   });
 
   const checkpointer = createMemoryCheckpointSaver();
@@ -170,6 +179,11 @@ export async function createBrowserRuntime(
     companyId,
     threadId,
   );
+  const memoryService = runtimePolicy.memory.enabled
+    ? new MemoryService(repos.memories, gateway, eventBus, {
+        policy: runtimePolicy.memory,
+      })
+    : undefined;
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -179,6 +193,8 @@ export async function createBrowserRuntime(
     toolExecutor,
     companyId,
     threadId,
+    runtimePolicy,
+    memoryService,
   });
 
   const installService = new InstallService({
@@ -187,7 +203,7 @@ export async function createBrowserRuntime(
     companyId,
     environment: {
       runtimeVersion: '0.1.0',
-      environment: 'desktop',
+      environment: 'web_limited',
       schemaVersion: '2026-03',
     },
   });

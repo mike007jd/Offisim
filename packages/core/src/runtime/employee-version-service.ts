@@ -49,7 +49,7 @@ export class EmployeeVersionService {
     if (changeType === 'create') {
       changeSummary = `Created employee "${employee.name}" (${employee.role_slug})`;
     } else if (changeType === 'rollback') {
-      changeSummary = `Rolled back to a previous version`;
+      changeSummary = 'Rolled back to a previous version';
     } else if (latestNum > 0) {
       const prevVersion = await this.versionRepo.findByVersion(employeeId, latestNum);
       if (prevVersion) {
@@ -63,9 +63,6 @@ export class EmployeeVersionService {
     }
 
     // Write phase — wrap in a transaction if available.
-    // versionRepo.create() is a synchronous .run() under Drizzle/better-sqlite3,
-    // wrapped in Promise.resolve(). The microtask resolves before any event-loop
-    // yield, so the transaction scope holds for the single write below.
     const newVersionData = {
       employee_id: employeeId,
       version_num: nextNum,
@@ -77,14 +74,7 @@ export class EmployeeVersionService {
 
     let row: EmployeeVersionRow;
     if (this.transact) {
-      let captured: EmployeeVersionRow | undefined;
-      this.transact(() => {
-        void this.versionRepo.create(newVersionData).then((r) => {
-          captured = r;
-        });
-      });
-      // captured is set because the Drizzle Promise resolves synchronously
-      row = captured!;
+      row = await this.transact(() => this.versionRepo.create(newVersionData));
     } else {
       row = await this.versionRepo.create(newVersionData);
     }

@@ -13,7 +13,7 @@ function makeCtx() {
   const repos = createMemoryRepositories();
   const eventBus = new InMemoryEventBus();
   const gateway = new MockLlmGateway();
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
   repos.seed.companies([TEST_COMPANY]);
 
   // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types

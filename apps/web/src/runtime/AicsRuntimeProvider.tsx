@@ -8,8 +8,8 @@ import {
   type AicsRuntimeStatusValue,
   type AicsRuntimeValue,
   isTauri,
-  loadStoredBrowserMcpServers,
   loadProviderConfig,
+  loadStoredBrowserMcpServers,
 } from '@aics/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';

@@ -5,7 +5,7 @@ import type { ModelCostRateRow } from '../runtime/repositories.js';
  * Case-insensitive by default.
  */
 export function globToRegex(pattern: string): RegExp {
-  return new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
+  return new RegExp(`^${pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i');
 }
 
 /**
@@ -25,5 +25,5 @@ export function matchCostRate(
   if (matching.length === 0) return null;
   // Prefer the most specific pattern (longest pattern string)
   matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-  return matching[0]!;
+  return matching[0] ?? null;
 }

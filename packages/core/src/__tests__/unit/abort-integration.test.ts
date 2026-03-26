@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LlmError } from '../../errors.js';
-import { withRetry, type RetryConfig } from '../../llm/retry.js';
-import { OrchestrationService } from '../../services/orchestration-service.js';
 import type { AicsGraphState } from '../../graph/state.js';
+import { type RetryConfig, withRetry } from '../../llm/retry.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
+import { OrchestrationService } from '../../services/orchestration-service.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -43,9 +43,9 @@ describe('withRetry with AbortSignal', () => {
     controller.abort();
 
     const fn = vi.fn().mockResolvedValue('should not be called');
-    await expect(
-      withRetry(fn, FAST_CONFIG, () => true, controller.signal),
-    ).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(withRetry(fn, FAST_CONFIG, () => true, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
 
     // fn should never have been called
     expect(fn).not.toHaveBeenCalled();

@@ -1,9 +1,10 @@
+import { ModelResolver } from '../../llm/model-resolver.js';
 import type { CompanyRow, EmployeeRow } from '../../runtime/repositories.js';
 
 export const TEST_COMPANY_ID = 'c-test-1';
 export const TEST_THREAD_ID = 't-test-1';
 
-export const TEST_COMPANY: CompanyRow = {
+export const TEST_COMPANY = {
   company_id: TEST_COMPANY_ID,
   name: 'Test Corp',
   status: 'active',
@@ -19,7 +20,30 @@ export const TEST_COMPANY: CompanyRow = {
   }),
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-};
+} satisfies CompanyRow;
+
+export function createTestModelResolver(): ModelResolver {
+  const policyJson = TEST_COMPANY.default_model_policy_json;
+  if (!policyJson) {
+    throw new Error('TEST_COMPANY.default_model_policy_json is required for tests');
+  }
+  return new ModelResolver(JSON.parse(policyJson));
+}
+
+export function assertDefined<T>(value: T | null | undefined, message?: string): T {
+  if (value === null || value === undefined) {
+    throw new Error(message ?? 'Expected value to be defined');
+  }
+  return value;
+}
+
+export function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required for smoke tests`);
+  }
+  return value;
+}
 
 export function makeEmployee(overrides?: Partial<EmployeeRow>): EmployeeRow {
   return {

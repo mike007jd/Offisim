@@ -37,7 +37,7 @@ describe('MemoryModelCostRateRepository', () => {
 
     const found = await repo.findByProviderModel('openai', 'gpt-4o');
     expect(found).not.toBeNull();
-    expect(found!.model_pattern).toBe('gpt-4o');
+    expect(found?.model_pattern).toBe('gpt-4o');
   });
 
   it('findByProviderModel matches glob pattern', async () => {
@@ -53,7 +53,7 @@ describe('MemoryModelCostRateRepository', () => {
 
     const found = await repo.findByProviderModel('anthropic', 'claude-3.5-sonnet-20241022');
     expect(found).not.toBeNull();
-    expect(found!.model_pattern).toBe('claude-3.5-sonnet*');
+    expect(found?.model_pattern).toBe('claude-3.5-sonnet*');
   });
 
   it('findByProviderModel returns null for no match', async () => {

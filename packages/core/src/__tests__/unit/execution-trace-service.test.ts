@@ -29,6 +29,13 @@ describe('ExecutionTraceService', () => {
       entry_mode: 'boss_chat',
       root_task_id: null,
       status: 'completed',
+      synopsis_json: JSON.stringify({
+        version: 1,
+        summary: 'The team completed the rollout safely.',
+        prunedMessageCount: 12,
+        totalMessageCount: 18,
+        updatedAt: new Date().toISOString(),
+      }),
     });
 
     await repos.taskRuns.create({
@@ -68,6 +75,15 @@ describe('ExecutionTraceService', () => {
       error_code: null,
       created_at: new Date().toISOString(),
     });
+    await repos.events.insert({
+      event_id: 'evt-1',
+      company_id: TEST_COMPANY_ID,
+      thread_id: 't-1',
+      event_type: 'conversation.synopsis.updated',
+      severity: 'info',
+      payload_json: JSON.stringify({ summary: 'The team completed the rollout safely.' }),
+      created_at: new Date().toISOString(),
+    });
 
     const trace = await service.getTrace('t-1');
     expect(trace).not.toBeNull();
@@ -75,6 +91,8 @@ describe('ExecutionTraceService', () => {
     expect(trace?.taskRuns).toHaveLength(1);
     expect(trace?.handoffs).toHaveLength(1);
     expect(trace?.llmCalls).toHaveLength(1);
+    expect(trace?.events).toHaveLength(1);
+    expect(trace?.synopsis?.summary).toContain('rollout safely');
   });
 
   it('listThreads returns threads for company', async () => {

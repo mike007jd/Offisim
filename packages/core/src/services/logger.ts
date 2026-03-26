@@ -22,7 +22,14 @@ type LogHandler = (entry: LogEntry) => void;
 let currentHandler: LogHandler = defaultHandler;
 
 function defaultHandler(entry: LogEntry): void {
-  const method = entry.level === 'debug' ? 'debug' : entry.level === 'info' ? 'info' : entry.level === 'warn' ? 'warn' : 'error';
+  const method =
+    entry.level === 'debug'
+      ? 'debug'
+      : entry.level === 'info'
+        ? 'info'
+        : entry.level === 'warn'
+          ? 'warn'
+          : 'error';
   if (entry.error) {
     console[method](JSON.stringify({ ...entry, error: String(entry.error) }));
   } else {

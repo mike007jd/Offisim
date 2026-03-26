@@ -1,12 +1,12 @@
 import type {
-  PrefabInstanceRow,
   PrefabBinding,
+  PrefabInstanceRow,
   PrefabStateChangedPayload,
   RuntimeEvent,
   SemanticCategory,
 } from '@aics/shared-types';
-import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 import type { EventBus } from '../events/event-bus.js';
+import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
 // ── Default layout definitions per zone type ────────────────────
 type ZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
@@ -39,7 +39,11 @@ function getDefaultPlacements(
       { prefabId: 'plant-small', category: 'decorative', count: 1 },
     ],
     meeting_room: [
-      { prefabId: count > 4 ? 'meeting-table-8' : 'meeting-table-4', category: 'collaboration', count: 1 },
+      {
+        prefabId: count > 4 ? 'meeting-table-8' : 'meeting-table-4',
+        category: 'collaboration',
+        count: 1,
+      },
       { prefabId: 'whiteboard', category: 'collaboration', count: 1 },
     ],
     server_room: [
@@ -57,7 +61,7 @@ function getDefaultPlacements(
 }
 
 function generateInstanceId(): string {
-  return 'pi-' + Math.random().toString(36).slice(2, 10);
+  return `pi-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function now(): string {
@@ -106,7 +110,9 @@ export class PrefabService {
 
     const created = await this.repo.create(row);
 
-    this.eventBus.emit(this.buildStateEvent(instanceId, companyId, prefabId, 'workspace', '', 'created'));
+    this.eventBus.emit(
+      this.buildStateEvent(instanceId, companyId, prefabId, 'workspace', '', 'created'),
+    );
 
     return created;
   }
@@ -126,7 +132,11 @@ export class PrefabService {
       : [];
 
     const existing = bindings.findIndex((b) => b.slotName === slotName);
-    const newBinding: PrefabBinding = { slotName, resourceRef, ...(label != null ? { label } : {}) };
+    const newBinding: PrefabBinding = {
+      slotName,
+      resourceRef,
+      ...(label != null ? { label } : {}),
+    };
 
     if (existing >= 0) {
       bindings[existing] = newBinding;
@@ -137,7 +147,14 @@ export class PrefabService {
     await this.repo.update(instanceId, { bindings_json: JSON.stringify(bindings) });
 
     this.eventBus.emit(
-      this.buildStateEvent(instanceId, row.company_id, row.prefab_id, 'workspace', 'unbound', 'bound'),
+      this.buildStateEvent(
+        instanceId,
+        row.company_id,
+        row.prefab_id,
+        'workspace',
+        'unbound',
+        'bound',
+      ),
     );
   }
 
@@ -157,7 +174,14 @@ export class PrefabService {
     });
 
     this.eventBus.emit(
-      this.buildStateEvent(instanceId, row.company_id, row.prefab_id, 'workspace', 'bound', 'unbound'),
+      this.buildStateEvent(
+        instanceId,
+        row.company_id,
+        row.prefab_id,
+        'workspace',
+        'bound',
+        'unbound',
+      ),
     );
   }
 
@@ -178,7 +202,14 @@ export class PrefabService {
 
     if (row) {
       this.eventBus.emit(
-        this.buildStateEvent(instanceId, row.company_id, row.prefab_id, 'workspace', 'created', 'deleted'),
+        this.buildStateEvent(
+          instanceId,
+          row.company_id,
+          row.prefab_id,
+          'workspace',
+          'created',
+          'deleted',
+        ),
       );
     }
   }

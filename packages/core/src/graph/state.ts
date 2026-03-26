@@ -37,7 +37,7 @@ export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
   constraints?: string;
-  sopTemplateId?: string;  // explicit SOP selection — bypasses substring matching
+  sopTemplateId?: string; // explicit SOP selection — bypasses substring matching
 }
 
 /** A citation reference extracted from an employee response. */

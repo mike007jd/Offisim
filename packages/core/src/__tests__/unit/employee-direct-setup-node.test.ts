@@ -65,7 +65,7 @@ describe('employeeDirectSetupNode', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -87,8 +87,8 @@ describe('employeeDirectSetupNode', () => {
 
     // Should return one pending assignment
     expect(result.pendingAssignments).toHaveLength(1);
-    expect(result.pendingAssignments![0]!.taskType).toBe('direct_chat');
-    expect(result.pendingAssignments![0]!.employeeId).toBe('e-dev-1');
+    expect(result.pendingAssignments?.[0]?.taskType).toBe('direct_chat');
+    expect(result.pendingAssignments?.[0]?.employeeId).toBe('e-dev-1');
 
     // Should have empty currentStepOutputs
     expect(result.currentStepOutputs).toEqual([]);
@@ -99,19 +99,19 @@ describe('employeeDirectSetupNode', () => {
     // Should emit graphNodeEntered
     const enteredEvents = events.filter((e) => e.type === 'graph.node.entered');
     expect(enteredEvents).toHaveLength(1);
-    expect(enteredEvents[0]!.payload.nodeName).toBe('employee_direct_setup');
+    expect(enteredEvents[0]?.payload.nodeName).toBe('employee_direct_setup');
 
     // Should emit directChatStarted
     const chatStartedEvents = events.filter((e) => e.type === 'direct.chat.started');
     expect(chatStartedEvents).toHaveLength(1);
-    expect(chatStartedEvents[0]!.payload.employeeId).toBe('e-dev-1');
-    expect(chatStartedEvents[0]!.payload.employeeName).toBe('Dev Bot');
+    expect(chatStartedEvents[0]?.payload.employeeId).toBe('e-dev-1');
+    expect(chatStartedEvents[0]?.payload.employeeName).toBe('Dev Bot');
 
     // Should emit employeeStateChanged (idle → assigned)
     const stateEvents = events.filter((e) => e.type === 'employee.state.changed');
     expect(stateEvents).toHaveLength(1);
-    expect(stateEvents[0]!.payload.prev).toBe('idle');
-    expect(stateEvents[0]!.payload.next).toBe('assigned');
+    expect(stateEvents[0]?.payload.prev).toBe('idle');
+    expect(stateEvents[0]?.payload.next).toBe('assigned');
   });
 
   it('returns interruptReason when targetEmployeeId is missing', async () => {
@@ -140,7 +140,7 @@ describe('employeeDirectSetupNode', () => {
     });
     const result = await employeeDirectSetupNode(state, config);
 
-    const inputJson = result.pendingAssignments![0]!.inputJson as Record<string, unknown>;
+    const inputJson = result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>;
     expect(inputJson.description).toBe('Write unit tests for the auth module');
     expect(inputJson.taskRunId).toBeDefined();
   });

@@ -1,5 +1,11 @@
 import type { NewEmployee } from '@aics/install-core';
-import type { NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type {
+  NewProject,
+  NewProjectAssignment,
+  ProjectAssignmentRow,
+  ProjectRow,
+  ProjectStatus,
+} from '@aics/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
@@ -17,6 +23,7 @@ export interface GraphThreadRow {
   root_task_id: string | null;
   status: string;
   project_id: string | null;
+  synopsis_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -132,8 +139,12 @@ export interface LlmCallRow {
 export type NewLlmCall = Omit<LlmCallRow, never>;
 
 /** New-row types (omit auto-generated fields) */
-export type NewGraphThread = Omit<GraphThreadRow, 'created_at' | 'updated_at' | 'project_id'> & {
+export type NewGraphThread = Omit<
+  GraphThreadRow,
+  'created_at' | 'updated_at' | 'project_id' | 'synopsis_json'
+> & {
   project_id?: string | null;
+  synopsis_json?: string | null;
 };
 export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
@@ -160,6 +171,7 @@ export interface ThreadRepository {
   ): Promise<GraphThreadRow[]>;
   findByCompanyAndStatus(companyId: string, status: string): Promise<GraphThreadRow[]>;
   updateStatus(threadId: string, status: string): Promise<void>;
+  updateSynopsis(threadId: string, synopsisJson: string | null): Promise<void>;
 }
 
 export interface TaskRunRepository {
@@ -229,6 +241,7 @@ export interface CheckpointRepository {
 
 export interface EventRepository {
   insert(event: NewRuntimeEvent): Promise<void>;
+  findByThread(threadId: string): Promise<RuntimeEventRow[]>;
 }
 
 export interface LlmCallRepository {
@@ -250,6 +263,11 @@ export interface MemoryEntryRow {
   category: 'experience' | 'decision' | 'knowledge' | 'preference';
   content: string;
   importance: number;
+  confidence: number;
+  dedupe_key: string;
+  reinforcement_count: number;
+  last_reinforced_at: string;
+  metadata_json: string | null;
   source_thread_id: string | null;
   source_task_run_id: string | null;
   created_at: string;
@@ -265,13 +283,36 @@ export interface MemoryEntryCreate {
   category: 'experience' | 'decision' | 'knowledge' | 'preference';
   content: string;
   importance: number;
+  confidence?: number;
+  dedupe_key?: string;
+  reinforcement_count?: number;
+  last_reinforced_at?: string | null;
+  metadata_json?: string | null;
   source_thread_id?: string | null;
   source_task_run_id?: string | null;
+}
+
+export interface MemoryDedupeLookup {
+  companyId: string;
+  scope: 'employee' | 'team' | 'company';
+  ownerId: string;
+  category: 'experience' | 'decision' | 'knowledge' | 'preference';
+  dedupeKey: string;
+}
+
+export interface MemoryReinforcementPatch {
+  content?: string;
+  importance?: number;
+  confidence?: number;
+  metadataJson?: string | null;
+  sourceThreadId?: string | null;
+  sourceTaskRunId?: string | null;
 }
 
 export interface MemoryRepository {
   create(entry: MemoryEntryCreate): Promise<MemoryEntryRow>;
   findById(memoryId: string): Promise<MemoryEntryRow | null>;
+  findByDedupeKey(lookup: MemoryDedupeLookup): Promise<MemoryEntryRow | null>;
   search(
     query: string,
     opts: { scope?: string; ownerId?: string; companyId: string; limit?: number },
@@ -281,6 +322,7 @@ export interface MemoryRepository {
     ownerId: string,
     opts?: { category?: string; limit?: number },
   ): Promise<MemoryEntryRow[]>;
+  reinforce(memoryId: string, patch: MemoryReinforcementPatch): Promise<MemoryEntryRow | null>;
   touchAccess(memoryId: string): Promise<void>;
 }
 
@@ -473,7 +515,11 @@ export interface LibraryDocumentRepository {
   create(doc: NewLibraryDocument): Promise<LibraryDocumentRow>;
   findById(docId: string): Promise<LibraryDocumentRow | null>;
   findByCompany(companyId: string): Promise<LibraryDocumentRow[]>;
-  search(companyId: string, query: string, opts?: { limit?: number }): Promise<LibraryDocumentRow[]>;
+  search(
+    companyId: string,
+    query: string,
+    opts?: { limit?: number },
+  ): Promise<LibraryDocumentRow[]>;
   delete(docId: string): Promise<void>;
 }
 
@@ -499,7 +545,10 @@ export interface OfficeLayoutRepository {
   findByCompany(companyId: string): Promise<OfficeLayoutRow[]>;
   findActive(companyId: string): Promise<OfficeLayoutRow | null>;
   setActive(companyId: string, layoutId: string): Promise<void>;
-  update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>): Promise<void>;
+  update(
+    layoutId: string,
+    patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>,
+  ): Promise<void>;
   delete(layoutId: string): Promise<void>;
 }
 
@@ -552,9 +601,18 @@ export type NewAgentEvent = Omit<AgentEventRow, 'created_at'> & { created_at?: s
 
 export interface AgentEventRepository {
   append(event: NewAgentEvent): Promise<AgentEventRow>;
-  findByProject(projectId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
-  findByThread(threadId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
-  findByAgent(agentName: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]>;
+  findByProject(
+    projectId: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]>;
+  findByThread(
+    threadId: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]>;
+  findByAgent(
+    agentName: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]>;
   findCausalChain(eventId: string): Promise<AgentEventRow[]>;
   /** Recent events across all agents for a thread — used by Recovery Agent for context. */
   findRecent(threadId: string, limit: number): Promise<AgentEventRow[]>;
@@ -576,7 +634,10 @@ export interface RecoveryKnowledgeRow {
   created_at: string;
 }
 
-export type NewRecoveryKnowledge = Omit<RecoveryKnowledgeRow, 'success_count' | 'failure_count' | 'last_used_at' | 'created_at'>;
+export type NewRecoveryKnowledge = Omit<
+  RecoveryKnowledgeRow,
+  'success_count' | 'failure_count' | 'last_used_at' | 'created_at'
+>;
 
 export interface RecoveryKnowledgeRepository {
   upsert(entry: NewRecoveryKnowledge): Promise<RecoveryKnowledgeRow>;

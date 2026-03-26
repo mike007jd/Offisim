@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AnthropicAdapter } from '../../llm/anthropic-adapter.js';
 import { createGateway } from '../../llm/gateway-factory.js';
-import type { LlmGateway } from '../../llm/gateway.js';
+import type { LlmGateway, LlmStreamChunk } from '../../llm/gateway.js';
 import { OpenAiAdapter } from '../../llm/openai-adapter.js';
+import { requiredEnv } from '../helpers/fixtures.js';
 
 // --- Provider detection ---
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
@@ -25,8 +26,7 @@ async function assertChat(adapter: LlmGateway, model: string) {
 }
 
 async function assertChatStream(adapter: LlmGateway, model: string) {
-  // biome-ignore lint/suspicious/noExplicitAny: stream chunk type varies by provider
-  const chunks: any[] = [];
+  const chunks: LlmStreamChunk[] = [];
   for await (const chunk of adapter.chatStream({
     messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
     model,
@@ -38,6 +38,10 @@ async function assertChatStream(adapter: LlmGateway, model: string) {
   // (e.g. reasoning models with short output). Accept >= 1 total chunks.
   expect(chunks.length).toBeGreaterThanOrEqual(1);
   const finalChunk = chunks.at(-1);
+  expect(finalChunk).toBeDefined();
+  if (!finalChunk) {
+    throw new Error('Expected at least one stream chunk');
+  }
   expect(finalChunk.done).toBe(true);
 }
 
@@ -47,7 +51,7 @@ describe.skipIf(!HAS_ANTHROPIC)('AnthropicAdapter smoke (live API)', () => {
   const model = 'claude-sonnet-4-20250514';
 
   beforeAll(() => {
-    adapter = new AnthropicAdapter(process.env.ANTHROPIC_API_KEY!);
+    adapter = new AnthropicAdapter(requiredEnv('ANTHROPIC_API_KEY'));
   });
 
   it('chat', async () => {
@@ -64,7 +68,7 @@ describe.skipIf(!HAS_OPENAI)('OpenAiAdapter smoke (live API)', () => {
   const model = 'gpt-4o-mini';
 
   beforeAll(() => {
-    adapter = new OpenAiAdapter(process.env.OPENAI_API_KEY!);
+    adapter = new OpenAiAdapter(requiredEnv('OPENAI_API_KEY'));
   });
 
   it('chat', async () => {
@@ -86,7 +90,7 @@ describe.skipIf(!HAS_OPENROUTER)('OpenRouter smoke (openai-compat)', () => {
   beforeAll(() => {
     adapter = createGateway({
       provider: 'openai-compat',
-      apiKey: process.env.OPENROUTER_API_KEY!,
+      apiKey: requiredEnv('OPENROUTER_API_KEY'),
       baseURL: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
     });
   });
@@ -107,7 +111,7 @@ describe.skipIf(!HAS_KIMI)('Kimi smoke (openai-compat)', () => {
   beforeAll(() => {
     adapter = createGateway({
       provider: 'openai-compat',
-      apiKey: process.env.KIMI_API_KEY!,
+      apiKey: requiredEnv('KIMI_API_KEY'),
       baseURL: process.env.KIMI_BASE_URL ?? 'https://api.kimi.com/coding/v1',
       // Kimi requires a recognized coding agent User-Agent
       defaultHeaders: { 'User-Agent': 'claude-code/1.0.0' },
@@ -130,7 +134,7 @@ describe.skipIf(!HAS_GEMINI)('Gemini smoke (openai-compat)', () => {
   beforeAll(() => {
     adapter = createGateway({
       provider: 'openai-compat',
-      apiKey: process.env.GEMINI_API_KEY!,
+      apiKey: requiredEnv('GEMINI_API_KEY'),
       baseURL:
         process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/',
     });

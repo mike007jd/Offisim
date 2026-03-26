@@ -13,7 +13,6 @@ describe('getConfigSignal', () => {
   });
 
   it('returns undefined when configurable is missing', () => {
-    // @ts-expect-error intentionally passing object without configurable
     expect(getConfigSignal({ tags: [] })).toBeUndefined();
   });
 

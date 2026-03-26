@@ -12,8 +12,8 @@ import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { ModelResolver } from '../llm/model-resolver.js';
-import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
+import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
 import { createRuntimeContext } from '../runtime/runtime-context.js';
 import { MockToolExecutor } from '../runtime/tool-executor.js';
 import { SopService } from '../services/sop-service.js';
@@ -147,21 +147,19 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
 describe('matchSopTemplate', () => {
   const templates: SopTemplateRow[] = [
     makeSopTemplateRow(makeSopDefinition()),
-    makeSopTemplateRow(
-      makeSopDefinition({ sop_id: 'sop-2', name: 'Code Review Process' }),
-    ),
+    makeSopTemplateRow(makeSopDefinition({ sop_id: 'sop-2', name: 'Code Review Process' })),
   ];
 
   it('matches template by case-insensitive substring', () => {
     const result = matchSopTemplate(templates, 'please run the content pipeline');
     expect(result).not.toBeNull();
-    expect(result!.name).toBe('Content Pipeline');
+    expect(result?.name).toBe('Content Pipeline');
   });
 
   it('matches regardless of case', () => {
     const result = matchSopTemplate(templates, 'Use CODE REVIEW PROCESS');
     expect(result).not.toBeNull();
-    expect(result!.name).toBe('Code Review Process');
+    expect(result?.name).toBe('Code Review Process');
   });
 
   it('returns null when no template matches', () => {
@@ -172,7 +170,7 @@ describe('matchSopTemplate', () => {
   it('returns first match when multiple could match', () => {
     const result = matchSopTemplate(templates, 'content pipeline and code review process');
     expect(result).not.toBeNull();
-    expect(result!.name).toBe('Content Pipeline');
+    expect(result?.name).toBe('Content Pipeline');
   });
 });
 
@@ -181,23 +179,19 @@ describe('matchSopTemplate', () => {
 // ---------------------------------------------------------------------------
 
 describe('findEmployeeForRole', () => {
-  const employees: EmployeeRow[] = [
-    makeResearcher(),
-    makeWriter(),
-    makeReviewer(),
-  ];
+  const employees: EmployeeRow[] = [makeResearcher(), makeWriter(), makeReviewer()];
 
   it('finds exact role_slug match', () => {
     const result = findEmployeeForRole(employees, 'researcher');
     expect(result).not.toBeNull();
-    expect(result!.employee_id).toBe('e-res-1');
+    expect(result?.employee_id).toBe('e-res-1');
   });
 
   it('falls back to any enabled employee when no role match', () => {
     const result = findEmployeeForRole(employees, 'nonexistent_role');
     expect(result).not.toBeNull();
     // Should return any enabled employee
-    expect(employees.map((e) => e.employee_id)).toContain(result!.employee_id);
+    expect(employees.map((e) => e.employee_id)).toContain(result?.employee_id);
   });
 
   it('skips disabled employees for exact match', () => {
@@ -206,7 +200,7 @@ describe('findEmployeeForRole', () => {
     const result = findEmployeeForRole([disabled, makeWriter()], 'researcher');
     // No enabled researcher, fallback to writer
     expect(result).not.toBeNull();
-    expect(result!.employee_id).toBe('e-wrt-1');
+    expect(result?.employee_id).toBe('e-wrt-1');
   });
 
   it('returns null when no employees at all', () => {
@@ -221,15 +215,16 @@ describe('findEmployeeForRole', () => {
 
 describe('sopBatchesToLlmPlan', () => {
   const sopDef = makeSopDefinition();
-  const employees: EmployeeRow[] = [
-    makeResearcher(),
-    makeWriter(),
-    makeReviewer(),
-  ];
+  const employees: EmployeeRow[] = [makeResearcher(), makeWriter(), makeReviewer()];
 
   it('converts linear SOP batches to correct plan structure', () => {
     const sopService = new SopService(
-      { findByCompany: async () => [], findById: async () => null, create: async () => ({} as SopTemplateRow), delete: async () => {} },
+      {
+        findByCompany: async () => [],
+        findById: async () => null,
+        create: async () => ({}) as SopTemplateRow,
+        delete: async () => {},
+      },
       new InMemoryEventBus(),
     );
     const batches = sopService.getExecutionOrder(sopDef);
@@ -242,32 +237,58 @@ describe('sopBatchesToLlmPlan', () => {
     expect(plan.steps).toHaveLength(3);
 
     // Step 0: Research
-    expect(plan.steps[0]!.stepIndex).toBe(0);
-    expect(plan.steps[0]!.tasks).toHaveLength(1);
-    expect(plan.steps[0]!.tasks[0]!.employeeId).toBe('e-res-1');
-    expect(plan.steps[0]!.tasks[0]!.description).toBe('Gather background info on the topic');
-    expect(plan.steps[0]!.tasks[0]!.dependsOnStepOutput).toBe(false);
+    expect(plan.steps[0]?.stepIndex).toBe(0);
+    expect(plan.steps[0]?.tasks).toHaveLength(1);
+    expect(plan.steps[0]?.tasks[0]?.employeeId).toBe('e-res-1');
+    expect(plan.steps[0]?.tasks[0]?.description).toBe('Gather background info on the topic');
+    expect(plan.steps[0]?.tasks[0]?.dependsOnStepOutput).toBe(false);
 
     // Step 1: Write (depends on previous)
-    expect(plan.steps[1]!.tasks[0]!.employeeId).toBe('e-wrt-1');
-    expect(plan.steps[1]!.tasks[0]!.dependsOnStepOutput).toBe(true);
+    expect(plan.steps[1]?.tasks[0]?.employeeId).toBe('e-wrt-1');
+    expect(plan.steps[1]?.tasks[0]?.dependsOnStepOutput).toBe(true);
 
     // Step 2: Review (depends on previous)
-    expect(plan.steps[2]!.tasks[0]!.employeeId).toBe('e-rev-1');
-    expect(plan.steps[2]!.tasks[0]!.dependsOnStepOutput).toBe(true);
+    expect(plan.steps[2]?.tasks[0]?.employeeId).toBe('e-rev-1');
+    expect(plan.steps[2]?.tasks[0]?.dependsOnStepOutput).toBe(true);
   });
 
   it('groups parallel SOP steps into one plan step', () => {
     const parallelDef = makeSopDefinition({
       steps: [
-        { step_id: 's1', label: 'Research', role_slug: 'researcher', instruction: 'Research', dependencies: [], output_key: 'r' },
-        { step_id: 's2', label: 'Design', role_slug: 'writer', instruction: 'Design', dependencies: [], output_key: 'd' },
-        { step_id: 's3', label: 'Merge', role_slug: 'reviewer', instruction: 'Merge results', dependencies: ['s1', 's2'], output_key: 'm' },
+        {
+          step_id: 's1',
+          label: 'Research',
+          role_slug: 'researcher',
+          instruction: 'Research',
+          dependencies: [],
+          output_key: 'r',
+        },
+        {
+          step_id: 's2',
+          label: 'Design',
+          role_slug: 'writer',
+          instruction: 'Design',
+          dependencies: [],
+          output_key: 'd',
+        },
+        {
+          step_id: 's3',
+          label: 'Merge',
+          role_slug: 'reviewer',
+          instruction: 'Merge results',
+          dependencies: ['s1', 's2'],
+          output_key: 'm',
+        },
       ],
     });
 
     const sopService = new SopService(
-      { findByCompany: async () => [], findById: async () => null, create: async () => ({} as SopTemplateRow), delete: async () => {} },
+      {
+        findByCompany: async () => [],
+        findById: async () => null,
+        create: async () => ({}) as SopTemplateRow,
+        delete: async () => {},
+      },
       new InMemoryEventBus(),
     );
     const batches = sopService.getExecutionOrder(parallelDef);
@@ -277,28 +298,33 @@ describe('sopBatchesToLlmPlan', () => {
     const plan = sopBatchesToLlmPlan(parallelDef, batches, employees);
 
     expect(plan.steps).toHaveLength(2);
-    expect(plan.steps[0]!.tasks).toHaveLength(2);
-    expect(plan.steps[0]!.tasks[0]!.dependsOnStepOutput).toBe(false);
-    expect(plan.steps[0]!.tasks[1]!.dependsOnStepOutput).toBe(false);
-    expect(plan.steps[1]!.tasks).toHaveLength(1);
-    expect(plan.steps[1]!.tasks[0]!.dependsOnStepOutput).toBe(true);
+    expect(plan.steps[0]?.tasks).toHaveLength(2);
+    expect(plan.steps[0]?.tasks[0]?.dependsOnStepOutput).toBe(false);
+    expect(plan.steps[0]?.tasks[1]?.dependsOnStepOutput).toBe(false);
+    expect(plan.steps[1]?.tasks).toHaveLength(1);
+    expect(plan.steps[1]?.tasks[0]?.dependsOnStepOutput).toBe(true);
   });
 
   it('falls back to available employee when role not found', () => {
     // Only researcher and writer, no reviewer
     const limitedEmployees = [makeResearcher(), makeWriter()];
     const sopService = new SopService(
-      { findByCompany: async () => [], findById: async () => null, create: async () => ({} as SopTemplateRow), delete: async () => {} },
+      {
+        findByCompany: async () => [],
+        findById: async () => null,
+        create: async () => ({}) as SopTemplateRow,
+        delete: async () => {},
+      },
       new InMemoryEventBus(),
     );
     const batches = sopService.getExecutionOrder(sopDef);
     const plan = sopBatchesToLlmPlan(sopDef, batches, limitedEmployees);
 
     // Step 2 (review) should fall back to some enabled employee
-    expect(plan.steps[2]!.tasks[0]!.employeeId).toBeTruthy();
+    expect(plan.steps[2]?.tasks[0]?.employeeId).toBeTruthy();
     // It won't be 'e-rev-1' since we don't have a reviewer
     expect(limitedEmployees.map((e) => e.employee_id)).toContain(
-      plan.steps[2]!.tasks[0]!.employeeId,
+      plan.steps[2]?.tasks[0]?.employeeId,
     );
   });
 });
@@ -334,8 +360,8 @@ describe('tryBuildSopPlan', () => {
     );
 
     expect(plan).not.toBeNull();
-    expect(plan!.steps).toHaveLength(3);
-    expect(plan!.summary).toContain('Content Pipeline');
+    expect(plan?.steps).toHaveLength(3);
+    expect(plan?.summary).toContain('Content Pipeline');
   });
 
   it('returns null when no SOP matches', async () => {
@@ -388,8 +414,22 @@ describe('tryBuildSopPlan', () => {
     // Invalid: cyclic dependencies
     const badDef = makeSopDefinition({
       steps: [
-        { step_id: 's1', label: 'A', role_slug: 'dev', instruction: 'do A', dependencies: ['s2'], output_key: 'a' },
-        { step_id: 's2', label: 'B', role_slug: 'dev', instruction: 'do B', dependencies: ['s1'], output_key: 'b' },
+        {
+          step_id: 's1',
+          label: 'A',
+          role_slug: 'dev',
+          instruction: 'do A',
+          dependencies: ['s2'],
+          output_key: 'a',
+        },
+        {
+          step_id: 's2',
+          label: 'B',
+          role_slug: 'dev',
+          instruction: 'do B',
+          dependencies: ['s1'],
+          output_key: 'b',
+        },
       ],
     });
 
@@ -429,15 +469,10 @@ describe('pmPlannerNode — SOP integration', () => {
     gateway = new MockLlmGateway();
     repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
-    repos.seed.employees([
-      makeManager(),
-      makeResearcher(),
-      makeWriter(),
-      makeReviewer(),
-    ]);
+    repos.seed.employees([makeManager(), makeResearcher(), makeWriter(), makeReviewer()]);
 
     const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -470,18 +505,18 @@ describe('pmPlannerNode — SOP integration', () => {
     const result = await pmPlannerNode(state, config);
 
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.summary).toContain('Content Pipeline');
-    expect(result.taskPlan!.steps).toHaveLength(3);
+    expect(result.taskPlan?.summary).toContain('Content Pipeline');
+    expect(result.taskPlan?.steps).toHaveLength(3);
 
     // Verify role assignments
-    expect(result.taskPlan!.steps[0]!.tasks[0]!.employeeId).toBe('e-res-1');
-    expect(result.taskPlan!.steps[1]!.tasks[0]!.employeeId).toBe('e-wrt-1');
-    expect(result.taskPlan!.steps[2]!.tasks[0]!.employeeId).toBe('e-rev-1');
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.employeeId).toBe('e-res-1');
+    expect(result.taskPlan?.steps[1]?.tasks[0]?.employeeId).toBe('e-wrt-1');
+    expect(result.taskPlan?.steps[2]?.tasks[0]?.employeeId).toBe('e-rev-1');
 
     // Verify dependsOnStepOutput
-    expect(result.taskPlan!.steps[0]!.tasks[0]!.dependsOnStepOutput).toBe(false);
-    expect(result.taskPlan!.steps[1]!.tasks[0]!.dependsOnStepOutput).toBe(true);
-    expect(result.taskPlan!.steps[2]!.tasks[0]!.dependsOnStepOutput).toBe(true);
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.dependsOnStepOutput).toBe(false);
+    expect(result.taskPlan?.steps[1]?.tasks[0]?.dependsOnStepOutput).toBe(true);
+    expect(result.taskPlan?.steps[2]?.tasks[0]?.dependsOnStepOutput).toBe(true);
 
     // Verify taskRun records created
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
@@ -491,7 +526,7 @@ describe('pmPlannerNode — SOP integration', () => {
     }
 
     // Plan summary starts with "SOP:" indicating it came from SOP, not LLM
-    expect(result.taskPlan!.summary).toMatch(/^SOP:/);
+    expect(result.taskPlan?.summary).toMatch(/^SOP:/);
   });
 
   it('uses explicit sopTemplateId without needing intent substring match', async () => {
@@ -508,14 +543,14 @@ describe('pmPlannerNode — SOP integration', () => {
     const result = await pmPlannerNode(state, config);
 
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.summary).toMatch(/^SOP:/);
-    expect(result.taskPlan!.summary).toContain('Content Pipeline');
-    expect(result.taskPlan!.steps).toHaveLength(3);
+    expect(result.taskPlan?.summary).toMatch(/^SOP:/);
+    expect(result.taskPlan?.summary).toContain('Content Pipeline');
+    expect(result.taskPlan?.steps).toHaveLength(3);
 
     // Verify role assignments from the SOP
-    expect(result.taskPlan!.steps[0]!.tasks[0]!.employeeId).toBe('e-res-1');
-    expect(result.taskPlan!.steps[1]!.tasks[0]!.employeeId).toBe('e-wrt-1');
-    expect(result.taskPlan!.steps[2]!.tasks[0]!.employeeId).toBe('e-rev-1');
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.employeeId).toBe('e-res-1');
+    expect(result.taskPlan?.steps[1]?.tasks[0]?.employeeId).toBe('e-wrt-1');
+    expect(result.taskPlan?.steps[2]?.tasks[0]?.employeeId).toBe('e-rev-1');
   });
 
   it('falls back to substring matching when sopTemplateId is invalid', async () => {
@@ -533,8 +568,8 @@ describe('pmPlannerNode — SOP integration', () => {
 
     // Should still find the SOP via substring fallback
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.summary).toMatch(/^SOP:/);
-    expect(result.taskPlan!.summary).toContain('Content Pipeline');
+    expect(result.taskPlan?.summary).toMatch(/^SOP:/);
+    expect(result.taskPlan?.summary).toContain('Content Pipeline');
   });
 
   it('falls through to LLM planning when intent does not reference SOP', async () => {
@@ -569,8 +604,8 @@ describe('pmPlannerNode — SOP integration', () => {
     const result = await pmPlannerNode(state, config);
 
     expect(result.taskPlan).not.toBeNull();
-    expect(result.taskPlan!.summary).toBe('Build a website');
+    expect(result.taskPlan?.summary).toBe('Build a website');
     // Plan came from LLM, not SOP
-    expect(result.taskPlan!.summary).not.toMatch(/^SOP:/);
+    expect(result.taskPlan?.summary).not.toMatch(/^SOP:/);
   });
 });

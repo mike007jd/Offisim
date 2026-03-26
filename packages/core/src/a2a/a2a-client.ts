@@ -23,11 +23,7 @@ import type {
 const logger = new Logger('a2a-client');
 
 /** Terminal task states — no further polling needed. */
-const TERMINAL_STATES: ReadonlySet<A2ATaskState> = new Set([
-  'completed',
-  'failed',
-  'canceled',
-]);
+const TERMINAL_STATES: ReadonlySet<A2ATaskState> = new Set(['completed', 'failed', 'canceled']);
 
 export class A2AClient {
   private readonly peer: A2APeer;
@@ -66,7 +62,11 @@ export class A2AClient {
   }
 
   /** Shared implementation for blocking and non-blocking message send. */
-  private async sendMessage(message: string, blocking: boolean, agentId?: string): Promise<A2ATask> {
+  private async sendMessage(
+    message: string,
+    blocking: boolean,
+    agentId?: string,
+  ): Promise<A2ATask> {
     const targetAgent = agentId ?? this.peer.agentId;
     logger.info('Sending message', { peer: this.peer.name, blocking, agentId: targetAgent });
     return this.rpc('message/send', {

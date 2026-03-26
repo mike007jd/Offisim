@@ -1,8 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import * as schema from '@aics/db-local';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzleRepositories } from '../../runtime/drizzle-repositories.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -214,7 +214,7 @@ describe('ThreadRepository.findByCompanyAndStatus', () => {
 
     const running = await repos.threads.findByCompanyAndStatus('c-1', 'running');
     expect(running).toHaveLength(1);
-    expect(running[0]!.thread_id).toBe('t-running');
+    expect(running[0]?.thread_id).toBe('t-running');
   });
 
   it('returns empty array when no match', async () => {
@@ -252,6 +252,6 @@ describe('ThreadRepository.findByCompanyAndStatus (drizzle)', () => {
 
     const running = await repos.threads.findByCompanyAndStatus('c-1', 'running');
     expect(running).toHaveLength(1);
-    expect(running[0]!.thread_id).toBe('t-running');
+    expect(running[0]?.thread_id).toBe('t-running');
   });
 });

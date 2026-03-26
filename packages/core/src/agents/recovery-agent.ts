@@ -1,8 +1,8 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import { generateId } from '../utils/generate-id.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { generateId } from '../utils/generate-id.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 /** Structured error parsed from interruptReason */
@@ -17,13 +17,18 @@ export interface StructuredError {
   model?: string;
 }
 
-export type FixStrategy = 'retry_with_backoff' | 'switch_model' | 'skip_and_continue' | 'replan_step' | 'escalate';
+export type FixStrategy =
+  | 'retry_with_backoff'
+  | 'switch_model'
+  | 'skip_and_continue'
+  | 'replan_step'
+  | 'escalate';
 
 export interface RecoveryDecision {
   strategy: FixStrategy;
   cause: string;
   confidence: number;
-  knowledgeId?: string;  // if matched from existing knowledge
+  knowledgeId?: string; // if matched from existing knowledge
 }
 
 const RECOVERY_PROMPT = `You are a Recovery Agent. An error occurred during project execution.
@@ -84,9 +89,9 @@ export async function diagnoseAndRecover(
   if (repos.agentEvents) {
     const recent = await repos.agentEvents.findRecent(threadId, 10);
     if (recent.length > 0) {
-      recentEventsText = recent.map(e =>
-        `[${e.agent_name}] ${e.event_type}: ${e.payload_json.slice(0, 200)}`
-      ).join('\n');
+      recentEventsText = recent
+        .map((e) => `[${e.agent_name}] ${e.event_type}: ${e.payload_json.slice(0, 200)}`)
+        .join('\n');
     }
   }
 
@@ -94,14 +99,16 @@ export async function diagnoseAndRecover(
   if (repos.recoveryKnowledge) {
     const pastFixes = await repos.recoveryKnowledge.findBySymptom(error.errorCode);
     if (pastFixes.length > 0) {
-      pastFixesText = pastFixes.map(f =>
-        `symptom=${f.symptom} cause=${f.cause} fix=${f.fix_strategy} success=${f.success_count}/${f.success_count + f.failure_count}`
-      ).join('\n');
+      pastFixesText = pastFixes
+        .map(
+          (f) =>
+            `symptom=${f.symptom} cause=${f.cause} fix=${f.fix_strategy} success=${f.success_count}/${f.success_count + f.failure_count}`,
+        )
+        .join('\n');
     }
   }
 
-  const prompt = RECOVERY_PROMPT
-    .replace('{errorCode}', error.errorCode)
+  const prompt = RECOVERY_PROMPT.replace('{errorCode}', error.errorCode)
     .replace('{errorMessage}', error.message)
     .replace('{nodeName}', error.nodeName)
     .replace('{recentEvents}', recentEventsText)
@@ -117,7 +124,7 @@ export async function diagnoseAndRecover(
           { role: 'user', content: `Diagnose and suggest recovery for: ${error.errorCode}` },
         ],
         model: resolved.model,
-        temperature: 0.2,  // Low temperature for deterministic diagnosis
+        temperature: 0.2, // Low temperature for deterministic diagnosis
         maxTokens: 500,
         signal: getConfigSignal(config),
       },
@@ -127,7 +134,7 @@ export async function diagnoseAndRecover(
     const parsed = extractJsonFromLlm(llmResponse.content) as Record<string, unknown> | null;
     if (parsed && typeof parsed.fix_strategy === 'string' && typeof parsed.cause === 'string') {
       const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.5;
-      const strategy = confidence < 0.5 ? 'escalate' : parsed.fix_strategy as FixStrategy;
+      const strategy = confidence < 0.5 ? 'escalate' : (parsed.fix_strategy as FixStrategy);
 
       return { strategy, cause: parsed.cause as string, confidence };
     }
@@ -170,7 +177,7 @@ export async function recordRecoveryOutcome(
     });
     // Find the newly created entry and update its count
     const entries = await repos.recoveryKnowledge.findBySymptom(symptom);
-    const entry = entries.find(e => e.cause === cause);
+    const entry = entries.find((e) => e.cause === cause);
     if (entry) {
       if (success) {
         await repos.recoveryKnowledge.incrementSuccess(entry.knowledge_id);

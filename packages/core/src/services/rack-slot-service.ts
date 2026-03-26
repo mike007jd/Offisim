@@ -1,15 +1,6 @@
 import type { EventBus } from '../events/event-bus.js';
-import {
-  rackBound,
-  rackUnbound,
-  slotAssigned,
-} from '../events/event-factories.js';
-import type {
-  RackRepository,
-  RackRow,
-  SlotRepository,
-  SlotRow,
-} from '../runtime/repositories.js';
+import { rackBound, rackUnbound, slotAssigned } from '../events/event-factories.js';
+import type { RackRepository, RackRow, SlotRepository, SlotRow } from '../runtime/repositories.js';
 
 export interface RackWithSlots extends RackRow {
   slots: SlotRow[];
@@ -22,11 +13,7 @@ export class RackSlotService {
     private readonly eventBus: EventBus,
   ) {}
 
-  async createRack(
-    companyId: string,
-    label: string,
-    providerType: string,
-  ): Promise<string> {
+  async createRack(companyId: string, label: string, providerType: string): Promise<string> {
     const rackId = `rack_${crypto.randomUUID()}`;
     await this.rackRepo.create({
       rack_id: rackId,
@@ -39,10 +26,7 @@ export class RackSlotService {
     return rackId;
   }
 
-  async bindRack(
-    rackId: string,
-    _bindingProfile: Record<string, unknown>,
-  ): Promise<void> {
+  async bindRack(rackId: string, _bindingProfile: Record<string, unknown>): Promise<void> {
     const rack = await this.rackRepo.findById(rackId);
     if (!rack) throw new Error(`Rack not found: ${rackId}`);
     await this.rackRepo.updateStatus(rackId, 'bound');
@@ -59,7 +43,7 @@ export class RackSlotService {
   async addSlot(
     rackId: string,
     capabilityName: string,
-    exposureScope: string = 'company',
+    exposureScope = 'company',
   ): Promise<string> {
     const rack = await this.rackRepo.findById(rackId);
     if (!rack) throw new Error(`Rack not found: ${rackId}`);
@@ -71,7 +55,9 @@ export class RackSlotService {
       exposure_scope: exposureScope,
       status: 'available',
     });
-    this.eventBus.emit(slotAssigned(rack.company_id, slotId, rackId, capabilityName, exposureScope));
+    this.eventBus.emit(
+      slotAssigned(rack.company_id, slotId, rackId, capabilityName, exposureScope),
+    );
     return slotId;
   }
 

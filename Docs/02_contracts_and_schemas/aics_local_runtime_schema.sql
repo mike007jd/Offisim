@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS graph_threads (
   root_task_id TEXT,
   status TEXT NOT NULL,
   project_id TEXT,
+  synopsis_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -220,6 +221,26 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS memory_entries (
+  memory_id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL,
+  scope TEXT NOT NULL CHECK(scope IN ('employee', 'team', 'company')),
+  owner_id TEXT NOT NULL,
+  category TEXT NOT NULL CHECK(category IN ('experience', 'decision', 'knowledge', 'preference')),
+  content TEXT NOT NULL,
+  importance REAL NOT NULL DEFAULT 0.5 CHECK(importance >= 0.0 AND importance <= 1.0),
+  confidence REAL NOT NULL DEFAULT 0.7 CHECK(confidence >= 0.0 AND confidence <= 1.0),
+  dedupe_key TEXT NOT NULL,
+  reinforcement_count INTEGER NOT NULL DEFAULT 1,
+  last_reinforced_at TEXT NOT NULL DEFAULT (datetime('now')),
+  metadata_json TEXT,
+  source_thread_id TEXT,
+  source_task_run_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
+  access_count INTEGER NOT NULL DEFAULT 0
+);
+
 -- Prefab System: office elements as stateful, bindable AI-concept entities
 CREATE TABLE IF NOT EXISTS prefab_instances (
   instance_id   TEXT PRIMARY KEY,
@@ -263,6 +284,11 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(company_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_thread ON llm_calls(thread_id);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_task_run ON llm_calls(task_run_id);
+CREATE INDEX IF NOT EXISTS idx_memory_scope_owner ON memory_entries(scope, owner_id);
+CREATE INDEX IF NOT EXISTS idx_memory_company ON memory_entries(company_id);
+CREATE INDEX IF NOT EXISTS idx_memory_importance ON memory_entries(importance DESC);
+CREATE INDEX IF NOT EXISTS idx_memory_dedupe ON memory_entries(company_id, scope, owner_id, category, dedupe_key);
+CREATE INDEX IF NOT EXISTS idx_memory_reinforced ON memory_entries(last_reinforced_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_company ON prefab_instances(company_id);
 CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone ON prefab_instances(company_id, zone_id);

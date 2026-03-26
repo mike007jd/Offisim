@@ -89,28 +89,28 @@ describe('handoff flow (integration)', () => {
     // Handoff events should be emitted
     const handoffEvents = events.filter((e) => e.type === 'handoff.initiated');
     expect(handoffEvents).toHaveLength(1);
-    expect(handoffEvents[0]!.payload.fromEmployeeId).toBe('e-dev-1');
-    expect(handoffEvents[0]!.payload.toEmployeeId).toBe('e-design-1');
+    expect(handoffEvents[0]?.payload.fromEmployeeId).toBe('e-dev-1');
+    expect(handoffEvents[0]?.payload.toEmployeeId).toBe('e-design-1');
 
     // Handoff record should be persisted
     const handoffRecords = await repos.handoffs.findByThread(TEST_THREAD_ID);
     expect(handoffRecords).toHaveLength(1);
-    expect(handoffRecords[0]!.from_employee_id).toBe('e-dev-1');
-    expect(handoffRecords[0]!.to_employee_id).toBe('e-design-1');
+    expect(handoffRecords[0]?.from_employee_id).toBe('e-dev-1');
+    expect(handoffRecords[0]?.to_employee_id).toBe('e-design-1');
 
     // Task runs should include the handoff continuation
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     const handoffTaskRun = taskRuns.find((tr) => tr.task_type === 'handoff_continuation');
     expect(handoffTaskRun).toBeDefined();
-    expect(handoffTaskRun!.employee_id).toBe('e-design-1');
-    expect(handoffTaskRun!.status).toBe('completed');
+    expect(handoffTaskRun?.employee_id).toBe('e-design-1');
+    expect(handoffTaskRun?.status).toBe('completed');
 
     // Step outputs should contain both employees' work.
     // After step_advance runs, outputs are moved from currentStepOutputs → stepResults.
-    const allOutputs = result.stepResults.flatMap((sr: any) => sr.outputs);
+    const allOutputs = result.stepResults.flatMap((sr) => sr.outputs);
     expect(allOutputs.length).toBeGreaterThanOrEqual(2);
-    const devOutput = allOutputs.find((o: any) => o.employeeId === 'e-dev-1');
-    const designOutput = allOutputs.find((o: any) => o.employeeId === 'e-design-1');
+    const devOutput = allOutputs.find((o) => o.employeeId === 'e-dev-1');
+    const designOutput = allOutputs.find((o) => o.employeeId === 'e-design-1');
     expect(devOutput).toBeDefined();
     expect(designOutput).toBeDefined();
   });

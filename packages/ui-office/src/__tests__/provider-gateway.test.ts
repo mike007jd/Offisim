@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProviderConfig } from '../lib/provider-config';
 import * as desktopProviderSecrets from '../lib/desktop-provider-secrets';
+import type { ProviderConfig } from '../lib/provider-config';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

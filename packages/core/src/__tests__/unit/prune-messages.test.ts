@@ -80,4 +80,26 @@ describe('pruneLlmMessages', () => {
     expect(result.filter((m) => m.role === 'system')).toHaveLength(1);
     expect(result.filter((m) => m.role !== 'system')).toHaveLength(5);
   });
+
+  it('supports a synopsis system message while still trimming non-system messages', () => {
+    const messages: readonly LlmMessage[] = [
+      { role: 'system', content: 'sys' },
+      ...Array.from({ length: 9 }, (_, index) => ({
+        role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+        content: `turn-${index}`,
+      })),
+    ];
+
+    const result = pruneLlmMessages(messages, {
+      maxNonSystemMessages: 4,
+      synopsisMessage: {
+        role: 'system' as const,
+        content: '## Conversation synopsis\nEarlier decisions here.',
+      },
+    });
+
+    expect(result.filter((message) => message.role === 'system')).toHaveLength(2);
+    expect(result.filter((message) => message.role !== 'system')).toHaveLength(4);
+    expect(result[1]?.content).toContain('Conversation synopsis');
+  });
 });

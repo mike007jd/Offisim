@@ -1,13 +1,8 @@
 import { HumanMessage } from '@langchain/core/messages';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState, TaskPlan } from '../../graph/state.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
+import type { AicsGraphState } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { NewGraphThread } from '../../runtime/repositories.js';
-import { createRuntimeContext } from '../../runtime/runtime-context.js';
-import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
@@ -15,7 +10,6 @@ import {
   makeEmployee,
   makeManager,
 } from '../helpers/fixtures.js';
-import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -26,6 +20,7 @@ function makeBaseState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
     entryMode: 'boss_chat' as const,
+    projectId: overrides?.projectId ?? null,
     targetEmployeeId: null,
     messages: [new HumanMessage('Resume task')],
     routeDecision: null,
@@ -48,47 +43,7 @@ function makeBaseState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     dispatchedStepIndices: [],
     completedStepIndices: [],
     ...overrides,
-  };
-}
-
-function makeConfig(runtimeCtx: ReturnType<typeof createRuntimeContext>): RunnableConfig {
-  return { configurable: { runtimeCtx } };
-}
-
-function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
-  return {
-    planId: 'plan-auto-resume-1',
-    threadId: TEST_THREAD_ID,
-    companyId: TEST_COMPANY_ID,
-    summary: 'Auto-resume test plan',
-    steps: [
-      {
-        stepIndex: 0,
-        description: 'Step one',
-        tasks: [
-          {
-            taskType: 'code',
-            employeeId: 'e-dev-1',
-            description: 'Do step one',
-            dependsOnStepOutput: false,
-          },
-        ],
-      },
-      {
-        stepIndex: 1,
-        description: 'Step two',
-        tasks: [
-          {
-            taskType: 'code',
-            employeeId: 'e-dev-1',
-            description: 'Do step two',
-            dependsOnStepOutput: false,
-          },
-        ],
-      },
-    ],
-    ...overrides,
-  };
+  } as AicsGraphState;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,29 +52,11 @@ function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
 
 describe('stepAdvanceNode — status tracking', () => {
   let repos: ReturnType<typeof createMemoryRepositories>;
-  let runtimeCtx: ReturnType<typeof createRuntimeContext>;
-  let config: RunnableConfig;
 
   beforeEach(async () => {
-    const gateway = new MockLlmGateway();
     repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
     repos.seed.employees([makeManager(), makeEmployee()]);
-
-    const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
-    const toolExecutor = new MockToolExecutor();
-
-    runtimeCtx = createRuntimeContext({
-      repos,
-      eventBus,
-      llmGateway: gateway,
-      modelResolver: resolver,
-      toolExecutor,
-      companyId: TEST_COMPANY_ID,
-      threadId: TEST_THREAD_ID,
-    });
-    config = makeConfig(runtimeCtx);
 
     // Create the thread record so updateStatus can find it
     const newThread: NewGraphThread = {

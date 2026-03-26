@@ -1,6 +1,11 @@
 export { A2AClient } from './a2a-client.js';
 export { A2ARequestHandler } from './a2a-server.js';
-export type { A2AHttpRequest, A2AHttpResponse, A2AServerConfig, A2ATaskHandler } from './a2a-server.js';
+export type {
+  A2AHttpRequest,
+  A2AHttpResponse,
+  A2AServerConfig,
+  A2ATaskHandler,
+} from './a2a-server.js';
 export type {
   A2AAgentCard,
   A2AArtifact,

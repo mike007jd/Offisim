@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { createMemoryRepositories } from '../runtime/memory-repositories.js';
-import {
-  LibraryService,
-  scoreDocument,
-  extractRelevantSnippet,
-} from '../services/library-service.js';
 import { extractUsedCitations } from '../agents/employee-node.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
+import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { LibraryDocumentRow } from '../runtime/repositories.js';
+import {
+  LibraryService,
+  extractRelevantSnippet,
+  scoreDocument,
+} from '../services/library-service.js';
 import type { CitationEntry } from '../services/library-service.js';
 
 describe('LibraryService', () => {
@@ -20,13 +20,20 @@ describe('LibraryService', () => {
 
   it('uploads and retrieves document', async () => {
     const { service } = setup();
-    const id = await service.uploadDocument('c-1', 'Test Doc', 'Hello world content', 'file', 'text/plain', 100);
+    const id = await service.uploadDocument(
+      'c-1',
+      'Test Doc',
+      'Hello world content',
+      'file',
+      'text/plain',
+      100,
+    );
     expect(id).toBeTruthy();
 
     const doc = await service.getDocument(id);
     expect(doc).not.toBeNull();
-    expect(doc!.title).toBe('Test Doc');
-    expect(doc!.content_text).toBe('Hello world content');
+    expect(doc?.title).toBe('Test Doc');
+    expect(doc?.content_text).toBe('Hello world content');
   });
 
   it('lists documents by company', async () => {
@@ -46,12 +53,17 @@ describe('LibraryService', () => {
 
     const results = await service.search('c-1', 'API');
     expect(results).toHaveLength(1);
-    expect(results[0]!.title).toBe('API Documentation');
+    expect(results[0]?.title).toBe('API Documentation');
   });
 
   it('searches documents by keyword in content', async () => {
     const { service } = setup();
-    await service.uploadDocument('c-1', 'Notes', 'The authentication system uses JWT tokens', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'Notes',
+      'The authentication system uses JWT tokens',
+      'file',
+    );
     await service.uploadDocument('c-1', 'Other', 'Unrelated content here', 'file');
 
     const results = await service.search('c-1', 'JWT');
@@ -77,8 +89,18 @@ describe('LibraryService', () => {
 
   it('getRelevantSnippets returns formatted excerpts', async () => {
     const { service } = setup();
-    await service.uploadDocument('c-1', 'Auth Guide', 'The auth system uses OAuth2 for authentication. Tokens expire after 1 hour.', 'file');
-    await service.uploadDocument('c-1', 'Deploy Guide', 'Deploy using Docker. The container runs on port 8080.', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'Auth Guide',
+      'The auth system uses OAuth2 for authentication. Tokens expire after 1 hour.',
+      'file',
+    );
+    await service.uploadDocument(
+      'c-1',
+      'Deploy Guide',
+      'Deploy using Docker. The container runs on port 8080.',
+      'file',
+    );
 
     const snippets = await service.getRelevantSnippets('c-1', 'auth');
     expect(snippets).toContain('[Auth Guide]');
@@ -126,9 +148,19 @@ describe('LibraryService', () => {
   it('getRelevantSnippets ranks multi-keyword matches higher', async () => {
     const { service } = setup();
     // Matches both "react" and "hooks"
-    await service.uploadDocument('c-1', 'React Hooks Guide', 'Using react hooks effectively with useEffect and useState.', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'React Hooks Guide',
+      'Using react hooks effectively with useEffect and useState.',
+      'file',
+    );
     // Matches only "react"
-    await service.uploadDocument('c-1', 'React Basics', 'Introduction to components and JSX.', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'React Basics',
+      'Introduction to components and JSX.',
+      'file',
+    );
 
     const snippets = await service.getRelevantSnippets('c-1', 'react hooks');
     const hooksGuidePos = snippets.indexOf('[React Hooks Guide]');
@@ -186,7 +218,7 @@ describe('scoreDocument', () => {
 
 describe('extractRelevantSnippet', () => {
   it('centers snippet around first keyword match', () => {
-    const content = 'A'.repeat(300) + 'KEYWORD' + 'B'.repeat(300);
+    const content = `${'A'.repeat(300)}KEYWORD${'B'.repeat(300)}`;
     const snippet = extractRelevantSnippet(content, ['keyword'], 100);
     expect(snippet).toContain('KEYWORD');
     expect(snippet.startsWith('...')).toBe(true);
@@ -208,7 +240,7 @@ describe('extractRelevantSnippet', () => {
   });
 
   it('uses first matching keyword for centering', () => {
-    const content = 'Start ' + 'X'.repeat(400) + 'alpha' + 'Y'.repeat(400) + ' beta end';
+    const content = `Start ${'X'.repeat(400)}alpha${'Y'.repeat(400)} beta end`;
     const snippet = extractRelevantSnippet(content, ['alpha', 'beta'], 100);
     expect(snippet).toContain('alpha');
   });
@@ -224,35 +256,48 @@ describe('getRelevantSnippetsWithCitations', () => {
 
   it('returns numbered citations with doc IDs', async () => {
     const { service } = setup();
-    await service.uploadDocument('c-1', 'Auth Guide', 'OAuth2 authentication system details.', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'Auth Guide',
+      'OAuth2 authentication system details.',
+      'file',
+    );
     await service.uploadDocument('c-1', 'Deploy Guide', 'Deploy using Docker containers.', 'file');
 
     const { text, citations } = await service.getRelevantSnippetsWithCitations('c-1', 'auth');
     expect(text).toContain('[1]');
     expect(text).toContain('Auth Guide');
     expect(citations).toHaveLength(1);
-    expect(citations[0]!.index).toBe(1);
-    expect(citations[0]!.docTitle).toBe('Auth Guide');
-    expect(citations[0]!.docId).toBeTruthy();
-    expect(citations[0]!.snippet).toContain('OAuth2');
+    expect(citations[0]?.index).toBe(1);
+    expect(citations[0]?.docTitle).toBe('Auth Guide');
+    expect(citations[0]?.docId).toBeTruthy();
+    expect(citations[0]?.snippet).toContain('OAuth2');
   });
 
   it('returns multiple numbered citations in order', async () => {
     const { service } = setup();
     await service.uploadDocument('c-1', 'API Auth', 'JWT token auth flow with refresh.', 'file');
-    await service.uploadDocument('c-1', 'Auth Config', 'OAuth2 auth configuration options.', 'file');
+    await service.uploadDocument(
+      'c-1',
+      'Auth Config',
+      'OAuth2 auth configuration options.',
+      'file',
+    );
 
     const { text, citations } = await service.getRelevantSnippetsWithCitations('c-1', 'auth');
     expect(citations.length).toBeGreaterThanOrEqual(2);
-    expect(citations[0]!.index).toBe(1);
-    expect(citations[1]!.index).toBe(2);
+    expect(citations[0]?.index).toBe(1);
+    expect(citations[1]?.index).toBe(2);
     expect(text).toContain('[1]');
     expect(text).toContain('[2]');
   });
 
   it('returns empty for no matches', async () => {
     const { service } = setup();
-    const { text, citations } = await service.getRelevantSnippetsWithCitations('c-1', 'nonexistent');
+    const { text, citations } = await service.getRelevantSnippetsWithCitations(
+      'c-1',
+      'nonexistent',
+    );
     expect(text).toBe('');
     expect(citations).toHaveLength(0);
   });
@@ -278,10 +323,10 @@ describe('extractUsedCitations', () => {
       makeCitations(),
     );
     expect(result).toHaveLength(2);
-    expect(result[0]!.index).toBe(1);
-    expect(result[0]!.docTitle).toBe('Auth Guide');
-    expect(result[1]!.index).toBe(3);
-    expect(result[1]!.docTitle).toBe('API Docs');
+    expect(result[0]?.index).toBe(1);
+    expect(result[0]?.docTitle).toBe('Auth Guide');
+    expect(result[1]?.index).toBe(3);
+    expect(result[1]?.docTitle).toBe('API Docs');
   });
 
   it('returns empty for text without citations', () => {
@@ -300,16 +345,13 @@ describe('extractUsedCitations', () => {
       makeCitations(),
     );
     expect(result).toHaveLength(1);
-    expect(result[0]!.index).toBe(1);
+    expect(result[0]?.index).toBe(1);
   });
 
   it('ignores citation indices not in the map', () => {
-    const result = extractUsedCitations(
-      'See [1] and [99] for details.',
-      makeCitations(),
-    );
+    const result = extractUsedCitations('See [1] and [99] for details.', makeCitations());
     expect(result).toHaveLength(1);
-    expect(result[0]!.index).toBe(1);
+    expect(result[0]?.index).toBe(1);
   });
 
   it('returns empty for empty response', () => {

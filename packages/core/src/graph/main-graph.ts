@@ -13,6 +13,8 @@ import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { pmReplanNode } from '../agents/pm-replan-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
+import { appendAgentEvent } from '../utils/append-agent-event.js';
+import { getRuntime } from '../utils/get-runtime.js';
 import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import {
   meetingEndNode,
@@ -23,8 +25,6 @@ import {
   meetingTurnCheck,
   participantTurnNode,
 } from './meeting-subgraph.js';
-import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getRuntime } from '../utils/get-runtime.js';
 import { AicsGraphAnnotation, type AicsGraphState } from './state.js';
 
 /** Max replans before escalating to user */
@@ -80,7 +80,10 @@ export function routeFromBoss(state: AicsGraphState): string {
 /** @internal — exported for testing */
 export function routeFromManager(state: AicsGraphState): string {
   // If the manager directive indicates a hiring or team assessment intent, route to HR
-  if (state.managerDirective?.constraints === 'hire' || state.managerDirective?.constraints === 'assess_team') {
+  if (
+    state.managerDirective?.constraints === 'hire' ||
+    state.managerDirective?.constraints === 'assess_team'
+  ) {
     return 'hr';
   }
   return 'pm_planner';
@@ -165,7 +168,11 @@ async function stepAdvanceNode(
   // Distribute outputs — all go to the batch since they're from the same dispatch round
   // For the single-step case (legacy), all go to stepsToComplete[0].
   if (stepsToComplete.length === 1) {
-    outputsByStep.set(stepsToComplete[0]!, [...state.currentStepOutputs]);
+    const onlyStep = stepsToComplete[0];
+    if (onlyStep === undefined) {
+      throw new Error('Expected one step to complete when distributing outputs');
+    }
+    outputsByStep.set(onlyStep, [...state.currentStepOutputs]);
   } else {
     // Multi-step batch: split outputs by looking at task run IDs across the plan
     // For now, assign all outputs to a combined list (outputs are ordered by task completion)
@@ -214,7 +221,11 @@ async function stepAdvanceNode(
       threadId: state.threadId,
       agentName: 'pm',
       eventType: 'action',
-      payload: { action: 'step_advance', completedSteps: stepsToComplete, totalCompleted: newCompletedIndices.length },
+      payload: {
+        action: 'step_advance',
+        completedSteps: stepsToComplete,
+        totalCompleted: newCompletedIndices.length,
+      },
     });
   }
 
@@ -235,9 +246,10 @@ async function stepAdvanceNode(
 /** @internal — exported for testing */
 export function routeFromStepAdvance(state: AicsGraphState): string {
   // Check if any recent employee output signals a replan need
-  const outputs = state.currentStepOutputs.length > 0
-    ? state.currentStepOutputs
-    : (state.stepResults.at(-1)?.outputs ?? []);
+  const outputs =
+    state.currentStepOutputs.length > 0
+      ? state.currentStepOutputs
+      : (state.stepResults.at(-1)?.outputs ?? []);
 
   const hasReplanSignal = outputs.some((o) => REPLAN_SIGNAL_RE.test(o.content));
 

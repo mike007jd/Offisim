@@ -18,21 +18,18 @@ export function scoreDocument(doc: LibraryDocumentRow, keywords: string[]): numb
   for (const kw of keywords) {
     if (titleLower.includes(kw)) score += 3; // title match worth 3x
     // Count occurrences in content
-    let idx = 0;
-    while ((idx = contentLower.indexOf(kw, idx)) !== -1) {
+    let idx = contentLower.indexOf(kw);
+    while (idx !== -1) {
       score += 1;
       idx += kw.length;
+      idx = contentLower.indexOf(kw, idx);
     }
   }
   return score;
 }
 
 /** Extract a snippet around the first keyword match in content */
-export function extractRelevantSnippet(
-  content: string,
-  keywords: string[],
-  maxLen: number = 500,
-): string {
+export function extractRelevantSnippet(content: string, keywords: string[], maxLen = 500): string {
   const contentLower = content.toLowerCase();
   // Find position of first keyword match
   let bestPos = 0;
@@ -60,7 +57,7 @@ export class LibraryService {
     companyId: string,
     title: string,
     content: string,
-    sourceType: string = 'file',
+    sourceType = 'file',
     mimeType?: string,
     fileSize?: number,
   ): Promise<string> {
@@ -131,11 +128,7 @@ export class LibraryService {
   /**
    * Get relevant snippets for a query — simple text format with document titles.
    */
-  async getRelevantSnippets(
-    companyId: string,
-    query: string,
-    maxChars: number = 4000,
-  ): Promise<string> {
+  async getRelevantSnippets(companyId: string, query: string, maxChars = 4000): Promise<string> {
     const ranked = await this.fetchAndRankDocuments(companyId, query);
     if (ranked.length === 0) return '';
 
@@ -155,7 +148,7 @@ export class LibraryService {
   async getRelevantSnippetsWithCitations(
     companyId: string,
     query: string,
-    maxChars: number = 4000,
+    maxChars = 4000,
   ): Promise<{ text: string; citations: CitationEntry[] }> {
     const ranked = await this.fetchAndRankDocuments(companyId, query);
     if (ranked.length === 0) return { text: '', citations: [] };

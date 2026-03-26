@@ -65,6 +65,30 @@ describe('DrizzleRepositories', () => {
     expect(found?.status).toBe('completed');
   });
 
+  it('threads: updateSynopsis persists synopsis_json', async () => {
+    await repos.threads.create({
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    await repos.threads.updateSynopsis(
+      't-1',
+      JSON.stringify({
+        version: 1,
+        summary: 'A condensed summary',
+        prunedMessageCount: 9,
+        totalMessageCount: 14,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+
+    const found = await repos.threads.findById('t-1');
+    expect(found?.synopsis_json).toContain('condensed summary');
+  });
+
   it('taskRuns: create and findByThread', async () => {
     await repos.threads.create({
       thread_id: 't-1',
@@ -114,5 +138,38 @@ describe('DrizzleRepositories', () => {
     });
     const latest = await repos.checkpoints.findLatest('t-1');
     expect(latest?.checkpoint_seq).toBe(2);
+  });
+
+  it('memories: findByDedupeKey and reinforce update structured fields', async () => {
+    const created = await repos.memories.create({
+      memory_id: 'mem-1',
+      company_id: 'c-1',
+      scope: 'employee',
+      owner_id: 'e-1',
+      category: 'knowledge',
+      content: 'Token expiry check comes first',
+      importance: 0.61,
+      confidence: 0.7,
+      dedupe_key: 'token expiry check comes first',
+    });
+    expect(created.reinforcement_count).toBe(1);
+
+    const found = await repos.memories.findByDedupeKey({
+      companyId: 'c-1',
+      scope: 'employee',
+      ownerId: 'e-1',
+      category: 'knowledge',
+      dedupeKey: 'token expiry check comes first',
+    });
+    expect(found?.memory_id).toBe('mem-1');
+
+    const reinforced = await repos.memories.reinforce('mem-1', {
+      content: 'Token expiry check always comes first when debugging auth',
+      importance: 0.82,
+      confidence: 0.9,
+    });
+    expect(reinforced?.reinforcement_count).toBe(2);
+    expect(reinforced?.importance).toBe(0.82);
+    expect(reinforced?.confidence).toBe(0.9);
   });
 });

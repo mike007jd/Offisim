@@ -123,14 +123,16 @@ export class OrchestrationService {
 
     // Serialize concurrent calls on the same threadId
     const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
-    let release: () => void;
-    const gate = new Promise<void>((r) => { release = r; });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
       return await this._executeInner({ ...input, threadId, signal: abort.signal });
     } finally {
-      release!();
+      release?.();
       this.currentAborts.delete(threadId);
       const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
       if (remaining <= 0) {

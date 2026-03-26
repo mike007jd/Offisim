@@ -10,6 +10,7 @@ import {
 import { CompanyTemplateService } from '../../services/company-template-service.js';
 
 const COMPANY_ID = 'co-test';
+type TransactFn = <T>(fn: () => T) => T;
 
 /** Minimal in-memory prefab instance repository for tests. */
 class MemoryPrefabInstanceRepository implements PrefabInstanceRepository {
@@ -34,11 +35,15 @@ class MemoryPrefabInstanceRepository implements PrefabInstanceRepository {
     if (idx !== -1) this.store.splice(idx, 1);
   }
   async deleteByCompany(companyId: string): Promise<void> {
-    this.store.splice(0, this.store.length, ...this.store.filter((r) => r.company_id !== companyId));
+    this.store.splice(
+      0,
+      this.store.length,
+      ...this.store.filter((r) => r.company_id !== companyId),
+    );
   }
 }
 
-function makeService(opts: { withPrefabRepo?: boolean; transact?: <T>(fn: () => T) => T } = {}) {
+function makeService(opts: { withPrefabRepo?: boolean; transact?: TransactFn } = {}) {
   const repos = createMemoryRepositories();
   const sopTemplateRepo = new MemorySopTemplateRepository();
   const officeLayoutRepo = new MemoryOfficeLayoutRepository();
@@ -80,7 +85,7 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     for (const eid of result.employeeIds) {
       const emp = await repos.employees.findById(eid);
       expect(emp).not.toBeNull();
-      expect(emp!.company_id).toBe(COMPANY_ID);
+      expect(emp?.company_id).toBe(COMPANY_ID);
     }
 
     // SOPs
@@ -92,7 +97,7 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     expect(result.layoutId).toBeTruthy();
     const layouts = await officeLayoutRepo.findByCompany(COMPANY_ID);
     expect(layouts).toHaveLength(1);
-    expect(layouts[0]!.layout_id).toBe(result.layoutId);
+    expect(layouts[0]?.layout_id).toBe(result.layoutId);
 
     // Events
     expect(events).toHaveLength(5);
@@ -103,7 +108,9 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     const result = await service.materializeTemplate('agency-lite', COMPANY_ID);
 
     expect(result.prefabInstanceIds.length).toBeGreaterThan(0);
-    const instances = await prefabRepo!.findByCompany(COMPANY_ID);
+    expect(prefabRepo).toBeDefined();
+    if (!prefabRepo) throw new Error('Expected prefab repo');
+    const instances = await prefabRepo.findByCompany(COMPANY_ID);
     expect(instances.length).toBeGreaterThan(0);
     expect(instances.length).toBe(result.prefabInstanceIds.length);
   });
@@ -117,11 +124,11 @@ describe('CompanyTemplateService.materializeTemplate', () => {
   describe('with transact', () => {
     it('calls transact exactly once wrapping all DB writes', async () => {
       const transactCalls: number[] = [];
-      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
-      const mockTransact = vi.fn(<T>(fn: () => T): T => {
+      type TransactMock = TransactFn & ReturnType<typeof vi.fn>;
+      const mockTransact = vi.fn((fn: () => unknown) => {
         transactCalls.push(1);
         return fn();
-      });
+      }) as unknown as TransactMock;
 
       const { service } = makeService({ transact: mockTransact });
       await service.materializeTemplate('agency-lite', COMPANY_ID);
@@ -130,8 +137,8 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     });
 
     it('emits employee.created events after transaction commits', async () => {
-      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
-      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+      type TransactMock = TransactFn & ReturnType<typeof vi.fn>;
+      const mockTransact = vi.fn((fn: () => unknown) => fn()) as unknown as TransactMock;
       const { service, eventBus } = makeService({ transact: mockTransact });
 
       const events: unknown[] = [];
@@ -144,8 +151,8 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     });
 
     it('returns populated employeeIds even on the transact path', async () => {
-      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
-      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+      type TransactMock = TransactFn & ReturnType<typeof vi.fn>;
+      const mockTransact = vi.fn((fn: () => unknown) => fn()) as unknown as TransactMock;
       const { service } = makeService({ transact: mockTransact });
 
       const result = await service.materializeTemplate('agency-lite', COMPANY_ID);

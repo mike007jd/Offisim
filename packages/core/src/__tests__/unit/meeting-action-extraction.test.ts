@@ -15,6 +15,8 @@ import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
   TEST_THREAD_ID,
+  assertDefined,
+  createTestModelResolver,
   makeEmployee,
   makeManager,
 } from '../helpers/fixtures.js';
@@ -57,7 +59,7 @@ function makeMeetingTurnState(participantIds: string[], transcript: string[]) {
   return [
     {
       taskType: '__meeting_state',
-      employeeId: participantIds[0]!,
+      employeeId: assertDefined(participantIds[0]),
       inputJson: {
         turnCount: 1,
         participantIndex: 0,
@@ -98,7 +100,7 @@ describe('meetingEndNode — action-item extraction', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = createTestModelResolver();
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -161,7 +163,7 @@ describe('meetingEndNode — action-item extraction', () => {
     expect(result.meetingActionItems).toBeDefined();
     expect(result.meetingActionItems).toHaveLength(2);
 
-    const items = result.meetingActionItems!;
+    const items = assertDefined(result.meetingActionItems);
     expect(items[0]?.description).toBe('Implement auth module');
     expect(items[0]?.assigneeEmployeeId).toBe('e-dev-1');
     expect(items[0]?.assigneeName).toBe('Dev Bot');
@@ -260,7 +262,7 @@ describe('bossSummaryNode — meetingActionItems formatting', () => {
     repos.seed.employees([makeManager(), DEV_EMPLOYEE, DESIGNER_EMPLOYEE]);
 
     const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({

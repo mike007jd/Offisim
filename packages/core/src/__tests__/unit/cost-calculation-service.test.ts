@@ -61,7 +61,7 @@ describe('CostCalculationService', () => {
 
       const rate = await service.findRate('openai', 'gpt-4o');
       expect(rate).not.toBeNull();
-      expect(rate!.input_cost_per_mtok).toBe(2.5);
+      expect(rate?.input_cost_per_mtok).toBe(2.5);
     });
 
     it('finds wildcard pattern match', async () => {
@@ -78,7 +78,7 @@ describe('CostCalculationService', () => {
 
       const rate = await service.findRate('anthropic', 'claude-3.5-sonnet-20241022');
       expect(rate).not.toBeNull();
-      expect(rate!.input_cost_per_mtok).toBe(3);
+      expect(rate?.input_cost_per_mtok).toBe(3);
     });
 
     it('returns null for no match', async () => {
@@ -203,10 +203,10 @@ describe('CostCalculationService', () => {
       const agg = await service.aggregateCosts('company-001', { groupBy: 'model' });
 
       expect(agg.length).toBe(1);
-      expect(agg[0]!.groupKey).toBe('openai/gpt-4o');
-      expect(agg[0]!.callCount).toBe(2);
-      expect(agg[0]!.inputTokens).toBe(3000);
-      expect(agg[0]!.outputTokens).toBe(1500);
+      expect(agg[0]?.groupKey).toBe('openai/gpt-4o');
+      expect(agg[0]?.callCount).toBe(2);
+      expect(agg[0]?.inputTokens).toBe(3000);
+      expect(agg[0]?.outputTokens).toBe(1500);
     });
 
     it('aggregates by day', async () => {
@@ -269,7 +269,7 @@ describe('CostCalculationService', () => {
       });
 
       expect(agg.length).toBe(1);
-      expect(agg[0]!.callCount).toBe(1);
+      expect(agg[0]?.callCount).toBe(1);
     });
 
     it('returns empty array for company with no threads', async () => {
@@ -302,8 +302,8 @@ describe('CostCalculationService', () => {
       const agg = await service.aggregateCosts('company-001');
 
       expect(agg.length).toBe(1);
-      expect(agg[0]!.totalCost).toBe(0);
-      expect(agg[0]!.callCount).toBe(1);
+      expect(agg[0]?.totalCost).toBe(0);
+      expect(agg[0]?.callCount).toBe(1);
     });
   });
 });

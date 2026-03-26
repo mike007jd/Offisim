@@ -1,4 +1,9 @@
-import type { ModelPolicyConfig, ModelProfile, ResolvedModel } from '@aics/shared-types';
+import type {
+  ModelPolicyConfig,
+  ModelProfile,
+  ResolvedModel,
+  RuntimePolicyConfig,
+} from '@aics/shared-types';
 
 /**
  * System-level fallback when no policy and no explicit fallback is provided.
@@ -18,8 +23,11 @@ export class ModelResolver {
   private readonly policy: ModelPolicyConfig | null;
   private readonly fallback: ResolvedModel;
 
-  constructor(policy: ModelPolicyConfig | null | undefined, fallback?: ResolvedModel) {
-    this.policy = policy ?? null;
+  constructor(
+    policy: ModelPolicyConfig | RuntimePolicyConfig | null | undefined,
+    fallback?: ResolvedModel,
+  ) {
+    this.policy = resolveModelPolicy(policy);
     this.fallback = fallback ?? SYSTEM_FALLBACK;
   }
 
@@ -32,8 +40,10 @@ export class ModelResolver {
       return this.toResolved(employeeProfile);
     }
 
-    if (this.policy && roleSlug && this.policy.overrides?.[roleSlug]) {
-      return this.toResolved(this.policy.overrides[roleSlug]!);
+    const roleOverride =
+      this.policy && roleSlug ? (this.policy.overrides?.[roleSlug] ?? null) : null;
+    if (roleOverride) {
+      return this.toResolved(roleOverride);
     }
 
     if (this.policy) {
@@ -51,4 +61,14 @@ export class ModelResolver {
       maxTokens: profile.maxTokens ?? DEFAULT_MAX_TOKENS,
     };
   }
+}
+
+export function resolveModelPolicy(
+  policy: ModelPolicyConfig | RuntimePolicyConfig | null | undefined,
+): ModelPolicyConfig | null {
+  if (!policy) return null;
+  if ('default' in policy) {
+    return policy;
+  }
+  return policy.modelPolicy ?? null;
 }

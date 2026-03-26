@@ -43,6 +43,7 @@ import type {
   OfficeLayoutRow,
   ProjectRepository,
   RackRow,
+  RuntimeEventRow,
   RuntimeRepositories,
   SlotRow,
   SopTemplateRow,
@@ -85,6 +86,18 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function normalizeMemoryDedupeKey(content: string): string {
+  const normalized = content.normalize('NFKC').toLowerCase();
+  const simplified = normalized
+    .replace(/[.,:;/，。：；、]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return simplified || normalized.replace(/\s+/g, ' ').trim();
+}
+
+type MemoryDedupeLookup = Parameters<MemoryRepository['findByDedupeKey']>[0];
+type MemoryReinforcementPatch = Parameters<MemoryRepository['reinforce']>[1];
+
 /**
  * Create RuntimeRepositories backed by Drizzle sqlite-proxy (async).
  *
@@ -118,7 +131,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
 
   const threads: ThreadRepository = {
     async create(t: NewGraphThread) {
-      const row = { ...t, created_at: now(), updated_at: now() };
+      const row = {
+        ...t,
+        synopsis_json: t.synopsis_json ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
       await db.insert(schema.graphThreads).values(row);
       return row as GraphThreadRow;
     },
@@ -153,6 +171,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db
         .update(schema.graphThreads)
         .set({ status, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id));
+    },
+    async updateSynopsis(id, synopsisJson) {
+      await db
+        .update(schema.graphThreads)
+        .set({ synopsis_json: synopsisJson, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
     },
     async findByCompanyAndStatus(companyId, status) {
@@ -376,6 +400,13 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     async insert(e: NewRuntimeEvent) {
       await db.insert(schema.runtimeEvents).values(e);
     },
+    async findByThread(threadId) {
+      return (await db
+        .select()
+        .from(schema.runtimeEvents)
+        .where(eq(schema.runtimeEvents.thread_id, threadId))
+        .orderBy(schema.runtimeEvents.created_at)) as RuntimeEventRow[];
+    },
   };
 
   const llmCalls: LlmCallRepository = {
@@ -510,6 +541,11 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         category: entry.category,
         content: entry.content,
         importance: entry.importance,
+        confidence: entry.confidence ?? 0.7,
+        dedupe_key: entry.dedupe_key ?? normalizeMemoryDedupeKey(entry.content),
+        reinforcement_count: entry.reinforcement_count ?? 1,
+        last_reinforced_at: entry.last_reinforced_at ?? ts,
+        metadata_json: entry.metadata_json ?? null,
         source_thread_id: entry.source_thread_id ?? null,
         source_task_run_id: entry.source_task_run_id ?? null,
         created_at: ts,
@@ -524,6 +560,21 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .select()
         .from(schema.memoryEntries)
         .where(eq(schema.memoryEntries.memory_id, memoryId));
+      return (rows[0] as MemoryEntryRow | undefined) ?? null;
+    },
+    async findByDedupeKey(lookup: MemoryDedupeLookup) {
+      const rows = await db
+        .select()
+        .from(schema.memoryEntries)
+        .where(
+          and(
+            eq(schema.memoryEntries.company_id, lookup.companyId),
+            eq(schema.memoryEntries.scope, lookup.scope),
+            eq(schema.memoryEntries.owner_id, lookup.ownerId),
+            eq(schema.memoryEntries.category, lookup.category),
+            eq(schema.memoryEntries.dedupe_key, lookup.dedupeKey),
+          ),
+        );
       return (rows[0] as MemoryEntryRow | undefined) ?? null;
     },
     async search(query, opts) {
@@ -542,7 +593,11 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
-        .orderBy(desc(schema.memoryEntries.importance))
+        .orderBy(
+          desc(schema.memoryEntries.importance),
+          desc(schema.memoryEntries.confidence),
+          desc(schema.memoryEntries.last_reinforced_at),
+        )
         .limit(limit * 5);
       const filtered = (rows as MemoryEntryRow[]).filter((r) => {
         const lower = r.content.toLowerCase();
@@ -560,9 +615,44 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
-        .orderBy(desc(schema.memoryEntries.importance))
+        .orderBy(
+          desc(schema.memoryEntries.importance),
+          desc(schema.memoryEntries.confidence),
+          desc(schema.memoryEntries.last_reinforced_at),
+        )
         .limit(opts?.limit ?? 50);
       return rows as MemoryEntryRow[];
+    },
+    async reinforce(memoryId, patch: MemoryReinforcementPatch) {
+      const existing = await memories.findById(memoryId);
+      if (!existing) return null;
+
+      const nextContent =
+        patch.content && patch.content.length > existing.content.length
+          ? patch.content
+          : existing.content;
+
+      await db
+        .update(schema.memoryEntries)
+        .set({
+          content: nextContent,
+          importance:
+            patch.importance !== undefined
+              ? Math.max(existing.importance, patch.importance)
+              : existing.importance,
+          confidence:
+            patch.confidence !== undefined
+              ? Math.max(existing.confidence, patch.confidence)
+              : existing.confidence,
+          metadata_json: patch.metadataJson ?? existing.metadata_json,
+          source_thread_id: patch.sourceThreadId ?? existing.source_thread_id,
+          source_task_run_id: patch.sourceTaskRunId ?? existing.source_task_run_id,
+          reinforcement_count: existing.reinforcement_count + 1,
+          last_reinforced_at: now(),
+        })
+        .where(eq(schema.memoryEntries.memory_id, memoryId));
+
+      return memories.findById(memoryId);
     },
     async touchAccess(memoryId) {
       await db

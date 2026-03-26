@@ -99,7 +99,7 @@ beforeEach(async () => {
   repos.seed.employees([makeManager(), makeEmployee()]);
 
   const eventBus = new InMemoryEventBus();
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
   const toolExecutor = new MockToolExecutor();
 
   const runtimeCtx = createRuntimeContext({
@@ -129,12 +129,28 @@ describe('sequential plan (no dependsOnSteps)', () => {
       {
         stepIndex: 0,
         description: 'Step A',
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do A', dependsOnStepOutput: false, taskRunId: 'tr-seq-0' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do A',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-seq-0',
+          },
+        ],
       },
       {
         stepIndex: 1,
         description: 'Step B',
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do B', dependsOnStepOutput: false, taskRunId: 'tr-seq-1' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do B',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-seq-1',
+          },
+        ],
       },
     ],
   };
@@ -149,7 +165,9 @@ describe('sequential plan (no dependsOnSteps)', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    expect((result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId).toBe('tr-seq-0');
+    expect((result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId).toBe(
+      'tr-seq-0',
+    );
   });
 
   it('dispatches step 1 once step 0 is in completedStepIndices', async () => {
@@ -161,7 +179,7 @@ describe('sequential plan (no dependsOnSteps)', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const tr = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId;
+    const tr = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId;
     expect(tr).toBe('tr-seq-1');
   });
 
@@ -192,13 +210,29 @@ describe('two independent DAG steps', () => {
         stepIndex: 0,
         description: 'Step A (no deps)',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do A', dependsOnStepOutput: false, taskRunId: 'tr-par-0' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do A',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-par-0',
+          },
+        ],
       },
       {
         stepIndex: 1,
         description: 'Step B (no deps)',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do B', dependsOnStepOutput: false, taskRunId: 'tr-par-1' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do B',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-par-1',
+          },
+        ],
       },
     ],
   };
@@ -213,7 +247,7 @@ describe('two independent DAG steps', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(2);
-    const taskRunIds = result.pendingAssignments!.map(
+    const taskRunIds = result.pendingAssignments?.map(
       (a) => (a.inputJson as Record<string, unknown>).taskRunId,
     );
     expect(taskRunIds).toContain('tr-par-0');
@@ -243,19 +277,43 @@ describe('fan-in: step 2 depends on step 0 and step 1', () => {
         stepIndex: 0,
         description: 'Step 0 (no deps)',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do 0', dependsOnStepOutput: false, taskRunId: 'tr-fi-0' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do 0',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-fi-0',
+          },
+        ],
       },
       {
         stepIndex: 1,
         description: 'Step 1 (no deps)',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do 1', dependsOnStepOutput: false, taskRunId: 'tr-fi-1' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do 1',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-fi-1',
+          },
+        ],
       },
       {
         stepIndex: 2,
         description: 'Step 2 (depends on 0 and 1)',
         dependsOnSteps: [0, 1],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do 2', dependsOnStepOutput: false, taskRunId: 'tr-fi-2' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do 2',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-fi-2',
+          },
+        ],
       },
     ],
   };
@@ -271,7 +329,7 @@ describe('fan-in: step 2 depends on step 0 and step 1', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(2);
-    const trs = result.pendingAssignments!.map(
+    const trs = result.pendingAssignments?.map(
       (a) => (a.inputJson as Record<string, unknown>).taskRunId,
     );
     expect(trs).toContain('tr-fi-0');
@@ -296,7 +354,7 @@ describe('fan-in: step 2 depends on step 0 and step 1', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const tr = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId;
+    const tr = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId;
     expect(tr).toBe('tr-fi-2');
   });
 });
@@ -316,25 +374,57 @@ describe('diamond dependency: 0→1, 0→2, then 1+2→3', () => {
         stepIndex: 0,
         description: 'Root (no deps)',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Root', dependsOnStepOutput: false, taskRunId: 'tr-dia-0' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Root',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-dia-0',
+          },
+        ],
       },
       {
         stepIndex: 1,
         description: 'Branch A (depends on 0)',
         dependsOnSteps: [0],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Branch A', dependsOnStepOutput: false, taskRunId: 'tr-dia-1' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Branch A',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-dia-1',
+          },
+        ],
       },
       {
         stepIndex: 2,
         description: 'Branch B (depends on 0)',
         dependsOnSteps: [0],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Branch B', dependsOnStepOutput: false, taskRunId: 'tr-dia-2' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Branch B',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-dia-2',
+          },
+        ],
       },
       {
         stepIndex: 3,
         description: 'Merge (depends on 1 and 2)',
         dependsOnSteps: [1, 2],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Merge', dependsOnStepOutput: false, taskRunId: 'tr-dia-3' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Merge',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-dia-3',
+          },
+        ],
       },
     ],
   };
@@ -351,7 +441,7 @@ describe('diamond dependency: 0→1, 0→2, then 1+2→3', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const tr = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId;
+    const tr = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId;
     expect(tr).toBe('tr-dia-0');
   });
 
@@ -363,7 +453,7 @@ describe('diamond dependency: 0→1, 0→2, then 1+2→3', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(2);
-    const trs = result.pendingAssignments!.map(
+    const trs = result.pendingAssignments?.map(
       (a) => (a.inputJson as Record<string, unknown>).taskRunId,
     );
     expect(trs).toContain('tr-dia-1');
@@ -378,7 +468,7 @@ describe('diamond dependency: 0→1, 0→2, then 1+2→3', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const tr = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId;
+    const tr = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId;
     expect(tr).toBe('tr-dia-3');
   });
 
@@ -408,7 +498,15 @@ describe('single step plan', () => {
         stepIndex: 0,
         description: 'Only step',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'code', employeeId: 'e-dev-1', description: 'Do it', dependsOnStepOutput: false, taskRunId: 'tr-single-0' }],
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            description: 'Do it',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-single-0',
+          },
+        ],
       },
     ],
   };
@@ -422,7 +520,7 @@ describe('single step plan', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const tr = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>).taskRunId;
+    const tr = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>).taskRunId;
     expect(tr).toBe('tr-single-0');
   });
 
@@ -449,13 +547,29 @@ describe('dependency output injection', () => {
         stepIndex: 0,
         description: 'Research',
         dependsOnSteps: [],
-        tasks: [{ taskType: 'research', employeeId: 'e-dev-1', description: 'Research topic', dependsOnStepOutput: false, taskRunId: 'tr-oi-0' }],
+        tasks: [
+          {
+            taskType: 'research',
+            employeeId: 'e-dev-1',
+            description: 'Research topic',
+            dependsOnStepOutput: false,
+            taskRunId: 'tr-oi-0',
+          },
+        ],
       },
       {
         stepIndex: 1,
         description: 'Write based on research',
         dependsOnSteps: [0],
-        tasks: [{ taskType: 'write', employeeId: 'e-dev-1', description: 'Write report', dependsOnStepOutput: true, taskRunId: 'tr-oi-1' }],
+        tasks: [
+          {
+            taskType: 'write',
+            employeeId: 'e-dev-1',
+            description: 'Write report',
+            dependsOnStepOutput: true,
+            taskRunId: 'tr-oi-1',
+          },
+        ],
       },
     ],
   };
@@ -487,7 +601,7 @@ describe('dependency output injection', () => {
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    const description = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>)
+    const description = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>)
       .description as string;
     expect(description).toContain('Write report');
     expect(description).toContain('Previous step results');

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { AicsGraphState } from '../../graph/state.js';
+import type { LlmRequest, ToolDef } from '../../llm/gateway.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
@@ -14,6 +15,8 @@ import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
   TEST_THREAD_ID,
+  assertDefined,
+  createTestModelResolver,
   makeEmployee,
   makeManager,
 } from '../helpers/fixtures.js';
@@ -81,7 +84,7 @@ describe('employeeNode — handoff via Command', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = createTestModelResolver();
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -163,7 +166,7 @@ describe('employeeNode — handoff via Command', () => {
     const cmd = result as Command;
     // Access internal command params — Command stores them as (cmd as any)[Symbol for COMMAND_SYMBOL]
     // We verify via the graph state update it produces
-    const sym = Object.getOwnPropertySymbols(cmd)[0]!;
+    const sym = assertDefined(Object.getOwnPropertySymbols(cmd)[0]);
     // biome-ignore lint/suspicious/noExplicitAny: accessing internal Command params via symbol
     const params = (cmd as any)[sym];
     expect(params.goto).toBe('employee');
@@ -197,9 +200,9 @@ describe('employeeNode — handoff via Command', () => {
 
     const handoffs = await repos.handoffs.findByThread(TEST_THREAD_ID);
     expect(handoffs).toHaveLength(1);
-    expect(handoffs[0]!.from_employee_id).toBe('e-dev-1');
-    expect(handoffs[0]!.to_employee_id).toBe('e-design-1');
-    expect(handoffs[0]!.reason).toBe('Needs design');
+    expect(handoffs[0]?.from_employee_id).toBe('e-dev-1');
+    expect(handoffs[0]?.to_employee_id).toBe('e-design-1');
+    expect(handoffs[0]?.reason).toBe('Needs design');
   });
 
   it('creates new task run for receiving employee', async () => {
@@ -226,8 +229,8 @@ describe('employeeNode — handoff via Command', () => {
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     const handoffTaskRun = taskRuns.find((tr) => tr.task_type === 'handoff_continuation');
     expect(handoffTaskRun).toBeDefined();
-    expect(handoffTaskRun!.employee_id).toBe('e-design-1');
-    expect(handoffTaskRun!.status).toBe('queued');
+    expect(handoffTaskRun?.employee_id).toBe('e-design-1');
+    expect(handoffTaskRun?.status).toBe('queued');
   });
 
   it('marks current task run as completed on handoff', async () => {
@@ -276,8 +279,8 @@ describe('employeeNode — handoff via Command', () => {
 
     const handoffEvents = events.filter((e) => e.type === 'handoff.initiated');
     expect(handoffEvents).toHaveLength(1);
-    expect(handoffEvents[0]!.payload.fromEmployeeId).toBe('e-dev-1');
-    expect(handoffEvents[0]!.payload.toEmployeeId).toBe('e-design-1');
+    expect(handoffEvents[0]?.payload.fromEmployeeId).toBe('e-dev-1');
+    expect(handoffEvents[0]?.payload.toEmployeeId).toBe('e-design-1');
   });
 
   it('emits employee.state.changed to idle after handoff', async () => {
@@ -306,7 +309,7 @@ describe('employeeNode — handoff via Command', () => {
       (e) => e.payload.prev === 'executing' && e.payload.next === 'idle',
     );
     expect(idleEvent).toBeDefined();
-    expect(idleEvent!.payload.employeeId).toBe('e-dev-1');
+    expect(idleEvent?.payload.employeeId).toBe('e-dev-1');
   });
 
   it('does NOT inject handoff_to tool in direct_chat mode', async () => {
@@ -342,7 +345,7 @@ describe('employeeNode — handoff via Command', () => {
     singleRepos.seed.employees([makeEmployee()]); // only e-dev-1
 
     const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -395,9 +398,9 @@ describe('employeeNode — handoff via Command', () => {
 
   it('passes tools (including handoff_to) to the LLM request', async () => {
     // Track what request the LLM receives
-    let capturedRequest: any = null;
+    let capturedRequest: LlmRequest | null = null;
     const originalChat = gateway.chat.bind(gateway);
-    gateway.chat = async (request: any) => {
+    gateway.chat = async (request) => {
       capturedRequest = request;
       return originalChat(request);
     };
@@ -408,15 +411,27 @@ describe('employeeNode — handoff via Command', () => {
     await employeeNode(state, config);
 
     // Should have passed tools to the LLM
-    expect(capturedRequest).toBeDefined();
-    expect(capturedRequest.tools).toBeDefined();
-    expect(capturedRequest.tools.length).toBeGreaterThanOrEqual(1);
+    if (!capturedRequest) {
+      throw new Error('Expected capturedRequest to be defined');
+    }
+    const request: LlmRequest = capturedRequest;
+    if (!request.tools) {
+      throw new Error('Expected request.tools to be defined');
+    }
+    const tools = request.tools;
+    expect(tools.length).toBeGreaterThanOrEqual(1);
 
-    const handoffTool = capturedRequest.tools.find((t: any) => t.name === 'handoff_to');
-    expect(handoffTool).toBeDefined();
-    expect(handoffTool.parameters.properties.targetEmployeeId.enum).toContain('e-design-1');
-    expect(handoffTool.parameters.properties.targetEmployeeId.enum).toContain('e-mgr-1');
+    const handoffTool = assertDefined(tools.find((t: ToolDef) => t.name === 'handoff_to'));
+    const handoffParameters = handoffTool.parameters as {
+      properties: {
+        targetEmployeeId: {
+          enum: string[];
+        };
+      };
+    };
+    expect(handoffParameters.properties.targetEmployeeId.enum).toContain('e-design-1');
+    expect(handoffParameters.properties.targetEmployeeId.enum).toContain('e-mgr-1');
     // Current employee should NOT be in the enum (no self-handoff)
-    expect(handoffTool.parameters.properties.targetEmployeeId.enum).not.toContain('e-dev-1');
+    expect(handoffParameters.properties.targetEmployeeId.enum).not.toContain('e-dev-1');
   });
 });

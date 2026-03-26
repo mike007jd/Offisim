@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
 import type { MemoryEntryCreate } from '../../runtime/repositories.js';
+import { assertDefined } from '../helpers/fixtures.js';
 
 const COMPANY_ID = 'c-test-1';
 
@@ -36,7 +37,7 @@ describe('InMemoryMemoryRepository', () => {
 
     const found = await repo.findById('mem-1');
     expect(found).not.toBeNull();
-    expect(found!.content).toBe(entry.content);
+    expect(found?.content).toBe(entry.content);
   });
 
   it('returns null for non-existent memory', async () => {
@@ -60,7 +61,7 @@ describe('InMemoryMemoryRepository', () => {
 
     const results = await repo.search('typescript', { companyId: COMPANY_ID });
     expect(results).toHaveLength(1);
-    expect(results[0]!.memory_id).toBe('mem-ts');
+    expect(results[0]?.memory_id).toBe('mem-ts');
   });
 
   it('search respects scope and ownerId filters', async () => {
@@ -91,7 +92,7 @@ describe('InMemoryMemoryRepository', () => {
       ownerId: 'e-1',
     });
     expect(ownerFiltered).toHaveLength(1);
-    expect(ownerFiltered[0]!.memory_id).toBe('mem-e1');
+    expect(ownerFiltered[0]?.memory_id).toBe('mem-e1');
   });
 
   it('search sorts by importance DESC and respects limit', async () => {
@@ -103,8 +104,8 @@ describe('InMemoryMemoryRepository', () => {
 
     const results = await repo.search('common', { companyId: COMPANY_ID, limit: 2 });
     expect(results).toHaveLength(2);
-    expect(results[0]!.memory_id).toBe('mem-high');
-    expect(results[1]!.memory_id).toBe('mem-mid');
+    expect(results[0]?.memory_id).toBe('mem-high');
+    expect(results[1]?.memory_id).toBe('mem-mid');
   });
 
   it('findByOwner returns entries sorted by importance', async () => {
@@ -114,7 +115,7 @@ describe('InMemoryMemoryRepository', () => {
 
     const results = await repo.findByOwner('e-dev-1');
     expect(results).toHaveLength(2);
-    expect(results[0]!.memory_id).toBe('mem-b');
+    expect(results[0]?.memory_id).toBe('mem-b');
   });
 
   it('findByOwner filters by category', async () => {
@@ -127,18 +128,18 @@ describe('InMemoryMemoryRepository', () => {
 
     const results = await repo.findByOwner('e-dev-1', { category: 'decision' });
     expect(results).toHaveLength(1);
-    expect(results[0]!.category).toBe('decision');
+    expect(results[0]?.category).toBe('decision');
   });
 
   it('touchAccess increments access_count and updates accessed_at', async () => {
     await repo.create(makeEntry({ memory_id: 'mem-touch' }));
     const before = await repo.findById('mem-touch');
-    expect(before!.access_count).toBe(0);
+    expect(before?.access_count).toBe(0);
 
     await repo.touchAccess('mem-touch');
     const after = await repo.findById('mem-touch');
-    expect(after!.access_count).toBe(1);
-    expect(after!.accessed_at >= before!.accessed_at).toBe(true);
+    expect(after?.access_count).toBe(1);
+    expect(assertDefined(after?.accessed_at) >= assertDefined(before?.accessed_at)).toBe(true);
   });
 
   it('touchAccess is a no-op for non-existent memory', async () => {

@@ -60,7 +60,7 @@ describe('hrNode', () => {
     repos.seed.employees([makeManager(), makeEmployee()]);
 
     eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({

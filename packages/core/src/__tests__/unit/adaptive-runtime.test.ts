@@ -1,19 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { pmHeartbeatNode } from '../../agents/pm-heartbeat-node.js';
-import { pmReplanNode } from '../../agents/pm-replan-node.js';
 import {
+  type StructuredError,
   diagnoseAndRecover,
   recordRecoveryOutcome,
-  type StructuredError,
 } from '../../agents/recovery-agent.js';
+import { InMemoryEventBus } from '../../events/event-bus.js';
 import { routeFromStart, routeFromStepAdvance } from '../../graph/main-graph.js';
 import type { AicsGraphState, PlanStep, TaskPlan } from '../../graph/state.js';
-import { AicsGraphAnnotation } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
-import { generateId } from '../../utils/generate-id.js';
 import { appendAgentEvent } from '../../utils/append-agent-event.js';
+import { generateId } from '../../utils/generate-id.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,7 +45,7 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     replanCount: 0,
     ...overrides,
-  };
+  } as AicsGraphState;
 }
 
 function makeRuntimeCtx(overrides?: Partial<RuntimeContext>): RuntimeContext {
@@ -59,7 +57,10 @@ function makeRuntimeCtx(overrides?: Partial<RuntimeContext>): RuntimeContext {
     modelResolver: {
       resolve: () => ({ provider: 'test', model: 'test-model', temperature: 0, maxTokens: 100 }),
     } as unknown as RuntimeContext['modelResolver'],
-    toolExecutor: { execute: vi.fn(), listAvailable: vi.fn() } as unknown as RuntimeContext['toolExecutor'],
+    toolExecutor: {
+      execute: vi.fn(),
+      listAvailable: vi.fn(),
+    } as unknown as RuntimeContext['toolExecutor'],
     companyId: 'company-test',
     threadId: 'thread-test',
     meetingInterruptBox: { pending: null },
@@ -68,7 +69,7 @@ function makeRuntimeCtx(overrides?: Partial<RuntimeContext>): RuntimeContext {
 }
 
 function makeConfig(runtimeCtx: RuntimeContext) {
-  return { configurable: { runtimeCtx } } as unknown as Parameters<typeof pmHeartbeatNode>[1];
+  return { configurable: { runtimeCtx } } as Parameters<typeof pmHeartbeatNode>[1];
 }
 
 function makePlan(steps: Partial<PlanStep>[]): TaskPlan {
@@ -80,7 +81,14 @@ function makePlan(steps: Partial<PlanStep>[]): TaskPlan {
     steps: steps.map((s, i) => ({
       stepIndex: s.stepIndex ?? i,
       description: s.description ?? `Step ${i}`,
-      tasks: s.tasks ?? [{ taskType: 'general', employeeId: 'emp-1', description: 'Task', dependsOnStepOutput: false }],
+      tasks: s.tasks ?? [
+        {
+          taskType: 'general',
+          employeeId: 'emp-1',
+          description: 'Task',
+          dependsOnStepOutput: false,
+        },
+      ],
       phase: s.phase,
       dependsOnSteps: s.dependsOnSteps,
     })),
@@ -105,17 +113,23 @@ describe('Phase A: Event Sourcing', () => {
     expect(eventId).toBeDefined();
     expect(eventId).toMatch(/^evt-/);
 
-    const events = await ctx.repos.agentEvents!.findByThread('thread-test');
+    const eventRepo = ctx.repos.agentEvents;
+    expect(eventRepo).toBeDefined();
+    if (!eventRepo) throw new Error('agentEvents repo unavailable');
+    const events = await eventRepo.findByThread('thread-test');
     expect(events).toHaveLength(1);
-    expect(events[0]!.agent_name).toBe('boss');
-    expect(events[0]!.event_type).toBe('decision');
-    expect(JSON.parse(events[0]!.payload_json)).toMatchObject({ action: 'delegate' });
+    const [firstEvent] = events;
+    expect(firstEvent).toBeDefined();
+    if (!firstEvent) throw new Error('Expected appended event');
+    expect(firstEvent.agent_name).toBe('boss');
+    expect(firstEvent.event_type).toBe('decision');
+    expect(JSON.parse(firstEvent.payload_json)).toMatchObject({ action: 'delegate' });
   });
 
   it('appendAgentEvent is no-op when agentEvents repo is undefined', async () => {
     const ctx = makeRuntimeCtx();
     // Remove the repo
-    (ctx.repos as Record<string, unknown>).agentEvents = undefined;
+    ctx.repos.agentEvents = undefined;
 
     const eventId = await appendAgentEvent(ctx, {
       threadId: 'thread-test',
@@ -128,42 +142,76 @@ describe('Phase A: Event Sourcing', () => {
 
   it('causal chain can be queried', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.agentEvents!;
+    const repo = ctx.repos.agentEvents;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('agentEvents repo unavailable');
 
     await repo.append({
-      event_id: 'evt-1', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'boss', event_type: 'decision', payload_json: '{}', parent_event_id: null,
+      event_id: 'evt-1',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'boss',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: null,
     });
     await repo.append({
-      event_id: 'evt-2', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'manager', event_type: 'decision', payload_json: '{}', parent_event_id: 'evt-1',
+      event_id: 'evt-2',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'manager',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: 'evt-1',
     });
     await repo.append({
-      event_id: 'evt-3', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'pm', event_type: 'decision', payload_json: '{}', parent_event_id: 'evt-2',
+      event_id: 'evt-3',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'pm',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: 'evt-2',
     });
 
     const chain = await repo.findCausalChain('evt-3');
     expect(chain).toHaveLength(3);
-    expect(chain.map(e => e.event_id)).toEqual(['evt-3', 'evt-2', 'evt-1']);
+    expect(chain.map((e) => e.event_id)).toEqual(['evt-3', 'evt-2', 'evt-1']);
   });
 
   it('findByAgent filters by eventType', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.agentEvents!;
+    const repo = ctx.repos.agentEvents;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('agentEvents repo unavailable');
 
     await repo.append({
-      event_id: 'evt-a', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'pm', event_type: 'decision', payload_json: '{}', parent_event_id: null,
+      event_id: 'evt-a',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'pm',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: null,
     });
     await repo.append({
-      event_id: 'evt-b', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'pm', event_type: 'heartbeat', payload_json: '{}', parent_event_id: null,
+      event_id: 'evt-b',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'pm',
+      event_type: 'heartbeat',
+      payload_json: '{}',
+      parent_event_id: null,
     });
 
     const decisions = await repo.findByAgent('pm', { eventType: 'decision' });
     expect(decisions).toHaveLength(1);
-    expect(decisions[0]!.event_id).toBe('evt-a');
+    expect(decisions[0]?.event_id).toBe('evt-a');
 
     const all = await repo.findByAgent('pm');
     expect(all).toHaveLength(2);
@@ -177,7 +225,9 @@ describe('Phase A: Event Sourcing', () => {
 describe('Phase B: Recovery Agent', () => {
   it('recovery knowledge upsert and findBestFix', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.recoveryKnowledge!;
+    const repo = ctx.repos.recoveryKnowledge;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('recoveryKnowledge repo unavailable');
 
     const entry = await repo.upsert({
       knowledge_id: generateId('rk'),
@@ -197,13 +247,15 @@ describe('Phase B: Recovery Agent', () => {
 
     const best = await repo.findBestFix('LLM_TIMEOUT');
     expect(best).not.toBeNull();
-    expect(best!.success_count).toBe(2);
-    expect(best!.failure_count).toBe(1);
+    expect(best?.success_count).toBe(2);
+    expect(best?.failure_count).toBe(1);
   });
 
   it('upsert updates existing entry on symptom+cause match', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.recoveryKnowledge!;
+    const repo = ctx.repos.recoveryKnowledge;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('recoveryKnowledge repo unavailable');
 
     await repo.upsert({
       knowledge_id: 'rk-1',
@@ -232,7 +284,9 @@ describe('Phase B: Recovery Agent', () => {
     const config = makeConfig(ctx);
 
     // Seed knowledge
-    const repo = ctx.repos.recoveryKnowledge!;
+    const repo = ctx.repos.recoveryKnowledge;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('recoveryKnowledge repo unavailable');
     const entry = await repo.upsert({
       knowledge_id: generateId('rk'),
       symptom: 'LLM_TIMEOUT',
@@ -252,9 +306,9 @@ describe('Phase B: Recovery Agent', () => {
 
     const decision = await diagnoseAndRecover(ctx, config, error, 'thread-test', null);
     expect(decision).not.toBeNull();
-    expect(decision!.strategy).toBe('retry_with_backoff');
-    expect(decision!.cause).toBe('rate_limit');
-    expect(decision!.knowledgeId).toBe(entry.knowledge_id);
+    expect(decision?.strategy).toBe('retry_with_backoff');
+    expect(decision?.cause).toBe('rate_limit');
+    expect(decision?.knowledgeId).toBe(entry.knowledge_id);
   });
 
   it('diagnoseAndRecover escalates non-recoverable errors', async () => {
@@ -270,7 +324,7 @@ describe('Phase B: Recovery Agent', () => {
 
     const decision = await diagnoseAndRecover(ctx, config, error, 'thread-test', null);
     expect(decision).not.toBeNull();
-    expect(decision!.strategy).toBe('escalate');
+    expect(decision?.strategy).toBe('escalate');
   });
 
   it('recordRecoveryOutcome creates new knowledge entry', async () => {
@@ -278,10 +332,16 @@ describe('Phase B: Recovery Agent', () => {
 
     await recordRecoveryOutcome(ctx, 'PARSE_ERROR', 'malformed_json', 'retry_with_backoff', true);
 
-    const entries = await ctx.repos.recoveryKnowledge!.findBySymptom('PARSE_ERROR');
+    const recoveryRepo = ctx.repos.recoveryKnowledge;
+    expect(recoveryRepo).toBeDefined();
+    if (!recoveryRepo) throw new Error('recoveryKnowledge repo unavailable');
+    const entries = await recoveryRepo.findBySymptom('PARSE_ERROR');
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.cause).toBe('malformed_json');
-    expect(entries[0]!.success_count).toBe(1);
+    const [firstEntry] = entries;
+    expect(firstEntry).toBeDefined();
+    if (!firstEntry) throw new Error('Expected recovery knowledge entry');
+    expect(firstEntry.cause).toBe('malformed_json');
+    expect(firstEntry.success_count).toBe(1);
   });
 });
 
@@ -314,9 +374,15 @@ describe('Phase C: Heartbeat', () => {
 
     await pmHeartbeatNode(state, makeConfig(ctx));
 
-    const events = await ctx.repos.agentEvents!.findByAgent('pm', { eventType: 'heartbeat' });
+    const eventRepo = ctx.repos.agentEvents;
+    expect(eventRepo).toBeDefined();
+    if (!eventRepo) throw new Error('agentEvents repo unavailable');
+    const events = await eventRepo.findByAgent('pm', { eventType: 'heartbeat' });
     expect(events).toHaveLength(1);
-    const payload = JSON.parse(events[0]!.payload_json);
+    const [firstEvent] = events;
+    expect(firstEvent).toBeDefined();
+    if (!firstEvent) throw new Error('Expected heartbeat event');
+    const payload = JSON.parse(firstEvent.payload_json);
     expect(payload.progress).toBe('1/3 steps');
     expect(payload.recommendation).toBe('in_progress');
   });
@@ -337,7 +403,7 @@ describe('Phase C: Heartbeat', () => {
     // Second heartbeat with same state — should be silent
     await pmHeartbeatNode(state, makeConfig(ctx));
 
-    const events = await ctx.repos.agentEvents!.findByAgent('pm', { eventType: 'heartbeat' });
+    const events = await ctx.repos.agentEvents?.findByAgent('pm', { eventType: 'heartbeat' });
     expect(events).toHaveLength(1); // Only one event, not two
   });
 });
@@ -350,7 +416,17 @@ describe('Phase D: Dynamic Re-Planning', () => {
   it('routeFromStepAdvance detects REPLAN_NEEDED in employee output', () => {
     const state = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'This approach is infeasible, we need a different method. REPLAN_NEEDED', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            {
+              employeeId: 'e1',
+              employeeName: 'Dev',
+              content: 'This approach is infeasible, we need a different method. REPLAN_NEEDED',
+              taskRunId: 'tr-1',
+            },
+          ],
+        },
       ],
       replanCount: 0,
     });
@@ -360,7 +436,17 @@ describe('Phase D: Dynamic Re-Planning', () => {
   it('routeFromStepAdvance routes to step_dispatcher when no replan signal', () => {
     const state = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'Task completed successfully.', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            {
+              employeeId: 'e1',
+              employeeName: 'Dev',
+              content: 'Task completed successfully.',
+              taskRunId: 'tr-1',
+            },
+          ],
+        },
       ],
     });
     expect(routeFromStepAdvance(state)).toBe('step_dispatcher');
@@ -369,7 +455,12 @@ describe('Phase D: Dynamic Re-Planning', () => {
   it('routeFromStepAdvance routes to step_dispatcher when replanCount >= 3', () => {
     const state = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'REPLAN_NEEDED', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            { employeeId: 'e1', employeeName: 'Dev', content: 'REPLAN_NEEDED', taskRunId: 'tr-1' },
+          ],
+        },
       ],
       replanCount: 3,
     });
@@ -380,7 +471,17 @@ describe('Phase D: Dynamic Re-Planning', () => {
     // [SIGNAL:REPLAN_NEEDED] marker format
     const markerState = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'This is [SIGNAL:REPLAN_NEEDED] because of X', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            {
+              employeeId: 'e1',
+              employeeName: 'Dev',
+              content: 'This is [SIGNAL:REPLAN_NEEDED] because of X',
+              taskRunId: 'tr-1',
+            },
+          ],
+        },
       ],
       replanCount: 0,
     });
@@ -389,7 +490,17 @@ describe('Phase D: Dynamic Re-Planning', () => {
     // Standalone REPLAN_NEEDED literal (backward compat)
     const literalState = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'Status: REPLAN_NEEDED due to dependency failure', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            {
+              employeeId: 'e1',
+              employeeName: 'Dev',
+              content: 'Status: REPLAN_NEEDED due to dependency failure',
+              taskRunId: 'tr-1',
+            },
+          ],
+        },
       ],
       replanCount: 0,
     });
@@ -400,7 +511,17 @@ describe('Phase D: Dynamic Re-Planning', () => {
     // "blocked" as a normal word should NOT trigger replan
     const state = makeState({
       stepResults: [
-        { stepIndex: 0, outputs: [{ employeeId: 'e1', employeeName: 'Dev', content: 'The request was blocked by the firewall', taskRunId: 'tr-1' }] },
+        {
+          stepIndex: 0,
+          outputs: [
+            {
+              employeeId: 'e1',
+              employeeName: 'Dev',
+              content: 'The request was blocked by the firewall',
+              taskRunId: 'tr-1',
+            },
+          ],
+        },
       ],
       replanCount: 0,
     });
@@ -420,7 +541,9 @@ describe('Phase D: Dynamic Re-Planning', () => {
 describe('Recovery-aware local retry', () => {
   it('skip_and_continue returns a skip message without retrying LLM', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.recoveryKnowledge!;
+    const repo = ctx.repos.recoveryKnowledge;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('recoveryKnowledge repo unavailable');
 
     // Seed: skip_and_continue with 100% success rate
     const entry = await repo.upsert({
@@ -435,12 +558,14 @@ describe('Recovery-aware local retry', () => {
     // Import the function — test it indirectly through knowledge base state
     const bestFix = await repo.findBestFix('LLM_CALL_FAILED');
     expect(bestFix).not.toBeNull();
-    expect(bestFix!.fix_strategy).toBe('skip_and_continue');
+    expect(bestFix?.fix_strategy).toBe('skip_and_continue');
   });
 
   it('knowledge base tracks success and failure accurately', async () => {
     const ctx = makeRuntimeCtx();
-    const repo = ctx.repos.recoveryKnowledge!;
+    const repo = ctx.repos.recoveryKnowledge;
+    expect(repo).toBeDefined();
+    if (!repo) throw new Error('recoveryKnowledge repo unavailable');
 
     const entry = await repo.upsert({
       knowledge_id: generateId('rk'),
@@ -457,10 +582,12 @@ describe('Recovery-aware local retry', () => {
     await repo.incrementFailure(entry.knowledge_id);
 
     const best = await repo.findBestFix('LLM_TIMEOUT');
-    expect(best!.success_count).toBe(3);
-    expect(best!.failure_count).toBe(1);
+    expect(best).toBeDefined();
+    if (!best) throw new Error('Expected best fix');
+    expect(best.success_count).toBe(3);
+    expect(best.failure_count).toBe(1);
     // 75% success rate > 30% threshold → should be recommended
-    const successRate = best!.success_count / (best!.success_count + best!.failure_count);
+    const successRate = best.success_count / (best.success_count + best.failure_count);
     expect(successRate).toBe(0.75);
   });
 
@@ -468,24 +595,29 @@ describe('Recovery-aware local retry', () => {
     const ctx = makeRuntimeCtx();
 
     // Seed: retry_with_backoff with terrible success rate (1/10 = 10%)
-    const entry = await ctx.repos.recoveryKnowledge!.upsert({
+    const recoveryRepo = ctx.repos.recoveryKnowledge;
+    expect(recoveryRepo).toBeDefined();
+    if (!recoveryRepo) throw new Error('recoveryKnowledge repo unavailable');
+    const entry = await recoveryRepo.upsert({
       knowledge_id: generateId('rk'),
       symptom: 'LLM_CALL_FAILED',
       cause: 'provider_down',
       fix_strategy: 'retry_with_backoff',
       fix_config: null,
     });
-    await ctx.repos.recoveryKnowledge!.incrementSuccess(entry.knowledge_id);
+    await recoveryRepo.incrementSuccess(entry.knowledge_id);
     for (let i = 0; i < 9; i++) {
-      await ctx.repos.recoveryKnowledge!.incrementFailure(entry.knowledge_id);
+      await recoveryRepo.incrementFailure(entry.knowledge_id);
     }
 
     // diagnoseAndRecover should NOT use this fix (10% < 30%)
     const config = makeConfig(ctx);
     const decision = await diagnoseAndRecover(
-      ctx, config,
+      ctx,
+      config,
       { errorCode: 'LLM_CALL_FAILED', message: 'fail', recoverable: true, nodeName: 'employee' },
-      'thread-test', null,
+      'thread-test',
+      null,
     );
 
     // Should fall through to LLM diagnosis (which returns null in test because LLM is mocked)
@@ -506,17 +638,32 @@ describe('EventConsolidator', () => {
     const { EventConsolidator } = await import('../../services/event-consolidator.js');
 
     // Only 2 events — not worth consolidating
-    await ctx.repos.agentEvents!.append({
-      event_id: 'e1', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'boss', event_type: 'decision', payload_json: '{}', parent_event_id: null,
+    await ctx.repos.agentEvents?.append({
+      event_id: 'e1',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'boss',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: null,
     });
-    await ctx.repos.agentEvents!.append({
-      event_id: 'e2', project_id: null, thread_id: 't1', company_id: 'c1',
-      agent_name: 'pm', event_type: 'decision', payload_json: '{}', parent_event_id: null,
+    await ctx.repos.agentEvents?.append({
+      event_id: 'e2',
+      project_id: null,
+      thread_id: 't1',
+      company_id: 'c1',
+      agent_name: 'pm',
+      event_type: 'decision',
+      payload_json: '{}',
+      parent_event_id: null,
     });
 
+    const agentEventsRepo = ctx.repos.agentEvents;
+    expect(agentEventsRepo).toBeDefined();
+    if (!agentEventsRepo) throw new Error('agentEvents repo unavailable');
     const consolidator = new EventConsolidator(
-      ctx.repos.agentEvents!,
+      agentEventsRepo,
       ctx.repos.memories,
       ctx.llmGateway,
       ctx.eventBus,

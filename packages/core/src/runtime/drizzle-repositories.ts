@@ -7,7 +7,15 @@ import type {
   NewEmployee,
 } from '@aics/install-core';
 import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
-import type { BindingStatus, InstallState, NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type {
+  BindingStatus,
+  InstallState,
+  NewProject,
+  NewProjectAssignment,
+  ProjectAssignmentRow,
+  ProjectRow,
+  ProjectStatus,
+} from '@aics/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
@@ -28,6 +36,7 @@ import type {
   GraphThreadRow,
   HandoffEventRow,
   HandoffRepository,
+  LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
   McpAuditRepository,
@@ -44,6 +53,7 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
@@ -56,17 +66,16 @@ import type {
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
-  NewLibraryDocument,
-  LibraryDocumentRow,
   OfficeLayoutRow,
   ProjectAssignmentRepository,
   ProjectRepository,
   RackRow,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
+  RuntimeEventRow,
+  RuntimeRepositories,
   SlotRow,
   SopTemplateRow,
-  RuntimeRepositories,
   TaskRunRepository,
   TaskRunRow,
   ThreadRepository,
@@ -79,6 +88,15 @@ type Db = BetterSQLite3Database<typeof schema>;
 
 function now(): string {
   return new Date().toISOString();
+}
+
+function normalizeMemoryDedupeKey(content: string): string {
+  const normalized = content.normalize('NFKC').toLowerCase();
+  const simplified = normalized
+    .replace(/[.,:;/，。：；、]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return simplified || normalized.replace(/\s+/g, ' ').trim();
 }
 
 export function createDrizzleRepositories(db: Db): RuntimeRepositories {
@@ -96,7 +114,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       );
     },
     async findAll() {
-      return db.select().from(schema.companies).all() as Awaited<ReturnType<CompanyRepository['findAll']>>;
+      return db.select().from(schema.companies).all() as Awaited<
+        ReturnType<CompanyRepository['findAll']>
+      >;
     },
     async create(company) {
       db.insert(schema.companies).values(company).run();
@@ -112,7 +132,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
 
   const threads: ThreadRepository = {
     async create(t: NewGraphThread) {
-      const row = { ...t, created_at: now(), updated_at: now() };
+      const row = {
+        ...t,
+        synopsis_json: t.synopsis_json ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
       db.insert(schema.graphThreads).values(row).run();
       return row as GraphThreadRow;
     },
@@ -160,6 +185,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     async updateStatus(id, status) {
       db.update(schema.graphThreads)
         .set({ status, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+    async updateSynopsis(id, synopsisJson) {
+      db.update(schema.graphThreads)
+        .set({ synopsis_json: synopsisJson, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id))
         .run();
     },
@@ -383,6 +414,14 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     async insert(e: NewRuntimeEvent) {
       db.insert(schema.runtimeEvents).values(e).run();
     },
+    async findByThread(threadId) {
+      return db
+        .select()
+        .from(schema.runtimeEvents)
+        .where(eq(schema.runtimeEvents.thread_id, threadId))
+        .orderBy(schema.runtimeEvents.created_at)
+        .all() as RuntimeEventRow[];
+    },
   };
 
   const llmCalls: LlmCallRepository = {
@@ -520,6 +559,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         category: entry.category,
         content: entry.content,
         importance: entry.importance,
+        confidence: entry.confidence ?? 0.7,
+        dedupe_key: entry.dedupe_key ?? normalizeMemoryDedupeKey(entry.content),
+        reinforcement_count: entry.reinforcement_count ?? 1,
+        last_reinforced_at: entry.last_reinforced_at ?? ts,
+        metadata_json: entry.metadata_json ?? null,
         source_thread_id: entry.source_thread_id ?? null,
         source_task_run_id: entry.source_task_run_id ?? null,
         created_at: ts,
@@ -537,6 +581,22 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .get();
       return (row as MemoryEntryRow | undefined) ?? null;
     },
+    async findByDedupeKey(lookup) {
+      const row = db
+        .select()
+        .from(schema.memoryEntries)
+        .where(
+          and(
+            eq(schema.memoryEntries.company_id, lookup.companyId),
+            eq(schema.memoryEntries.scope, lookup.scope),
+            eq(schema.memoryEntries.owner_id, lookup.ownerId),
+            eq(schema.memoryEntries.category, lookup.category),
+            eq(schema.memoryEntries.dedupe_key, lookup.dedupeKey),
+          ),
+        )
+        .get();
+      return (row as MemoryEntryRow | undefined) ?? null;
+    },
     async search(query, opts) {
       const conditions = [eq(schema.memoryEntries.company_id, opts.companyId)];
       if (opts.scope) conditions.push(eq(schema.memoryEntries.scope, opts.scope));
@@ -550,9 +610,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         // At least one word must match (OR across words via a single check)
         // Use a wider candidate set first, then JS-filter for precision
         // SQL LIKE '%word%' for the first word to narrow the candidate set
-        conditions.push(
-          sql`lower(${schema.memoryEntries.content}) LIKE ${'%' + queryWords[0] + '%'}`,
-        );
+        conditions.push(sql`lower(${schema.memoryEntries.content}) LIKE ${`%${queryWords[0]}%`}`);
       }
       const limit = opts.limit ?? 10;
       // Fetch wider candidate set, then JS-filter + limit
@@ -560,7 +618,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
-        .orderBy(desc(schema.memoryEntries.importance))
+        .orderBy(
+          desc(schema.memoryEntries.importance),
+          desc(schema.memoryEntries.confidence),
+          desc(schema.memoryEntries.last_reinforced_at),
+        )
         .limit(limit * 5)
         .all();
       // Word-based filter in JS for multi-word precision
@@ -580,10 +642,44 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .select()
         .from(schema.memoryEntries)
         .where(and(...conditions))
-        .orderBy(desc(schema.memoryEntries.importance))
+        .orderBy(
+          desc(schema.memoryEntries.importance),
+          desc(schema.memoryEntries.confidence),
+          desc(schema.memoryEntries.last_reinforced_at),
+        )
         .limit(opts?.limit ?? 50)
         .all();
       return rows as MemoryEntryRow[];
+    },
+    async reinforce(memoryId, patch) {
+      const existing = await memories.findById(memoryId);
+      if (!existing) return null;
+
+      const nextContent =
+        patch.content && patch.content.length > existing.content.length
+          ? patch.content
+          : existing.content;
+      db.update(schema.memoryEntries)
+        .set({
+          content: nextContent,
+          importance:
+            patch.importance !== undefined
+              ? Math.max(existing.importance, patch.importance)
+              : existing.importance,
+          confidence:
+            patch.confidence !== undefined
+              ? Math.max(existing.confidence, patch.confidence)
+              : existing.confidence,
+          metadata_json: patch.metadataJson ?? existing.metadata_json,
+          source_thread_id: patch.sourceThreadId ?? existing.source_thread_id,
+          source_task_run_id: patch.sourceTaskRunId ?? existing.source_task_run_id,
+          reinforcement_count: existing.reinforcement_count + 1,
+          last_reinforced_at: now(),
+        })
+        .where(eq(schema.memoryEntries.memory_id, memoryId))
+        .run();
+
+      return memories.findById(memoryId);
     },
     async touchAccess(memoryId) {
       db.update(schema.memoryEntries)
@@ -672,14 +768,15 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .all() as ModelCostRateRow[];
       const matching = rows.filter((r) => {
         const regex = new RegExp(
-          '^' + r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+          `^${r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
           'i',
         );
         return regex.test(model);
       });
       if (matching.length === 0) return null;
       matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-      return matching[0]!;
+      const [bestMatch] = matching;
+      return bestMatch ?? null;
     },
     async findAll() {
       return db.select().from(schema.modelCostRates).all() as ModelCostRateRow[];
@@ -760,11 +857,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return row;
     },
     async findById(rackId) {
-      const rows = db
-        .select()
-        .from(schema.racks)
-        .where(eq(schema.racks.rack_id, rackId))
-        .all();
+      const rows = db.select().from(schema.racks).where(eq(schema.racks.rack_id, rackId)).all();
       return (rows[0] as RackRow | undefined) ?? null;
     },
     async findByCompany(companyId) {
@@ -883,9 +976,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .all() as LibraryDocumentRow[];
     },
     async delete(docId) {
-      db.delete(schema.libraryDocuments)
-        .where(eq(schema.libraryDocuments.doc_id, docId))
-        .run();
+      db.delete(schema.libraryDocuments).where(eq(schema.libraryDocuments.doc_id, docId)).run();
     },
   };
 
@@ -896,35 +987,54 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return instance;
     },
     async findById(instanceId) {
-      const rows = db.select().from(schema.prefabInstances)
-        .where(eq(schema.prefabInstances.instance_id, instanceId)).all();
-      return (rows[0] ?? null) as ReturnType<RuntimeRepositories['prefabInstances']['findById']> extends Promise<infer R> ? R : never;
+      const rows = db
+        .select()
+        .from(schema.prefabInstances)
+        .where(eq(schema.prefabInstances.instance_id, instanceId))
+        .all();
+      return (rows[0] ?? null) as ReturnType<
+        RuntimeRepositories['prefabInstances']['findById']
+      > extends Promise<infer R>
+        ? R
+        : never;
     },
     async findByCompanyAndZone(companyId, zoneId) {
-      return db.select().from(schema.prefabInstances)
-        .where(and(
-          eq(schema.prefabInstances.company_id, companyId),
-          eq(schema.prefabInstances.zone_id, zoneId),
-        )).all() as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
+      return db
+        .select()
+        .from(schema.prefabInstances)
+        .where(
+          and(
+            eq(schema.prefabInstances.company_id, companyId),
+            eq(schema.prefabInstances.zone_id, zoneId),
+          ),
+        )
+        .all() as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
     },
     async findByCompany(companyId) {
-      return db.select().from(schema.prefabInstances)
+      return db
+        .select()
+        .from(schema.prefabInstances)
         .where(eq(schema.prefabInstances.company_id, companyId))
         .all() as Awaited<ReturnType<RuntimeRepositories['prefabInstances']['findByCompany']>>;
     },
     async update(instanceId, fields) {
-      db.update(schema.prefabInstances).set({
-        ...fields,
-        updated_at: now(),
-      }).where(eq(schema.prefabInstances.instance_id, instanceId)).run();
+      db.update(schema.prefabInstances)
+        .set({
+          ...fields,
+          updated_at: now(),
+        })
+        .where(eq(schema.prefabInstances.instance_id, instanceId))
+        .run();
     },
     async delete(instanceId) {
       db.delete(schema.prefabInstances)
-        .where(eq(schema.prefabInstances.instance_id, instanceId)).run();
+        .where(eq(schema.prefabInstances.instance_id, instanceId))
+        .run();
     },
     async deleteByCompany(companyId) {
       db.delete(schema.prefabInstances)
-        .where(eq(schema.prefabInstances.company_id, companyId)).run();
+        .where(eq(schema.prefabInstances.company_id, companyId))
+        .run();
     },
   };
 
@@ -991,9 +1101,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .run();
     },
     async delete(layoutId) {
-      db.delete(schema.officeLayouts)
-        .where(eq(schema.officeLayouts.layout_id, layoutId))
-        .run();
+      db.delete(schema.officeLayouts).where(eq(schema.officeLayouts.layout_id, layoutId)).run();
     },
   };
 
@@ -1046,9 +1154,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .run();
     },
     async delete(projectId) {
-      db.delete(schema.projects)
-        .where(eq(schema.projects.project_id, projectId))
-        .run();
+      db.delete(schema.projects).where(eq(schema.projects.project_id, projectId)).run();
     },
   };
 
@@ -1058,10 +1164,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         ...assignment,
         assigned_at: now(),
       };
-      db.insert(schema.projectAssignments)
-        .values(row)
-        .onConflictDoNothing()
-        .run();
+      db.insert(schema.projectAssignments).values(row).onConflictDoNothing().run();
       // Re-read to return whatever row exists (could be existing if duplicate)
       const rows = db
         .select()
@@ -1133,7 +1236,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .from(schema.agentEvents)
         .where(
           opts?.eventType
-            ? and(eq(schema.agentEvents.project_id, projectId), eq(schema.agentEvents.event_type, opts.eventType))
+            ? and(
+                eq(schema.agentEvents.project_id, projectId),
+                eq(schema.agentEvents.event_type, opts.eventType),
+              )
             : eq(schema.agentEvents.project_id, projectId),
         )
         .orderBy(desc(schema.agentEvents.created_at));
@@ -1146,7 +1252,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .from(schema.agentEvents)
         .where(
           opts?.eventType
-            ? and(eq(schema.agentEvents.thread_id, threadId), eq(schema.agentEvents.event_type, opts.eventType))
+            ? and(
+                eq(schema.agentEvents.thread_id, threadId),
+                eq(schema.agentEvents.event_type, opts.eventType),
+              )
             : eq(schema.agentEvents.thread_id, threadId),
         )
         .orderBy(desc(schema.agentEvents.created_at));
@@ -1159,7 +1268,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .from(schema.agentEvents)
         .where(
           opts?.eventType
-            ? and(eq(schema.agentEvents.agent_name, agentName), eq(schema.agentEvents.event_type, opts.eventType))
+            ? and(
+                eq(schema.agentEvents.agent_name, agentName),
+                eq(schema.agentEvents.event_type, opts.eventType),
+              )
             : eq(schema.agentEvents.agent_name, agentName),
         )
         .orderBy(desc(schema.agentEvents.created_at));
@@ -1179,8 +1291,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
           .where(eq(schema.agentEvents.event_id, currentId))
           .all() as AgentEventRow[];
         if (rows.length === 0) break;
-        chain.push(rows[0]!);
-        currentId = rows[0]!.parent_event_id;
+        const [current] = rows;
+        if (!current) break;
+        chain.push(current);
+        currentId = current.parent_event_id;
       }
       return chain;
     },
@@ -1212,12 +1326,20 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         )
         .all() as RecoveryKnowledgeRow[];
       if (existing.length > 0) {
+        const [current] = existing;
+        if (!current) {
+          throw new Error('Recovery knowledge lookup returned empty result');
+        }
         // Update strategy and config if changed
         db.update(schema.recoveryKnowledge)
           .set({ fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null })
-          .where(eq(schema.recoveryKnowledge.knowledge_id, existing[0]!.knowledge_id))
+          .where(eq(schema.recoveryKnowledge.knowledge_id, current.knowledge_id))
           .run();
-        return { ...existing[0]!, fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null };
+        return {
+          ...current,
+          fix_strategy: entry.fix_strategy,
+          fix_config: entry.fix_config ?? null,
+        };
       }
       const row: RecoveryKnowledgeRow = {
         ...entry,
@@ -1245,16 +1367,20 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .all() as RecoveryKnowledgeRow[];
       if (rows.length === 0) return null;
       // Pick the fix with highest success rate; break ties by most recent use
-      return rows.sort((a, b) => {
-        const rateA = a.success_count + a.failure_count > 0
-          ? a.success_count / (a.success_count + a.failure_count)
-          : 0.5;
-        const rateB = b.success_count + b.failure_count > 0
-          ? b.success_count / (b.success_count + b.failure_count)
-          : 0.5;
-        if (rateB !== rateA) return rateB - rateA;
-        return (b.last_used_at ?? '').localeCompare(a.last_used_at ?? '');
-      })[0] ?? null;
+      return (
+        rows.sort((a, b) => {
+          const rateA =
+            a.success_count + a.failure_count > 0
+              ? a.success_count / (a.success_count + a.failure_count)
+              : 0.5;
+          const rateB =
+            b.success_count + b.failure_count > 0
+              ? b.success_count / (b.success_count + b.failure_count)
+              : 0.5;
+          if (rateB !== rateA) return rateB - rateA;
+          return (b.last_used_at ?? '').localeCompare(a.last_used_at ?? '');
+        })[0] ?? null
+      );
     },
     async incrementSuccess(knowledgeId) {
       db.update(schema.recoveryKnowledge)
@@ -1290,7 +1416,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   const transact = <T>(fn: () => T): T => {
     const result = db.transaction(fn) as unknown as T;
     if (result instanceof Promise) {
-      throw new Error('transact() callback must be synchronous — received Promise. Do not use async repo methods inside transact().');
+      throw new Error(
+        'transact() callback must be synchronous — received Promise. Do not use async repo methods inside transact().',
+      );
     }
     return result;
   };

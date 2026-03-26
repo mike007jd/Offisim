@@ -1,8 +1,9 @@
+import type { SopDefinition } from '@aics/shared-types';
 import { describe, expect, it } from 'vitest';
+import { InMemoryEventBus } from '../events/event-bus.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import { SopService } from '../services/sop-service.js';
-import type { SopDefinition } from '@aics/shared-types';
-import { InMemoryEventBus } from '../events/event-bus.js';
+import { assertDefined } from './helpers/fixtures.js';
 
 function makeDefinition(overrides?: Partial<SopDefinition>): SopDefinition {
   return {
@@ -10,9 +11,30 @@ function makeDefinition(overrides?: Partial<SopDefinition>): SopDefinition {
     name: 'Test SOP',
     description: 'A test SOP',
     steps: [
-      { step_id: 's1', label: 'Research', role_slug: 'researcher', instruction: 'Do research', dependencies: [], output_key: 'research_output' },
-      { step_id: 's2', label: 'Write', role_slug: 'writer', instruction: 'Write content', dependencies: ['s1'], output_key: 'draft' },
-      { step_id: 's3', label: 'Review', role_slug: 'reviewer', instruction: 'Review draft', dependencies: ['s2'], output_key: 'review' },
+      {
+        step_id: 's1',
+        label: 'Research',
+        role_slug: 'researcher',
+        instruction: 'Do research',
+        dependencies: [],
+        output_key: 'research_output',
+      },
+      {
+        step_id: 's2',
+        label: 'Write',
+        role_slug: 'writer',
+        instruction: 'Write content',
+        dependencies: ['s1'],
+        output_key: 'draft',
+      },
+      {
+        step_id: 's3',
+        label: 'Review',
+        role_slug: 'reviewer',
+        instruction: 'Review draft',
+        dependencies: ['s2'],
+        output_key: 'review',
+      },
     ],
     created_at: new Date().toISOString(),
     ...overrides,
@@ -46,8 +68,22 @@ describe('SopService', () => {
       const { service } = setup();
       const def = makeDefinition({
         steps: [
-          { step_id: 's1', label: 'A', role_slug: 'dev', instruction: 'do A', dependencies: [], output_key: 'a' },
-          { step_id: 's1', label: 'B', role_slug: 'dev', instruction: 'do B', dependencies: [], output_key: 'b' },
+          {
+            step_id: 's1',
+            label: 'A',
+            role_slug: 'dev',
+            instruction: 'do A',
+            dependencies: [],
+            output_key: 'a',
+          },
+          {
+            step_id: 's1',
+            label: 'B',
+            role_slug: 'dev',
+            instruction: 'do B',
+            dependencies: [],
+            output_key: 'b',
+          },
         ],
       });
       const result = service.validateDefinition(def);
@@ -59,7 +95,14 @@ describe('SopService', () => {
       const { service } = setup();
       const def = makeDefinition({
         steps: [
-          { step_id: 's1', label: 'A', role_slug: 'dev', instruction: 'do A', dependencies: ['unknown'], output_key: 'a' },
+          {
+            step_id: 's1',
+            label: 'A',
+            role_slug: 'dev',
+            instruction: 'do A',
+            dependencies: ['unknown'],
+            output_key: 'a',
+          },
         ],
       });
       const result = service.validateDefinition(def);
@@ -71,8 +114,22 @@ describe('SopService', () => {
       const { service } = setup();
       const def = makeDefinition({
         steps: [
-          { step_id: 's1', label: 'A', role_slug: 'dev', instruction: 'do A', dependencies: ['s2'], output_key: 'a' },
-          { step_id: 's2', label: 'B', role_slug: 'dev', instruction: 'do B', dependencies: ['s1'], output_key: 'b' },
+          {
+            step_id: 's1',
+            label: 'A',
+            role_slug: 'dev',
+            instruction: 'do A',
+            dependencies: ['s2'],
+            output_key: 'a',
+          },
+          {
+            step_id: 's2',
+            label: 'B',
+            role_slug: 'dev',
+            instruction: 'do B',
+            dependencies: ['s1'],
+            output_key: 'b',
+          },
         ],
       });
       const result = service.validateDefinition(def);
@@ -84,7 +141,14 @@ describe('SopService', () => {
       const { service } = setup();
       const def = makeDefinition({
         steps: [
-          { step_id: 's1', label: '', role_slug: 'dev', instruction: 'do', dependencies: [], output_key: 'a' },
+          {
+            step_id: 's1',
+            label: '',
+            role_slug: 'dev',
+            instruction: 'do',
+            dependencies: [],
+            output_key: 'a',
+          },
         ],
       });
       const result = service.validateDefinition(def);
@@ -98,24 +162,45 @@ describe('SopService', () => {
       const { service } = setup();
       const batches = service.getExecutionOrder(makeDefinition());
       expect(batches).toHaveLength(3);
-      expect(batches[0]!.map((s) => s.step_id)).toEqual(['s1']);
-      expect(batches[1]!.map((s) => s.step_id)).toEqual(['s2']);
-      expect(batches[2]!.map((s) => s.step_id)).toEqual(['s3']);
+      expect(batches[0]?.map((s) => s.step_id)).toEqual(['s1']);
+      expect(batches[1]?.map((s) => s.step_id)).toEqual(['s2']);
+      expect(batches[2]?.map((s) => s.step_id)).toEqual(['s3']);
     });
 
     it('groups parallel steps in same batch', () => {
       const { service } = setup();
       const def = makeDefinition({
         steps: [
-          { step_id: 's1', label: 'Research', role_slug: 'researcher', instruction: 'Research', dependencies: [], output_key: 'r' },
-          { step_id: 's2', label: 'Design', role_slug: 'ux_designer', instruction: 'Design', dependencies: [], output_key: 'd' },
-          { step_id: 's3', label: 'Merge', role_slug: 'product_manager', instruction: 'Merge results', dependencies: ['s1', 's2'], output_key: 'm' },
+          {
+            step_id: 's1',
+            label: 'Research',
+            role_slug: 'researcher',
+            instruction: 'Research',
+            dependencies: [],
+            output_key: 'r',
+          },
+          {
+            step_id: 's2',
+            label: 'Design',
+            role_slug: 'ux_designer',
+            instruction: 'Design',
+            dependencies: [],
+            output_key: 'd',
+          },
+          {
+            step_id: 's3',
+            label: 'Merge',
+            role_slug: 'product_manager',
+            instruction: 'Merge results',
+            dependencies: ['s1', 's2'],
+            output_key: 'm',
+          },
         ],
       });
       const batches = service.getExecutionOrder(def);
       expect(batches).toHaveLength(2);
-      expect(batches[0]!.map((s) => s.step_id).sort()).toEqual(['s1', 's2']);
-      expect(batches[1]!.map((s) => s.step_id)).toEqual(['s3']);
+      expect(batches[0]?.map((s) => s.step_id).sort()).toEqual(['s1', 's2']);
+      expect(batches[1]?.map((s) => s.step_id)).toEqual(['s3']);
     });
   });
 
@@ -128,8 +213,9 @@ describe('SopService', () => {
 
       const templates = await service.listTemplates('c-1');
       expect(templates).toHaveLength(1);
-      expect(templates[0]!.name).toBe('My SOP');
-      expect(JSON.parse(templates[0]!.definition_json).steps).toHaveLength(3);
+      const template = assertDefined(templates[0]);
+      expect(template.name).toBe('My SOP');
+      expect(JSON.parse(template.definition_json).steps).toHaveLength(3);
     });
 
     it('deletes template', async () => {

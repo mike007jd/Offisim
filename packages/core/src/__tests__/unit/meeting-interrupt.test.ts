@@ -5,12 +5,12 @@ import {
   meetingInjectNode,
   meetingPausedNode,
   meetingResumeNode,
-  meetingTurnCheck,
   meetingStartNode,
+  meetingTurnCheck,
   participantTurnNode,
 } from '../../graph/meeting-subgraph.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { TEST_THREAD_ID, assertDefined } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
@@ -108,8 +108,8 @@ describe('meeting interrupt — meetingTurnCheck routing', () => {
   it('routes normally when meetingInterrupt is null', () => {
     const state = makeState({
       meetingInterrupt: null,
-    dispatchedStepIndices: [],
-    completedStepIndices: [],
+      dispatchedStepIndices: [],
+      completedStepIndices: [],
       pendingAssignments: [
         {
           taskType: '__meeting_state',
@@ -189,7 +189,7 @@ describe('meeting interrupt — meetingPausedNode', () => {
 
     // Should have a paused message
     expect(result.messages).toHaveLength(1);
-    const msgContent = result.messages![0]!.content as string;
+    const msgContent = result.messages?.[0]?.content as string;
     expect(msgContent).toContain('Paused');
 
     // Meeting status should be updated
@@ -244,7 +244,7 @@ describe('meeting interrupt — meetingResumeNode', () => {
 
     // Should have a resumed message
     expect(result.messages).toHaveLength(1);
-    const msgContent = result.messages![0]!.content as string;
+    const msgContent = result.messages?.[0]?.content as string;
     expect(msgContent).toContain('Resumed');
 
     // Meeting status should be updated
@@ -288,13 +288,13 @@ describe('meeting interrupt — meetingInjectNode', () => {
 
     // Should have injected boss comment as a message
     expect(result.messages).toHaveLength(1);
-    const msgContent = result.messages![0]!.content as string;
+    const msgContent = result.messages?.[0]?.content as string;
     expect(msgContent).toContain('[Boss]: Focus on security!');
 
     // Should have updated the turn state transcript with boss comment
     const turnStateAssignment = result.pendingAssignments?.[0];
     expect(turnStateAssignment).toBeDefined();
-    const turnState = turnStateAssignment!.inputJson as { transcript: string[] };
+    const turnState = turnStateAssignment?.inputJson as { transcript: string[] };
     expect(turnState.transcript).toContain('[Boss]: Focus on security!');
     expect(turnState.transcript).toHaveLength(2); // original + injected
   });
@@ -316,7 +316,7 @@ describe('meeting interrupt — participantTurnNode consumes interrupt box', () 
     gateway.pushResponse({ content: 'I think we should use microservices.' });
     const turnState = makeState({
       ...startResult,
-      meetingId: startResult.meetingId!,
+      meetingId: assertDefined(startResult.meetingId),
     });
     const turnResult = await participantTurnNode(turnState, config);
 
@@ -339,7 +339,7 @@ describe('meeting interrupt — participantTurnNode consumes interrupt box', () 
     gateway.pushResponse({ content: 'I think we should use microservices.' });
     const turnState = makeState({
       ...startResult,
-      meetingId: startResult.meetingId!,
+      meetingId: assertDefined(startResult.meetingId),
     });
     const turnResult = await participantTurnNode(turnState, config);
 

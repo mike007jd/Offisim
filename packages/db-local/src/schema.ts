@@ -7,7 +7,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // 001 — Core tables
@@ -80,9 +88,7 @@ export const workstationRacks = sqliteTable(
       .references(() => racks.rack_id, { onDelete: 'cascade' }),
     created_at: text('created_at').notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.workstation_id, table.rack_id] }),
-  ],
+  (table) => [primaryKey({ columns: [table.workstation_id, table.rack_id] })],
 );
 
 export const employees = sqliteTable(
@@ -223,6 +229,7 @@ export const graphThreads = sqliteTable(
     root_task_id: text('root_task_id'),
     status: text('status').notNull(),
     project_id: text('project_id'),
+    synopsis_json: text('synopsis_json'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
@@ -247,9 +254,7 @@ export const projects = sqliteTable(
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
-  (table) => [
-    index('idx_projects_company').on(table.company_id, table.status, table.updated_at),
-  ],
+  (table) => [index('idx_projects_company').on(table.company_id, table.status, table.updated_at)],
 );
 
 // ---------------------------------------------------------------------------
@@ -459,6 +464,11 @@ export const memoryEntries = sqliteTable(
     category: text('category').notNull(),
     content: text('content').notNull(),
     importance: real('importance').notNull().default(0.5),
+    confidence: real('confidence').notNull().default(0.7),
+    dedupe_key: text('dedupe_key').notNull(),
+    reinforcement_count: integer('reinforcement_count').notNull().default(1),
+    last_reinforced_at: text('last_reinforced_at').notNull().default(sql`(datetime('now'))`),
+    metadata_json: text('metadata_json'),
     source_thread_id: text('source_thread_id'),
     source_task_run_id: text('source_task_run_id'),
     created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
@@ -469,6 +479,14 @@ export const memoryEntries = sqliteTable(
     index('idx_memory_scope_owner').on(table.scope, table.owner_id),
     index('idx_memory_company').on(table.company_id),
     index('idx_memory_importance').on(table.importance),
+    index('idx_memory_dedupe').on(
+      table.company_id,
+      table.scope,
+      table.owner_id,
+      table.category,
+      table.dedupe_key,
+    ),
+    index('idx_memory_reinforced').on(table.last_reinforced_at),
   ],
 );
 
@@ -503,7 +521,9 @@ export const modelCostRates = sqliteTable(
 
 export const sopTemplates = sqliteTable('sop_templates', {
   sop_template_id: text('sop_template_id').primaryKey(),
-  company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+  company_id: text('company_id')
+    .notNull()
+    .references(() => companies.company_id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   definition_json: text('definition_json').notNull(),
@@ -573,7 +593,9 @@ export const prefabInstances = sqliteTable(
   'prefab_instances',
   {
     instance_id: text('instance_id').primaryKey(),
-    company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
     prefab_id: text('prefab_id').notNull(),
     zone_id: text('zone_id').notNull(),
     position_x: real('position_x').notNull().default(0),
@@ -647,7 +669,9 @@ export const officeLayouts = sqliteTable(
   'office_layouts',
   {
     layout_id: text('layout_id').primaryKey(),
-    company_id: text('company_id').notNull().references(() => companies.company_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     layout_json: text('layout_json').notNull(),
     is_active: integer('is_active').notNull().default(0),

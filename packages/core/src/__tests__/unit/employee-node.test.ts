@@ -72,7 +72,7 @@ describe('employeeNode', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -231,7 +231,7 @@ describe('errorHandlerNode', () => {
 
     const eventBus = new InMemoryEventBus();
     const gateway = new MockLlmGateway();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({

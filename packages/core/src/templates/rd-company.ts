@@ -211,7 +211,8 @@ export const rdCompanyTemplate: CompanyTemplate = {
     {
       sop_id: 'sop-feature-dev',
       name: 'Feature Development',
-      description: 'Standard feature development flow from requirements to deployment with thorough review',
+      description:
+        'Standard feature development flow from requirements to deployment with thorough review',
       created_at: new Date().toISOString(),
       steps: [
         {

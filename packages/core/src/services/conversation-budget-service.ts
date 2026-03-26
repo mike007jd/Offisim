@@ -1,0 +1,252 @@
+import type { RuntimeEvent } from '@aics/shared-types';
+import type { LlmRequest, LlmResponse } from '../llm/gateway.js';
+import { pruneLlmMessages } from '../llm/prune-messages.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
+
+export interface ThreadSynopsisRecord {
+  version: number;
+  summary: string;
+  prunedMessageCount: number;
+  totalMessageCount: number;
+  updatedAt: string;
+}
+
+export interface ConversationBudgetServiceOptions {
+  maxNonSystemMessages?: number;
+  tailNonSystemMessages?: number;
+  synopsisTriggerMessages?: number;
+  synopsisRefreshMinMessages?: number;
+}
+
+interface ResolvedConversationBudgetOptions {
+  enabled: boolean;
+  maxNonSystemMessages: number;
+  tailNonSystemMessages: number;
+  synopsisTriggerMessages: number;
+  synopsisRefreshMinMessages: number;
+  synopsisTriggerTokens: number;
+}
+
+const DEFAULT_MAX_NON_SYSTEM_MESSAGES = 50;
+const DEFAULT_TAIL_NON_SYSTEM_MESSAGES = 50;
+const DEFAULT_SYNOPSIS_TRIGGER_MESSAGES = 80;
+const DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES = 6;
+
+const SYNOPSIS_SYSTEM_PROMPT = `You condense long agent conversations for future continuation.
+Write a concise summary that preserves decisions, constraints, open questions, and important user preferences.
+Do not add speculation. Output plain text only.`;
+
+export class ConversationBudgetService {
+  constructor(private readonly defaults: ConversationBudgetServiceOptions = {}) {}
+
+  async prepareRequest(ctx: RuntimeContext, request: LlmRequest): Promise<LlmRequest> {
+    const options = this.resolveOptions(ctx);
+    const systemMessages = request.messages.filter((message) => message.role === 'system');
+    const nonSystemMessages = request.messages.filter((message) => message.role !== 'system');
+
+    if (!options.enabled) {
+      return {
+        ...request,
+        messages: pruneLlmMessages([...systemMessages, ...nonSystemMessages], {
+          maxNonSystemMessages: options.tailNonSystemMessages,
+        }),
+      };
+    }
+
+    if (nonSystemMessages.length <= options.maxNonSystemMessages) {
+      return request;
+    }
+
+    const thread = await ctx.repos.threads.findById(ctx.threadId);
+    const existingSynopsis = this.parseSynopsis(thread?.synopsis_json ?? null);
+    const approximateTokens = this.estimateTokens(nonSystemMessages);
+    const overflowCount = Math.max(0, nonSystemMessages.length - options.tailNonSystemMessages);
+    const newOverflowSinceSynopsis = existingSynopsis
+      ? Math.max(0, overflowCount - existingSynopsis.prunedMessageCount)
+      : overflowCount;
+    const shouldGenerateSynopsis =
+      nonSystemMessages.length >= options.synopsisTriggerMessages &&
+      approximateTokens >= options.synopsisTriggerTokens &&
+      (!existingSynopsis || newOverflowSinceSynopsis >= options.synopsisRefreshMinMessages);
+
+    const synopsis = shouldGenerateSynopsis
+      ? await this.generateSynopsis(ctx, nonSystemMessages, existingSynopsis)
+      : existingSynopsis;
+
+    const synopsisMessage = synopsis
+      ? {
+          role: 'system' as const,
+          content: `## Conversation synopsis\n${synopsis.summary}`,
+        }
+      : null;
+
+    return {
+      ...request,
+      messages: pruneLlmMessages([...systemMessages, ...nonSystemMessages], {
+        maxNonSystemMessages: options.tailNonSystemMessages,
+        synopsisMessage,
+      }),
+    };
+  }
+
+  private resolveOptions(ctx: RuntimeContext): ResolvedConversationBudgetOptions {
+    const summarization = ctx.runtimePolicy?.summarization;
+    const keepRecentMessages =
+      summarization?.keepRecentMessages ?? DEFAULT_TAIL_NON_SYSTEM_MESSAGES;
+    return {
+      enabled: summarization?.enabled ?? true,
+      maxNonSystemMessages:
+        this.defaults.maxNonSystemMessages ??
+        Math.max(DEFAULT_MAX_NON_SYSTEM_MESSAGES, keepRecentMessages),
+      tailNonSystemMessages: this.defaults.tailNonSystemMessages ?? keepRecentMessages,
+      synopsisTriggerMessages:
+        this.defaults.synopsisTriggerMessages ??
+        Math.max(DEFAULT_SYNOPSIS_TRIGGER_MESSAGES, keepRecentMessages + 10),
+      synopsisRefreshMinMessages:
+        this.defaults.synopsisRefreshMinMessages ?? DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES,
+      synopsisTriggerTokens: summarization?.triggerTokens ?? 60_000,
+    };
+  }
+
+  private estimateTokens(messages: readonly LlmRequest['messages'][number][]): number {
+    return messages.reduce((total, message) => {
+      const contentTokens = Math.ceil(message.content.length / 4);
+      const toolTokens = message.toolCalls
+        ? Math.ceil(JSON.stringify(message.toolCalls).length / 4)
+        : 0;
+      return total + contentTokens + toolTokens;
+    }, 0);
+  }
+
+  private async generateSynopsis(
+    ctx: RuntimeContext,
+    nonSystemMessages: readonly LlmRequest['messages'][number][],
+    existing: ThreadSynopsisRecord | null,
+  ): Promise<ThreadSynopsisRecord | null> {
+    const options = this.resolveOptions(ctx);
+    const overflowCount = Math.max(0, nonSystemMessages.length - options.tailNonSystemMessages);
+    const sourceMessages =
+      overflowCount > 0 ? nonSystemMessages.slice(0, overflowCount) : nonSystemMessages;
+    const transcript = sourceMessages
+      .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+      .join('\n');
+
+    let summary: string | null = null;
+    try {
+      const response = await ctx.llmGateway.chat({
+        model: 'default',
+        temperature: 0.2,
+        maxTokens: 256,
+        messages: [
+          { role: 'system', content: SYNOPSIS_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: existing
+              ? `Existing synopsis:\n${existing.summary}\n\nNew conversation to condense:\n${transcript}`
+              : `Conversation to condense:\n${transcript}`,
+          },
+        ],
+      });
+      summary = this.normalizeSummary(response);
+    } catch (error) {
+      summary = this.buildHeuristicSummary(existing, sourceMessages);
+      void error;
+    }
+    if (!summary) return existing;
+
+    const synopsis: ThreadSynopsisRecord = {
+      version: (existing?.version ?? 0) + 1,
+      summary,
+      prunedMessageCount: sourceMessages.length,
+      totalMessageCount: nonSystemMessages.length,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await ctx.repos.threads.updateSynopsis(ctx.threadId, JSON.stringify(synopsis));
+    await ctx.repos.events.insert({
+      event_id: `evt-${ctx.threadId}-${synopsis.version}`,
+      company_id: ctx.companyId,
+      thread_id: ctx.threadId,
+      event_type: 'conversation.synopsis.updated',
+      severity: 'info',
+      payload_json: JSON.stringify({
+        summary: synopsis.summary,
+        version: synopsis.version,
+        prunedMessageCount: synopsis.prunedMessageCount,
+        totalMessageCount: synopsis.totalMessageCount,
+      }),
+      created_at: synopsis.updatedAt,
+    });
+    ctx.eventBus.emit(this.makeSynopsisEvent(ctx, synopsis));
+    return synopsis;
+  }
+
+  private normalizeSummary(response: LlmResponse): string | null {
+    const summary = response.content.replace(/\s+/g, ' ').trim();
+    return summary.length > 0 ? summary : null;
+  }
+
+  private buildHeuristicSummary(
+    existing: ThreadSynopsisRecord | null,
+    messages: readonly LlmRequest['messages'][number][],
+  ): string | null {
+    const snippet = messages
+      .slice(-8)
+      .map((message) => `${message.role}: ${message.content}`)
+      .join(' | ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!snippet) return existing?.summary ?? null;
+    return existing ? `${existing.summary} | ${snippet}`.slice(0, 900) : snippet.slice(0, 900);
+  }
+
+  private parseSynopsis(raw: string | null): ThreadSynopsisRecord | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Partial<ThreadSynopsisRecord>;
+      if (
+        typeof parsed.summary !== 'string' ||
+        typeof parsed.version !== 'number' ||
+        typeof parsed.prunedMessageCount !== 'number' ||
+        typeof parsed.totalMessageCount !== 'number' ||
+        typeof parsed.updatedAt !== 'string'
+      ) {
+        return null;
+      }
+      return {
+        version: parsed.version,
+        summary: parsed.summary,
+        prunedMessageCount: parsed.prunedMessageCount,
+        totalMessageCount: parsed.totalMessageCount,
+        updatedAt: parsed.updatedAt,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private makeSynopsisEvent(
+    ctx: RuntimeContext,
+    synopsis: ThreadSynopsisRecord,
+  ): RuntimeEvent<{
+    summary: string;
+    version: number;
+    prunedMessageCount: number;
+    totalMessageCount: number;
+  }> {
+    return {
+      type: 'conversation.synopsis.updated',
+      entityId: ctx.threadId,
+      entityType: 'graph',
+      companyId: ctx.companyId,
+      threadId: ctx.threadId,
+      timestamp: Date.now(),
+      payload: {
+        summary: synopsis.summary,
+        version: synopsis.version,
+        prunedMessageCount: synopsis.prunedMessageCount,
+        totalMessageCount: synopsis.totalMessageCount,
+      },
+    };
+  }
+}

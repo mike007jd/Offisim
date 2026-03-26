@@ -90,7 +90,7 @@ describe('ProjectService', () => {
       repos,
       eventBus: new InMemoryEventBus(),
       llmGateway: new MockLlmGateway(),
-      modelResolver: new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!)),
+      modelResolver: new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json)),
       toolExecutor: new MockToolExecutor(),
       companyId: TEST_COMPANY_ID,
       threadId: TEST_THREAD_ID,
@@ -113,9 +113,9 @@ describe('ProjectService', () => {
 
     const thread = await repos.threads.findById(expectedThreadId);
     expect(thread).not.toBeNull();
-    expect(thread!.company_id).toBe(TEST_COMPANY_ID);
-    expect(thread!.entry_mode).toBe('boss_chat');
-    expect(thread!.status).toBe('queued');
+    expect(thread?.company_id).toBe(TEST_COMPANY_ID);
+    expect(thread?.entry_mode).toBe('boss_chat');
+    expect(thread?.status).toBe('queued');
   });
 
   it('creates project with null description when omitted', async () => {
@@ -132,7 +132,7 @@ describe('ProjectService', () => {
     await service.activateProject(project.project_id);
 
     const updated = await repos.projects.findById(project.project_id);
-    expect(updated!.status).toBe('active');
+    expect(updated?.status).toBe('active');
   });
 
   it('thread_id follows projectThreadId convention', async () => {
@@ -162,7 +162,7 @@ describe('bossNode project intent detection', () => {
       repos,
       eventBus: new InMemoryEventBus(),
       llmGateway: gateway,
-      modelResolver: new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!)),
+      modelResolver: new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json)),
       toolExecutor: new MockToolExecutor(),
       companyId: TEST_COMPANY_ID,
       threadId: TEST_THREAD_ID,
@@ -187,13 +187,13 @@ describe('bossNode project intent detection', () => {
     expect(result.routeDecision).toBe('delegate_manager');
     expect(result.projectId).toBeTruthy();
     expect(typeof result.projectId).toBe('string');
-    expect((result.projectId as string)).toMatch(/^proj-/);
+    expect(result.projectId as string).toMatch(/^proj-/);
 
     // Verify project was persisted
     const projects = await repos.projects.findByCompany(TEST_COMPANY_ID);
     expect(projects).toHaveLength(1);
-    expect(projects[0]!.name).toBe('E-Commerce Platform');
-    expect(projects[0]!.project_id).toBe(result.projectId);
+    expect(projects[0]?.name).toBe('E-Commerce Platform');
+    expect(projects[0]?.project_id).toBe(result.projectId);
   });
 
   it('does not create a project when isNewProject is false', async () => {

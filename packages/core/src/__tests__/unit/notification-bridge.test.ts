@@ -12,10 +12,18 @@ import { NotificationBridge } from '../../services/notification-bridge.js';
 
 const COMPANY_ID = 'company-test';
 
+type NotificationPayload = {
+  level: 'warning' | 'error' | 'success' | 'info';
+  title?: string;
+  source?: string;
+  employeeId?: string;
+  message?: string;
+};
+
 describe('NotificationBridge', () => {
   let eventBus: InMemoryEventBus;
   let bridge: NotificationBridge;
-  let notifications: RuntimeEvent<any>[];
+  let notifications: RuntimeEvent<NotificationPayload>[];
 
   beforeEach(() => {
     eventBus = new InMemoryEventBus();
@@ -32,33 +40,27 @@ describe('NotificationBridge', () => {
 
   describe('employee.state.changed → notification', () => {
     it('emits warning notification when employee becomes blocked', () => {
-      eventBus.emit(
-        employeeStateChanged(COMPANY_ID, 'emp-1', 'executing', 'blocked', 'thread-1'),
-      );
+      eventBus.emit(employeeStateChanged(COMPANY_ID, 'emp-1', 'executing', 'blocked', 'thread-1'));
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('warning');
-      expect(notifications[0]!.payload.title).toContain('emp-1');
-      expect(notifications[0]!.payload.title).toContain('blocked');
-      expect(notifications[0]!.payload.source).toBe('runtime');
-      expect(notifications[0]!.payload.employeeId).toBe('emp-1');
+      expect(notifications[0]?.payload.level).toBe('warning');
+      expect(notifications[0]?.payload.title).toContain('emp-1');
+      expect(notifications[0]?.payload.title).toContain('blocked');
+      expect(notifications[0]?.payload.source).toBe('runtime');
+      expect(notifications[0]?.payload.employeeId).toBe('emp-1');
     });
 
     it('emits error notification when employee fails', () => {
-      eventBus.emit(
-        employeeStateChanged(COMPANY_ID, 'emp-2', 'executing', 'failed', 'thread-1'),
-      );
+      eventBus.emit(employeeStateChanged(COMPANY_ID, 'emp-2', 'executing', 'failed', 'thread-1'));
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('error');
-      expect(notifications[0]!.payload.title).toContain('emp-2');
-      expect(notifications[0]!.payload.title).toContain('failed');
+      expect(notifications[0]?.payload.level).toBe('error');
+      expect(notifications[0]?.payload.title).toContain('emp-2');
+      expect(notifications[0]?.payload.title).toContain('failed');
     });
 
     it('does NOT emit notification for normal state transitions', () => {
-      eventBus.emit(
-        employeeStateChanged(COMPANY_ID, 'emp-3', 'idle', 'executing', 'thread-1'),
-      );
+      eventBus.emit(employeeStateChanged(COMPANY_ID, 'emp-3', 'idle', 'executing', 'thread-1'));
 
       expect(notifications).toHaveLength(0);
     });
@@ -71,19 +73,27 @@ describe('NotificationBridge', () => {
       );
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('success');
-      expect(notifications[0]!.payload.title).toContain('installed');
-      expect(notifications[0]!.payload.source).toBe('install');
+      expect(notifications[0]?.payload.level).toBe('success');
+      expect(notifications[0]?.payload.title).toContain('installed');
+      expect(notifications[0]?.payload.source).toBe('install');
     });
 
     it('emits error notification when install fails', () => {
       eventBus.emit(
-        installStateChanged(COMPANY_ID, 'txn-1', 'materializing', 'failed', 'thread-1', 'pkg-1', 'COMPAT_ERROR'),
+        installStateChanged(
+          COMPANY_ID,
+          'txn-1',
+          'materializing',
+          'failed',
+          'thread-1',
+          'pkg-1',
+          'COMPAT_ERROR',
+        ),
       );
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('error');
-      expect(notifications[0]!.payload.message).toContain('COMPAT_ERROR');
+      expect(notifications[0]?.payload.level).toBe('error');
+      expect(notifications[0]?.payload.message).toContain('COMPAT_ERROR');
     });
   });
 
@@ -92,26 +102,22 @@ describe('NotificationBridge', () => {
       eventBus.emit(planCompleted(COMPANY_ID, 'plan-1', 3, 'thread-1'));
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('success');
-      expect(notifications[0]!.payload.title).toContain('plan completed');
+      expect(notifications[0]?.payload.level).toBe('success');
+      expect(notifications[0]?.payload.title).toContain('plan completed');
     });
   });
 
   describe('error.occurred → notification', () => {
     it('emits error notification for non-recoverable errors', () => {
-      eventBus.emit(
-        errorOccurred(COMPANY_ID, 'LLM_TIMEOUT', 'Model timed out', false, 'employee'),
-      );
+      eventBus.emit(errorOccurred(COMPANY_ID, 'LLM_TIMEOUT', 'Model timed out', false, 'employee'));
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('error');
-      expect(notifications[0]!.payload.message).toContain('Model timed out');
+      expect(notifications[0]?.payload.level).toBe('error');
+      expect(notifications[0]?.payload.message).toContain('Model timed out');
     });
 
     it('does NOT emit notification for recoverable errors', () => {
-      eventBus.emit(
-        errorOccurred(COMPANY_ID, 'LLM_RETRY', 'Retrying...', true, 'employee'),
-      );
+      eventBus.emit(errorOccurred(COMPANY_ID, 'LLM_RETRY', 'Retrying...', true, 'employee'));
 
       expect(notifications).toHaveLength(0);
     });
@@ -124,9 +130,9 @@ describe('NotificationBridge', () => {
       );
 
       expect(notifications).toHaveLength(1);
-      expect(notifications[0]!.payload.level).toBe('info');
-      expect(notifications[0]!.payload.title).toContain('HR assessment');
-      expect(notifications[0]!.payload.source).toBe('hr');
+      expect(notifications[0]?.payload.level).toBe('info');
+      expect(notifications[0]?.payload.title).toContain('HR assessment');
+      expect(notifications[0]?.payload.source).toBe('hr');
     });
   });
 

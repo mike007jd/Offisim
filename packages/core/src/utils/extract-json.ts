@@ -41,17 +41,17 @@ function extractBalanced<T>(text: string, open: string, close: string): T | null
 
   let depth = 0;
   let inString = false;
-  let escape = false;
+  let isEscaping = false;
 
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
 
-    if (escape) {
-      escape = false;
+    if (isEscaping) {
+      isEscaping = false;
       continue;
     }
     if (ch === '\\' && inString) {
-      escape = true;
+      isEscaping = true;
       continue;
     }
     if (ch === '"') {

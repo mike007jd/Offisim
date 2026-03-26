@@ -119,7 +119,9 @@ export class SopService {
   }
 
   private hasCycle(steps: readonly SopStep[]): boolean {
-    const WHITE = 0, GRAY = 1, BLACK = 2;
+    const WHITE = 0;
+    const GRAY = 1;
+    const BLACK = 2;
     const color = new Map<string, number>();
     for (const s of steps) color.set(s.step_id, WHITE);
 

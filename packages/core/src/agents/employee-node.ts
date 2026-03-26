@@ -24,10 +24,15 @@ import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
-import { buildEmployeePrompt } from './employee-builder.js';
-import { getConfigSignal } from '../utils/get-signal.js';
 import { getRuntime } from '../utils/get-runtime.js';
-import { diagnoseAndRecover, recordRecoveryOutcome, type RecoveryDecision } from './recovery-agent.js';
+import { getConfigSignal } from '../utils/get-signal.js';
+import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
+import { buildEmployeePrompt } from './employee-builder.js';
+import {
+  type RecoveryDecision,
+  diagnoseAndRecover,
+  recordRecoveryOutcome,
+} from './recovery-agent.js';
 
 import type { CitationRef } from '../graph/state.js';
 
@@ -43,6 +48,95 @@ const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
 /** Virtual tool names for memory operations */
 const MEMORY_TOOL_NAMES = ['remember', 'recall', 'forget'] as const;
+const SKILL_TOOL_NAME = 'activate_skill_context';
+
+interface RuntimeSkillCapability {
+  readonly kind?: string;
+  readonly key?: string;
+  readonly label?: string;
+}
+
+interface RuntimeSkillConfig {
+  readonly skillName: string;
+  readonly summary: string;
+  readonly instructionMode?: string;
+  readonly instructionExcerpt?: string;
+  readonly instructions?: string;
+  readonly capabilityIndex?: {
+    readonly summary?: string;
+    readonly requiredCapabilities?: readonly string[];
+    readonly capabilities?: readonly RuntimeSkillCapability[];
+  };
+  readonly allowedTools?: readonly string[];
+}
+
+function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig | null {
+  if (!configJson) return null;
+  try {
+    const parsed = JSON.parse(configJson) as {
+      runtimeSkill?: RuntimeSkillConfig;
+    };
+    return parsed.runtimeSkill ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function formatSkillCatalogSection(skill: RuntimeSkillConfig): string {
+  const summary = sanitizeForPrompt(skill.capabilityIndex?.summary ?? skill.summary, 600);
+  const excerpt = skill.instructionExcerpt
+    ? sanitizeForPrompt(skill.instructionExcerpt, 800)
+    : null;
+  const requiredCapabilities = skill.capabilityIndex?.requiredCapabilities ?? [];
+  const capabilities = skill.capabilityIndex?.capabilities ?? [];
+  const lines = [
+    '',
+    '## Installed skill package',
+    `Name: ${sanitizeForPrompt(skill.skillName, 120)}`,
+    `Summary: ${summary}`,
+  ];
+
+  if (requiredCapabilities.length > 0) {
+    lines.push(`Required capabilities: ${requiredCapabilities.join(', ')}`);
+  }
+  if (capabilities.length > 0) {
+    lines.push(
+      `Capability index: ${capabilities
+        .map((cap) => sanitizeForPrompt(cap.label ?? cap.key ?? cap.kind ?? 'capability', 80))
+        .join(', ')}`,
+    );
+  }
+  if (excerpt) {
+    lines.push(`Instruction preview: ${excerpt}`);
+  }
+  lines.push(
+    `If you need the full skill instructions before acting, call \`${SKILL_TOOL_NAME}\` once and use the returned guidance.`,
+  );
+  return `\n${lines.join('\n')}`;
+}
+
+function formatSkillInstructionsSection(skill: RuntimeSkillConfig): string {
+  if (!skill.instructions) return '';
+  return `\n\n## Installed skill instructions\n${sanitizeForPrompt(skill.instructions, 6000)}`;
+}
+
+function buildSkillActivationTool(): ToolDef {
+  return {
+    name: SKILL_TOOL_NAME,
+    description:
+      'Load the full instructions for the installed skill package when the catalog preview is not enough.',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Why the full skill instructions are needed for the current task.',
+        },
+      },
+      required: ['reason'],
+    },
+  };
+}
 
 /** Build memory tool definitions */
 function buildMemoryTools(): ToolDef[] {
@@ -121,9 +215,10 @@ export function extractUsedCitations(
   if (citationMap.length === 0 || !responseText) return [];
   const usedIndices = new Set<number>();
   const re = /\[(\d+)]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(responseText)) !== null) {
+  let m = re.exec(responseText);
+  while (m !== null) {
     usedIndices.add(Number(m[1]));
+    m = re.exec(responseText);
   }
   return citationMap
     .filter((c) => usedIndices.has(c.index))
@@ -193,7 +288,7 @@ async function attemptLocalRecovery(
 
       if (recovery.strategy === 'retry_with_backoff') {
         // Exponential backoff: 2s, 4s
-        const delayMs = 2000 * (2 ** attempt);
+        const delayMs = 2000 * 2 ** attempt;
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       } else if (recovery.strategy === 'switch_model') {
         // Fall back to the system default model
@@ -202,8 +297,20 @@ async function attemptLocalRecovery(
         retryProvider = fallback.provider;
       } else if (recovery.strategy === 'skip_and_continue') {
         // Mark as recovered with a skip message — don't retry the LLM call
-        await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, true, recovery.knowledgeId);
-        return { content: '[Task skipped due to error — recovery agent determined this task is non-critical]', toolCalls: [], usage: { inputTokens: 0, outputTokens: 0 } };
+        await recordRecoveryOutcome(
+          runtimeCtx,
+          'LLM_CALL_FAILED',
+          recovery.cause,
+          recovery.strategy,
+          true,
+          recovery.knowledgeId,
+        );
+        return {
+          content:
+            '[Task skipped due to error — recovery agent determined this task is non-critical]',
+          toolCalls: [],
+          usage: { inputTokens: 0, outputTokens: 0 },
+        };
       } else {
         // replan_step or unknown — can't handle locally
         return null;
@@ -222,11 +329,23 @@ async function attemptLocalRecovery(
           tools: callArgs.tools,
           signal: getConfigSignal(config),
         },
-        { nodeName: 'employee', provider: retryProvider, model: retryModel, taskRunId: callArgs.taskRunId },
+        {
+          nodeName: 'employee',
+          provider: retryProvider,
+          model: retryModel,
+          taskRunId: callArgs.taskRunId,
+        },
       );
 
       // Recovery succeeded
-      await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, true, recovery.knowledgeId);
+      await recordRecoveryOutcome(
+        runtimeCtx,
+        'LLM_CALL_FAILED',
+        recovery.cause,
+        recovery.strategy,
+        true,
+        recovery.knowledgeId,
+      );
 
       await appendAgentEvent(runtimeCtx, {
         threadId: runtimeCtx.threadId,
@@ -249,7 +368,14 @@ async function attemptLocalRecovery(
   }
 
   // All retries exhausted
-  await recordRecoveryOutcome(runtimeCtx, 'LLM_CALL_FAILED', recovery.cause, recovery.strategy, false, recovery.knowledgeId);
+  await recordRecoveryOutcome(
+    runtimeCtx,
+    'LLM_CALL_FAILED',
+    recovery.cause,
+    recovery.strategy,
+    false,
+    recovery.knowledgeId,
+  );
   return null;
 }
 
@@ -300,11 +426,15 @@ export async function employeeNode(
   );
 
   // Track subtask progress scoped to THIS employee (not all employees in the queue)
-  const myAssignments = state.pendingAssignments.filter(a => a.employeeId === employee.employee_id);
-  const myRemaining = remaining.filter(a => a.employeeId === employee.employee_id);
+  const myAssignments = state.pendingAssignments.filter(
+    (a) => a.employeeId === employee.employee_id,
+  );
+  const myRemaining = remaining.filter((a) => a.employeeId === employee.employee_id);
   const totalAssignments = myAssignments.length;
   const completedSoFar = totalAssignments - myRemaining.length - 1;
-  const taskLabel = ((assignment.inputJson as Record<string, unknown>).description as string)?.slice(0, 60) ?? 'Task';
+  const taskLabel =
+    ((assignment.inputJson as Record<string, unknown>).description as string)?.slice(0, 60) ??
+    'Task';
 
   // Update task run status
   if (taskRunId) {
@@ -317,9 +447,13 @@ export async function employeeNode(
   // Emit subtask running progress
   eventBus.emit(
     taskSubtaskProgress(
-      companyId, employee.employee_id,
-      completedSoFar, taskLabel, 'running',
-      totalAssignments, completedSoFar,
+      companyId,
+      employee.employee_id,
+      completedSoFar,
+      taskLabel,
+      'running',
+      totalAssignments,
+      completedSoFar,
       threadId,
     ),
   );
@@ -327,17 +461,26 @@ export async function employeeNode(
   const resolved = modelResolver.resolve(null, employee.role_slug);
   const taskDescription =
     ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
+  const runtimeSkill = parseRuntimeSkillConfig(employee.config_json);
+  const memoryPolicy = runtimeCtx.runtimePolicy?.memory;
+  const toolSearchEnabled = runtimeCtx.runtimePolicy?.toolSearch.enabled ?? true;
   let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
+  if (runtimeSkill) {
+    systemPrompt += formatSkillCatalogSection(runtimeSkill);
+    if (!toolSearchEnabled) {
+      systemPrompt += formatSkillInstructionsSection(runtimeSkill);
+    }
+  }
 
   // --- Inject relevant memories into system prompt ---
   const { memoryService } = runtimeCtx;
-  if (memoryService && taskDescription) {
+  if (memoryService && taskDescription && (memoryPolicy?.injectionEnabled ?? true)) {
     try {
       const relevantMemories = await memoryService.getRelevantMemories(
         employee.employee_id,
         companyId,
         taskDescription,
-        10,
+        memoryPolicy?.maxFacts ?? 10,
       );
       const memoriesSection = formatMemoriesSection(relevantMemories);
       if (memoriesSection) {
@@ -359,9 +502,7 @@ export async function employeeNode(
       );
       if (text) {
         citationMap = citations;
-        systemPrompt +=
-          `\n\n## Relevant company documents\n${text}` +
-          `\n\nWhen referencing these documents, cite them using [N] notation.`;
+        systemPrompt += `\n\n## Relevant company documents\n${text}\n\nWhen referencing these documents, cite them using [N] notation.`;
       }
     } catch {
       // Library retrieval failure is non-critical
@@ -374,6 +515,9 @@ export async function employeeNode(
   // Memory tools: always available when memoryService is present
   if (memoryService) {
     virtualTools.push(...buildMemoryTools());
+  }
+  if (runtimeSkill && toolSearchEnabled && runtimeSkill.instructions) {
+    virtualTools.push(buildSkillActivationTool());
   }
 
   // Handoff tool: only if NOT direct_chat, NOT at max handoffs, AND has colleagues
@@ -459,7 +603,10 @@ export async function employeeNode(
         const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
         if (!targetEmp) {
           // Target employee no longer exists — skip handoff, continue with current task
-          conversationHistory.push({ role: 'user', content: 'Handoff target employee no longer exists. Please complete the task yourself.' });
+          conversationHistory.push({
+            role: 'user',
+            content: 'Handoff target employee no longer exists. Please complete the task yourself.',
+          });
           break;
         }
 
@@ -574,6 +721,19 @@ export async function employeeNode(
             );
             return { callId: toolCall.id, name: toolCall.name, result };
           }
+          if (runtimeSkill && toolCall.name === SKILL_TOOL_NAME) {
+            return {
+              callId: toolCall.id,
+              name: toolCall.name,
+              result: {
+                skillName: runtimeSkill.skillName,
+                summary: runtimeSkill.summary,
+                instructions: runtimeSkill.instructions ?? '',
+                allowedTools: runtimeSkill.allowedTools ?? [],
+                capabilities: runtimeSkill.capabilityIndex?.requiredCapabilities ?? [],
+              },
+            };
+          }
 
           // Non-memory, non-handoff tool calls — delegate to toolExecutor
           // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries)
@@ -602,7 +762,16 @@ export async function employeeNode(
       // Unwrap settled results — failed tools get an error string instead of crashing the loop
       const toolResults = settled.map((s, i) => {
         if (s.status === 'fulfilled') return s.value;
-        const tc = llmResponse.toolCalls[i]!;
+        const tc = llmResponse.toolCalls[i];
+        if (!tc) {
+          const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
+          logger.warn('Tool call failed without matching tool call metadata', { error: errMsg });
+          return {
+            callId: generateId('tool'),
+            name: 'unknown_tool',
+            result: `Tool execution failed: ${errMsg}`,
+          };
+        }
         const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
         logger.warn('Tool call failed', { toolName: tc.name, error: errMsg });
         return { callId: tc.id, name: tc.name, result: `Tool execution failed: ${errMsg}` };
@@ -629,9 +798,10 @@ export async function employeeNode(
 
       // Trim conversation history to avoid unbounded token growth in long sessions.
       // Keep the system message (first) + the last MAX_CONTEXT_MESSAGES messages.
+      const [firstMessage] = conversationHistory;
       const trimmedHistory =
-        conversationHistory.length > MAX_CONTEXT_MESSAGES + 1
-          ? [conversationHistory[0]!, ...conversationHistory.slice(-(MAX_CONTEXT_MESSAGES))]
+        conversationHistory.length > MAX_CONTEXT_MESSAGES + 1 && firstMessage
+          ? [firstMessage, ...conversationHistory.slice(-MAX_CONTEXT_MESSAGES)]
           : conversationHistory;
 
       // Follow-up LLM call with (potentially trimmed) accumulated history
@@ -678,9 +848,13 @@ export async function employeeNode(
     // Emit subtask done progress
     eventBus.emit(
       taskSubtaskProgress(
-        companyId, employee.employee_id,
-        completedSoFar, taskLabel, 'done',
-        totalAssignments, completedSoFar + 1,
+        companyId,
+        employee.employee_id,
+        completedSoFar,
+        taskLabel,
+        'done',
+        totalAssignments,
+        completedSoFar + 1,
         threadId,
       ),
     );
@@ -697,18 +871,26 @@ export async function employeeNode(
       ),
     );
 
-    // Reflect and remember — fire-and-forget (non-blocking).
+    // Reflect and remember before returning so the next task can rely on
+    // newly extracted memory in the same local runtime session.
     // Skip for direct_chat and handoff_continuation.
     if (memoryService) {
       const skipReflection =
         state.entryMode === 'direct_chat' || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
-      memoryService.reflectAndRemember(
-        employee.employee_id,
-        companyId,
-        `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
-        threadId,
-        { skip: skipReflection, signal: getConfigSignal(config) },
-      ).catch((err) => logger.warn('reflectAndRemember failed (non-blocking)', err));
+      try {
+        await memoryService.reflectAndRemember(
+          employee.employee_id,
+          companyId,
+          `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
+          threadId,
+          { skip: skipReflection, signal: getConfigSignal(config) },
+        );
+      } catch (err) {
+        logger.warn('reflectAndRemember failed', {
+          error: err instanceof Error ? err.message : String(err),
+          employeeId: employee.employee_id,
+        });
+      }
     }
 
     // Extract citations actually used in the response
@@ -719,7 +901,13 @@ export async function employeeNode(
       threadId: state.threadId,
       agentName: `employee:${employee.employee_id}`,
       eventType: 'action',
-      payload: { taskRunId, employeeName: employee.name, toolRounds: round, outputLength: llmResponse.content.length, citationCount: usedCitations.length },
+      payload: {
+        taskRunId,
+        employeeName: employee.name,
+        toolRounds: round,
+        outputLength: llmResponse.content.length,
+        citationCount: usedCitations.length,
+      },
     });
 
     return {
@@ -742,36 +930,60 @@ export async function employeeNode(
     const errorMessage = err instanceof Error ? err.message : String(err);
 
     // --- Recovery-aware retry: try to fix locally before escalating ---
-    const recovered = await attemptLocalRecovery(
-      runtimeCtx, config, errorMessage,
-      {
-        systemPrompt, taskDescription,
-        model: resolved.model, provider: resolved.provider,
-        temperature: resolved.temperature, maxTokens: resolved.maxTokens,
-        tools: allTools.length > 0 ? allTools : undefined,
-        taskRunId,
-      },
-    ).catch(() => null); // recovery itself must not throw
+    const recovered = await attemptLocalRecovery(runtimeCtx, config, errorMessage, {
+      systemPrompt,
+      taskDescription,
+      model: resolved.model,
+      provider: resolved.provider,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+      tools: allTools.length > 0 ? allTools : undefined,
+      taskRunId,
+    }).catch(() => null); // recovery itself must not throw
 
     if (recovered) {
       // Recovery succeeded — continue as if the original call worked
       if (taskRunId) {
         await repos.taskRuns.updateStatus(
-          taskRunId, 'completed',
+          taskRunId,
+          'completed',
           JSON.stringify({ content: recovered.content }),
         );
         eventBus.emit(
-          taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId, employee.employee_id),
+          taskStateChanged(
+            companyId,
+            taskRunId,
+            'running',
+            'completed',
+            threadId,
+            employee.employee_id,
+          ),
         );
         eventBus.emit(
           taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
         );
       }
       eventBus.emit(
-        taskSubtaskProgress(companyId, employee.employee_id, completedSoFar, taskLabel, 'done', totalAssignments, completedSoFar + 1, threadId),
+        taskSubtaskProgress(
+          companyId,
+          employee.employee_id,
+          completedSoFar,
+          taskLabel,
+          'done',
+          totalAssignments,
+          completedSoFar + 1,
+          threadId,
+        ),
       );
       eventBus.emit(
-        employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+        employeeStateChanged(
+          companyId,
+          employee.employee_id,
+          'executing',
+          'idle',
+          threadId,
+          taskRunId,
+        ),
       );
 
       await appendAgentEvent(runtimeCtx, {
@@ -779,7 +991,12 @@ export async function employeeNode(
         threadId: state.threadId,
         agentName: `employee:${employee.employee_id}`,
         eventType: 'action',
-        payload: { taskRunId, employeeName: employee.name, recoveredFromError: true, outputLength: recovered.content.length },
+        payload: {
+          taskRunId,
+          employeeName: employee.name,
+          recoveredFromError: true,
+          outputLength: recovered.content.length,
+        },
       }).catch(() => {});
 
       return {
@@ -824,9 +1041,13 @@ export async function employeeNode(
     // Emit subtask failed progress
     eventBus.emit(
       taskSubtaskProgress(
-        companyId, employee.employee_id,
-        completedSoFar, taskLabel, 'failed',
-        totalAssignments, completedSoFar,
+        companyId,
+        employee.employee_id,
+        completedSoFar,
+        taskLabel,
+        'failed',
+        totalAssignments,
+        completedSoFar,
         threadId,
       ),
     );
@@ -848,8 +1069,15 @@ export async function employeeNode(
       threadId: state.threadId,
       agentName: `employee:${employee.employee_id}`,
       eventType: 'error',
-      payload: { errorCode: 'LLM_CALL_FAILED', message: errorMessage, employeeName: employee.name, taskRunId, provider: resolved.provider, model: resolved.model },
-    }).catch(() => {});  // error logging must not throw
+      payload: {
+        errorCode: 'LLM_CALL_FAILED',
+        message: errorMessage,
+        employeeName: employee.name,
+        taskRunId,
+        provider: resolved.provider,
+        model: resolved.model,
+      },
+    }).catch(() => {}); // error logging must not throw
 
     return {
       currentEmployeeId: employee.employee_id,

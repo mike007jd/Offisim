@@ -1,3 +1,4 @@
+import type { ModelProfile, RuntimeExecutionMode, RuntimePolicyConfig } from '@aics/shared-types';
 import {
   Button,
   Dialog,
@@ -25,7 +26,9 @@ import {
 import { isTauri } from '../../lib/env';
 import {
   type ProviderConfig,
+  createDefaultRuntimePolicy,
   loadProviderConfig,
+  normalizeRuntimePolicy,
   saveProviderConfig,
 } from '../../lib/provider-config';
 import { OpenClawSettings } from '../openclaw/OpenClawSettings';
@@ -40,6 +43,23 @@ interface SettingsDialogProps {
   onSaveSuccess?: () => void;
 }
 
+const DEFAULT_POLICY = createDefaultRuntimePolicy('openai-compat', '');
+
+function parsePositiveInt(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeInt(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function parseConfidence(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : fallback;
+}
+
 export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
   const [preset, setPreset] = useState('gemini');
   const [apiKey, setApiKey] = useState('');
@@ -47,6 +67,29 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   const [model, setModel] = useState('');
   const [defaultHeaders, setDefaultHeaders] = useState('');
   const [acpCommand, setAcpCommand] = useState('claude');
+  const [executionMode, setExecutionMode] = useState<RuntimeExecutionMode>(
+    DEFAULT_POLICY.executionMode,
+  );
+  const [summarizationEnabled, setSummarizationEnabled] = useState(true);
+  const [summarizationTriggerTokens, setSummarizationTriggerTokens] = useState(
+    String(DEFAULT_POLICY.summarization.triggerTokens),
+  );
+  const [summarizationKeepRecentMessages, setSummarizationKeepRecentMessages] = useState(
+    String(DEFAULT_POLICY.summarization.keepRecentMessages),
+  );
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryInjectionEnabled, setMemoryInjectionEnabled] = useState(true);
+  const [memoryMaxFacts, setMemoryMaxFacts] = useState(String(DEFAULT_POLICY.memory.maxFacts));
+  const [memoryConfidenceThreshold, setMemoryConfidenceThreshold] = useState(
+    String(DEFAULT_POLICY.memory.factConfidenceThreshold),
+  );
+  const [toolSearchEnabled, setToolSearchEnabled] = useState(true);
+  const [runtimeModelDefault, setRuntimeModelDefault] = useState<ModelProfile>(
+    DEFAULT_POLICY.modelPolicy.default,
+  );
+  const [runtimeModelOverrides, setRuntimeModelOverrides] = useState<
+    Record<string, ModelProfile> | undefined
+  >(undefined);
   const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -63,6 +106,22 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setModel(saved.model ?? '');
         setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
         setAcpCommand(saved.acpCommand ?? 'claude');
+        const runtimePolicy: RuntimePolicyConfig = normalizeRuntimePolicy(
+          saved.runtimePolicy,
+          saved.provider,
+          saved.model,
+        );
+        setExecutionMode(runtimePolicy.executionMode);
+        setSummarizationEnabled(runtimePolicy.summarization.enabled);
+        setSummarizationTriggerTokens(String(runtimePolicy.summarization.triggerTokens));
+        setSummarizationKeepRecentMessages(String(runtimePolicy.summarization.keepRecentMessages));
+        setMemoryEnabled(runtimePolicy.memory.enabled);
+        setMemoryInjectionEnabled(runtimePolicy.memory.injectionEnabled);
+        setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
+        setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
+        setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
+        setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
         const match = Object.entries(PROVIDER_PRESETS).find(
           ([, p]) => p.defaults.provider === saved.provider && p.defaults.baseURL === saved.baseURL,
         );
@@ -75,6 +134,21 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setBaseURL(defaultPreset?.defaults.baseURL ?? '');
         setModel(defaultPreset?.defaults.model ?? '');
         setDefaultHeaders('');
+        const runtimePolicy: RuntimePolicyConfig = createDefaultRuntimePolicy(
+          defaultPreset?.defaults.provider ?? 'openai-compat',
+          defaultPreset?.defaults.model ?? '',
+        );
+        setExecutionMode(runtimePolicy.executionMode);
+        setSummarizationEnabled(runtimePolicy.summarization.enabled);
+        setSummarizationTriggerTokens(String(runtimePolicy.summarization.triggerTokens));
+        setSummarizationKeepRecentMessages(String(runtimePolicy.summarization.keepRecentMessages));
+        setMemoryEnabled(runtimePolicy.memory.enabled);
+        setMemoryInjectionEnabled(runtimePolicy.memory.injectionEnabled);
+        setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
+        setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
+        setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
+        setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
       }
 
       if (isTauri()) {
@@ -103,6 +177,11 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
       setModel(p.defaults.model ?? '');
       setDefaultHeaders(p.defaults.defaultHeaders ? JSON.stringify(p.defaults.defaultHeaders) : '');
       setAcpCommand(p.defaults.acpCommand ?? 'claude');
+      setRuntimeModelDefault((prev) => ({
+        ...prev,
+        provider: p.defaults.provider ?? 'openai-compat',
+        model: p.defaults.model ?? '',
+      }));
     }
   }
 
@@ -141,6 +220,42 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         return;
       }
 
+      const runtimePolicy = {
+        executionMode,
+        modelPolicy: {
+          default: {
+            ...runtimeModelDefault,
+            provider: p?.defaults.provider ?? 'openai-compat',
+            model: isSubscription ? 'default' : model,
+            profileName: runtimeModelDefault.profileName || 'runtime-default',
+          },
+          ...(runtimeModelOverrides ? { overrides: runtimeModelOverrides } : {}),
+        },
+        summarization: {
+          enabled: summarizationEnabled,
+          triggerTokens: parsePositiveInt(
+            summarizationTriggerTokens,
+            DEFAULT_POLICY.summarization.triggerTokens,
+          ),
+          keepRecentMessages: parseNonNegativeInt(
+            summarizationKeepRecentMessages,
+            DEFAULT_POLICY.summarization.keepRecentMessages,
+          ),
+        },
+        memory: {
+          enabled: memoryEnabled,
+          injectionEnabled: memoryInjectionEnabled,
+          maxFacts: parsePositiveInt(memoryMaxFacts, DEFAULT_POLICY.memory.maxFacts),
+          factConfidenceThreshold: parseConfidence(
+            memoryConfidenceThreshold,
+            DEFAULT_POLICY.memory.factConfidenceThreshold,
+          ),
+        },
+        toolSearch: {
+          enabled: toolSearchEnabled,
+        },
+      };
+
       const config: ProviderConfig = {
         provider: p?.defaults.provider ?? 'openai-compat',
         apiKey: isSubscription ? '' : apiKey.trim() || undefined,
@@ -157,6 +272,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               acpArgs: ['acp'],
             }
           : {}),
+        runtimePolicy,
       };
 
       saveProviderConfig(config);
@@ -173,10 +289,11 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
   const isSubscription = preset === 'subscription';
   const showBaseURL = preset === 'custom' || preset === 'kimi' || preset === 'openrouter';
+  const selectedPreset = PROVIDER_PRESETS[preset];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg h-[520px] flex flex-col">
+      <DialogContent className="max-w-lg h-[640px] flex flex-col">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -187,6 +304,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
           <TabsList className="w-full">
             <TabsTrigger value="provider" className="flex-1">
               LLM Provider
+            </TabsTrigger>
+            <TabsTrigger value="runtime" className="flex-1">
+              Runtime Policy
             </TabsTrigger>
             <TabsTrigger value="mcp" className="flex-1">
               MCP Servers
@@ -289,7 +409,15 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                   <Input
                     id="settings-model"
                     value={model}
-                    onChange={(e) => setModel(e.target.value)}
+                    onChange={(e) => {
+                      const nextModel = e.target.value;
+                      setModel(nextModel);
+                      setRuntimeModelDefault((prev) => ({
+                        ...prev,
+                        provider: selectedPreset?.defaults.provider ?? 'openai-compat',
+                        model: nextModel,
+                      }));
+                    }}
                     placeholder="model-name"
                   />
                 </div>
@@ -302,6 +430,192 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               >
                 {isSaving ? 'Saving…' : 'Save Configuration'}
               </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="runtime" className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex flex-col gap-4 pt-2">
+              <div>
+                <label htmlFor="settings-execution-mode" className="text-sm text-shell mb-1 block">
+                  Execution Mode
+                </label>
+                <Select
+                  value={executionMode}
+                  onValueChange={(value) => setExecutionMode(value as RuntimeExecutionMode)}
+                >
+                  <SelectTrigger id="settings-execution-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
+                    <SelectItem value="browser-limited">Browser limited</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Controls the trust boundary used by the local runtime.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
+                <p className="text-xs font-medium text-shell mb-3">Summarization</p>
+                <div className="grid gap-3">
+                  <div>
+                    <label
+                      htmlFor="runtime-summarization-enabled"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Enabled
+                    </label>
+                    <Select
+                      value={summarizationEnabled ? 'enabled' : 'disabled'}
+                      onValueChange={(value) => setSummarizationEnabled(value === 'enabled')}
+                    >
+                      <SelectTrigger id="runtime-summarization-enabled">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enabled">Enabled</SelectItem>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="runtime-summarization-trigger-tokens"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Trigger tokens
+                    </label>
+                    <Input
+                      id="runtime-summarization-trigger-tokens"
+                      type="number"
+                      value={summarizationTriggerTokens}
+                      onChange={(e) => setSummarizationTriggerTokens(e.target.value)}
+                      min={1}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="runtime-summarization-keep-recent"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Keep recent messages
+                    </label>
+                    <Input
+                      id="runtime-summarization-keep-recent"
+                      type="number"
+                      value={summarizationKeepRecentMessages}
+                      onChange={(e) => setSummarizationKeepRecentMessages(e.target.value)}
+                      min={0}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
+                <p className="text-xs font-medium text-shell mb-3">Memory</p>
+                <div className="grid gap-3">
+                  <div>
+                    <label
+                      htmlFor="runtime-memory-enabled"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Enabled
+                    </label>
+                    <Select
+                      value={memoryEnabled ? 'enabled' : 'disabled'}
+                      onValueChange={(value) => setMemoryEnabled(value === 'enabled')}
+                    >
+                      <SelectTrigger id="runtime-memory-enabled">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enabled">Enabled</SelectItem>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="runtime-memory-injection-enabled"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Prompt injection
+                    </label>
+                    <Select
+                      value={memoryInjectionEnabled ? 'enabled' : 'disabled'}
+                      onValueChange={(value) => setMemoryInjectionEnabled(value === 'enabled')}
+                    >
+                      <SelectTrigger id="runtime-memory-injection-enabled">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enabled">Enabled</SelectItem>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="runtime-memory-max-facts"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Max facts
+                    </label>
+                    <Input
+                      id="runtime-memory-max-facts"
+                      type="number"
+                      value={memoryMaxFacts}
+                      onChange={(e) => setMemoryMaxFacts(e.target.value)}
+                      min={1}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="runtime-memory-confidence-threshold"
+                      className="text-[10px] text-slate-400 mb-1 block"
+                    >
+                      Confidence threshold
+                    </label>
+                    <Input
+                      id="runtime-memory-confidence-threshold"
+                      type="number"
+                      value={memoryConfidenceThreshold}
+                      onChange={(e) => setMemoryConfidenceThreshold(e.target.value)}
+                      min={0}
+                      max={1}
+                      step="0.1"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="settings-tool-search" className="text-sm text-shell mb-1 block">
+                  Tool Search
+                </label>
+                <Select
+                  value={toolSearchEnabled ? 'enabled' : 'disabled'}
+                  onValueChange={(value) => setToolSearchEnabled(value === 'enabled')}
+                >
+                  <SelectTrigger id="settings-tool-search">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="enabled">Enabled</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Large tool sets can be discovered lazily instead of injected upfront.
+                </p>
+              </div>
+
+              <p className="text-[10px] text-slate-500">
+                Model selection stays in the provider tab. The runtime policy mirrors that choice as
+                the default model profile.
+              </p>
             </div>
           </TabsContent>
 

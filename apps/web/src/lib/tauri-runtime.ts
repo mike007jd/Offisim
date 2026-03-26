@@ -7,9 +7,15 @@ import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
 import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
+import { MemoryService } from '@aics/core/dist/services/memory-service.js';
 import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
-import { buildSubscriptionGatewayConfig, createDesktopProviderGateway } from '@aics/ui-office';
+import {
+  buildSubscriptionGatewayConfig,
+  createDefaultRuntimePolicy,
+  createDesktopProviderGateway,
+  normalizeRuntimePolicy,
+} from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import type { RuntimeBundle } from './browser-runtime';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
@@ -85,11 +91,15 @@ export async function createTauriRuntime(
         })
       : createDesktopProviderGateway(config);
 
-  const modelResolver = new ModelResolver(null, {
-    provider: config.provider,
-    model: config.model,
-    temperature: 0.7,
-    maxTokens: 4096,
+  const runtimePolicy = config.runtimePolicy
+    ? normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model)
+    : createDefaultRuntimePolicy(config.provider, config.model);
+
+  const modelResolver = new ModelResolver(runtimePolicy, {
+    provider: runtimePolicy.modelPolicy.default.provider,
+    model: runtimePolicy.modelPolicy.default.model,
+    temperature: runtimePolicy.modelPolicy.default.temperature ?? 0.7,
+    maxTokens: runtimePolicy.modelPolicy.default.maxTokens ?? 4096,
   });
 
   const checkpointer = new TauriCheckpointSaver();
@@ -110,6 +120,11 @@ export async function createTauriRuntime(
     companyId,
     threadId,
   );
+  const memoryService = runtimePolicy.memory.enabled
+    ? new MemoryService(repos.memories, gateway, eventBus, {
+        policy: runtimePolicy.memory,
+      })
+    : undefined;
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -119,6 +134,8 @@ export async function createTauriRuntime(
     toolExecutor,
     companyId,
     threadId,
+    runtimePolicy,
+    memoryService,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)

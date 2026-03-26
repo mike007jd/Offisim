@@ -1,13 +1,18 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import * as schema from '@aics/db-local';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { AuditingToolExecutor } from '../../mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '../../mcp/mcp-tool-executor.js';
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '../../mcp/types.js';
+import type {
+  McpClientFactory,
+  McpConnection,
+  McpServerConfig,
+  McpToolDef,
+} from '../../mcp/types.js';
 import { createDrizzleRepositories } from '../../runtime/drizzle-repositories.js';
 import type { ToolCallRequest } from '../../runtime/tool-executor.js';
 
@@ -80,13 +85,16 @@ async function createHarness(createDb: typeof createMigratedDb | typeof createSc
   const repos = createDrizzleRepositories(testDb.db);
   const eventBus = new InMemoryEventBus();
 
-  testDb.db.insert(schema.companies).values({
-    company_id: 'company-1',
-    name: 'Audit Corp',
-    status: 'active',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).run();
+  testDb.db
+    .insert(schema.companies)
+    .values({
+      company_id: 'company-1',
+      name: 'Audit Corp',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .run();
 
   await repos.threads.create({
     thread_id: 'thread-1',

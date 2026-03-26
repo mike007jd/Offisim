@@ -16,11 +16,19 @@ import {
 } from './fixtures.js';
 import { MockLlmGateway } from './mock-gateway.js';
 
+function getDefaultModelPolicyJson(): string {
+  const policyJson = TEST_COMPANY.default_model_policy_json;
+  if (!policyJson) {
+    throw new Error('TEST_COMPANY.default_model_policy_json is required for test runtime');
+  }
+  return policyJson;
+}
+
 export function createTestRuntime() {
   const repos = createMemoryRepositories();
   const eventBus = new InMemoryEventBus();
   const gateway = new MockLlmGateway();
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(JSON.parse(getDefaultModelPolicyJson()));
   const toolExecutor = new MockToolExecutor();
   const memoryService = new MemoryService(repos.memories, gateway, eventBus);
 
@@ -62,7 +70,7 @@ export function createTestRuntimeWithExtraEmployee() {
   const repos = createMemoryRepositories();
   const eventBus = new InMemoryEventBus();
   const gateway = new MockLlmGateway();
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(JSON.parse(getDefaultModelPolicyJson()));
   const toolExecutor = new MockToolExecutor();
   const memoryService = new MemoryService(repos.memories, gateway, eventBus);
 

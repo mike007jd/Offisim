@@ -1,6 +1,6 @@
 import { HumanMessage } from '@langchain/core/messages';
 import { describe, expect, it } from 'vitest';
-import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { TEST_THREAD_ID, assertDefined } from '../helpers/fixtures.js';
 import { createTestRuntime, createTestRuntimeWithExtraEmployee } from '../helpers/test-runtime.js';
 
 describe('OrchestrationService streaming', () => {
@@ -85,9 +85,9 @@ describe('OrchestrationService streaming', () => {
     const exitTimestamps = Object.fromEntries(
       exitedEvents.map((e) => [e.payload.nodeName, e.timestamp]),
     );
-    expect(exitTimestamps.boss).toBeLessThanOrEqual(exitTimestamps.manager!);
-    expect(exitTimestamps.manager).toBeLessThanOrEqual(exitTimestamps.employee!);
-    expect(exitTimestamps.employee).toBeLessThanOrEqual(exitTimestamps.boss_summary!);
+    expect(exitTimestamps.boss).toBeLessThanOrEqual(assertDefined(exitTimestamps.manager));
+    expect(exitTimestamps.manager).toBeLessThanOrEqual(assertDefined(exitTimestamps.employee));
+    expect(exitTimestamps.employee).toBeLessThanOrEqual(assertDefined(exitTimestamps.boss_summary));
   });
 
   it('T3: emits llm.stream.chunk events during boss_summary streaming', async () => {

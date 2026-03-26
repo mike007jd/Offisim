@@ -1,4 +1,11 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type {
+  EmployeeStatePayload,
+  ErrorOccurredPayload,
+  HrAssessmentCompletedPayload,
+  InstallStatePayload,
+  PlanCompletedPayload,
+  RuntimeEvent,
+} from '@aics/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { notificationCreated } from '../events/event-factories.js';
 import { generateId } from '../utils/generate-id.js';
@@ -27,39 +34,66 @@ export class NotificationBridge {
 
     // employee.state.changed → blocked / failed
     this.unsubscribers.push(
-      this.eventBus.on('employee.state.changed', (event: RuntimeEvent<any>) => {
+      this.eventBus.on('employee.state.changed', (event: RuntimeEvent<EmployeeStatePayload>) => {
         const { next, employeeId } = event.payload;
         if (next === 'blocked') {
-          this.emitNotification('warning', `Employee ${employeeId} is blocked`, `Employee ${employeeId} has been blocked and cannot continue working.`, 'runtime', { employeeId });
+          this.emitNotification(
+            'warning',
+            `Employee ${employeeId} is blocked`,
+            `Employee ${employeeId} has been blocked and cannot continue working.`,
+            'runtime',
+            { employeeId },
+          );
         } else if (next === 'failed') {
-          this.emitNotification('error', `Employee ${employeeId} failed`, `Employee ${employeeId} encountered a failure.`, 'runtime', { employeeId });
+          this.emitNotification(
+            'error',
+            `Employee ${employeeId} failed`,
+            `Employee ${employeeId} encountered a failure.`,
+            'runtime',
+            { employeeId },
+          );
         }
       }),
     );
 
     // install.state.changed → installed / failed
     this.unsubscribers.push(
-      this.eventBus.on('install.state.changed', (event: RuntimeEvent<any>) => {
+      this.eventBus.on('install.state.changed', (event: RuntimeEvent<InstallStatePayload>) => {
         const { next, errorCode } = event.payload;
         if (next === 'installed') {
-          this.emitNotification('success', 'Asset installed successfully', 'The asset has been installed and is ready to use.', 'install');
+          this.emitNotification(
+            'success',
+            'Asset installed successfully',
+            'The asset has been installed and is ready to use.',
+            'install',
+          );
         } else if (next === 'failed') {
           const reason = errorCode ?? 'unknown error';
-          this.emitNotification('error', 'Installation failed', `Installation failed: ${reason}`, 'install');
+          this.emitNotification(
+            'error',
+            'Installation failed',
+            `Installation failed: ${reason}`,
+            'install',
+          );
         }
       }),
     );
 
     // plan.completed
     this.unsubscribers.push(
-      this.eventBus.on('plan.completed', (_event: RuntimeEvent<any>) => {
-        this.emitNotification('success', 'Task plan completed', 'All steps in the task plan have been completed.', 'runtime');
+      this.eventBus.on('plan.completed', (_event: RuntimeEvent<PlanCompletedPayload>) => {
+        this.emitNotification(
+          'success',
+          'Task plan completed',
+          'All steps in the task plan have been completed.',
+          'runtime',
+        );
       }),
     );
 
     // error.occurred (high severity — non-recoverable errors)
     this.unsubscribers.push(
-      this.eventBus.on('error.occurred', (event: RuntimeEvent<any>) => {
+      this.eventBus.on('error.occurred', (event: RuntimeEvent<ErrorOccurredPayload>) => {
         const { message, recoverable } = event.payload;
         if (!recoverable) {
           this.emitNotification('error', 'Runtime error', `Runtime error: ${message}`, 'runtime');
@@ -69,9 +103,17 @@ export class NotificationBridge {
 
     // hr.assessment.completed
     this.unsubscribers.push(
-      this.eventBus.on('hr.assessment.completed', (_event: RuntimeEvent<any>) => {
-        this.emitNotification('info', 'HR assessment ready', 'The HR assessment has been completed and is ready for review.', 'hr');
-      }),
+      this.eventBus.on(
+        'hr.assessment.completed',
+        (_event: RuntimeEvent<HrAssessmentCompletedPayload>) => {
+          this.emitNotification(
+            'info',
+            'HR assessment ready',
+            'The HR assessment has been completed and is ready for review.',
+            'hr',
+          );
+        },
+      ),
     );
   }
 

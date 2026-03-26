@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { InMemoryEventBus } from '../events/event-bus.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import { RackSlotService } from '../services/rack-slot-service.js';
-import { InMemoryEventBus } from '../events/event-bus.js';
 
 describe('RackSlotService', () => {
   function setup() {
@@ -26,8 +26,8 @@ describe('RackSlotService', () => {
 
     const racks = await service.listRacks('c-1');
     expect(racks).toHaveLength(1);
-    expect(racks[0]!.slots).toHaveLength(2);
-    expect(racks[0]!.label).toBe('GitHub');
+    expect(racks[0]?.slots).toHaveLength(2);
+    expect(racks[0]?.label).toBe('GitHub');
   });
 
   it('binds and unbinds rack', async () => {
@@ -36,11 +36,11 @@ describe('RackSlotService', () => {
     await service.bindRack(rackId, { url: 'http://localhost' });
 
     const rack = await repos.racks.findById(rackId);
-    expect(rack!.status).toBe('bound');
+    expect(rack?.status).toBe('bound');
 
     await service.unbindRack(rackId);
     const unbound = await repos.racks.findById(rackId);
-    expect(unbound!.status).toBe('unbound');
+    expect(unbound?.status).toBe('unbound');
   });
 
   it('getAvailableCapabilities only returns slots from bound racks', async () => {
@@ -54,12 +54,14 @@ describe('RackSlotService', () => {
 
     const caps = await service.getAvailableCapabilities('c-1');
     expect(caps).toHaveLength(1);
-    expect(caps[0]!.capability_name).toBe('tool_a');
+    expect(caps[0]?.capability_name).toBe('tool_a');
   });
 
   it('addSlot throws for nonexistent rack', async () => {
     const { service } = setup();
-    await expect(service.addSlot('nonexistent', 'tool', 'company')).rejects.toThrow('Rack not found');
+    await expect(service.addSlot('nonexistent', 'tool', 'company')).rejects.toThrow(
+      'Rack not found',
+    );
   });
 
   it('deleteRack removes rack and its slots', async () => {

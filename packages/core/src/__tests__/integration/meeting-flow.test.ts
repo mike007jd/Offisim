@@ -9,7 +9,7 @@ import {
   participantTurnNode,
 } from '../../graph/meeting-subgraph.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import { TEST_THREAD_ID } from '../helpers/fixtures.js';
+import { TEST_THREAD_ID, assertDefined } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
 function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
@@ -61,7 +61,7 @@ describe('meeting flow', () => {
 
     const turnState = makeState({
       ...startResult,
-      meetingId: startResult.meetingId!,
+      meetingId: assertDefined(startResult.meetingId),
     });
     const turnResult = await participantTurnNode(turnState, config);
 
@@ -82,7 +82,7 @@ describe('meeting flow', () => {
 
     const turnState = makeState({
       ...startResult,
-      meetingId: startResult.meetingId!,
+      meetingId: assertDefined(startResult.meetingId),
     });
     await participantTurnNode(turnState, config);
 

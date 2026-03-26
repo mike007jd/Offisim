@@ -74,7 +74,7 @@ describe('employee-node memory tools', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
     memoryService = new MemoryService(repos.memories, gateway, eventBus);
 
@@ -138,9 +138,9 @@ describe('employee-node memory tools', () => {
     // Check memory was created in the repo
     const memories = await repos.memories.findByOwner('e-dev-1');
     expect(memories).toHaveLength(1);
-    expect(memories[0]!.content).toBe('Landing pages should use hero sections');
-    expect(memories[0]!.category).toBe('experience');
-    expect(memories[0]!.scope).toBe('employee');
+    expect(memories[0]?.content).toBe('Landing pages should use hero sections');
+    expect(memories[0]?.category).toBe('experience');
+    expect(memories[0]?.scope).toBe('employee');
 
     // Check memory.created event was emitted
     const memEvents = events.filter((e) => e.type === 'memory.created');
@@ -188,7 +188,7 @@ describe('employee-node memory tools', () => {
 
     // Check access count was incremented
     const mem = await repos.memories.findById('mem-pre-1');
-    expect(mem!.access_count).toBe(1);
+    expect(mem?.access_count).toBe(1);
   });
 
   it('handles forget tool call and deletes memory', async () => {
@@ -329,6 +329,6 @@ describe('employee-node memory tools', () => {
     // Memory from reflection should be stored
     const memories = await repos.memories.findByOwner('e-dev-1');
     expect(memories).toHaveLength(1);
-    expect(memories[0]!.content).toContain('landing pages');
+    expect(memories[0]?.content).toContain('landing pages');
   });
 });

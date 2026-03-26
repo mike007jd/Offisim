@@ -63,7 +63,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         serverName,
         call.name,
         call.employeeId ?? 'unknown',
-        auditId,
+        call.toolCallId,
         response.success,
         latencyMs,
         response.error,

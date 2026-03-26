@@ -61,9 +61,9 @@ describe('parsePmPlan — phase and dependsOnSteps preservation', () => {
     const result = parsePmPlan(content);
 
     expect(result).not.toBeNull();
-    expect(result!.steps).toHaveLength(2);
-    expect(result!.steps[0]!.phase).toBe('需求调研');
-    expect(result!.steps[1]!.phase).toBe('核心开发');
+    expect(result?.steps).toHaveLength(2);
+    expect(result?.steps[0]?.phase).toBe('需求调研');
+    expect(result?.steps[1]?.phase).toBe('核心开发');
   });
 
   it('preserves dependsOnSteps array and filters non-numbers', () => {
@@ -104,9 +104,9 @@ describe('parsePmPlan — phase and dependsOnSteps preservation', () => {
 
     expect(result).not.toBeNull();
     // Step A: empty array stays empty
-    expect(result!.steps[0]!.dependsOnSteps).toEqual([]);
+    expect(result?.steps[0]?.dependsOnSteps).toEqual([]);
     // Step B: only numeric entries survive
-    expect(result!.steps[1]!.dependsOnSteps).toEqual([0, 2]);
+    expect(result?.steps[1]?.dependsOnSteps).toEqual([0, 2]);
   });
 
   it('backward compat: old-format plans without phase/dependsOnSteps still parse', () => {
@@ -132,13 +132,13 @@ describe('parsePmPlan — phase and dependsOnSteps preservation', () => {
     const result = parsePmPlan(content);
 
     expect(result).not.toBeNull();
-    expect(result!.steps).toHaveLength(1);
-    expect(result!.steps[0]!.phase).toBeUndefined();
-    expect(result!.steps[0]!.dependsOnSteps).toBeUndefined();
+    expect(result?.steps).toHaveLength(1);
+    expect(result?.steps[0]?.phase).toBeUndefined();
+    expect(result?.steps[0]?.dependsOnSteps).toBeUndefined();
     // Core fields intact
-    expect(result!.steps[0]!.stepIndex).toBe(0);
-    expect(result!.steps[0]!.description).toBe('Build feature');
-    expect(result!.steps[0]!.tasks).toHaveLength(1);
+    expect(result?.steps[0]?.stepIndex).toBe(0);
+    expect(result?.steps[0]?.description).toBe('Build feature');
+    expect(result?.steps[0]?.tasks).toHaveLength(1);
   });
 
   it('returns null for completely malformed input', () => {
@@ -175,8 +175,8 @@ describe('parsePmPlan — phase and dependsOnSteps preservation', () => {
 
     expect(result).not.toBeNull();
     // Only the step with tasks survives
-    expect(result!.steps).toHaveLength(1);
-    expect(result!.steps[0]!.stepIndex).toBe(1);
+    expect(result?.steps).toHaveLength(1);
+    expect(result?.steps[0]?.stepIndex).toBe(1);
   });
 });
 
@@ -267,7 +267,7 @@ describe('stepDispatcherNode — DAG-aware dispatch with annotated plan', () => 
     repos.seed.employees([makeManager(), makeEmployee()]);
 
     const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -313,8 +313,8 @@ describe('stepDispatcherNode — DAG-aware dispatch with annotated plan', () => 
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    expect(result.pendingAssignments![0]!.employeeId).toBe('e-dev-1');
-    expect(result.pendingAssignments![0]!.taskType).toBe('research');
+    expect(result.pendingAssignments?.[0]?.employeeId).toBe('e-dev-1');
+    expect(result.pendingAssignments?.[0]?.taskType).toBe('research');
   });
 
   it('does NOT dispatch step 1 until step 0 is in completedStepIndices (DAG dependency)', async () => {
@@ -356,9 +356,9 @@ describe('stepDispatcherNode — DAG-aware dispatch with annotated plan', () => 
     const result = await stepDispatcherNode(state, config);
 
     expect(result.pendingAssignments).toHaveLength(1);
-    expect(result.pendingAssignments![0]!.taskType).toBe('code');
+    expect(result.pendingAssignments?.[0]?.taskType).toBe('code');
     // dependsOnStepOutput: true — dependency step output must be injected
-    const description = (result.pendingAssignments![0]!.inputJson as Record<string, unknown>)
+    const description = (result.pendingAssignments?.[0]?.inputJson as Record<string, unknown>)
       .description as string;
     expect(description).toContain('Implement feature');
     expect(description).toContain('Requirements gathered.');
@@ -367,8 +367,8 @@ describe('stepDispatcherNode — DAG-aware dispatch with annotated plan', () => 
   it('phase field is preserved on PlanStep and accessible after dispatch', async () => {
     const state = makeState({ currentStepIndex: 0 });
     // Dispatching does not strip phase — the plan remains intact in state
-    expect(state.taskPlan!.steps[0]!.phase).toBe('研究');
-    expect(state.taskPlan!.steps[1]!.phase).toBe('开发');
+    expect(state.taskPlan?.steps[0]?.phase).toBe('研究');
+    expect(state.taskPlan?.steps[1]?.phase).toBe('开发');
     // dispatch completes without error
     const result = await stepDispatcherNode(state, config);
     expect(result.pendingAssignments).toHaveLength(1);

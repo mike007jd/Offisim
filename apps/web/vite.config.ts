@@ -125,10 +125,19 @@ export default defineConfig({
   },
   resolve: {
     alias: [
-      { find: 'node:async_hooks', replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts') },
-      { find: 'better-sqlite3', replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts') },
+      {
+        find: 'node:async_hooks',
+        replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
+      },
+      {
+        find: 'better-sqlite3',
+        replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
+      },
       // Tauri packages — stub them in browser dev mode (external only works at build time)
-      { find: /^@tauri-apps\//, replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts') },
+      {
+        find: /^@tauri-apps\//,
+        replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
+      },
       // Redirect bare `@aics/core` imports (from @aics/ui-office compiled output)
       // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
       // from being pulled into the initial bundle via ui-office's static imports.
@@ -136,7 +145,10 @@ export default defineConfig({
       // imports in browser-runtime.ts and tauri-runtime.ts to bypass this alias.
       // Uses regex with exact match ($ anchor) so @aics/core/browser, @aics/core/dist/...
       // are NOT affected.
-      { find: /^@aics\/core$/, replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js') },
+      {
+        find: /^@aics\/core$/,
+        replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js'),
+      },
     ],
   },
   optimizeDeps: {
@@ -185,10 +197,7 @@ export default defineConfig({
           }
 
           // Three.js + React Three Fiber (lazy on 3D view toggle)
-          if (
-            id.includes('/three/') ||
-            id.includes('/@react-three/')
-          ) {
+          if (id.includes('/three/') || id.includes('/@react-three/')) {
             return 'vendor-3d';
           }
 

@@ -69,14 +69,11 @@ export async function stepDispatcherNode(
       // Explicit DAG: respect declared dependencies only.
       const deps = step.dependsOnSteps ?? [];
       return deps.every((dep) => completedSteps.has(dep));
-    } else {
-      // Implicit sequential: every step before this one must be complete.
-      return step.stepIndex === 0
-        ? true
-        : Array.from({ length: step.stepIndex }, (_, i) => i).every((i) =>
-            completedSteps.has(i),
-          );
     }
+    // Implicit sequential: every step before this one must be complete.
+    return step.stepIndex === 0
+      ? true
+      : Array.from({ length: step.stepIndex }, (_, i) => i).every((i) => completedSteps.has(i));
   }
 
   const readySteps = plan.steps.filter(isReady);
@@ -195,7 +192,12 @@ export async function stepDispatcherNode(
     threadId: state.threadId,
     agentName: 'pm',
     eventType: 'action',
-    payload: { action: 'dispatch', readyStepCount: readySteps.length, readyStepIndices: readySteps.map(s => s.stepIndex), assignmentCount: pendingAssignments.length },
+    payload: {
+      action: 'dispatch',
+      readyStepCount: readySteps.length,
+      readyStepIndices: readySteps.map((s) => s.stepIndex),
+      assignmentCount: pendingAssignments.length,
+    },
   });
 
   return {

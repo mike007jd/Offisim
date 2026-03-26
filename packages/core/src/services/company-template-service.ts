@@ -186,8 +186,7 @@ export class CompanyTemplateService {
 
       this.transact(() => {
         // Employees
-        for (let i = 0; i < template.employees.length; i++) {
-          const emp = template.employees[i]!;
+        for (const [i, emp] of template.employees.entries()) {
           void this.employeeRepo
             .create({
               company_id: companyId,
@@ -204,10 +203,13 @@ export class CompanyTemplateService {
         }
 
         // SOPs
-        for (let i = 0; i < template.sops.length; i++) {
-          const sop = template.sops[i]!;
+        for (const [i, sop] of template.sops.entries()) {
+          const sopTemplateId = sopTemplateIds[i];
+          if (!sopTemplateId) {
+            throw new Error(`Missing SOP template id for index ${i}`);
+          }
           void this.sopTemplateRepo.create({
-            sop_template_id: sopTemplateIds[i]!,
+            sop_template_id: sopTemplateId,
             company_id: companyId,
             name: sop.name,
             description: sop.description,
@@ -235,8 +237,7 @@ export class CompanyTemplateService {
 
       // Emit events after transaction commits (use captured IDs)
       const finalEmployeeIds = capturedEmployeeIds.length > 0 ? capturedEmployeeIds : employeeIds;
-      for (let i = 0; i < pendingEvents.length; i++) {
-        const ev = pendingEvents[i]!;
+      for (const [i, ev] of pendingEvents.entries()) {
         this.eventBus.emit(
           employeeCreated(companyId, finalEmployeeIds[i] ?? ev.employeeId, ev.name, ev.roleSlug),
         );

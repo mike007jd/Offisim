@@ -74,7 +74,10 @@ class TypedEmitter {
 
   off<K extends keyof ClientEventMap>(event: K, listener: Listener<K>): this {
     const list = this.handlers.get(event) ?? [];
-    this.handlers.set(event, list.filter((h) => h !== listener));
+    this.handlers.set(
+      event,
+      list.filter((h) => h !== listener),
+    );
     return this;
   }
 
@@ -293,7 +296,7 @@ export class OpenClawClient extends TypedEmitter {
     let frame: WireFrame;
     try {
       frame = JSON.parse(raw) as WireFrame;
-    } catch (err) {
+    } catch (_err) {
       logger.warn('Received non-JSON WebSocket message', { raw: raw.slice(0, 200) });
       return;
     }
@@ -355,7 +358,7 @@ export class OpenClawClient extends TypedEmitter {
 
   private handleResponseFrame(frame: ResponseFrame): void {
     // Special case: hello-ok sent as a res frame
-    if ((frame.payload as Record<string, unknown> | undefined)?.['hello'] === 'ok') {
+    if ((frame.payload as Record<string, unknown> | undefined)?.hello === 'ok') {
       this.handleHelloOk();
       // Also resolve any pending request for the connect req id
       this.resolvePending(frame.id, frame);
@@ -465,7 +468,8 @@ export class OpenClawClient extends TypedEmitter {
       return;
     }
 
-    const delayMs = RECONNECT_DELAYS_MS[Math.min(this.reconnectAttempt, RECONNECT_DELAYS_MS.length - 1)];
+    const delayMs =
+      RECONNECT_DELAYS_MS[Math.min(this.reconnectAttempt, RECONNECT_DELAYS_MS.length - 1)];
     this.reconnectAttempt++;
 
     logger.info('Scheduling reconnect', { attempt: this.reconnectAttempt, delayMs });

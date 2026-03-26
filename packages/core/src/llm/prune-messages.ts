@@ -2,6 +2,11 @@ import type { LlmMessage } from './gateway.js';
 
 const MAX_LLM_CONTEXT_MESSAGES = 50;
 
+export interface PruneLlmMessagesOptions {
+  maxNonSystemMessages?: number;
+  synopsisMessage?: LlmMessage | null;
+}
+
 /**
  * Prune message array for LLM calls. Keeps all system messages (always first)
  * plus the last N non-system messages.
@@ -9,9 +14,15 @@ const MAX_LLM_CONTEXT_MESSAGES = 50;
  */
 export function pruneLlmMessages(
   messages: readonly LlmMessage[],
-  max = MAX_LLM_CONTEXT_MESSAGES,
+  maxOrOptions: number | PruneLlmMessagesOptions = MAX_LLM_CONTEXT_MESSAGES,
 ): readonly LlmMessage[] {
-  if (messages.length <= max) return messages;
+  const options =
+    typeof maxOrOptions === 'number'
+      ? { maxNonSystemMessages: maxOrOptions, synopsisMessage: null }
+      : {
+          maxNonSystemMessages: maxOrOptions.maxNonSystemMessages ?? MAX_LLM_CONTEXT_MESSAGES,
+          synopsisMessage: maxOrOptions.synopsisMessage ?? null,
+        };
 
   const system: LlmMessage[] = [];
   const nonSystem: LlmMessage[] = [];
@@ -20,6 +31,14 @@ export function pruneLlmMessages(
     else nonSystem.push(m);
   }
 
-  if (nonSystem.length <= max) return messages;
-  return [...system, ...nonSystem.slice(-max)];
+  if (nonSystem.length <= options.maxNonSystemMessages && !options.synopsisMessage) {
+    return messages;
+  }
+
+  const mergedSystem = options.synopsisMessage ? [...system, options.synopsisMessage] : system;
+  if (nonSystem.length <= options.maxNonSystemMessages) {
+    return [...mergedSystem, ...nonSystem];
+  }
+
+  return [...mergedSystem, ...nonSystem.slice(-options.maxNonSystemMessages)];
 }

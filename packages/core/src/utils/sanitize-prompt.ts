@@ -26,10 +26,8 @@ const INJECTION_PATTERNS = [
 export function sanitizeForPrompt(text: string, maxLength: number): string {
   if (!text) return '';
   const lines = text.split('\n');
-  const cleaned = lines.filter(
-    (line) => !INJECTION_PATTERNS.some((re) => re.test(line)),
-  );
+  const cleaned = lines.filter((line) => !INJECTION_PATTERNS.some((re) => re.test(line)));
   const joined = cleaned.join('\n').trim();
   if (joined.length <= maxLength) return joined;
-  return joined.slice(0, maxLength) + '…';
+  return `${joined.slice(0, maxLength)}…`;
 }

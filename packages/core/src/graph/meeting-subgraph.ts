@@ -85,13 +85,17 @@ export async function meetingStartNode(
     participantIds,
     transcript: [],
   };
+  const firstParticipantId = participantIds[0];
+  if (!firstParticipantId) {
+    throw new GraphError('Meeting participants resolved to an empty list', 'meeting_start');
+  }
 
   return {
     meetingId,
     pendingAssignments: [
       {
         taskType: MEETING_STATE_TASK_TYPE,
-        employeeId: participantIds[0]!,
+        employeeId: firstParticipantId,
         inputJson: turnState as unknown as Record<string, unknown>,
       },
     ],
@@ -188,7 +192,12 @@ export async function participantTurnNode(
   };
 
   const nextParticipantId =
-    turnState.participantIds[nextParticipantIndex] ?? turnState.participantIds[0]!;
+    turnState.participantIds[nextParticipantIndex] ??
+    turnState.participantIds[0] ??
+    state.currentEmployeeId;
+  if (!nextParticipantId) {
+    throw new Error('Expected at least one meeting participant');
+  }
 
   // Check if boss sent a meeting interrupt while the LLM call was running
   const interruptBox = runtimeCtx.meetingInterruptBox;
@@ -330,7 +339,7 @@ export async function meetingResumeNode(
     meetingInterrupt: null, // Clear the interrupt
     messages: [
       new AIMessage({
-        content: `[Meeting] Resumed by boss. Continuing discussion.`,
+        content: '[Meeting] Resumed by boss. Continuing discussion.',
       }),
     ],
   };
@@ -358,7 +367,12 @@ export async function meetingInjectNode(
   };
 
   const nextParticipantId =
-    turnState.participantIds[turnState.participantIndex] ?? turnState.participantIds[0]!;
+    turnState.participantIds[turnState.participantIndex] ??
+    turnState.participantIds[0] ??
+    state.currentEmployeeId;
+  if (!nextParticipantId) {
+    throw new Error('Expected at least one meeting participant');
+  }
 
   logger.info('Boss injected comment into meeting', {
     meetingId: state.meetingId,
@@ -470,7 +484,9 @@ Do not include any text outside the JSON object.`;
     const zodSchema = buildMeetingOutputSchema(employeeIds as [string, ...string[]]);
     const result = zodSchema.safeParse(parsed);
     if (!result.success) {
-      logger.warn('Zod validation failed, falling back to empty action items', { zodError: result.error.message });
+      logger.warn('Zod validation failed, falling back to empty action items', {
+        zodError: result.error.message,
+      });
       return [];
     }
 

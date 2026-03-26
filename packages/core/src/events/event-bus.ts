@@ -36,11 +36,10 @@ export class InMemoryEventBus implements EventBus {
         try {
           sub.handler(event);
         } catch (err) {
-          logger.error(
-            `Handler error on "${event.type}" (prefix: "${sub.prefix}")`,
-            err,
-            { eventType: event.type, prefix: sub.prefix },
-          );
+          logger.error(`Handler error on "${event.type}" (prefix: "${sub.prefix}")`, err, {
+            eventType: event.type,
+            prefix: sub.prefix,
+          });
         }
         if (sub.once) {
           toRemove.push(sub);

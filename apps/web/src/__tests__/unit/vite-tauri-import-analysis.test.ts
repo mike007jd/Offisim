@@ -12,6 +12,7 @@ describe('Vite dev server Tauri import handling', () => {
     const builtHook = await fs.readFile(hookModulePath, 'utf8');
 
     expect(builtHook).not.toContain('@tauri-apps/api/event');
-    expect(builtHook).toContain('window.__TAURI__?.event');
+    expect(builtHook).toContain("const tauriEventModule = '@tauri-apps' + '/api/event';");
+    expect(builtHook).toContain('import(/* @vite-ignore */ tauriEventModule)');
   });
 });

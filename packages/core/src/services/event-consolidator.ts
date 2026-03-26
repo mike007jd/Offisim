@@ -1,10 +1,10 @@
 import type { EventBus } from '../events/event-bus.js';
+import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { AgentEventRepository, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
-import { memoryCreated } from '../events/event-factories.js';
 import { Logger } from './logger.js';
 
 const logger = new Logger('event-consolidator');
@@ -96,9 +96,8 @@ export class EventConsolidator {
       return null;
     }
 
-    const importance = typeof parsed.importance === 'number'
-      ? Math.max(0, Math.min(1, parsed.importance))
-      : 0.6;
+    const importance =
+      typeof parsed.importance === 'number' ? Math.max(0, Math.min(1, parsed.importance)) : 0.6;
 
     // Store as company-scope experience memory
     const memoryId = generateId('mem');

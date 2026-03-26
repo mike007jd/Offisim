@@ -12,7 +12,11 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
  *   (error_handler, boss_summary, heartbeat, etc.)
  */
 export function getRuntime(config: RunnableConfig, nodeName: string): RuntimeContext;
-export function getRuntime(config: RunnableConfig, nodeName: string, opts: { optional: true }): RuntimeContext | undefined;
+export function getRuntime(
+  config: RunnableConfig,
+  nodeName: string,
+  opts: { optional: true },
+): RuntimeContext | undefined;
 export function getRuntime(
   config: RunnableConfig,
   nodeName: string,

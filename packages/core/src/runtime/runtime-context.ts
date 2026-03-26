@@ -1,3 +1,4 @@
+import type { RuntimePolicyConfig } from '@aics/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
@@ -24,6 +25,7 @@ export interface RuntimeContext {
   readonly toolExecutor: ToolExecutor;
   readonly companyId: string;
   readonly threadId: string;
+  readonly runtimePolicy?: RuntimePolicyConfig;
   readonly memoryService?: MemoryService;
   /** PRD 2.3: Workstation-scoped tool resolver. */
   readonly workstationToolResolver?: WorkstationToolResolver;
@@ -57,6 +59,7 @@ export function createRuntimeContext(deps: {
   toolExecutor: ToolExecutor;
   companyId: string;
   threadId: string;
+  runtimePolicy?: RuntimePolicyConfig;
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
   meetingInterruptBox?: MeetingInterruptBox;

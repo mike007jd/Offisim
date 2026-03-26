@@ -1,11 +1,22 @@
 import type {
+  MemoryDedupeLookup,
   MemoryEntryCreate,
   MemoryEntryRow,
+  MemoryReinforcementPatch,
   MemoryRepository,
 } from '../runtime/repositories.js';
 
 function now(): string {
   return new Date().toISOString();
+}
+
+function normalizeMemoryDedupeKey(content: string): string {
+  const normalized = content.normalize('NFKC').toLowerCase();
+  const simplified = normalized
+    .replace(/[.,:;/，。：；、]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return simplified || normalized.replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -25,6 +36,11 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       category: entry.category,
       content: entry.content,
       importance: entry.importance,
+      confidence: entry.confidence ?? 0.7,
+      dedupe_key: entry.dedupe_key ?? normalizeMemoryDedupeKey(entry.content),
+      reinforcement_count: entry.reinforcement_count ?? 1,
+      last_reinforced_at: entry.last_reinforced_at ?? ts,
+      metadata_json: entry.metadata_json ?? null,
       source_thread_id: entry.source_thread_id ?? null,
       source_task_run_id: entry.source_task_run_id ?? null,
       created_at: ts,
@@ -37,6 +53,21 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 
   async findById(memoryId: string): Promise<MemoryEntryRow | null> {
     return this.store.get(memoryId) ?? null;
+  }
+
+  async findByDedupeKey(lookup: MemoryDedupeLookup): Promise<MemoryEntryRow | null> {
+    for (const row of this.store.values()) {
+      if (
+        row.company_id === lookup.companyId &&
+        row.scope === lookup.scope &&
+        row.owner_id === lookup.ownerId &&
+        row.category === lookup.category &&
+        row.dedupe_key === lookup.dedupeKey
+      ) {
+        return row;
+      }
+    }
+    return null;
   }
 
   async search(
@@ -57,8 +88,11 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       const lowerContent = row.content.toLowerCase();
       return queryWords.some((word) => lowerContent.includes(word));
     });
-    // Sort by importance DESC
-    results.sort((a, b) => b.importance - a.importance);
+    results.sort((a, b) => {
+      if (b.importance !== a.importance) return b.importance - a.importance;
+      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+      return b.last_reinforced_at.localeCompare(a.last_reinforced_at);
+    });
     const limit = opts.limit ?? 10;
     return results.slice(0, limit);
   }
@@ -78,6 +112,29 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     results.sort((a, b) => b.importance - a.importance);
     const limit = opts?.limit ?? 50;
     return results.slice(0, limit);
+  }
+
+  async reinforce(
+    memoryId: string,
+    patch: MemoryReinforcementPatch,
+  ): Promise<MemoryEntryRow | null> {
+    const row = this.store.get(memoryId);
+    if (!row) return null;
+
+    const updated: MemoryEntryRow = {
+      ...row,
+      content:
+        patch.content && patch.content.length > row.content.length ? patch.content : row.content,
+      importance: patch.importance ? Math.max(row.importance, patch.importance) : row.importance,
+      confidence: patch.confidence ? Math.max(row.confidence, patch.confidence) : row.confidence,
+      metadata_json: patch.metadataJson ?? row.metadata_json,
+      source_thread_id: patch.sourceThreadId ?? row.source_thread_id,
+      source_task_run_id: patch.sourceTaskRunId ?? row.source_task_run_id,
+      reinforcement_count: row.reinforcement_count + 1,
+      last_reinforced_at: now(),
+    };
+    this.store.set(memoryId, updated);
+    return updated;
   }
 
   async touchAccess(memoryId: string): Promise<void> {

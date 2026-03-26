@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { OrchestrationService } from '../../services/orchestration-service.js';
 import type { AicsGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
+import { OrchestrationService } from '../../services/orchestration-service.js';
+import { assertDefined } from '../helpers/fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Minimal stubs
@@ -35,9 +36,7 @@ function makeTrackedGraph(delayMs = 0): {
     async stream(input: Record<string, unknown>) {
       const tid = String(input.threadId ?? '');
       const start = Date.now();
-      const updates: Record<string, unknown>[] = [
-        { stubNode: { threadId: tid, messages: [] } },
-      ];
+      const updates: Record<string, unknown>[] = [{ stubNode: { threadId: tid, messages: [] } }];
       // Yield after delay
       async function* gen() {
         await new Promise<void>((r) => setTimeout(r, delayMs));
@@ -97,8 +96,8 @@ describe('OrchestrationService lifecycle', () => {
     expect(callLog).toHaveLength(2);
 
     // The second call must have started AFTER the first ended (serialization)
-    const first = callLog[0]!;
-    const second = callLog[1]!;
+    const first = assertDefined(callLog[0]);
+    const second = assertDefined(callLog[1]);
     expect(second.start).toBeGreaterThanOrEqual(first.end);
   });
 
@@ -109,10 +108,7 @@ describe('OrchestrationService lifecycle', () => {
     const orch = new OrchestrationService(graph, runtimeCtx);
 
     const startTime = Date.now();
-    await Promise.all([
-      orch.execute(makeInput('thread-X')),
-      orch.execute(makeInput('thread-Y')),
-    ]);
+    await Promise.all([orch.execute(makeInput('thread-X')), orch.execute(makeInput('thread-Y'))]);
     const elapsed = Date.now() - startTime;
 
     // Both calls completed; there should be two log entries
@@ -154,6 +150,6 @@ describe('OrchestrationService lifecycle', () => {
         r.status === 'fulfilled' && 'error' in (r.value as object),
     );
     expect(errorResult).toBeDefined();
-    expect(errorResult!.value.error.message).toContain('queued requests');
+    expect(errorResult?.value.error.message).toContain('queued requests');
   });
 });

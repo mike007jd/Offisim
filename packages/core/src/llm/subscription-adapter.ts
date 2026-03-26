@@ -11,7 +11,7 @@
  * making it transparent to the rest of the system.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { LlmError } from '../errors.js';
 import type {
@@ -52,12 +52,21 @@ class AsyncMutex {
   private queue: (() => void)[] = [];
   private locked = false;
   async acquire(): Promise<void> {
-    if (!this.locked) { this.locked = true; return; }
-    return new Promise<void>((resolve) => { this.queue.push(resolve); });
+    if (!this.locked) {
+      this.locked = true;
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.queue.push(resolve);
+    });
   }
   release(): void {
     const next = this.queue.shift();
-    if (next) { next(); } else { this.locked = false; }
+    if (next) {
+      next();
+    } else {
+      this.locked = false;
+    }
   }
 }
 
@@ -81,10 +90,13 @@ export class SubscriptionAdapter implements LlmGateway {
   private nextId = 1;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
-  private readonly pending = new Map<number, {
-    resolve: (msg: JsonRpcResponse) => void;
-    reject: (err: Error) => void;
-  }>();
+  private readonly pending = new Map<
+    number,
+    {
+      resolve: (msg: JsonRpcResponse) => void;
+      reject: (err: Error) => void;
+    }
+  >();
   private readonly notificationListeners: ((n: JsonRpcNotification) => void)[] = [];
   private readonly promptMutex = new AsyncMutex();
 
@@ -119,7 +131,11 @@ export class SubscriptionAdapter implements LlmGateway {
 
     this.process = proc;
 
-    const rl = createInterface({ input: proc.stdout! });
+    if (!proc.stdout) {
+      throw new LlmError('ACP process stdout unavailable', 'subscription');
+    }
+
+    const rl = createInterface({ input: proc.stdout });
     this.rl = rl;
     rl.on('line', (line: string) => {
       if (!line.trim()) return;
@@ -169,7 +185,10 @@ export class SubscriptionAdapter implements LlmGateway {
     });
 
     if (!initResult.result) {
-      throw new LlmError(`ACP initialize failed: ${JSON.stringify(initResult.error)}`, 'subscription');
+      throw new LlmError(
+        `ACP initialize failed: ${JSON.stringify(initResult.error)}`,
+        'subscription',
+      );
     }
 
     const sessionResult = await this.rpc('session/new', {
@@ -178,7 +197,10 @@ export class SubscriptionAdapter implements LlmGateway {
     });
 
     if (!sessionResult.result?.sessionId) {
-      throw new LlmError(`ACP session/new failed: ${JSON.stringify(sessionResult.error)}`, 'subscription');
+      throw new LlmError(
+        `ACP session/new failed: ${JSON.stringify(sessionResult.error)}`,
+        'subscription',
+      );
     }
 
     this.sessionId = sessionResult.result.sessionId as string;
@@ -202,11 +224,17 @@ export class SubscriptionAdapter implements LlmGateway {
       }, 120_000);
 
       this.pending.set(id, {
-        resolve: (msg) => { clearTimeout(timeout); resolve(msg); },
-        reject: (err) => { clearTimeout(timeout); reject(err); },
+        resolve: (msg) => {
+          clearTimeout(timeout);
+          resolve(msg);
+        },
+        reject: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
       });
 
-      this.process!.stdin!.write(JSON.stringify(request) + '\n');
+      this.process?.stdin?.write(`${JSON.stringify(request)}\n`);
     });
   }
 
@@ -294,36 +322,50 @@ export class SubscriptionAdapter implements LlmGateway {
     const rpcPromise = this.rpc('session/prompt', {
       sessionId: this.sessionId,
       prompt: [{ type: 'text', text: promptText }],
-    }).then((result) => {
-      // Final chunk
-      const content = this.extractContent(result.result ?? {});
-      if (content) {
-        queue.push({ content, done: false });
-      }
+    })
+      .then((result) => {
+        // Final chunk
+        const content = this.extractContent(result.result ?? {});
+        if (content) {
+          queue.push({ content, done: false });
+        }
 
-      const usage = result.result?.usage as { inputTokens?: number; outputTokens?: number } | undefined;
-      queue.push({
-        done: true,
-        usage: usage ? { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 } : undefined,
+        const usage = result.result?.usage as
+          | { inputTokens?: number; outputTokens?: number }
+          | undefined;
+        queue.push({
+          done: true,
+          usage: usage
+            ? { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 }
+            : undefined,
+        });
+        done = true;
+        resolveWait?.();
+      })
+      .catch((err) => {
+        queue.push({
+          content: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          done: true,
+        });
+        done = true;
+        resolveWait?.();
       });
-      done = true;
-      resolveWait?.();
-    }).catch((err) => {
-      queue.push({ content: `Error: ${err instanceof Error ? err.message : String(err)}`, done: true });
-      done = true;
-      resolveWait?.();
-    });
 
     try {
       while (true) {
         if (queue.length > 0) {
-          const chunk = queue.shift()!;
+          const chunk = queue.shift();
+          if (!chunk) {
+            continue;
+          }
           yield chunk;
           if (chunk.done) break;
         } else if (done) {
           break;
         } else {
-          await new Promise<void>((resolve) => { resolveWait = resolve; });
+          await new Promise<void>((resolve) => {
+            resolveWait = resolve;
+          });
           resolveWait = null;
         }
       }
@@ -391,7 +433,10 @@ export class SubscriptionAdapter implements LlmGateway {
     if (typeof result.content === 'string') return result.content;
     if (Array.isArray(result.content)) {
       return result.content
-        .filter((b: unknown) => typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'text')
+        .filter(
+          (b: unknown) =>
+            typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'text',
+        )
         .map((b: unknown) => ((b as Record<string, unknown>).text as string) ?? '')
         .join('');
     }

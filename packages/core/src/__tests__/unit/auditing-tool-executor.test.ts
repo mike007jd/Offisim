@@ -8,6 +8,7 @@ import type {
   ToolCallResponse,
   ToolExecutor,
 } from '../../runtime/tool-executor.js';
+import { assertDefined } from '../helpers/fixtures.js';
 
 // Mock inner executor
 function createMockExecutor(response: ToolCallResponse): ToolExecutor {
@@ -59,7 +60,7 @@ describe('AuditingToolExecutor', () => {
   it('writes audit record on success', async () => {
     await executor.execute(CALL);
     expect(auditRepo.create).toHaveBeenCalledTimes(1);
-    const audit = auditRepo.rows[0]!;
+    const audit = assertDefined(auditRepo.rows[0]);
     expect(audit.tool_name).toBe('read_file');
     expect(audit.employee_id).toBe('emp-1');
     expect(audit.error).toBeNull();
@@ -70,7 +71,7 @@ describe('AuditingToolExecutor', () => {
     inner = createMockExecutor({ success: false, result: null, error: 'permission denied' });
     executor = new AuditingToolExecutor(inner, auditRepo, eventBus, 'company-1', 'thread-1');
     await executor.execute(CALL);
-    expect(auditRepo.rows[0]!.error).toBe('permission denied');
+    expect(auditRepo.rows[0]?.error).toBe('permission denied');
   });
 
   it('emits mcp.tool.result event', async () => {

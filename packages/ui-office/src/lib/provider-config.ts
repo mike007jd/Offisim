@@ -1,4 +1,13 @@
-import type { LlmProvider } from '@aics/shared-types';
+import type {
+  LlmProvider,
+  ModelPolicyConfig,
+  ModelProfile,
+  RuntimeExecutionMode,
+  RuntimeMemoryPolicy,
+  RuntimePolicyConfig,
+  RuntimeSummarizationPolicy,
+  RuntimeToolSearchPolicy,
+} from '@aics/shared-types';
 import { isTauri } from './env';
 
 export interface ProviderConfig {
@@ -7,49 +16,226 @@ export interface ProviderConfig {
   baseURL?: string;
   model: string;
   defaultHeaders?: Record<string, string>;
-  /** ACP server command for subscription mode (default: 'claude'). */
   acpCommand?: string;
-  /** Extra arguments for the ACP server command. */
   acpArgs?: string[];
+  runtimePolicy?: Partial<RuntimePolicyConfig>;
 }
 
 const STORAGE_KEY = 'aics-provider-config';
 
-function validateProviderConfig(parsed: unknown): ProviderConfig | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+const DEFAULT_EXECUTION_MODE: RuntimeExecutionMode = 'auto';
+const DEFAULT_SUMMARIZATION: RuntimeSummarizationPolicy = {
+  enabled: true,
+  triggerTokens: 60_000,
+  keepRecentMessages: 30,
+};
+const DEFAULT_MEMORY: RuntimeMemoryPolicy = {
+  enabled: true,
+  injectionEnabled: true,
+  maxFacts: 50,
+  factConfidenceThreshold: 0.7,
+};
+const DEFAULT_TOOL_SEARCH: RuntimeToolSearchPolicy = {
+  enabled: true,
+};
+const DEFAULT_MODEL_PROFILE_NAME = 'runtime-default';
 
-  const candidate = parsed as Record<string, unknown>;
-  const provider = candidate.provider;
-  const model = candidate.model;
-  const apiKey = candidate.apiKey;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-  if (typeof provider !== 'string' || typeof model !== 'string') {
-    return null;
-  }
+function isLlmProvider(value: unknown): value is LlmProvider {
+  return (
+    value === 'anthropic' ||
+    value === 'openai' ||
+    value === 'openai-compat' ||
+    value === 'subscription'
+  );
+}
 
-  if (provider !== 'subscription' && apiKey !== undefined && typeof apiKey !== 'string') {
-    return null;
-  }
+function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
+  return value === 'auto' || value === 'desktop-trusted' || value === 'browser-limited';
+}
 
+function normalizeExecutionMode(value: unknown): RuntimeExecutionMode {
+  return isRuntimeExecutionMode(value) ? value : DEFAULT_EXECUTION_MODE;
+}
+
+function normalizeModelProfile(
+  candidate: unknown,
+  provider: LlmProvider,
+  model: string,
+): ModelProfile {
+  const profile = isRecord(candidate) ? candidate : {};
   return {
-    provider: provider as LlmProvider,
+    profileName:
+      typeof profile.profileName === 'string' && profile.profileName.trim()
+        ? profile.profileName
+        : DEFAULT_MODEL_PROFILE_NAME,
+    provider,
     model,
-    ...(typeof apiKey === 'string' ? { apiKey } : {}),
-    ...(typeof candidate.baseURL === 'string' ? { baseURL: candidate.baseURL } : {}),
-    ...(typeof candidate.defaultHeaders === 'object' && candidate.defaultHeaders !== null
-      ? { defaultHeaders: candidate.defaultHeaders as Record<string, string> }
-      : {}),
-    ...(typeof candidate.acpCommand === 'string' ? { acpCommand: candidate.acpCommand } : {}),
-    ...(Array.isArray(candidate.acpArgs)
-      ? { acpArgs: candidate.acpArgs.filter((arg): arg is string => typeof arg === 'string') }
-      : {}),
+    ...(typeof profile.temperature === 'number' ? { temperature: profile.temperature } : {}),
+    ...(typeof profile.maxTokens === 'number' ? { maxTokens: profile.maxTokens } : {}),
   };
 }
 
-function toPersistedConfig(config: ProviderConfig): ProviderConfig {
-  if (!isTauri()) return config;
+function normalizeModelPolicy(
+  candidate: unknown,
+  provider: LlmProvider,
+  model: string,
+): ModelPolicyConfig {
+  const policy = isRecord(candidate) ? candidate : {};
+  const normalizedOverrides: Record<string, ModelProfile> = {};
 
-  const { apiKey: _apiKey, ...persisted } = config;
+  if (isRecord(policy.overrides)) {
+    for (const [roleSlug, override] of Object.entries(policy.overrides)) {
+      if (!isRecord(override)) continue;
+      const overrideProvider = override.provider;
+      const overrideModel = override.model;
+      if (
+        !isLlmProvider(overrideProvider) ||
+        typeof overrideModel !== 'string' ||
+        !overrideModel.trim()
+      ) {
+        continue;
+      }
+
+      normalizedOverrides[roleSlug] = {
+        profileName:
+          typeof override.profileName === 'string' && override.profileName.trim()
+            ? override.profileName
+            : roleSlug,
+        provider: overrideProvider,
+        model: overrideModel,
+        ...(typeof override.temperature === 'number' ? { temperature: override.temperature } : {}),
+        ...(typeof override.maxTokens === 'number' ? { maxTokens: override.maxTokens } : {}),
+      };
+    }
+  }
+
+  return {
+    default: normalizeModelProfile(policy.default, provider, model),
+    ...(Object.keys(normalizedOverrides).length > 0 ? { overrides: normalizedOverrides } : {}),
+  };
+}
+
+function normalizeSummarization(candidate: unknown): RuntimeSummarizationPolicy {
+  const policy = isRecord(candidate) ? candidate : {};
+  return {
+    enabled: typeof policy.enabled === 'boolean' ? policy.enabled : DEFAULT_SUMMARIZATION.enabled,
+    triggerTokens:
+      typeof policy.triggerTokens === 'number' && policy.triggerTokens > 0
+        ? policy.triggerTokens
+        : DEFAULT_SUMMARIZATION.triggerTokens,
+    keepRecentMessages:
+      typeof policy.keepRecentMessages === 'number' && policy.keepRecentMessages >= 0
+        ? policy.keepRecentMessages
+        : DEFAULT_SUMMARIZATION.keepRecentMessages,
+  };
+}
+
+function normalizeMemory(candidate: unknown): RuntimeMemoryPolicy {
+  const policy = isRecord(candidate) ? candidate : {};
+  return {
+    enabled: typeof policy.enabled === 'boolean' ? policy.enabled : DEFAULT_MEMORY.enabled,
+    injectionEnabled:
+      typeof policy.injectionEnabled === 'boolean'
+        ? policy.injectionEnabled
+        : DEFAULT_MEMORY.injectionEnabled,
+    maxFacts:
+      typeof policy.maxFacts === 'number' && policy.maxFacts > 0
+        ? policy.maxFacts
+        : DEFAULT_MEMORY.maxFacts,
+    factConfidenceThreshold:
+      typeof policy.factConfidenceThreshold === 'number' &&
+      policy.factConfidenceThreshold >= 0 &&
+      policy.factConfidenceThreshold <= 1
+        ? policy.factConfidenceThreshold
+        : DEFAULT_MEMORY.factConfidenceThreshold,
+  };
+}
+
+function normalizeToolSearch(candidate: unknown): RuntimeToolSearchPolicy {
+  const policy = isRecord(candidate) ? candidate : {};
+  return {
+    enabled: typeof policy.enabled === 'boolean' ? policy.enabled : DEFAULT_TOOL_SEARCH.enabled,
+  };
+}
+
+export function createDefaultRuntimePolicy(
+  provider: LlmProvider,
+  model: string,
+): RuntimePolicyConfig {
+  return {
+    executionMode: DEFAULT_EXECUTION_MODE,
+    modelPolicy: {
+      default: normalizeModelProfile(undefined, provider, model),
+    },
+    summarization: { ...DEFAULT_SUMMARIZATION },
+    memory: { ...DEFAULT_MEMORY },
+    toolSearch: { ...DEFAULT_TOOL_SEARCH },
+  };
+}
+
+export function normalizeRuntimePolicy(
+  policy: unknown,
+  provider: LlmProvider,
+  model: string,
+): RuntimePolicyConfig {
+  const candidate = isRecord(policy) ? policy : {};
+  return {
+    executionMode: normalizeExecutionMode(candidate.executionMode),
+    modelPolicy: normalizeModelPolicy(candidate.modelPolicy, provider, model),
+    summarization: normalizeSummarization(candidate.summarization),
+    memory: normalizeMemory(candidate.memory),
+    toolSearch: normalizeToolSearch(candidate.toolSearch),
+  };
+}
+
+export function buildRuntimeModelPolicy(config: ProviderConfig): ModelPolicyConfig {
+  return normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model).modelPolicy;
+}
+
+function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
+  if (!isRecord(parsed)) return null;
+
+  const provider = parsed.provider;
+  const model = parsed.model;
+  const apiKey = parsed.apiKey;
+
+  if (!isLlmProvider(provider) || typeof model !== 'string' || !model.trim()) {
+    return null;
+  }
+
+  const normalized: ProviderConfig = {
+    provider,
+    model,
+    ...(typeof apiKey === 'string' ? { apiKey } : {}),
+    ...(typeof parsed.baseURL === 'string' ? { baseURL: parsed.baseURL } : {}),
+    ...(isRecord(parsed.defaultHeaders)
+      ? { defaultHeaders: parsed.defaultHeaders as Record<string, string> }
+      : {}),
+    ...(typeof parsed.acpCommand === 'string' ? { acpCommand: parsed.acpCommand } : {}),
+    ...(Array.isArray(parsed.acpArgs)
+      ? { acpArgs: parsed.acpArgs.filter((arg): arg is string => typeof arg === 'string') }
+      : {}),
+  };
+
+  normalized.runtimePolicy = normalizeRuntimePolicy(parsed.runtimePolicy, provider, model);
+  return normalized;
+}
+
+function toPersistedConfig(config: ProviderConfig): ProviderConfig {
+  const normalized = normalizeProviderConfig(config);
+  if (!normalized) {
+    return config;
+  }
+
+  if (!isTauri()) {
+    return normalized;
+  }
+
+  const { apiKey: _apiKey, ...persisted } = normalized;
   return persisted;
 }
 
@@ -57,7 +243,7 @@ export function loadProviderConfig(): ProviderConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = validateProviderConfig(JSON.parse(raw));
+    const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return null;
     if (isTauri() && parsed.provider !== 'subscription') {
       const { apiKey: _apiKey, ...desktopConfig } = parsed;

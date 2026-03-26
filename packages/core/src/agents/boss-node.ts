@@ -4,10 +4,10 @@ import { graphNodeEntered } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
-import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getConfigSignal } from '../utils/get-signal.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 interface BossDecision {
   action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess';
@@ -43,7 +43,12 @@ function parseBossDecision(content: string): BossDecision | null {
   if (!parsed) return null;
 
   const action = parsed.action;
-  if (action === 'delegate' || action === 'direct_reply' || action === 'meeting' || action === 'hire_or_assess') {
+  if (
+    action === 'delegate' ||
+    action === 'direct_reply' ||
+    action === 'meeting' ||
+    action === 'hire_or_assess'
+  ) {
     return {
       action,
       reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
@@ -84,13 +89,13 @@ export async function bossNode(
   const resolved = modelResolver.resolve(null, 'boss');
 
   // Build messages for LLM — use last N human messages for multi-turn context
-  const recentHumanMessages = state.messages
-    .filter((m) => m._getType() === 'human')
-    .slice(-3);
+  const recentHumanMessages = state.messages.filter((m) => m._getType() === 'human').slice(-3);
 
   const userContent =
     recentHumanMessages.length > 0
-      ? recentHumanMessages.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n---\n')
+      ? recentHumanMessages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n---\n')
       : 'No user message found';
 
   const llmResponse = await recordedLlmCall(
@@ -135,13 +140,17 @@ export async function bossNode(
     threadId: state.threadId,
     agentName: 'boss',
     eventType: 'decision',
-    payload: { action: decision?.action ?? 'delegate', reason: decision?.reason, isNewProject: decision?.isNewProject, projectName: decision?.projectName },
+    payload: {
+      action: decision?.action ?? 'delegate',
+      reason: decision?.reason,
+      isNewProject: decision?.isNewProject,
+      projectName: decision?.projectName,
+    },
   });
 
   // Prefix direct_reply messages with [Boss]: so the UI can display agent identity.
   // Non-direct-reply messages are consumed by downstream graph nodes and don't need the prefix.
-  const messageContent =
-    route === 'direct_reply' ? `[Boss]: ${replyContent}` : replyContent;
+  const messageContent = route === 'direct_reply' ? `[Boss]: ${replyContent}` : replyContent;
 
   return {
     routeDecision: route,

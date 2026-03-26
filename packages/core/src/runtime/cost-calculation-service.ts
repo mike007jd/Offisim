@@ -104,11 +104,12 @@ export class CostCalculationService {
 
     // 3. Apply time filters
     let filtered = allCalls;
-    if (opts.from) {
-      filtered = filtered.filter((c) => c.created_at >= opts.from!);
+    const { from, to } = opts;
+    if (from) {
+      filtered = filtered.filter((c) => c.created_at >= from);
     }
-    if (opts.to) {
-      filtered = filtered.filter((c) => c.created_at <= opts.to!);
+    if (to) {
+      filtered = filtered.filter((c) => c.created_at <= to);
     }
 
     if (filtered.length === 0) return [];

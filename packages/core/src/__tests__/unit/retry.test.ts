@@ -60,7 +60,14 @@ describe('withRetry', () => {
     expect(delays[0]).toBeGreaterThanOrEqual(50);
     expect(delays[0]).toBeLessThanOrEqual(200);
     // Second delay should be larger (exponential)
-    expect(delays[1]).toBeGreaterThan(delays[0]!);
+    const firstDelay = delays[0];
+    const secondDelay = delays[1];
+    expect(firstDelay).toBeDefined();
+    expect(secondDelay).toBeDefined();
+    if (firstDelay === undefined || secondDelay === undefined) {
+      throw new Error('Expected retry delays to be recorded');
+    }
+    expect(secondDelay).toBeGreaterThan(firstDelay);
 
     vi.restoreAllMocks();
   });

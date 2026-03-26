@@ -8,7 +8,12 @@
  * For desktop/Tauri, stdio support can be added later via a Tauri shell command bridge.
  */
 
-import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } from '@aics/core/browser';
+import type {
+  McpClientFactory,
+  McpConnection,
+  McpServerConfig,
+  McpToolDef,
+} from '@aics/core/browser';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
@@ -22,8 +27,7 @@ export class BrowserMcpClientFactory implements McpClientFactory {
   async createClient(config: McpServerConfig): Promise<McpConnection> {
     if (config.transport === 'stdio') {
       throw new Error(
-        `MCP server '${config.name}' uses stdio transport, which is not supported in the browser. ` +
-          'Use SSE transport instead, or run in the desktop app for stdio support.',
+        `MCP server '${config.name}' uses stdio transport, which is not supported in the browser. Use SSE transport instead, or run in the desktop app for stdio support.`,
       );
     }
 

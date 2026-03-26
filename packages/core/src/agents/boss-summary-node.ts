@@ -89,11 +89,13 @@ export async function bossSummaryNode(
         runtimeCtx.llmGateway,
         runtimeCtx.eventBus,
       );
-      consolidator.consolidate({
-        threadId: state.threadId,
-        companyId: runtimeCtx.companyId,
-        projectName: state.taskPlan.summary,
-      }).catch(() => {}); // fire-and-forget — must not block summary
+      consolidator
+        .consolidate({
+          threadId: state.threadId,
+          companyId: runtimeCtx.companyId,
+          projectName: state.taskPlan.summary,
+        })
+        .catch(() => {}); // fire-and-forget — must not block summary
     }
   }
 
@@ -159,7 +161,11 @@ export async function bossSummaryNode(
 
   // Single employee result — no need for LLM summary
   if (employeeResults.length === 1) {
-    const content = employeeResults[0]! + actionItemsSuffix;
+    const firstEmployeeResult = employeeResults[0];
+    if (!firstEmployeeResult) {
+      throw new Error('Expected a single employee result for boss summary fast path');
+    }
+    const content = firstEmployeeResult + actionItemsSuffix;
     emitDeliverable(content);
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
@@ -218,7 +224,11 @@ export async function bossSummaryNode(
     threadId: state.threadId,
     agentName: 'boss',
     eventType: 'action',
-    payload: { action: 'summary', employeeResultCount: employeeResults.length, outputLength: finalContent.length },
+    payload: {
+      action: 'summary',
+      employeeResultCount: employeeResults.length,
+      outputLength: finalContent.length,
+    },
   });
 
   return {

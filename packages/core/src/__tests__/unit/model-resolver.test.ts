@@ -1,4 +1,4 @@
-import type { ModelPolicyConfig } from '@aics/shared-types';
+import type { ModelPolicyConfig, RuntimePolicyConfig } from '@aics/shared-types';
 import { describe, expect, it } from 'vitest';
 import { ModelResolver } from '../../llm/model-resolver.js';
 
@@ -18,6 +18,25 @@ const DEFAULT_POLICY: ModelPolicyConfig = {
       temperature: 0.3,
       maxTokens: 8192,
     },
+  },
+};
+
+const WRAPPED_RUNTIME_POLICY: RuntimePolicyConfig = {
+  executionMode: 'desktop-trusted',
+  modelPolicy: DEFAULT_POLICY,
+  summarization: {
+    enabled: true,
+    triggerTokens: 60_000,
+    keepRecentMessages: 30,
+  },
+  memory: {
+    enabled: true,
+    injectionEnabled: true,
+    maxFacts: 50,
+    factConfidenceThreshold: 0.7,
+  },
+  toolSearch: {
+    enabled: true,
   },
 };
 
@@ -87,5 +106,14 @@ describe('ModelResolver', () => {
     });
     expect(result.temperature).toBe(0.7);
     expect(result.maxTokens).toBe(4096);
+  });
+
+  it('accepts a wrapped runtime policy and still resolves model precedence', () => {
+    const resolver = new ModelResolver(WRAPPED_RUNTIME_POLICY);
+    const result = resolver.resolve(undefined, 'developer');
+    expect(result.provider).toBe('anthropic');
+    expect(result.model).toBe('claude-sonnet-4-20250514');
+    expect(result.temperature).toBe(0.3);
+    expect(result.maxTokens).toBe(8192);
   });
 });

@@ -141,7 +141,8 @@ export const agencyLiteTemplate: CompanyTemplate = {
     {
       sop_id: 'sop-client-brief-intake',
       name: 'Client Brief Intake',
-      description: 'Structured client requirement gathering, project scoping, and creative direction',
+      description:
+        'Structured client requirement gathering, project scoping, and creative direction',
       created_at: '2025-01-01T00:00:00.000Z',
       steps: [
         {
@@ -167,7 +168,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           label: 'Creative Direction',
           role_slug: 'graphic_designer',
           instruction:
-            'Based on the client_brief and project_plan, define the creative direction for all deliverables. Produce: (1) Mood board with 5-8 reference images annotated with what each reference contributes (color palette, typography feel, layout approach, photography style), (2) Color palette with primary, secondary, and accent colors including hex values and usage rules, (3) Typography system with heading and body font selections plus hierarchy rules, (4) Layout principles and grid system for the project, (5) Initial concept sketches for 2-3 key deliverables showing different creative approaches. Each concept should include a brief rationale explaining how it serves the client\'s business objectives.',
+            "Based on the client_brief and project_plan, define the creative direction for all deliverables. Produce: (1) Mood board with 5-8 reference images annotated with what each reference contributes (color palette, typography feel, layout approach, photography style), (2) Color palette with primary, secondary, and accent colors including hex values and usage rules, (3) Typography system with heading and body font selections plus hierarchy rules, (4) Layout principles and grid system for the project, (5) Initial concept sketches for 2-3 key deliverables showing different creative approaches. Each concept should include a brief rationale explaining how it serves the client's business objectives.",
           output_key: 'creative_direction',
           dependencies: ['scope-and-plan'],
         },
@@ -220,7 +221,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           label: 'Client Handoff',
           role_slug: 'account_manager',
           instruction:
-            'Prepare the final client delivery package using the polished_deliverable and qa_signoff. Write a delivery summary covering: (1) What was delivered — itemized list matching the original brief, (2) How each deliverable meets the stated business objectives, (3) Any deviations from the original scope with explanations, (4) Usage instructions and technical documentation where applicable, (5) Recommended next steps and future enhancement opportunities. Format the entire package for professional client presentation — this document represents the agency\'s quality standard.',
+            "Prepare the final client delivery package using the polished_deliverable and qa_signoff. Write a delivery summary covering: (1) What was delivered — itemized list matching the original brief, (2) How each deliverable meets the stated business objectives, (3) Any deviations from the original scope with explanations, (4) Usage instructions and technical documentation where applicable, (5) Recommended next steps and future enhancement opportunities. Format the entire package for professional client presentation — this document represents the agency's quality standard.",
           output_key: 'delivery_summary',
           dependencies: ['final-qa'],
         },
@@ -264,7 +265,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           label: 'Campaign Review',
           role_slug: 'qa',
           instruction:
-            'Review the complete campaign package (campaign_content + campaign_visuals) against the campaign_brief. Evaluate: (1) Message consistency — do all posts reinforce the messaging pillars? (2) Platform appropriateness — is each post optimized for its target platform\'s conventions? (3) Visual quality — are assets the correct dimensions, properly cropped, and brand-compliant? (4) Content calendar — is the posting cadence appropriate and are there any gaps or conflicts? (5) Compliance — any regulatory or brand policy concerns? Output a structured review with issues and specific fix instructions.',
+            "Review the complete campaign package (campaign_content + campaign_visuals) against the campaign_brief. Evaluate: (1) Message consistency — do all posts reinforce the messaging pillars? (2) Platform appropriateness — is each post optimized for its target platform's conventions? (3) Visual quality — are assets the correct dimensions, properly cropped, and brand-compliant? (4) Content calendar — is the posting cadence appropriate and are there any gaps or conflicts? (5) Compliance — any regulatory or brand policy concerns? Output a structured review with issues and specific fix instructions.",
           output_key: 'campaign_review',
           dependencies: ['visual-design'],
         },

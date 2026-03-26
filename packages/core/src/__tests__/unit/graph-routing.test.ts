@@ -86,9 +86,9 @@ describe('routeFromStart', () => {
   });
 
   it('direct_chat with targetEmployeeId → employee_direct_setup', () => {
-    expect(
-      routeFromStart(makeState({ entryMode: 'direct_chat', targetEmployeeId: 'e-1' })),
-    ).toBe('employee_direct_setup');
+    expect(routeFromStart(makeState({ entryMode: 'direct_chat', targetEmployeeId: 'e-1' }))).toBe(
+      'employee_direct_setup',
+    );
   });
 
   it('direct_chat without targetEmployeeId → boss (falls through)', () => {
@@ -133,9 +133,9 @@ describe('routeFromStart', () => {
 
 describe('routeFromBoss', () => {
   it('interruptReason set → error_handler (regardless of routeDecision)', () => {
-    expect(routeFromBoss(makeState({ interruptReason: 'some error', routeDecision: 'direct_reply' }))).toBe(
-      'error_handler',
-    );
+    expect(
+      routeFromBoss(makeState({ interruptReason: 'some error', routeDecision: 'direct_reply' })),
+    ).toBe('error_handler');
   });
 
   it('delegate_manager → manager', () => {
@@ -250,9 +250,7 @@ describe('routeFromEmployee', () => {
     expect(
       routeFromEmployee(
         makeState({
-          pendingAssignments: [
-            { taskType: 'code', employeeId: 'e-1', inputJson: {} },
-          ],
+          pendingAssignments: [{ taskType: 'code', employeeId: 'e-1', inputJson: {} }],
         }),
       ),
     ).toBe('employee');

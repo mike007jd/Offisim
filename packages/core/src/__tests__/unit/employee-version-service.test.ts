@@ -3,6 +3,7 @@ import { InMemoryEventBus } from '../../events/event-bus.js';
 import { EmployeeVersionService } from '../../runtime/employee-version-service.js';
 import { MemoryEmployeeVersionRepository } from '../../runtime/memory-repositories.js';
 import type { EmployeeRepository, EmployeeRow } from '../../runtime/repositories.js';
+type TransactFn = <T>(fn: () => T) => T;
 
 function makeEmployee(overrides: Partial<EmployeeRow> = {}): EmployeeRow {
   return {
@@ -130,8 +131,8 @@ describe('EmployeeVersionService', () => {
 
       const history = await service.getHistory('emp-1');
       expect(history).toHaveLength(3);
-      expect(history[0]!.version_num).toBe(3);
-      expect(history[2]!.version_num).toBe(1);
+      expect(history[0]?.version_num).toBe(3);
+      expect(history[2]?.version_num).toBe(1);
     });
 
     it('respects limit parameter', async () => {
@@ -146,7 +147,7 @@ describe('EmployeeVersionService', () => {
 
       const history = await service.getHistory('emp-1', 2);
       expect(history).toHaveLength(2);
-      expect(history[0]!.version_num).toBe(3);
+      expect(history[0]?.version_num).toBe(3);
     });
   });
 
@@ -180,8 +181,8 @@ describe('EmployeeVersionService', () => {
       // Should have created v3 (rollback record)
       const history = await service.getHistory('emp-1');
       expect(history).toHaveLength(3);
-      expect(history[0]!.version_num).toBe(3);
-      expect(history[0]!.change_type).toBe('rollback');
+      expect(history[0]?.version_num).toBe(3);
+      expect(history[0]?.change_type).toBe('rollback');
     });
 
     it('throws when target version does not exist', async () => {
@@ -202,8 +203,8 @@ describe('EmployeeVersionService', () => {
       const employeeRepo = createMockEmployeeRepo();
       const eventBus = new InMemoryEventBus();
 
-      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
-      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+      type TransactMock = TransactFn & ReturnType<typeof vi.fn>;
+      const mockTransact = vi.fn((fn: () => unknown) => fn()) as unknown as TransactMock;
 
       const service = new EmployeeVersionService(versionRepo, employeeRepo, eventBus, mockTransact);
       // Note: with memory repos the Drizzle "synchronous promise" assumption doesn't hold,
@@ -234,8 +235,8 @@ describe('EmployeeVersionService', () => {
       const employeeRepo = createMockEmployeeRepo();
       const eventBus = new InMemoryEventBus();
 
-      // biome-ignore lint/suspicious/noExplicitAny: generic transact wrapper for testing
-      const mockTransact = vi.fn(<T>(fn: () => T): T => fn());
+      type TransactMock = TransactFn & ReturnType<typeof vi.fn>;
+      const mockTransact = vi.fn((fn: () => unknown) => fn()) as unknown as TransactMock;
       const service = new EmployeeVersionService(versionRepo, employeeRepo, eventBus, mockTransact);
 
       const events: unknown[] = [];
@@ -303,9 +304,9 @@ describe('EmployeeVersionService', () => {
       const b = '{"config":{"temp":0.9}}';
       const diffs = service.diffVersions(a, b);
       expect(diffs).toHaveLength(1);
-      expect(diffs[0]!.field).toBe('config');
-      expect(diffs[0]!.from).toEqual({ temp: 0.5 });
-      expect(diffs[0]!.to).toEqual({ temp: 0.9 });
+      expect(diffs[0]?.field).toBe('config');
+      expect(diffs[0]?.from).toEqual({ temp: 0.5 });
+      expect(diffs[0]?.to).toEqual({ temp: 0.9 });
     });
   });
 });

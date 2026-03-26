@@ -1,5 +1,5 @@
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { ProjectRow } from '../runtime/repositories.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId, projectThreadId } from '../utils/generate-id.js';
 
 export class ProjectService {

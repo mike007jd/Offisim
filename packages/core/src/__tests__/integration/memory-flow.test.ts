@@ -92,7 +92,7 @@ describe('memory flow (integration)', () => {
     // Verify memory was stored
     const memories = await repos.memories.findByOwner('e-dev-1');
     expect(memories).toHaveLength(1);
-    expect(memories[0]!.content).toContain('monorepo with pnpm workspaces');
+    expect(memories[0]?.content).toContain('monorepo with pnpm workspaces');
 
     // --- Task 2: Employee gets a new task — memory should be injected into prompt ---
     await repos.taskRuns.create({
@@ -194,7 +194,7 @@ describe('memory flow (integration)', () => {
     // Memory should be stored from reflection
     const memories = await repos.memories.findByOwner('e-dev-1');
     expect(memories).toHaveLength(1);
-    expect(memories[0]!.content).toContain('auth module debug');
+    expect(memories[0]?.content).toContain('auth module debug');
 
     // --- Task 2: New task that also mentions auth — memory should be injected ---
     await repos.taskRuns.create({

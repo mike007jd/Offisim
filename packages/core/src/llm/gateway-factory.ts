@@ -52,7 +52,9 @@ export function createGateway(config: GatewayConfig): LlmGateway {
     case 'subscription': {
       // Dynamic require — keeps node:child_process out of browser bundles.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { SubscriptionAdapter } = require('./subscription-adapter.js') as typeof import('./subscription-adapter.js');
+      type SubscriptionModule = typeof import('./subscription-adapter.js');
+      const subscriptionModule: SubscriptionModule = require('./subscription-adapter.js');
+      const { SubscriptionAdapter } = subscriptionModule;
       return new SubscriptionAdapter(config.subscription);
     }
     default:

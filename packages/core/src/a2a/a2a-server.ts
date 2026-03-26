@@ -22,12 +22,7 @@
 
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
-import type {
-  A2AAgentCard,
-  A2AJsonRpcRequest,
-  A2APart,
-  A2ATask,
-} from './a2a-types.js';
+import type { A2AAgentCard, A2AJsonRpcRequest, A2APart, A2ATask } from './a2a-types.js';
 
 const logger = new Logger('a2a-server');
 
@@ -103,14 +98,18 @@ export class A2ARequestHandler {
 
   private async handleJsonRpc(req: A2AHttpRequest): Promise<A2AHttpResponse> {
     // Auth check — look up the authorization header case-insensitively without copying all headers
-    const authHeader = req.headers['authorization'] ?? req.headers['Authorization'] ?? '';
+    const authHeader = req.headers.authorization ?? req.headers.Authorization ?? '';
     if (authHeader !== `Bearer ${this.config.token}`) {
       logger.warn('Unauthorized A2A request');
       // Return HTTP 200 with JSON-RPC error to stay compliant with JSON-RPC 2.0 spec
       return {
         status: 200,
         headers: JSON_HEADERS,
-        body: JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Unauthorized' } }),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32000, message: 'Unauthorized' },
+        }),
       };
     }
 

@@ -56,13 +56,13 @@ describe('direct chat flow', () => {
     // Should emit directChatStarted
     const startedEvents = events.filter((e) => e.type === 'direct.chat.started');
     expect(startedEvents).toHaveLength(1);
-    expect(startedEvents[0]!.payload.employeeId).toBe('e-dev-1');
-    expect(startedEvents[0]!.payload.employeeName).toBe('Dev Bot');
+    expect(startedEvents[0]?.payload.employeeId).toBe('e-dev-1');
+    expect(startedEvents[0]?.payload.employeeName).toBe('Dev Bot');
 
     // Should emit directChatCompleted
     const completedEvents = events.filter((e) => e.type === 'direct.chat.completed');
     expect(completedEvents).toHaveLength(1);
-    expect(completedEvents[0]!.payload.employeeId).toBe('e-dev-1');
+    expect(completedEvents[0]?.payload.employeeId).toBe('e-dev-1');
   });
 
   it('does NOT emit plan events in direct chat flow', async () => {
@@ -167,7 +167,7 @@ describe('direct chat flow', () => {
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     const directChatRuns = taskRuns.filter((tr) => tr.task_type === 'direct_chat');
     expect(directChatRuns).toHaveLength(1);
-    expect(directChatRuns[0]!.status).toBe('completed');
-    expect(directChatRuns[0]!.employee_id).toBe('e-dev-1');
+    expect(directChatRuns[0]?.status).toBe('completed');
+    expect(directChatRuns[0]?.employee_id).toBe('e-dev-1');
   });
 });

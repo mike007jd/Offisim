@@ -1,11 +1,11 @@
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('llm');
 import { generateId } from '../utils/generate-id.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
-import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
 
@@ -15,6 +15,8 @@ interface RecordedCallMeta {
   model: string;
   taskRunId?: string;
 }
+
+const conversationBudgetService = new ConversationBudgetService();
 
 export async function recordedLlmCall(
   ctx: RuntimeContext,
@@ -36,7 +38,7 @@ export async function recordedLlmCall(
   );
 
   try {
-    const prunedRequest = { ...request, messages: pruneLlmMessages(request.messages) };
+    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, request);
     const response = await ctx.llmGateway.chat(prunedRequest);
     const latencyMs = Date.now() - startedAt;
 
@@ -133,7 +135,7 @@ export async function recordedLlmStream(
   );
 
   try {
-    const prunedRequest = { ...request, messages: pruneLlmMessages(request.messages) };
+    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, request);
     const stream = ctx.llmGateway.chatStream(prunedRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;

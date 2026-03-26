@@ -1,10 +1,16 @@
 import type { NewEmployee } from '@aics/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
+import type {
+  NewProject,
+  NewProjectAssignment,
+  ProjectAssignmentRow,
+  ProjectRow,
+  ProjectStatus,
+} from '@aics/shared-types';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
-import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
-import type { NewProject, NewProjectAssignment, ProjectAssignmentRow, ProjectRow, ProjectStatus } from '@aics/shared-types';
 import type {
   AgentEventRepository,
   AgentEventRow,
@@ -20,6 +26,8 @@ import type {
   GraphThreadRow,
   HandoffEventRow,
   HandoffRepository,
+  LibraryDocumentRepository,
+  LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
   McpAuditRepository,
@@ -33,20 +41,31 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
   NewModelCostRate,
+  NewOfficeLayout,
+  NewRack,
   NewRecoveryKnowledge,
   NewRuntimeEvent,
+  NewSlot,
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  NewWorkstationRack,
+  OfficeLayoutRepository,
+  OfficeLayoutRow,
   ProjectAssignmentRepository,
   ProjectRepository,
+  RackRepository,
+  RackRow,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
   RuntimeRepositories,
+  SlotRepository,
+  SlotRow,
   SopTemplateRepository,
   SopTemplateRow,
   TaskRunRepository,
@@ -54,21 +73,8 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-  RackRepository,
-  RackRow,
-  NewRack,
-  SlotRepository,
-  SlotRow,
-  NewSlot,
   WorkstationRackRepository,
   WorkstationRackRow,
-  NewWorkstationRack,
-  LibraryDocumentRepository,
-  LibraryDocumentRow,
-  NewLibraryDocument,
-  OfficeLayoutRepository,
-  OfficeLayoutRow,
-  NewOfficeLayout,
 } from './repositories.js';
 
 function now(): string {
@@ -116,6 +122,7 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
       const row: GraphThreadRow = {
         ...t,
         project_id: t.project_id ?? null,
+        synopsis_json: t.synopsis_json ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -141,6 +148,12 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
       const row = threadsMap.get(id);
       if (row) {
         threadsMap.set(id, { ...row, status, updated_at: now() });
+      }
+    },
+    async updateSynopsis(id, synopsisJson) {
+      const row = threadsMap.get(id);
+      if (row) {
+        threadsMap.set(id, { ...row, synopsis_json: synopsisJson, updated_at: now() });
       }
     },
   };
@@ -312,6 +325,9 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     async insert(e: NewRuntimeEvent) {
       eventsStore.push(e);
     },
+    async findByThread(threadId) {
+      return eventsStore.filter((event) => event.thread_id === threadId);
+    },
   };
 
   const llmCalls: LlmCallRepository = {
@@ -458,8 +474,12 @@ export class MemoryModelCostRateRepository implements ModelCostRateRepository {
         r.effective_from === rate.effective_from,
     );
     if (existing >= 0) {
+      const current = this.rows[existing];
+      if (!current) {
+        return this.create(rate);
+      }
       const updated: ModelCostRateRow = {
-        ...this.rows[existing]!,
+        ...current,
         ...rate,
       };
       this.rows[existing] = updated;
@@ -499,7 +519,11 @@ export class MemoryRackRepository implements RackRepository {
   private readonly store = new Map<string, RackRow>();
 
   async create(rack: NewRack): Promise<RackRow> {
-    const row: RackRow = { ...rack, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const row: RackRow = {
+      ...rack,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
     this.store.set(row.rack_id, row);
     return row;
   }
@@ -522,7 +546,11 @@ export class MemorySlotRepository implements SlotRepository {
   private readonly store = new Map<string, SlotRow>();
 
   async create(slot: NewSlot): Promise<SlotRow> {
-    const row: SlotRow = { ...slot, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const row: SlotRow = {
+      ...slot,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
     this.store.set(row.slot_id, row);
     return row;
   }
@@ -583,7 +611,11 @@ export class MemoryLibraryDocumentRepository implements LibraryDocumentRepositor
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 
-  async search(companyId: string, query: string, opts?: { limit?: number }): Promise<LibraryDocumentRow[]> {
+  async search(
+    companyId: string,
+    query: string,
+    opts?: { limit?: number },
+  ): Promise<LibraryDocumentRow[]> {
     const q = query.toLowerCase();
     let results = [...this.store.values()].filter(
       (d) =>
@@ -604,7 +636,11 @@ export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   private readonly store = new Map<string, OfficeLayoutRow>();
 
   async create(layout: NewOfficeLayout): Promise<OfficeLayoutRow> {
-    const row: OfficeLayoutRow = { ...layout, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const row: OfficeLayoutRow = {
+      ...layout,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
     this.store.set(row.layout_id, row);
     return row;
   }
@@ -615,16 +651,25 @@ export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
     return [...this.store.values()].filter((l) => l.company_id === companyId);
   }
   async findActive(companyId: string): Promise<OfficeLayoutRow | null> {
-    return [...this.store.values()].find((l) => l.company_id === companyId && l.is_active === 1) ?? null;
+    return (
+      [...this.store.values()].find((l) => l.company_id === companyId && l.is_active === 1) ?? null
+    );
   }
   async setActive(companyId: string, layoutId: string): Promise<void> {
     for (const [id, row] of this.store.entries()) {
       if (row.company_id === companyId) {
-        this.store.set(id, { ...row, is_active: id === layoutId ? 1 : 0, updated_at: new Date().toISOString() });
+        this.store.set(id, {
+          ...row,
+          is_active: id === layoutId ? 1 : 0,
+          updated_at: new Date().toISOString(),
+        });
       }
     }
   }
-  async update(layoutId: string, patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>): Promise<void> {
+  async update(
+    layoutId: string,
+    patch: Partial<Pick<OfficeLayoutRow, 'name' | 'layout_json'>>,
+  ): Promise<void> {
     const row = this.store.get(layoutId);
     if (row) this.store.set(layoutId, { ...row, ...patch, updated_at: new Date().toISOString() });
   }
@@ -671,7 +716,11 @@ export class MemoryProjectRepository implements ProjectRepository {
 
   async findActiveByCompany(companyId: string): Promise<ProjectRow[]> {
     return [...this.store.values()]
-      .filter((p) => p.company_id === companyId && (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status))
+      .filter(
+        (p) =>
+          p.company_id === companyId &&
+          (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status),
+      )
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   }
 
@@ -749,25 +798,40 @@ export class MemoryAgentEventRepository implements AgentEventRepository {
     return row;
   }
 
-  async findByProject(projectId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]> {
+  async findByProject(
+    projectId: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]> {
     let results = this.rows
-      .filter((r) => r.project_id === projectId && (!opts?.eventType || r.event_type === opts.eventType))
+      .filter(
+        (r) => r.project_id === projectId && (!opts?.eventType || r.event_type === opts.eventType),
+      )
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (opts?.limit) results = results.slice(0, opts.limit);
     return results;
   }
 
-  async findByThread(threadId: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]> {
+  async findByThread(
+    threadId: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]> {
     let results = this.rows
-      .filter((r) => r.thread_id === threadId && (!opts?.eventType || r.event_type === opts.eventType))
+      .filter(
+        (r) => r.thread_id === threadId && (!opts?.eventType || r.event_type === opts.eventType),
+      )
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (opts?.limit) results = results.slice(0, opts.limit);
     return results;
   }
 
-  async findByAgent(agentName: string, opts?: { limit?: number; eventType?: string }): Promise<AgentEventRow[]> {
+  async findByAgent(
+    agentName: string,
+    opts?: { limit?: number; eventType?: string },
+  ): Promise<AgentEventRow[]> {
     let results = this.rows
-      .filter((r) => r.agent_name === agentName && (!opts?.eventType || r.event_type === opts.eventType))
+      .filter(
+        (r) => r.agent_name === agentName && (!opts?.eventType || r.event_type === opts.eventType),
+      )
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (opts?.limit) results = results.slice(0, opts.limit);
     return results;
@@ -806,7 +870,11 @@ export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepos
     const key = `${entry.symptom}::${entry.cause}`;
     const existing = this.store.get(key);
     if (existing) {
-      const updated = { ...existing, fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null };
+      const updated = {
+        ...existing,
+        fix_strategy: entry.fix_strategy,
+        fix_config: entry.fix_config ?? null,
+      };
       this.store.set(key, updated);
       return updated;
     }
@@ -829,17 +897,29 @@ export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepos
   async findBestFix(symptom: string): Promise<RecoveryKnowledgeRow | null> {
     const matches = [...this.store.values()].filter((r) => r.symptom === symptom);
     if (matches.length === 0) return null;
-    return matches.sort((a, b) => {
-      const rateA = a.success_count + a.failure_count > 0 ? a.success_count / (a.success_count + a.failure_count) : 0.5;
-      const rateB = b.success_count + b.failure_count > 0 ? b.success_count / (b.success_count + b.failure_count) : 0.5;
-      return rateB - rateA;
-    })[0] ?? null;
+    return (
+      matches.sort((a, b) => {
+        const rateA =
+          a.success_count + a.failure_count > 0
+            ? a.success_count / (a.success_count + a.failure_count)
+            : 0.5;
+        const rateB =
+          b.success_count + b.failure_count > 0
+            ? b.success_count / (b.success_count + b.failure_count)
+            : 0.5;
+        return rateB - rateA;
+      })[0] ?? null
+    );
   }
 
   async incrementSuccess(knowledgeId: string): Promise<void> {
     for (const [key, row] of this.store.entries()) {
       if (row.knowledge_id === knowledgeId) {
-        this.store.set(key, { ...row, success_count: row.success_count + 1, last_used_at: new Date().toISOString() });
+        this.store.set(key, {
+          ...row,
+          success_count: row.success_count + 1,
+          last_used_at: new Date().toISOString(),
+        });
         return;
       }
     }
@@ -848,7 +928,11 @@ export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepos
   async incrementFailure(knowledgeId: string): Promise<void> {
     for (const [key, row] of this.store.entries()) {
       if (row.knowledge_id === knowledgeId) {
-        this.store.set(key, { ...row, failure_count: row.failure_count + 1, last_used_at: new Date().toISOString() });
+        this.store.set(key, {
+          ...row,
+          failure_count: row.failure_count + 1,
+          last_used_at: new Date().toISOString(),
+        });
         return;
       }
     }

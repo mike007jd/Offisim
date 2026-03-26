@@ -7,10 +7,10 @@
  */
 import { DEFAULT_COST_RATES } from '@aics/core/browser';
 import type { InMemoryEventBus } from '@aics/core/browser';
+import type { RuntimeBundle } from './browser-runtime';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
-import type { RuntimeBundle } from './browser-runtime';
 
 export async function createTauriRuntimeReposOnly(
   eventBus: InMemoryEventBus,

@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrefabBinding } from '@aics/shared-types';
-import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../events/event-bus.js';
+import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';
 import { PrefabService } from '../services/prefab-service.js';
+import { assertDefined } from './helpers/fixtures.js';
 
 describe('PrefabService', () => {
   let repo: ReturnType<typeof createMemoryPrefabRepository>;
@@ -37,11 +38,11 @@ describe('PrefabService', () => {
     // Verify the row is persisted
     const found = await repo.findById(result.instance_id);
     expect(found).not.toBeNull();
-    expect(found!.prefab_id).toBe('workstation-standard');
+    expect(found?.prefab_id).toBe('workstation-standard');
 
     // Verify event emitted
     expect(emitSpy).toHaveBeenCalledOnce();
-    const event = emitSpy.mock.calls[0]![0];
+    const event = assertDefined(emitSpy.mock.calls[0]?.[0]);
     expect(event.type).toBe('prefab.state.changed');
     expect(event.entityId).toBe(result.instance_id);
     expect(event.entityType).toBe('prefab');
@@ -53,9 +54,7 @@ describe('PrefabService', () => {
   });
 
   it('createInstance() with custom options (position, rotation, bindings, config)', async () => {
-    const bindings: PrefabBinding[] = [
-      { slotName: 'agent-context', resourceRef: 'emp-01' },
-    ];
+    const bindings: PrefabBinding[] = [{ slotName: 'agent-context', resourceRef: 'emp-01' }];
 
     const result = await service.createInstance('co-1', 'workstation-standard', 'zone-dev', {
       instanceId: 'pi-custom',
@@ -86,11 +85,11 @@ describe('PrefabService', () => {
     const row = await repo.findById('pi-bind');
     expect(row).not.toBeNull();
 
-    const bindings = JSON.parse(row!.bindings_json!) as PrefabBinding[];
+    const bindings = JSON.parse(assertDefined(row?.bindings_json)) as PrefabBinding[];
     expect(bindings).toHaveLength(1);
-    expect(bindings[0]!.slotName).toBe('agent-context');
-    expect(bindings[0]!.resourceRef).toBe('emp-01');
-    expect(bindings[0]!.label).toBe('Frontend Dev');
+    expect(bindings[0]?.slotName).toBe('agent-context');
+    expect(bindings[0]?.resourceRef).toBe('emp-01');
+    expect(bindings[0]?.label).toBe('Frontend Dev');
   });
 
   it('bindResource() updates an existing binding for the same slot', async () => {
@@ -102,16 +101,16 @@ describe('PrefabService', () => {
     await service.bindResource('pi-rebind', 'agent-context', 'emp-02', 'Backend Dev');
 
     const row = await repo.findById('pi-rebind');
-    const bindings = JSON.parse(row!.bindings_json!) as PrefabBinding[];
+    const bindings = JSON.parse(assertDefined(row?.bindings_json)) as PrefabBinding[];
     expect(bindings).toHaveLength(1);
-    expect(bindings[0]!.resourceRef).toBe('emp-02');
-    expect(bindings[0]!.label).toBe('Backend Dev');
+    expect(bindings[0]?.resourceRef).toBe('emp-02');
+    expect(bindings[0]?.label).toBe('Backend Dev');
   });
 
   it('bindResource() throws for nonexistent instance', async () => {
-    await expect(
-      service.bindResource('nonexistent', 'slot', 'ref'),
-    ).rejects.toThrow('Prefab instance not found: nonexistent');
+    await expect(service.bindResource('nonexistent', 'slot', 'ref')).rejects.toThrow(
+      'Prefab instance not found: nonexistent',
+    );
   });
 
   // ── unbindResource ─────────────────────────────────────────
@@ -128,9 +127,9 @@ describe('PrefabService', () => {
     await service.unbindResource('pi-unbind', 'agent-context');
 
     const row = await repo.findById('pi-unbind');
-    const bindings = JSON.parse(row!.bindings_json!) as PrefabBinding[];
+    const bindings = JSON.parse(assertDefined(row?.bindings_json)) as PrefabBinding[];
     expect(bindings).toHaveLength(1);
-    expect(bindings[0]!.slotName).toBe('model-endpoint');
+    expect(bindings[0]?.slotName).toBe('model-endpoint');
   });
 
   it('unbindResource() sets bindings_json to null when last binding removed', async () => {
@@ -142,20 +141,24 @@ describe('PrefabService', () => {
     await service.unbindResource('pi-empty', 'agent-context');
 
     const row = await repo.findById('pi-empty');
-    expect(row!.bindings_json).toBeNull();
+    expect(row?.bindings_json).toBeNull();
   });
 
   it('unbindResource() throws for nonexistent instance', async () => {
-    await expect(
-      service.unbindResource('nonexistent', 'slot'),
-    ).rejects.toThrow('Prefab instance not found: nonexistent');
+    await expect(service.unbindResource('nonexistent', 'slot')).rejects.toThrow(
+      'Prefab instance not found: nonexistent',
+    );
   });
 
   // ── getInstancesByZone ─────────────────────────────────────
 
   it('getInstancesByZone() returns filtered list', async () => {
-    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', { instanceId: 'pi-1' });
-    await service.createInstance('co-1', 'workstation-standard', 'zone-art', { instanceId: 'pi-2' });
+    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', {
+      instanceId: 'pi-1',
+    });
+    await service.createInstance('co-1', 'workstation-standard', 'zone-art', {
+      instanceId: 'pi-2',
+    });
     await service.createInstance('co-1', 'plant-small', 'zone-dev', { instanceId: 'pi-3' });
 
     const results = await service.getInstancesByZone('co-1', 'zone-dev');
@@ -171,9 +174,13 @@ describe('PrefabService', () => {
   // ── getInstancesByCompany ──────────────────────────────────
 
   it('getInstancesByCompany() returns all for a company', async () => {
-    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', { instanceId: 'pi-1' });
+    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', {
+      instanceId: 'pi-1',
+    });
     await service.createInstance('co-1', 'plant-small', 'zone-art', { instanceId: 'pi-2' });
-    await service.createInstance('co-2', 'workstation-standard', 'zone-dev', { instanceId: 'pi-3' });
+    await service.createInstance('co-2', 'workstation-standard', 'zone-dev', {
+      instanceId: 'pi-3',
+    });
 
     const results = await service.getInstancesByCompany('co-1');
     expect(results).toHaveLength(2);
@@ -185,7 +192,9 @@ describe('PrefabService', () => {
   it('deleteInstance() removes instance and emits event', async () => {
     const emitSpy = vi.spyOn(eventBus, 'emit');
 
-    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', { instanceId: 'pi-del' });
+    await service.createInstance('co-1', 'workstation-standard', 'zone-dev', {
+      instanceId: 'pi-del',
+    });
     emitSpy.mockClear();
 
     await service.deleteInstance('pi-del');
@@ -193,7 +202,7 @@ describe('PrefabService', () => {
     expect(await repo.findById('pi-del')).toBeNull();
 
     expect(emitSpy).toHaveBeenCalledOnce();
-    const event = emitSpy.mock.calls[0]![0];
+    const event = assertDefined(emitSpy.mock.calls[0]?.[0]);
     expect(event.type).toBe('prefab.state.changed');
     expect(event.payload.prev).toBe('created');
     expect(event.payload.next).toBe('deleted');
@@ -224,10 +233,10 @@ describe('PrefabService', () => {
     }
 
     // Positions should be sequentially spaced
-    expect(results[0]!.position_x).toBe(0);
-    expect(results[1]!.position_x).toBe(120);
-    expect(results[2]!.position_x).toBe(240);
-    expect(results[3]!.position_x).toBe(360);
+    expect(results[0]?.position_x).toBe(0);
+    expect(results[1]?.position_x).toBe(120);
+    expect(results[2]?.position_x).toBe(240);
+    expect(results[3]?.position_x).toBe(360);
   });
 
   it('materializeDefaultLayout("library") creates 5 instances', async () => {

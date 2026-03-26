@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 /**
  * Tests for ProjectAssignmentRepository (Drizzle + Memory implementations).
  *
@@ -7,8 +9,6 @@
 import * as schema from '@aics/db-local';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzleRepositories } from '../../runtime/drizzle-repositories.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -46,8 +46,6 @@ async function seedCompanyAndEmployees(repos: RuntimeRepositories) {
     source_package_id: null,
     name: 'Alice',
     role_slug: 'engineer',
-    persona_json: null,
-    config_json: null,
   });
   await repos.employees.create({
     company_id: 'c-1',
@@ -55,8 +53,6 @@ async function seedCompanyAndEmployees(repos: RuntimeRepositories) {
     source_package_id: null,
     name: 'Bob',
     role_slug: 'designer',
-    persona_json: null,
-    config_json: null,
   });
 }
 
@@ -71,10 +67,7 @@ async function seedProject(repos: RuntimeRepositories, projectId = 'p-1') {
   });
 }
 
-function runProjectAssignmentTests(
-  label: string,
-  getRepos: () => RuntimeRepositories,
-) {
+function runProjectAssignmentTests(label: string, getRepos: () => RuntimeRepositories) {
   describe(`ProjectAssignmentRepository (${label})`, () => {
     let repos: RuntimeRepositories;
     let alice: string;
@@ -86,8 +79,15 @@ function runProjectAssignmentTests(
       await seedProject(repos);
       // Get the employee IDs that were auto-generated
       const employees = await repos.employees.findByCompany('c-1');
-      alice = employees.find((e) => e.name === 'Alice')!.employee_id;
-      bob = employees.find((e) => e.name === 'Bob')!.employee_id;
+      const aliceRow = employees.find((e) => e.name === 'Alice');
+      const bobRow = employees.find((e) => e.name === 'Bob');
+      expect(aliceRow).toBeDefined();
+      expect(bobRow).toBeDefined();
+      if (!aliceRow || !bobRow) {
+        throw new Error('Expected seeded employees Alice and Bob');
+      }
+      alice = aliceRow.employee_id;
+      bob = bobRow.employee_id;
     });
 
     it('assign and findByProject', async () => {
@@ -105,7 +105,7 @@ function runProjectAssignmentTests(
 
       const assignments = await repos.projectAssignments.findByProject('p-1');
       expect(assignments).toHaveLength(1);
-      expect(assignments[0]!.employee_id).toBe(alice);
+      expect(assignments[0]?.employee_id).toBe(alice);
     });
 
     it('findByProject returns empty when no assignments', async () => {
@@ -128,9 +128,7 @@ function runProjectAssignmentTests(
     });
 
     it('unassign is idempotent (no error when row does not exist)', async () => {
-      await expect(
-        repos.projectAssignments.unassign('p-1', alice),
-      ).resolves.not.toThrow();
+      await expect(repos.projectAssignments.unassign('p-1', alice)).resolves.not.toThrow();
     });
 
     it('isAssigned returns true after assign', async () => {
@@ -193,7 +191,7 @@ function runProjectAssignmentTests(
 
       const bobAssignments = await repos.projectAssignments.findByEmployee(bob);
       expect(bobAssignments).toHaveLength(1);
-      expect(bobAssignments[0]!.project_id).toBe('p-1');
+      expect(bobAssignments[0]?.project_id).toBe('p-1');
     });
 
     it('UNIQUE constraint: assigning the same employee twice does not create a duplicate', async () => {
@@ -264,8 +262,6 @@ describe('ProjectAssignment CASCADE delete (drizzle)', () => {
       source_package_id: null,
       name: 'Alice',
       role_slug: 'engineer',
-      persona_json: null,
-      config_json: null,
     });
     await repos.projects.create({
       project_id: 'p-1',
@@ -276,7 +272,10 @@ describe('ProjectAssignment CASCADE delete (drizzle)', () => {
       status: 'active',
     });
     const employees = await repos.employees.findByCompany('c-1');
-    alice = employees[0]!.employee_id;
+    const [firstEmployee] = employees;
+    expect(firstEmployee).toBeDefined();
+    if (!firstEmployee) throw new Error('Expected seeded employee Alice');
+    alice = firstEmployee.employee_id;
   });
 
   it('deleting a project cascades to project_assignments', async () => {

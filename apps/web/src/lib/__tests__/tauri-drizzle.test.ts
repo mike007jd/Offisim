@@ -47,7 +47,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
 
     // Verify the SQL sent to plugin-sql uses $N format
     expect(mockSelect).toHaveBeenCalledOnce();
-    const [sql, params] = mockSelect.mock.calls[0]!;
+    const [sql, params] = mockSelect.mock.calls[0] ?? [];
     expect(sql).toContain('$1');
     expect(sql).not.toContain('?');
     expect(params).toEqual(['emp-alice']);
@@ -68,7 +68,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
       .where(and(eq(employees.company_id, 'company-001'), eq(employees.role_slug, 'developer')));
 
     expect(mockSelect).toHaveBeenCalledOnce();
-    const [sql, params] = mockSelect.mock.calls[0]!;
+    const [sql, params] = mockSelect.mock.calls[0] ?? [];
     expect(sql).toContain('$1');
     expect(sql).toContain('$2');
     expect(sql).not.toContain('?');
@@ -93,7 +93,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
     });
 
     expect(mockExecute).toHaveBeenCalled();
-    const [sql] = mockExecute.mock.calls[0]!;
+    const [sql] = mockExecute.mock.calls[0] ?? [];
     expect(sql).toContain('$1');
     expect(sql).not.toContain('?');
   });

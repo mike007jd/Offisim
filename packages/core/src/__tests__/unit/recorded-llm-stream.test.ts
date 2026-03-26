@@ -1,25 +1,25 @@
+import type { RuntimeEvent } from '@aics/shared-types';
+import { describe, expect, it, vi } from 'vitest';
+import { InMemoryEventBus } from '../../events/event-bus.js';
 /**
  * Tests for recordedLlmStream() — focused on coverage gaps not covered by recorded-call.test.ts.
  * The existing file covers happy-path, error-path, events, and onChunk.
  * This file adds: message-pruning verification and explicit onChunk accumulation.
  */
 import type { LlmRequest, LlmStreamChunk } from '../../llm/gateway.js';
-import { recordedLlmStream } from '../../llm/recorded-call.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
-import { InMemoryEventBus } from '../../events/event-bus.js';
+import { recordedLlmStream } from '../../llm/recorded-call.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
-import { TEST_COMPANY } from '../helpers/fixtures.js';
+import { TEST_COMPANY, assertDefined } from '../helpers/fixtures.js';
 import { MockLlmGateway } from '../helpers/mock-gateway.js';
-import { describe, expect, it, vi } from 'vitest';
-import type { RuntimeEvent } from '@aics/shared-types';
 
 function makeCtx() {
   const repos = createMemoryRepositories();
   const eventBus = new InMemoryEventBus();
   const gateway = new MockLlmGateway();
-  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+  const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
   repos.seed.companies([TEST_COMPANY]);
 
   // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types
@@ -71,7 +71,7 @@ describe('recordedLlmStream — message pruning', () => {
     );
 
     expect(capturedRequests).toHaveLength(1);
-    const sentMessages = capturedRequests[0]!.messages;
+    const sentMessages = assertDefined(capturedRequests[0]?.messages);
 
     // Should have 2 system + 50 non-system = 52 total
     const systemCount = sentMessages.filter((m) => m.role === 'system').length;
@@ -106,7 +106,7 @@ describe('recordedLlmStream — message pruning', () => {
       () => {},
     );
 
-    expect(capturedRequests[0]!.messages).toHaveLength(3);
+    expect(capturedRequests[0]?.messages).toHaveLength(3);
   });
 });
 
@@ -171,12 +171,12 @@ describe('recordedLlmStream — DB and events', () => {
 
     const calls = await repos.llmCalls.findByThread('t-1');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.input_tokens).toBe(40);
-    expect(calls[0]!.output_tokens).toBe(12);
-    expect(calls[0]!.node_name).toBe('pm_planner');
-    expect(calls[0]!.task_run_id).toBe('tr-1');
-    expect(calls[0]!.error_code).toBeNull();
-    expect(calls[0]!.latency_ms).toBeGreaterThanOrEqual(0);
+    expect(calls[0]?.input_tokens).toBe(40);
+    expect(calls[0]?.output_tokens).toBe(12);
+    expect(calls[0]?.node_name).toBe('pm_planner');
+    expect(calls[0]?.task_run_id).toBe('tr-1');
+    expect(calls[0]?.error_code).toBeNull();
+    expect(calls[0]?.latency_ms).toBeGreaterThanOrEqual(0);
   });
 
   it('creates DB record with error_code and re-throws on stream failure', async () => {
@@ -198,9 +198,9 @@ describe('recordedLlmStream — DB and events', () => {
 
     const calls = await repos.llmCalls.findByThread('t-1');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.error_code).toBe('network error');
-    expect(calls[0]!.input_tokens).toBe(0);
-    expect(calls[0]!.output_tokens).toBe(0);
+    expect(calls[0]?.error_code).toBe('network error');
+    expect(calls[0]?.input_tokens).toBe(0);
+    expect(calls[0]?.output_tokens).toBe(0);
   });
 
   it('emits llm.call.started, llm.call.completed, and llm.usage.recorded events', async () => {

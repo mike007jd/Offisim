@@ -55,8 +55,8 @@ describe('MemoryEmployeeVersionRepository', () => {
 
     const results = await repo.findByEmployee('e-1');
     expect(results).toHaveLength(2);
-    expect(results[0]!.version_num).toBe(2);
-    expect(results[1]!.version_num).toBe(1);
+    expect(results[0]?.version_num).toBe(2);
+    expect(results[1]?.version_num).toBe(1);
   });
 
   it('findByEmployee respects limit', async () => {
@@ -73,7 +73,7 @@ describe('MemoryEmployeeVersionRepository', () => {
     }
     const results = await repo.findByEmployee('e-1', { limit: 3 });
     expect(results).toHaveLength(3);
-    expect(results[0]!.version_num).toBe(5);
+    expect(results[0]?.version_num).toBe(5);
   });
 
   it('findByVersion returns the matching version or null', async () => {
@@ -89,7 +89,7 @@ describe('MemoryEmployeeVersionRepository', () => {
 
     const found = await repo.findByVersion('e-1', 1);
     expect(found).not.toBeNull();
-    expect(found!.version_num).toBe(1);
+    expect(found?.version_num).toBe(1);
 
     const notFound = await repo.findByVersion('e-1', 99);
     expect(notFound).toBeNull();

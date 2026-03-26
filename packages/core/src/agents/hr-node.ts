@@ -9,10 +9,10 @@ import {
 } from '../events/event-factories.js';
 import type { AicsGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getConfigSignal } from '../utils/get-signal.js';
+import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 interface HrAssessmentResult {
   assessment: string;
@@ -84,7 +84,11 @@ export async function hrNode(
     .filter((e) => e.enabled)
     .map((e) => {
       let persona: Record<string, unknown> = {};
-      try { persona = JSON.parse(e.persona_json ?? '{}'); } catch { /* use default */ }
+      try {
+        persona = JSON.parse(e.persona_json ?? '{}');
+      } catch {
+        /* use default */
+      }
       return `- ${e.name} (${e.role_slug}): ${(persona.expertise as string) ?? 'no expertise listed'}`;
     })
     .join('\n');
@@ -139,7 +143,11 @@ export async function hrNode(
     threadId: state.threadId,
     agentName: 'hr',
     eventType: 'decision',
-    payload: { action: hrAction, suggestedRoles: result?.suggestedRoles, assessmentLength: assessmentText.length },
+    payload: {
+      action: hrAction,
+      suggestedRoles: result?.suggestedRoles,
+      assessmentLength: assessmentText.length,
+    },
   });
 
   return {

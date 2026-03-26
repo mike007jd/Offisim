@@ -22,9 +22,7 @@ export async function pmHeartbeatNode(
   const runtimeCtx = getRuntime(config, 'pm_heartbeat', { optional: true });
   if (!runtimeCtx) return {};
 
-  runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_heartbeat'),
-  );
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_heartbeat'));
 
   const { repos } = runtimeCtx;
   const plan = state.taskPlan;
@@ -54,13 +52,18 @@ export async function pmHeartbeatNode(
       limit: 1,
     });
     if (lastHeartbeats.length > 0) {
-      try {
-        const lastPayload = JSON.parse(lastHeartbeats[0]!.payload_json) as Record<string, unknown>;
-        if (lastPayload.progress === currentProgress && stuckTasks.length === 0) {
-          // No change since last heartbeat — stay silent
-          return {};
+      const lastHeartbeat = lastHeartbeats[0];
+      if (lastHeartbeat?.payload_json) {
+        try {
+          const lastPayload = JSON.parse(lastHeartbeat.payload_json) as Record<string, unknown>;
+          if (lastPayload.progress === currentProgress && stuckTasks.length === 0) {
+            // No change since last heartbeat — stay silent
+            return {};
+          }
+        } catch {
+          /* proceed with event */
         }
-      } catch { /* proceed with event */ }
+      }
     }
   }
 
@@ -71,7 +74,7 @@ export async function pmHeartbeatNode(
     recommendation = 'completed';
   } else if (stuckTasks.length > 0) {
     recommendation = 'needs_attention';
-    blockers.push(...stuckTasks.map(id => `stuck_task:${id}`));
+    blockers.push(...stuckTasks.map((id) => `stuck_task:${id}`));
   } else if (dispatchedCount > completedCount) {
     recommendation = 'in_progress';
   } else {

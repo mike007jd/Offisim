@@ -74,11 +74,35 @@ export type RuntimeEntityType =
   | 'prefab';
 
 // ── Prefab State Types (per semantic category) ──────────────────
-export type WorkspacePrefabState = 'empty' | 'occupied' | 'working' | 'thinking' | 'searching' | 'blocked' | 'idle';
+export type WorkspacePrefabState =
+  | 'empty'
+  | 'occupied'
+  | 'working'
+  | 'thinking'
+  | 'searching'
+  | 'blocked'
+  | 'idle';
 export type ComputePrefabState = 'offline' | 'idle' | 'processing' | 'overloaded' | 'error';
-export type KnowledgePrefabState = 'empty' | 'stocked' | 'indexing' | 'ready' | 'searching' | 'error';
-export type CollaborationPrefabState = 'empty' | 'scheduled' | 'gathering' | 'active' | 'paused' | 'ended';
-export type InfrastructurePrefabState = 'disconnected' | 'idle' | 'transmitting' | 'congested' | 'error';
+export type KnowledgePrefabState =
+  | 'empty'
+  | 'stocked'
+  | 'indexing'
+  | 'ready'
+  | 'searching'
+  | 'error';
+export type CollaborationPrefabState =
+  | 'empty'
+  | 'scheduled'
+  | 'gathering'
+  | 'active'
+  | 'paused'
+  | 'ended';
+export type InfrastructurePrefabState =
+  | 'disconnected'
+  | 'idle'
+  | 'transmitting'
+  | 'congested'
+  | 'error';
 
 export type PrefabState =
   | WorkspacePrefabState

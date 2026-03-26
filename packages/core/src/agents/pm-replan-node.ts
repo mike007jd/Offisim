@@ -6,8 +6,8 @@ import { recordedLlmCall } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
-import { getConfigSignal } from '../utils/get-signal.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 
 const PM_REPLAN_PROMPT = `You are the PM AI. The current plan has been partially executed, but a problem was reported.
 
@@ -74,7 +74,11 @@ function parseReplanResult(content: string): ReplanResult | null {
 
     const tasks: ReplanResult['revisedSteps'][0]['tasks'] = [];
     for (const t of s.tasks as Record<string, unknown>[]) {
-      if (typeof t.taskType === 'string' && typeof t.employeeId === 'string' && typeof t.description === 'string') {
+      if (
+        typeof t.taskType === 'string' &&
+        typeof t.employeeId === 'string' &&
+        typeof t.description === 'string'
+      ) {
         tasks.push({ taskType: t.taskType, employeeId: t.employeeId, description: t.description });
       }
     }
@@ -106,15 +110,13 @@ export async function pmReplanNode(
 ): Promise<Partial<AicsGraphState>> {
   const runtimeCtx = getRuntime(config, 'pm_replan');
 
-  runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan'),
-  );
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan'));
 
   const { repos, modelResolver, companyId, threadId } = runtimeCtx;
   const plan = state.taskPlan;
 
   if (!plan) {
-    return {};  // No plan to replan
+    return {}; // No plan to replan
   }
 
   const completedIndices = new Set(state.completedStepIndices ?? []);
@@ -122,27 +124,31 @@ export async function pmReplanNode(
 
   // Get the employee feedback that triggered this replan
   const lastOutputs = state.currentStepOutputs;
-  const feedback = lastOutputs.length > 0
-    ? lastOutputs.map(o => `[${o.employeeName}]: ${o.content}`).join('\n')
-    : 'Unknown feedback';
+  const feedback =
+    lastOutputs.length > 0
+      ? lastOutputs.map((o) => `[${o.employeeName}]: ${o.content}`).join('\n')
+      : 'Unknown feedback';
 
   // Build plan detail for prompt
-  const stepsDetail = plan.steps.map(s =>
-    `Step ${s.stepIndex} [${completedIndices.has(s.stepIndex) ? 'DONE' : 'PENDING'}]: ${s.description}`
-  ).join('\n');
+  const stepsDetail = plan.steps
+    .map(
+      (s) =>
+        `Step ${s.stepIndex} [${completedIndices.has(s.stepIndex) ? 'DONE' : 'PENDING'}]: ${s.description}`,
+    )
+    .join('\n');
 
   // Get available employees for the revised plan
   const employees = await repos.employees.findByCompany(companyId);
-  const enabledEmployees = employees.filter(e => e.enabled);
-  const employeeList = enabledEmployees.map(e => `${e.employee_id}: ${e.name} (${e.role_slug})`).join(', ');
+  const enabledEmployees = employees.filter((e) => e.enabled);
+  const employeeList = enabledEmployees
+    .map((e) => `${e.employee_id}: ${e.name} (${e.role_slug})`)
+    .join(', ');
 
-  const prompt = PM_REPLAN_PROMPT
-    .replace('{planSummary}', plan.summary)
+  const prompt = `${PM_REPLAN_PROMPT.replace('{planSummary}', plan.summary)
     .replace('{stepsDetail}', stepsDetail)
     .replace('{completedSteps}', [...completedIndices].sort().join(', ') || 'none')
     .replace('{feedback}', feedback)
-    .replace('{nextStepIndex}', String(nextStepIndex))
-    + `\n\nAvailable employees: ${employeeList}`;
+    .replace('{nextStepIndex}', String(nextStepIndex))}\n\nAvailable employees: ${employeeList}`;
 
   const resolved = modelResolver.resolve(null, 'pm');
 
@@ -169,7 +175,7 @@ export async function pmReplanNode(
   }
 
   // Build new steps: keep completed, replace remaining
-  const completedSteps = plan.steps.filter(s => completedIndices.has(s.stepIndex));
+  const completedSteps = plan.steps.filter((s) => completedIndices.has(s.stepIndex));
   const newSteps: PlanStep[] = [...completedSteps];
 
   for (const revised of replanResult.revisedSteps) {
@@ -221,8 +227,10 @@ export async function pmReplanNode(
       planId: plan.planId,
       version: newReplanCount,
       reason: replanResult.reason,
-      removedSteps: plan.steps.filter(s => !completedIndices.has(s.stepIndex)).map(s => s.stepIndex),
-      addedSteps: replanResult.revisedSteps.map(s => s.stepIndex),
+      removedSteps: plan.steps
+        .filter((s) => !completedIndices.has(s.stepIndex))
+        .map((s) => s.stepIndex),
+      addedSteps: replanResult.revisedSteps.map((s) => s.stepIndex),
       completedBefore: [...completedIndices],
     },
   });

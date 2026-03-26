@@ -57,7 +57,7 @@ describe('TauriMcpClientFactory', () => {
       request: { serverId: 'mcp-123' },
     });
     expect(conn.tools).toHaveLength(1);
-    expect(conn.tools[0]!.name).toBe('read');
+    expect(conn.tools[0]?.name).toBe('read');
   });
 
   it('throws if stdio has no registered server id', async () => {

@@ -15,8 +15,8 @@ import {
 } from '@aics/ui-core';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  loadStoredBrowserMcpServers,
   listDesktopMcpServers,
+  loadStoredBrowserMcpServers,
   registerDesktopMcpServer,
   unregisterDesktopMcpServer,
 } from '../../lib/desktop-mcp-registry';

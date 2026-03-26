@@ -1,7 +1,11 @@
 // @aics/core — Phase 6 Install Pipeline
 
 // --- Types ---
-export type { RuntimeContext, MeetingInterruptBox, DisposableRuntime } from './runtime/runtime-context.js';
+export type {
+  RuntimeContext,
+  MeetingInterruptBox,
+  DisposableRuntime,
+} from './runtime/runtime-context.js';
 export type {
   RuntimeRepositories,
   CompanyRow,

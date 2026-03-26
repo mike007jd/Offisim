@@ -11,13 +11,13 @@
  *
  * Cost target: < $0.01 per full suite run (uses small inputs + low maxTokens)
  */
-import { describe, it, expect, beforeAll } from 'vitest';
-import type { LlmGateway } from '../../llm/gateway.js';
-import { createGateway } from '../../llm/gateway-factory.js';
-import { extractJsonFromLlm } from '../../utils/extract-json.js';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { BOSS_SYSTEM_PROMPT } from '../../agents/boss-node.js';
-import { PM_SYSTEM_PROMPT } from '../../agents/pm-planner-node.js';
 import { MANAGER_SYSTEM_PROMPT } from '../../agents/manager-node.js';
+import { PM_SYSTEM_PROMPT } from '../../agents/pm-planner-node.js';
+import { createGateway } from '../../llm/gateway-factory.js';
+import type { LlmGateway } from '../../llm/gateway.js';
+import { extractJsonFromLlm } from '../../utils/extract-json.js';
 
 // ---------------------------------------------------------------------------
 // Environment-gated suite — skipped unless LLM_TEST_API_KEY is set
@@ -47,9 +47,7 @@ const TEST_EMPLOYEES = [
 ];
 
 /** Employee list formatted the way the actual nodes format it */
-const TEST_EMPLOYEE_LIST = TEST_EMPLOYEES.map(
-  (e) => `- ${e.id}: ${e.name} (${e.role})`,
-).join('\n');
+const TEST_EMPLOYEE_LIST = TEST_EMPLOYEES.map((e) => `- ${e.id}: ${e.name} (${e.role})`).join('\n');
 
 // ---------------------------------------------------------------------------
 // Suite
@@ -85,16 +83,16 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
       expect(parsed).not.toBeNull();
 
       expect(parsed).toHaveProperty('action');
-      expect(['delegate', 'direct_reply', 'meeting', 'hire_or_assess']).toContain(parsed!.action);
+      expect(['delegate', 'direct_reply', 'meeting', 'hire_or_assess']).toContain(parsed?.action);
 
       // reason is present for all non-direct_reply actions in practice
-      if (parsed!.action !== 'direct_reply') {
-        expect(typeof parsed!.reason).toBe('string');
+      if (parsed?.action !== 'direct_reply') {
+        expect(typeof parsed?.reason).toBe('string');
       }
 
       // reply only makes sense for direct_reply
-      if (parsed!.action === 'direct_reply') {
-        expect(typeof parsed!.reply).toBe('string');
+      if (parsed?.action === 'direct_reply') {
+        expect(typeof parsed?.reply).toBe('string');
       }
     });
 
@@ -111,7 +109,7 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
 
       const parsed = extractJsonFromLlm<Record<string, unknown>>(response.content);
       expect(parsed).not.toBeNull();
-      expect(['delegate', 'direct_reply', 'meeting', 'hire_or_assess']).toContain(parsed!.action);
+      expect(['delegate', 'direct_reply', 'meeting', 'hire_or_assess']).toContain(parsed?.action);
     });
 
     it('detects project intent for complex multi-phase requests', async () => {
@@ -120,8 +118,7 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
           { role: 'system', content: BOSS_SYSTEM_PROMPT },
           {
             role: 'user',
-            content:
-              '我想做一个完整的电商平台，包括商品管理、订单系统、支付集成和用户中心',
+            content: '我想做一个完整的电商平台，包括商品管理、订单系统、支付集成和用户中心',
           },
         ],
         model: MODEL,
@@ -131,17 +128,20 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
 
       const parsed = extractJsonFromLlm<Record<string, unknown>>(response.content);
       expect(parsed).not.toBeNull();
-      expect(parsed!.action).toBe('delegate');
+      expect(parsed?.action).toBe('delegate');
+      if (!parsed) {
+        throw new Error('Expected valid JSON payload from boss-node response');
+      }
 
       // isNewProject field — if present it must be boolean
-      if ('isNewProject' in parsed!) {
-        expect(typeof parsed!.isNewProject).toBe('boolean');
+      if ('isNewProject' in parsed) {
+        expect(typeof parsed?.isNewProject).toBe('boolean');
       }
 
       // projectName field — if present it must be a non-empty string
-      if ('projectName' in parsed!) {
-        expect(typeof parsed!.projectName).toBe('string');
-        expect((parsed!.projectName as string).length).toBeGreaterThan(0);
+      if ('projectName' in parsed) {
+        expect(typeof parsed?.projectName).toBe('string');
+        expect((parsed?.projectName as string).length).toBeGreaterThan(0);
       }
     });
 
@@ -158,7 +158,7 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
 
       const parsed = extractJsonFromLlm<Record<string, unknown>>(response.content);
       expect(parsed).not.toBeNull();
-      expect(['hire_or_assess', 'delegate']).toContain(parsed!.action);
+      expect(['hire_or_assess', 'delegate']).toContain(parsed?.action);
     });
   });
 
@@ -184,10 +184,10 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
       expect(parsed).not.toBeNull();
 
       // Top-level fields
-      expect(typeof parsed!.summary).toBe('string');
-      expect(Array.isArray(parsed!.steps)).toBe(true);
+      expect(typeof parsed?.summary).toBe('string');
+      expect(Array.isArray(parsed?.steps)).toBe(true);
 
-      const steps = parsed!.steps as unknown[];
+      const steps = parsed?.steps as unknown[];
       expect(steps.length).toBeGreaterThan(0);
 
       // Validate each step
@@ -228,10 +228,10 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
 
       const parsed = extractJsonFromLlm<Record<string, unknown>>(response.content);
       expect(parsed).not.toBeNull();
-      expect(typeof parsed!.summary).toBe('string');
-      expect(Array.isArray(parsed!.steps)).toBe(true);
+      expect(typeof parsed?.summary).toBe('string');
+      expect(Array.isArray(parsed?.steps)).toBe(true);
 
-      const steps = parsed!.steps as Array<Record<string, unknown>>;
+      const steps = parsed?.steps as Array<Record<string, unknown>>;
       expect(steps.length).toBeGreaterThan(0);
 
       // Validate optional phase + dependsOnSteps types when present
@@ -241,9 +241,9 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
         }
         if (step.dependsOnSteps !== undefined) {
           expect(Array.isArray(step.dependsOnSteps)).toBe(true);
-          (step.dependsOnSteps as unknown[]).forEach((d) =>
-            expect(typeof d).toBe('number'),
-          );
+          for (const dependency of step.dependsOnSteps as unknown[]) {
+            expect(typeof dependency).toBe('number');
+          }
         }
       }
     });
@@ -270,15 +270,15 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
       expect(parsed).not.toBeNull();
 
       // intent field
-      expect(typeof parsed!.intent).toBe('string');
-      expect(['work', 'hire', 'assess_team']).toContain(parsed!.intent);
+      expect(typeof parsed?.intent).toBe('string');
+      expect(['work', 'hire', 'assess_team']).toContain(parsed?.intent);
 
       // assignments array
-      expect(Array.isArray(parsed!.assignments)).toBe(true);
+      expect(Array.isArray(parsed?.assignments)).toBe(true);
 
       // For 'work' intent, there must be at least one assignment
-      if (parsed!.intent === 'work') {
-        const assignments = parsed!.assignments as unknown[];
+      if (parsed?.intent === 'work') {
+        const assignments = parsed?.assignments as unknown[];
         expect(assignments.length).toBeGreaterThan(0);
 
         for (const rawAssignment of assignments) {
@@ -305,8 +305,8 @@ describeWithLlm('LLM Prompt Schema Validation (real LLM)', () => {
 
       const parsed = extractJsonFromLlm<Record<string, unknown>>(response.content);
       expect(parsed).not.toBeNull();
-      expect(['hire', 'assess_team', 'work']).toContain(parsed!.intent);
-      expect(Array.isArray(parsed!.assignments)).toBe(true);
+      expect(['hire', 'assess_team', 'work']).toContain(parsed?.intent);
+      expect(Array.isArray(parsed?.assignments)).toBe(true);
     });
   });
 });

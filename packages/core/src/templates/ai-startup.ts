@@ -219,7 +219,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Feature Scoping',
           role_slug: 'product_manager',
           instruction:
-            'Define the AI feature scope with ML-specific considerations. Document: (1) User problem — what pain point does this solve, with evidence from user research or support data, (2) Success metrics — define both product metrics (engagement, retention, task completion) and model metrics (accuracy, latency, cost per request), (3) Model requirements — what capabilities does the model need? What input/output format? What quality bar is acceptable? (4) Data requirements — what training/evaluation data exists? What needs to be collected? (5) Risk assessment — what happens when the model is wrong? What\'s the worst-case user experience? (6) Fallback strategy — how does the feature work when the AI is unavailable, slow, or produces low-confidence results? Produce a one-page spec with numbered acceptance criteria that cover both happy path and failure modes.',
+            "Define the AI feature scope with ML-specific considerations. Document: (1) User problem — what pain point does this solve, with evidence from user research or support data, (2) Success metrics — define both product metrics (engagement, retention, task completion) and model metrics (accuracy, latency, cost per request), (3) Model requirements — what capabilities does the model need? What input/output format? What quality bar is acceptable? (4) Data requirements — what training/evaluation data exists? What needs to be collected? (5) Risk assessment — what happens when the model is wrong? What's the worst-case user experience? (6) Fallback strategy — how does the feature work when the AI is unavailable, slow, or produces low-confidence results? Produce a one-page spec with numbered acceptance criteria that cover both happy path and failure modes.",
           output_key: 'feature_spec',
           dependencies: [],
         },
@@ -228,7 +228,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'AI UX Design',
           role_slug: 'ux_designer',
           instruction:
-            'Design the user-facing interaction for the AI feature based on the feature_spec. Address AI-specific UX challenges: (1) Loading states — design for variable AI response times (200ms to 30s), including skeleton UIs and progressive content reveal for streaming, (2) Confidence display — how to communicate AI certainty to users without overwhelming them (e.g., subtle indicators vs. explicit scores), (3) Error handling — design for model errors, timeouts, content policy blocks, and rate limits with user-friendly messaging, (4) User control — provide mechanisms for users to correct, regenerate, or provide feedback on AI outputs, (5) Transparency — how much of the AI\'s reasoning to expose and where. Produce wireframes for all states (empty, loading, streaming, complete, error, low-confidence) and an interaction flow diagram covering the complete user journey.',
+            "Design the user-facing interaction for the AI feature based on the feature_spec. Address AI-specific UX challenges: (1) Loading states — design for variable AI response times (200ms to 30s), including skeleton UIs and progressive content reveal for streaming, (2) Confidence display — how to communicate AI certainty to users without overwhelming them (e.g., subtle indicators vs. explicit scores), (3) Error handling — design for model errors, timeouts, content policy blocks, and rate limits with user-friendly messaging, (4) User control — provide mechanisms for users to correct, regenerate, or provide feedback on AI outputs, (5) Transparency — how much of the AI's reasoning to expose and where. Produce wireframes for all states (empty, loading, streaming, complete, error, low-confidence) and an interaction flow diagram covering the complete user journey.",
           output_key: 'ux_design',
           dependencies: ['feature-scoping'],
         },
@@ -264,7 +264,8 @@ export const aiStartupTemplate: CompanyTemplate = {
     {
       sop_id: 'sop-paper-review',
       name: 'Paper Review & Implementation',
-      description: 'Systematic review of ML research papers and rapid prototyping of promising techniques',
+      description:
+        'Systematic review of ML research papers and rapid prototyping of promising techniques',
       created_at: '2025-01-01T00:00:00.000Z',
       steps: [
         {
@@ -272,7 +273,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Paper Deep Analysis',
           role_slug: 'researcher',
           instruction:
-            'Perform a rigorous analysis of the target research paper. Cover: (1) Core contribution — what is the paper\'s novel insight in one paragraph, distinguishing genuinely new ideas from incremental improvements, (2) Method description — explain the proposed approach in enough detail that an ML engineer could implement it, including architecture diagrams (described textually), loss functions, and training procedures, (3) Results analysis — scrutinize the experimental setup: are baselines fair? Are datasets standard? Are ablations sufficient? Do confidence intervals support the claims? (4) Reproducibility assessment — rate 1-5 based on: code availability, dataset access, hyperparameter disclosure, compute requirements disclosure, (5) Relevance score — how applicable is this to our current product/research direction, with specific use cases identified. Output a structured paper review document with clear sections.',
+            "Perform a rigorous analysis of the target research paper. Cover: (1) Core contribution — what is the paper's novel insight in one paragraph, distinguishing genuinely new ideas from incremental improvements, (2) Method description — explain the proposed approach in enough detail that an ML engineer could implement it, including architecture diagrams (described textually), loss functions, and training procedures, (3) Results analysis — scrutinize the experimental setup: are baselines fair? Are datasets standard? Are ablations sufficient? Do confidence intervals support the claims? (4) Reproducibility assessment — rate 1-5 based on: code availability, dataset access, hyperparameter disclosure, compute requirements disclosure, (5) Relevance score — how applicable is this to our current product/research direction, with specific use cases identified. Output a structured paper review document with clear sections.",
           output_key: 'paper_review',
           dependencies: [],
         },
@@ -281,7 +282,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Feasibility Assessment',
           role_slug: 'backend',
           instruction:
-            'Evaluate the practical feasibility of implementing the paper\'s technique based on the paper_review. Assess: (1) Compute requirements — GPU memory, training time, inference latency estimates for our hardware and scale, (2) Data requirements — do we have sufficient training/evaluation data? What data collection effort is needed? (3) Integration complexity — how does this technique fit into our existing ML pipeline? What components need modification? (4) Dependency risks — does the implementation rely on unreleased code, proprietary datasets, or specific hardware (e.g., specific GPU architectures)? (5) Timeline estimate — prototype (proof of concept) vs. production-ready implementation, with effort breakdown by component. Output a feasibility report with a go/no-go recommendation and, if go, a prioritized implementation plan.',
+            "Evaluate the practical feasibility of implementing the paper's technique based on the paper_review. Assess: (1) Compute requirements — GPU memory, training time, inference latency estimates for our hardware and scale, (2) Data requirements — do we have sufficient training/evaluation data? What data collection effort is needed? (3) Integration complexity — how does this technique fit into our existing ML pipeline? What components need modification? (4) Dependency risks — does the implementation rely on unreleased code, proprietary datasets, or specific hardware (e.g., specific GPU architectures)? (5) Timeline estimate — prototype (proof of concept) vs. production-ready implementation, with effort breakdown by component. Output a feasibility report with a go/no-go recommendation and, if go, a prioritized implementation plan.",
           output_key: 'feasibility_report',
           dependencies: ['paper-analysis'],
         },
@@ -290,7 +291,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Rapid Prototype',
           role_slug: 'fullstack',
           instruction:
-            'Build a minimal but rigorous prototype of the paper\'s technique based on the feasibility_report. Requirements: (1) Implement the core algorithm faithfully — don\'t skip steps that seem minor, as they may be critical for performance, (2) Use our standard ML infrastructure (data loading, experiment tracking, evaluation harness) so results are directly comparable to existing approaches, (3) Run on a small representative dataset to validate correctness before committing to full-scale training, (4) Log everything — hyperparameters, training curves, memory usage, and wall-clock time, (5) Implement at least one ablation that removes the paper\'s key contribution to verify it matters. Output the prototype code, training logs, and preliminary results with comparison to our current baseline.',
+            "Build a minimal but rigorous prototype of the paper's technique based on the feasibility_report. Requirements: (1) Implement the core algorithm faithfully — don't skip steps that seem minor, as they may be critical for performance, (2) Use our standard ML infrastructure (data loading, experiment tracking, evaluation harness) so results are directly comparable to existing approaches, (3) Run on a small representative dataset to validate correctness before committing to full-scale training, (4) Log everything — hyperparameters, training curves, memory usage, and wall-clock time, (5) Implement at least one ablation that removes the paper's key contribution to verify it matters. Output the prototype code, training logs, and preliminary results with comparison to our current baseline.",
           output_key: 'prototype_results',
           dependencies: ['feasibility'],
         },
@@ -299,7 +300,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Benchmark & Comparison',
           role_slug: 'backend',
           instruction:
-            'Run a rigorous benchmark of the prototype_results against existing baselines. Protocol: (1) Use the same evaluation dataset and metrics as our standard model evaluation pipeline for fair comparison, (2) Run multiple seeds (at least 3) to assess variance and statistical significance, (3) Measure all dimensions: quality metrics, latency, throughput, memory footprint, and cost per inference, (4) Test on our specific distribution of inputs, not just standard benchmarks — real-world performance may differ from paper claims, (5) Identify the Pareto frontier — is there a quality-cost trade-off that the paper doesn\'t discuss? Output a benchmark report with comparison tables, statistical significance tests, and a clear assessment of whether the technique delivers meaningful improvement over our current approach.',
+            "Run a rigorous benchmark of the prototype_results against existing baselines. Protocol: (1) Use the same evaluation dataset and metrics as our standard model evaluation pipeline for fair comparison, (2) Run multiple seeds (at least 3) to assess variance and statistical significance, (3) Measure all dimensions: quality metrics, latency, throughput, memory footprint, and cost per inference, (4) Test on our specific distribution of inputs, not just standard benchmarks — real-world performance may differ from paper claims, (5) Identify the Pareto frontier — is there a quality-cost trade-off that the paper doesn't discuss? Output a benchmark report with comparison tables, statistical significance tests, and a clear assessment of whether the technique delivers meaningful improvement over our current approach.",
           output_key: 'benchmark_report',
           dependencies: ['prototype'],
         },
@@ -308,7 +309,7 @@ export const aiStartupTemplate: CompanyTemplate = {
           label: 'Adoption Decision Report',
           role_slug: 'product_manager',
           instruction:
-            'Compile the paper_review, feasibility_report, prototype_results, and benchmark_report into an adoption decision document. Include: (1) Executive summary — does this paper\'s technique improve our product, by how much, and at what cost? (2) Quality impact — side-by-side comparison with current approach on metrics that matter to users, (3) Infrastructure impact — what changes are needed to deploy this in production, with effort estimate, (4) Risk analysis — what could go wrong in production that the prototype wouldn\'t catch (distribution shift, scale effects, edge cases), (5) Recommendation — one of: Adopt (proceed to production implementation), Adapt (use the core idea but modify the approach), Monitor (promising but not ready, re-evaluate in N months), or Pass (doesn\'t meet our bar), with detailed justification for each. Include a proposed next-steps timeline if the recommendation is Adopt or Adapt.',
+            "Compile the paper_review, feasibility_report, prototype_results, and benchmark_report into an adoption decision document. Include: (1) Executive summary — does this paper's technique improve our product, by how much, and at what cost? (2) Quality impact — side-by-side comparison with current approach on metrics that matter to users, (3) Infrastructure impact — what changes are needed to deploy this in production, with effort estimate, (4) Risk analysis — what could go wrong in production that the prototype wouldn't catch (distribution shift, scale effects, edge cases), (5) Recommendation — one of: Adopt (proceed to production implementation), Adapt (use the core idea but modify the approach), Monitor (promising but not ready, re-evaluate in N months), or Pass (doesn't meet our bar), with detailed justification for each. Include a proposed next-steps timeline if the recommendation is Adopt or Adapt.",
           output_key: 'decision_report',
           dependencies: ['benchmark'],
         },

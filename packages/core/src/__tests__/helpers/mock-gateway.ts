@@ -40,7 +40,12 @@ export class MockLlmGateway implements LlmGateway {
   async chat(request: LlmRequest): Promise<LlmResponse> {
     // Sequential mode takes priority
     if (this.callCount < this.sequentialResponses.length) {
-      return this.sequentialResponses[this.callCount++]!;
+      const response = this.sequentialResponses[this.callCount];
+      this.callCount += 1;
+      if (!response) {
+        throw new Error(`Missing sequential response at index ${this.callCount - 1}`);
+      }
+      return response;
     }
 
     // Keyword matching
@@ -71,8 +76,16 @@ export class MockLlmGateway implements LlmGateway {
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
     // Use stream-specific responses first, then fall back to chat()
-    const response =
-      this.streamResponses.length > 0 ? this.streamResponses.shift()! : await this.chat(request);
+    let response: LlmResponse;
+    if (this.streamResponses.length > 0) {
+      const shifted = this.streamResponses.shift();
+      if (!shifted) {
+        throw new Error('Expected a queued stream response');
+      }
+      response = shifted;
+    } else {
+      response = await this.chat(request);
+    }
 
     // Simulate streaming by yielding content word by word
     const words = response.content.split(' ');

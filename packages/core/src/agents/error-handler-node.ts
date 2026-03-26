@@ -4,7 +4,11 @@ import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/eve
 import type { AicsGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
-import { diagnoseAndRecover, recordRecoveryOutcome, type StructuredError } from './recovery-agent.js';
+import {
+  type StructuredError,
+  diagnoseAndRecover,
+  recordRecoveryOutcome,
+} from './recovery-agent.js';
 
 function tryParseStructuredError(raw: string): StructuredError | null {
   try {
@@ -50,7 +54,14 @@ export async function errorHandlerNode(
       if (taskRunId) {
         await repos.taskRuns.updateStatus(taskRunId, 'cancelled');
         eventBus.emit(
-          taskStateChanged(companyId, taskRunId, 'queued', 'cancelled', state.threadId, assignment.employeeId),
+          taskStateChanged(
+            companyId,
+            taskRunId,
+            'queued',
+            'cancelled',
+            state.threadId,
+            assignment.employeeId,
+          ),
         );
       }
     }
@@ -83,7 +94,15 @@ export async function errorHandlerNode(
         threadId: state.threadId,
         agentName: 'error',
         eventType: 'error',
-        payload: { errorCode: structured.errorCode, message: structured.message, recoverable: structured.recoverable, nodeName: structured.nodeName, employeeId: structured.employeeId, provider: structured.provider, model: structured.model },
+        payload: {
+          errorCode: structured.errorCode,
+          message: structured.message,
+          recoverable: structured.recoverable,
+          nodeName: structured.nodeName,
+          employeeId: structured.employeeId,
+          provider: structured.provider,
+          model: structured.model,
+        },
       });
 
       // --- Recovery Agent: attempt self-healing ---
@@ -121,7 +140,7 @@ export async function errorHandlerNode(
               structured.errorCode,
               recovery.cause,
               recovery.strategy,
-              false,  // We can't actually retry in this graph position — mark as failed for now
+              false, // We can't actually retry in this graph position — mark as failed for now
               recovery.knowledgeId,
             );
           }

@@ -15,7 +15,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
 import { McpToolExecutor } from '../../mcp/mcp-tool-executor.js';
 import type {
   McpClientFactory,
@@ -29,6 +28,7 @@ import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
   TEST_THREAD_ID,
+  createTestModelResolver,
   makeEmployee,
   makeManager,
 } from '../helpers/fixtures.js';
@@ -174,7 +174,7 @@ describe('MCP tool flow integration', () => {
     // Connect the mock MCP server
     await mcpExecutor.addServer({ name: 'code-server', transport: 'stdio', command: 'mock' });
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = createTestModelResolver();
 
     const runtimeCtx = createRuntimeContext({
       repos,
@@ -327,7 +327,7 @@ describe('MCP tool flow integration', () => {
     });
     await mcpExecutor.addServer({ name: 'buggy-server', transport: 'stdio', command: 'mock' });
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = createTestModelResolver();
     const runtimeCtx = createRuntimeContext({
       repos,
       eventBus,

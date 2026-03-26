@@ -66,7 +66,7 @@ export const contentStudioTemplate: CompanyTemplate = {
         expertise:
           'Editorial management and content quality control with 12+ years in digital publishing. Expert in editorial calendars, content strategy alignment, and brand voice governance. Skilled in line editing, structural editing, and developmental feedback. Deep knowledge of AP style, Chicago Manual of Style, and web writing best practices. Experienced in managing multi-writer teams for consistent quality and voice.',
         style:
-          'Sharp-eyed editor who elevates every piece without overwriting the author\'s voice. Provides structural feedback before line edits to avoid wasted effort. Uses tracked-changes style feedback with clear rationale for every suggestion. Maintains an editorial style guide and enforces consistency across all content output. Pushes writers to be more specific and concrete rather than vague and generic.',
+          "Sharp-eyed editor who elevates every piece without overwriting the author's voice. Provides structural feedback before line edits to avoid wasted effort. Uses tracked-changes style feedback with clear rationale for every suggestion. Maintains an editorial style guide and enforces consistency across all content output. Pushes writers to be more specific and concrete rather than vague and generic.",
         characterConfig: {
           skinColor: 0xd4a574,
           hairColor: 0x6b3a2a,
@@ -153,7 +153,7 @@ export const contentStudioTemplate: CompanyTemplate = {
           label: 'Content Drafting',
           role_slug: 'writer',
           instruction:
-            'Using the research_brief, write a complete first draft. Requirements: (1) Open with a hook that creates urgency or curiosity — no generic introductions, (2) Structure with clear H2/H3 hierarchy for scannability, (3) Support every major claim with data or examples from the research brief, (4) Write for the target audience\'s reading level — explain jargon for general audiences, use precise terminology for expert audiences, (5) Include transitional sentences between sections for narrative flow, (6) End with a concrete takeaway or call-to-action that ties back to the opening hook. Target word count should match the content format (blog: 1500-2500 words, whitepaper: 3000-5000 words, social: platform-specific limits).',
+            "Using the research_brief, write a complete first draft. Requirements: (1) Open with a hook that creates urgency or curiosity — no generic introductions, (2) Structure with clear H2/H3 hierarchy for scannability, (3) Support every major claim with data or examples from the research brief, (4) Write for the target audience's reading level — explain jargon for general audiences, use precise terminology for expert audiences, (5) Include transitional sentences between sections for narrative flow, (6) End with a concrete takeaway or call-to-action that ties back to the opening hook. Target word count should match the content format (blog: 1500-2500 words, whitepaper: 3000-5000 words, social: platform-specific limits).",
           output_key: 'content_draft',
           dependencies: ['research'],
         },
@@ -162,7 +162,7 @@ export const contentStudioTemplate: CompanyTemplate = {
           label: 'Editorial Review',
           role_slug: 'manager',
           instruction:
-            'Perform a comprehensive editorial review of the content_draft. Evaluate at three levels: (1) Structural — does the piece flow logically? Is the argument well-built? Are sections in the right order? Does it deliver on the promise of the headline? (2) Line-level — are sentences clear and concise? Is passive voice minimized? Are transitions smooth? Is the tone consistent throughout? (3) Mechanical — grammar, punctuation, spelling, style guide compliance. For each issue, provide: the specific location, what\'s wrong, why it matters, and a suggested fix. Prioritize feedback by impact: structural issues first, then line-level, then mechanical. If the draft needs major restructuring, provide a revised outline rather than line edits.',
+            "Perform a comprehensive editorial review of the content_draft. Evaluate at three levels: (1) Structural — does the piece flow logically? Is the argument well-built? Are sections in the right order? Does it deliver on the promise of the headline? (2) Line-level — are sentences clear and concise? Is passive voice minimized? Are transitions smooth? Is the tone consistent throughout? (3) Mechanical — grammar, punctuation, spelling, style guide compliance. For each issue, provide: the specific location, what's wrong, why it matters, and a suggested fix. Prioritize feedback by impact: structural issues first, then line-level, then mechanical. If the draft needs major restructuring, provide a revised outline rather than line edits.",
           output_key: 'editorial_feedback',
           dependencies: ['draft'],
         },
@@ -215,7 +215,7 @@ export const contentStudioTemplate: CompanyTemplate = {
           label: 'Editorial Polish',
           role_slug: 'manager',
           instruction:
-            'Edit the newsletter_draft for quality and brand voice consistency. Check: (1) Subject line is under 50 characters and avoids spam trigger words, (2) Opening creates immediate value or curiosity, (3) Each section has a clear purpose and doesn\'t repeat information, (4) Links are properly placed with descriptive anchor text, (5) Tone is consistent — conversational but professional, (6) CTA is clear and specific. Provide tracked-changes style feedback. If the draft is strong, focus on tightening — every word should earn its place in an email.',
+            "Edit the newsletter_draft for quality and brand voice consistency. Check: (1) Subject line is under 50 characters and avoids spam trigger words, (2) Opening creates immediate value or curiosity, (3) Each section has a clear purpose and doesn't repeat information, (4) Links are properly placed with descriptive anchor text, (5) Tone is consistent — conversational but professional, (6) CTA is clear and specific. Provide tracked-changes style feedback. If the draft is strong, focus on tightening — every word should earn its place in an email.",
           output_key: 'newsletter_edited',
           dependencies: ['newsletter-draft'],
         },
@@ -233,7 +233,8 @@ export const contentStudioTemplate: CompanyTemplate = {
     {
       sop_id: 'sop-seo-audit',
       name: 'SEO Content Audit',
-      description: 'Systematic audit of existing content for SEO performance and optimization opportunities',
+      description:
+        'Systematic audit of existing content for SEO performance and optimization opportunities',
       created_at: '2025-01-01T00:00:00.000Z',
       steps: [
         {
@@ -250,7 +251,7 @@ export const contentStudioTemplate: CompanyTemplate = {
           label: 'Keyword Gap Analysis',
           role_slug: 'researcher',
           instruction:
-            'Analyze the content_inventory against the target keyword universe. Identify: (1) High-value keywords with no existing content (content gaps), (2) Keywords where existing content ranks positions 5-20 (optimization opportunities), (3) Keyword cannibalization — multiple pages competing for the same keyword, (4) Emerging topic trends that the content library doesn\'t yet cover, (5) Competitor content that outranks ours and what they do differently. Prioritize opportunities by search volume x conversion potential x effort-to-rank. Output a prioritized opportunity list with recommended actions for each.',
+            "Analyze the content_inventory against the target keyword universe. Identify: (1) High-value keywords with no existing content (content gaps), (2) Keywords where existing content ranks positions 5-20 (optimization opportunities), (3) Keyword cannibalization — multiple pages competing for the same keyword, (4) Emerging topic trends that the content library doesn't yet cover, (5) Competitor content that outranks ours and what they do differently. Prioritize opportunities by search volume x conversion potential x effort-to-rank. Output a prioritized opportunity list with recommended actions for each.",
           output_key: 'gap_analysis',
           dependencies: ['content-inventory'],
         },

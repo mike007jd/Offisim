@@ -60,7 +60,7 @@ describe('HR routing — boss → manager → HR', () => {
     repos.seed.employees([makeManager(), makeEmployee()]);
 
     const eventBus = new InMemoryEventBus();
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -120,7 +120,7 @@ describe('HR routing — boss → manager → HR', () => {
       const result = await managerNode(state, config);
 
       expect(result.managerDirective).toBeDefined();
-      expect(result.managerDirective!.constraints).toBe('hire');
+      expect(result.managerDirective?.constraints).toBe('hire');
     });
 
     it('sets constraints=assess_team when LLM returns assess_team intent', async () => {
@@ -137,7 +137,7 @@ describe('HR routing — boss → manager → HR', () => {
       const result = await managerNode(state, config);
 
       expect(result.managerDirective).toBeDefined();
-      expect(result.managerDirective!.constraints).toBe('assess_team');
+      expect(result.managerDirective?.constraints).toBe('assess_team');
     });
 
     it('leaves constraints undefined for normal work intent', async () => {
@@ -158,7 +158,7 @@ describe('HR routing — boss → manager → HR', () => {
       const result = await managerNode(state, config);
 
       expect(result.managerDirective).toBeDefined();
-      expect(result.managerDirective!.constraints).toBeUndefined();
+      expect(result.managerDirective?.constraints).toBeUndefined();
     });
 
     it('defaults to work intent when intent field is missing', async () => {
@@ -178,7 +178,7 @@ describe('HR routing — boss → manager → HR', () => {
       const result = await managerNode(state, config);
 
       expect(result.managerDirective).toBeDefined();
-      expect(result.managerDirective!.constraints).toBeUndefined();
+      expect(result.managerDirective?.constraints).toBeUndefined();
     });
 
     it('hire intent works even without assignments array', async () => {
@@ -194,7 +194,7 @@ describe('HR routing — boss → manager → HR', () => {
       const result = await managerNode(state, config);
 
       expect(result.managerDirective).toBeDefined();
-      expect(result.managerDirective!.constraints).toBe('hire');
+      expect(result.managerDirective?.constraints).toBe('hire');
     });
   });
 });

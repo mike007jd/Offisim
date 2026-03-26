@@ -28,9 +28,9 @@ describe('planCreated (enriched)', () => {
     expect(event.type).toBe('plan.created');
     expect(event.payload.summary).toBe('Test plan');
     expect(event.payload.steps).toHaveLength(1);
-    expect(event.payload.steps[0]!.tasks).toHaveLength(2);
-    expect(event.payload.steps[0]!.tasks[0]!.taskRunId).toBe('tr-1');
-    expect(event.payload.steps[0]!.tasks[0]!.description).toBe('Research AI');
-    expect(event.payload.steps[0]!.taskCount).toBe(2);
+    expect(event.payload.steps[0]?.tasks).toHaveLength(2);
+    expect(event.payload.steps[0]?.tasks[0]?.taskRunId).toBe('tr-1');
+    expect(event.payload.steps[0]?.tasks[0]?.description).toBe('Research AI');
+    expect(event.payload.steps[0]?.taskCount).toBe(2);
   });
 });

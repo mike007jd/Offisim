@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { managerNode } from '../../agents/manager-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { AicsGraphState } from '../../graph/state.js';
-import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
@@ -13,6 +12,8 @@ import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
   TEST_THREAD_ID,
+  assertDefined,
+  createTestModelResolver,
   makeEmployee,
   makeManager,
 } from '../helpers/fixtures.js';
@@ -65,7 +66,7 @@ describe('managerNode', () => {
     events = [];
     eventBus.on('', (e) => events.push(e));
 
-    const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json!));
+    const resolver = createTestModelResolver();
     const toolExecutor = new MockToolExecutor();
 
     const runtimeCtx = createRuntimeContext({
@@ -205,7 +206,7 @@ describe('managerNode', () => {
     const result = await managerNode(state, config);
 
     // Verify directive structure
-    const directive = result.managerDirective!;
+    const directive = assertDefined(result.managerDirective);
     expect(directive).toHaveProperty('intent');
     expect(directive).toHaveProperty('recommendedEmployees');
     expect(typeof directive.intent).toBe('string');

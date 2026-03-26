@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { ToolDef } from '../../llm/gateway.js';
 import {
-  MemoryRackRepository,
-  MemorySlotRepository,
-  MemoryWorkstationRackRepository,
+  type MemoryRackRepository,
+  type MemorySlotRepository,
+  type MemoryWorkstationRackRepository,
   createMemoryRepositories,
 } from '../../runtime/memory-repositories.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import { WorkstationToolResolver } from '../../services/workstation-tool-resolver.js';
-import { TEST_COMPANY_ID, makeEmployee, makeManager, TEST_COMPANY } from '../helpers/fixtures.js';
+import { TEST_COMPANY, TEST_COMPANY_ID, makeEmployee, makeManager } from '../helpers/fixtures.js';
 
 /** A MockToolExecutor that returns a specific set of tools. */
 class ConfigurableMockToolExecutor extends MockToolExecutor {
@@ -172,7 +172,7 @@ describe('WorkstationToolResolver', () => {
 
     const tools = await resolver.resolveForEmployee(TEST_COMPANY_ID, emp.employee_id);
     expect(tools).toHaveLength(1);
-    expect(tools[0]!.name).toBe('readFile');
+    expect(tools[0]?.name).toBe('readFile');
   });
 
   it('returns empty for nonexistent employee', async () => {
@@ -248,7 +248,9 @@ describe('WorkstationToolResolver', () => {
     });
     await workstationRacks.create({ workstation_id: 'ws-1', rack_id: 'rack-fs' });
 
-    expect(await resolver.isToolAccessible(TEST_COMPANY_ID, emp.employee_id, 'readFile')).toBe(true);
+    expect(await resolver.isToolAccessible(TEST_COMPANY_ID, emp.employee_id, 'readFile')).toBe(
+      true,
+    );
     expect(await resolver.isToolAccessible(TEST_COMPANY_ID, emp.employee_id, 'deploy')).toBe(false);
   });
 
