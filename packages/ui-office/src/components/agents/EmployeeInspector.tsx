@@ -1,10 +1,10 @@
 import { Badge, Button } from '@aics/ui-core';
 import { MessageSquare, Pencil, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import type { AgentState } from '../../runtime/use-agent-states';
-import { DicebearAvatar } from '../shared/DicebearAvatar';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
+import type { AgentState } from '../../runtime/use-agent-states';
+import { DicebearAvatar } from '../shared/DicebearAvatar';
 
 // ---------------------------------------------------------------------------
 // Props

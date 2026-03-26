@@ -1,7 +1,7 @@
-import { ChevronDown, Folder } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@aics/shared-types';
 import type { ProjectRow, ProjectStatus } from '@aics/shared-types';
+import { ChevronDown, Folder } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ProjectSelectorProps {
   projects: ProjectRow[];
@@ -77,7 +77,9 @@ export function ProjectSelector({ projects, activeProjectId, onSelect }: Project
         ) : (
           <span className="text-slate-500">All</span>
         )}
-        <ChevronDown className={`h-3 w-3 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-3 w-3 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {/* Dropdown */}
@@ -116,10 +118,15 @@ export function ProjectSelector({ projects, activeProjectId, onSelect }: Project
                 >
                   <StatusDot status={p.status} />
                   <span className="truncate flex-1 text-left">{p.name}</span>
-                  <span className={`text-[10px] flex-shrink-0 ${
-                    p.status === 'active' ? 'text-emerald-600' :
-                    p.status === 'paused' ? 'text-amber-600' : 'text-blue-600'
-                  }`}>
+                  <span
+                    className={`text-[10px] flex-shrink-0 ${
+                      p.status === 'active'
+                        ? 'text-emerald-600'
+                        : p.status === 'paused'
+                          ? 'text-amber-600'
+                          : 'text-blue-600'
+                    }`}
+                  >
                     {STATUS_LABEL[p.status]}
                   </span>
                 </button>

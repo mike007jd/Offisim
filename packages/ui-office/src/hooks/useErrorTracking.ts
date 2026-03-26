@@ -28,7 +28,15 @@ export function useErrorTracking(): TrackedError[] {
       setErrors((prev) => {
         const next = [
           ...prev,
-          { errorCode, message, recoverable, nodeName, timestamp: e.timestamp, employeeId, taskRunId },
+          {
+            errorCode,
+            message,
+            recoverable,
+            nodeName,
+            timestamp: e.timestamp,
+            employeeId,
+            taskRunId,
+          },
         ];
         return next.length > MAX_ERROR_HISTORY ? next.slice(-MAX_ERROR_HISTORY) : next;
       });

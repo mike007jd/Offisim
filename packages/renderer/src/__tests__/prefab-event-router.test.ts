@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuntimeEvent, SemanticCategory } from '@aics/shared-types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrefabEventRouter, type PrefabRuntimeHandle } from '../prefab/prefab-event-router.js';
 
 // ── Mock PrefabRuntimeHandle factory ────────────────────────────
@@ -250,16 +250,20 @@ describe('PrefabEventRouter', () => {
     router.registerBinding('rack-3', 'rack-google');
 
     // Bind
-    router.routeEvent(makeEvent('rack.bound', {
-      rackId: 'rack-google',
-      providerType: 'google',
-      label: 'Google',
-    }));
+    router.routeEvent(
+      makeEvent('rack.bound', {
+        rackId: 'rack-google',
+        providerType: 'google',
+        label: 'Google',
+      }),
+    );
 
     // Unbind
-    router.routeEvent(makeEvent('rack.unbound', {
-      rackId: 'rack-google',
-    }));
+    router.routeEvent(
+      makeEvent('rack.unbound', {
+        rackId: 'rack-google',
+      }),
+    );
 
     // LLM call via google provider should no longer route
     const llmEvent = makeEvent('llm.call.started', {
@@ -274,8 +278,8 @@ describe('PrefabEventRouter', () => {
     // setState was called for rack.bound→idle and rack.unbound→offline,
     // but NOT for the llm.call.started (no provider→rack mapping)
     const calls = (rt.setState as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
-    expect(calls).toContain('idle');     // from rack.bound
-    expect(calls).toContain('offline');  // from rack.unbound
+    expect(calls).toContain('idle'); // from rack.bound
+    expect(calls).toContain('offline'); // from rack.unbound
     expect(calls).not.toContain('processing'); // llm.call.started should NOT route
   });
 

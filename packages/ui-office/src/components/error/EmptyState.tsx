@@ -17,11 +17,7 @@ const STARTER_PROMPTS = [
   { label: 'Plan a roadmap', text: 'Plan a product roadmap' },
 ];
 
-export function EmptyState({
-  isConfigured,
-  onOpenSettings,
-  onSendPrompt,
-}: EmptyStateProps) {
+export function EmptyState({ isConfigured, onOpenSettings, onSendPrompt }: EmptyStateProps) {
   if (!isConfigured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-500">

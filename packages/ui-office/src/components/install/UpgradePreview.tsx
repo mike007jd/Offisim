@@ -9,8 +9,8 @@
  * - Migration notice if schema_version changed
  */
 
-import { Alert, AlertDescription, Badge, Button, ScrollArea } from '@aics/ui-core';
 import type { DiffCategory, DiffEntry, DiffSeverity, UpgradeDiff } from '@aics/install-core';
+import { Alert, AlertDescription, Badge, Button, ScrollArea } from '@aics/ui-core';
 import {
   AlertTriangle,
   ArrowRight,
@@ -37,7 +37,12 @@ interface UpgradePreviewProps {
 
 const SEVERITY_CONFIG: Record<
   DiffSeverity,
-  { label: string; icon: typeof Info; textClass: string; badgeVariant: 'success' | 'warning' | 'error' }
+  {
+    label: string;
+    icon: typeof Info;
+    textClass: string;
+    badgeVariant: 'success' | 'warning' | 'error';
+  }
 > = {
   info: {
     label: 'Info',
@@ -150,12 +155,7 @@ function CategorySection({
 // Main component
 // ---------------------------------------------------------------------------
 
-export function UpgradePreview({
-  diff,
-  packageTitle,
-  onConfirm,
-  onCancel,
-}: UpgradePreviewProps) {
+export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: UpgradePreviewProps) {
   // Group entries by category, preserving order
   const groupedEntries = new Map<DiffCategory, DiffEntry[]>();
   for (const entry of diff.entries) {
@@ -223,8 +223,8 @@ export function UpgradePreview({
           <OctagonAlert className="h-4 w-4" />
           <AlertDescription>
             This upgrade contains {diff.counts.breaking} breaking change
-            {diff.counts.breaking > 1 ? 's' : ''} that may affect your current setup.
-            Review carefully before confirming.
+            {diff.counts.breaking > 1 ? 's' : ''} that may affect your current setup. Review
+            carefully before confirming.
           </AlertDescription>
         </Alert>
       )}
@@ -234,11 +234,7 @@ export function UpgradePreview({
         <ScrollArea className="max-h-[300px]">
           <div className="pr-3">
             {Array.from(groupedEntries.entries()).map(([category, entries]) => (
-              <CategorySection
-                key={category}
-                category={category}
-                entries={entries}
-              />
+              <CategorySection key={category} category={category} entries={entries} />
             ))}
           </div>
         </ScrollArea>
@@ -253,10 +249,7 @@ export function UpgradePreview({
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button
-          onClick={onConfirm}
-          variant={diff.counts.breaking > 0 ? 'destructive' : 'default'}
-        >
+        <Button onClick={onConfirm} variant={diff.counts.breaking > 0 ? 'destructive' : 'default'}>
           {diff.counts.breaking > 0 ? 'Confirm Upgrade' : 'Upgrade'}
         </Button>
       </div>

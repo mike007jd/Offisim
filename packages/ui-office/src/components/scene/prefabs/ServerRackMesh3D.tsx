@@ -24,10 +24,16 @@ export function ServerRackMesh3D({
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       {/* Server racks */}
-      {[-4, -1.5, 1, 3.5].map((x, ri) => (
-        <group key={`rack-${ri}`} position={[x, 0, -0.5]}>
+      {[-4, -1.5, 1, 3.5].map((x) => (
+        <group key={`rack-${x}`} position={[x, 0, -0.5]}>
           {/* Rack cabinet */}
-          <RoundedBox args={[1.6, 2.8, 1]} position={[0, 1.4, 0]} radius={0.03} smoothness={4} castShadow>
+          <RoundedBox
+            args={[1.6, 2.8, 1]}
+            position={[0, 1.4, 0]}
+            radius={0.03}
+            smoothness={4}
+            castShadow
+          >
             <meshStandardMaterial color={sc.serverBody} metalness={0.6} roughness={0.3} />
           </RoundedBox>
           {/* Front panel */}
@@ -36,23 +42,29 @@ export function ServerRackMesh3D({
             <meshStandardMaterial color={sc.furniture} metalness={0.4} roughness={0.4} />
           </mesh>
           {/* LED indicator rows */}
-          {[0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.2, 2.5].map((y, li) => (
-            <group key={`led-row-${li}`}>
-              {[-0.4, -0.2, 0, 0.2, 0.4].map((lx, lj) => (
-                <mesh key={`led-${lj}`} position={[lx, y, 0.52]}>
+          {[0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.2, 2.5].map((y, rowIndex) => (
+            <group key={`led-row-${x}-${y}`}>
+              {[-0.4, -0.2, 0, 0.2, 0.4].map((lx, ledIndex) => (
+                <mesh key={`led-${x}-${y}-${lx}`} position={[lx, y, 0.52]}>
                   <circleGeometry args={[0.03, 8]} />
                   <meshBasicMaterial
-                    color={(li + lj + ri) % 3 === 0 ? sc.ledCyan : (li + lj + ri) % 3 === 1 ? sc.leafPrimary : sc.ledBlue}
+                    color={
+                      (rowIndex + ledIndex) % 3 === 0
+                        ? sc.ledCyan
+                        : (rowIndex + ledIndex) % 3 === 1
+                          ? sc.leafPrimary
+                          : sc.ledBlue
+                    }
                   />
                 </mesh>
               ))}
             </group>
           ))}
           {/* Ventilation grilles */}
-          {[0.3, 1.2, 2.1].map((y, vi) => (
-            <group key={`vent-${vi}`}>
-              {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((vx, vj) => (
-                <mesh key={`vline-${vj}`} position={[vx, y, 0.515]}>
+          {[0.3, 1.2, 2.1].map((y) => (
+            <group key={`vent-${x}-${y}`}>
+              {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((vx) => (
+                <mesh key={`vline-${x}-${y}-${vx}`} position={[vx, y, 0.515]}>
                   <planeGeometry args={[0.08, 0.04]} />
                   <meshStandardMaterial color={sc.furnitureLight} />
                 </mesh>
@@ -62,8 +74,8 @@ export function ServerRackMesh3D({
         </group>
       ))}
       {/* Floor cable channels */}
-      {[-3, 0, 3].map((x, i) => (
-        <mesh key={`cable-${i}`} position={[x, 0.02, 1.5]} rotation={[-Math.PI / 2, 0, 0]}>
+      {[-3, 0, 3].map((x) => (
+        <mesh key={`cable-${x}`} position={[x, 0.02, 1.5]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.3, 2]} />
           <meshStandardMaterial color="#0c4a6e" />
         </mesh>

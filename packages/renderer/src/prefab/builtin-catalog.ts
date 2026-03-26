@@ -8,10 +8,10 @@
  * Every definition is Object.freeze'd for immutability.
  */
 import type {
-  PrefabDefinition,
-  PrefabChildDef,
-  RenderTemplate2D,
   PrefabBindingSlotDef,
+  PrefabChildDef,
+  PrefabDefinition,
+  RenderTemplate2D,
   SemanticCategory,
 } from '@aics/shared-types';
 
@@ -25,7 +25,11 @@ function child(render2D: RenderTemplate2D, offset: [number, number]): PrefabChil
   return Object.freeze({ render2D, offset: Object.freeze(offset) as readonly [number, number] });
 }
 
-function slot(name: string, type: PrefabBindingSlotDef['type'], required: boolean): PrefabBindingSlotDef {
+function slot(
+  name: string,
+  type: PrefabBindingSlotDef['type'],
+  required: boolean,
+): PrefabBindingSlotDef {
   return Object.freeze({ name, type, required });
 }
 
@@ -179,10 +183,10 @@ const meetingTable4 = def({
   composite: true,
   children: Object.freeze([
     child(tpl('meeting-table', { width: 60, height: 40 }), [0, 0]),
-    child(tpl('chair'), [-20, 0]),    // left
-    child(tpl('chair'), [20, 0]),     // right
-    child(tpl('chair'), [0, -22]),    // top
-    child(tpl('chair'), [0, 22]),     // bottom
+    child(tpl('chair'), [-20, 0]), // left
+    child(tpl('chair'), [20, 0]), // right
+    child(tpl('chair'), [0, -22]), // top
+    child(tpl('chair'), [0, 22]), // bottom
   ]),
   bindingSlots: Object.freeze([slot('meeting-session', 'meeting-session', false)]),
 });
@@ -196,14 +200,14 @@ const meetingTable8 = def({
   composite: true,
   children: Object.freeze([
     child(tpl('meeting-table', { width: 100, height: 60 }), [0, 0]),
-    child(tpl('chair'), [-40, -12]),  // left-top
-    child(tpl('chair'), [-40, 12]),   // left-bottom
-    child(tpl('chair'), [40, -12]),   // right-top
-    child(tpl('chair'), [40, 12]),    // right-bottom
+    child(tpl('chair'), [-40, -12]), // left-top
+    child(tpl('chair'), [-40, 12]), // left-bottom
+    child(tpl('chair'), [40, -12]), // right-top
+    child(tpl('chair'), [40, 12]), // right-bottom
     child(tpl('chair'), [-14, -32]), // top-left
-    child(tpl('chair'), [14, -32]),  // top-right
-    child(tpl('chair'), [-14, 32]),  // bottom-left
-    child(tpl('chair'), [14, 32]),   // bottom-right
+    child(tpl('chair'), [14, -32]), // top-right
+    child(tpl('chair'), [-14, 32]), // bottom-left
+    child(tpl('chair'), [14, 32]), // bottom-right
   ]),
   bindingSlots: Object.freeze([slot('meeting-session', 'meeting-session', false)]),
 });
@@ -215,10 +219,7 @@ const sofaSet = def({
   category: 'collaboration',
   gridSize: Object.freeze([3, 2]) as readonly [number, number],
   composite: true,
-  children: Object.freeze([
-    child(tpl('sofa'), [0, -8]),
-    child(tpl('coffee-table'), [0, 14]),
-  ]),
+  children: Object.freeze([child(tpl('sofa'), [0, -8]), child(tpl('coffee-table'), [0, 14])]),
   bindingSlots: Object.freeze([slot('meeting-session', 'meeting-session', false)]),
 });
 
@@ -395,9 +396,7 @@ const ALL_PREFABS: readonly PrefabDefinition[] = Object.freeze([
   statusBoard,
 ]);
 
-const PREFAB_INDEX = new Map<string, PrefabDefinition>(
-  ALL_PREFABS.map((p) => [p.prefabId, p]),
-);
+const PREFAB_INDEX = new Map<string, PrefabDefinition>(ALL_PREFABS.map((p) => [p.prefabId, p]));
 
 // ── Public API ──────────────────────────────────────────────────
 

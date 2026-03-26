@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
+import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
-import { TaskStepCard } from './TaskStepCard';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
 import type { StepProgressSegment } from '../dashboard/StepProgressBar';
+import { TaskStepCard } from './TaskStepCard';
 
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
@@ -77,39 +77,44 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
     });
   }, [eventBus]);
 
-  const handleSegmentClick = useCallback((stepIndex: number | null) => {
-    setStepFilter(stepIndex);
-    // When filtering to a step, auto-expand it
-    if (stepIndex !== null) {
-      const step = dashboard.steps.find((s) => s.stepIndex === stepIndex);
-      if (step && !step.expanded) {
-        dashboard.toggleStep(stepIndex);
+  const handleSegmentClick = useCallback(
+    (stepIndex: number | null) => {
+      setStepFilter(stepIndex);
+      // When filtering to a step, auto-expand it
+      if (stepIndex !== null) {
+        const step = dashboard.steps.find((s) => s.stepIndex === stepIndex);
+        if (step && !step.expanded) {
+          dashboard.toggleStep(stepIndex);
+        }
       }
-    }
-  }, [dashboard]);
+    },
+    [dashboard],
+  );
 
   // Build step segments for StepProgressBar — memoized before early return (hooks must not be conditional)
-  const segments = useMemo((): StepProgressSegment[] =>
-    dashboard.steps.map((step) => {
-      let status: StepProgressSegment['status'];
-      if (step.status === 'completed') {
-        status = 'completed';
-      } else if (step.status === 'active') {
-        status = 'active';
-      } else {
-        const hasFailed = step.tasks.some(
-          (t) => t.status === 'failed' || t.status === 'cancelled',
-        );
-        status = hasFailed ? 'failed' : 'pending';
-      }
-      return {
-        index: step.stepIndex,
-        description: step.description,
-        status,
-        taskCount: step.tasks.length,
-      };
-    }),
-  [dashboard.steps]);
+  const segments = useMemo(
+    (): StepProgressSegment[] =>
+      dashboard.steps.map((step) => {
+        let status: StepProgressSegment['status'];
+        if (step.status === 'completed') {
+          status = 'completed';
+        } else if (step.status === 'active') {
+          status = 'active';
+        } else {
+          const hasFailed = step.tasks.some(
+            (t) => t.status === 'failed' || t.status === 'cancelled',
+          );
+          status = hasFailed ? 'failed' : 'pending';
+        }
+        return {
+          index: step.stepIndex,
+          description: step.description,
+          status,
+          taskCount: step.tasks.length,
+        };
+      }),
+    [dashboard.steps],
+  );
 
   // Filter steps if a segment is selected — memoized before early return
   const visibleSteps = useMemo(

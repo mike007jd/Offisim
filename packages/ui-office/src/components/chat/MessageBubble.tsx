@@ -35,7 +35,9 @@ function parseAgentIdentity(content: string): ParsedAgent | null {
   // colliding with citation markers like [1], [2], etc.
   const match = /^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/.exec(content);
   if (!match) return null;
-  return { name: match[1]!, body: content.slice(match[0].length) };
+  const name = match[1];
+  if (!name) return null;
+  return { name, body: content.slice(match[0].length) };
 }
 
 function badgeColorFor(agentName: string): string {
@@ -48,12 +50,14 @@ function badgeColorFor(agentName: string): string {
 function renderWithCitations(text: string): ReactNode {
   const parts = text.split(/(\[\d+\])/g);
   if (parts.length === 1) return text;
-  return parts.map((part, i) => {
+  let citationIndex = 0;
+  return parts.map((part) => {
     const match = /^\[(\d+)\]$/.exec(part);
     if (match) {
+      citationIndex += 1;
       return (
         <sup
-          key={i}
+          key={`${match[1]}-${citationIndex}`}
           className="inline-flex items-center justify-center mx-0.5 px-1 min-w-[1.1em] h-4 text-[10px] font-bold rounded bg-blue-500/30 text-blue-200 cursor-default"
           title={`Citation ${match[1]}`}
         >
@@ -88,9 +92,7 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
       <div
         className={cn(
           'max-w-[80%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
-          isUser
-            ? 'bg-blue-600/20 text-slate-100'
-            : 'bg-white/5 text-slate-200',
+          isUser ? 'bg-blue-600/20 text-slate-100' : 'bg-white/5 text-slate-200',
         )}
       >
         {isUser ? displayContent : renderWithCitations(displayContent)}

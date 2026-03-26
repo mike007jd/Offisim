@@ -1,5 +1,5 @@
 import { Button } from '@aics/ui-core';
-import { Settings, UserPlus, PenTool, FolderOpen } from 'lucide-react';
+import { FolderOpen, PenTool, Settings, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
@@ -19,7 +19,19 @@ interface HeaderProps {
   needsConfig?: boolean;
 }
 
-export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, onOpenStudio, onOpenCompanySelect, onFileImport, notificationSlot, projectSlot, viewMode, onViewModeChange, needsConfig }: HeaderProps) {
+export function Header({
+  providerName,
+  onOpenSettings,
+  onOpenEmployeeCreator,
+  onOpenStudio,
+  onOpenCompanySelect,
+  onFileImport,
+  notificationSlot,
+  projectSlot,
+  viewMode,
+  onViewModeChange,
+  needsConfig,
+}: HeaderProps) {
   return (
     <header className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between px-4 rounded-xl border border-white/10 shadow-2xl">
       <div className="flex items-center space-x-3">
@@ -27,6 +39,7 @@ export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, on
         {viewMode && onViewModeChange && (
           <div className="flex items-center bg-black/40 border border-white/10 rounded-lg p-0.5">
             <button
+              type="button"
               onClick={() => onViewModeChange('3D')}
               className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
                 viewMode === '3D'
@@ -37,6 +50,7 @@ export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, on
               3D
             </button>
             <button
+              type="button"
               onClick={() => onViewModeChange('2D')}
               className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
                 viewMode === '2D'
@@ -53,7 +67,9 @@ export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, on
         {providerName && (
           <div className="flex items-center space-x-2">
             <div className="w-1 h-1 bg-emerald-500 rounded-full" />
-            <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">{providerName}</span>
+            <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
+              {providerName}
+            </span>
           </div>
         )}
 
@@ -65,17 +81,35 @@ export function Header({ providerName, onOpenSettings, onOpenEmployeeCreator, on
         <FileImportTrigger onFileSelect={onFileImport} />
         {notificationSlot}
         {onOpenEmployeeCreator && (
-          <Button variant="ghost" size="icon" onClick={onOpenEmployeeCreator} title="Create Employee" className="hover:bg-white/5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenEmployeeCreator}
+            title="Create Employee"
+            className="hover:bg-white/5"
+          >
             <UserPlus className="h-4 w-4 text-slate-400 hover:text-blue-400" />
           </Button>
         )}
         {onOpenStudio && (
-          <Button variant="ghost" size="icon" onClick={onOpenStudio} title="Studio Editor" className="hover:bg-white/5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenStudio}
+            title="Studio Editor"
+            className="hover:bg-white/5"
+          >
             <PenTool className="h-4 w-4 text-slate-400 hover:text-emerald-400" />
           </Button>
         )}
         {onOpenCompanySelect && (
-          <Button variant="ghost" size="icon" onClick={onOpenCompanySelect} title="Switch Company" className="hover:bg-white/5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenCompanySelect}
+            title="Switch Company"
+            className="hover:bg-white/5"
+          >
             <FolderOpen className="h-4 w-4 text-slate-400 hover:text-violet-400" />
           </Button>
         )}

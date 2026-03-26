@@ -36,7 +36,7 @@ export function NetworkSwitchMesh3D({
       </mesh>
       {/* Port indicators */}
       {[-0.4, -0.2, 0, 0.2, 0.4].map((x, i) => (
-        <mesh key={`port-${i}`} position={[x, 0.06, 0.215]}>
+        <mesh key={`port-${x}`} position={[x, 0.06, 0.215]}>
           <circleGeometry args={[0.015, 6]} />
           <meshBasicMaterial color={i % 2 === 0 ? sc.leafPrimary : sc.ledCyan} />
         </mesh>

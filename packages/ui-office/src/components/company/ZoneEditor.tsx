@@ -40,7 +40,8 @@ export function ZoneEditor({ zones, onChange }: ZoneEditorProps) {
 
   function handleAddZone() {
     const usedColors = new Set(zones.map((z) => z.color));
-    const nextColor = ZONE_PALETTE.find((c) => !usedColors.has(c)) ?? ZONE_PALETTE[0]!;
+    const nextColor = ZONE_PALETTE.find((c) => !usedColors.has(c)) ?? ZONE_PALETTE[0];
+    if (!nextColor) return;
     const newZone: ZoneConfig = {
       id: generateId(),
       name: `Department ${zones.length + 1}`,

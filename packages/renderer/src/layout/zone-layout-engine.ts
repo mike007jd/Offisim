@@ -124,11 +124,10 @@ export function computeFloorPlan(
   });
 
   // ── Step 3: Arrange Row 1 (departments) ─────────────────────────
-  const row1Width = deptLayouts.reduce((sum, d) => sum + d.width, 0)
-    + Math.max(0, deptLayouts.length - 1) * opts.zonePadding;
-  const row1Height = deptLayouts.length > 0
-    ? Math.max(...deptLayouts.map((d) => d.height))
-    : 0;
+  const row1Width =
+    deptLayouts.reduce((sum, d) => sum + d.width, 0) +
+    Math.max(0, deptLayouts.length - 1) * opts.zonePadding;
+  const row1Height = deptLayouts.length > 0 ? Math.max(...deptLayouts.map((d) => d.height)) : 0;
 
   // ── Step 4: Arrange Row 2 (Library + Rest Area) ─────────────────
   // These zones share the row, each gets half the available width
@@ -146,12 +145,9 @@ export function computeFloorPlan(
 
   // Row 2 dimensions — height scales with row 1
   const row2Count = row2Zones.length;
-  const row2ZoneWidth = row2Count > 0
-    ? (floorContentWidth - (row2Count - 1) * opts.zonePadding) / row2Count
-    : 0;
-  const row2Height = hasRow2
-    ? Math.max(MIN_UTILITY_HEIGHT, Math.round(row1Height * 0.5))
-    : 0;
+  const row2ZoneWidth =
+    row2Count > 0 ? (floorContentWidth - (row2Count - 1) * opts.zonePadding) / row2Count : 0;
+  const row2Height = hasRow2 ? Math.max(MIN_UTILITY_HEIGHT, Math.round(row1Height * 0.5)) : 0;
 
   // ── Step 5c: Ensure department zones are at least as tall as row2 ─
   // Avoid departments being shorter than utility zones
@@ -161,9 +157,8 @@ export function computeFloorPlan(
     }
   }
   // Recompute row1Height after potential adjustment
-  const finalRow1Height = deptLayouts.length > 0
-    ? Math.max(...deptLayouts.map((d) => d.height))
-    : 0;
+  const finalRow1Height =
+    deptLayouts.length > 0 ? Math.max(...deptLayouts.map((d) => d.height)) : 0;
 
   // Row 3 (meeting room + server room)
   const hasRow3 = meetingZone || serverZone;
@@ -175,8 +170,7 @@ export function computeFloorPlan(
   const interRowPadding = Math.max(0, rowCount - 1) * opts.zonePadding;
 
   const totalWidth = floorContentWidth + 2 * opts.margin;
-  const totalHeight =
-    finalRow1Height + row2Height + row3Height + interRowPadding + 2 * opts.margin;
+  const totalHeight = finalRow1Height + row2Height + row3Height + interRowPadding + 2 * opts.margin;
 
   // ── Step 7: Place zones and generate workstations ───────────────
   const result: ZoneBounds[] = [];
@@ -187,14 +181,7 @@ export function computeFloorPlan(
   const row1Y = opts.margin;
 
   for (const dl of deptLayouts) {
-    const workstations = generateDeskGrid(
-      dl.zone.zoneId,
-      cursorX,
-      row1Y,
-      dl.slots,
-      dl.cols,
-      opts,
-    );
+    const workstations = generateDeskGrid(dl.zone.zoneId, cursorX, row1Y, dl.slots, dl.cols, opts);
 
     result.push({
       zoneId: dl.zone.zoneId,
@@ -242,15 +229,19 @@ export function computeFloorPlan(
 
   // -- Row 3: Meeting Room + Server Room --
   if (hasRow3) {
-    const row3Y = opts.margin
-      + finalRow1Height
-      + (finalRow1Height > 0 ? opts.zonePadding : 0)
-      + row2Height
-      + (hasRow2 ? opts.zonePadding : 0);
+    const row3Y =
+      opts.margin +
+      finalRow1Height +
+      (finalRow1Height > 0 ? opts.zonePadding : 0) +
+      row2Height +
+      (hasRow2 ? opts.zonePadding : 0);
 
     if (row3Zones.length === 1) {
       // Single zone in row 3 — centered at 80% width (existing behavior for meeting room)
-      const z = row3Zones[0]!;
+      const [z] = row3Zones;
+      if (!z) {
+        throw new Error('Expected a single row 3 zone');
+      }
       const zoneWidth = Math.max(MIN_UTILITY_WIDTH, floorContentWidth * 0.8);
       const zoneX = opts.margin + (floorContentWidth - zoneWidth) / 2;
 
@@ -274,7 +265,7 @@ export function computeFloorPlan(
 
       let row3CursorX = opts.margin;
       for (const z of row3Zones) {
-        const fraction = z.type === 'meeting_room' ? meetingFraction : (1 - meetingFraction);
+        const fraction = z.type === 'meeting_room' ? meetingFraction : 1 - meetingFraction;
         const zoneWidth = Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
 
         result.push({
@@ -309,10 +300,7 @@ export function computeFloorPlan(
  * Generate temporary seat positions inside a rest area zone.
  * Uses a relaxed grid with larger spacing for informal seating.
  */
-export function computeRestAreaSeats(
-  zone: ZoneBounds,
-  count: number,
-): DeskPosition[] {
+export function computeRestAreaSeats(zone: ZoneBounds, count: number): DeskPosition[] {
   if (count <= 0) return [];
 
   const seatGap = 100; // larger spacing than desks
@@ -352,20 +340,13 @@ export function computeRestAreaSeats(
 /**
  * Compute internal grid dimensions for a department zone.
  */
-function computeDeptZoneLayout(
-  zone: ZoneConfig,
-  slots: number,
-  opts: Required<FloorPlanOptions>,
-) {
+function computeDeptZoneLayout(zone: ZoneConfig, slots: number, opts: Required<FloorPlanOptions>) {
   const cellWidth = opts.deskWidth + opts.deskGap;
   const cellHeight = opts.deskHeight + opts.deskGap;
 
   // Zone should be wide enough for at least 2 desks side-by-side,
   // or enough to hold half the slots per row (roughly 2-row layout).
-  const rawWidth = Math.max(
-    2 * cellWidth,
-    Math.ceil(slots / 2) * cellWidth,
-  );
+  const rawWidth = Math.max(2 * cellWidth, Math.ceil(slots / 2) * cellWidth);
   const width = rawWidth;
 
   const cols = Math.max(1, Math.floor(width / cellWidth));
@@ -397,7 +378,8 @@ function generateDeskGrid(
 
     // Position = zone origin + cell offset + half-desk centering
     const x = zoneX + col * cellWidth + opts.deskGap / 2 + opts.deskWidth / 2;
-    const y = zoneY + ZONE_HEADER_HEIGHT + row * cellHeight + opts.deskGap / 2 + opts.deskHeight / 2;
+    const y =
+      zoneY + ZONE_HEADER_HEIGHT + row * cellHeight + opts.deskGap / 2 + opts.deskHeight / 2;
 
     desks.push({
       workstationId: `ws-${zoneId}-${i}`,

@@ -4,9 +4,9 @@
 // Matches the same animation states as LowPolyCharacter so it drops
 // into EmployeeMarker without any changes to the host component.
 
-import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 
@@ -97,20 +97,12 @@ function LobsterClaw({
         <meshStandardMaterial color={colors.dark} metalness={0.3} roughness={0.6} />
       </mesh>
       {/* Pincer top finger */}
-      <mesh
-        position={[side * 0.12, 0.08, 0]}
-        rotation={[0, 0, side * -0.55]}
-        castShadow
-      >
+      <mesh position={[side * 0.12, 0.08, 0]} rotation={[0, 0, side * -0.55]} castShadow>
         <boxGeometry args={[0.18, 0.055, 0.07]} />
         <meshStandardMaterial color={colors.darker} metalness={0.2} roughness={0.7} />
       </mesh>
       {/* Pincer bottom finger */}
-      <mesh
-        position={[side * 0.12, -0.02, 0]}
-        rotation={[0, 0, side * 0.45]}
-        castShadow
-      >
+      <mesh position={[side * 0.12, -0.02, 0]} rotation={[0, 0, side * 0.45]} castShadow>
         <boxGeometry args={[0.14, 0.045, 0.065]} />
         <meshStandardMaterial color={colors.darker} metalness={0.2} roughness={0.7} />
       </mesh>
@@ -133,12 +125,7 @@ function LobsterLegs({ side, colors }: { side: -1 | 1; colors: LobsterColors }) 
   return (
     <>
       {positions.map((pos, i) => (
-        <mesh
-          key={i}
-          position={pos}
-          rotation={rotations[i]}
-          castShadow
-        >
+        <mesh key={`${pos.join('-')}`} position={pos} rotation={rotations[i]} castShadow>
           <cylinderGeometry args={[0.018, 0.012, 0.22, 5]} />
           <meshStandardMaterial color={colors.dark} roughness={0.8} />
         </mesh>
@@ -225,9 +212,9 @@ export function Lobster3D({
     const c = lobsterColors(brandColor);
     return {
       colors: c,
-      baseHex: '#' + c.base.getHexString(),
-      darkHex: '#' + c.dark.getHexString(),
-      bellyHex: '#' + c.belly.getHexString(),
+      baseHex: `#${c.base.getHexString()}`,
+      darkHex: `#${c.dark.getHexString()}`,
+      bellyHex: `#${c.belly.getHexString()}`,
     };
   }, [brandColor]);
 
@@ -403,20 +390,12 @@ export function Lobster3D({
       {/* Main shell — ellipsoid via scaled sphere */}
       <mesh position={[0, 0.3, 0]} scale={[1.0, 0.72, 1.35]} castShadow>
         <sphereGeometry args={[0.38, 16, 12]} />
-        <meshStandardMaterial
-          color={baseHex}
-          metalness={0.3}
-          roughness={0.6}
-        />
+        <meshStandardMaterial color={baseHex} metalness={0.3} roughness={0.6} />
       </mesh>
       {/* Belly highlight */}
       <mesh position={[0, 0.22, 0.06]} scale={[0.65, 0.55, 1.1]} castShadow>
         <sphereGeometry args={[0.38, 14, 10]} />
-        <meshStandardMaterial
-          color={bellyHex}
-          metalness={0.15}
-          roughness={0.7}
-        />
+        <meshStandardMaterial color={bellyHex} metalness={0.15} roughness={0.7} />
       </mesh>
       {/* Head section — smaller ellipsoid at front */}
       <mesh position={[0, 0.38, -0.36]} scale={[0.8, 0.65, 0.7]} castShadow>
@@ -447,29 +426,33 @@ export function Lobster3D({
 
       {/* ── Name label ── */}
       <Html position={[0, 1.05, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
-        <div style={{
-          fontSize: '9px',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontWeight: 700,
-          color: 'rgba(255,255,255,0.85)',
-          background: 'rgba(0,0,0,0.55)',
-          backdropFilter: 'blur(4px)',
-          borderRadius: '9999px',
-          padding: '2px 7px',
-          whiteSpace: 'nowrap',
-        }}>
+        <div
+          style={{
+            fontSize: '9px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontWeight: 700,
+            color: 'rgba(255,255,255,0.85)',
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: '9999px',
+            padding: '2px 7px',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {name}
         </div>
       </Html>
 
       {/* ── OpenClaw badge ── */}
       <Html position={[0, -0.3, 0]} center style={{ pointerEvents: 'none' }}>
-        <span style={{
-          fontSize: '7px',
-          color: 'rgba(239,68,68,0.6)',
-          fontFamily: 'monospace',
-          userSelect: 'none',
-        }}>
+        <span
+          style={{
+            fontSize: '7px',
+            color: 'rgba(239,68,68,0.6)',
+            fontFamily: 'monospace',
+            userSelect: 'none',
+          }}
+        >
           OpenClaw 🦞
         </span>
       </Html>

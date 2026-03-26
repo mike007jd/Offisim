@@ -23,7 +23,10 @@ export function useOfficeLayout(): UseOfficeLayoutReturn {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!repos || !activeCompanyId) { setLoading(false); return; }
+    if (!repos || !activeCompanyId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const all = await repos.officeLayouts.findByCompany(activeCompanyId);
@@ -83,5 +86,14 @@ export function useOfficeLayout(): UseOfficeLayoutReturn {
     [repos, refresh],
   );
 
-  return { layouts, activeLayout, loading, createLayout, setActive, updateLayout, deleteLayout, refresh };
+  return {
+    layouts,
+    activeLayout,
+    loading,
+    createLayout,
+    setActive,
+    updateLayout,
+    deleteLayout,
+    refresh,
+  };
 }

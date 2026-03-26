@@ -34,7 +34,7 @@ export function StreamingBubble() {
 
   if (!isStreaming && !content) return null;
 
-  const label = nodeName ? NODE_LABELS[nodeName] ?? nodeName : null;
+  const label = nodeName ? (NODE_LABELS[nodeName] ?? nodeName) : null;
   const badgeColor = nodeName ? (NODE_BADGE_COLORS[nodeName] ?? DEFAULT_BADGE) : DEFAULT_BADGE;
 
   return (

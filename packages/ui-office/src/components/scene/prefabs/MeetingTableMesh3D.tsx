@@ -4,10 +4,10 @@
  * Extracted from Office3DView.tsx MeetingRoomFurniture component.
  */
 
-import * as THREE from 'three';
 import { RoundedBox } from '@react-three/drei';
-import { OfficeChair } from './WorkstationMesh3D.js';
+import * as THREE from 'three';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
+import { OfficeChair } from './WorkstationMesh3D.js';
 
 export interface MeetingTableMesh3DProps {
   position?: [number, number, number];
@@ -26,7 +26,14 @@ export function MeetingTableMesh3D({
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       {/* Conference table */}
-      <RoundedBox args={[6, 0.08, 2.2]} position={[0, 0.75, 0]} radius={0.1} smoothness={4} castShadow receiveShadow>
+      <RoundedBox
+        args={[6, 0.08, 2.2]}
+        position={[0, 0.75, 0]}
+        radius={0.1}
+        smoothness={4}
+        castShadow
+        receiveShadow
+      >
         <meshStandardMaterial color={sc.furniture} roughness={0.3} />
       </RoundedBox>
       {/* Table base */}
@@ -35,8 +42,8 @@ export function MeetingTableMesh3D({
         <meshStandardMaterial color={sc.furnitureDark} />
       </mesh>
       {/* Chairs around table */}
-      {[-2, -0.7, 0.7, 2].map((x, i) => (
-        <group key={`mchair-${i}`}>
+      {[-2, -0.7, 0.7, 2].map((x) => (
+        <group key={`mchair-${x}`}>
           <OfficeChair position={[x, 0, -1.8]} />
           <OfficeChair position={[x, 0, 1.8]} rotation={[0, Math.PI, 0]} />
         </group>

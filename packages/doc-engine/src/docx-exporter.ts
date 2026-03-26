@@ -1,13 +1,6 @@
-import {
-  AlignmentType,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  TextRun,
-} from 'docx';
-import type { ExportableDocument, ExportResult, Exporter } from './types';
-import { sanitizeFilename, formatDate, splitContentBlocks } from './utils';
+import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
+import type { ExportResult, ExportableDocument, Exporter } from './types';
+import { formatDate, sanitizeFilename, splitContentBlocks } from './utils';
 
 export const docxExporter: Exporter = {
   async export(doc: ExportableDocument): Promise<ExportResult> {
@@ -85,8 +78,7 @@ export const docxExporter: Exporter = {
     return {
       blob: buffer,
       filename: `${sanitizeFilename(doc.title)}.docx`,
-      mimeType:
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     };
   },
 };

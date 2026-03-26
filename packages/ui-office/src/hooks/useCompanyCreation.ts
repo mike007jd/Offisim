@@ -72,7 +72,9 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
         setStep('ready');
         return;
       }
-    } catch { /* proceed with creation */ }
+    } catch {
+      /* proceed with creation */
+    }
 
     setIsCreating(true);
     setStep('creating');

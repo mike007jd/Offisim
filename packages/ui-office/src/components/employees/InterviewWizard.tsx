@@ -1,7 +1,7 @@
 import { Button, Dialog, DialogContent, DialogTitle, Progress } from '@aics/ui-core';
+import { cn } from '@aics/ui-core';
 import { ArrowLeft, ArrowRight, SkipForward, UserPlus } from 'lucide-react';
 import { type UseInterviewWizardReturn, WIZARD_STEPS } from '../../hooks/useInterviewWizard';
-import { cn } from '@aics/ui-core';
 import { AppearanceStep } from './interview-steps/AppearanceStep';
 import { ExpertiseStep } from './interview-steps/ExpertiseStep';
 import { HRPrompt } from './interview-steps/HRPrompt';
@@ -74,9 +74,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
             <span className="text-xs font-monotext-slate-400 uppercase tracking-wider">
               Step {state.currentStep + 1} of {WIZARD_STEPS.length}: {STEP_LABELS[currentStepName]}
             </span>
-            <span className="text-xs font-monotext-slate-400">
-              {Math.round(progress * 100)}%
-            </span>
+            <span className="text-xs font-monotext-slate-400">{Math.round(progress * 100)}%</span>
           </div>
           <Progress value={progress * 100} />
 
@@ -107,37 +105,38 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
 
         {/* Scrollable middle: HR Prompt + Step Content */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* HR Prompt */}
-        <div className="mb-4">
-          <HRPrompt step={currentStepName} />
-        </div>
+          {/* HR Prompt */}
+          <div className="mb-4">
+            <HRPrompt step={currentStepName} />
+          </div>
 
-        {/* Step Content */}
-        <div className="min-h-0">
-          {currentStepName === 'role' && (
-            <RoleStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'name' && (
-            <NameStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'expertise' && (
-            <ExpertiseStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'style' && (
-            <StyleStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'appearance' && (
-            <AppearanceStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'instructions' && (
-            <InstructionsStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'model' && (
-            <ModelStep formData={state.formData} updateField={updateField} />
-          )}
-          {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
+          {/* Step Content */}
+          <div className="min-h-0">
+            {currentStepName === 'role' && (
+              <RoleStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'name' && (
+              <NameStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'expertise' && (
+              <ExpertiseStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'style' && (
+              <StyleStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'appearance' && (
+              <AppearanceStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'instructions' && (
+              <InstructionsStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'model' && (
+              <ModelStep formData={state.formData} updateField={updateField} />
+            )}
+            {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
+          </div>
         </div>
-        </div>{/* end scrollable area */}
+        {/* end scrollable area */}
 
         {/* Footer Navigation — pinned */}
         <div className="shrink-0 flex items-center justify-between pt-4 border-t border-slate-700 mt-4">

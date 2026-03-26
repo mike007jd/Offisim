@@ -5,80 +5,76 @@
  * Each category defines a finite set of states and allowed transitions.
  * "decorative" has no state machine (stateless visual elements).
  */
-import type {
-  EmployeeState,
-  SemanticCategory,
-  WorkspacePrefabState,
-} from '@aics/shared-types';
+import type { EmployeeState, SemanticCategory, WorkspacePrefabState } from '@aics/shared-types';
 
 // ── Transition Tables ───────────────────────────────────────────
 // Record<fromState, readonly toState[]>
 
 export const WORKSPACE_TRANSITIONS: Record<string, readonly string[]> = {
-  empty:     ['occupied'],
-  occupied:  ['working', 'thinking', 'searching', 'blocked', 'idle'],
-  working:   ['thinking', 'searching', 'blocked', 'idle', 'occupied'],
-  thinking:  ['working', 'searching', 'blocked', 'idle', 'occupied'],
+  empty: ['occupied'],
+  occupied: ['working', 'thinking', 'searching', 'blocked', 'idle'],
+  working: ['thinking', 'searching', 'blocked', 'idle', 'occupied'],
+  thinking: ['working', 'searching', 'blocked', 'idle', 'occupied'],
   searching: ['working', 'thinking', 'blocked', 'idle', 'occupied'],
-  blocked:   ['working', 'thinking', 'searching', 'idle', 'occupied'],
-  idle:      ['working', 'thinking', 'searching', 'blocked', 'occupied', 'empty'],
+  blocked: ['working', 'thinking', 'searching', 'idle', 'occupied'],
+  idle: ['working', 'thinking', 'searching', 'blocked', 'occupied', 'empty'],
 };
 
 export const COMPUTE_TRANSITIONS: Record<string, readonly string[]> = {
-  offline:    ['idle'],
-  idle:       ['processing', 'error', 'offline'],
+  offline: ['idle'],
+  idle: ['processing', 'error', 'offline'],
   processing: ['idle', 'overloaded', 'error'],
   overloaded: ['processing', 'idle', 'error'],
-  error:      ['idle', 'offline'],
+  error: ['idle', 'offline'],
 };
 
 export const KNOWLEDGE_TRANSITIONS: Record<string, readonly string[]> = {
-  empty:     ['stocked'],
-  stocked:   ['indexing', 'empty'],
-  indexing:  ['ready', 'error'],
-  ready:     ['searching', 'indexing', 'stocked'],
+  empty: ['stocked'],
+  stocked: ['indexing', 'empty'],
+  indexing: ['ready', 'error'],
+  ready: ['searching', 'indexing', 'stocked'],
   searching: ['ready'],
-  error:     ['stocked', 'empty'],
+  error: ['stocked', 'empty'],
 };
 
 export const COLLABORATION_TRANSITIONS: Record<string, readonly string[]> = {
-  empty:     ['scheduled'],
+  empty: ['scheduled'],
   scheduled: ['gathering', 'empty'],
   gathering: ['active', 'empty'],
-  active:    ['paused', 'ended'],
-  paused:    ['active', 'ended'],
-  ended:     ['empty'],
+  active: ['paused', 'ended'],
+  paused: ['active', 'ended'],
+  ended: ['empty'],
 };
 
 export const INFRASTRUCTURE_TRANSITIONS: Record<string, readonly string[]> = {
   disconnected: ['idle'],
-  idle:         ['transmitting', 'error', 'disconnected'],
+  idle: ['transmitting', 'error', 'disconnected'],
   transmitting: ['idle', 'congested', 'error'],
-  congested:    ['transmitting', 'idle', 'error'],
-  error:        ['idle', 'disconnected'],
+  congested: ['transmitting', 'idle', 'error'],
+  error: ['idle', 'disconnected'],
 };
 
 // ── Category → Table mapping ────────────────────────────────────
 
 const CATEGORY_TABLE: Record<string, Record<string, readonly string[]> | null> = {
-  workspace:      WORKSPACE_TRANSITIONS,
-  compute:        COMPUTE_TRANSITIONS,
-  knowledge:      KNOWLEDGE_TRANSITIONS,
-  collaboration:  COLLABORATION_TRANSITIONS,
+  workspace: WORKSPACE_TRANSITIONS,
+  compute: COMPUTE_TRANSITIONS,
+  knowledge: KNOWLEDGE_TRANSITIONS,
+  collaboration: COLLABORATION_TRANSITIONS,
   infrastructure: INFRASTRUCTURE_TRANSITIONS,
-  decorative:     null,
+  decorative: null,
 };
 
 // ── Initial states per category ─────────────────────────────────
 // The first key in each transition table is the initial state.
 
 const INITIAL_STATES: Record<string, string | null> = {
-  workspace:      'empty',
-  compute:        'offline',
-  knowledge:      'empty',
-  collaboration:  'empty',
+  workspace: 'empty',
+  compute: 'offline',
+  knowledge: 'empty',
+  collaboration: 'empty',
   infrastructure: 'disconnected',
-  decorative:     null,
+  decorative: null,
 };
 
 // ── Public API ──────────────────────────────────────────────────
@@ -110,11 +106,7 @@ export function getAllStates(category: SemanticCategory): readonly string[] {
  * - unknown from/to states
  * - self-transitions (from === to)
  */
-export function canTransition(
-  category: SemanticCategory,
-  from: string,
-  to: string,
-): boolean {
+export function canTransition(category: SemanticCategory, from: string, to: string): boolean {
   const table = CATEGORY_TABLE[category];
   if (!table) return false;
 
@@ -127,26 +119,24 @@ export function canTransition(
 // ── EmployeeState → WorkspacePrefabState mapping ────────────────
 
 const EMPLOYEE_TO_WORKSPACE: Record<EmployeeState, WorkspacePrefabState> = {
-  idle:      'idle',
-  assigned:  'occupied',
-  thinking:  'thinking',
+  idle: 'idle',
+  assigned: 'occupied',
+  thinking: 'thinking',
   searching: 'searching',
   executing: 'working',
-  meeting:   'idle',
-  blocked:   'blocked',
-  waiting:   'occupied',
+  meeting: 'idle',
+  blocked: 'blocked',
+  waiting: 'occupied',
   reporting: 'working',
-  success:   'idle',
-  failed:    'blocked',
-  paused:    'idle',
+  success: 'idle',
+  failed: 'blocked',
+  paused: 'idle',
 };
 
 /**
  * Maps an EmployeeState to the corresponding workspace prefab state.
  * Used to synchronize desk/workstation visuals with employee activity.
  */
-export function inferWorkspaceState(
-  employeeState: EmployeeState,
-): WorkspacePrefabState {
+export function inferWorkspaceState(employeeState: EmployeeState): WorkspacePrefabState {
   return EMPLOYEE_TO_WORKSPACE[employeeState];
 }

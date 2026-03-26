@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
 import type { CompanyTemplate } from '@aics/core/browser';
+import { render } from '@testing-library/react';
 import { CompanyCreationWizard } from '../components/onboarding/CompanyCreationWizard.js';
 import { useCompanyCreation } from '../hooks/useCompanyCreation.js';
 
@@ -15,7 +15,11 @@ const TEMPLATE: CompanyTemplate = {
   employees: [
     { name: 'Kai Nakamura', role_slug: 'developer', system_prompt: 'Builds full-stack features.' },
     { name: 'Ryan Torres', role_slug: 'product_manager', system_prompt: 'Turns goals into plans.' },
-    { name: 'Jamie Reeves', role_slug: 'ux_designer', system_prompt: 'Designs polished interfaces.' },
+    {
+      name: 'Jamie Reeves',
+      role_slug: 'ux_designer',
+      system_prompt: 'Designs polished interfaces.',
+    },
   ],
   sops: [],
 };
@@ -38,8 +42,9 @@ describe('CompanyCreationWizard', () => {
   it('keeps bob animation off the translated SVG group so employee placement stays stable', () => {
     const { container } = render(<CompanyCreationWizard />);
 
-    const animatedGroups = Array.from(container.querySelectorAll('svg g'))
-      .filter((group) => group.getAttribute('style')?.includes('wiz-idle-bob'));
+    const animatedGroups = Array.from(container.querySelectorAll('svg g')).filter((group) =>
+      group.getAttribute('style')?.includes('wiz-idle-bob'),
+    );
 
     expect(animatedGroups).toHaveLength(TEMPLATE.employees.length);
 

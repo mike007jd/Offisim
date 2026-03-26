@@ -17,7 +17,12 @@ interface LobsterInvitePanelProps {
   onRemove: (agentId: string) => void;
 }
 
-export function LobsterInvitePanel({ agents, invitedIds, onInvite, onRemove }: LobsterInvitePanelProps) {
+export function LobsterInvitePanel({
+  agents,
+  invitedIds,
+  onInvite,
+  onRemove,
+}: LobsterInvitePanelProps) {
   const isEmpty = agents.length === 0;
 
   return (
@@ -35,9 +40,7 @@ export function LobsterInvitePanel({ agents, invitedIds, onInvite, onRemove }: L
       <CardContent>
         {isEmpty ? (
           <div className="py-6 text-center">
-            <p className="text-xs text-slate-500">
-              Connect to OpenClaw to see available agents
-            </p>
+            <p className="text-xs text-slate-500">Connect to OpenClaw to see available agents</p>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -77,7 +80,9 @@ export function LobsterInvitePanel({ agents, invitedIds, onInvite, onRemove }: L
                       {agent.description ?? ''}
                     </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-[10px] font-mono text-slate-500">{agent.model ?? 'unknown'}</span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {agent.model ?? 'unknown'}
+                      </span>
                       {agent.skills?.map((skill) => (
                         <span
                           key={skill}

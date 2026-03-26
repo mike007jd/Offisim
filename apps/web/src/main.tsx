@@ -1,8 +1,13 @@
 import { StrictMode, useCallback, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import {
+  CompanyProvider,
+  NotificationProvider,
+  ThemeProvider,
+  useAicsRuntime,
+} from '@aics/ui-office';
 import { App } from './App.js';
-import { CompanyProvider, NotificationProvider, ThemeProvider, useAicsRuntime } from '@aics/ui-office';
 import { AicsRuntimeProvider } from './runtime/AicsRuntimeProvider';
 
 /** Default company ID used to seed the initial runtime. */

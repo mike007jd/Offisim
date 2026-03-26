@@ -5,8 +5,8 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
-import { PlantMesh3D } from './DecorativeMesh3D.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
+import { PlantMesh3D } from './DecorativeMesh3D.js';
 
 export interface RestAreaMesh3DProps {
   position?: [number, number, number];
@@ -65,7 +65,15 @@ export function RestAreaMesh3D({
         {/* Product window */}
         <mesh position={[0, 0.8, 0.41]}>
           <planeGeometry args={[0.7, 0.8]} />
-          <meshPhysicalMaterial color={sc.partition} transmission={0.8} opacity={1} roughness={0.1} ior={1.5} thickness={0.05} transparent />
+          <meshPhysicalMaterial
+            color={sc.partition}
+            transmission={0.8}
+            opacity={1}
+            roughness={0.1}
+            ior={1.5}
+            thickness={0.05}
+            transparent
+          />
         </mesh>
       </group>
       <PlantMesh3D position={[-5, 0, -2.5]} />

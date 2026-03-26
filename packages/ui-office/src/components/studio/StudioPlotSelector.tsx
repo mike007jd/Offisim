@@ -5,14 +5,14 @@
  * Positioned at the bottom of the studio viewport, overlaying the R3F Canvas.
  */
 
-import { useStudioStore, PLOT_SIZES, type PlotSize } from './StudioState.js';
+import { PLOT_SIZES, type PlotSize, useStudioStore } from './StudioState.js';
 import {
-  STUDIO_COLORS,
-  SP,
   FONT,
+  SP,
+  STUDIO_COLORS,
+  labelStyle,
   panelStyle,
   toolButtonStyle,
-  labelStyle,
 } from './studio-tokens.js';
 
 // -- Component ----------------------------------------------------------------
@@ -38,6 +38,7 @@ export function StudioPlotSelector() {
         return (
           <button
             key={size.name}
+            type="button"
             onClick={() => setPlotSize(size)}
             aria-label={`Set plot size to ${size.name} (${size.width} x ${size.depth})`}
             style={{

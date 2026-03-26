@@ -1,8 +1,10 @@
-import { renderHook, waitFor } from '@testing-library/react';
 import type { ProjectAssignmentRow } from '@aics/shared-types';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useProjectAssignments } from '../../hooks/useProjectAssignments.js';
 
-function makeAssignment(overrides: Partial<ProjectAssignmentRow> & { assignment_id: string }): ProjectAssignmentRow {
+function makeAssignment(
+  overrides: Partial<ProjectAssignmentRow> & { assignment_id: string },
+): ProjectAssignmentRow {
   return {
     project_id: 'p-1',
     employee_id: `emp-${overrides.assignment_id}`,
@@ -26,18 +28,14 @@ function makeRepos(assignments: ProjectAssignmentRow[] = []) {
 describe('useProjectAssignments', () => {
   it('returns empty assignments when projectId is null', () => {
     const repos = makeRepos([ASSIGNMENT_A]);
-    const { result } = renderHook(() =>
-      useProjectAssignments(repos, null),
-    );
+    const { result } = renderHook(() => useProjectAssignments(repos, null));
     expect(result.current.assignments).toEqual([]);
     expect(result.current.assignedEmployeeIds.size).toBe(0);
   });
 
   it('fetches assignments when projectId is provided', async () => {
     const repos = makeRepos([ASSIGNMENT_A, ASSIGNMENT_B]);
-    const { result } = renderHook(() =>
-      useProjectAssignments(repos, 'p-1'),
-    );
+    const { result } = renderHook(() => useProjectAssignments(repos, 'p-1'));
     await waitFor(() => {
       expect(result.current.assignments).toHaveLength(2);
     });
@@ -46,9 +44,7 @@ describe('useProjectAssignments', () => {
 
   it('assignedEmployeeIds is a Set containing all employee IDs', async () => {
     const repos = makeRepos([ASSIGNMENT_A, ASSIGNMENT_B]);
-    const { result } = renderHook(() =>
-      useProjectAssignments(repos, 'p-1'),
-    );
+    const { result } = renderHook(() => useProjectAssignments(repos, 'p-1'));
     await waitFor(() => {
       expect(result.current.assignedEmployeeIds.size).toBe(2);
     });
@@ -71,9 +67,11 @@ describe('useProjectAssignments', () => {
   it('re-fetches when projectId changes to a different value', async () => {
     const repos = {
       projectAssignments: {
-        findByProject: vi.fn().mockImplementation((id: string) =>
-          Promise.resolve(id === 'p-1' ? [ASSIGNMENT_A] : [ASSIGNMENT_B]),
-        ),
+        findByProject: vi
+          .fn()
+          .mockImplementation((id: string) =>
+            Promise.resolve(id === 'p-1' ? [ASSIGNMENT_A] : [ASSIGNMENT_B]),
+          ),
       },
     };
     const { result, rerender } = renderHook(
@@ -89,9 +87,7 @@ describe('useProjectAssignments', () => {
   });
 
   it('returns empty when repos is null', () => {
-    const { result } = renderHook(() =>
-      useProjectAssignments(null, 'p-1'),
-    );
+    const { result } = renderHook(() => useProjectAssignments(null, 'p-1'));
     expect(result.current.assignments).toEqual([]);
     expect(result.current.assignedEmployeeIds.size).toBe(0);
   });

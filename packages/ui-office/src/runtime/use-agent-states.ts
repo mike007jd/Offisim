@@ -3,6 +3,8 @@ import type {
   EmployeeDeletedPayload,
   EmployeeStatePayload,
   EmployeeUpdatedPayload,
+  EmployeeWorkstationChangedPayload,
+  EmployeeWorkstationDropRequestedPayload,
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
@@ -35,6 +37,10 @@ export interface AgentState {
   /** Sub-task progress list for parallel task tracking. */
   subTasks?: SubTaskInfo[];
 }
+
+type WorkstationEventPayload =
+  | EmployeeWorkstationChangedPayload
+  | EmployeeWorkstationDropRequestedPayload;
 
 /**
  * Subscribes to employee events and maintains current state per employee.
@@ -95,7 +101,12 @@ export function useAgentStates(): Map<string, AgentState> {
         const { employeeId, name, roleSlug } = event.payload;
         setAgents((prev) => {
           const next = new Map(prev);
-          next.set(employeeId, { name, role: roleSlug ?? 'developer', state: 'idle', workstationId: null });
+          next.set(employeeId, {
+            name,
+            role: roleSlug ?? 'developer',
+            state: 'idle',
+            workstationId: null,
+          });
           return next;
         });
       },
@@ -104,11 +115,13 @@ export function useAgentStates(): Map<string, AgentState> {
     // Workstation assignments — update workstationId when employee is assigned/moved
     const unsubWorkstation = eventBus.on(
       'employee.workstation.',
-      (event: RuntimeEvent) => {
-        const payload = event.payload as any;
-        const employeeId = payload?.employeeId;
-        const targetWorkstationId = payload?.targetWorkstationId ?? payload?.workstationId;
-        if (!employeeId) return;
+      (event: RuntimeEvent<WorkstationEventPayload>) => {
+        const { employeeId } = event.payload;
+        const targetWorkstationId =
+          'toWorkstationId' in event.payload
+            ? event.payload.toWorkstationId
+            : event.payload.targetWorkstationId;
+
         setAgents((prev) => {
           const existing = prev.get(employeeId);
           if (!existing) return prev;
@@ -164,9 +177,10 @@ export function useAgentStates(): Map<string, AgentState> {
           const existing = prev.get(employeeId);
           if (!existing) return prev;
           const subTasks = [...(existing.subTasks ?? [])];
-          const idx = subTasks.findIndex(s => s.stepIndex === stepIndex);
+          const idx = subTasks.findIndex((s) => s.stepIndex === stepIndex);
           const entry: SubTaskInfo = {
-            stepIndex, label,
+            stepIndex,
+            label,
             status,
             startedAt: status === 'running' ? Date.now() : subTasks[idx]?.startedAt,
           };

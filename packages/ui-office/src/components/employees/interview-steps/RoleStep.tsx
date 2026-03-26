@@ -1,8 +1,8 @@
 import type { RoleSlug } from '@aics/shared-types';
+import { cn } from '@aics/ui-core';
 import { Code2, LayoutDashboard, Palette, Search, Server, TrendingUp, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
-import { cn } from '@aics/ui-core';
 
 interface RoleCard {
   readonly value: RoleSlug;

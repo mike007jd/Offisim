@@ -6,24 +6,19 @@
  * (create or edit) via RuntimeRepositories.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { useStudioStore, STUDIO_TEMP_PREFIX } from './StudioState.js';
-import { StudioCanvas } from './StudioCanvas.js';
-import { StudioToolbar } from './StudioToolbar.js';
-import { StudioPalette } from './StudioPalette.js';
-import { StudioProperties } from './StudioProperties.js';
-import { StudioPlotSelector } from './StudioPlotSelector.js';
-import { StudioGhost } from './StudioGhost.js';
-import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
-import {
-  STUDIO_COLORS,
-  SP,
-  FONT,
-  LAYOUT,
-} from './studio-tokens.js';
 import type { RuntimeRepositories } from '@aics/core/browser';
 import type { PrefabInstanceRow } from '@aics/shared-types';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StudioCanvas } from './StudioCanvas.js';
+import { StudioGhost } from './StudioGhost.js';
+import { StudioPalette } from './StudioPalette.js';
+import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
+import { StudioPlotSelector } from './StudioPlotSelector.js';
+import { StudioProperties } from './StudioProperties.js';
+import { STUDIO_TEMP_PREFIX, useStudioStore } from './StudioState.js';
+import { StudioToolbar } from './StudioToolbar.js';
+import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 // -- Props --------------------------------------------------------------------
 
@@ -85,10 +80,17 @@ function CompanyNameModal({
         justifyContent: 'center',
         zIndex: 100,
       }}
+      role="presentation"
       onClick={onCancel}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onCancel();
+      }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
+      <dialog
+        open
+        aria-labelledby="company-name-modal-title"
+        onPointerDown={(e) => e.stopPropagation()}
         style={{
           background: STUDIO_COLORS.surface0,
           border: `1px solid ${STUDIO_COLORS.border}`,
@@ -98,9 +100,11 @@ function CompanyNameModal({
           display: 'flex',
           flexDirection: 'column',
           gap: SP.lg,
+          margin: 0,
         }}
       >
-        <div
+        <h2
+          id="company-name-modal-title"
           style={{
             fontSize: FONT.xl,
             fontWeight: FONT.semibold,
@@ -109,7 +113,7 @@ function CompanyNameModal({
           }}
         >
           Company Name
-        </div>
+        </h2>
         <input
           ref={inputRef}
           value={name}
@@ -134,6 +138,7 @@ function CompanyNameModal({
         />
         <div style={{ display: 'flex', gap: SP.sm, justifyContent: 'flex-end' }}>
           <button
+            type="button"
             onClick={onCancel}
             aria-label="Cancel"
             style={{
@@ -150,6 +155,7 @@ function CompanyNameModal({
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             aria-label="Create company"
             style={{
@@ -167,20 +173,14 @@ function CompanyNameModal({
             Create
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
 
 // -- Component ----------------------------------------------------------------
 
-export function StudioPage({
-  mode,
-  companyId,
-  repos,
-  onBack,
-  onCompanyCreated,
-}: StudioPageProps) {
+export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }: StudioPageProps) {
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -279,14 +279,12 @@ export function StudioPage({
         const now = new Date().toISOString();
         for (const inst of state.instances) {
           const row: PrefabInstanceRow = {
-            instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX)
-              ? crypto.randomUUID()
-              : inst.id,
+            instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX) ? crypto.randomUUID() : inst.id,
             company_id: targetCompanyId,
             prefab_id: inst.prefabId,
             zone_id: inst.zoneId,
-            position_x: parseFloat(inst.position[0].toFixed(4)),
-            position_y: parseFloat(inst.position[2].toFixed(4)),
+            position_x: Number.parseFloat(inst.position[0].toFixed(4)),
+            position_y: Number.parseFloat(inst.position[2].toFixed(4)),
             rotation: inst.rotation,
             bindings_json: null,
             config_json: null,
@@ -312,7 +310,7 @@ export function StudioPage({
     } finally {
       setSaving(false);
     }
-  }, [repos, companyId, mode, onBack, onCompanyCreated]);
+  }, [repos, companyId, mode, onCompanyCreated]);
 
   // -- Keyboard shortcuts (non-tool shortcuts) --------------------------------
   // Tool shortcuts (1-4, G) are handled by StudioToolbar.
@@ -320,11 +318,7 @@ export function StudioPage({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       const store = useStudioStore.getState();
 
@@ -376,12 +370,7 @@ export function StudioPage({
   return (
     <div style={ROOT_STYLE}>
       {/* Top toolbar: tools, grid toggle, save, back */}
-      <StudioToolbar
-        onSave={handleSave}
-        onBack={onBack}
-        saving={saving}
-        saveFlash={saveFlash}
-      />
+      <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
       {/* Left palette: prefab catalog */}
       <StudioPalette />
@@ -436,7 +425,7 @@ export function StudioPage({
       )}
 
       {/* CSS keyframes for loader spinner */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );
 }

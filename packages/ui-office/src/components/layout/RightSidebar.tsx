@@ -17,7 +17,11 @@ interface RightSidebarProps {
   onOpenKanban?: () => void;
 }
 
-export function RightSidebar({ onOpenDashboard, focusOutputsToken, onOpenKanban }: RightSidebarProps) {
+export function RightSidebar({
+  onOpenDashboard,
+  focusOutputsToken,
+  onOpenKanban,
+}: RightSidebarProps) {
   const agents = useAgentStates();
   const [activeTab, setActiveTab] = useState('events');
 
@@ -37,7 +41,11 @@ export function RightSidebar({ onOpenDashboard, focusOutputsToken, onOpenKanban 
   ];
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col overflow-hidden">
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="flex h-full flex-col overflow-hidden"
+    >
       {/* Tabs navigation — icon-only to fit 280px */}
       <div className="flex border-b border-white/5 px-2 pt-2 overflow-hidden">
         <TabsList className="bg-transparent w-full justify-start gap-0 p-0">

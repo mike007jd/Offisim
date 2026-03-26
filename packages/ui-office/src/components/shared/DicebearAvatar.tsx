@@ -1,5 +1,5 @@
-import { createAvatar } from '@dicebear/core';
 import { avataaars } from '@dicebear/collection';
+import { createAvatar } from '@dicebear/core';
 import { useMemo } from 'react';
 
 interface DicebearAvatarProps {

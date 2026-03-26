@@ -1,5 +1,5 @@
+import { Grid, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useStudioStore } from './StudioState.js';
@@ -50,7 +50,12 @@ function PlotBoundary() {
     () => new THREE.EdgesGeometry(new THREE.BoxGeometry(plotSize.width, 0.02, plotSize.depth)),
     [plotSize.width, plotSize.depth],
   );
-  useEffect(() => () => { geo.dispose(); }, [geo]);
+  useEffect(
+    () => () => {
+      geo.dispose();
+    },
+    [geo],
+  );
   return (
     <lineSegments position={[0, 0.01, 0]} geometry={geo}>
       <lineBasicMaterial color={STUDIO_COLORS.plotBorder} transparent opacity={0.6} />
@@ -59,10 +64,12 @@ function PlotBoundary() {
 }
 
 /** The 3D scene contents (inside Canvas) */
-function StudioScene({ focusRef }: { focusRef?: React.MutableRefObject<((pos: [number, number, number]) => void) | null> }) {
+function StudioScene({
+  focusRef,
+}: { focusRef?: React.MutableRefObject<((pos: [number, number, number]) => void) | null> }) {
   const plotSize = useStudioStore((s) => s.plotSize);
   const maxDim = Math.max(plotSize.width, plotSize.depth);
-  const orbitRef = useRef<OrbitControlsRef>(null!);
+  const orbitRef = useRef<OrbitControlsRef | null>(null);
   const { camera, invalidate } = useThree();
 
   // Expose focus callback via ref so StudioPage can call it on F/Home key

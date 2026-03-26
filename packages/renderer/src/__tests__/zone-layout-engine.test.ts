@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  type ZoneBounds,
   computeFloorPlan,
   computeRestAreaSeats,
-  type ZoneBounds,
 } from '../layout/zone-layout-engine.js';
 import { RD_COMPANY_ZONES } from '../tokens/departments.js';
 
@@ -13,10 +13,7 @@ function rectsOverlap(
   a: { x: number; y: number; width: number; height: number },
   b: { x: number; y: number; width: number; height: number },
 ): boolean {
-  return a.x < b.x + b.width
-    && a.x + a.width > b.x
-    && a.y < b.y + b.height
-    && a.y + a.height > b.y;
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
 function isInsideZone(
@@ -28,10 +25,10 @@ function isInsideZone(
   const halfW = deskW / 2;
   const halfH = deskH / 2;
   return (
-    desk.x - halfW >= zone.x - 1 // 1px tolerance for fp rounding
-    && desk.x + halfW <= zone.x + zone.width + 1
-    && desk.y - halfH >= zone.y - 1
-    && desk.y + halfH <= zone.y + zone.height + 1
+    desk.x - halfW >= zone.x - 1 && // 1px tolerance for fp rounding
+    desk.x + halfW <= zone.x + zone.width + 1 &&
+    desk.y - halfH >= zone.y - 1 &&
+    desk.y + halfH <= zone.y + zone.height + 1
   );
 }
 
@@ -69,15 +66,20 @@ describe('zone-layout-engine', () => {
       // Dev zone gets ceil(2 * 1.2) = 3 slots (>= minSlots=2)
       const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
       expect(devZone).toBeDefined();
-      expect(devZone!.workstations.length).toBe(3);
+      if (!devZone) throw new Error('Expected dev zone');
+      expect(devZone.workstations.length).toBe(3);
 
       // Product: ceil(1 * 1.2) = 2 (== minSlots)
       const prodZone = plan.zones.find((z) => z.zoneId === 'zone-product');
-      expect(prodZone!.workstations.length).toBe(2);
+      expect(prodZone).toBeDefined();
+      if (!prodZone) throw new Error('Expected product zone');
+      expect(prodZone.workstations.length).toBe(2);
 
       // Art: ceil(1 * 1.2) = 2 (== minSlots)
       const artZone = plan.zones.find((z) => z.zoneId === 'zone-art');
-      expect(artZone!.workstations.length).toBe(2);
+      expect(artZone).toBeDefined();
+      if (!artZone) throw new Error('Expected art zone');
+      expect(artZone.workstations.length).toBe(2);
 
       // Should be within sane total dimensions
       expect(plan.totalWidth).toBeGreaterThanOrEqual(800);
@@ -95,15 +97,21 @@ describe('zone-layout-engine', () => {
 
       // Dev: ceil(8 * 1.2) = 10 slots
       const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
-      expect(devZone!.workstations.length).toBe(10);
+      expect(devZone).toBeDefined();
+      if (!devZone) throw new Error('Expected dev zone');
+      expect(devZone.workstations.length).toBe(10);
 
       // Product: ceil(4 * 1.2) = 5
       const prodZone = plan.zones.find((z) => z.zoneId === 'zone-product');
-      expect(prodZone!.workstations.length).toBe(5);
+      expect(prodZone).toBeDefined();
+      if (!prodZone) throw new Error('Expected product zone');
+      expect(prodZone.workstations.length).toBe(5);
 
       // Art: ceil(4 * 1.2) = 5
       const artZone = plan.zones.find((z) => z.zoneId === 'zone-art');
-      expect(artZone!.workstations.length).toBe(5);
+      expect(artZone).toBeDefined();
+      if (!artZone) throw new Error('Expected art zone');
+      expect(artZone.workstations.length).toBe(5);
 
       // Total dimensions should grow but stay within cap
       expect(plan.totalWidth).toBeLessThanOrEqual(2460); // 2400 + 2*margin
@@ -119,10 +127,8 @@ describe('zone-layout-engine', () => {
       const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
 
       const zones = plan.zones;
-      for (let i = 0; i < zones.length; i++) {
-        for (let j = i + 1; j < zones.length; j++) {
-          const a = zones[i]!;
-          const b = zones[j]!;
+      for (const [i, a] of zones.entries()) {
+        for (const b of zones.slice(i + 1)) {
           expect(rectsOverlap(a, b)).toBe(false);
         }
       }
@@ -162,17 +168,16 @@ describe('zone-layout-engine', () => {
       const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
 
       // Sum workstations across zones
-      const totalFromZones = plan.zones.reduce(
-        (sum, z) => sum + z.workstations.length,
-        0,
-      );
+      const totalFromZones = plan.zones.reduce((sum, z) => sum + z.workstations.length, 0);
       expect(plan.allWorkstations.size).toBe(totalFromZones);
 
       // Every zone workstation should be in the map
       for (const zone of plan.zones) {
         for (const ws of zone.workstations) {
           expect(plan.allWorkstations.has(ws.workstationId)).toBe(true);
-          const mapped = plan.allWorkstations.get(ws.workstationId)!;
+          const mapped = plan.allWorkstations.get(ws.workstationId);
+          expect(mapped).toBeDefined();
+          if (!mapped) continue;
           expect(mapped.x).toBe(ws.x);
           expect(mapped.y).toBe(ws.y);
           expect(mapped.zoneId).toBe(ws.zoneId);
@@ -191,16 +196,17 @@ describe('zone-layout-engine', () => {
       const srv = plan.zones.find((z) => z.type === 'server_room');
       expect(mtg).toBeDefined();
       expect(srv).toBeDefined();
+      if (!mtg || !srv) throw new Error('Expected meeting room and server room');
 
       // Meeting room should be wider than server room (70% vs 30%)
-      expect(mtg!.width).toBeGreaterThan(srv!.width);
+      expect(mtg.width).toBeGreaterThan(srv.width);
 
       // Both should be at least MIN_UTILITY_WIDTH (200)
-      expect(mtg!.width).toBeGreaterThanOrEqual(200);
-      expect(srv!.width).toBeGreaterThanOrEqual(200);
+      expect(mtg.width).toBeGreaterThanOrEqual(200);
+      expect(srv.width).toBeGreaterThanOrEqual(200);
 
       // They should be on the same row (same y)
-      expect(mtg!.y).toBe(srv!.y);
+      expect(mtg.y).toBe(srv.y);
     });
 
     it('row 2 height should scale with row 1 height for large offices', () => {
@@ -215,16 +221,17 @@ describe('zone-layout-engine', () => {
       const restArea = plan.zones.find((z) => z.type === 'rest_area');
       expect(library).toBeDefined();
       expect(restArea).toBeDefined();
+      if (!library || !restArea) return;
 
       // Row 2 height should be greater than MIN_UTILITY_HEIGHT (120) for large offices
-      expect(library!.height).toBeGreaterThanOrEqual(120);
-      expect(restArea!.height).toBe(library!.height); // same row, same height
+      expect(library.height).toBeGreaterThanOrEqual(120);
+      expect(restArea.height).toBe(library.height); // same row, same height
 
       // For a large office, row2 should be > 120 (the old fixed value)
       const deptZones = plan.zones.filter((z) => z.type === 'department');
       const maxDeptHeight = Math.max(...deptZones.map((z) => z.height));
       const expectedRow2Height = Math.max(120, Math.round(maxDeptHeight * 0.5));
-      expect(library!.height).toBe(expectedRow2Height);
+      expect(library.height).toBe(expectedRow2Height);
     });
 
     it('dynamic zonePadding should scale with floor width for large offices', () => {
@@ -260,7 +267,9 @@ describe('zone-layout-engine', () => {
       // Check that zones use the custom padding
       const deptZones = plan.zones.filter((z) => z.type === 'department');
       if (deptZones.length >= 2) {
-        const gap = deptZones[1]!.x - (deptZones[0]!.x + deptZones[0]!.width);
+        const [firstZone, secondZone] = deptZones;
+        if (!firstZone || !secondZone) throw new Error('Expected at least two department zones');
+        const gap = secondZone.x - (firstZone.x + firstZone.width);
         expect(gap).toBeCloseTo(customPadding, 0);
       }
     });
@@ -275,12 +284,12 @@ describe('zone-layout-engine', () => {
       const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
 
       const deptZones = plan.zones.filter((z) => z.type === 'department');
-      const utilityZones = plan.zones.filter(
-        (z) => z.type === 'library' || z.type === 'rest_area',
-      );
+      const utilityZones = plan.zones.filter((z) => z.type === 'library' || z.type === 'rest_area');
 
       if (utilityZones.length > 0 && deptZones.length > 0) {
-        const row2Height = utilityZones[0]!.height;
+        const [firstUtilityZone] = utilityZones;
+        if (!firstUtilityZone) throw new Error('Expected utility zone');
+        const row2Height = firstUtilityZone.height;
         for (const dz of deptZones) {
           expect(dz.height).toBeGreaterThanOrEqual(row2Height);
         }
@@ -295,19 +304,20 @@ describe('zone-layout-engine', () => {
       const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
       const restZone = plan.zones.find((z) => z.type === 'rest_area');
       expect(restZone).toBeDefined();
+      if (!restZone) throw new Error('Expected rest area zone');
 
-      const seats = computeRestAreaSeats(restZone!, 4);
+      const seats = computeRestAreaSeats(restZone, 4);
 
       expect(seats.length).toBeGreaterThan(0);
       expect(seats.length).toBeLessThanOrEqual(4);
 
       for (const seat of seats) {
-        expect(seat.zoneId).toBe(restZone!.zoneId);
+        expect(seat.zoneId).toBe(restZone.zoneId);
         // Seats should be inside zone bounds (with generous tolerance for seat size)
-        expect(seat.x).toBeGreaterThanOrEqual(restZone!.x);
-        expect(seat.x).toBeLessThanOrEqual(restZone!.x + restZone!.width);
-        expect(seat.y).toBeGreaterThanOrEqual(restZone!.y);
-        expect(seat.y).toBeLessThanOrEqual(restZone!.y + restZone!.height);
+        expect(seat.x).toBeGreaterThanOrEqual(restZone.x);
+        expect(seat.x).toBeLessThanOrEqual(restZone.x + restZone.width);
+        expect(seat.y).toBeGreaterThanOrEqual(restZone.y);
+        expect(seat.y).toBeLessThanOrEqual(restZone.y + restZone.height);
       }
 
       // IDs should be unique

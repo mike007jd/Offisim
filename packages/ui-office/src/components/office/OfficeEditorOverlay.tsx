@@ -8,14 +8,14 @@
  * Bottom: Status bar
  */
 
-import { ArrowLeft, Grid3X3, Minus, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, PrefabInstanceRow, SemanticCategory } from '@aics/shared-types';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
+import { ArrowLeft, Grid3X3, Minus, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
-import { useCompany } from '../company/CompanyContext.js';
 import { ZONES } from '../../lib/zone-config.js';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
+import { useCompany } from '../company/CompanyContext.js';
 
 // ── Props ───────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ function toSVG(cx: number, cz: number): { sx: number; sy: number } {
 }
 
 /** Zone SVG rect from zone-config */
-function zoneRect(z: typeof ZONES[number]) {
+function zoneRect(z: (typeof ZONES)[number]) {
   const { sx, sy } = toSVG(z.cx, z.cz);
   const w = z.w * SCALE;
   const h = z.d * SCALE;
@@ -81,16 +81,24 @@ const CATEGORIES: { id: SemanticCategory; label: string; icon: string }[] = [
 
 function prefabIcon(category: SemanticCategory): string {
   const icons: Record<SemanticCategory, string> = {
-    workspace: '⬜', compute: '🟦', knowledge: '🟫',
-    collaboration: '🟪', infrastructure: '🟩', decorative: '🌿',
+    workspace: '⬜',
+    compute: '🟦',
+    knowledge: '🟫',
+    collaboration: '🟪',
+    infrastructure: '🟩',
+    decorative: '🌿',
   };
   return icons[category] ?? '⬜';
 }
 
 function prefabColor(category: SemanticCategory): string {
   const colors: Record<SemanticCategory, string> = {
-    workspace: '#3b82f6', compute: '#06b6d4', knowledge: '#10b981',
-    collaboration: '#a855f7', infrastructure: '#f59e0b', decorative: '#84cc16',
+    workspace: '#3b82f6',
+    compute: '#06b6d4',
+    knowledge: '#10b981',
+    collaboration: '#a855f7',
+    infrastructure: '#f59e0b',
+    decorative: '#84cc16',
   };
   return colors[category] ?? '#64748b';
 }
@@ -147,91 +155,110 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   }, []);
 
   // ── Selected item ──
-  const selectedItem = localItems.find(it => it.instanceId === selectedId) ?? null;
+  const selectedItem = localItems.find((it) => it.instanceId === selectedId) ?? null;
 
   // ── Handlers ──
 
   const handlePaletteClick = useCallback((def: PrefabDefinition) => {
-    setPlacingPrefab(prev => prev?.prefabId === def.prefabId ? null : def);
+    setPlacingPrefab((prev) => (prev?.prefabId === def.prefabId ? null : def));
     setSelectedId(null);
   }, []);
 
-  const handleCanvasClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!placingPrefab || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const scaleX = SVG_W / rect.width;
-    const scaleY = SVG_H / rect.height;
-    const svgX = (e.clientX - rect.left) * scaleX;
-    const svgY = (e.clientY - rect.top) * scaleY;
-    // Convert SVG coords back to 3D world coords
-    const worldX = (svgX - OX) / SCALE;
-    const worldZ = (svgY - OY) / SCALE;
-    // Find which zone this falls in
-    let zoneId = 'dev';
-    for (const z of ZONES) {
-      const r = zoneRect(z);
-      if (svgX >= r.x && svgX <= r.x + r.w && svgY >= r.y && svgY <= r.y + r.h) {
-        zoneId = z.id;
-        break;
+  const handleCanvasClick = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      if (!placingPrefab || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const scaleX = SVG_W / rect.width;
+      const scaleY = SVG_H / rect.height;
+      const svgX = (e.clientX - rect.left) * scaleX;
+      const svgY = (e.clientY - rect.top) * scaleY;
+      // Convert SVG coords back to 3D world coords
+      const worldX = (svgX - OX) / SCALE;
+      const worldZ = (svgY - OY) / SCALE;
+      // Find which zone this falls in
+      let zoneId = 'dev';
+      for (const z of ZONES) {
+        const r = zoneRect(z);
+        if (svgX >= r.x && svgX <= r.x + r.w && svgY >= r.y && svgY <= r.y + r.h) {
+          zoneId = z.id;
+          break;
+        }
       }
-    }
-    const newItem: PlacedItem = {
-      instanceId: `studio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      prefabId: placingPrefab.prefabId,
-      name: placingPrefab.name,
-      x: Math.round(worldX * 10) / 10,
-      y: Math.round(worldZ * 10) / 10,
-      rotation: 0,
-      zoneId,
-    };
-    setLocalItems(prev => [...prev, newItem]);
-    setDirty(true);
-    // Stay in placement mode for rapid placement
-  }, [placingPrefab]);
+      const newItem: PlacedItem = {
+        instanceId: `studio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        prefabId: placingPrefab.prefabId,
+        name: placingPrefab.name,
+        x: Math.round(worldX * 10) / 10,
+        y: Math.round(worldZ * 10) / 10,
+        rotation: 0,
+        zoneId,
+      };
+      setLocalItems((prev) => [...prev, newItem]);
+      setDirty(true);
+      // Stay in placement mode for rapid placement
+    },
+    [placingPrefab],
+  );
 
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!placingPrefab || !svgRef.current) { setGhostPos(null); return; }
-    const rect = svgRef.current.getBoundingClientRect();
-    const scaleX = SVG_W / rect.width;
-    const scaleY = SVG_H / rect.height;
-    setGhostPos({
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    });
-  }, [placingPrefab]);
+  const handleCanvasMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!placingPrefab || !svgRef.current) {
+        setGhostPos(null);
+        return;
+      }
+      const rect = svgRef.current.getBoundingClientRect();
+      const scaleX = SVG_W / rect.width;
+      const scaleY = SVG_H / rect.height;
+      setGhostPos({
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      });
+    },
+    [placingPrefab],
+  );
 
   const handleSelectItem = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedId(prev => prev === id ? null : id);
+    setSelectedId((prev) => (prev === id ? null : id));
     setPlacingPrefab(null);
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedId) return;
-    setLocalItems(prev => prev.filter(it => it.instanceId !== selectedId));
+    setLocalItems((prev) => prev.filter((it) => it.instanceId !== selectedId));
     setSelectedId(null);
     setDirty(true);
   }, [selectedId]);
 
-  const handleRotateSelected = useCallback((delta: number) => {
-    if (!selectedId) return;
-    setLocalItems(prev => prev.map(it =>
-      it.instanceId === selectedId
-        ? { ...it, rotation: ((it.rotation + delta) % 360 + 360) % 360 }
-        : it
-    ));
-    setDirty(true);
-  }, [selectedId]);
+  const handleRotateSelected = useCallback(
+    (delta: number) => {
+      if (!selectedId) return;
+      setLocalItems((prev) =>
+        prev.map((it) =>
+          it.instanceId === selectedId
+            ? { ...it, rotation: (((it.rotation + delta) % 360) + 360) % 360 }
+            : it,
+        ),
+      );
+      setDirty(true);
+    },
+    [selectedId],
+  );
 
-  const handleMoveSelected = useCallback((dx: number, dy: number) => {
-    if (!selectedId) return;
-    setLocalItems(prev => prev.map(it =>
-      it.instanceId === selectedId
-        ? { ...it, x: Math.round((it.x + dx) * 10) / 10, y: Math.round((it.y + dy) * 10) / 10 }
-        : it
-    ));
-    setDirty(true);
-  }, [selectedId]);
+  const handleMoveSelected = useCallback(
+    (dx: number, dy: number) => {
+      if (!selectedId) return;
+      setLocalItems((prev) =>
+        prev.map((it) =>
+          it.instanceId === selectedId
+            ? { ...it, x: Math.round((it.x + dx) * 10) / 10, y: Math.round((it.y + dy) * 10) / 10 }
+            : it,
+        ),
+      );
+      setDirty(true);
+    },
+    [selectedId],
+  );
 
   const handleResetAll = useCallback(() => {
     setLocalItems([]);
@@ -241,15 +268,15 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!repos?.prefabInstances) return;
+    if (!repos?.prefabInstances || !activeCompanyId) return;
     setSaving(true);
     try {
-      await repos.prefabInstances.deleteByCompany(activeCompanyId!);
+      await repos.prefabInstances.deleteByCompany(activeCompanyId);
       const now = new Date().toISOString();
       for (const item of localItems) {
         const row: PrefabInstanceRow = {
           instance_id: item.instanceId,
-          company_id: activeCompanyId!,
+          company_id: activeCompanyId,
           prefab_id: item.prefabId,
           zone_id: item.zoneId,
           position_x: item.x,
@@ -265,9 +292,9 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
       }
       eventBus.emit({
         type: 'prefab.state.changed',
-        entityId: activeCompanyId!,
+        entityId: activeCompanyId,
         entityType: 'company',
-        companyId: activeCompanyId!,
+        companyId: activeCompanyId,
         timestamp: Date.now(),
         payload: { action: 'studio-saved', count: localItems.length },
       });
@@ -276,7 +303,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
     } finally {
       setSaving(false);
     }
-  }, [repos, localItems, eventBus, refresh]);
+  }, [repos, localItems, eventBus, refresh, activeCompanyId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -305,8 +332,11 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
       {/* ── Top Bar ────────────────────────────────────────────── */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onClose}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-white/50 hover:bg-white/[0.05] hover:text-white/80 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-white/50 hover:bg-white/[0.05] hover:text-white/80 transition-colors"
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
           <div className="h-4 w-px bg-white/10" />
@@ -320,13 +350,22 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={handleResetAll}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 font-mono text-[10px] text-white/50 hover:bg-white/[0.05] hover:text-white/70 transition-colors">
+          <button
+            type="button"
+            onClick={handleResetAll}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 font-mono text-[10px] text-white/50 hover:bg-white/[0.05] hover:text-white/70 transition-colors"
+          >
             <RotateCcw className="h-3 w-3" />
             Reset
           </button>
-          <button type="button" onClick={() => { void handleSave(); }} disabled={saving || !dirty}
-            className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-600/20 px-4 py-1.5 font-mono text-[10px] font-semibold text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <button
+            type="button"
+            onClick={() => {
+              void handleSave();
+            }}
+            disabled={saving || !dirty}
+            className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-600/20 px-4 py-1.5 font-mono text-[10px] font-semibold text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             <Save className="h-3 w-3" />
             {saving ? 'Saving...' : 'Save'}
           </button>
@@ -335,7 +374,6 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-
         {/* ── Left: Prefab Palette ─────────────────────────────── */}
         <div className="w-56 shrink-0 border-r border-white/[0.06] bg-[#060a14] flex flex-col overflow-hidden">
           <div className="px-3 py-2.5 border-b border-white/[0.06]">
@@ -344,32 +382,50 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
             </p>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {CATEGORIES.map(cat => {
+            {CATEGORIES.map((cat) => {
               const items = grouped.get(cat.id) ?? [];
               const isCollapsed = collapsed[cat.id] ?? false;
               return (
                 <div key={cat.id}>
-                  <button type="button" onClick={() => setCollapsed(p => ({ ...p, [cat.id]: !p[cat.id] }))}
-                    className="flex w-full items-center gap-1.5 px-3 py-2 text-left font-mono text-[10px] font-semibold text-zinc-400 hover:bg-white/[0.03] transition-colors">
-                    <span className="text-[8px] transition-transform" style={{ transform: isCollapsed ? 'rotate(-90deg)' : '' }}>▼</span>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed((p) => ({ ...p, [cat.id]: !p[cat.id] }))}
+                    className="flex w-full items-center gap-1.5 px-3 py-2 text-left font-mono text-[10px] font-semibold text-zinc-400 hover:bg-white/[0.03] transition-colors"
+                  >
+                    <span
+                      className="text-[8px] transition-transform"
+                      style={{ transform: isCollapsed ? 'rotate(-90deg)' : '' }}
+                    >
+                      ▼
+                    </span>
                     <span>{cat.icon}</span>
                     <span className="flex-1">{cat.label}</span>
                     <span className="text-zinc-600">{items.length}</span>
                   </button>
-                  {!isCollapsed && items.map(prefab => {
-                    const isActive = placingPrefab?.prefabId === prefab.prefabId;
-                    return (
-                      <button key={prefab.prefabId} type="button"
-                        onClick={() => handlePaletteClick(prefab)}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 pl-7 text-left transition-colors ${
-                          isActive ? 'bg-blue-500/15 text-blue-300 border-l-2 border-blue-500' : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 border-l-2 border-transparent'
-                        }`}>
-                        <span className="text-[10px]">{prefabIcon(prefab.category)}</span>
-                        <span className="flex-1 truncate font-mono text-[10px]">{prefab.name}</span>
-                        <span className="font-mono text-[8px] text-zinc-600">{prefab.gridSize[0]}x{prefab.gridSize[1]}</span>
-                      </button>
-                    );
-                  })}
+                  {!isCollapsed &&
+                    items.map((prefab) => {
+                      const isActive = placingPrefab?.prefabId === prefab.prefabId;
+                      return (
+                        <button
+                          key={prefab.prefabId}
+                          type="button"
+                          onClick={() => handlePaletteClick(prefab)}
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 pl-7 text-left transition-colors ${
+                            isActive
+                              ? 'bg-blue-500/15 text-blue-300 border-l-2 border-blue-500'
+                              : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 border-l-2 border-transparent'
+                          }`}
+                        >
+                          <span className="text-[10px]">{prefabIcon(prefab.category)}</span>
+                          <span className="flex-1 truncate font-mono text-[10px]">
+                            {prefab.name}
+                          </span>
+                          <span className="font-mono text-[8px] text-zinc-600">
+                            {prefab.gridSize[0]}x{prefab.gridSize[1]}
+                          </span>
+                        </button>
+                      );
+                    })}
                 </div>
               );
             })}
@@ -387,13 +443,19 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
         </div>
 
         {/* ── Center: 2D Canvas ────────────────────────────────── */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden bg-[#020409]"
-          style={{ cursor: placingPrefab ? 'crosshair' : 'default' }}>
-          <svg ref={svgRef} viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        <div
+          className="flex-1 flex items-center justify-center overflow-hidden bg-[#020409]"
+          style={{ cursor: placingPrefab ? 'crosshair' : 'default' }}
+        >
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
             className="h-full max-h-[calc(100vh-7rem)] w-full max-w-[1000px]"
-            onClick={handleCanvasClick}
+            onPointerDown={handleCanvasClick}
             onMouseMove={handleCanvasMouseMove}
-            onMouseLeave={() => setGhostPos(null)}>
+            onMouseLeave={() => setGhostPos(null)}
+          >
+            <title>Office editor canvas</title>
             {/* Grid dots */}
             <defs>
               <pattern id="studio-grid" width="18" height="18" patternUnits="userSpaceOnUse">
@@ -403,16 +465,40 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
             <rect width={SVG_W} height={SVG_H} fill="url(#studio-grid)" />
 
             {/* Zone floor plan */}
-            {ZONES.map(z => {
+            {ZONES.map((z) => {
               const r = zoneRect(z);
               return (
                 <g key={z.id}>
-                  <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={4}
-                    fill={`${z.accent}08`} stroke={`${z.accent}30`} strokeWidth={1} />
-                  <rect x={r.x} y={r.y} width={r.w} height={2} fill={z.accent} opacity={0.5} rx={4} />
-                  <text x={r.x + r.w / 2} y={r.y + r.h / 2}
-                    textAnchor="middle" dominantBaseline="middle"
-                    fill={`${z.accent}40`} fontSize="9" fontFamily="monospace" fontWeight="700" letterSpacing="0.15em">
+                  <rect
+                    x={r.x}
+                    y={r.y}
+                    width={r.w}
+                    height={r.h}
+                    rx={4}
+                    fill={`${z.accent}08`}
+                    stroke={`${z.accent}30`}
+                    strokeWidth={1}
+                  />
+                  <rect
+                    x={r.x}
+                    y={r.y}
+                    width={r.w}
+                    height={2}
+                    fill={z.accent}
+                    opacity={0.5}
+                    rx={4}
+                  />
+                  <text
+                    x={r.x + r.w / 2}
+                    y={r.y + r.h / 2}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={`${z.accent}40`}
+                    fontSize="9"
+                    fontFamily="monospace"
+                    fontWeight="700"
+                    letterSpacing="0.15em"
+                  >
                     {z.label}
                   </text>
                 </g>
@@ -420,7 +506,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
             })}
 
             {/* Placed prefabs */}
-            {localItems.map(item => {
+            {localItems.map((item) => {
               const def = allPrefabsMap.get(item.prefabId);
               if (!def) return null;
               const { sx, sy } = toSVG(item.x, item.y);
@@ -429,29 +515,75 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
               const halfW = (def.gridSize[0] * SCALE) / 2;
               const halfH = (def.gridSize[1] * SCALE) / 2;
               return (
-                <g key={item.instanceId}
+                <g
+                  key={item.instanceId}
                   transform={`translate(${sx}, ${sy}) rotate(${item.rotation})`}
                   onClick={(e) => handleSelectItem(item.instanceId, e)}
-                  style={{ cursor: 'pointer' }}>
+                  tabIndex={0}
+                  aria-label={`Select ${def.name}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectItem(item.instanceId, e as unknown as React.MouseEvent);
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   {/* Prefab footprint */}
-                  <rect x={-halfW} y={-halfH} width={halfW * 2} height={halfH * 2} rx={3}
-                    fill={`${color}20`} stroke={isSelected ? '#3b82f6' : `${color}60`}
-                    strokeWidth={isSelected ? 2 : 1} />
+                  <rect
+                    x={-halfW}
+                    y={-halfH}
+                    width={halfW * 2}
+                    height={halfH * 2}
+                    rx={3}
+                    fill={`${color}20`}
+                    stroke={isSelected ? '#3b82f6' : `${color}60`}
+                    strokeWidth={isSelected ? 2 : 1}
+                  />
                   {/* Direction indicator */}
-                  <line x1={0} y1={-halfH} x2={0} y2={-halfH - 4}
-                    stroke={color} strokeWidth={2} opacity={0.6} />
+                  <line
+                    x1={0}
+                    y1={-halfH}
+                    x2={0}
+                    y2={-halfH - 4}
+                    stroke={color}
+                    strokeWidth={2}
+                    opacity={0.6}
+                  />
                   {/* Label */}
-                  <text x={0} y={3} textAnchor="middle" dominantBaseline="middle"
-                    fill={color} fontSize="7" fontFamily="monospace" fontWeight="600">
+                  <text
+                    x={0}
+                    y={3}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={color}
+                    fontSize="7"
+                    fontFamily="monospace"
+                    fontWeight="600"
+                  >
                     {def.name.split(' ')[0]}
                   </text>
                   {/* Selection handles */}
                   {isSelected && (
                     <>
-                      <rect x={-halfW - 1} y={-halfH - 1} width={halfW * 2 + 2} height={halfH * 2 + 2} rx={3}
-                        fill="none" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="3 2" />
-                      {[[-halfW, -halfH], [halfW, -halfH], [-halfW, halfH], [halfW, halfH]].map(([cx, cy], i) => (
-                        <circle key={i} cx={cx} cy={cy} r={2.5} fill="#3b82f6" />
+                      <rect
+                        x={-halfW - 1}
+                        y={-halfH - 1}
+                        width={halfW * 2 + 2}
+                        height={halfH * 2 + 2}
+                        rx={3}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={1.5}
+                        strokeDasharray="3 2"
+                      />
+                      {[
+                        [-halfW, -halfH],
+                        [halfW, -halfH],
+                        [-halfW, halfH],
+                        [halfW, halfH],
+                      ].map(([cx, cy]) => (
+                        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={2.5} fill="#3b82f6" />
                       ))}
                     </>
                   )}
@@ -461,13 +593,31 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
 
             {/* Ghost preview during placement */}
             {placingPrefab && ghostPos && (
-              <g transform={`translate(${ghostPos.x}, ${ghostPos.y})`} style={{ pointerEvents: 'none' }}>
-                <rect x={-(placingPrefab.gridSize[0] * SCALE) / 2} y={-(placingPrefab.gridSize[1] * SCALE) / 2}
-                  width={placingPrefab.gridSize[0] * SCALE} height={placingPrefab.gridSize[1] * SCALE}
-                  rx={3} fill={`${prefabColor(placingPrefab.category)}15`}
-                  stroke={prefabColor(placingPrefab.category)} strokeWidth={1.5} strokeDasharray="4 3" />
-                <text x={0} y={3} textAnchor="middle" dominantBaseline="middle"
-                  fill={prefabColor(placingPrefab.category)} fontSize="7" fontFamily="monospace" opacity={0.7}>
+              <g
+                transform={`translate(${ghostPos.x}, ${ghostPos.y})`}
+                style={{ pointerEvents: 'none' }}
+              >
+                <rect
+                  x={-(placingPrefab.gridSize[0] * SCALE) / 2}
+                  y={-(placingPrefab.gridSize[1] * SCALE) / 2}
+                  width={placingPrefab.gridSize[0] * SCALE}
+                  height={placingPrefab.gridSize[1] * SCALE}
+                  rx={3}
+                  fill={`${prefabColor(placingPrefab.category)}15`}
+                  stroke={prefabColor(placingPrefab.category)}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                />
+                <text
+                  x={0}
+                  y={3}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={prefabColor(placingPrefab.category)}
+                  fontSize="7"
+                  fontFamily="monospace"
+                  opacity={0.7}
+                >
                   {placingPrefab.name.split(' ')[0]}
                 </text>
               </g>
@@ -476,102 +626,154 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
         </div>
 
         {/* ── Right: Properties Panel ──────────────────────────── */}
-        <div className={`shrink-0 border-l border-white/[0.06] bg-[#060a14] flex flex-col transition-all duration-200 overflow-hidden ${
-          selectedItem ? 'w-64 opacity-100' : 'w-0 opacity-0 border-l-0'
-        }`}>
-          {selectedItem && (() => {
-            const def = allPrefabsMap.get(selectedItem.prefabId);
-            return (
-              <>
-                <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-                  <h2 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-400">
-                    PROPERTIES
-                  </h2>
-                  <button type="button" onClick={() => setSelectedId(null)}
-                    className="rounded p-1 text-zinc-600 hover:bg-white/[0.06] hover:text-zinc-400 transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {/* Name */}
-                  <div>
-                    <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-1">Name</p>
-                    <p className="font-mono text-xs text-zinc-200">{def?.name ?? selectedItem.prefabId}</p>
-                    {def && <p className="font-mono text-[9px] text-zinc-600 mt-0.5">{def.category} · {def.gridSize[0]}x{def.gridSize[1]}</p>}
+        <div
+          className={`shrink-0 border-l border-white/[0.06] bg-[#060a14] flex flex-col transition-all duration-200 overflow-hidden ${
+            selectedItem ? 'w-64 opacity-100' : 'w-0 opacity-0 border-l-0'
+          }`}
+        >
+          {selectedItem &&
+            (() => {
+              const def = allPrefabsMap.get(selectedItem.prefabId);
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+                    <h2 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-400">
+                      PROPERTIES
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="rounded p-1 text-zinc-600 hover:bg-white/[0.06] hover:text-zinc-400 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {/* Name */}
+                    <div>
+                      <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-1">
+                        Name
+                      </p>
+                      <p className="font-mono text-xs text-zinc-200">
+                        {def?.name ?? selectedItem.prefabId}
+                      </p>
+                      {def && (
+                        <p className="font-mono text-[9px] text-zinc-600 mt-0.5">
+                          {def.category} · {def.gridSize[0]}x{def.gridSize[1]}
+                        </p>
+                      )}
+                    </div>
 
-                  {/* Position */}
-                  <div>
-                    <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-2">Position</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="font-mono text-[8px] text-zinc-600">X</label>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <button type="button" onClick={() => handleMoveSelected(-1, 0)}
-                            className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300">
-                            <Minus className="h-2.5 w-2.5" />
-                          </button>
-                          <span className="flex-1 text-center font-mono text-[10px] text-zinc-300">{selectedItem.x}</span>
-                          <button type="button" onClick={() => handleMoveSelected(1, 0)}
-                            className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300">
-                            <Plus className="h-2.5 w-2.5" />
-                          </button>
+                    {/* Position */}
+                    <div>
+                      <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-2">
+                        Position
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-mono text-[8px] text-zinc-600">X</span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSelected(-1, 0)}
+                              className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300"
+                            >
+                              <Minus className="h-2.5 w-2.5" />
+                            </button>
+                            <span className="flex-1 text-center font-mono text-[10px] text-zinc-300">
+                              {selectedItem.x}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSelected(1, 0)}
+                              className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300"
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="font-mono text-[8px] text-zinc-600">Y</label>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <button type="button" onClick={() => handleMoveSelected(0, -1)}
-                            className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300">
-                            <Minus className="h-2.5 w-2.5" />
-                          </button>
-                          <span className="flex-1 text-center font-mono text-[10px] text-zinc-300">{selectedItem.y}</span>
-                          <button type="button" onClick={() => handleMoveSelected(0, 1)}
-                            className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300">
-                            <Plus className="h-2.5 w-2.5" />
-                          </button>
+                        <div>
+                          <span className="font-mono text-[8px] text-zinc-600">Y</span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSelected(0, -1)}
+                              className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300"
+                            >
+                              <Minus className="h-2.5 w-2.5" />
+                            </button>
+                            <span className="flex-1 text-center font-mono text-[10px] text-zinc-300">
+                              {selectedItem.y}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSelected(0, 1)}
+                              className="rounded bg-white/[0.06] p-1 text-zinc-500 hover:bg-white/[0.1] hover:text-zinc-300"
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Rotation */}
-                  <div>
-                    <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-2">Rotation</p>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => handleRotateSelected(-90)}
-                        className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 transition-colors">
-                        -90°
-                      </button>
-                      <span className="flex-1 text-center font-mono text-xs text-zinc-300">{selectedItem.rotation}°</span>
-                      <button type="button" onClick={() => handleRotateSelected(90)}
-                        className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 transition-colors">
-                        +90°
-                      </button>
+                    {/* Rotation */}
+                    <div>
+                      <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-2">
+                        Rotation
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRotateSelected(-90)}
+                          className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 transition-colors"
+                        >
+                          -90°
+                        </button>
+                        <span className="flex-1 text-center font-mono text-xs text-zinc-300">
+                          {selectedItem.rotation}°
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRotateSelected(90)}
+                          className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 transition-colors"
+                        >
+                          +90°
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Zone */}
+                    <div>
+                      <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-1">
+                        Zone
+                      </p>
+                      <p className="font-mono text-[10px] text-zinc-400">
+                        {ZONES.find((z) => z.id === selectedItem.zoneId)?.label ??
+                          selectedItem.zoneId}
+                      </p>
+                    </div>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelected}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 font-mono text-[10px] text-red-400 hover:bg-red-600/20 transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Delete Prefab
+                    </button>
                   </div>
 
-                  {/* Zone */}
-                  <div>
-                    <p className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider mb-1">Zone</p>
-                    <p className="font-mono text-[10px] text-zinc-400">{ZONES.find(z => z.id === selectedItem.zoneId)?.label ?? selectedItem.zoneId}</p>
+                  {/* Keyboard hints */}
+                  <div className="border-t border-white/[0.06] px-4 py-2">
+                    <p className="font-mono text-[8px] text-zinc-700">
+                      R: Rotate · Del: Delete · Esc: Deselect
+                    </p>
                   </div>
-
-                  {/* Delete */}
-                  <button type="button" onClick={handleDeleteSelected}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 font-mono text-[10px] text-red-400 hover:bg-red-600/20 transition-colors">
-                    <Trash2 className="h-3 w-3" />
-                    Delete Prefab
-                  </button>
-                </div>
-
-                {/* Keyboard hints */}
-                <div className="border-t border-white/[0.06] px-4 py-2">
-                  <p className="font-mono text-[8px] text-zinc-700">R: Rotate · Del: Delete · Esc: Deselect</p>
-                </div>
-              </>
-            );
-          })()}
+                </>
+              );
+            })()}
         </div>
       </div>
 

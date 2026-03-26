@@ -5,18 +5,18 @@
  * When an instance is selected: prefab metadata, position, rotation, grid size, delete.
  */
 
-import { useMemo } from 'react';
-import { RotateCw, Trash2, BoxSelect } from 'lucide-react';
 import { getBuiltinPrefab } from '@aics/renderer';
+import { BoxSelect, RotateCw, Trash2 } from 'lucide-react';
+import { useMemo } from 'react';
 import { useStudioStore } from './StudioState.js';
 import {
-  STUDIO_COLORS,
-  SP,
   FONT,
   LAYOUT,
+  SP,
+  STUDIO_COLORS,
+  labelStyle,
   panelStyle,
   sectionHeaderStyle,
-  labelStyle,
   valueStyle,
 } from './studio-tokens.js';
 
@@ -74,7 +74,7 @@ export function StudioProperties() {
 
   const definition = useMemo(
     () => (instance ? getBuiltinPrefab(instance.prefabId) : undefined),
-    [instance?.prefabId],
+    [instance],
   );
 
   return (
@@ -109,85 +109,96 @@ export function StudioProperties() {
       )}
 
       {/* Selected instance details */}
-      {instance && definition && (() => {
-        const [x, , z] = instance.position;
-        const gridLabel = `${definition.gridSize[0]}\u00D7${definition.gridSize[1]}`;
+      {instance &&
+        definition &&
+        (() => {
+          const [x, , z] = instance.position;
+          const gridLabel = `${definition.gridSize[0]}\u00D7${definition.gridSize[1]}`;
 
-        return (
-          <>
-            {/* Name + category */}
-            <div style={SECTION_STYLE}>
-              <div style={labelStyle()}>Prefab</div>
-              <div style={valueStyle()}>{definition.name}</div>
-              <div
-                style={{
-                  fontSize: FONT.sm,
-                  color: STUDIO_COLORS.textTertiary,
-                  marginTop: SP.xs / 2,
-                  textTransform: 'capitalize',
-                }}
-              >
-                {definition.category}
-              </div>
-            </div>
-
-            {/* Position */}
-            <div style={SECTION_STYLE}>
-              <div style={labelStyle()}>Position</div>
-              <div style={ROW_STYLE}>
-                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}>X</span>
-                <span style={{ ...valueStyle() }}>
-                  {x.toFixed(1)}
-                </span>
-                <span style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.catWorkspace, marginLeft: SP.md }}>Z</span>
-                <span style={{ ...valueStyle() }}>
-                  {z.toFixed(1)}
-                </span>
-              </div>
-            </div>
-
-            {/* Rotation */}
-            <div style={SECTION_STYLE}>
-              <div style={labelStyle()}>Rotation</div>
-              <div style={ROW_STYLE}>
-                <span style={{ ...valueStyle() }}>
-                  {instance.rotation}&deg;
-                </span>
-                <button
-                  onClick={rotateSelected}
-                  aria-label="Rotate 90 degrees clockwise"
-                  title="Rotate +90\u00B0"
-                  style={SMALL_BTN}
+          return (
+            <>
+              {/* Name + category */}
+              <div style={SECTION_STYLE}>
+                <div style={labelStyle()}>Prefab</div>
+                <div style={valueStyle()}>{definition.name}</div>
+                <div
+                  style={{
+                    fontSize: FONT.sm,
+                    color: STUDIO_COLORS.textTertiary,
+                    marginTop: SP.xs / 2,
+                    textTransform: 'capitalize',
+                  }}
                 >
-                  <RotateCw size={12} />
-                  <span>+90\u00B0</span>
+                  {definition.category}
+                </div>
+              </div>
+
+              {/* Position */}
+              <div style={SECTION_STYLE}>
+                <div style={labelStyle()}>Position</div>
+                <div style={ROW_STYLE}>
+                  <span
+                    style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}
+                  >
+                    X
+                  </span>
+                  <span style={{ ...valueStyle() }}>{x.toFixed(1)}</span>
+                  <span
+                    style={{
+                      fontSize: FONT.sm,
+                      fontWeight: FONT.bold,
+                      color: STUDIO_COLORS.catWorkspace,
+                      marginLeft: SP.md,
+                    }}
+                  >
+                    Z
+                  </span>
+                  <span style={{ ...valueStyle() }}>{z.toFixed(1)}</span>
+                </div>
+              </div>
+
+              {/* Rotation */}
+              <div style={SECTION_STYLE}>
+                <div style={labelStyle()}>Rotation</div>
+                <div style={ROW_STYLE}>
+                  <span style={{ ...valueStyle() }}>{instance.rotation}&deg;</span>
+                  <button
+                    type="button"
+                    onClick={rotateSelected}
+                    aria-label="Rotate 90 degrees clockwise"
+                    title="Rotate +90\u00B0"
+                    style={SMALL_BTN}
+                  >
+                    <RotateCw size={12} />
+                    <span>+90\u00B0</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid size */}
+              <div style={SECTION_STYLE}>
+                <div style={labelStyle()}>Grid Size</div>
+                <div style={valueStyle()}>{gridLabel}</div>
+              </div>
+
+              {/* Spacer */}
+              <div style={{ flex: 1 }} />
+
+              {/* Delete */}
+              <div style={{ padding: `${SP.md}px ${SP.lg}px` }}>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  aria-label="Delete selected instance"
+                  style={DELETE_BTN}
+                >
+                  <Trash2 size={12} />
+                  <span>Delete Instance</span>
                 </button>
               </div>
-            </div>
-
-            {/* Grid size */}
-            <div style={SECTION_STYLE}>
-              <div style={labelStyle()}>Grid Size</div>
-              <div style={valueStyle()}>{gridLabel}</div>
-            </div>
-
-            {/* Spacer */}
-            <div style={{ flex: 1 }} />
-
-            {/* Delete */}
-            <div style={{ padding: `${SP.md}px ${SP.lg}px` }}>
-              <button
-                onClick={deleteSelected}
-                aria-label="Delete selected instance"
-                style={DELETE_BTN}
-              >
-                <Trash2 size={12} />
-                <span>Delete Instance</span>
-              </button>
-            </div>
-          </>
-        );
-      })()}
+            </>
+          );
+        })()}
     </div>
   );
 }

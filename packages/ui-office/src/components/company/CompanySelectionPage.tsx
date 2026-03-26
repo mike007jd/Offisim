@@ -1,10 +1,6 @@
 import { Plus } from 'lucide-react';
+import { FONT, SP, STUDIO_COLORS } from '../studio/studio-tokens.js';
 import { useCompany } from './CompanyContext.js';
-import {
-  STUDIO_COLORS,
-  SP,
-  FONT,
-} from '../studio/studio-tokens.js';
 
 interface CompanySelectionPageProps {
   onSelectCompany: (companyId: string) => void;
@@ -24,24 +20,46 @@ export function CompanySelectionPage({ onSelectCompany, onCreateNew }: CompanySe
   const { companies } = useCompany();
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: STUDIO_COLORS.bg, fontFamily: FONT.family }}>
+    <div
+      style={{
+        display: 'flex',
+        height: '100vh',
+        background: STUDIO_COLORS.bg,
+        fontFamily: FONT.family,
+      }}
+    >
       {/* Left icon bar */}
-      <div style={{
-        width: 64, background: STUDIO_COLORS.surface0, borderRight: `1px solid ${STUDIO_COLORS.border}`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: `${SP.lg}px 0`, gap: SP.md,
-      }}>
+      <div
+        style={{
+          width: 64,
+          background: STUDIO_COLORS.surface0,
+          borderRight: `1px solid ${STUDIO_COLORS.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: `${SP.lg}px 0`,
+          gap: SP.md,
+        }}
+      >
         {companies.map((c, i) => (
           <button
             key={c.company_id}
+            type="button"
             onClick={() => onSelectCompany(c.company_id)}
             aria-label={`Open company: ${c.name}`}
             style={{
-              width: 44, height: 44,
+              width: 44,
+              height: 44,
               background: ICON_COLORS[i % ICON_COLORS.length],
-              borderRadius: SP.md, border: 'none', cursor: 'pointer',
-              color: 'white', fontWeight: FONT.bold, fontSize: FONT.xxl,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: SP.md,
+              border: 'none',
+              cursor: 'pointer',
+              color: 'white',
+              fontWeight: FONT.bold,
+              fontSize: FONT.xxl,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               fontFamily: FONT.family,
             }}
             title={c.name}
@@ -50,14 +68,21 @@ export function CompanySelectionPage({ onSelectCompany, onCreateNew }: CompanySe
           </button>
         ))}
         <button
+          type="button"
           onClick={onCreateNew}
           aria-label="Create new company"
           style={{
-            width: 44, height: 44,
-            background: 'transparent', border: `2px dashed ${STUDIO_COLORS.border}`,
-            borderRadius: SP.md, cursor: 'pointer',
-            color: STUDIO_COLORS.textTertiary, fontSize: FONT.xl,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 44,
+            height: 44,
+            background: 'transparent',
+            border: `2px dashed ${STUDIO_COLORS.border}`,
+            borderRadius: SP.md,
+            cursor: 'pointer',
+            color: STUDIO_COLORS.textTertiary,
+            fontSize: FONT.xl,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
           title="Create new company"
         >
@@ -66,31 +91,42 @@ export function CompanySelectionPage({ onSelectCompany, onCreateNew }: CompanySe
       </div>
 
       {/* Main area */}
-      <div style={{
-        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', gap: SP.lg,
-      }}>
-        <h1 style={{
-          color: STUDIO_COLORS.textPrimary,
-          fontSize: SP.xxl,
-          fontWeight: FONT.semibold,
-          fontFamily: FONT.family,
-          margin: 0,
-        }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: SP.lg,
+        }}
+      >
+        <h1
+          style={{
+            color: STUDIO_COLORS.textPrimary,
+            fontSize: SP.xxl,
+            fontWeight: FONT.semibold,
+            fontFamily: FONT.family,
+            margin: 0,
+          }}
+        >
           OFFISIM
         </h1>
-        <p style={{
-          color: STUDIO_COLORS.textTertiary,
-          fontSize: FONT.xl,
-          fontFamily: FONT.family,
-          margin: 0,
-        }}>
+        <p
+          style={{
+            color: STUDIO_COLORS.textTertiary,
+            fontSize: FONT.xl,
+            fontFamily: FONT.family,
+            margin: 0,
+          }}
+        >
           {companies.length === 0
             ? 'No companies yet. Create your first one!'
             : 'Select a company to enter, or create a new one.'}
         </p>
         {companies.length === 0 && (
           <button
+            type="button"
             onClick={onCreateNew}
             aria-label="Create your first company"
             style={{

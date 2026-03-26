@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { cn } from '@aics/ui-core';
+import { useState } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,24 +74,27 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
       </div>
 
       {/* Tooltip */}
-      {hoveredIndex !== null && (() => {
-        const hovered = steps.find((s) => s.index === hoveredIndex);
-        if (!hovered) return null;
-        const totalSoFar = steps
-          .slice(0, hoveredIndex)
-          .reduce((sum, s) => sum + Math.max(s.taskCount, 1), 0);
-        const leftPct = (totalSoFar / totalTasks) * 100;
-        return (
-          <div
-            className="pointer-events-none absolute top-full z-50 mt-1 max-w-[160px] rounded bg-ocean-deep px-2 py-1 text-[10px] text-pearl shadow-lg"
-            style={{ left: `${leftPct}%` }}
-          >
-            <div className="font-medium">Step {hovered.index + 1}</div>
-            <div className="text-shell">{hovered.description}</div>
-            <div className="text-koi">{hovered.taskCount} task{hovered.taskCount !== 1 ? 's' : ''}</div>
-          </div>
-        );
-      })()}
+      {hoveredIndex !== null &&
+        (() => {
+          const hovered = steps.find((s) => s.index === hoveredIndex);
+          if (!hovered) return null;
+          const totalSoFar = steps
+            .slice(0, hoveredIndex)
+            .reduce((sum, s) => sum + Math.max(s.taskCount, 1), 0);
+          const leftPct = (totalSoFar / totalTasks) * 100;
+          return (
+            <div
+              className="pointer-events-none absolute top-full z-50 mt-1 max-w-[160px] rounded bg-ocean-deep px-2 py-1 text-[10px] text-pearl shadow-lg"
+              style={{ left: `${leftPct}%` }}
+            >
+              <div className="font-medium">Step {hovered.index + 1}</div>
+              <div className="text-shell">{hovered.description}</div>
+              <div className="text-koi">
+                {hovered.taskCount} task{hovered.taskCount !== 1 ? 's' : ''}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

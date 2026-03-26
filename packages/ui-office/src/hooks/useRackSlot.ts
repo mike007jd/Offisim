@@ -29,7 +29,10 @@ export function useRackSlot(): UseRackSlotReturn {
   }, [repos, eventBus]);
 
   const refresh = useCallback(async () => {
-    if (!repos || !activeCompanyId) { setLoading(false); return; }
+    if (!repos || !activeCompanyId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const service = getService();
@@ -101,5 +104,15 @@ export function useRackSlot(): UseRackSlotReturn {
     [getService, refresh],
   );
 
-  return { racks, loading, createRack, deleteRack, bindRack, unbindRack, addSlot, removeSlot, refresh };
+  return {
+    racks,
+    loading,
+    createRack,
+    deleteRack,
+    bindRack,
+    unbindRack,
+    addSlot,
+    removeSlot,
+    refresh,
+  };
 }

@@ -79,10 +79,7 @@ export function PerformanceHUD() {
   if (!visible) return null;
 
   return (
-    <div
-      className="absolute top-2 left-2 z-40 pointer-events-none select-none"
-      aria-hidden="true"
-    >
+    <div className="absolute top-2 left-2 z-40 pointer-events-none select-none" aria-hidden="true">
       <div
         style={{ fontSize: 10, lineHeight: '1.6' }}
         className="bg-black/70 text-green-400 font-mono px-2 py-1 rounded"

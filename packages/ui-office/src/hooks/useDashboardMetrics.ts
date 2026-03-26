@@ -156,9 +156,10 @@ export function useDashboardMetrics(): DashboardMetrics {
       // Start elapsed timer
       timerRef.current = setInterval(() => {
         if (startTimeRef.current != null) {
+          const startTime = startTimeRef.current;
           setMetrics((prev) => ({
             ...prev,
-            elapsedMs: Date.now() - startTimeRef.current!,
+            elapsedMs: Date.now() - startTime,
           }));
         }
       }, 1000);
@@ -221,8 +222,8 @@ export function useDashboardMetrics(): DashboardMetrics {
           // Prune oldest entries if map grows too large (long-running session defense)
           if (costByTaskRef.current.size > 5000) {
             const keys = Array.from(costByTaskRef.current.keys());
-            for (let i = 0; i < keys.length - 2500; i++) {
-              costByTaskRef.current.delete(keys[i]!);
+            for (const key of keys.slice(0, keys.length - 2500)) {
+              costByTaskRef.current.delete(key);
             }
           }
         }
@@ -340,7 +341,7 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubEmployee();
       unsubBoss();
     };
-  }, [eventBus, updateMetrics, activeCompanyId]);
+  }, [eventBus, updateMetrics]);
 
   const getTaskCost = useCallback((taskRunId: string): number => {
     return costByTaskRef.current.get(taskRunId) ?? 0;

@@ -1,20 +1,13 @@
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@aics/ui-core';
-import {
-  AlertTriangle,
-  Bell,
-  FileOutput,
-  Trash2,
-  X,
-  XCircle,
-} from 'lucide-react';
-import { useCallback, useEffect, useRef, type CSSProperties } from 'react';
+import { AlertTriangle, Bell, FileOutput, Trash2, X, XCircle } from 'lucide-react';
+import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
 import { useCostDashboard } from '../../hooks/useCostDashboard';
 import { useDeliverables } from '../../hooks/useDeliverables';
-import { useErrorTracking, type TrackedError } from '../../hooks/useErrorTracking';
-import { useNotifications, type Notification } from '../../hooks/useNotifications';
+import { type TrackedError, useErrorTracking } from '../../hooks/useErrorTracking';
+import { type Notification, useNotifications } from '../../hooks/useNotifications';
 import { useTaskQueue } from '../../hooks/useTaskQueue';
-import { useAgentStates } from '../../runtime/use-agent-states';
 import { formatTimestamp, truncate } from '../../lib/format-time';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import { CompanyStatusCard } from './CompanyStatusCard';
 import { CostByModelCard } from './CostByModelCard';
 import { CostOverviewCard } from './CostOverviewCard';
@@ -90,23 +83,31 @@ function NotificationsCard({
               {notifications.slice(0, 20).map((n) => (
                 <div
                   key={n.notificationId}
-                  className={`flex items-start gap-2 rounded p-1.5 cursor-pointer transition-colors hover:bg-slate-800/30 ${
+                  className={`flex items-start gap-2 rounded p-1.5 transition-colors hover:bg-slate-800/30 ${
                     n.read ? 'opacity-50' : ''
                   }`}
-                  onClick={() => !n.read && onMarkRead(n.notificationId)}
                 >
-                  <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${(LEVEL_COLORS[n.level] ?? 'text-blue-400').replace('text-', 'bg-')}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-400 leading-tight truncate">{n.title}</p>
-                    <p className="text-[10px] text-slate-400/60 leading-tight mt-0.5 line-clamp-3">
-                      {n.message}
-                    </p>
-                  </div>
-                  <span className="text-[9px] text-slate-400/40 shrink-0">
-                    {formatTimestamp(n.timestamp)}
-                  </span>
+                  <button
+                    type="button"
+                    className="flex flex-1 items-start gap-2 rounded border-0 bg-transparent p-0 text-left appearance-none cursor-pointer"
+                    onClick={() => !n.read && onMarkRead(n.notificationId)}
+                  >
+                    <div
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${(LEVEL_COLORS[n.level] ?? 'text-blue-400').replace('text-', 'bg-')}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-400 leading-tight truncate">{n.title}</p>
+                      <p className="text-[10px] text-slate-400/60 leading-tight mt-0.5 line-clamp-3">
+                        {n.message}
+                      </p>
+                    </div>
+                    <span className="text-[9px] text-slate-400/40 shrink-0">
+                      {formatTimestamp(n.timestamp)}
+                    </span>
+                  </button>
                   {n.dismissable && (
                     <button
+                      type="button"
                       className="shrink-0 text-slate-400/40 hover:text-slate-400"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -212,14 +213,9 @@ function OutputsCard() {
                 .reverse()
                 .slice(0, 10)
                 .map((d) => (
-                  <div
-                    key={d.id}
-                    className="rounded border border-slate-700 bg-slate-800/10 p-2"
-                  >
+                  <div key={d.id} className="rounded border border-slate-700 bg-slate-800/10 p-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-100 truncate">
-                        {d.title}
-                      </span>
+                      <span className="text-xs text-slate-100 truncate">{d.title}</span>
                       <span className="text-[9px] text-slate-400/40 shrink-0 ml-2">
                         {formatTimestamp(d.createdAt)}
                       </span>
@@ -311,12 +307,16 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
       className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
       aria-hidden={!open}
     >
-      <div
-        className="absolute inset-x-0 top-12 bottom-0 overflow-y-auto"
-        style={panelStyle}
-      >
+      <div className="absolute inset-x-0 top-12 bottom-0 overflow-y-auto" style={panelStyle}>
         <div className="mx-auto max-w-7xl px-4 py-6">
           {/* Header row */}
           <div className="flex items-center justify-between mb-6">

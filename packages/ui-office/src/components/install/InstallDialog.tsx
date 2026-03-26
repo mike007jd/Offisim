@@ -1,4 +1,11 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@aics/ui-core';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@aics/ui-core';
 /**
  * InstallDialog — shadcn Dialog wrapper that renders different content
  * based on the current install flow step.

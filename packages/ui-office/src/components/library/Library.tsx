@@ -4,14 +4,8 @@ import { useRef, useState } from 'react';
 import { useLibrary } from '../../hooks/useLibrary.js';
 
 export function Library() {
-  const {
-    documents,
-    loading,
-    searchQuery,
-    setSearchQuery,
-    uploadDocument,
-    deleteDocument,
-  } = useLibrary();
+  const { documents, loading, searchQuery, setSearchQuery, uploadDocument, deleteDocument } =
+    useLibrary();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 

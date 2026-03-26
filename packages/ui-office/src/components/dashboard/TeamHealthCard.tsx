@@ -1,9 +1,9 @@
 import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@aics/ui-core';
 import { HeartPulse } from 'lucide-react';
-import type { AgentState } from '../../runtime/use-agent-states';
-import { DicebearAvatar } from '../shared/DicebearAvatar';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
+import type { AgentState } from '../../runtime/use-agent-states';
+import { DicebearAvatar } from '../shared/DicebearAvatar';
 
 // ---------------------------------------------------------------------------
 // Props

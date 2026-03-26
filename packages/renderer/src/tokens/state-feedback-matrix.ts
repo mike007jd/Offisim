@@ -38,21 +38,41 @@ export const EMPLOYEE_STATE_SIGNALS: Record<EmployeeState, StateSignal[]> = {
   idle: [{ type: 'ring_color', priority: 'ambient', durationMs: 0 }],
   assigned: [
     { type: 'ring_color', priority: 'low', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'low', durationMs: 0, config: { amplitude: 1.03, period: 2000 } },
+    {
+      type: 'ring_pulse',
+      priority: 'low',
+      durationMs: 0,
+      config: { amplitude: 1.03, period: 2000 },
+    },
   ],
   thinking: [
     { type: 'ring_color', priority: 'medium', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'medium', durationMs: 0, config: { amplitude: 1.01, period: 1500 } },
+    {
+      type: 'ring_pulse',
+      priority: 'medium',
+      durationMs: 0,
+      config: { amplitude: 1.01, period: 1500 },
+    },
     { type: 'badge', priority: 'medium', durationMs: 0, config: { icon: 'thought' } },
   ],
   searching: [
     { type: 'ring_color', priority: 'medium', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'medium', durationMs: 0, config: { amplitude: 1.05, period: 300 } },
+    {
+      type: 'ring_pulse',
+      priority: 'medium',
+      durationMs: 0,
+      config: { amplitude: 1.05, period: 300 },
+    },
     { type: 'badge', priority: 'medium', durationMs: 0, config: { icon: 'search' } },
   ],
   executing: [
     { type: 'ring_color', priority: 'high', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'high', durationMs: 0, config: { amplitude: 1.02, period: 800 } },
+    {
+      type: 'ring_pulse',
+      priority: 'high',
+      durationMs: 0,
+      config: { amplitude: 1.02, period: 800 },
+    },
     { type: 'badge', priority: 'high', durationMs: 0, config: { icon: 'bolt' } },
   ],
   meeting: [
@@ -62,7 +82,12 @@ export const EMPLOYEE_STATE_SIGNALS: Record<EmployeeState, StateSignal[]> = {
   ],
   blocked: [
     { type: 'ring_color', priority: 'critical', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'critical', durationMs: 0, config: { amplitude: 1.04, period: 600 } },
+    {
+      type: 'ring_pulse',
+      priority: 'critical',
+      durationMs: 0,
+      config: { amplitude: 1.04, period: 600 },
+    },
     { type: 'badge', priority: 'critical', durationMs: 0, config: { icon: 'alert' } },
   ],
   waiting: [
@@ -71,7 +96,12 @@ export const EMPLOYEE_STATE_SIGNALS: Record<EmployeeState, StateSignal[]> = {
   ],
   reporting: [
     { type: 'ring_color', priority: 'medium', durationMs: 0 },
-    { type: 'ring_pulse', priority: 'medium', durationMs: 0, config: { amplitude: 1.02, period: 1200 } },
+    {
+      type: 'ring_pulse',
+      priority: 'medium',
+      durationMs: 0,
+      config: { amplitude: 1.02, period: 1200 },
+    },
     { type: 'badge', priority: 'medium', durationMs: 0, config: { icon: 'document' } },
   ],
   success: [
@@ -103,7 +133,10 @@ export function resolveCompetingSignals(signals: StateSignal[]): StateSignal[] {
   const byType = new Map<SceneSignalType, StateSignal>();
   for (const signal of signals) {
     const existing = byType.get(signal.type);
-    if (!existing || SIGNAL_PRIORITY_ORDER[signal.priority] > SIGNAL_PRIORITY_ORDER[existing.priority]) {
+    if (
+      !existing ||
+      SIGNAL_PRIORITY_ORDER[signal.priority] > SIGNAL_PRIORITY_ORDER[existing.priority]
+    ) {
       byType.set(signal.type, signal);
     }
   }

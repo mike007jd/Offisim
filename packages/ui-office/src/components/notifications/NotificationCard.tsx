@@ -46,25 +46,31 @@ export function NotificationCard({
 
   return (
     <div
-      className={`flex items-start gap-2 p-2 border-b border-ocean-light/50 cursor-pointer transition-colors hover:bg-ocean-deep/50 ${
+      className={`flex items-start gap-2 p-2 border-b border-ocean-light/50 transition-colors hover:bg-ocean-deep/50 ${
         notification.read ? 'opacity-60' : ''
       }`}
-      onClick={handleClick}
     >
-      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${color}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-pixel-body text-shell leading-tight truncate">
-          {notification.title}
-        </p>
-        <p className="text-[10px] text-shell/60 leading-tight mt-0.5 line-clamp-2">
-          {notification.message}
-        </p>
-        <span className="text-[9px] text-shell/40 mt-0.5 block">
-          {formatTimestamp(notification.timestamp)}
-        </span>
-      </div>
+      <button
+        type="button"
+        className="flex flex-1 items-start gap-2 border-0 bg-transparent p-0 text-left appearance-none cursor-pointer"
+        onClick={handleClick}
+      >
+        <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${color}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-pixel-body text-shell leading-tight truncate">
+            {notification.title}
+          </p>
+          <p className="text-[10px] text-shell/60 leading-tight mt-0.5 line-clamp-2">
+            {notification.message}
+          </p>
+          <span className="text-[9px] text-shell/40 mt-0.5 block">
+            {formatTimestamp(notification.timestamp)}
+          </span>
+        </div>
+      </button>
       {notification.dismissable && (
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           className="h-4 w-4 shrink-0"

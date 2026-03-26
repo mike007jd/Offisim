@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import type { SemanticCategory } from '@aics/shared-types';
+import { describe, expect, it } from 'vitest';
 import {
-  getBuiltinPrefab,
   getAllBuiltinPrefabs,
+  getBuiltinPrefab,
   getBuiltinPrefabsByCategory,
 } from '../prefab/builtin-catalog.js';
 import { getDefaultZoneLayout } from '../prefab/default-zone-layouts.js';
@@ -42,30 +42,40 @@ describe('builtin-catalog completeness', () => {
 
 // ── Specific prefab assertions ──────────────────────────────────
 
+function requireBuiltinPrefab(prefabId: string) {
+  const prefab = getBuiltinPrefab(prefabId);
+  expect(prefab, `missing builtin prefab "${prefabId}"`).toBeDefined();
+  if (!prefab) {
+    throw new Error(`missing builtin prefab "${prefabId}"`);
+  }
+
+  return prefab;
+}
+
 describe('workstation-standard', () => {
-  const ws = getBuiltinPrefab('workstation-standard');
+  const ws = requireBuiltinPrefab('workstation-standard');
 
   it('exists', () => {
     expect(ws).toBeDefined();
   });
 
   it('is composite with 3 children', () => {
-    expect(ws!.composite).toBe(true);
-    expect(ws!.children).toHaveLength(3);
+    expect(ws?.composite).toBe(true);
+    expect(ws?.children).toHaveLength(3);
   });
 
   it('has category workspace', () => {
-    expect(ws!.category).toBe('workspace');
+    expect(ws?.category).toBe('workspace');
   });
 
   it('has agent-context binding slot (required)', () => {
-    expect(ws!.bindingSlots).toHaveLength(1);
-    expect(ws!.bindingSlots[0]!.type).toBe('agent-context');
-    expect(ws!.bindingSlots[0]!.required).toBe(true);
+    expect(ws?.bindingSlots).toHaveLength(1);
+    expect(ws?.bindingSlots[0]?.type).toBe('agent-context');
+    expect(ws?.bindingSlots[0]?.required).toBe(true);
   });
 
   it('children reference desk, monitor, and chair templates', () => {
-    const templates = ws!.children!.map((c) => c.render2D.template);
+    const templates = ws?.children?.map((c) => c.render2D.template);
     expect(templates).toContain('desk');
     expect(templates).toContain('monitor');
     expect(templates).toContain('chair');
@@ -73,48 +83,48 @@ describe('workstation-standard', () => {
 });
 
 describe('server-rack-2u', () => {
-  const sr = getBuiltinPrefab('server-rack-2u');
+  const sr = requireBuiltinPrefab('server-rack-2u');
 
   it('exists', () => {
     expect(sr).toBeDefined();
   });
 
   it('is atomic (not composite) with render2D', () => {
-    expect(sr!.composite).toBe(false);
-    expect(sr!.render2D).toBeDefined();
-    expect(sr!.children).toBeUndefined();
+    expect(sr?.composite).toBe(false);
+    expect(sr?.render2D).toBeDefined();
+    expect(sr?.children).toBeUndefined();
   });
 
   it('has rack-provider binding (required)', () => {
-    expect(sr!.bindingSlots).toHaveLength(1);
-    expect(sr!.bindingSlots[0]!.type).toBe('rack-provider');
-    expect(sr!.bindingSlots[0]!.required).toBe(true);
+    expect(sr?.bindingSlots).toHaveLength(1);
+    expect(sr?.bindingSlots[0]?.type).toBe('rack-provider');
+    expect(sr?.bindingSlots[0]?.required).toBe(true);
   });
 
   it('has category compute', () => {
-    expect(sr!.category).toBe('compute');
+    expect(sr?.category).toBe('compute');
   });
 });
 
 describe('plant-small', () => {
-  const plant = getBuiltinPrefab('plant-small');
+  const plant = requireBuiltinPrefab('plant-small');
 
   it('exists', () => {
     expect(plant).toBeDefined();
   });
 
   it('is decorative with no bindings', () => {
-    expect(plant!.category).toBe('decorative');
-    expect(plant!.bindingSlots).toHaveLength(0);
+    expect(plant?.category).toBe('decorative');
+    expect(plant?.bindingSlots).toHaveLength(0);
   });
 
   it('is atomic with render2D', () => {
-    expect(plant!.composite).toBe(false);
-    expect(plant!.render2D).toBeDefined();
+    expect(plant?.composite).toBe(false);
+    expect(plant?.render2D).toBeDefined();
   });
 
   it('has gridSize [1,1]', () => {
-    expect(plant!.gridSize).toEqual([1, 1]);
+    expect(plant?.gridSize).toEqual([1, 1]);
   });
 });
 
@@ -125,18 +135,12 @@ describe('composite/atomic invariant', () => {
     const composites = getAllBuiltinPrefabs().filter((p) => p.composite);
     expect(composites.length).toBeGreaterThan(0);
     for (const p of composites) {
+      expect(p.children, `composite prefab "${p.prefabId}" must have children`).toBeDefined();
       expect(
-        p.children,
-        `composite prefab "${p.prefabId}" must have children`,
-      ).toBeDefined();
-      expect(
-        p.children!.length,
+        p.children?.length,
         `composite prefab "${p.prefabId}" must have at least one child`,
       ).toBeGreaterThan(0);
-      expect(
-        p.render2D,
-        `composite prefab "${p.prefabId}" must not have render2D`,
-      ).toBeUndefined();
+      expect(p.render2D, `composite prefab "${p.prefabId}" must not have render2D`).toBeUndefined();
     }
   });
 
@@ -144,14 +148,8 @@ describe('composite/atomic invariant', () => {
     const atomics = getAllBuiltinPrefabs().filter((p) => !p.composite);
     expect(atomics.length).toBeGreaterThan(0);
     for (const p of atomics) {
-      expect(
-        p.render2D,
-        `atomic prefab "${p.prefabId}" must have render2D`,
-      ).toBeDefined();
-      expect(
-        p.children,
-        `atomic prefab "${p.prefabId}" must not have children`,
-      ).toBeUndefined();
+      expect(p.render2D, `atomic prefab "${p.prefabId}" must have render2D`).toBeDefined();
+      expect(p.children, `atomic prefab "${p.prefabId}" must not have children`).toBeUndefined();
     }
   });
 });
@@ -191,17 +189,17 @@ describe('getBuiltinPrefabsByCategory', () => {
 
 describe('immutability', () => {
   it('prefab objects are frozen', () => {
-    const ws = getBuiltinPrefab('workstation-standard')!;
+    const ws = requireBuiltinPrefab('workstation-standard');
     expect(Object.isFrozen(ws)).toBe(true);
   });
 
   it('gridSize tuple is frozen', () => {
-    const ws = getBuiltinPrefab('workstation-standard')!;
+    const ws = requireBuiltinPrefab('workstation-standard');
     expect(Object.isFrozen(ws.gridSize)).toBe(true);
   });
 
   it('bindingSlots array is frozen', () => {
-    const ws = getBuiltinPrefab('workstation-standard')!;
+    const ws = requireBuiltinPrefab('workstation-standard');
     expect(Object.isFrozen(ws.bindingSlots)).toBe(true);
   });
 });
@@ -317,7 +315,10 @@ describe('getDefaultZoneLayout', () => {
     ];
 
     it.each(zoneTypes)('zone "%s" (count=%s) only references catalog ids', (type, count) => {
-      const layout = getDefaultZoneLayout(type as Parameters<typeof getDefaultZoneLayout>[0], count);
+      const layout = getDefaultZoneLayout(
+        type as Parameters<typeof getDefaultZoneLayout>[0],
+        count,
+      );
       for (const placement of layout) {
         expect(
           getBuiltinPrefab(placement.prefabId),

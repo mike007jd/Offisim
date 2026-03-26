@@ -1,9 +1,15 @@
+import type { ProjectRow } from '@aics/shared-types';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ProjectRow } from '@aics/shared-types';
 import { ProjectListPanel } from '../../components/project/ProjectListPanel.js';
 
-function makeProject(overrides: Partial<ProjectRow> & { project_id: string; name: string; status: ProjectRow['status'] }): ProjectRow {
+function makeProject(
+  overrides: Partial<ProjectRow> & {
+    project_id: string;
+    name: string;
+    status: ProjectRow['status'];
+  },
+): ProjectRow {
   return {
     company_id: 'co-1',
     thread_id: null,
@@ -104,7 +110,7 @@ describe('ProjectListPanel', () => {
       />,
     );
     // Close button has an X icon — find the button near the header
-    const headerCloseBtn = screen.getByRole('button', { name: '' }); // lucide X has no text
+    const _headerCloseBtn = screen.getByRole('button', { name: '' }); // lucide X has no text
     // Find close button by being the only one in the header area (has X icon child)
     const allButtons = screen.getAllByRole('button');
     // The close button is right after "Projects" heading — we can click the SVG-containing button
@@ -117,7 +123,10 @@ describe('ProjectListPanel', () => {
       return svg && btn.textContent?.trim() === '';
     });
     expect(closeButton).toBeDefined();
-    await user.click(closeButton!);
+    if (!closeButton) {
+      throw new Error('Expected close button to exist');
+    }
+    await user.click(closeButton);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

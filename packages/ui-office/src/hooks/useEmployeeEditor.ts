@@ -60,7 +60,8 @@ const DEFAULT_FORM: EmployeeFormData = {
 function parsePersonaJson(
   raw: string | null,
 ): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions' | 'appearance'> {
-  if (!raw) return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
+  if (!raw)
+    return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
   try {
     const parsed = JSON.parse(raw);
     return {
@@ -188,6 +189,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     setIsSaving(true);
 
     try {
+      const companyId = activeCompanyId;
+      if (!companyId) return;
       const personaJson = JSON.stringify({
         expertise: formData.expertise,
         style: formData.style,
@@ -211,15 +214,16 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           config_json: configJson,
         };
         await repos.employees.update(employeeId, patch);
-        eventBus.emit(employeeUpdated(activeCompanyId!, employeeId, formData.name, formData.role_slug));
+        eventBus.emit(employeeUpdated(companyId, employeeId, formData.name, formData.role_slug));
 
         // Emit workstation change if it differs from original
-        if (formData.workstation_id !== originalData.workstation_id) {
+        const originalWorkstationId = originalData.workstation_id;
+        if (formData.workstation_id !== originalWorkstationId) {
           eventBus.emit(
             employeeWorkstationChanged(
-              activeCompanyId!,
+              companyId,
               employeeId,
-              originalData.workstation_id,
+              originalWorkstationId,
               formData.workstation_id,
             ),
           );
@@ -229,7 +233,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       } else {
         // Create new employee
         const result = await repos.employees.create({
-          company_id: activeCompanyId!,
+          company_id: companyId,
           name: formData.name,
           role_slug: formData.role_slug,
           source_asset_id: null,
@@ -238,7 +242,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
           config_json: configJson,
         });
         eventBus.emit(
-          employeeCreated(activeCompanyId!, result.employee_id, formData.name, formData.role_slug),
+          employeeCreated(companyId, result.employee_id, formData.name, formData.role_slug),
         );
         // Snapshot initial state as version 1
         await versionService?.createVersion(result.employee_id, 'create');
@@ -252,7 +256,15 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     } finally {
       setIsSaving(false);
     }
-  }, [repos, eventBus, versionService, employeeId, formData]);
+  }, [
+    repos,
+    eventBus,
+    versionService,
+    employeeId,
+    formData,
+    activeCompanyId,
+    originalData.workstation_id,
+  ]);
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -268,8 +280,10 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     if (!repos || !employeeId) return;
     setIsSaving(true);
     try {
+      const companyId = activeCompanyId;
+      if (!companyId) return;
       await repos.employees.delete(employeeId);
-      eventBus.emit(employeeDeleted(activeCompanyId!, employeeId));
+      eventBus.emit(employeeDeleted(companyId, employeeId));
       setIsOpen(false);
       setEmployeeId(null);
       setFormData(DEFAULT_FORM);
@@ -279,7 +293,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     } finally {
       setIsSaving(false);
     }
-  }, [repos, eventBus, employeeId]);
+  }, [repos, eventBus, employeeId, activeCompanyId]);
 
   const close = useCallback(() => {
     setIsOpen(false);

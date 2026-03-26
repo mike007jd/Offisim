@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import type { PrefabDefinition } from '@aics/shared-types';
+import { create } from 'zustand';
 
 export type StudioTool = 'select' | 'move' | 'rotate' | 'place';
 
@@ -13,8 +13,8 @@ export interface PlacedInstance {
 
 export interface PlotSize {
   name: string;
-  width: number;  // 3D X axis
-  depth: number;  // 3D Z axis
+  width: number; // 3D X axis
+  depth: number; // 3D Z axis
 }
 
 export const PLOT_SIZES: PlotSize[] = [
@@ -57,6 +57,12 @@ export interface StudioStore {
 /** Prefix for temporary Studio placement IDs (replaced with real UUIDs on save) */
 export const STUDIO_TEMP_PREFIX = 'sp-';
 
+const DEFAULT_PLOT_SIZE: PlotSize = {
+  name: '标准办公室',
+  width: 40,
+  depth: 30,
+};
+
 function generateId(): string {
   return `${STUDIO_TEMP_PREFIX}${crypto.randomUUID()}`;
 }
@@ -64,7 +70,7 @@ function generateId(): string {
 export const useStudioStore = create<StudioStore>((set, get) => ({
   companyId: null,
   tool: 'select',
-  plotSize: PLOT_SIZES[1]!, // 标准办公室
+  plotSize: DEFAULT_PLOT_SIZE,
   placingPrefab: null,
   ghostRotation: 0,
   selectedInstanceId: null,
@@ -77,7 +83,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     set({
       companyId,
       tool: 'select',
-      plotSize: PLOT_SIZES[1]!,
+      plotSize: DEFAULT_PLOT_SIZE,
       placingPrefab: null,
       ghostRotation: 0,
       selectedInstanceId: null,
@@ -95,13 +101,15 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
-  startPlacement: (def) => set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
+  startPlacement: (def) =>
+    set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
   cancelPlacement: () => set({ tool: 'select', placingPrefab: null, ghostRotation: 0 }),
 
   rotateGhost: () => {
     const ROTATIONS: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
     const idx = ROTATIONS.indexOf(get().ghostRotation);
-    set({ ghostRotation: ROTATIONS[(idx + 1) % 4]! });
+    const nextRotation = ROTATIONS[(idx + 1) % ROTATIONS.length];
+    set({ ghostRotation: nextRotation ?? 0 });
   },
 
   placeInstance: (position, zoneId) => {
@@ -128,25 +136,33 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
 
-  updatePosition: (id, position) => set((s) => {
-    const inst = s.instances.find((i) => i.id === id);
-    // Skip if position unchanged — avoids new array allocation every drag frame (PERF-3)
-    if (inst && inst.position[0] === position[0] && inst.position[1] === position[1] && inst.position[2] === position[2]) return s;
-    return {
-      instances: s.instances.map((i) => (i.id === id ? { ...i, position } : i)),
-      dirty: true,
-    };
-  }),
+  updatePosition: (id, position) =>
+    set((s) => {
+      const inst = s.instances.find((i) => i.id === id);
+      // Skip if position unchanged — avoids new array allocation every drag frame (PERF-3)
+      if (
+        inst &&
+        inst.position[0] === position[0] &&
+        inst.position[1] === position[1] &&
+        inst.position[2] === position[2]
+      )
+        return s;
+      return {
+        instances: s.instances.map((i) => (i.id === id ? { ...i, position } : i)),
+        dirty: true,
+      };
+    }),
 
-  updateRotation: (id, rotation) => set((s) => {
-    const inst = s.instances.find((i) => i.id === id);
-    // Skip if rotation unchanged — avoids new array allocation (PERF-3)
-    if (inst && inst.rotation === rotation) return s;
-    return {
-      instances: s.instances.map((i) => (i.id === id ? { ...i, rotation } : i)),
-      dirty: true,
-    };
-  }),
+  updateRotation: (id, rotation) =>
+    set((s) => {
+      const inst = s.instances.find((i) => i.id === id);
+      // Skip if rotation unchanged — avoids new array allocation (PERF-3)
+      if (inst && inst.rotation === rotation) return s;
+      return {
+        instances: s.instances.map((i) => (i.id === id ? { ...i, rotation } : i)),
+        dirty: true,
+      };
+    }),
 
   rotateSelected: () => {
     const { selectedInstanceId, instances } = get();
@@ -156,7 +172,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       instances: instances.map((i) => {
         if (i.id !== selectedInstanceId) return i;
         const idx = ROTATIONS.indexOf(i.rotation);
-        return { ...i, rotation: ROTATIONS[(idx + 1) % 4]! };
+        const nextRotation = ROTATIONS[(idx + 1) % ROTATIONS.length];
+        if (nextRotation === undefined) return i;
+        return {
+          ...i,
+          rotation: nextRotation,
+        };
       }),
       dirty: true,
     });

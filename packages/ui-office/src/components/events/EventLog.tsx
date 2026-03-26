@@ -1,12 +1,19 @@
-import { ScrollArea } from '@aics/ui-core';
 import type { RuntimeEvent } from '@aics/shared-types';
+import { ScrollArea } from '@aics/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { EventFilters } from './EventFilters';
 import type { EventFilterState } from './EventFilters';
 import { EventItem } from './EventItem';
 
-const EVENT_PREFIXES = ['graph.node.', 'plan.', 'task.', 'deliverable.', 'employee.', 'install.'] as const;
+const EVENT_PREFIXES = [
+  'graph.node.',
+  'plan.',
+  'task.',
+  'deliverable.',
+  'employee.',
+  'install.',
+] as const;
 const MAX_EVENTS = 200;
 
 /** Map a filter type label to the topic prefix(es) it covers */
@@ -25,18 +32,10 @@ export type EventDisplayLevel = 'Info' | 'Warning' | 'Error';
 
 export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
   const topic = event.type.toLowerCase();
-  if (
-    topic.includes('failed') ||
-    topic.includes('error') ||
-    topic.includes('rolled_back')
-  ) {
+  if (topic.includes('failed') || topic.includes('error') || topic.includes('rolled_back')) {
     return 'Error';
   }
-  if (
-    topic.includes('blocked') ||
-    topic.includes('warning') ||
-    topic.includes('rejected')
-  ) {
+  if (topic.includes('blocked') || topic.includes('warning') || topic.includes('rejected')) {
     return 'Warning';
   }
   return 'Info';
@@ -151,9 +150,7 @@ export function EventLog() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <h2 className="text-[8px] uppercase tracking-wider text-slate-400 p-3 pb-1">
-        Event Log
-      </h2>
+      <h2 className="text-[8px] uppercase tracking-wider text-slate-400 p-3 pb-1">Event Log</h2>
       <EventFilters onFilterChange={setFilters} />
       <ScrollArea className="flex-1">
         <div ref={scrollRef}>
@@ -169,8 +166,20 @@ export function EventLog() {
               return (
                 <div
                   key={`${event.timestamp}-${i}`}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
                   className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-blue-500/5' : ''}`}
                   onClick={clickable ? () => handleEmployeeClick(employeeId) : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleEmployeeClick(employeeId);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   <EventItem event={event} />
                 </div>

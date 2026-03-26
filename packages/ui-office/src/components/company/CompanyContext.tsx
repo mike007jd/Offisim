@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { CompanyRow, RuntimeRepositories } from '@aics/core/browser';
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface CompanyContextValue {
   activeCompanyId: string | null;
@@ -19,7 +19,12 @@ interface CompanyProviderProps {
   onCompanySwitch?: (id: string) => void;
 }
 
-export function CompanyProvider({ repos, children, activeCompanyId: controlledId, onCompanySwitch }: CompanyProviderProps) {
+export function CompanyProvider({
+  repos,
+  children,
+  activeCompanyId: controlledId,
+  onCompanySwitch,
+}: CompanyProviderProps) {
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [internalId, setInternalId] = useState<string | null>(null);
 
@@ -33,7 +38,7 @@ export function CompanyProvider({ repos, children, activeCompanyId: controlledId
     // Auto-select first company if none selected (only for uncontrolled mode)
     if (controlledId === undefined) {
       const first = all[0];
-      setInternalId((prev) => (prev == null && first != null) ? first.company_id : prev);
+      setInternalId((prev) => (prev == null && first != null ? first.company_id : prev));
     }
   }, [repos, controlledId]);
 
@@ -41,13 +46,16 @@ export function CompanyProvider({ repos, children, activeCompanyId: controlledId
     refreshCompanies();
   }, [refreshCompanies]);
 
-  const switchCompany = useCallback((id: string) => {
-    if (onCompanySwitch) {
-      onCompanySwitch(id);
-    } else {
-      setInternalId(id);
-    }
-  }, [onCompanySwitch]);
+  const switchCompany = useCallback(
+    (id: string) => {
+      if (onCompanySwitch) {
+        onCompanySwitch(id);
+      } else {
+        setInternalId(id);
+      }
+    },
+    [onCompanySwitch],
+  );
 
   return (
     <CompanyCtx.Provider value={{ activeCompanyId, companies, switchCompany, refreshCompanies }}>

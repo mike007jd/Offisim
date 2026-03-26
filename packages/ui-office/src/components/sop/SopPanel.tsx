@@ -52,9 +52,7 @@ function SopStepList({ definitionJson }: SopStepListProps) {
             <span className="text-[10px] text-slate-300 leading-tight">{step.label}</span>
             <span className="text-[9px] text-slate-500 ml-1">({step.role_slug})</span>
             {step.dependencies.length > 0 && (
-              <div className="text-[9px] text-slate-600">
-                after: {step.dependencies.join(', ')}
-              </div>
+              <div className="text-[9px] text-slate-600">after: {step.dependencies.join(', ')}</div>
             )}
           </div>
         </li>
@@ -108,11 +106,7 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
           aria-expanded={expanded}
         >
           <span className="mt-0.5 shrink-0 text-slate-500">
-            {expanded ? (
-              <ChevronDown className="w-3 h-3" />
-            ) : (
-              <ChevronRight className="w-3 h-3" />
-            )}
+            {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </span>
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-200 truncate leading-tight">{sop.name}</p>
@@ -208,7 +202,8 @@ export function SopPanel() {
           <ClipboardList className="w-4 h-4 text-slate-500" />
         </div>
         <p className="text-[10px] text-slate-500 leading-relaxed">
-          No SOPs saved yet. Complete a task and click <strong className="text-slate-400">SOP</strong> in Outputs to create one.
+          No SOPs saved yet. Complete a task and click{' '}
+          <strong className="text-slate-400">SOP</strong> in Outputs to create one.
         </p>
       </div>
     );
@@ -217,12 +212,7 @@ export function SopPanel() {
   return (
     <div className="flex flex-col gap-1.5 px-2 pb-2">
       {sops.map((sop) => (
-        <SopCard
-          key={sop.sopTemplateId}
-          sop={sop}
-          onRun={handleRun}
-          onDelete={deleteSop}
-        />
+        <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} />
       ))}
     </div>
   );

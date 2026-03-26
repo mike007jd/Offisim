@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { cn } from '@aics/ui-core';
+import { useState } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,9 +51,10 @@ const OUTPUT_PREVIEW_LIMIT = 200;
 export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
   const [showFullOutput, setShowFullOutput] = useState(false);
 
-  const hasOutput = typeof task.output === 'string' && task.output.length > 0;
-  const outputTruncated = hasOutput && !showFullOutput && task.output!.length > OUTPUT_PREVIEW_LIMIT;
-  const outputText = outputTruncated ? task.output!.slice(0, OUTPUT_PREVIEW_LIMIT) + '…' : task.output;
+  const output = task.output ?? '';
+  const hasOutput = output.length > 0;
+  const outputTruncated = hasOutput && !showFullOutput && output.length > OUTPUT_PREVIEW_LIMIT;
+  const outputText = outputTruncated ? `${output.slice(0, OUTPUT_PREVIEW_LIMIT)}…` : output;
 
   return (
     <div
@@ -106,11 +107,13 @@ export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
         {/* Output preview */}
         {hasOutput && (
           <div>
-            <span className="text-[10px] font-medium text-shell uppercase tracking-wide">Output</span>
+            <span className="text-[10px] font-medium text-shell uppercase tracking-wide">
+              Output
+            </span>
             <p className="mt-0.5 whitespace-pre-wrap break-words text-[10px] text-shell font-mono leading-relaxed">
               {outputText}
             </p>
-            {task.output!.length > OUTPUT_PREVIEW_LIMIT && (
+            {output.length > OUTPUT_PREVIEW_LIMIT && (
               <button
                 type="button"
                 className="mt-0.5 text-[10px] text-koi hover:underline"

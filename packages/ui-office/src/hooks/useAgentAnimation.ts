@@ -14,8 +14,8 @@
  *   failed   — red flash + shake
  */
 
-import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
 import type * as THREE from 'three';
 
 // ── State → animation preset ──────────────────────────────────────
@@ -55,93 +55,163 @@ const GRAY: [number, number, number] = [0.39, 0.45, 0.55];
 const PRESETS: Record<string, AnimPreset> = {
   // ── Idle tier ──
   idle: {
-    breathAmp: 0.025, breathSpeed: 2,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0, lean: 0,
-    ringColor: GRAY, ringOpacity: 0, ringPulseSpeed: 0,
+    breathAmp: 0.025,
+    breathSpeed: 2,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0,
+    lean: 0,
+    ringColor: GRAY,
+    ringOpacity: 0,
+    ringPulseSpeed: 0,
     scale: 1,
   },
 
   // ── Working tier ──
   assigned: {
-    breathAmp: 0.03, breathSpeed: 3,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0, lean: 0,
-    ringColor: BLUE, ringOpacity: 0.5, ringPulseSpeed: 3,
+    breathAmp: 0.03,
+    breathSpeed: 3,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0,
+    lean: 0,
+    ringColor: BLUE,
+    ringOpacity: 0.5,
+    ringPulseSpeed: 3,
     scale: 1.06, // entrance bounce — damps back to 1.0 via the hook
   },
   thinking: {
-    breathAmp: 0.04, breathSpeed: 1.5,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0.15, lean: 0.05,
-    ringColor: PURPLE, ringOpacity: 0.4, ringPulseSpeed: 1.5,
+    breathAmp: 0.04,
+    breathSpeed: 1.5,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0.15,
+    lean: 0.05,
+    ringColor: PURPLE,
+    ringOpacity: 0.4,
+    ringPulseSpeed: 1.5,
     scale: 1,
   },
   searching: {
-    breathAmp: 0.03, breathSpeed: 2,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0, lean: 0.08,
-    ringColor: PURPLE, ringOpacity: 0.45, ringPulseSpeed: 2.5,
+    breathAmp: 0.03,
+    breathSpeed: 2,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0,
+    lean: 0.08,
+    ringColor: PURPLE,
+    ringOpacity: 0.45,
+    ringPulseSpeed: 2.5,
     scale: 1,
   },
   executing: {
-    breathAmp: 0.02, breathSpeed: 4,
-    rockAmp: 0.03, rockSpeed: 3,
-    headTilt: -0.05, lean: 0.06,
-    ringColor: GREEN, ringOpacity: 0.5, ringPulseSpeed: 2,
+    breathAmp: 0.02,
+    breathSpeed: 4,
+    rockAmp: 0.03,
+    rockSpeed: 3,
+    headTilt: -0.05,
+    lean: 0.06,
+    ringColor: GREEN,
+    ringOpacity: 0.5,
+    ringPulseSpeed: 2,
     scale: 1,
   },
   reporting: {
-    breathAmp: 0.025, breathSpeed: 2,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0.05, lean: -0.04,
-    ringColor: CYAN, ringOpacity: 0.5, ringPulseSpeed: 2.5,
+    breathAmp: 0.025,
+    breathSpeed: 2,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0.05,
+    lean: -0.04,
+    ringColor: CYAN,
+    ringOpacity: 0.5,
+    ringPulseSpeed: 2.5,
     scale: 1,
   },
   meeting: {
-    breathAmp: 0.03, breathSpeed: 2,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0, lean: 0,
-    ringColor: PURPLE, ringOpacity: 0.35, ringPulseSpeed: 1,
+    breathAmp: 0.03,
+    breathSpeed: 2,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0,
+    lean: 0,
+    ringColor: PURPLE,
+    ringOpacity: 0.35,
+    ringPulseSpeed: 1,
     scale: 1,
   },
 
   // ── Blocked tier ──
   blocked: {
-    breathAmp: 0.035, breathSpeed: 1,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: -0.12, lean: -0.06,
-    ringColor: AMBER, ringOpacity: 0.55, ringPulseSpeed: 0.8,
+    breathAmp: 0.035,
+    breathSpeed: 1,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: -0.12,
+    lean: -0.06,
+    ringColor: AMBER,
+    ringOpacity: 0.55,
+    ringPulseSpeed: 0.8,
     scale: 1,
   },
   waiting: {
-    breathAmp: 0.02, breathSpeed: 1.5,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0, lean: 0,
-    ringColor: AMBER, ringOpacity: 0.25, ringPulseSpeed: 0.5,
+    breathAmp: 0.02,
+    breathSpeed: 1.5,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0,
+    lean: 0,
+    ringColor: AMBER,
+    ringOpacity: 0.25,
+    ringPulseSpeed: 0.5,
     scale: 1,
   },
 
   // ── Success tier ──
   success: {
-    breathAmp: 0.05, breathSpeed: 4,
-    rockAmp: 0, rockSpeed: 0,
-    headTilt: 0.1, lean: 0,
-    ringColor: GREEN, ringOpacity: 0.7, ringPulseSpeed: 4,
+    breathAmp: 0.05,
+    breathSpeed: 4,
+    rockAmp: 0,
+    rockSpeed: 0,
+    headTilt: 0.1,
+    lean: 0,
+    ringColor: GREEN,
+    ringOpacity: 0.7,
+    ringPulseSpeed: 4,
     scale: 1.08,
   },
 
   // ── Failed tier ──
   failed: {
-    breathAmp: 0.02, breathSpeed: 1,
-    rockAmp: 0.04, rockSpeed: 12,
-    headTilt: -0.15, lean: 0,
-    ringColor: RED, ringOpacity: 0.6, ringPulseSpeed: 0,
+    breathAmp: 0.02,
+    breathSpeed: 1,
+    rockAmp: 0.04,
+    rockSpeed: 12,
+    headTilt: -0.15,
+    lean: 0,
+    ringColor: RED,
+    ringOpacity: 0.6,
+    ringPulseSpeed: 0,
     scale: 0.97,
   },
 };
 
-const DEFAULT_PRESET = PRESETS.idle!;
+const DEFAULT_PRESET: AnimPreset = {
+  breathAmp: 0.025,
+  breathSpeed: 2,
+  rockAmp: 0,
+  rockSpeed: 0,
+  headTilt: 0,
+  lean: 0,
+  ringColor: GRAY,
+  ringOpacity: 0,
+  ringPulseSpeed: 0,
+  scale: 1,
+};
+
+function getPreset(state: string): AnimPreset {
+  return PRESETS[state] ?? DEFAULT_PRESET;
+}
 
 // ── Smoothing factor (higher = faster transition) ──
 const SMOOTH = 4; // ~250ms to reach 90% of target
@@ -173,7 +243,9 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
     rotY: 0,
     rotX: 0, // lean
     scale: 1,
-    ringR: 0, ringG: 0, ringB: 0,
+    ringR: 0,
+    ringG: 0,
+    ringB: 0,
     ringOpacity: 0,
   });
 
@@ -185,7 +257,7 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
     if (!groupRef.current) return;
 
     const t = frameState.clock.elapsedTime;
-    const preset = PRESETS[state] ?? DEFAULT_PRESET;
+    const preset = getPreset(state);
 
     // Detect state change for entrance effects
     const stateChanged = prevState.current !== state;
@@ -200,16 +272,16 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
     // ── Target calculation ──
     // Cyclic animations: breathing + typing rock
     const breathCycle = Math.sin(t * preset.breathSpeed) * preset.breathAmp;
-    const rockCycle = preset.rockAmp > 0
-      ? Math.sin(t * preset.rockSpeed) * preset.rockAmp
-      : 0;
+    const rockCycle = preset.rockAmp > 0 ? Math.sin(t * preset.rockSpeed) * preset.rockAmp : 0;
 
     // For failed state: rapid shake that decays
     const targetPosX = rockCycle;
     const targetPosY = breathCycle;
-    const targetRotY = preset.headTilt + (state === 'searching'
-      ? Math.sin(t * 1.2) * 0.12 // scanning left-right
-      : 0);
+    const targetRotY =
+      preset.headTilt +
+      (state === 'searching'
+        ? Math.sin(t * 1.2) * 0.12 // scanning left-right
+        : 0);
     const targetRotX = preset.lean;
 
     // Scale: damp back toward 1.0 after entrance bounce
@@ -249,9 +321,10 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
       rm.color.setRGB(c.ringR, c.ringG, c.ringB);
 
       // Pulse modulation
-      const pulse = preset.ringPulseSpeed > 0
-        ? 0.5 + 0.5 * Math.sin(t * preset.ringPulseSpeed * Math.PI * 2)
-        : 1;
+      const pulse =
+        preset.ringPulseSpeed > 0
+          ? 0.5 + 0.5 * Math.sin(t * preset.ringPulseSpeed * Math.PI * 2)
+          : 1;
       rm.opacity = c.ringOpacity * pulse;
       rm.visible = c.ringOpacity > 0.01;
     }

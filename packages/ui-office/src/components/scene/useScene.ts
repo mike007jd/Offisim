@@ -31,20 +31,15 @@ export function useScene(_reducedMotion = false) {
   useEffect(() => {
     if (!eventBus || !repos) return;
     const service = new WorkstationAssignmentService(repos.employees, eventBus);
-    const unsub = eventBus.on(
-      'employee.workstation.drop-requested',
-      (event) => {
-        const payload = event.payload as {
-          employeeId: string;
-          targetWorkstationId: string | null;
-        };
-        service
-          .assignToWorkstation(payload.employeeId, payload.targetWorkstationId)
-          .catch((err) => {
-            console.error('[useScene] workstation assignment failed:', err);
-          });
-      },
-    );
+    const unsub = eventBus.on('employee.workstation.drop-requested', (event) => {
+      const payload = event.payload as {
+        employeeId: string;
+        targetWorkstationId: string | null;
+      };
+      service.assignToWorkstation(payload.employeeId, payload.targetWorkstationId).catch((err) => {
+        console.error('[useScene] workstation assignment failed:', err);
+      });
+    });
     return unsub;
   }, [eventBus, repos]);
 

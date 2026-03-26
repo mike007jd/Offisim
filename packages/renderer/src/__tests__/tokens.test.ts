@@ -31,7 +31,6 @@ describe('tokens/colors', () => {
       expect(STATE_COLORS[s]).toBeGreaterThan(0);
     }
   });
-
 });
 
 describe('tokens/motion', () => {

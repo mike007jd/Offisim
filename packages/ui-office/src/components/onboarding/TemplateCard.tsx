@@ -1,11 +1,5 @@
 import type { CompanyTemplate } from '@aics/core/browser';
-import {
-  Brain,
-  Briefcase,
-  FlaskConical,
-  PenTool,
-  Rocket,
-} from 'lucide-react';
+import { Brain, Briefcase, FlaskConical, PenTool, Rocket } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /** Maps template IDs to styled Lucide icons. Falls back to emoji for unknown IDs. */
@@ -32,9 +26,7 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, selected, onSelect }: TemplateCardProps) {
-  const icon = TEMPLATE_ICONS[template.id] ?? (
-    <span className="text-2xl">{template.icon}</span>
-  );
+  const icon = TEMPLATE_ICONS[template.id] ?? <span className="text-2xl">{template.icon}</span>;
   const accent = selected
     ? (TEMPLATE_ACCENT[template.id] ?? 'border-blue-500 bg-blue-950/30')
     : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500';

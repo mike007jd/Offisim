@@ -1,7 +1,7 @@
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
-import type { AgentState } from '../../runtime/use-agent-states';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STATE_VARIANTS } from '../../lib/state-variants';
+import type { AgentState } from '../../runtime/use-agent-states';
 
 interface CompanyStatusCardProps {
   agents: Map<string, AgentState>;

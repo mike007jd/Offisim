@@ -1,6 +1,6 @@
 import { Textarea } from '@aics/ui-core';
-import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 import { cn } from '@aics/ui-core';
+import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 /** Suggested expertise tags by role. */
 const EXPERTISE_SUGGESTIONS: Record<string, string[]> = {
@@ -74,7 +74,7 @@ interface ExpertiseStepProps {
 
 export function ExpertiseStep({ formData, updateField }: ExpertiseStepProps) {
   const suggestions =
-    EXPERTISE_SUGGESTIONS[formData.role_slug] ?? EXPERTISE_SUGGESTIONS['developer'] ?? [];
+    EXPERTISE_SUGGESTIONS[formData.role_slug] ?? EXPERTISE_SUGGESTIONS.developer ?? [];
 
   const addTag = (tag: string) => {
     const current = formData.expertise.trim();

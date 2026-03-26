@@ -42,7 +42,13 @@ interface SlotListProps {
   onRemoveSlot: (slotId: string) => void;
 }
 
-function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSlot }: SlotListProps) {
+function SlotList({
+  rack,
+  newSlotInput,
+  onSlotInputChange,
+  onAddSlot,
+  onRemoveSlot,
+}: SlotListProps) {
   return (
     <div className="mt-2 flex flex-col gap-1 pl-1 border-l border-white/5">
       {rack.slots.length === 0 && (
@@ -60,7 +66,9 @@ function SlotList({ rack, newSlotInput, onSlotInputChange, onAddSlot, onRemoveSl
               fill="currentColor"
               strokeWidth={0}
             />
-            <span className="text-[10px] text-slate-200 font-mono truncate">{slot.capability_name}</span>
+            <span className="text-[10px] text-slate-200 font-mono truncate">
+              {slot.capability_name}
+            </span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-[9px] text-slate-500 font-mono">{slot.exposure_scope}</span>
@@ -128,18 +136,25 @@ function RackCard({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Server className="w-3 h-3 text-slate-400 flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">{rack.label}</p>
+            <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">
+              {rack.label}
+            </p>
             <p className="text-[9px] text-slate-500 font-mono truncate">{rack.provider_type}</p>
           </div>
         </div>
-        <Badge variant={rackBadgeVariant(rack.status)} className="text-[9px] px-1.5 py-0 flex-shrink-0">
+        <Badge
+          variant={rackBadgeVariant(rack.status)}
+          className="text-[9px] px-1.5 py-0 flex-shrink-0"
+        >
           {rack.status}
         </Badge>
       </div>
 
       {/* Slot count summary */}
       <div className="flex items-center gap-3 text-[9px] text-slate-500">
-        <span>{rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}</span>
+        <span>
+          {rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}
+        </span>
         <span className="text-emerald-500/70">
           {rack.slots.filter((s) => s.status === 'available').length} available
         </span>
@@ -198,8 +213,8 @@ function EmptyRacks() {
       <div className="px-2">
         <p className="text-[11px] font-semibold text-slate-400">No MCP Racks</p>
         <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
-          Racks are groups of MCP server capabilities that your AI employees can access.
-          Create a rack, add capability slots, then bind it to make tools available to agents.
+          Racks are groups of MCP server capabilities that your AI employees can access. Create a
+          rack, add capability slots, then bind it to make tools available to agents.
         </p>
       </div>
     </div>
@@ -210,8 +225,17 @@ function EmptyRacks() {
 
 export function ServerRoom() {
   const { eventBus } = useAicsRuntime();
-  const { racks, loading, createRack, deleteRack, bindRack, unbindRack, addSlot, removeSlot, refresh } =
-    useRackSlot();
+  const {
+    racks,
+    loading,
+    createRack,
+    deleteRack,
+    bindRack,
+    unbindRack,
+    addSlot,
+    removeSlot,
+    refresh,
+  } = useRackSlot();
 
   const [newRackLabel, setNewRackLabel] = useState('');
   const [newSlotInputs, setNewSlotInputs] = useState<Record<string, string>>({});
@@ -220,10 +244,16 @@ export function ServerRoom() {
   useEffect(() => {
     if (!eventBus) return;
     const unsubs = [
-      eventBus.on('rack.', () => { void refresh(); }),
-      eventBus.on('slot.', () => { void refresh(); }),
+      eventBus.on('rack.', () => {
+        void refresh();
+      }),
+      eventBus.on('slot.', () => {
+        void refresh();
+      }),
     ];
-    return () => { for (const unsub of unsubs) unsub(); };
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
   }, [eventBus, refresh]);
 
   const handleCreateRack = useCallback(async () => {
@@ -237,19 +267,20 @@ export function ServerRoom() {
     setNewSlotInputs((prev) => ({ ...prev, [rackId]: value }));
   }, []);
 
-  const handleAddSlot = useCallback(async (rackId: string) => {
-    const capName = newSlotInputs[rackId]?.trim();
-    if (!capName) return;
-    await addSlot(rackId, capName);
-    setNewSlotInputs((prev) => ({ ...prev, [rackId]: '' }));
-  }, [newSlotInputs, addSlot]);
+  const handleAddSlot = useCallback(
+    async (rackId: string) => {
+      const capName = newSlotInputs[rackId]?.trim();
+      if (!capName) return;
+      await addSlot(rackId, capName);
+      setNewSlotInputs((prev) => ({ ...prev, [rackId]: '' }));
+    },
+    [newSlotInputs, addSlot],
+  );
 
   return (
     <div className="flex flex-col gap-3 overflow-hidden">
       {/* Section header */}
-      <h2 className="text-[8px] uppercase tracking-wider text-slate-400">
-        Server Room
-      </h2>
+      <h2 className="text-[8px] uppercase tracking-wider text-slate-400">Server Room</h2>
 
       {/* Rack list */}
       {loading ? (
@@ -276,9 +307,12 @@ export function ServerRoom() {
 
       {/* Add rack — below content */}
       <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
-        <label className="text-[10px] text-slate-500 font-medium">Add New Rack</label>
+        <label htmlFor="server-room-new-rack" className="text-[10px] text-slate-500 font-medium">
+          Add New Rack
+        </label>
         <div className="flex items-center gap-1.5">
           <input
+            id="server-room-new-rack"
             type="text"
             value={newRackLabel}
             onChange={(e) => setNewRackLabel(e.target.value)}

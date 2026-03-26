@@ -5,11 +5,11 @@
  * pairs each with its PrefabDefinition from the catalog.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import type { PrefabInstanceRow, PrefabDefinition } from '@aics/shared-types';
 import { getBuiltinPrefab } from '@aics/renderer';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import type { PrefabDefinition, PrefabInstanceRow } from '@aics/shared-types';
+import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 /** A prefab instance paired with its definition from the catalog. */
 export interface PrefabInstanceWithDef {

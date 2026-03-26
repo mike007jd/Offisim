@@ -1,8 +1,4 @@
-import {
-  type ExportFormat,
-  type ExportableDocument,
-  exportDocument,
-} from '@aics/doc-engine';
+import { type ExportFormat, type ExportableDocument, exportDocument } from '@aics/doc-engine';
 import type { DeliverableCreatedPayload, RuntimeEvent, SopDefinition } from '@aics/shared-types';
 import {
   Badge,
@@ -20,8 +16,8 @@ import {
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
-import { useCompany } from '../company/CompanyContext.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useCompany } from '../company/CompanyContext.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -52,7 +48,7 @@ function timeAgo(ts: number): string {
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
+  return `${text.slice(0, max)}...`;
 }
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -129,7 +125,9 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
   }, [item, onSaveAsSop, savingSop, sopSaved]);
 
   return (
-    <Card className={`animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 overflow-hidden transition-all ${isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700'}`}>
+    <Card
+      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 overflow-hidden transition-all ${isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700'}`}
+    >
       <CardHeader className="p-3 pb-1">
         <div className="flex items-start justify-between gap-2 min-w-0">
           <CardTitle className="text-xs text-pearl leading-snug truncate">{item.title}</CardTitle>
@@ -218,29 +216,27 @@ export function PitchHall() {
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const off = eventBus.on(
-      'deliverable.created',
-      (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-        const id = e.payload.deliverableId;
-        if (!id) return;
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setNewestId(id);
-        // Scroll to bottom so the new card is visible
-        setTimeout(() => {
-          listBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 50);
-        highlightTimerRef.current = setTimeout(() => setNewestId(null), 3000);
-      },
-    );
+    const off = eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
+      const id = e.payload.deliverableId;
+      if (!id) return;
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      setNewestId(id);
+      // Scroll to bottom so the new card is visible
+      setTimeout(() => {
+        listBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+      highlightTimerRef.current = setTimeout(() => setNewestId(null), 3000);
+    });
     return () => {
       off();
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     };
-  }, [eventBus, activeCompanyId]);
+  }, [eventBus]);
 
   const handleSaveAsSop = useCallback(
     async (item: Deliverable) => {
       if (!repos) throw new Error('Runtime not ready');
+      if (!activeCompanyId) throw new Error('No active company');
 
       // Build a minimal SopDefinition from contributing employees.
       // Each contributing employee becomes one sequential step.
@@ -281,7 +277,7 @@ export function PitchHall() {
       const sopTemplateId = `sop_${crypto.randomUUID()}`;
       await repos.sopTemplates.create({
         sop_template_id: sopTemplateId,
-        company_id: activeCompanyId!,
+        company_id: activeCompanyId,
         name: item.title,
         description: definition.description,
         definition_json: JSON.stringify(definition),
@@ -293,13 +289,13 @@ export function PitchHall() {
         type: 'sop.template.created',
         entityId: sopTemplateId,
         entityType: 'plan',
-        companyId: activeCompanyId!,
+        companyId: activeCompanyId,
         threadId: item.threadId,
         timestamp: Date.now(),
         payload: { sopTemplateId, name: item.title },
       });
     },
-    [repos, eventBus],
+    [activeCompanyId, repos, eventBus],
   );
 
   if (deliverables.length === 0) {

@@ -1,12 +1,14 @@
-import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { cn } from '@aics/ui-core';
+import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { KanbanCard } from './KanbanCard';
 
 // ---------------------------------------------------------------------------
 // Column status → header accent
 // ---------------------------------------------------------------------------
 
-function columnAccent(status: 'pending' | 'active' | 'completed' | 'requirements' | 'deliverables'): string {
+function columnAccent(
+  status: 'pending' | 'active' | 'completed' | 'requirements' | 'deliverables',
+): string {
   switch (status) {
     case 'completed':
       return 'border-t-green-400/60';
@@ -70,28 +72,27 @@ export function KanbanColumn({
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
         {stepIndex !== null && (
-          <span className="text-[10px] font-mono text-slate-500 shrink-0">
-            #{stepIndex + 1}
-          </span>
+          <span className="text-[10px] font-mono text-slate-500 shrink-0">#{stepIndex + 1}</span>
         )}
-        <span className="text-[11px] font-semibold text-slate-300 truncate flex-1">
-          {title}
-        </span>
+        <span className="text-[11px] font-semibold text-slate-300 truncate flex-1">{title}</span>
         {progress && (
           <span className="text-[10px] font-mono text-slate-500 shrink-0 tabular-nums">
             {progress}
           </span>
         )}
-        {tasks.length > 0 && (() => {
-          const active = tasks.filter((t) => t.status === 'active' || t.status === 'running').length;
-          if (active === 0) return null;
-          return (
-            <span className="flex items-center gap-1 text-[9px] text-blue-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-              {active}
-            </span>
-          );
-        })()}
+        {tasks.length > 0 &&
+          (() => {
+            const active = tasks.filter(
+              (t) => t.status === 'active' || t.status === 'running',
+            ).length;
+            if (active === 0) return null;
+            return (
+              <span className="flex items-center gap-1 text-[9px] text-blue-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+                {active}
+              </span>
+            );
+          })()}
       </div>
 
       {/* Card list */}

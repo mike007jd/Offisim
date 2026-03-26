@@ -13,9 +13,9 @@
 export const STUDIO_COLORS = {
   // Surfaces (darkest → lightest)
   bg: '#0c1118',
-  surface0: 'rgba(17, 24, 39, 0.97)',  // panels, overlays
-  surface1: 'rgba(30, 41, 59, 0.95)',   // cards, inputs
-  surface2: 'rgba(35, 35, 55, 0.9)',    // hover, elevated
+  surface0: 'rgba(17, 24, 39, 0.97)', // panels, overlays
+  surface1: 'rgba(30, 41, 59, 0.95)', // cards, inputs
+  surface2: 'rgba(35, 35, 55, 0.9)', // hover, elevated
 
   // Borders
   border: '#2a2a3d',
@@ -130,13 +130,46 @@ export function panelStyle(side: 'left' | 'right' | 'top' | 'bottom'): React.CSS
 
   switch (side) {
     case 'left':
-      return { ...base, left: 0, top: LAYOUT.toolbarHeight, bottom: LAYOUT.bottomBarHeight, width: LAYOUT.paletteWidth, borderRight: `1px solid ${STUDIO_COLORS.border}` };
+      return {
+        ...base,
+        left: 0,
+        top: LAYOUT.toolbarHeight,
+        bottom: LAYOUT.bottomBarHeight,
+        width: LAYOUT.paletteWidth,
+        borderRight: `1px solid ${STUDIO_COLORS.border}`,
+      };
     case 'right':
-      return { ...base, right: 0, top: LAYOUT.toolbarHeight, bottom: LAYOUT.bottomBarHeight, width: LAYOUT.propertiesWidth, borderLeft: `1px solid ${STUDIO_COLORS.border}` };
+      return {
+        ...base,
+        right: 0,
+        top: LAYOUT.toolbarHeight,
+        bottom: LAYOUT.bottomBarHeight,
+        width: LAYOUT.propertiesWidth,
+        borderLeft: `1px solid ${STUDIO_COLORS.border}`,
+      };
     case 'top':
-      return { ...base, left: 0, right: 0, top: 0, height: LAYOUT.toolbarHeight, flexDirection: 'row', alignItems: 'center', borderBottom: `1px solid ${STUDIO_COLORS.border}` };
+      return {
+        ...base,
+        left: 0,
+        right: 0,
+        top: 0,
+        height: LAYOUT.toolbarHeight,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderBottom: `1px solid ${STUDIO_COLORS.border}`,
+      };
     case 'bottom':
-      return { ...base, left: 0, right: 0, bottom: 0, height: LAYOUT.bottomBarHeight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderTop: `1px solid ${STUDIO_COLORS.border}` };
+      return {
+        ...base,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: LAYOUT.bottomBarHeight,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderTop: `1px solid ${STUDIO_COLORS.border}`,
+      };
   }
 }
 

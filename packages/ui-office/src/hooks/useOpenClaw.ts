@@ -9,10 +9,10 @@
  */
 
 import { employeeDeleted, employeeInstalled } from '@aics/core/browser';
-import type { OpenClawAgent, OpenClawConfig, ConnectionState } from '@aics/core/browser';
+import type { ConnectionState, OpenClawAgent, OpenClawConfig } from '@aics/core/browser';
 import { useCallback, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 // ---------------------------------------------------------------------------
 // Re-export core types that consumers of this hook may need
@@ -130,33 +130,32 @@ export function useOpenClaw() {
   const { eventBus } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
 
-  const [config, setConfigState] = useState<Pick<OpenClawConfig, 'url' | 'token'> | null>(loadConfig);
+  const [config, setConfigState] = useState<Pick<OpenClawConfig, 'url' | 'token'> | null>(
+    loadConfig,
+  );
   const [connectionState, setConnectionState] = useState<OpenClawConnectionState>('disconnected');
   const [agents, setAgents] = useState<OpenClawAgent[]>([]);
   const [invitedIds, setInvitedIds] = useState<Set<string>>(loadInvitedIds);
   const [error, setError] = useState<string | null>(null);
   const [gatewayInfo, setGatewayInfo] = useState<OpenClawGatewayInfo | null>(null);
 
-  const connect = useCallback(
-    async (url: string, token: string) => {
-      setConnectionState('connecting');
-      setError(null);
-      try {
-        await mockConnect(url, token);
-        const cfg: Pick<OpenClawConfig, 'url' | 'token'> = { url, token };
-        saveConfig(cfg);
-        setConfigState(cfg);
-        setAgents(MOCK_AGENTS);
-        setGatewayInfo(MOCK_GATEWAY_INFO);
-        setConnectionState('connected');
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
-        setConnectionState('error');
-      }
-    },
-    [],
-  );
+  const connect = useCallback(async (url: string, token: string) => {
+    setConnectionState('connecting');
+    setError(null);
+    try {
+      await mockConnect(url, token);
+      const cfg: Pick<OpenClawConfig, 'url' | 'token'> = { url, token };
+      saveConfig(cfg);
+      setConfigState(cfg);
+      setAgents(MOCK_AGENTS);
+      setGatewayInfo(MOCK_GATEWAY_INFO);
+      setConnectionState('connected');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setConnectionState('error');
+    }
+  }, []);
 
   const disconnect = useCallback(() => {
     clearConfig();
@@ -171,6 +170,7 @@ export function useOpenClaw() {
     (agentId: string) => {
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) return;
+      if (!activeCompanyId) return;
 
       setInvitedIds((prev) => {
         const next = new Set(prev);
@@ -182,7 +182,7 @@ export function useOpenClaw() {
       // Emit employee.installed so scene views add a lobster puppet
       eventBus.emit(
         employeeInstalled(
-          activeCompanyId!,
+          activeCompanyId,
           agentId,
           agent.name,
           `openclaw-invite-${Date.now()}`,
@@ -195,6 +195,7 @@ export function useOpenClaw() {
 
   const removeAgent = useCallback(
     (agentId: string) => {
+      if (!activeCompanyId) return;
       setInvitedIds((prev) => {
         const next = new Set(prev);
         next.delete(agentId);
@@ -203,7 +204,7 @@ export function useOpenClaw() {
       });
 
       // Emit employee.deleted so scene views remove the lobster puppet
-      eventBus.emit(employeeDeleted(activeCompanyId!, agentId));
+      eventBus.emit(employeeDeleted(activeCompanyId, agentId));
     },
     [eventBus, activeCompanyId],
   );

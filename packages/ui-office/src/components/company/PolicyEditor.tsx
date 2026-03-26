@@ -30,10 +30,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
 
       {/* Default model */}
       <div>
-        <label
-          htmlFor="policy-default-model"
-          className="block text-sm text-gray-300 mb-1"
-        >
+        <label htmlFor="policy-default-model" className="block text-sm text-gray-300 mb-1">
           Default Model Profile
         </label>
         <input
@@ -48,10 +45,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
 
       {/* Default temperature */}
       <div>
-        <label
-          htmlFor="policy-temperature"
-          className="block text-sm text-gray-300 mb-1"
-        >
+        <label htmlFor="policy-temperature" className="block text-sm text-gray-300 mb-1">
           Default Temperature{' '}
           <span className="text-gray-400">({policy.defaultTemperature.toFixed(2)})</span>
         </label>
@@ -63,7 +57,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
             max={2}
             step={0.05}
             value={policy.defaultTemperature}
-            onChange={(e) => update('defaultTemperature', parseFloat(e.target.value))}
+            onChange={(e) => update('defaultTemperature', Number.parseFloat(e.target.value))}
             className="flex-1 accent-blue-500"
           />
           <input
@@ -73,7 +67,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
             step={0.05}
             value={policy.defaultTemperature}
             onChange={(e) => {
-              const v = parseFloat(e.target.value);
+              const v = Number.parseFloat(e.target.value);
               if (!Number.isNaN(v)) update('defaultTemperature', Math.min(2, Math.max(0, v)));
             }}
             className="w-20 rounded bg-gray-900 border border-gray-600 px-2 py-1 text-sm text-white text-center focus:outline-none focus:border-blue-500"
@@ -88,10 +82,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
 
       {/* Default max tokens */}
       <div>
-        <label
-          htmlFor="policy-max-tokens"
-          className="block text-sm text-gray-300 mb-1"
-        >
+        <label htmlFor="policy-max-tokens" className="block text-sm text-gray-300 mb-1">
           Default Max Tokens
         </label>
         <input
@@ -102,7 +93,7 @@ export function PolicyEditor({ policy, onChange }: PolicyEditorProps) {
           step={256}
           value={policy.defaultMaxTokens}
           onChange={(e) => {
-            const v = parseInt(e.target.value, 10);
+            const v = Number.parseInt(e.target.value, 10);
             if (!Number.isNaN(v) && v > 0) update('defaultMaxTokens', v);
           }}
           className="w-full rounded bg-gray-900 border border-gray-600 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"

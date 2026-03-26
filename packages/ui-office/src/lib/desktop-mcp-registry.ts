@@ -82,9 +82,9 @@ export function loadStoredBrowserMcpServers(
         {
           name: record.name,
           transport: record.transport,
-          command: record.transport === 'stdio' ? command ?? legacyValue : undefined,
+          command: record.transport === 'stdio' ? (command ?? legacyValue) : undefined,
           args: record.transport === 'stdio' ? args : undefined,
-          url: record.transport === 'sse' ? url ?? legacyValue : undefined,
+          url: record.transport === 'sse' ? (url ?? legacyValue) : undefined,
         } satisfies BrowserMcpServerRecord,
       ];
     });

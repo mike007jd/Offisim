@@ -107,8 +107,8 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <span className="text-xs">
-                This package requires the MCP servers listed above. Ensure they
-                are configured in your local runtime before installing.
+                This package requires the MCP servers listed above. Ensure they are configured in
+                your local runtime before installing.
               </span>
             </AlertDescription>
           </Alert>

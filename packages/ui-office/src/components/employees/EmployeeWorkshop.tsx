@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { useInterviewWizard } from '../../hooks/useInterviewWizard.js';
 import type { UseEmployeeWorkshopReturn } from '../../hooks/useEmployeeWorkshop.js';
+import { useInterviewWizard } from '../../hooks/useInterviewWizard.js';
 import { useAgentStates } from '../../runtime/use-agent-states.js';
 import { EmployeeQuickCard } from './EmployeeQuickCard.js';
 import { InterviewWizard } from './InterviewWizard.js';
@@ -46,7 +46,7 @@ export function EmployeeWorkshop({
   // Agent states for status indicators
   const agentStates = useAgentStates();
 
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDialogElement>(null);
 
   const handleApplyAll = useCallback(async () => {
     setIsBatchApplying(true);
@@ -60,7 +60,7 @@ export function EmployeeWorkshop({
 
   // Close on backdrop click
   const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLDialogElement>) => {
       if (e.target === overlayRef.current) {
         close();
       }
@@ -73,23 +73,30 @@ export function EmployeeWorkshop({
   return (
     <>
       {/* Backdrop */}
-      <div
+      <dialog
         ref={overlayRef}
         onClick={handleBackdropClick}
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex flex-col"
-        role="dialog"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            close();
+          }
+        }}
+        className="fixed inset-0 z-50 m-0 flex flex-col border-0 bg-black/40 p-0 backdrop-blur-sm"
+        open
         aria-modal="true"
         aria-label="Employee Workshop"
+        tabIndex={-1}
       >
         {/* Panel */}
         <div className="m-auto w-full max-w-6xl max-h-[90vh] flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
-
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 shrink-0">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Employee Workshop</h2>
               <p className="text-xs text-slate-400/70 mt-0.5">
-                {employees.length} employee{employees.length !== 1 ? 's' : ''} · Click any field to edit inline
+                {employees.length} employee{employees.length !== 1 ? 's' : ''} · Click any field to
+                edit inline
               </p>
             </div>
             <button
@@ -104,7 +111,9 @@ export function EmployeeWorkshop({
 
           {/* Batch actions toolbar */}
           <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-slate-100/40 border-b border-slate-700 shrink-0">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Batch Apply:</span>
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              Batch Apply:
+            </span>
 
             {/* Model selector */}
             <select
@@ -123,7 +132,8 @@ export function EmployeeWorkshop({
             {/* Temperature slider */}
             <div className="flex items-center gap-2">
               <label htmlFor="workshop-temp" className="text-xs text-slate-400 whitespace-nowrap">
-                Temperature: <span className="font-mono text-slate-900">{batchTemp.toFixed(1)}</span>
+                Temperature:{' '}
+                <span className="font-mono text-slate-900">{batchTemp.toFixed(1)}</span>
               </label>
               <input
                 id="workshop-temp"
@@ -192,20 +202,18 @@ export function EmployeeWorkshop({
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
 
       {/* Interview wizard for adding new employees */}
-      <InterviewWizard
-        isOpen={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        wizard={wizard}
-      />
+      <InterviewWizard isOpen={wizardOpen} onClose={() => setWizardOpen(false)} wizard={wizard} />
 
       {/* Batch operation confirmation overlay */}
       {confirmBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="rounded-xl border border-white/10 bg-slate-900 p-4 max-w-sm">
-            <p className="text-sm text-white/80 mb-3">Apply changes to all {employees.length} employees?</p>
+            <p className="text-sm text-white/80 mb-3">
+              Apply changes to all {employees.length} employees?
+            </p>
             <div className="flex gap-2 justify-end">
               <button
                 type="button"

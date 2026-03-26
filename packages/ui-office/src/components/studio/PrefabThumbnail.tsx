@@ -15,7 +15,7 @@ interface PrefabThumbnailProps {
 
 export function PrefabThumbnail({ prefabId, size = 36, color }: PrefabThumbnailProps) {
   const c = color ?? STUDIO_COLORS.textSecondary;
-  const render = THUMBNAILS[prefabId] ?? THUMBNAILS['_default']!;
+  const render: SvgRenderer = THUMBNAILS[prefabId] ?? DEFAULT_THUMBNAIL;
   return (
     <svg
       width={size}
@@ -24,6 +24,7 @@ export function PrefabThumbnail({ prefabId, size = 36, color }: PrefabThumbnailP
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
+      <title>{prefabId}</title>
       {render(c)}
     </svg>
   );
@@ -34,6 +35,23 @@ export function PrefabThumbnail({ prefabId, size = 36, color }: PrefabThumbnailP
 // ---------------------------------------------------------------------------
 
 type SvgRenderer = (c: string) => React.ReactNode;
+
+const DEFAULT_THUMBNAIL: SvgRenderer = (c) => (
+  <>
+    <rect
+      x="8"
+      y="8"
+      width="16"
+      height="16"
+      rx="2"
+      stroke={c}
+      strokeWidth="1.5"
+      fill="none"
+      strokeDasharray="3 2"
+    />
+    <circle cx="16" cy="16" r="3" stroke={c} strokeWidth="1" fill="none" opacity="0.5" />
+  </>
+);
 
 const THUMBNAILS: Record<string, SvgRenderer> = {
   // ── Workspace ──
@@ -69,8 +87,28 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
       <circle cx="10" cy="26" r="2" stroke={c} strokeWidth="1" fill="none" />
       <circle cx="22" cy="26" r="2" stroke={c} strokeWidth="1" fill="none" />
       {/* Dual monitors */}
-      <rect x="9" y="12" width="6" height="3" rx="0.5" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
-      <rect x="17" y="12" width="6" height="3" rx="0.5" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
+      <rect
+        x="9"
+        y="12"
+        width="6"
+        height="3"
+        rx="0.5"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
+      <rect
+        x="17"
+        y="12"
+        width="6"
+        height="3"
+        rx="0.5"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
     </>
   ),
 
@@ -104,9 +142,39 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
     <>
       <rect x="5" y="6" width="22" height="20" rx="2" stroke={c} strokeWidth="1.5" fill="none" />
       {/* GPU cards */}
-      <rect x="8" y="9" width="16" height="4" rx="1" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
-      <rect x="8" y="15" width="16" height="4" rx="1" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
-      <rect x="8" y="21" width="16" height="3" rx="1" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
+      <rect
+        x="8"
+        y="9"
+        width="16"
+        height="4"
+        rx="1"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
+      <rect
+        x="8"
+        y="15"
+        width="16"
+        height="4"
+        rx="1"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
+      <rect
+        x="8"
+        y="21"
+        width="16"
+        height="3"
+        rx="1"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
     </>
   ),
 
@@ -153,7 +221,7 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
     </>
   ),
 
-  'whiteboard': (c) => (
+  whiteboard: (c) => (
     <>
       <rect x="5" y="7" width="22" height="15" rx="1" stroke={c} strokeWidth="1.5" fill="none" />
       {/* Stand legs */}
@@ -195,7 +263,13 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
   'sofa-set': (c) => (
     <>
       {/* L-shape sofa */}
-      <path d="M6 8 L6 24 L20 24 L20 18 L12 18 L12 8 Z" stroke={c} strokeWidth="1.5" fill="none" rx="2" />
+      <path
+        d="M6 8 L6 24 L20 24 L20 18 L12 18 L12 8 Z"
+        stroke={c}
+        strokeWidth="1.5"
+        fill="none"
+        rx="2"
+      />
       {/* Coffee table */}
       <circle cx="22" cy="12" r="3" stroke={c} strokeWidth="1" fill="none" opacity="0.6" />
     </>
@@ -235,7 +309,18 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
       {/* Port grid */}
       {[14, 18].map((y) =>
         [10, 13, 16, 19, 22].map((x) => (
-          <rect key={`${x}-${y}`} x={x - 1} y={y - 1} width="2" height="2" rx="0.3" stroke={c} strokeWidth="0.6" fill="none" opacity="0.5" />
+          <rect
+            key={`${x}-${y}`}
+            x={x - 1}
+            y={y - 1}
+            width="2"
+            height="2"
+            rx="0.3"
+            stroke={c}
+            strokeWidth="0.6"
+            fill="none"
+            opacity="0.5"
+          />
         )),
       )}
     </>
@@ -272,9 +357,29 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
     <>
       <rect x="9" y="5" width="14" height="22" rx="2" stroke={c} strokeWidth="1.5" fill="none" />
       {/* Display window */}
-      <rect x="11" y="8" width="10" height="8" rx="1" stroke={c} strokeWidth="0.8" fill="none" opacity="0.5" />
+      <rect
+        x="11"
+        y="8"
+        width="10"
+        height="8"
+        rx="1"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
       {/* Dispenser slot */}
-      <rect x="12" y="20" width="8" height="3" rx="1" stroke={c} strokeWidth="0.8" fill="none" opacity="0.4" />
+      <rect
+        x="12"
+        y="20"
+        width="8"
+        height="3"
+        rx="1"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.4"
+      />
     </>
   ),
 
@@ -295,7 +400,17 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
       <circle cx="11" cy="7" r="2" stroke={c} strokeWidth="1" fill="none" />
       <circle cx="21" cy="25" r="2" stroke={c} strokeWidth="1" fill="none" />
       {/* Book */}
-      <rect x="12" y="13" width="5" height="3" rx="0.5" stroke={c} strokeWidth="0.8" fill="none" opacity="0.4" />
+      <rect
+        x="12"
+        y="13"
+        width="5"
+        height="3"
+        rx="0.5"
+        stroke={c}
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.4"
+      />
     </>
   ),
 
@@ -327,14 +442,6 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
       {/* Stand */}
       <line x1="16" y1="22" x2="16" y2="27" stroke={c} strokeWidth="1.2" />
       <line x1="11" y1="27" x2="21" y2="27" stroke={c} strokeWidth="1.2" />
-    </>
-  ),
-
-  // ── Default fallback ──
-  _default: (c) => (
-    <>
-      <rect x="8" y="8" width="16" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none" strokeDasharray="3 2" />
-      <circle cx="16" cy="16" r="3" stroke={c} strokeWidth="1" fill="none" opacity="0.5" />
     </>
   ),
 };

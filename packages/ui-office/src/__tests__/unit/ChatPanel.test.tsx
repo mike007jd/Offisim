@@ -1,3 +1,8 @@
+import type { ProjectRow } from '@aics/shared-types';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ComponentProps, PropsWithChildren } from 'react';
+
 /**
  * ChatPanel — focused tests on project-scoping behavior.
  *
@@ -12,14 +17,19 @@
  * mention select — those are tested via their own units or require a
  * live EventBus.
  */
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import type { ProjectRow } from '@aics/shared-types';
 
 // ── Mock all context / hook dependencies ──────────────────────────────────
 
 const mockSendMessage = vi.fn().mockResolvedValue(undefined);
 const mockEventBus = { on: vi.fn().mockReturnValue(() => {}) };
+
+type ChildrenOnlyProps = PropsWithChildren;
+type EmptyStateProps = ComponentProps<'div'> & {
+  onSendPrompt: (prompt: string) => void;
+};
+type ChatInputProps = {
+  onSend: (message: string) => void;
+};
 
 vi.mock('../../runtime/aics-runtime-context.js', () => ({
   useAicsRuntime: () => ({
@@ -34,8 +44,8 @@ vi.mock('../../runtime/aics-runtime-context.js', () => ({
     repos: null,
   }),
   useAicsRuntimeStatus: () => ({ isRunning: false, version: 0 }),
-  AicsRuntimeContext: { Provider: ({ children }: any) => children },
-  AicsRuntimeStatusContext: { Provider: ({ children }: any) => children },
+  AicsRuntimeContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
+  AicsRuntimeStatusContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
 }));
 
 vi.mock('../../runtime/use-streaming-content.js', () => ({
@@ -62,8 +72,13 @@ vi.mock('../../components/chat/PipelineProgress.js', () => ({
 }));
 
 vi.mock('../../components/company/CompanyContext.js', () => ({
-  useCompany: () => ({ activeCompanyId: 'co-1', companies: [], switchCompany: vi.fn(), refreshCompanies: vi.fn() }),
-  CompanyProvider: ({ children }: any) => children,
+  useCompany: () => ({
+    activeCompanyId: 'co-1',
+    companies: [],
+    switchCompany: vi.fn(),
+    refreshCompanies: vi.fn(),
+  }),
+  CompanyProvider: ({ children }: ChildrenOnlyProps) => children,
 }));
 
 // Mock heavy sub-components
@@ -72,7 +87,7 @@ vi.mock('../../components/office/MeetingPanel.js', () => ({
 }));
 
 vi.mock('../../components/error/EmptyState.js', () => ({
-  EmptyState: ({ onSendPrompt }: any) => (
+  EmptyState: ({ onSendPrompt }: EmptyStateProps) => (
     <button type="button" onClick={() => onSendPrompt('test message')}>
       Send test
     </button>
@@ -84,13 +99,13 @@ vi.mock('../../components/error/ErrorBanner.js', () => ({
 }));
 
 vi.mock('@aics/ui-core', () => ({
-  cn: (...args: any[]) => args.filter(Boolean).join(' '),
-  ScrollArea: ({ children }: any) => <div>{children}</div>,
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
+  ScrollArea: ({ children }: ChildrenOnlyProps) => <div>{children}</div>,
 }));
 
 // Mock ChatInput to a simple textarea+button so we can trigger handleSend
 vi.mock('../../components/chat/ChatInput.js', () => ({
-  ChatInput: ({ onSend }: any) => (
+  ChatInput: ({ onSend }: ChatInputProps) => (
     <button type="button" data-testid="chat-input-send" onClick={() => onSend('test message')}>
       ChatSend
     </button>
@@ -102,7 +117,9 @@ import { ChatPanel } from '../../components/chat/ChatPanel.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function makeProject(overrides: Partial<ProjectRow> & { project_id: string; name: string }): ProjectRow {
+function makeProject(
+  overrides: Partial<ProjectRow> & { project_id: string; name: string },
+): ProjectRow {
   return {
     company_id: 'co-1',
     thread_id: 'thread-abc-123',
@@ -114,7 +131,11 @@ function makeProject(overrides: Partial<ProjectRow> & { project_id: string; name
   };
 }
 
-const ACTIVE_PROJECT = makeProject({ project_id: 'p-1', name: 'Alpha Initiative', thread_id: 'thread-xyz-999' });
+const ACTIVE_PROJECT = makeProject({
+  project_id: 'p-1',
+  name: 'Alpha Initiative',
+  thread_id: 'thread-xyz-999',
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
@@ -125,45 +146,26 @@ describe('ChatPanel — project scoping', () => {
   });
 
   it('shows project name banner when activeProject is provided', () => {
-    render(
-      <ChatPanel
-        onOpenSettings={vi.fn()}
-        activeProject={ACTIVE_PROJECT}
-      />,
-    );
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
     expect(screen.getByText('Alpha Initiative')).toBeInTheDocument();
   });
 
   it('does not show project banner when activeProject is null', () => {
-    render(
-      <ChatPanel
-        onOpenSettings={vi.fn()}
-        activeProject={null}
-      />,
-    );
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
     expect(screen.queryByText('Alpha Initiative')).toBeNull();
   });
 
   it('does not show project banner when activeProject is undefined', () => {
-    render(
-      <ChatPanel
-        onOpenSettings={vi.fn()}
-      />,
-    );
+    render(<ChatPanel onOpenSettings={vi.fn()} />);
     // No project banner element should be visible
-    const folders = document.querySelectorAll('svg');
+    const _folders = document.querySelectorAll('svg');
     // Just verify the component renders without crashing
     expect(document.body).toBeTruthy();
   });
 
   it('passes project threadId to sendMessage when activeProject is set', async () => {
     const user = userEvent.setup();
-    render(
-      <ChatPanel
-        onOpenSettings={vi.fn()}
-        activeProject={ACTIVE_PROJECT}
-      />,
-    );
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
 
     // ChatInput mock renders a button that calls onSend('test message')
     await user.click(screen.getByTestId('chat-input-send'));
@@ -179,12 +181,7 @@ describe('ChatPanel — project scoping', () => {
 
   it('passes undefined threadId to sendMessage when no activeProject', async () => {
     const user = userEvent.setup();
-    render(
-      <ChatPanel
-        onOpenSettings={vi.fn()}
-        activeProject={null}
-      />,
-    );
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
 
     await user.click(screen.getByTestId('chat-input-send'));
 

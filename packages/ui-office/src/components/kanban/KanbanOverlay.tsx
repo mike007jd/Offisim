@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { X } from 'lucide-react';
 import { Button } from '@aics/ui-core';
+import { X } from 'lucide-react';
+import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { KanbanBoard } from './KanbanBoard';
 
@@ -64,12 +64,13 @@ export function KanbanOverlay({ open, onClose, requestText }: KanbanOverlayProps
       className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
       aria-hidden={!open}
     >
-      <div
-        className="absolute inset-x-0 top-12 bottom-0 flex flex-col"
-        style={panelStyle}
-      >
+      <div className="absolute inset-x-0 top-12 bottom-0 flex flex-col" style={panelStyle}>
         {/* Header row */}
         <div className="flex items-center justify-between px-6 py-3 shrink-0">
           <h2 className="font-black text-lg text-slate-100 uppercase tracking-wider">

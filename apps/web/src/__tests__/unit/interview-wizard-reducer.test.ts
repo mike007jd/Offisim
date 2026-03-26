@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_WIZARD_FORM,
   WIZARD_STEPS,
@@ -7,6 +6,7 @@ import {
   wizardReducer,
 } from '@aics/ui-office';
 import type { WizardAction, WizardState } from '@aics/ui-office';
+import { describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -170,20 +170,18 @@ describe('isStepValid', () => {
 // ---------------------------------------------------------------------------
 describe('progress calculation', () => {
   it('computes progress as (currentStep + 1) / total', () => {
-    // Simulate progress tracking as the hook does
     const total = WIZARD_STEPS.length;
 
     const s0 = initialWizardState;
-    expect((s0.currentStep + 1) / total).toBeCloseTo(1 / 7);
+    expect((s0.currentStep + 1) / total).toBeCloseTo(1 / total);
 
     const s3 = applyActions(initialWizardState, [
       { type: 'next' },
       { type: 'next' },
       { type: 'next' },
     ]);
-    expect((s3.currentStep + 1) / total).toBeCloseTo(4 / 7);
+    expect((s3.currentStep + 1) / total).toBeCloseTo(4 / total);
 
-    // Last step
     let sLast = initialWizardState;
     for (let i = 0; i < total - 1; i++) {
       sLast = wizardReducer(sLast, { type: 'next' });

@@ -1,5 +1,14 @@
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
-import { ClipboardCheck, Lightbulb, MessageSquarePlus, Pause, Play, Rocket, Square, Users } from 'lucide-react';
+import {
+  ClipboardCheck,
+  Lightbulb,
+  MessageSquarePlus,
+  Pause,
+  Play,
+  Rocket,
+  Square,
+  Users,
+} from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useEventStream } from '../../runtime/use-event-stream';
 
@@ -39,7 +48,7 @@ const MEETING_TYPES = [
   { value: 'review', label: 'Review', Icon: ClipboardCheck },
 ] as const;
 
-export type MeetingType = typeof MEETING_TYPES[number]['value'];
+export type MeetingType = (typeof MEETING_TYPES)[number]['value'];
 
 /**
  * MeetingControls — boss-facing meeting control panel.
@@ -60,10 +69,13 @@ export function MeetingControls({
   const [showInjectInput, setShowInjectInput] = useState(false);
   const [meetingType, setMeetingType] = useState<MeetingType>('brainstorm');
 
-  const handleMeetingTypeChange = useCallback((type: MeetingType) => {
-    setMeetingType(type);
-    onMeetingTypeChange?.(type);
-  }, [onMeetingTypeChange]);
+  const handleMeetingTypeChange = useCallback(
+    (type: MeetingType) => {
+      setMeetingType(type);
+      onMeetingTypeChange?.(type);
+    },
+    [onMeetingTypeChange],
+  );
 
   // Derive meeting status from events
   const meetingEvents = useEventStream('meeting.state.changed', 1);
@@ -108,9 +120,7 @@ export function MeetingControls({
     <Card className="border-slate-400/20">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider text-slate-400">
-            Meeting
-          </CardTitle>
+          <CardTitle className="text-sm uppercase tracking-wider text-slate-400">Meeting</CardTitle>
           <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
         </div>
       </CardHeader>
@@ -203,7 +213,6 @@ export function MeetingControls({
                 value={injectText}
                 onChange={(e) => setInjectText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                autoFocus
               />
               <Button
                 size="sm"

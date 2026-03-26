@@ -5,25 +5,10 @@
  * Keyboard shortcuts: 1=Select, 2=Move, 3=Rotate, 4=Place, G=Grid snap.
  */
 
-import { useEffect, useCallback } from 'react';
-import {
-  MousePointer2,
-  Move,
-  RotateCcw,
-  Plus,
-  Grid3x3,
-  ArrowLeft,
-  Save,
-} from 'lucide-react';
-import { useStudioStore, type StudioTool } from './StudioState.js';
-import {
-  STUDIO_COLORS,
-  SP,
-  FONT,
-  panelStyle,
-  toolButtonStyle,
-  kbdStyle,
-} from './studio-tokens.js';
+import { ArrowLeft, Grid3x3, MousePointer2, Move, Plus, RotateCcw, Save } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
+import { type StudioTool, useStudioStore } from './StudioState.js';
+import { FONT, SP, STUDIO_COLORS, kbdStyle, panelStyle, toolButtonStyle } from './studio-tokens.js';
 
 // -- Types --------------------------------------------------------------------
 
@@ -76,11 +61,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       // Don't capture when typing in inputs
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       switch (e.key) {
         case 'q':
@@ -119,6 +100,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
     <div style={panelStyle('top')}>
       {/* Back */}
       <button
+        type="button"
         onClick={onBack}
         aria-label="Back to company selection"
         style={{
@@ -138,6 +120,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         return (
           <button
             key={t.id}
+            type="button"
             onClick={() => setTool(t.id)}
             aria-label={`${t.label} tool (${t.shortcut})`}
             style={toolButtonStyle(active)}
@@ -152,6 +135,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
 
       {/* Grid snap toggle */}
       <button
+        type="button"
         onClick={toggleGridSnap}
         aria-label={`Toggle grid snap (G) — currently ${gridSnap ? 'on' : 'off'}`}
         style={toolButtonStyle(gridSnap)}
@@ -178,6 +162,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
       {/* Save — wrapped for dirty indicator dot */}
       <div style={{ position: 'relative' }}>
         <button
+          type="button"
           onClick={onSave}
           disabled={!canSave}
           aria-label={saving ? 'Saving in progress' : 'Save layout (Ctrl+S)'}

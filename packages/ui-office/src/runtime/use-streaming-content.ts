@@ -1,8 +1,16 @@
-import type { GraphNodeEnteredPayload, LlmStreamChunkPayload, RuntimeEvent } from '@aics/shared-types';
+import type {
+  GraphNodeEnteredPayload,
+  LlmStreamChunkPayload,
+  RuntimeEvent,
+} from '@aics/shared-types';
 import { useEffect, useRef, useState } from 'react';
 import { useAicsRuntime, useAicsRuntimeStatus } from './aics-runtime-context';
 
-export function useStreamingContent(): { content: string; isStreaming: boolean; nodeName: string | null } {
+export function useStreamingContent(): {
+  content: string;
+  isStreaming: boolean;
+  nodeName: string | null;
+} {
   const { eventBus } = useAicsRuntime();
   const { isRunning } = useAicsRuntimeStatus();
   const [content, setContent] = useState('');
@@ -27,11 +35,14 @@ export function useStreamingContent(): { content: string; isStreaming: boolean; 
   // intermediate node outputs (boss, manager, employee) would get mixed in.
   // Also track which node is currently streaming.
   useEffect(() => {
-    const unsub = eventBus.on('graph.node.entered', (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
-      accRef.current = '';
-      setContent('');
-      setNodeName(event.payload?.nodeName ?? null);
-    });
+    const unsub = eventBus.on(
+      'graph.node.entered',
+      (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
+        accRef.current = '';
+        setContent('');
+        setNodeName(event.payload?.nodeName ?? null);
+      },
+    );
     return unsub;
   }, [eventBus]);
 

@@ -1,4 +1,5 @@
 import { employeeCreated } from '@aics/core/browser';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
 import { ToastBanner, useToasts } from '@aics/ui-core';
 import {
   AgentPanel,
@@ -10,9 +11,9 @@ import {
   ErrorBoundary,
   Header,
   NotificationCenter,
-  type ProviderConfig,
   ProjectListPanel,
   ProjectSelector,
+  type ProviderConfig,
   ResumeBar,
   RightSidebar,
   StatusBar,
@@ -26,7 +27,6 @@ import {
   useProjects,
   useReducedMotion,
 } from '@aics/ui-office';
-import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 
 /** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
@@ -83,7 +83,14 @@ export function App({ onCompanySwitch }: AppProps) {
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const [projectListOpen, setProjectListOpen] = useState(false);
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
-  const { reinitRuntime, repos, eventBus, unfinishedThreads, dismissUnfinishedThreads, resumeThread } = useAicsRuntime();
+  const {
+    reinitRuntime,
+    repos,
+    eventBus,
+    unfinishedThreads,
+    dismissUnfinishedThreads,
+    resumeThread,
+  } = useAicsRuntime();
   const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
     repos,
@@ -114,17 +121,14 @@ export function App({ onCompanySwitch }: AppProps) {
 
   // Subscribe to deliverable.created — show a prominent "Output ready" toast with a View action
   useEffect(() => {
-    return eventBus.on(
-      'deliverable.created',
-      (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-        const title = e.payload.title || 'Output';
-        addToast(`Output ready: ${title}`, 'success', {
-          actionLabel: 'View',
-          onAction: () => setFocusOutputsToken((t) => t + 1),
-          durationMs: 8_000,
-        });
-      },
-    );
+    return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
+      const title = e.payload.title || 'Output';
+      addToast(`Output ready: ${title}`, 'success', {
+        actionLabel: 'View',
+        onAction: () => setFocusOutputsToken((t) => t + 1),
+        durationMs: 8_000,
+      });
+    });
   }, [eventBus, addToast]);
 
   // Deep link install handler — receives offisim://install?listing_id=X&version=Y from Tauri shell

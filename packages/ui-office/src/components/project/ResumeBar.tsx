@@ -20,9 +20,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
   return (
     <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-700/50 rounded-lg px-4 py-2 text-sm">
       <span className="text-amber-200 shrink-0">
-        {projects.length === 1
-          ? '1 个项目未完成'
-          : `${projects.length} 个项目未完成`}
+        {projects.length === 1 ? '1 个项目未完成' : `${projects.length} 个项目未完成`}
       </span>
       <div className="flex flex-wrap gap-1 flex-1 min-w-0">
         {projects.map((p) => (

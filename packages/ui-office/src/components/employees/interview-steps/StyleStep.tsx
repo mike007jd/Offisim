@@ -1,6 +1,6 @@
 import { Textarea } from '@aics/ui-core';
-import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 import { cn } from '@aics/ui-core';
+import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 const STYLE_PRESETS = [
   { label: 'Detail-oriented', description: 'Thorough, careful, precise' },

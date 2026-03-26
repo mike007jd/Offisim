@@ -1,29 +1,38 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, Html } from '@react-three/drei';
-import * as THREE from 'three';
-import { useSceneColors } from '../../theme/use-scene-colors.js';
-import { Lobster3D } from './Lobster3D.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAgentStates } from '../../runtime/use-agent-states';
-import type { AgentState } from '../../runtime/use-agent-states';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
-import { useCompany } from '../company/CompanyContext.js';
-import { STATE_LABELS } from '../../lib/state-labels';
-import { ZONES, DROP_TARGET_ZONES, SEAT_OFFSETS, resolveEmployeeZone } from '../../lib/zone-config.js';
 import type { RuntimeEvent } from '@aics/shared-types';
-import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
+import { Environment, Html, OrbitControls } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { useAgentAnimation } from '../../hooks/useAgentAnimation.js';
 import { useCharacterMovement } from '../../hooks/useCharacterMovement.js';
-import { registerMovementHandle, unregisterMovementHandle, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator.js';
+import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
+import {
+  registerMovementHandle,
+  unregisterMovementHandle,
+  useSceneOrchestrator,
+} from '../../hooks/useSceneOrchestrator.js';
+import { STATE_LABELS } from '../../lib/state-labels';
+import {
+  DROP_TARGET_ZONES,
+  SEAT_OFFSETS,
+  ZONES,
+  resolveEmployeeZone,
+} from '../../lib/zone-config.js';
+import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useAgentStates } from '../../runtime/use-agent-states';
+import type { AgentState } from '../../runtime/use-agent-states';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
+import { useCompany } from '../company/CompanyContext.js';
+import { Lobster3D } from './Lobster3D.js';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { Prefab3D } from './prefabs/index.js';
 import {
-  WorkstationMesh3D,
   BookshelfMesh3D,
-  RestAreaMesh3D,
   MeetingTableMesh3D,
-  ServerRackMesh3D,
   PlantMesh3D,
+  RestAreaMesh3D,
+  ServerRackMesh3D,
+  WorkstationMesh3D,
 } from './prefabs/index.js';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
@@ -40,14 +49,25 @@ interface Zone3DLayout {
 
 /** Maps zone ID → Three.js position and size (derived from zone-config cx/cz/w/d). */
 const ZONE_3D_LAYOUT: Readonly<Record<string, Zone3DLayout>> = Object.fromEntries(
-  ZONES.map(z => [z.id, { position: [z.cx, 0, z.cz] as [number, number, number], size: [z.w, z.d] as [number, number] }]),
+  ZONES.map((z) => [
+    z.id,
+    { position: [z.cx, 0, z.cz] as [number, number, number], size: [z.w, z.d] as [number, number] },
+  ]),
 );
 
+function getZone3DLayout(zoneId: string): Zone3DLayout {
+  const layout = ZONE_3D_LAYOUT[zoneId];
+  if (!layout) {
+    throw new Error(`Missing 3D layout for zone "${zoneId}"`);
+  }
+  return layout;
+}
+
 /** Zones that accept employee drops (those with desk slots) — with 3D layout attached. */
-const DROP_TARGET_ZONES_3D = DROP_TARGET_ZONES.map(z => ({ ...z, ...ZONE_3D_LAYOUT[z.id]! }));
+const DROP_TARGET_ZONES_3D = DROP_TARGET_ZONES.map((z) => ({ ...z, ...getZone3DLayout(z.id) }));
 
 /** All zones with 3D layout attached (for rendering zone overlays). */
-const ZONES_3D = ZONES.map(z => ({ ...z, ...ZONE_3D_LAYOUT[z.id]! }));
+const ZONES_3D = ZONES.map((z) => ({ ...z, ...getZone3DLayout(z.id) }));
 
 // ── Drag state ───────────────────────────────────────────────────────
 
@@ -78,15 +98,20 @@ const _intersectPoint = new THREE.Vector3();
  * Hit-test a world-space XZ position against drop-target zone bounding boxes.
  * Returns the first matching drop-target zone (with 3D layout), or null.
  */
-function hitTestZone3D(worldX: number, worldZ: number): typeof DROP_TARGET_ZONES_3D[number] | null {
+function hitTestZone3D(
+  worldX: number,
+  worldZ: number,
+): (typeof DROP_TARGET_ZONES_3D)[number] | null {
   for (const zone of DROP_TARGET_ZONES_3D) {
     const halfW = zone.size[0] / 2;
     const halfD = zone.size[1] / 2;
     const cx = zone.position[0];
     const cz = zone.position[2];
     if (
-      worldX >= cx - halfW && worldX <= cx + halfW &&
-      worldZ >= cz - halfD && worldZ <= cz + halfD
+      worldX >= cx - halfW &&
+      worldX <= cx + halfW &&
+      worldZ >= cz - halfD &&
+      worldZ <= cz + halfD
     ) {
       return zone;
     }
@@ -95,14 +120,17 @@ function hitTestZone3D(worldX: number, worldZ: number): typeof DROP_TARGET_ZONES
 }
 
 const OUTFIT_COLORS = [
-  '#3b82f6', '#a855f7', '#22c55e', '#818cf8',
-  '#f97316', '#ef4444', '#06b6d4', '#f59e0b',
+  '#3b82f6',
+  '#a855f7',
+  '#22c55e',
+  '#818cf8',
+  '#f97316',
+  '#ef4444',
+  '#06b6d4',
+  '#f59e0b',
 ];
 
-const SKIN_TONES = [
-  '#fce7f3', '#fef3c7', '#92400e', '#fdf2f8',
-  '#fff1f2', '#d4a574', '#f5deb3',
-];
+const SKIN_TONES = ['#fce7f3', '#fef3c7', '#92400e', '#fdf2f8', '#fff1f2', '#d4a574', '#f5deb3'];
 
 // ── Furniture components ────────────────────────────────────────────
 // Extracted to packages/ui-office/src/components/scene/prefabs/
@@ -111,7 +139,18 @@ const SKIN_TONES = [
 
 // ── Zone floor label ────────────────────────────────────────────────
 
-function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSource, activityCount, hasBlocked, isMeetingActive }: {
+function ZoneLabel({
+  position,
+  size,
+  color,
+  name,
+  isDragging,
+  isHovered,
+  isSource,
+  activityCount,
+  hasBlocked,
+  isMeetingActive,
+}: {
   position: [number, number, number];
   size: [number, number];
   color: string;
@@ -130,16 +169,17 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
   isMeetingActive?: boolean;
 }) {
   // During drag: valid drop targets get brighter, hovered zone pulses, source stays dim
-  const floorOpacity = isDragging
-    ? (isHovered && !isSource ? 0.35 : isSource ? 0.08 : 0.2)
-    : 0.12;
-  const borderOpacity = isDragging
-    ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6)
-    : 0.4;
+  const floorOpacity = isDragging ? (isHovered && !isSource ? 0.35 : isSource ? 0.08 : 0.2) : 0.12;
+  const borderOpacity = isDragging ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6) : 0.4;
 
   // Memoize edge PlaneGeometry to avoid GPU leak on every render
   const edgePlaneGeo = useMemo(() => new THREE.PlaneGeometry(size[0], size[1]), [size[0], size[1]]);
-  useEffect(() => () => { edgePlaneGeo.dispose(); }, [edgePlaneGeo]);
+  useEffect(
+    () => () => {
+      edgePlaneGeo.dispose();
+    },
+    [edgePlaneGeo],
+  );
 
   return (
     <group position={position}>
@@ -164,53 +204,53 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
       {isMeetingActive && <MeetingActiveLabel />}
       {/* "Drop here" indicator during drag */}
       {isDragging && !isSource && (
-        <Html
-          position={[0, 0.8, 0]}
-          center
-          style={{ pointerEvents: 'none' }}
-        >
-          <div style={{
-            background: isHovered ? 'rgba(30,64,175,0.85)' : 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            border: `1px solid ${isHovered ? '#60a5fa' : color + '40'}`,
-            borderRadius: '8px',
-            padding: '4px 14px',
-            whiteSpace: 'nowrap',
-            transition: 'background 0.15s, border-color 0.15s',
-          }}>
-            <span style={{
-              color: isHovered ? '#ffffff' : color,
-              fontSize: '11px',
-              fontWeight: 700,
-              fontFamily: 'Inter, system-ui, sans-serif',
-            }}>
+        <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}>
+          <div
+            style={{
+              background: isHovered ? 'rgba(30,64,175,0.85)' : 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+              border: `1px solid ${isHovered ? '#60a5fa' : `${color}40`}`,
+              borderRadius: '8px',
+              padding: '4px 14px',
+              whiteSpace: 'nowrap',
+              transition: 'background 0.15s, border-color 0.15s',
+            }}
+          >
+            <span
+              style={{
+                color: isHovered ? '#ffffff' : color,
+                fontSize: '11px',
+                fontWeight: 700,
+                fontFamily: 'Inter, system-ui, sans-serif',
+              }}
+            >
               Drop here
             </span>
           </div>
         </Html>
       )}
       {/* HUD label floating above zone */}
-      <Html
-        position={[0, 0.5, -size[1] / 2 + 0.5]}
-        center
-        style={{ pointerEvents: 'none' }}
-      >
-        <div style={{
-          background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(8px)',
-          border: `1px solid ${color}40`,
-          borderRadius: '8px',
-          padding: '4px 12px',
-          whiteSpace: 'nowrap',
-        }}>
-          <span style={{
-            color: color,
-            fontSize: '11px',
-            fontWeight: 900,
-            letterSpacing: '3px',
-            textTransform: 'uppercase',
-            fontFamily: 'Inter, system-ui, sans-serif',
-          }}>
+      <Html position={[0, 0.5, -size[1] / 2 + 0.5]} center style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${color}40`,
+            borderRadius: '8px',
+            padding: '4px 12px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span
+            style={{
+              color: color,
+              fontSize: '11px',
+              fontWeight: 900,
+              letterSpacing: '3px',
+              textTransform: 'uppercase',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
             {name}
           </span>
         </div>
@@ -221,7 +261,12 @@ function ZoneLabel({ position, size, color, name, isDragging, isHovered, isSourc
 
 // ── Low-poly character ──────────────────────────────────────────────
 
-function LowPolyCharacter({ outfitColor, skinTone, state, limbRefs }: {
+function LowPolyCharacter({
+  outfitColor,
+  skinTone,
+  state,
+  limbRefs,
+}: {
   outfitColor: string;
   skinTone: string;
   state: string;
@@ -279,7 +324,12 @@ function LowPolyCharacter({ outfitColor, skinTone, state, limbRefs }: {
 
 // ── Status bubble labels ────────────────────────────────────────────
 
-function StatusBubble3D({ state, taskDesc, blockReason, subTasks }: {
+function StatusBubble3D({
+  state,
+  taskDesc,
+  blockReason,
+  subTasks,
+}: {
   state: string;
   /** Optional truncated task description (working state). */
   taskDesc?: string;
@@ -308,10 +358,10 @@ function StatusBubble3D({ state, taskDesc, blockReason, subTasks }: {
 
   // Multi-task progress display
   const hasMultiTasks = subTasks && subTasks.length > 1;
-  const completedCount = subTasks?.filter(s => s.status === 'done').length ?? 0;
+  const completedCount = subTasks?.filter((s) => s.status === 'done').length ?? 0;
   const totalCount = subTasks?.length ?? 0;
   const allDone = hasMultiTasks && completedCount === totalCount;
-  const hasFailed = subTasks?.some(s => s.status === 'failed') ?? false;
+  const hasFailed = subTasks?.some((s) => s.status === 'failed') ?? false;
 
   // Main label text
   let displayText = label;
@@ -325,9 +375,9 @@ function StatusBubble3D({ state, taskDesc, blockReason, subTasks }: {
       displayText = `${completedCount}/${totalCount} tasks`;
     }
   } else if (isWorking && taskDesc) {
-    displayText = taskDesc.length > 20 ? taskDesc.slice(0, 20) + '…' : taskDesc;
+    displayText = taskDesc.length > 20 ? `${taskDesc.slice(0, 20)}…` : taskDesc;
   } else if (isBlocked && blockReason) {
-    displayText = blockReason.length > 20 ? blockReason.slice(0, 20) + '…' : blockReason;
+    displayText = blockReason.length > 20 ? `${blockReason.slice(0, 20)}…` : blockReason;
   } else if (isReporting) {
     displayText = 'Delivering…';
   }
@@ -346,29 +396,33 @@ function StatusBubble3D({ state, taskDesc, blockReason, subTasks }: {
 
   return (
     <Html position={[0, 2.2, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
-      <div style={{
-        borderRadius: '9999px',
-        background: allDone ? 'rgba(34,197,94,0.20)' : bubbleColor,
-        backdropFilter: 'blur(4px)',
-        border: `1px solid ${allDone ? 'rgba(34,197,94,0.50)' : borderColor}`,
-        padding: '2px 8px',
-        fontSize: '9px',
-        fontFamily: 'monospace',
-        color: textColor,
-        whiteSpace: 'nowrap',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-      }}>
+      <div
+        style={{
+          borderRadius: '9999px',
+          background: allDone ? 'rgba(34,197,94,0.20)' : bubbleColor,
+          backdropFilter: 'blur(4px)',
+          border: `1px solid ${allDone ? 'rgba(34,197,94,0.50)' : borderColor}`,
+          padding: '2px 8px',
+          fontSize: '9px',
+          fontFamily: 'monospace',
+          color: textColor,
+          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+        }}
+      >
         {isReporting && !hasMultiTasks && (
-          <span style={{
-            display: 'inline-block',
-            width: '5px',
-            height: '5px',
-            borderRadius: '50%',
-            background: '#06b6d4',
-            animation: 'pulse 1s infinite',
-          }} />
+          <span
+            style={{
+              display: 'inline-block',
+              width: '5px',
+              height: '5px',
+              borderRadius: '50%',
+              background: '#06b6d4',
+              animation: 'pulse 1s infinite',
+            }}
+          />
         )}
         {icon && <span>{icon}</span>}
         {displayText}
@@ -389,13 +443,18 @@ interface PlacedEmployee {
 }
 
 /** Rest area zone layout — used for idle employee default positioning. */
-const REST_ZONE_3D = ZONE_3D_LAYOUT['rest']!;
+const REST_ZONE_3D = getZone3DLayout('rest');
+const DEFAULT_SEAT_OFFSET = SEAT_OFFSETS[0] ?? [0, 0, 0];
+type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
 function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
   return useMemo(() => {
     // Space = State: idle employees go to rest area, working employees go to workstations.
     // The SceneOrchestrator overrides these positions during ceremonies via moveTo().
-    const zoneEmployees = new Map<string, { id: string; agent: AgentState; globalIndex: number }[]>();
+    const zoneEmployees = new Map<
+      string,
+      { id: string; agent: AgentState; globalIndex: number }[]
+    >();
     for (const z of ZONES_3D) {
       zoneEmployees.set(z.id, []);
     }
@@ -431,7 +490,7 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
           });
         } else {
           // Work zones: place at desk positions, wrapping around if > 4
-          const deskPos = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length]!;
+          const deskPos = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? DEFAULT_SEAT_OFFSET;
           placed.push({
             id: emp.id,
             agent: emp.agent,
@@ -479,12 +538,15 @@ function EmployeeMarker({
   const rightLegRef = useRef<THREE.Mesh>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
   const rightArmRef = useRef<THREE.Mesh>(null);
-  const limbRefs = useMemo(() => ({
-    leftLeg: leftLegRef,
-    rightLeg: rightLegRef,
-    leftArm: leftArmRef,
-    rightArm: rightArmRef,
-  }), []);
+  const limbRefs = useMemo(
+    () => ({
+      leftLeg: leftLegRef,
+      rightLeg: rightLegRef,
+      leftArm: leftArmRef,
+      rightArm: rightArmRef,
+    }),
+    [],
+  );
 
   // Character movement (walk cycle + position interpolation)
   const groupRef = useRef<THREE.Group>(null);
@@ -503,9 +565,10 @@ function EmployeeMarker({
     if (groupRef.current) {
       groupRef.current.position.set(emp.position[0], 0, emp.position[2]);
     }
-  }, []); // Only on mount — orchestrator controls position after that
+  }, [emp.position]); // Initial sync before orchestrator takes over
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: R3F groups are pointer-only scene primitives, not keyboard-focusable DOM controls.
     <group
       ref={groupRef}
       position={emp.position}
@@ -576,6 +639,7 @@ function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
   return (
     <group>
       {/* Floor */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: R3F floor mesh is a pointer-only scene primitive, not a keyboard-focusable DOM control. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onFloorClick?.()}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial color="#020617" roughness={0.9} />
@@ -691,16 +755,19 @@ function DragController({
   }, [gl.domElement]);
 
   /** Raycast from screen coords to the y=0 floor plane. */
-  const raycastToFloor = useCallback((clientX: number, clientY: number): [number, number, number] | null => {
-    const canvas = gl.domElement;
-    const rect = canvas.getBoundingClientRect();
-    _pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    _pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    _raycaster.setFromCamera(_pointer, camera);
-    const hit = _raycaster.ray.intersectPlane(_floorPlane, _intersectPoint);
-    if (!hit) return null;
-    return [_intersectPoint.x, 0, _intersectPoint.z];
-  }, [camera, gl.domElement]);
+  const raycastToFloor = useCallback(
+    (clientX: number, clientY: number): [number, number, number] | null => {
+      const canvas = gl.domElement;
+      const rect = canvas.getBoundingClientRect();
+      _pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      _pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      _raycaster.setFromCamera(_pointer, camera);
+      const hit = _raycaster.ray.intersectPlane(_floorPlane, _intersectPoint);
+      if (!hit) return null;
+      return [_intersectPoint.x, 0, _intersectPoint.z];
+    },
+    [camera, gl.domElement],
+  );
 
   // Listen for pointer move/up on the canvas DOM element during active drag.
   // We attach DOM listeners rather than R3F mesh events for more reliable
@@ -757,7 +824,12 @@ interface FlowLineData {
  * Animated line from manager/boss position → employee zone center.
  * Lifecycle: fade-in 0.3s → hold 1s → fade-out 0.7s (total 2s).
  */
-function TaskFlowLine({ from, to, color, onComplete }: {
+function TaskFlowLine({
+  from,
+  to,
+  color,
+  onComplete,
+}: {
   from: [number, number, number];
   to: [number, number, number];
   color: string;
@@ -767,10 +839,7 @@ function TaskFlowLine({ from, to, color, onComplete }: {
   const startRef = useRef(performance.now() / 1000);
   const doneRef = useRef(false);
 
-  const points = useMemo(() => [
-    new THREE.Vector3(...from),
-    new THREE.Vector3(...to),
-  ], [from, to]);
+  const points = useMemo(() => [new THREE.Vector3(...from), new THREE.Vector3(...to)], [from, to]);
 
   useFrame(() => {
     if (doneRef.current || !matRef.current) return;
@@ -824,14 +893,24 @@ function TaskFlowLine({ from, to, color, onComplete }: {
  * Pulsing floor overlay driven by zone activity level.
  * Rendered as a thin plane just above the zone floor overlay.
  */
-function ZoneActivityGlow({ size, activityCount, hasBlocked }: {
+function ZoneActivityGlow({
+  size,
+  activityCount,
+  hasBlocked,
+}: {
   size: [number, number];
   activityCount: number;
   hasBlocked: boolean;
 }) {
   const matRef = useRef<THREE.MeshBasicMaterial>(null);
 
-  const targetOpacity = hasBlocked ? 0.18 : activityCount >= 3 ? 0.20 : activityCount >= 1 ? 0.10 : 0.04;
+  const targetOpacity = hasBlocked
+    ? 0.18
+    : activityCount >= 3
+      ? 0.2
+      : activityCount >= 1
+        ? 0.1
+        : 0.04;
   const baseColor = hasBlocked ? '#f59e0b' : '#60a5fa';
 
   useFrame((state) => {
@@ -857,23 +936,27 @@ function MeetingActiveLabel() {
   const sc = useSceneColors();
   return (
     <Html position={[0, 2.5, 0]} center style={{ pointerEvents: 'none' }}>
-      <div style={{
-        background: 'rgba(148,163,184,0.20)',
-        backdropFilter: 'blur(6px)',
-        border: `1px solid ${sc.textMuted}`,
-        borderRadius: '9999px',
-        padding: '3px 14px',
-        whiteSpace: 'nowrap',
-        animation: 'pulse 2s infinite',
-      }}>
-        <span style={{
-          color: sc.text,
-          fontSize: '10px',
-          fontWeight: 900,
-          letterSpacing: '3px',
-          textTransform: 'uppercase',
-          fontFamily: 'Inter, system-ui, sans-serif',
-        }}>
+      <div
+        style={{
+          background: 'rgba(148,163,184,0.20)',
+          backdropFilter: 'blur(6px)',
+          border: `1px solid ${sc.textMuted}`,
+          borderRadius: '9999px',
+          padding: '3px 14px',
+          whiteSpace: 'nowrap',
+          animation: 'pulse 2s infinite',
+        }}
+      >
+        <span
+          style={{
+            color: sc.text,
+            fontSize: '10px',
+            fontWeight: 900,
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            fontFamily: 'Inter, system-ui, sans-serif',
+          }}
+        >
           MEETING
         </span>
       </div>
@@ -882,7 +965,9 @@ function MeetingActiveLabel() {
 }
 
 /** Lines connecting each meeting participant to the meeting room center. */
-export function MeetingParticipantLines({ participantPositions }: {
+export function MeetingParticipantLines({
+  participantPositions,
+}: {
   participantPositions: [number, number, number][];
 }) {
   const sc = useSceneColors();
@@ -899,7 +984,12 @@ export function MeetingParticipantLines({ participantPositions }: {
     const newLines = participantPositions.map((pos) => {
       const points = [new THREE.Vector3(...MTG_CENTER), new THREE.Vector3(...pos)];
       const geo = new THREE.BufferGeometry().setFromPoints(points);
-      const mat = new THREE.LineBasicMaterial({ color: sc.textMuted, transparent: true, opacity: 0.35, linewidth: 1 });
+      const mat = new THREE.LineBasicMaterial({
+        color: sc.textMuted,
+        transparent: true,
+        opacity: 0.35,
+        linewidth: 1,
+      });
       return new THREE.Line(geo, mat);
     });
     prevLinesRef.current = newLines;
@@ -918,7 +1008,9 @@ export function MeetingParticipantLines({ participantPositions }: {
 
   return (
     <>
-      {lines.map((line, i) => <primitive key={i} object={line} />)}
+      {lines.map((line) => (
+        <primitive key={line.uuid} object={line} />
+      ))}
     </>
   );
 }
@@ -934,10 +1026,16 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
 
   const { targetColor, targetIntensity } = useMemo(() => {
     const values = [...agents.values()];
-    const hasBlocked = values.some(a => a.state === 'blocked' || a.state === 'failed');
-    const hasActive = values.some(a => a.state !== 'idle');
-    const hasMeeting = values.some(a => a.state === 'meeting');
-    const color = hasBlocked ? '#ff9944' : hasMeeting ? '#c4bfee' : hasActive ? '#ffffff' : '#aabbcc';
+    const hasBlocked = values.some((a) => a.state === 'blocked' || a.state === 'failed');
+    const hasActive = values.some((a) => a.state !== 'idle');
+    const hasMeeting = values.some((a) => a.state === 'meeting');
+    const color = hasBlocked
+      ? '#ff9944'
+      : hasMeeting
+        ? '#c4bfee'
+        : hasActive
+          ? '#ffffff'
+          : '#aabbcc';
     return { targetColor: color, targetIntensity: hasMeeting ? 0.6 : 0.8 };
   }, [agents]);
 
@@ -948,7 +1046,11 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
     // Lerp toward target color/intensity each frame for smooth transitions
     const current = lightRef.current.color;
     current.lerp(targetColorObj, 0.02);
-    lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, 0.02);
+    lightRef.current.intensity = THREE.MathUtils.lerp(
+      lightRef.current.intensity,
+      targetIntensity,
+      0.02,
+    );
   });
 
   return <ambientLight ref={lightRef} intensity={0.8} color={targetColor} />;
@@ -971,9 +1073,10 @@ export default function Office3DView({
   const placed = usePlacedEmployees(agents);
   const { eventBus } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
+  const sceneCompanyId = activeCompanyId ?? 'default-scene-company';
 
   // ── Scene choreography (ceremony orchestration) ──
-  const ceremony = useSceneOrchestrator({ companyId: activeCompanyId!, eventBus, agents });
+  const ceremony = useSceneOrchestrator({ companyId: sceneCompanyId, eventBus, agents });
 
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
@@ -991,8 +1094,7 @@ export default function Office3DView({
   dragStateRef.current = dragState;
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [flowLines, setFlowLines] = useState<FlowLineData[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<OrbitControlsHandle>(null);
 
   // ── Prefab data-driven rendering ──
   const { instances: prefabInstances } = usePrefabInstances();
@@ -1014,8 +1116,14 @@ export default function Office3DView({
   }, [agents]);
 
   // ── Scene-level stats for HUD ──
-  const activeCount = useMemo(() => [...agents.values()].filter(a => a.state !== 'idle').length, [agents]);
-  const blockedCount = useMemo(() => [...agents.values()].filter(a => a.state === 'blocked' || a.state === 'failed').length, [agents]);
+  const activeCount = useMemo(
+    () => [...agents.values()].filter((a) => a.state !== 'idle').length,
+    [agents],
+  );
+  const blockedCount = useMemo(
+    () => [...agents.values()].filter((a) => a.state === 'blocked' || a.state === 'failed').length,
+    [agents],
+  );
 
   // Keep a stable ref to agents so the event handler reads latest without re-subscribing
   const agentsRef = useRef(agents);
@@ -1024,14 +1132,17 @@ export default function Office3DView({
   // ── Task flow line event subscription ──
   useEffect(() => {
     setFlowLines([]); // Clear stale flow lines on company switch
+    if (!activeCompanyId) {
+      return;
+    }
     const unsub = eventBus.on('task.state.changed', (event: RuntimeEvent) => {
       const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
       if (payload?.taskState !== 'active') return;
       const assignedZoneId = payload.assignedTo
         ? resolveEmployeeZone(agentsRef.current.get(payload.assignedTo) ?? { role: 'employee' })
-        : 'PROD';
-      const mtgLayout = ZONE_3D_LAYOUT['MTG'];
-      const targetLayout = ZONE_3D_LAYOUT[assignedZoneId] ?? ZONE_3D_LAYOUT['PROD'];
+        : 'prod';
+      const mtgLayout = ZONE_3D_LAYOUT.mtg;
+      const targetLayout = ZONE_3D_LAYOUT[assignedZoneId] ?? ZONE_3D_LAYOUT.prod;
       if (!mtgLayout || !targetLayout) return;
       const line: FlowLineData = {
         id: `flow-${Date.now()}-${Math.random()}`,
@@ -1040,30 +1151,37 @@ export default function Office3DView({
         variant: 'normal',
         createdAt: Date.now(),
       };
-      setFlowLines(prev => {
+      setFlowLines((prev) => {
         const now = Date.now();
-        const cleaned = prev.filter(l => now - l.createdAt < 5000);
+        const cleaned = prev.filter((l) => now - l.createdAt < 5000);
         return [...cleaned, line].slice(-20);
       });
     });
-    return () => { unsub(); };
+    return () => {
+      unsub();
+    };
   }, [eventBus, activeCompanyId]);
 
-  const handleSelectEmployee = useCallback((id: string) => {
-    if (onSelectEmployee) {
-      onSelectEmployee(id);
-    } else {
-      setLocalSelectedId(id);
-    }
-    eventBus.emit({
-      type: 'scene.employee.selected',
-      entityId: id,
-      entityType: 'employee',
-      companyId: activeCompanyId!,
-      timestamp: Date.now(),
-      payload: { employeeId: id, source: 'scene' },
-    });
-  }, [eventBus, onSelectEmployee]);
+  const handleSelectEmployee = useCallback(
+    (id: string) => {
+      if (onSelectEmployee) {
+        onSelectEmployee(id);
+      } else {
+        setLocalSelectedId(id);
+      }
+      if (activeCompanyId) {
+        eventBus.emit({
+          type: 'scene.employee.selected',
+          entityId: id,
+          entityType: 'employee',
+          companyId: activeCompanyId,
+          timestamp: Date.now(),
+          payload: { employeeId: id, source: 'scene' },
+        });
+      }
+    },
+    [activeCompanyId, eventBus, onSelectEmployee],
+  );
 
   const handleDeselect = useCallback(() => {
     if (onDeselectEmployee) {
@@ -1071,85 +1189,92 @@ export default function Office3DView({
     } else {
       setLocalSelectedId(null);
     }
-    eventBus.emit({
-      type: 'ui.selection.changed',
-      entityId: '',
-      entityType: 'employee',
-      companyId: activeCompanyId!,
-      timestamp: Date.now(),
-      payload: { entityId: null, source: 'scene' },
-    });
-  }, [eventBus, onDeselectEmployee]);
+    if (activeCompanyId) {
+      eventBus.emit({
+        type: 'ui.selection.changed',
+        entityId: '',
+        entityType: 'employee',
+        companyId: activeCompanyId,
+        timestamp: Date.now(),
+        payload: { entityId: null, source: 'scene' },
+      });
+    }
+  }, [activeCompanyId, eventBus, onDeselectEmployee]);
 
   // ── Drag-to-assign handlers ──
 
   /** Called from EmployeeMarker onPointerDown — starts potential drag. */
-  const handleEmployeeDragStart = useCallback((
-    empId: string,
-    agent: AgentState,
-    e: React.PointerEvent<Element>,
-  ) => {
-    // Only primary button
-    const nativeEvent = e as unknown as PointerEvent;
-    if (nativeEvent.button !== 0) return;
-    const zoneId = resolveEmployeeZone(agent);
-    setDragState({
-      employeeId: empId,
-      sourceZoneId: zoneId,
-      active: false,
-      position: [0, 0, 0], // will be set on first move
-      startScreenX: nativeEvent.clientX,
-      startScreenY: nativeEvent.clientY,
-    });
-  }, []);
+  const handleEmployeeDragStart = useCallback(
+    (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => {
+      // Only primary button
+      const nativeEvent = e as unknown as PointerEvent;
+      if (nativeEvent.button !== 0) return;
+      const zoneId = resolveEmployeeZone(agent);
+      setDragState({
+        employeeId: empId,
+        sourceZoneId: zoneId,
+        active: false,
+        position: [0, 0, 0], // will be set on first move
+        startScreenX: nativeEvent.clientX,
+        startScreenY: nativeEvent.clientY,
+      });
+    },
+    [],
+  );
 
   /** Pointer move during drag — update ghost position and check threshold. */
-  const handleDragMove = useCallback((worldX: number, worldZ: number, screenX: number, screenY: number) => {
-    setDragState(prev => {
-      if (!prev) return null;
-      // Check threshold
-      const dx = screenX - prev.startScreenX;
-      const dy = screenY - prev.startScreenY;
-      const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD_PX;
-      return {
-        ...prev,
-        active,
-        position: [worldX, 0, worldZ],
-      };
-    });
-    // Update hovered zone
-    const zone = hitTestZone3D(worldX, worldZ);
-    setHoveredZoneId(zone?.id ?? null);
-  }, []);
+  const handleDragMove = useCallback(
+    (worldX: number, worldZ: number, screenX: number, screenY: number) => {
+      setDragState((prev) => {
+        if (!prev) return null;
+        // Check threshold
+        const dx = screenX - prev.startScreenX;
+        const dy = screenY - prev.startScreenY;
+        const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD_PX;
+        return {
+          ...prev,
+          active,
+          position: [worldX, 0, worldZ],
+        };
+      });
+      // Update hovered zone
+      const zone = hitTestZone3D(worldX, worldZ);
+      setHoveredZoneId(zone?.id ?? null);
+    },
+    [],
+  );
 
   /** Pointer up during drag — determine drop target and emit event. */
-  const handleDragEnd = useCallback((worldX: number, worldZ: number) => {
-    const ds = dragStateRef.current;
-    if (!ds) return;
+  const handleDragEnd = useCallback(
+    (worldX: number, worldZ: number) => {
+      const ds = dragStateRef.current;
+      if (!ds) return;
 
-    if (ds.active) {
-      const targetZone = hitTestZone3D(worldX, worldZ);
-      if (targetZone && targetZone.id !== ds.sourceZoneId) {
-        eventBus.emit({
-          type: 'employee.workstation.drop-requested',
-          entityId: ds.employeeId,
-          entityType: 'employee',
-          companyId: activeCompanyId!,
-          timestamp: Date.now(),
-          payload: {
-            employeeId: ds.employeeId,
-            targetWorkstationId: targetZone.id,
-          },
-        });
+      if (ds.active) {
+        const targetZone = hitTestZone3D(worldX, worldZ);
+        if (activeCompanyId && targetZone && targetZone.id !== ds.sourceZoneId) {
+          eventBus.emit({
+            type: 'employee.workstation.drop-requested',
+            entityId: ds.employeeId,
+            entityType: 'employee',
+            companyId: activeCompanyId,
+            timestamp: Date.now(),
+            payload: {
+              employeeId: ds.employeeId,
+              targetWorkstationId: targetZone.id,
+            },
+          });
+        }
+      } else {
+        handleSelectEmployee(ds.employeeId);
       }
-    } else {
-      handleSelectEmployee(ds.employeeId);
-    }
 
-    setDragState(null);
-    setHoveredZoneId(null);
-    document.body.style.cursor = 'default';
-  }, [eventBus, handleSelectEmployee]);
+      setDragState(null);
+      setHoveredZoneId(null);
+      document.body.style.cursor = 'default';
+    },
+    [activeCompanyId, eventBus, handleSelectEmployee],
+  );
 
   /** Cancel drag (Escape, pointer leave). */
   const handleDragCancel = useCallback(() => {
@@ -1218,7 +1343,7 @@ function Office3DViewInner({
   hoveredZoneId: string | null;
   flowLines: FlowLineData[];
   setFlowLines: React.Dispatch<React.SetStateAction<FlowLineData[]>>;
-  controlsRef: React.RefObject<any>;
+  controlsRef: React.RefObject<OrbitControlsHandle | null>;
   hasPrefabData: boolean;
   prefabInstances: ReturnType<typeof usePrefabInstances>['instances'];
   zoneActivity: Record<string, { count: number; blocked: boolean }>;
@@ -1227,13 +1352,20 @@ function Office3DViewInner({
   ceremony: import('../../hooks/useSceneOrchestrator').CeremonyState;
   handleDeselect: () => void;
   handleSelectEmployee: (id: string) => void;
-  handleEmployeeDragStart: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
+  handleEmployeeDragStart: (
+    empId: string,
+    agent: AgentState,
+    e: React.PointerEvent<Element>,
+  ) => void;
   handleDragMove: (worldX: number, worldZ: number, screenX: number, screenY: number) => void;
   handleDragEnd: (worldX: number, worldZ: number) => void;
   handleDragCancel: () => void;
 }) {
   return (
-    <div className="w-full h-full bg-slate-950" style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}>
+    <div
+      className="w-full h-full bg-slate-950"
+      style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}
+    >
       <Canvas shadows camera={{ position: [0, 22, 28], fov: 45 }}>
         <color attach="background" args={['#020617']} />
         <fog attach="fog" args={['#020617', 40, 100]} />
@@ -1268,10 +1400,10 @@ function Office3DViewInner({
             name={z.label}
             isDragging={isDragging && z.deskSlots > 0}
             isHovered={hoveredZoneId === z.id}
-            isSource={isDragging ? dragState!.sourceZoneId === z.id : false}
+            isSource={isDragging ? dragState?.sourceZoneId === z.id : false}
             activityCount={zoneActivity[z.id]?.count ?? 0}
             hasBlocked={zoneActivity[z.id]?.blocked ?? false}
-            isMeetingActive={z.id === 'MTG' && (zoneActivity['MTG']?.count ?? 0) > 0}
+            isMeetingActive={z.id === 'mtg' && (zoneActivity.mtg?.count ?? 0) > 0}
           />
         ))}
 
@@ -1319,7 +1451,7 @@ function Office3DViewInner({
             key={emp.id}
             emp={emp}
             isSelected={selectedEmployeeId === emp.id}
-            isDragSource={isDragging && dragState!.employeeId === emp.id}
+            isDragSource={isDragging && dragState?.employeeId === emp.id}
             onSelect={handleSelectEmployee}
             onDragStart={handleEmployeeDragStart}
           />
@@ -1335,33 +1467,31 @@ function Office3DViewInner({
             from={line.from}
             to={line.to}
             color={line.variant === 'handoff' ? '#f97316' : '#60a5fa'}
-            onComplete={() => setFlowLines(prev => prev.filter(l => l.id !== line.id))}
+            onComplete={() => setFlowLines((prev) => prev.filter((l) => l.id !== line.id))}
           />
         ))}
 
         {/* ── Scene HUD overlay ── */}
         <Html position={[18, 14, 0]} center style={{ pointerEvents: 'none' }}>
-          <div style={{
-            fontSize: '10px',
-            fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.6)',
-            background: 'rgba(0,0,0,0.4)',
-            borderRadius: '8px',
-            padding: '4px 8px',
-            backdropFilter: 'blur(4px)',
-            whiteSpace: 'nowrap',
-          }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontFamily: 'monospace',
+              color: 'rgba(255,255,255,0.6)',
+              background: 'rgba(0,0,0,0.4)',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              backdropFilter: 'blur(4px)',
+              whiteSpace: 'nowrap',
+            }}
+          >
             <div>{activeCount} active</div>
-            {blockedCount > 0 && (
-              <div style={{ color: '#fbbf24' }}>{blockedCount} blocked</div>
-            )}
+            {blockedCount > 0 && <div style={{ color: '#fbbf24' }}>{blockedCount} blocked</div>}
           </div>
         </Html>
 
         {/* ── Drag ghost ── */}
-        {isDragging && dragState && (
-          <DragGhost3D position={dragState.position} />
-        )}
+        {isDragging && dragState && <DragGhost3D position={dragState.position} />}
 
         {/* ── Drag controller (raycasting + event handling) ── */}
         <DragController
@@ -1382,7 +1512,6 @@ function Office3DViewInner({
           target={[0, 0, 2]}
         />
       </Canvas>
-
     </div>
   );
 }

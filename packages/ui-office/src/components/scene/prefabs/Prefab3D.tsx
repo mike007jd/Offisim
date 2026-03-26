@@ -7,13 +7,13 @@
  */
 
 import type { PrefabDefinition } from '@aics/shared-types';
-import { WorkstationMesh3D } from './WorkstationMesh3D.js';
-import { ServerRackMesh3D } from './ServerRackMesh3D.js';
 import { BookshelfMesh3D } from './BookshelfMesh3D.js';
+import { DecorativeMesh3D } from './DecorativeMesh3D.js';
+import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
 import { MeetingTableMesh3D } from './MeetingTableMesh3D.js';
 import { RestAreaMesh3D } from './RestAreaMesh3D.js';
-import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
-import { DecorativeMesh3D } from './DecorativeMesh3D.js';
+import { ServerRackMesh3D } from './ServerRackMesh3D.js';
+import { WorkstationMesh3D } from './WorkstationMesh3D.js';
 
 export interface Prefab3DProps {
   definition: PrefabDefinition;
@@ -30,70 +30,29 @@ export interface Prefab3DProps {
  * fall back to a category-level default, and for completely unknown categories
  * we render a gray placeholder box.
  */
-export function Prefab3D({
-  definition,
-  position = [0, 0, 0],
-  rotation = 0,
-  state,
-}: Prefab3DProps) {
+export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state }: Prefab3DProps) {
   const template = definition.render2D?.template ?? definition.prefabId;
 
   switch (definition.category) {
     case 'workspace':
-      return (
-        <WorkstationMesh3D
-          position={position}
-          rotation={rotation}
-          state={state}
-        />
-      );
+      return <WorkstationMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'compute':
-      return (
-        <ServerRackMesh3D
-          position={position}
-          rotation={rotation}
-          state={state}
-        />
-      );
+      return <ServerRackMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'knowledge':
-      return (
-        <BookshelfMesh3D
-          position={position}
-          rotation={rotation}
-          state={state}
-        />
-      );
+      return <BookshelfMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'collaboration':
-      return (
-        <MeetingTableMesh3D
-          position={position}
-          rotation={rotation}
-          state={state}
-        />
-      );
+      return <MeetingTableMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'infrastructure':
-      return (
-        <InfrastructureMesh3D
-          position={position}
-          rotation={rotation}
-          state={state}
-        />
-      );
+      return <InfrastructureMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'decorative':
       // Rest area is a composite decorative prefab with its own mesh
       if (template === 'sofa-set') {
-        return (
-          <RestAreaMesh3D
-            position={position}
-            rotation={rotation}
-            state={state}
-          />
-        );
+        return <RestAreaMesh3D position={position} rotation={rotation} state={state} />;
       }
       return (
         <DecorativeMesh3D

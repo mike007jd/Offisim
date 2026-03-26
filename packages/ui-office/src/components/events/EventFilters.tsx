@@ -6,7 +6,15 @@ export interface EventFilterState {
   search: string;
 }
 
-export const ALL_EVENT_TYPES = ['All', 'Node', 'Plan', 'Task', 'Deliverable', 'Employee', 'Install'] as const;
+export const ALL_EVENT_TYPES = [
+  'All',
+  'Node',
+  'Plan',
+  'Task',
+  'Deliverable',
+  'Employee',
+  'Install',
+] as const;
 export type EventFilterType = (typeof ALL_EVENT_TYPES)[number];
 
 export const ALL_LEVELS = ['Info', 'Warning', 'Error'] as const;
@@ -69,10 +77,13 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
   );
 
   const levelPillClass = (level: EventLevel, active: boolean) => {
-    const base = 'px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
-    if (!active) return `${base} bg-transparent text-slate-400 border border-slate-400/30 opacity-40`;
+    const base =
+      'px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
+    if (!active)
+      return `${base} bg-transparent text-slate-400 border border-slate-400/30 opacity-40`;
     if (level === 'Error') return `${base} bg-red-500/20 text-red-500 border border-red-500/40`;
-    if (level === 'Warning') return `${base} bg-amber-400/20 text-amber-400 border border-amber-400/40`;
+    if (level === 'Warning')
+      return `${base} bg-amber-400/20 text-amber-400 border border-amber-400/40`;
     return `${base} bg-blue-500/20 text-blue-500 border border-blue-500/40`;
   };
 

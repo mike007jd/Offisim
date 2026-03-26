@@ -1,8 +1,8 @@
-import { useCallback, useRef } from 'react';
 import { cn } from '@aics/ui-core';
-import { useTaskDashboard } from '../../hooks/useTaskDashboard';
+import { useCallback, useRef } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useDeliverables } from '../../hooks/useDeliverables';
+import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { KanbanColumn } from './KanbanColumn';
 
@@ -71,9 +71,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top bar: plan progress summary ── */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.06] shrink-0">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-          Board
-        </h3>
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Board</h3>
 
         {/* Progress bar */}
         <div className="flex-1 max-w-[200px] h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -98,9 +96,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
         )}
 
         {dashboard.stats.failed > 0 && (
-          <span className="text-[10px] text-red-400">
-            {dashboard.stats.failed} failed
-          </span>
+          <span className="text-[10px] text-red-400">{dashboard.stats.failed} failed</span>
         )}
 
         {/* Scroll arrows */}
@@ -111,7 +107,14 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
             onClick={() => scrollBy(-280)}
             title="Scroll left"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <title>Scroll left</title>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -121,7 +124,14 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
             onClick={() => scrollBy(280)}
             title="Scroll right"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <title>Scroll right</title>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -129,18 +139,10 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
       </div>
 
       {/* ── Horizontal scrolling board ── */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
         <div className="flex gap-3 p-3 h-full min-w-max">
           {/* ═══ Requirements column ═══ */}
-          <KanbanColumn
-            title="Requirements"
-            stepIndex={null}
-            status="requirements"
-            tasks={[]}
-          >
+          <KanbanColumn title="Requirements" stepIndex={null} status="requirements" tasks={[]}>
             {/* User's original request */}
             {requestText && (
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-2.5 py-2 space-y-1">
@@ -158,7 +160,8 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
                 {requestText ? 'Plan Summary' : 'Request'}
               </span>
               <p className="text-[11px] text-slate-300 leading-relaxed">
-                {dashboard.summary || (requestText ? 'Waiting for PM to create a plan...' : 'User request')}
+                {dashboard.summary ||
+                  (requestText ? 'Waiting for PM to create a plan...' : 'User request')}
               </p>
             </div>
           </KanbanColumn>
@@ -177,12 +180,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
           ))}
 
           {/* ═══ Deliverables column ═══ */}
-          <KanbanColumn
-            title="Deliverables"
-            stepIndex={null}
-            status="deliverables"
-            tasks={[]}
-          >
+          <KanbanColumn title="Deliverables" stepIndex={null} status="deliverables" tasks={[]}>
             {deliverables.length === 0 ? (
               <div className="flex items-center justify-center py-6 text-[10px] text-slate-600">
                 Outputs will appear here

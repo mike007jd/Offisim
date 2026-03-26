@@ -228,7 +228,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
     } finally {
       setIsSubmitting(false);
     }
-  }, [repos, eventBus, versionService, state]);
+  }, [repos, eventBus, versionService, state, activeCompanyId]);
 
   return {
     state,

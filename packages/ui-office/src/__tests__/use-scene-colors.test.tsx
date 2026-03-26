@@ -1,7 +1,7 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { ThemeProvider, useTheme } from '../theme/index';
 import { useSceneColors } from '../theme/use-scene-colors';
-import type { ReactNode } from 'react';
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ThemeProvider>{children}</ThemeProvider>;

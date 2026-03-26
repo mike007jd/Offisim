@@ -23,7 +23,11 @@ export type { MeetingTableMesh3DProps } from './MeetingTableMesh3D.js';
 export { RestAreaMesh3D } from './RestAreaMesh3D.js';
 export type { RestAreaMesh3DProps } from './RestAreaMesh3D.js';
 
-export { NetworkSwitchMesh3D, CableTrayMesh3D, InfrastructureMesh3D } from './InfrastructureMesh3D.js';
+export {
+  NetworkSwitchMesh3D,
+  CableTrayMesh3D,
+  InfrastructureMesh3D,
+} from './InfrastructureMesh3D.js';
 export type { InfrastructureMesh3DProps } from './InfrastructureMesh3D.js';
 
 export { PlantMesh3D, DecorativeMesh3D } from './DecorativeMesh3D.js';

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
-import { useScene } from './useScene';
 import { PerformanceHUD } from './PerformanceHUD';
+import { useScene } from './useScene';
 
 const Office3DView = lazy(() => import('./Office3DView'));
 const Office2DView = lazy(() => import('./Office2DView'));
@@ -25,6 +25,7 @@ class SceneErrorBoundary extends React.Component<
             <p className="text-sm text-red-400">Scene Error</p>
             <p className="text-xs text-gray-400 mt-1">{this.state.error}</p>
             <button
+              type="button"
               className="mt-3 px-3 py-1 text-xs bg-white/10 rounded hover:bg-white/20"
               onClick={() => this.setState({ hasError: false, error: '' })}
             >
@@ -62,7 +63,15 @@ export function SceneCanvas({
       <SceneErrorBoundary>
         {/* SVG 2D View */}
         {viewMode === '2D' && (
-          <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="text-[10px] font-mono text-slate-600 animate-pulse">LOADING 2D MAP...</div></div>}>
+          <Suspense
+            fallback={
+              <div className="h-full w-full flex items-center justify-center">
+                <div className="text-[10px] font-mono text-slate-600 animate-pulse">
+                  LOADING 2D MAP...
+                </div>
+              </div>
+            }
+          >
             <Office2DView
               selectedEmployeeId={selectedEmployeeId}
               onSelectEmployee={onSelectEmployee}
@@ -73,7 +82,15 @@ export function SceneCanvas({
 
         {/* Three.js 3D View */}
         {viewMode === '3D' && (
-          <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><div className="text-[10px] font-mono text-slate-600 animate-pulse">LOADING 3D ENGINE...</div></div>}>
+          <Suspense
+            fallback={
+              <div className="h-full w-full flex items-center justify-center">
+                <div className="text-[10px] font-mono text-slate-600 animate-pulse">
+                  LOADING 3D ENGINE...
+                </div>
+              </div>
+            }
+          >
             <Office3DView
               selectedEmployeeId={selectedEmployeeId}
               onSelectEmployee={onSelectEmployee}

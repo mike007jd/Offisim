@@ -15,9 +15,7 @@ interface NotificationCenterProps {
  * Self-contained: reads notification state from the shared
  * NotificationProvider context via useNotifications().
  */
-export function NotificationCenter({
-  onFocusEmployee,
-}: NotificationCenterProps) {
+export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps) {
   const { notifications, unreadCount, markRead, dismiss, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);

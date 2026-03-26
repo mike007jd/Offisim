@@ -1,3 +1,4 @@
+import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
 import {
   Button,
   Dialog,
@@ -16,16 +17,15 @@ import {
   TabsTrigger,
   Textarea,
 } from '@aics/ui-core';
-import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
-import { TestChatTab } from './TestChatTab';
-import { VersionHistoryTab } from './VersionHistoryTab';
+import { ROLE_OPTIONS } from '../../lib/roles';
 import { AvatarCustomizer } from './AvatarCustomizer';
 import { SkillBindingList } from './SkillBindingList';
-import { ROLE_OPTIONS } from '../../lib/roles';
+import { TestChatTab } from './TestChatTab';
+import { VersionHistoryTab } from './VersionHistoryTab';
 
 // Generate workstation options from the default floor plan
 const _defaultPlan = computeFloorPlan(RD_COMPANY_ZONES, new Map());
@@ -424,7 +424,7 @@ export function EmployeeEditorDialog({
               {/* Skills */}
               {isEditMode && employeeId && (
                 <div>
-                  <label className="text-sm text-slate-400 mb-2 block">Skills</label>
+                  <p className="text-sm text-slate-400 mb-2 block">Skills</p>
                   <SkillBindingList
                     employeeId={employeeId}
                     sourcePackageId={sourcePackageId ?? null}
@@ -446,10 +446,14 @@ export function EmployeeEditorDialog({
             <TabsContent value="history" className="flex-1 overflow-y-auto min-h-0">
               <VersionHistoryTab
                 employeeId={employeeId}
-                forkOrigin={sourceAssetId ? {
-                  sourceAssetId,
-                  sourcePackageId: sourcePackageId ?? null,
-                } : null}
+                forkOrigin={
+                  sourceAssetId
+                    ? {
+                        sourceAssetId,
+                        sourcePackageId: sourcePackageId ?? null,
+                      }
+                    : null
+                }
               />
             </TabsContent>
           )}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportDocument } from '../export';
-import type { ExportableDocument, ExportFormat } from '../types';
+import type { ExportFormat, ExportableDocument } from '../types';
 
 const sampleDoc: ExportableDocument = {
   title: 'Q4 Strategy Report',
@@ -60,9 +60,9 @@ describe('exportDocument', () => {
   }
 
   it('throws on unsupported format', async () => {
-    await expect(
-      exportDocument(sampleDoc, 'xyz' as ExportFormat),
-    ).rejects.toThrow('Unsupported export format');
+    await expect(exportDocument(sampleDoc, 'xyz' as ExportFormat)).rejects.toThrow(
+      'Unsupported export format',
+    );
   });
 });
 

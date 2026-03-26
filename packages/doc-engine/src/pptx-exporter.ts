@@ -1,6 +1,6 @@
 import PptxGenJS from 'pptxgenjs';
-import type { ExportableDocument, ExportResult, Exporter } from './types';
-import { sanitizeFilename, formatDate } from './utils';
+import type { ExportResult, ExportableDocument, Exporter } from './types';
+import { formatDate, sanitizeFilename } from './utils';
 
 export const pptxExporter: Exporter = {
   async export(doc: ExportableDocument): Promise<ExportResult> {
@@ -79,8 +79,7 @@ export const pptxExporter: Exporter = {
     return {
       blob: output,
       filename: `${sanitizeFilename(doc.title)}.pptx`,
-      mimeType:
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
   },
 };

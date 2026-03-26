@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import type { ProjectAssignmentRow } from '@aics/shared-types';
+import { useEffect, useState } from 'react';
 
 interface ProjectAssignmentRepos {
   projectAssignments: {
@@ -18,7 +18,19 @@ export function useProjectAssignments(
       setAssignments([]);
       return;
     }
-    repos.projectAssignments.findByProject(projectId).then(setAssignments);
+
+    let cancelled = false;
+    setAssignments([]);
+
+    void repos.projectAssignments.findByProject(projectId).then((nextAssignments) => {
+      if (!cancelled) {
+        setAssignments(nextAssignments);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [repos, projectId]);
 
   const assignedEmployeeIds = new Set(assignments.map((a) => a.employee_id));

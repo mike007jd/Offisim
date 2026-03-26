@@ -56,7 +56,10 @@ test.describe('Smoke: Settings Dialog', () => {
     // Verify localStorage was updated
     const stored = await page.evaluate(() => localStorage.getItem('aics-provider-config'));
     expect(stored).toBeTruthy();
-    const parsed = JSON.parse(stored!);
+    if (!stored) {
+      throw new Error('Expected aics-provider-config to be present in localStorage');
+    }
+    const parsed = JSON.parse(stored);
     expect(parsed.model).toBe('test-model-name');
   });
 });

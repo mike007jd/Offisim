@@ -7,12 +7,17 @@
  */
 
 import { employeeInstalled } from '@aics/core/browser';
-import type { BindingConfirmation, InstallPlan, SkillValidationResult, UpgradeDiff } from '@aics/install-core';
+import type {
+  BindingConfirmation,
+  InstallPlan,
+  SkillValidationResult,
+  UpgradeDiff,
+} from '@aics/install-core';
 import { computeUpgradeDiff, readPackageFile } from '@aics/install-core';
 import { RegistryApiError, RegistryClient } from '@aics/registry-client';
 import { useCallback, useRef, useState } from 'react';
-import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
 
 export type InstallStep =
@@ -91,10 +96,11 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    */
   const emitInstalledEmployees = useCallback(
     (employeeIds: string[], activePlan: InstallPlan, txnId: string) => {
+      if (!activeCompanyId) return;
       for (const empId of employeeIds) {
         eventBus.emit(
           employeeInstalled(
-            activeCompanyId!,
+            activeCompanyId,
             empId,
             activePlan.manifest.package.title,
             txnId,
@@ -103,7 +109,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         );
       }
     },
-    [eventBus],
+    [activeCompanyId, eventBus],
   );
 
   const startFileImport = useCallback(
@@ -298,8 +304,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       txnIdRef.current = null;
 
       (async () => {
-        const platformUrl =
-          import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
+        const platformUrl = import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
         const client = new RegistryClient({ baseUrl: platformUrl });
 
         try {
@@ -309,8 +314,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           // 2. List versions and find the requested one (or fall back to latest)
           const versionsResponse = await client.listListingVersions(listingId);
           const versions = versionsResponse.versions;
-          const matchedVersion =
-            versions.find((v) => v.version === version) ?? versions[0];
+          const matchedVersion = versions.find((v) => v.version === version) ?? versions[0];
 
           if (!matchedVersion) {
             setStep('error');
@@ -319,7 +323,13 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           }
 
           // 3. Get artifact download info
-          const downloadInfo = await client.getArtifactDownloadInfo(matchedVersion.package_id);
+          const packageVersionId = matchedVersion.package_version_id ?? matchedVersion.package_id;
+          if (!packageVersionId) {
+            setStep('error');
+            setError(`Version ${version} is missing a downloadable package reference`);
+            return;
+          }
+          const downloadInfo = await client.getArtifactDownloadInfo(packageVersionId);
 
           // 4. Download the actual artifact
           const artifactRes = await fetch(downloadInfo.artifact_url);

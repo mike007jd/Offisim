@@ -20,53 +20,63 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
 
   return (
     <Html position={BUBBLE_POSITION} center style={{ pointerEvents: 'none' }}>
-      <div style={{
-        background: 'rgba(0, 0, 0, 0.60)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.10)',
-        borderRadius: '12px',
-        padding: '8px 16px',
-        maxWidth: '280px',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        transition: 'opacity 0.3s, transform 0.3s',
-      }}>
+      <div
+        style={{
+          background: 'rgba(0, 0, 0, 0.60)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.10)',
+          borderRadius: '12px',
+          padding: '8px 16px',
+          maxWidth: '280px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          transition: 'opacity 0.3s, transform 0.3s',
+        }}
+      >
         {/* Phase indicator dot */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}>
-          <span style={{
-            display: 'inline-block',
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            background: phaseColor,
-            boxShadow: `0 0 8px ${phaseColor}`,
-            animation: 'pulse 1.5s infinite',
-            flexShrink: 0,
-          }} />
-          <span style={{
-            color: 'rgba(255, 255, 255, 0.90)',
-            fontSize: '11px',
-            fontWeight: 600,
-            fontFamily: '"Geist Mono", "SF Mono", monospace',
-            letterSpacing: '0.02em',
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: phaseColor,
+              boxShadow: `0 0 8px ${phaseColor}`,
+              animation: 'pulse 1.5s infinite',
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              color: 'rgba(255, 255, 255, 0.90)',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: '"Geist Mono", "SF Mono", monospace',
+              letterSpacing: '0.02em',
+            }}
+          >
             {phaseIcon} {ceremony.bubbleText}
           </span>
         </div>
         {/* Participant count badge */}
         {ceremony.participantIds.size > 0 && (
-          <div style={{
-            marginTop: '4px',
-            fontSize: '9px',
-            color: 'rgba(255, 255, 255, 0.45)',
-            fontFamily: '"Geist Mono", "SF Mono", monospace',
-          }}>
+          <div
+            style={{
+              marginTop: '4px',
+              fontSize: '9px',
+              color: 'rgba(255, 255, 255, 0.45)',
+              fontFamily: '"Geist Mono", "SF Mono", monospace',
+            }}
+          >
             {ceremony.participantIds.size} participant{ceremony.participantIds.size > 1 ? 's' : ''}
             {ceremony.dispatchedIds.size > 0 && ` · ${ceremony.dispatchedIds.size} dispatched`}
           </div>
@@ -75,4 +85,3 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
     </Html>
   );
 }
-

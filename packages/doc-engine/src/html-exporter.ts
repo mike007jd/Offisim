@@ -1,5 +1,5 @@
-import type { ExportableDocument, ExportResult, Exporter } from './types';
-import { sanitizeFilename, formatDate, splitContentBlocks } from './utils';
+import type { ExportResult, ExportableDocument, Exporter } from './types';
+import { formatDate, sanitizeFilename, splitContentBlocks } from './utils';
 
 export const htmlExporter: Exporter = {
   async export(doc: ExportableDocument): Promise<ExportResult> {
@@ -8,12 +8,9 @@ export const htmlExporter: Exporter = {
 
     const bodyHtml = splitContentBlocks(doc.content)
       .map((block) => {
-        if (block.startsWith('### '))
-          return `<h3>${escapeHtml(block.slice(4))}</h3>`;
-        if (block.startsWith('## '))
-          return `<h2>${escapeHtml(block.slice(3))}</h2>`;
-        if (block.startsWith('# '))
-          return `<h1>${escapeHtml(block.slice(2))}</h1>`;
+        if (block.startsWith('### ')) return `<h3>${escapeHtml(block.slice(4))}</h3>`;
+        if (block.startsWith('## ')) return `<h2>${escapeHtml(block.slice(3))}</h2>`;
+        if (block.startsWith('# ')) return `<h1>${escapeHtml(block.slice(2))}</h1>`;
         return `<p>${escapeHtml(block)}</p>`;
       })
       .join('\n    ');

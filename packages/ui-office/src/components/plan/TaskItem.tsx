@@ -1,5 +1,5 @@
-import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { cn } from '@aics/ui-core';
+import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { TaskDetailPanel } from '../dashboard/TaskDetailPanel';
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,9 @@ export function TaskItem({
         <span className={cn('shrink-0 rounded px-1 py-0.5', statusBadgeColor(task.status))}>
           {task.status}
         </span>
-        <span className="shrink-0 text-koi">{task.employeeName ?? task.employeeId ?? 'Unassigned'}</span>
+        <span className="shrink-0 text-koi">
+          {task.employeeName ?? task.employeeId ?? 'Unassigned'}
+        </span>
         <span className="truncate text-shell">{task.description || task.taskType}</span>
         {taskCost > 0 && (
           <span className="shrink-0 font-mono text-emerald-400">${taskCost.toFixed(4)}</span>

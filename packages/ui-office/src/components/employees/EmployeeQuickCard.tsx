@@ -1,4 +1,4 @@
-import type { EmployeeUpdate, EmployeeRow } from '@aics/core/browser';
+import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,13 @@ interface InlineEditProps {
   multiline?: boolean;
 }
 
-function InlineEdit({ value, onSave, placeholder, className = '', multiline = false }: InlineEditProps) {
+function InlineEdit({
+  value,
+  onSave,
+  placeholder,
+  className = '',
+  multiline = false,
+}: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
@@ -143,7 +149,9 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
       } catch {
         /* ignore */
       }
-      onUpdate(employee.employee_id, { persona_json: JSON.stringify({ ...existing, [field]: next }) });
+      onUpdate(employee.employee_id, {
+        persona_json: JSON.stringify({ ...existing, [field]: next }),
+      });
     },
     [employee.employee_id, employee.persona_json, onUpdate],
   );
@@ -160,7 +168,9 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
             onSave={(next) => onUpdate(employee.employee_id, { name: next })}
           />
         </div>
-        <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusCls}`}>
+        <span
+          className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusCls}`}
+        >
           {statusLabel}
         </span>
       </div>
@@ -197,7 +207,10 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
 
       {/* Model + temperature footer */}
       <div className="mt-auto pt-2 border-t border-ocean-light/60 flex items-center justify-between gap-2">
-        <span className="text-[10px] text-shell/70 truncate max-w-[120px]" title={config.modelPreference || 'default'}>
+        <span
+          className="text-[10px] text-shell/70 truncate max-w-[120px]"
+          title={config.modelPreference || 'default'}
+        >
           {config.modelPreference || <em>default model</em>}
         </span>
         <span className="text-[10px] font-mono text-shell/70 shrink-0">

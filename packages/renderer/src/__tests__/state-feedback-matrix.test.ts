@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPLOYEE_STATE_SIGNALS,
   SIGNAL_PRIORITY_ORDER,
-  resolveCompetingSignals,
   type StateSignal,
+  resolveCompetingSignals,
 } from '../tokens/state-feedback-matrix.js';
 
 const ALL_STATES = [
@@ -27,7 +27,7 @@ describe('state-feedback-matrix', () => {
       const signals = EMPLOYEE_STATE_SIGNALS[state];
       expect(signals, `missing signals for state "${state}"`).toBeDefined();
       expect(Array.isArray(signals)).toBe(true);
-      expect(signals!.length).toBeGreaterThan(0);
+      expect(signals?.length).toBeGreaterThan(0);
     }
   });
 
@@ -44,11 +44,19 @@ describe('state-feedback-matrix', () => {
     const validPriorities = new Set(['critical', 'high', 'medium', 'low', 'ambient']);
 
     for (const state of ALL_STATES) {
-      for (const signal of EMPLOYEE_STATE_SIGNALS[state]!) {
-        expect(validTypes.has(signal.type), `invalid type "${signal.type}" in state "${state}"`).toBe(true);
-        expect(validPriorities.has(signal.priority), `invalid priority "${signal.priority}" in state "${state}"`).toBe(
-          true,
-        );
+      const signals = EMPLOYEE_STATE_SIGNALS[state];
+      expect(signals, `missing signals for state "${state}"`).toBeDefined();
+      if (!signals) continue;
+
+      for (const signal of signals) {
+        expect(
+          validTypes.has(signal.type),
+          `invalid type "${signal.type}" in state "${state}"`,
+        ).toBe(true);
+        expect(
+          validPriorities.has(signal.priority),
+          `invalid priority "${signal.priority}" in state "${state}"`,
+        ).toBe(true);
         expect(signal.durationMs).toBeGreaterThanOrEqual(0);
       }
     }
@@ -56,21 +64,27 @@ describe('state-feedback-matrix', () => {
 
   it('every state includes ring_color as its first signal', () => {
     for (const state of ALL_STATES) {
-      const first = EMPLOYEE_STATE_SIGNALS[state]![0];
-      expect(first!.type, `state "${state}" first signal should be ring_color`).toBe('ring_color');
+      const first = EMPLOYEE_STATE_SIGNALS[state]?.[0];
+      expect(first?.type, `state "${state}" first signal should be ring_color`).toBe('ring_color');
     }
   });
 
   it('blocked and failed have critical priority', () => {
     for (const state of ['blocked', 'failed'] as const) {
-      const signals = EMPLOYEE_STATE_SIGNALS[state]!;
+      const signals = EMPLOYEE_STATE_SIGNALS[state];
+      expect(signals, `missing signals for state "${state}"`).toBeDefined();
+      if (!signals) continue;
+
       const hasCritical = signals.some((s) => s.priority === 'critical');
       expect(hasCritical, `state "${state}" should have at least one critical signal`).toBe(true);
     }
   });
 
   it('success and failed have finite durations or zero for persistent signals', () => {
-    const successSignals = EMPLOYEE_STATE_SIGNALS['success']!;
+    const successSignals = EMPLOYEE_STATE_SIGNALS.success;
+    expect(successSignals).toBeDefined();
+    if (!successSignals) return;
+
     const hasTimedSignal = successSignals.some((s) => s.durationMs > 0);
     expect(hasTimedSignal).toBe(true);
   });
@@ -97,10 +111,10 @@ describe('resolveCompetingSignals', () => {
     expect(resolved).toHaveLength(2);
 
     const ringSignal = resolved.find((s) => s.type === 'ring_color');
-    expect(ringSignal!.priority).toBe('critical');
+    expect(ringSignal?.priority).toBe('critical');
 
     const badgeSignal = resolved.find((s) => s.type === 'badge');
-    expect(badgeSignal!.priority).toBe('medium');
+    expect(badgeSignal?.priority).toBe('medium');
   });
 
   it('returns single signal when no conflicts', () => {
@@ -108,7 +122,7 @@ describe('resolveCompetingSignals', () => {
 
     const resolved = resolveCompetingSignals(signals);
     expect(resolved).toHaveLength(1);
-    expect(resolved[0]!.priority).toBe('ambient');
+    expect(resolved[0]?.priority).toBe('ambient');
   });
 
   it('handles multiple types with same priority', () => {
@@ -124,23 +138,27 @@ describe('resolveCompetingSignals', () => {
 
   it('resolves competing signals from different employee states', () => {
     // Simulate merging signals from "blocked" (critical) and "thinking" (medium)
-    const blocked = EMPLOYEE_STATE_SIGNALS['blocked']!;
-    const thinking = EMPLOYEE_STATE_SIGNALS['thinking']!;
+    const blocked = EMPLOYEE_STATE_SIGNALS.blocked;
+    const thinking = EMPLOYEE_STATE_SIGNALS.thinking;
+    expect(blocked).toBeDefined();
+    expect(thinking).toBeDefined();
+    if (!blocked || !thinking) return;
+
     const combined = [...blocked, ...thinking];
 
     const resolved = resolveCompetingSignals(combined);
 
     // ring_color should be critical (from blocked), not medium (from thinking)
     const ringColor = resolved.find((s) => s.type === 'ring_color');
-    expect(ringColor!.priority).toBe('critical');
+    expect(ringColor?.priority).toBe('critical');
 
     // ring_pulse should also be critical (from blocked)
     const ringPulse = resolved.find((s) => s.type === 'ring_pulse');
-    expect(ringPulse!.priority).toBe('critical');
+    expect(ringPulse?.priority).toBe('critical');
 
     // badge should be critical (from blocked, alert icon)
     const badge = resolved.find((s) => s.type === 'badge');
-    expect(badge!.priority).toBe('critical');
+    expect(badge?.priority).toBe('critical');
   });
 
   it('returns empty array for empty input', () => {

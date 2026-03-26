@@ -9,5 +9,5 @@ export function formatTimestamp(ts: number): string {
 
 /** Truncate a string to max length with ellipsis. */
 export function truncate(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) + '…' : text;
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }

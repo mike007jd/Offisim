@@ -13,8 +13,8 @@
  * group.rotation (tilt), group.scale, and ring material. No conflicts.
  */
 
-import { useCallback, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useCallback, useMemo, useRef } from 'react';
 import type * as THREE from 'three';
 
 // ── Movement target (set via ref, zero re-renders) ──────────────
@@ -77,13 +77,10 @@ export function useCharacterMovement(
   const walkTimeRef = useRef(0);
   const squashRef = useRef(0); // >0 means squash animation in progress
 
-  const moveTo = useCallback(
-    (dest: [number, number, number], speed = 4, onArrive?: () => void) => {
-      targetRef.current = { dest, speed, onArrive };
-      squashRef.current = 0;
-    },
-    [],
-  );
+  const moveTo = useCallback((dest: [number, number, number], speed = 4, onArrive?: () => void) => {
+    targetRef.current = { dest, speed, onArrive };
+    squashRef.current = 0;
+  }, []);
 
   const stop = useCallback(() => {
     targetRef.current = null;

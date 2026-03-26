@@ -1,5 +1,5 @@
-import { ScrollArea } from '@aics/ui-core';
 import type { ProjectRow } from '@aics/shared-types';
+import { ScrollArea } from '@aics/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
@@ -54,15 +54,8 @@ export function ChatPanel({
   activeProject,
   onUserMessage,
 }: ChatPanelProps) {
-  const {
-    sendMessage,
-    retryLastMessage,
-    isRunning,
-    isReady,
-    error,
-    clearError,
-    abortExecution,
-  } = useAicsRuntime();
+  const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
+    useAicsRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
@@ -275,11 +268,7 @@ export function ChatPanel({
       <MeetingPanel agents={agents} />
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
-      <PipelineProgress
-        stage={pipelineStage}
-        isRunning={isRunning}
-        onAbort={abortExecution}
-      />
+      <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
 
       {/* Input */}
       <ChatInput

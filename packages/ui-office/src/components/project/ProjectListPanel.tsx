@@ -1,5 +1,5 @@
-import { Archive, FolderOpen, Plus, X } from 'lucide-react';
 import type { ProjectRow, ProjectStatus } from '@aics/shared-types';
+import { Archive, FolderOpen, Plus, X } from 'lucide-react';
 
 interface ProjectListPanelProps {
   projects: ProjectRow[];
@@ -141,9 +141,7 @@ export function ProjectListPanel({
         {/* Active/planning/paused */}
         {activeProjects.length > 0 && (
           <div className="space-y-1">
-            <p className="px-2 pt-1 text-[10px] uppercase tracking-wider text-slate-700">
-              Active
-            </p>
+            <p className="px-2 pt-1 text-[10px] uppercase tracking-wider text-slate-700">Active</p>
             {activeProjects.map((p) => (
               <ProjectCard
                 key={p.project_id}
@@ -182,9 +180,7 @@ export function ProjectListPanel({
           <div className="flex flex-col items-center justify-center py-6 text-slate-700">
             <FolderOpen className="h-6 w-6 mb-2 opacity-40" />
             <p className="text-xs italic">No projects yet</p>
-            <p className="text-[11px] mt-1 text-slate-800">
-              Ask the Boss to create a project
-            </p>
+            <p className="text-[11px] mt-1 text-slate-800">Ask the Boss to create a project</p>
           </div>
         )}
       </div>

@@ -7,9 +7,11 @@ type EventCategory = 'entered' | 'error' | 'completed' | 'other';
 /** Categorize event + derive action text in a single pass (avoids duplicate includes chains). */
 function categorize(event: RuntimeEvent): { category: EventCategory; action: string } {
   const t = event.type;
-  if (t.includes('entered') || t.includes('started')) return { category: 'entered', action: 'started' };
+  if (t.includes('entered') || t.includes('started'))
+    return { category: 'entered', action: 'started' };
   if (t.includes('failed') || t.includes('error')) return { category: 'error', action: 'failed' };
-  if (t.includes('exited') || t.includes('completed') || t.includes('ended')) return { category: 'completed', action: 'completed' };
+  if (t.includes('exited') || t.includes('completed') || t.includes('ended'))
+    return { category: 'completed', action: 'completed' };
   if (t.includes('created')) return { category: 'other', action: 'created' };
   if (t.includes('assigned')) return { category: 'other', action: 'assigned' };
   if (t.includes('blocked')) return { category: 'other', action: 'blocked' };
@@ -25,7 +27,8 @@ function getDisplayLabel(event: RuntimeEvent): string {
 
   const parts = event.type.split('.');
   if (parts.length >= 2) {
-    const verb = parts[parts.length - 1]!;
+    const verb = parts.at(-1);
+    if (typeof verb !== 'string') return event.entityId;
     const subject = parts.slice(0, -1).join(' ');
     if (typeof p.next === 'string') {
       const prevStr = typeof p.prev === 'string' ? `${p.prev} → ` : '';
@@ -34,7 +37,7 @@ function getDisplayLabel(event: RuntimeEvent): string {
     if (verb !== 'changed' && verb !== 'updated') return subject;
     return subject;
   }
-  if (event.entityId.length > 12) return event.entityId.slice(0, 8) + '…';
+  if (event.entityId.length > 12) return `${event.entityId.slice(0, 8)}…`;
   return event.entityId;
 }
 
@@ -45,7 +48,12 @@ interface EventItemProps {
 export function EventItem({ event }: EventItemProps) {
   const { category, action } = categorize(event);
   const Icon = category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle;
-  const iconColor = category === 'error' ? 'text-lobster-red' : category === 'entered' ? 'text-sea-blue' : 'text-kelp-green';
+  const iconColor =
+    category === 'error'
+      ? 'text-lobster-red'
+      : category === 'entered'
+        ? 'text-sea-blue'
+        : 'text-kelp-green';
   const label = getDisplayLabel(event);
 
   return (

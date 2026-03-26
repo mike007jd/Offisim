@@ -5,13 +5,13 @@
  * Memoized items to prevent TransformControls flicker.
  */
 
-import { useRef, useCallback, useMemo, useEffect, memo } from 'react';
-import * as THREE from 'three';
-import { TransformControls, Html } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
 import { getBuiltinPrefab } from '@aics/renderer';
+import { Html, TransformControls } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import * as THREE from 'three';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
-import { useStudioStore, type PlacedInstance } from './StudioState.js';
+import { type PlacedInstance, useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
 // ---------------------------------------------------------------------------
@@ -47,10 +47,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
 }: PlacedPrefabItemProps) {
   const { gl, invalidate } = useThree();
 
-  const definition = useMemo(
-    () => getBuiltinPrefab(instance.prefabId),
-    [instance.prefabId],
-  );
+  const definition = useMemo(() => getBuiltinPrefab(instance.prefabId), [instance.prefabId]);
 
   const handleClick = useCallback(
     (e: THREE.Event) => {
@@ -70,7 +67,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       (e as unknown as { stopPropagation: () => void }).stopPropagation();
       const tool = useStudioStore.getState().tool;
       if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
-      ((e as unknown as { eventObject: THREE.Group }).eventObject).traverse((child) => {
+      (e as unknown as { eventObject: THREE.Group }).eventObject.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
           child.material.emissiveIntensity = 0.08;
           child.material.emissive.set('#ffffff');
@@ -85,7 +82,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
   const handlePointerOut = useCallback(
     (e: THREE.Event) => {
       (e as unknown as { stopPropagation: () => void }).stopPropagation();
-      ((e as unknown as { eventObject: THREE.Group }).eventObject).traverse((child) => {
+      (e as unknown as { eventObject: THREE.Group }).eventObject.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
           child.material.emissiveIntensity = 0;
         }
@@ -102,7 +99,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
     <group
       position={instance.position}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
-      onClick={handleClick}
+      onPointerDown={handleClick}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
@@ -111,22 +108,22 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
         <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
       )}
       {/* Size label */}
-      <Html
-        position={[0, 0.3, 0]}
-        center
-        style={{ pointerEvents: 'none', userSelect: 'none' }}
-      >
-        <div style={{
-          background: 'rgba(0,0,0,0.6)',
-          color: isSelected ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
-          padding: '1px 4px',
-          borderRadius: 2,
-          fontSize: 9,
-          fontFamily: 'monospace',
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          border: isSelected ? `1px solid ${STUDIO_COLORS.borderActive}` : `1px solid ${STUDIO_COLORS.borderSubtle}`,
-        }}>
+      <Html position={[0, 0.3, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
+        <div
+          style={{
+            background: 'rgba(0,0,0,0.6)',
+            color: isSelected ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
+            padding: '1px 4px',
+            borderRadius: 2,
+            fontSize: 9,
+            fontFamily: 'monospace',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            border: isSelected
+              ? `1px solid ${STUDIO_COLORS.borderActive}`
+              : `1px solid ${STUDIO_COLORS.borderSubtle}`,
+          }}
+        >
           {definition.gridSize[0]}x{definition.gridSize[1]}
         </div>
       </Html>
@@ -154,13 +151,17 @@ export function StudioPlacedPrefabs() {
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
-  const highlightRingMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#6366f1',
-    transparent: true,
-    opacity: 0.7,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  }), []);
+  const highlightRingMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: '#6366f1',
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    [],
+  );
   useEffect(() => {
     return () => {
       highlightRingGeo.dispose();
@@ -169,9 +170,7 @@ export function StudioPlacedPrefabs() {
   }, [highlightRingGeo, highlightRingMat]);
 
   // Ref for the group that wraps the selected instance (TransformControls target)
-  // Cast needed: drei TransformControls expects RefObject<Object3D> (non-nullable)
-  const selectedGroupRef = useRef<THREE.Group>(null!);
-
+  const selectedGroupRef = useRef<THREE.Group | null>(null);
 
   // Derive the selected instance data
   const selectedInstance = useMemo(
@@ -180,12 +179,10 @@ export function StudioPlacedPrefabs() {
   );
 
   // TransformControls mode from studio tool
-  const transformMode: 'translate' | 'rotate' =
-    tool === 'rotate' ? 'rotate' : 'translate';
+  const transformMode: 'translate' | 'rotate' = tool === 'rotate' ? 'rotate' : 'translate';
 
   // Whether TransformControls should be active
-  const transformEnabled =
-    selectedInstance != null && (tool === 'move' || tool === 'rotate');
+  const transformEnabled = selectedInstance != null && (tool === 'move' || tool === 'rotate');
 
   // Stable select callback for memoized items
   const handleSelect = useCallback(
@@ -224,7 +221,7 @@ export function StudioPlacedPrefabs() {
   // Selected instance definition
   const selectedDefinition = useMemo(
     () => (selectedInstance ? getBuiltinPrefab(selectedInstance.prefabId) : undefined),
-    [selectedInstance?.prefabId],
+    [selectedInstance],
   );
 
   return (
@@ -247,7 +244,7 @@ export function StudioPlacedPrefabs() {
           ref={selectedGroupRef}
           position={selectedInstance.position}
           rotation={[0, (selectedInstance.rotation * Math.PI) / 180, 0]}
-          onClick={(e) => {
+          onPointerDown={(e) => {
             e.stopPropagation();
             handleSelect(selectedInstance.id);
           }}
@@ -260,7 +257,7 @@ export function StudioPlacedPrefabs() {
       {/* TransformControls — only mounted when a target exists (drei TC crashes on null object) */}
       {selectedInstance && selectedDefinition && (
         <TransformControls
-          object={selectedGroupRef}
+          object={selectedGroupRef as React.RefObject<THREE.Object3D>}
           enabled={transformEnabled}
           visible={transformEnabled}
           mode={transformMode}

@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import type { EmployeeState, SemanticCategory } from '@aics/shared-types';
+import { describe, expect, it } from 'vitest';
 import {
-  WORKSPACE_TRANSITIONS,
-  COMPUTE_TRANSITIONS,
-  KNOWLEDGE_TRANSITIONS,
   COLLABORATION_TRANSITIONS,
+  COMPUTE_TRANSITIONS,
   INFRASTRUCTURE_TRANSITIONS,
-  getInitialState,
-  getAllStates,
+  KNOWLEDGE_TRANSITIONS,
+  WORKSPACE_TRANSITIONS,
   canTransition,
+  getAllStates,
+  getInitialState,
   inferWorkspaceState,
 } from '../prefab/state-machines.js';
-import type { SemanticCategory, EmployeeState } from '@aics/shared-types';
 
 // ── Transition table structure ──────────────────────────────────
 
@@ -66,10 +66,7 @@ describe('transition tables', () => {
     ];
     for (const table of tables) {
       for (const [from, targets] of Object.entries(table)) {
-        expect(
-          targets.includes(from),
-          `"${from}" should not transition to itself`,
-        ).toBe(false);
+        expect(targets.includes(from), `"${from}" should not transition to itself`).toBe(false);
       }
     }
   });
@@ -250,9 +247,18 @@ describe('inferWorkspaceState', () => {
   it('covers all 12 EmployeeState values', () => {
     expect(mappings).toHaveLength(12);
     const allEmployeeStates: EmployeeState[] = [
-      'idle', 'assigned', 'thinking', 'searching', 'executing',
-      'meeting', 'blocked', 'waiting', 'reporting', 'success',
-      'failed', 'paused',
+      'idle',
+      'assigned',
+      'thinking',
+      'searching',
+      'executing',
+      'meeting',
+      'blocked',
+      'waiting',
+      'reporting',
+      'success',
+      'failed',
+      'paused',
     ];
     for (const state of allEmployeeStates) {
       const result = inferWorkspaceState(state);
@@ -263,9 +269,18 @@ describe('inferWorkspaceState', () => {
   it('always returns a valid WorkspacePrefabState', () => {
     const validWorkspaceStates = new Set(Object.keys(WORKSPACE_TRANSITIONS));
     const allEmployeeStates: EmployeeState[] = [
-      'idle', 'assigned', 'thinking', 'searching', 'executing',
-      'meeting', 'blocked', 'waiting', 'reporting', 'success',
-      'failed', 'paused',
+      'idle',
+      'assigned',
+      'thinking',
+      'searching',
+      'executing',
+      'meeting',
+      'blocked',
+      'waiting',
+      'reporting',
+      'success',
+      'failed',
+      'paused',
     ];
     for (const state of allEmployeeStates) {
       const result = inferWorkspaceState(state);

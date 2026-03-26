@@ -7,7 +7,8 @@ const HR_QUESTIONS: Record<WizardStep, string> = {
   expertise: 'What specific skills or expertise areas does this person bring to the team?',
   style:
     'How would you describe their working style? This helps set the tone for their collaboration.',
-  appearance: "Let's customize how your new team member looks! This is optional — feel free to skip.",
+  appearance:
+    "Let's customize how your new team member looks! This is optional — feel free to skip.",
   instructions:
     'Any special instructions or behavioral guidelines? This is optional — feel free to skip.',
   model: 'Would you like to configure the AI model settings, or use our sensible defaults?',

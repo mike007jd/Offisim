@@ -23,10 +23,7 @@ function formatDuration(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const MEETING_TYPE_META: Record<
-  MeetingType,
-  { label: string; Icon: FC<LucideProps> }
-> = {
+const MEETING_TYPE_META: Record<MeetingType, { label: string; Icon: FC<LucideProps> }> = {
   brainstorm: { label: 'Brainstorm', Icon: Lightbulb },
   kickoff: { label: 'Kickoff', Icon: Rocket },
   standup: { label: 'Standup', Icon: Users },
@@ -76,7 +73,10 @@ function ParticipantDot({
   );
 }
 
-function ActionItemRow({ item, agents }: { item: MeetingActionItem; agents: Map<string, AgentState> }) {
+function ActionItemRow({
+  item,
+  agents,
+}: { item: MeetingActionItem; agents: Map<string, AgentState> }) {
   const assignee = agents.get(item.assigneeEmployeeId);
   const assigneeName = assignee?.name ?? item.assigneeEmployeeId;
 
@@ -116,7 +116,10 @@ export interface MeetingPanelProps {
  *
  * Renders nothing when no meeting is active (status === 'idle').
  */
-export function MeetingPanel({ meetingType = 'brainstorm', agents = new Map() }: MeetingPanelProps) {
+export function MeetingPanel({
+  meetingType = 'brainstorm',
+  agents = new Map(),
+}: MeetingPanelProps) {
   const { meetingState, duration, isActive } = useMeeting();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -149,13 +152,9 @@ export function MeetingPanel({ meetingType = 'brainstorm', agents = new Map() }:
         </div>
         <div className="flex items-center gap-1.5">
           {duration !== null && (
-            <span className="font-mono text-[10px] text-slate-500">
-              {formatDuration(duration)}
-            </span>
+            <span className="font-mono text-[10px] text-slate-500">{formatDuration(duration)}</span>
           )}
-          <Badge variant={statusBadgeVariant}>
-            {status === 'running' ? 'Live' : 'Paused'}
-          </Badge>
+          <Badge variant={statusBadgeVariant}>{status === 'running' ? 'Live' : 'Paused'}</Badge>
         </div>
       </div>
 

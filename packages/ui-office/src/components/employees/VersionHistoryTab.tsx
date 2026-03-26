@@ -60,7 +60,9 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
       {/* Fork provenance badge */}
       {forkOrigin && (
         <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-sea-blue/10 border border-sea-blue/20">
-          <Badge variant="info" className="shrink-0">Forked</Badge>
+          <Badge variant="info" className="shrink-0">
+            Forked
+          </Badge>
           <span className="text-xs text-shell/70">
             From:{' '}
             {forkOrigin.sourceUrl ? (
@@ -76,9 +78,7 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
               <span className="font-mono">{forkOrigin.sourceAssetId}</span>
             )}
             {forkOrigin.sourcePackageId && (
-              <span className="text-shell/50 ml-1">
-                (pkg: {forkOrigin.sourcePackageId})
-              </span>
+              <span className="text-shell/50 ml-1">(pkg: {forkOrigin.sourcePackageId})</span>
             )}
           </span>
         </div>
@@ -93,7 +93,7 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
               variant: 'secondary' as const,
             };
             const isSelected = selectedVersion === v.version_num;
-            const isCurrent = v.version_num === versions[0]!.version_num;
+            const isCurrent = v.version_num === versions[0]?.version_num;
 
             return (
               <button
@@ -131,7 +131,7 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
         <div className="border border-ocean-light rounded p-2">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-shell/70 font-medium">
-              Changes from v{selectedVersion} to v{versions[0]!.version_num} (current)
+              Changes from v{selectedVersion} to v{versions[0]?.version_num} (current)
             </span>
             {/* Rollback button */}
             {confirmRollback === selectedVersion ? (

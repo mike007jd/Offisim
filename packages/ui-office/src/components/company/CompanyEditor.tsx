@@ -1,10 +1,10 @@
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
-import { ZONES } from '../../lib/zone-config.js';
+import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
+import { ZONES } from '../../lib/zone-config.js';
 import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
 import { PolicyEditor } from './PolicyEditor';
-import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 
 type Tab = 'general' | 'zones' | 'defaults';
 
@@ -54,11 +54,17 @@ export function CompanyEditor({
   try {
     if (activeLayout?.layout_json) {
       const parsed = JSON.parse(activeLayout.layout_json) as Record<string, unknown>;
-      if (parsed.zoneProps && typeof parsed.zoneProps === 'object' && !Array.isArray(parsed.zoneProps)) {
+      if (
+        parsed.zoneProps &&
+        typeof parsed.zoneProps === 'object' &&
+        !Array.isArray(parsed.zoneProps)
+      ) {
         zoneLayoutMap = parsed.zoneProps as ZoneLayoutMap;
       }
     }
-  } catch { /* use empty map */ }
+  } catch {
+    /* use empty map */
+  }
 
   return (
     <div
@@ -66,6 +72,10 @@ export function CompanyEditor({
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') close();
+      }}
+      tabIndex={-1}
     >
       <div className="relative flex flex-col w-full max-w-xl rounded-lg border border-gray-700 bg-gray-900 shadow-xl max-h-[90vh]">
         {/* Header */}
@@ -84,7 +94,14 @@ export function CompanyEditor({
             className="rounded p-1 text-gray-400 hover:text-white hover:bg-gray-700"
             aria-label="Close"
           >
-            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <title>Close company editor</title>
               <path d="M3.22 3.22a.75.75 0 0 1 1.06 0L8 6.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L9.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L8 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L6.94 8 3.22 4.28a.75.75 0 0 1 0-1.06z" />
             </svg>
           </button>
@@ -104,7 +121,9 @@ export function CompanyEditor({
                   : 'text-gray-400 hover:text-gray-200',
               ].join(' ')}
             >
-              {tab === 'defaults' ? 'New Employee Defaults' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'defaults'
+                ? 'New Employee Defaults'
+                : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -143,15 +162,10 @@ export function CompanyEditor({
           )}
 
           {activeTab === 'zones' && (
-            <ZoneSummaryTab
-              zoneLayoutMap={zoneLayoutMap}
-              onOpenOfficeEditor={onOpenOfficeEditor}
-            />
+            <ZoneSummaryTab zoneLayoutMap={zoneLayoutMap} onOpenOfficeEditor={onOpenOfficeEditor} />
           )}
 
-          {activeTab === 'defaults' && (
-            <PolicyEditor policy={policy} onChange={updatePolicy} />
-          )}
+          {activeTab === 'defaults' && <PolicyEditor policy={policy} onChange={updatePolicy} />}
         </div>
 
         {/* Footer */}
@@ -219,9 +233,7 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
             <div
               key={zone.id}
               className={`flex items-center gap-3 rounded-md border px-3 py-2.5 ${
-                isEnabled
-                  ? 'border-gray-700 bg-gray-800'
-                  : 'border-gray-800 bg-gray-900 opacity-50'
+                isEnabled ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-900 opacity-50'
               }`}
             >
               <span
@@ -234,16 +246,10 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
                 </span>
                 <span className="text-xs text-gray-500">{zone.spaceType}</span>
               </div>
-              {seats > 0 && (
-                <span className="shrink-0 text-xs text-gray-500">
-                  {seats} seats
-                </span>
-              )}
+              {seats > 0 && <span className="shrink-0 text-xs text-gray-500">{seats} seats</span>}
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                  isEnabled
-                    ? 'bg-emerald-500/15 text-emerald-400'
-                    : 'bg-gray-700/50 text-gray-500'
+                  isEnabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-gray-700/50 text-gray-500'
                 }`}
               >
                 {isEnabled ? 'On' : 'Off'}

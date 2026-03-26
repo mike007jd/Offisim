@@ -1,8 +1,15 @@
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aics/ui-core';
+import {
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@aics/ui-core';
 import { ArrowLeft, Box, Dices, Monitor, Rocket } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DicebearAvatar } from '../shared/DicebearAvatar';
 import { ROLE_OPTIONS } from '../../lib/roles';
+import { DicebearAvatar } from '../shared/DicebearAvatar';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -138,9 +145,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                 <span className="tabular-nums">{String(i + 1).padStart(2, '0')}</span>
                 <span>{step}</span>
               </div>
-              {i < STEPS.length - 1 && (
-                <div className="mx-1 h-px w-4 bg-white/10" />
-              )}
+              {i < STEPS.length - 1 && <div className="mx-1 h-px w-4 bg-white/10" />}
             </button>
           ))}
         </div>
@@ -228,7 +233,10 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             <SectionPanel title="IDENTITY" stepIndex={0} activeStep={activeStep}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="creator-name" className="mb-2 block font-mono text-xs text-white/50">
+                  <label
+                    htmlFor="creator-name"
+                    className="mb-2 block font-mono text-xs text-white/50"
+                  >
                     AGENT NAME
                   </label>
                   <Input
@@ -241,7 +249,10 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                   />
                 </div>
                 <div>
-                  <label htmlFor="creator-role" className="mb-2 block font-mono text-xs text-white/50">
+                  <label
+                    htmlFor="creator-role"
+                    className="mb-2 block font-mono text-xs text-white/50"
+                  >
                     ROLE ASSIGNMENT
                   </label>
                   <Select value={role} onValueChange={setRole}>
@@ -264,7 +275,10 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             <SectionPanel title="VISUAL IDENTITY" stepIndex={1} activeStep={activeStep}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="creator-seed" className="mb-2 block font-mono text-xs text-white/50">
+                  <label
+                    htmlFor="creator-seed"
+                    className="mb-2 block font-mono text-xs text-white/50"
+                  >
                     AVATAR SEED
                   </label>
                   <Input
@@ -331,9 +345,10 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           className={`
             flex items-center gap-2.5 rounded-xl px-8 py-3 font-mono text-sm font-semibold uppercase tracking-wider
             transition-all duration-200
-            ${canDeploy
-              ? 'bg-blue-600 text-white shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:bg-blue-500 active:scale-[0.98]'
-              : 'bg-white/[0.04] text-white/20 cursor-not-allowed'
+            ${
+              canDeploy
+                ? 'bg-blue-600 text-white shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:bg-blue-500 active:scale-[0.98]'
+                : 'bg-white/[0.04] text-white/20 cursor-not-allowed'
             }
           `}
         >
@@ -359,17 +374,13 @@ function SectionPanel({ title, stepIndex, activeStep, children }: SectionPanelPr
   return (
     <div
       className={`rounded-2xl border p-6 transition-colors ${
-        isActive
-          ? 'border-blue-500/20 bg-blue-500/[0.03]'
-          : 'border-white/[0.06] bg-white/[0.02]'
+        isActive ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.06] bg-white/[0.02]'
       }`}
     >
       <div className="mb-4 flex items-center gap-3">
         <span
           className={`flex h-6 w-6 items-center justify-center rounded font-mono text-[10px] font-bold ${
-            isActive
-              ? 'bg-blue-500/20 text-blue-400'
-              : 'bg-white/[0.06] text-white/30'
+            isActive ? 'bg-blue-500/20 text-blue-400' : 'bg-white/[0.06] text-white/30'
           }`}
         >
           {String(stepIndex + 1).padStart(2, '0')}

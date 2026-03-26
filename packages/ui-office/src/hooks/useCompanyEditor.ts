@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCompany } from '../components/company/CompanyContext.js';
 import type { CompanyPolicy } from '../components/company/PolicyEditor';
 import { DEFAULT_COMPANY_POLICY } from '../components/company/PolicyEditor';
-import { useCompany } from '../components/company/CompanyContext.js';
 import { useAicsRuntime } from '../runtime/aics-runtime-context';
 
 export type { CompanyPolicy };
@@ -49,23 +49,30 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !activeCompanyId) return;
+    if (!isOpen || !activeCompanyId || !repos) return;
+    const companyId = activeCompanyId;
+    const db = repos;
 
     async function load() {
-      const companyRow = await repos?.companies.findById(activeCompanyId!).catch(() => null);
+      const companyRow = await db.companies.findById(companyId).catch(() => null);
       let info: CompanyInfo;
       if (companyRow) {
         let desc = '';
         try {
-          const parsed = JSON.parse(companyRow.default_model_policy_json ?? '{}') as Record<string, unknown>;
+          const parsed = JSON.parse(companyRow.default_model_policy_json ?? '{}') as Record<
+            string,
+            unknown
+          >;
           desc = typeof parsed.description === 'string' ? parsed.description : '';
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         info = { name: companyRow.name, description: desc };
       } else {
         info = DEFAULT_COMPANY;
       }
 
-      const layoutRow = await repos?.officeLayouts.findActive(activeCompanyId!).catch(() => null);
+      const layoutRow = await db.officeLayouts.findActive(companyId).catch(() => null);
       let loadedPolicy: CompanyPolicy = DEFAULT_COMPANY_POLICY;
 
       if (layoutRow?.layout_json) {
@@ -75,11 +82,14 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
             const p = parsed.policy as Record<string, unknown>;
             loadedPolicy = {
               defaultModel: typeof p.defaultModel === 'string' ? p.defaultModel : '',
-              defaultTemperature: typeof p.defaultTemperature === 'number' ? p.defaultTemperature : 0.7,
+              defaultTemperature:
+                typeof p.defaultTemperature === 'number' ? p.defaultTemperature : 0.7,
               defaultMaxTokens: typeof p.defaultMaxTokens === 'number' ? p.defaultMaxTokens : 4096,
             };
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       setCompany(info);
@@ -109,30 +119,33 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
   const updatePolicy = useCallback((p: CompanyPolicy) => setPolicy(p), []);
 
   const save = useCallback(async () => {
-    if (!activeCompanyId) return;
+    if (!repos || !activeCompanyId) return;
+    const companyId = activeCompanyId;
+    const db = repos;
     setIsSaving(true);
     try {
-      if (repos) {
-        const layoutRow = await repos.officeLayouts.findActive(activeCompanyId).catch(() => null);
-        // Preserve existing keys in layout_json (especially zoneProps from OfficeEditorOverlay)
-        let existing: Record<string, unknown> = {};
-        try {
-          if (layoutRow?.layout_json) existing = JSON.parse(layoutRow.layout_json) as Record<string, unknown>;
-        } catch { /* ignore */ }
-        const layoutJson = JSON.stringify({ ...existing, policy });
+      const layoutRow = await db.officeLayouts.findActive(companyId).catch(() => null);
+      // Preserve existing keys in layout_json (especially zoneProps from OfficeEditorOverlay)
+      let existing: Record<string, unknown> = {};
+      try {
+        if (layoutRow?.layout_json)
+          existing = JSON.parse(layoutRow.layout_json) as Record<string, unknown>;
+      } catch {
+        /* ignore */
+      }
+      const layoutJson = JSON.stringify({ ...existing, policy });
 
-        if (layoutRow) {
-          await repos.officeLayouts.update(layoutRow.layout_id, { layout_json: layoutJson });
-        } else {
-          const newLayout = await repos.officeLayouts.create({
-            layout_id: `layout-${Date.now()}`,
-            company_id: activeCompanyId,
-            name: 'Default Layout',
-            layout_json: layoutJson,
-            is_active: 1,
-          });
-          await repos.officeLayouts.setActive(activeCompanyId, newLayout.layout_id);
-        }
+      if (layoutRow) {
+        await db.officeLayouts.update(layoutRow.layout_id, { layout_json: layoutJson });
+      } else {
+        const newLayout = await db.officeLayouts.create({
+          layout_id: `layout-${Date.now()}`,
+          company_id: companyId,
+          name: 'Default Layout',
+          layout_json: layoutJson,
+          is_active: 1,
+        });
+        await db.officeLayouts.setActive(companyId, newLayout.layout_id);
       }
 
       const snapshot = company ?? DEFAULT_COMPANY;

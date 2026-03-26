@@ -28,7 +28,10 @@ export function useLibrary(): UseLibraryReturn {
   }, [repos, eventBus]);
 
   const refresh = useCallback(async () => {
-    if (!repos || !activeCompanyId) { setLoading(false); return; }
+    if (!repos || !activeCompanyId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const service = getService();
@@ -46,22 +49,19 @@ export function useLibrary(): UseLibraryReturn {
   }, [refresh]);
 
   // Debounced search
-  const handleSetSearchQuery = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-    },
-    [],
-  );
+  const handleSetSearchQuery = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   const uploadDocument = useCallback(
-    async (title: string, content: string, sourceType: string = 'file') => {
+    async (title: string, content: string, sourceType = 'file') => {
       const service = getService();
       if (!activeCompanyId) throw new Error('No active company');
       const id = await service.uploadDocument(activeCompanyId, title, content, sourceType);
       await refresh();
       return id;
     },
-    [getService, refresh],
+    [getService, refresh, activeCompanyId],
   );
 
   const deleteDocument = useCallback(

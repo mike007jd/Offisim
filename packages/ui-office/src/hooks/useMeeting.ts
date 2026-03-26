@@ -78,16 +78,19 @@ export function useMeeting(): UseMeetingReturn {
     }
   }, []);
 
-  const startTimer = useCallback((from: number) => {
-    stopTimer();
-    startTimeRef.current = from;
-    setDuration(Math.floor((Date.now() - from) / 1000));
-    timerRef.current = setInterval(() => {
-      if (startTimeRef.current !== null) {
-        setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      }
-    }, 1000);
-  }, [stopTimer]);
+  const startTimer = useCallback(
+    (from: number) => {
+      stopTimer();
+      startTimeRef.current = from;
+      setDuration(Math.floor((Date.now() - from) / 1000));
+      timerRef.current = setInterval(() => {
+        if (startTimeRef.current !== null) {
+          setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        }
+      }, 1000);
+    },
+    [stopTimer],
+  );
 
   useEffect(() => {
     // meeting.state.changed — track status + participants
@@ -111,9 +114,10 @@ export function useMeeting(): UseMeetingReturn {
             // Reset transcript + actions when meeting ends
             actions: nowIdle ? [] : prev.actions,
             transcript: nowIdle ? [] : prev.transcript,
-            startTime: newStatus === 'running' && prev.status !== 'running'
-              ? event.timestamp
-              : prev.startTime,
+            startTime:
+              newStatus === 'running' && prev.status !== 'running'
+                ? event.timestamp
+                : prev.startTime,
           };
         });
 
@@ -133,14 +137,8 @@ export function useMeeting(): UseMeetingReturn {
     const unsubAction = eventBus.on(
       'meeting.action.created',
       (event: RuntimeEvent<MeetingActionCreatedPayload>) => {
-        const {
-          meetingId,
-          actionItemId,
-          description,
-          assigneeEmployeeId,
-          priority,
-          dependsOn,
-        } = event.payload;
+        const { meetingId, actionItemId, description, assigneeEmployeeId, priority, dependsOn } =
+          event.payload;
 
         const item: MeetingActionItem = {
           actionItemId,
@@ -160,29 +158,26 @@ export function useMeeting(): UseMeetingReturn {
     );
 
     // meeting.transcript.entry (optional supplementary event — no-op if unused)
-    const unsubTranscript = eventBus.on(
-      'meeting.transcript.',
-      (event: RuntimeEvent) => {
-        const payload = event.payload as {
-          participantId?: string;
-          content?: string;
-        };
-        if (!payload?.participantId || !payload?.content) return;
+    const unsubTranscript = eventBus.on('meeting.transcript.', (event: RuntimeEvent) => {
+      const payload = event.payload as {
+        participantId?: string;
+        content?: string;
+      };
+      if (!payload?.participantId || !payload?.content) return;
 
-        entryCountRef.current += 1;
-        const entry: MeetingTranscriptEntry = {
-          id: `te-${entryCountRef.current}`,
-          participantId: payload.participantId,
-          content: payload.content,
-          timestamp: event.timestamp,
-        };
+      entryCountRef.current += 1;
+      const entry: MeetingTranscriptEntry = {
+        id: `te-${entryCountRef.current}`,
+        participantId: payload.participantId,
+        content: payload.content,
+        timestamp: event.timestamp,
+      };
 
-        setState((prev) => ({
-          ...prev,
-          transcript: [...prev.transcript.slice(-99), entry],
-        }));
-      },
-    );
+      setState((prev) => ({
+        ...prev,
+        transcript: [...prev.transcript.slice(-99), entry],
+      }));
+    });
 
     return () => {
       unsubState();

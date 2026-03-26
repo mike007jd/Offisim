@@ -1,12 +1,5 @@
 import { ArrowUp } from 'lucide-react';
-import {
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentState } from '../../runtime/use-agent-states';
 
 // ── Slash commands ──────────────────────────────────────────────────
@@ -60,6 +53,14 @@ function roleColor(role: string): string {
   return ROLE_COLORS[role] ?? 'bg-slate-500';
 }
 
+function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string) {
+  if (!element) return;
+  element.style.height = 'auto';
+  // Max 3 lines (~72px), min 1 line (32px)
+  element.style.height = `${Math.min(element.scrollHeight, 72)}px`;
+  void currentText;
+}
+
 // ── ChatInput props ─────────────────────────────────────────────────
 
 export interface ChatInputProps {
@@ -110,9 +111,7 @@ export function ChatInput({
   // ── Filtered lists ──────────────────────────────────────────────
   const filteredSlash = useMemo(() => {
     const q = slashFilter.toLowerCase();
-    return SLASH_COMMANDS.filter(
-      (c) => c.cmd.includes(q) || c.label.toLowerCase().includes(q),
-    );
+    return SLASH_COMMANDS.filter((c) => c.cmd.includes(q) || c.label.toLowerCase().includes(q));
   }, [slashFilter]);
 
   const filteredMentions = useMemo(() => {
@@ -124,11 +123,7 @@ export function ChatInput({
 
   // ── Auto-resize textarea ────────────────────────────────────────
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    // Max 3 lines (~72px), min 1 line (32px)
-    el.style.height = `${Math.min(el.scrollHeight, 72)}px`;
+    resizeTextarea(textareaRef.current, text);
   }, [text]);
 
   // ── Close menus on outside click ────────────────────────────────
@@ -149,53 +144,52 @@ export function ChatInput({
   }, [filteredSlash.length, slashIndex]);
 
   useEffect(() => {
-    if (mentionIndex >= filteredMentions.length) setMentionIndex(Math.max(0, filteredMentions.length - 1));
+    if (mentionIndex >= filteredMentions.length)
+      setMentionIndex(Math.max(0, filteredMentions.length - 1));
   }, [filteredMentions.length, mentionIndex]);
 
   // ── Input change handler ────────────────────────────────────────
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const val = e.target.value;
-      setText(val);
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setText(val);
+    resizeTextarea(e.currentTarget, val);
 
-      // Slash menu: triggers when input starts with /
-      if (val.startsWith('/')) {
-        const afterSlash = val.slice(1).split(' ')[0] ?? '';
-        setSlashFilter('/' + afterSlash);
-        setShowSlashMenu(true);
-        setSlashIndex(0);
-        // Close mention menu if slash is active
-        setShowMentionMenu(false);
-      } else {
-        setShowSlashMenu(false);
-      }
+    // Slash menu: triggers when input starts with /
+    if (val.startsWith('/')) {
+      const afterSlash = val.slice(1).split(' ')[0] ?? '';
+      setSlashFilter(`/${afterSlash}`);
+      setShowSlashMenu(true);
+      setSlashIndex(0);
+      // Close mention menu if slash is active
+      setShowMentionMenu(false);
+    } else {
+      setShowSlashMenu(false);
+    }
 
-      // Mention menu: triggers when @ is typed
-      if (!val.startsWith('/')) {
-        const cursorPos = e.target.selectionStart ?? val.length;
-        // Search backwards from cursor for @
-        const beforeCursor = val.slice(0, cursorPos);
-        const lastAt = beforeCursor.lastIndexOf('@');
-        if (lastAt >= 0) {
-          // Check there's no space before @ (or @ is at start)
-          const charBefore = lastAt > 0 ? beforeCursor[lastAt - 1] : ' ';
-          if (lastAt === 0 || charBefore === ' ' || charBefore === '\n') {
-            const fragment = beforeCursor.slice(lastAt + 1);
-            // Only show menu if we haven't completed the mention (no space after name)
-            if (!fragment.includes(' ')) {
-              setMentionFilter(fragment);
-              setMentionStartPos(lastAt);
-              setShowMentionMenu(true);
-              setMentionIndex(0);
-              return;
-            }
+    // Mention menu: triggers when @ is typed
+    if (!val.startsWith('/')) {
+      const cursorPos = e.target.selectionStart ?? val.length;
+      // Search backwards from cursor for @
+      const beforeCursor = val.slice(0, cursorPos);
+      const lastAt = beforeCursor.lastIndexOf('@');
+      if (lastAt >= 0) {
+        // Check there's no space before @ (or @ is at start)
+        const charBefore = lastAt > 0 ? beforeCursor[lastAt - 1] : ' ';
+        if (lastAt === 0 || charBefore === ' ' || charBefore === '\n') {
+          const fragment = beforeCursor.slice(lastAt + 1);
+          // Only show menu if we haven't completed the mention (no space after name)
+          if (!fragment.includes(' ')) {
+            setMentionFilter(fragment);
+            setMentionStartPos(lastAt);
+            setShowMentionMenu(true);
+            setMentionIndex(0);
+            return;
           }
         }
-        setShowMentionMenu(false);
       }
-    },
-    [],
-  );
+      setShowMentionMenu(false);
+    }
+  }, []);
 
   // ── Send logic ──────────────────────────────────────────────────
   function handleSend() {
@@ -205,7 +199,7 @@ export function ChatInput({
     // Check for client-only slash commands
     const slashMatch = trimmed.match(/^\/(\S+)/);
     if (slashMatch) {
-      const cmdName = '/' + slashMatch[1];
+      const cmdName = `/${slashMatch[1]}`;
       const cmd = SLASH_COMMANDS.find((c) => c.cmd === cmdName);
       if (cmd?.clientOnly && onSlashCommand) {
         onSlashCommand(cmdName);
@@ -234,9 +228,7 @@ export function ChatInput({
       case '/assess':
         return 'Please assess our current team';
       case '/meeting':
-        return args
-          ? `Start a ${args} meeting`
-          : 'Start a team meeting';
+        return args ? `Start a ${args} meeting` : 'Start a team meeting';
       case '/sop':
         return args ? `Run the SOP: ${args}` : 'Show available SOPs';
       case '/library':
@@ -256,7 +248,7 @@ export function ChatInput({
       setShowSlashMenu(false);
       return;
     }
-    setText(cmd.cmd + ' ');
+    setText(`${cmd.cmd} `);
     setShowSlashMenu(false);
     textareaRef.current?.focus();
   }
@@ -266,7 +258,7 @@ export function ChatInput({
     // Replace @fragment with @Name
     const before = text.slice(0, mentionStartPos);
     const afterCursor = text.slice(mentionStartPos + 1 + mentionFilter.length);
-    setText(before + '@' + option.name + ' ' + afterCursor);
+    setText(`${before}@${option.name} ${afterCursor}`);
     setShowMentionMenu(false);
 
     // If selecting a specific employee (not team), trigger callback
@@ -364,16 +356,12 @@ export function ChatInput({
                 key={cmd.cmd}
                 type="button"
                 className={`w-full flex items-center gap-3 px-3 h-8 text-left transition-colors ${
-                  i === slashIndex
-                    ? 'bg-blue-500/20 text-white'
-                    : 'text-slate-300 hover:bg-white/5'
+                  i === slashIndex ? 'bg-blue-500/20 text-white' : 'text-slate-300 hover:bg-white/5'
                 }`}
                 onMouseEnter={() => setSlashIndex(i)}
                 onClick={() => selectSlashCommand(cmd)}
               >
-                <span className="text-xs font-mono text-blue-400 w-20 shrink-0">
-                  {cmd.cmd}
-                </span>
+                <span className="text-xs font-mono text-blue-400 w-20 shrink-0">{cmd.cmd}</span>
                 <span className="text-xs text-slate-400 truncate">{cmd.desc}</span>
               </button>
             ))}

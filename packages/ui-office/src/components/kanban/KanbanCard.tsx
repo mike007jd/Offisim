@@ -1,5 +1,5 @@
-import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { cn } from '@aics/ui-core';
+import type { TaskInfo } from '../../hooks/useTaskDashboard';
 
 // ---------------------------------------------------------------------------
 // Status → visual mapping
@@ -44,7 +44,8 @@ function statusLabel(status: string): string {
 
 function roleBadgeColor(taskType: string): string {
   if (taskType.includes('dev') || taskType.includes('code')) return 'bg-blue-500/20 text-blue-300';
-  if (taskType.includes('design') || taskType.includes('art')) return 'bg-purple-500/20 text-purple-300';
+  if (taskType.includes('design') || taskType.includes('art'))
+    return 'bg-purple-500/20 text-purple-300';
   if (taskType.includes('test') || taskType.includes('qa')) return 'bg-amber-500/20 text-amber-300';
   if (taskType.includes('review')) return 'bg-cyan-500/20 text-cyan-300';
   return 'bg-slate-500/20 text-slate-400';
@@ -72,9 +73,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
         task.status === 'active' || task.status === 'running'
           ? 'border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.08)]'
           : '',
-        task.status === 'failed' || task.status === 'cancelled'
-          ? 'border-red-500/20'
-          : '',
+        task.status === 'failed' || task.status === 'cancelled' ? 'border-red-500/20' : '',
         onClick ? 'cursor-pointer' : 'cursor-default',
       )}
       onClick={() => onClick?.(task.taskRunId)}

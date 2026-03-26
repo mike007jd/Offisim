@@ -5,7 +5,10 @@ interface SkillBindingListProps {
   sourcePackageId: string | null;
 }
 
-export function SkillBindingList({ employeeId: _employeeId, sourcePackageId }: SkillBindingListProps) {
+export function SkillBindingList({
+  employeeId: _employeeId,
+  sourcePackageId,
+}: SkillBindingListProps) {
   if (!sourcePackageId) {
     return (
       <div className="flex flex-col items-center gap-2 py-6 text-center">

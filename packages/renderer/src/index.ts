@@ -30,7 +30,12 @@ export type {
 
 // Layout engine — pure algorithm
 export { computeFloorPlan, computeRestAreaSeats } from './layout/zone-layout-engine.js';
-export type { OfficeFloorPlan, ZoneBounds, DeskPosition, FloorPlanOptions } from './layout/zone-layout-engine.js';
+export type {
+  OfficeFloorPlan,
+  ZoneBounds,
+  DeskPosition,
+  FloorPlanOptions,
+} from './layout/zone-layout-engine.js';
 
 // Prefab system — catalog, state machines, event router, default layouts
 export * from './prefab/index.js';

@@ -1,10 +1,10 @@
 import { Square } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   PIPELINE_STEPS,
-  STAGE_META,
   type PipelineStage,
   type PipelineStep,
+  STAGE_META,
 } from '../../hooks/usePipelineStage';
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,13 @@ function getNodeState(step: PipelineStep, activeStage: NonNullable<PipelineStage
 /** Inline SVG check icon — avoids importing a full icon for a 10px glyph. */
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 12 12" fill="none" className="w-2.5 h-2.5">
+    <svg
+      viewBox="0 0 12 12"
+      fill="none"
+      className="w-2.5 h-2.5"
+      aria-hidden="true"
+      focusable="false"
+    >
       <path
         d="M2.5 6L5 8.5L9.5 3.5"
         stroke="currentColor"
@@ -79,19 +85,10 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
       >
         {state === 'completed' && <CheckIcon />}
         {state === 'active' && (
-          <span
-            className={[
-              'w-2 h-2 rounded-full animate-pulse',
-              meta.dotClass,
-            ].join(' ')}
-          />
+          <span className={['w-2 h-2 rounded-full animate-pulse', meta.dotClass].join(' ')} />
         )}
-        {state === 'error' && (
-          <span className="text-[9px] font-bold leading-none">✗</span>
-        )}
-        {state === 'pending' && (
-          <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
-        )}
+        {state === 'error' && <span className="text-[9px] font-bold leading-none">✗</span>}
+        {state === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-white/10" />}
       </div>
 
       {/* Label */}

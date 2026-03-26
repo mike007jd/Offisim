@@ -1,9 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { ProjectRow } from '@aics/shared-types';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ProjectSelector } from '../../components/project/ProjectSelector.js';
 
-function makeProject(overrides: Partial<ProjectRow> & { project_id: string; name: string; status: ProjectRow['status'] }): ProjectRow {
+function makeProject(
+  overrides: Partial<ProjectRow> & {
+    project_id: string;
+    name: string;
+    status: ProjectRow['status'];
+  },
+): ProjectRow {
   return {
     company_id: 'co-1',
     thread_id: null,

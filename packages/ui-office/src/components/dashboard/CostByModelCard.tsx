@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
 import type { CostAggregate } from '@aics/core/browser';
+import { Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
 
 /** Provider → bar color mapping. */
 const PROVIDER_COLORS: Record<string, string> = {

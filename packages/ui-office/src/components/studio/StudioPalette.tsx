@@ -5,24 +5,17 @@
  * Categories as collapsible sections, prefabs as icon cards.
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import {
-  Monitor,
-  Server,
-  BookOpen,
-  Users,
-  Cpu,
-  Leaf,
-} from 'lucide-react';
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
-import { useStudioStore } from './StudioState.js';
+import { BookOpen, Cpu, Leaf, Monitor, Server, Users } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { PrefabThumbnail } from './PrefabThumbnail.js';
+import { useStudioStore } from './StudioState.js';
 import {
-  STUDIO_COLORS,
-  SP,
   FONT,
   LAYOUT,
+  SP,
+  STUDIO_COLORS,
   panelStyle,
   sectionHeaderStyle,
 } from './studio-tokens.js';
@@ -103,6 +96,7 @@ export function StudioPalette() {
             <div key={cat.id}>
               {/* Category header */}
               <button
+                type="button"
                 onClick={() => toggleCategory(cat.id)}
                 aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${cat.label} category (${items.length} items)`}
                 style={{
@@ -157,8 +151,7 @@ export function StudioPalette() {
                   }}
                 >
                   {items.map((prefab) => {
-                    const isActive =
-                      isPlacing && placingPrefab?.prefabId === prefab.prefabId;
+                    const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
                     return (
                       <PrefabCard
                         key={prefab.prefabId}
@@ -194,6 +187,7 @@ function PrefabCard({
 
   return (
     <button
+      type="button"
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

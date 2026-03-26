@@ -12,12 +12,16 @@
  * state in React state for the MeetingBubble3D to consume.
  */
 
+import type {
+  GraphNodeEnteredPayload,
+  RuntimeEvent,
+  TaskAssignmentDispatchedPayload,
+} from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphNodeEnteredPayload, RuntimeEvent, TaskAssignmentDispatchedPayload } from '@aics/shared-types';
-import type { CharacterMovementHandle } from './useCharacterMovement';
-import type { AgentState } from '../runtime/use-agent-states';
 import { truncate } from '../lib/format-time';
-import { getZoneCenter3D, resolveZone, SEAT_OFFSETS } from '../lib/zone-config';
+import { SEAT_OFFSETS, getZoneCenter3D, resolveZone } from '../lib/zone-config';
+import type { AgentState } from '../runtime/use-agent-states';
+import type { CharacterMovementHandle } from './useCharacterMovement';
 
 // ── Zone coordinates (derived from zone-config) ────────────────
 
@@ -27,7 +31,7 @@ const MTG_RADIUS = 2.5;
 
 /** Pre-computed semicircle positions around MTG center (up to 8 seats). */
 const MTG_POSITIONS = Array.from({ length: 8 }, (_, i) => {
-  const angle = Math.PI * (i + 1) / 9;
+  const angle = (Math.PI * (i + 1)) / 9;
   return [
     MTG_CENTER[0] + Math.cos(angle) * MTG_RADIUS,
     0,
@@ -37,7 +41,7 @@ const MTG_POSITIONS = Array.from({ length: 8 }, (_, i) => {
 
 function getWorkstationPos(zoneId: string, slotIdx: number): [number, number, number] {
   const center = getZoneCenter3D(zoneId);
-  const offset = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length]!;
+  const offset = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
   return [
     center[0] + offset[0] + (Math.random() - 0.5) * 0.3,
     0,
@@ -57,13 +61,13 @@ function getRestPos(): [number, number, number] {
 
 export type CeremonyPhase =
   | 'idle'
-  | 'gathering'      // employees walking to MTG
-  | 'analyzing'      // manager LLM running
-  | 'planning'       // PM creating plan
-  | 'dispatching'    // step_dispatcher assigning
-  | 'working'        // employees at workstations
-  | 'reporting'      // boss_summary, employees returning to MTG
-  | 'dismissing';    // everyone walking back to rest
+  | 'gathering' // employees walking to MTG
+  | 'analyzing' // manager LLM running
+  | 'planning' // PM creating plan
+  | 'dispatching' // step_dispatcher assigning
+  | 'working' // employees at workstations
+  | 'reporting' // boss_summary, employees returning to MTG
+  | 'dismissing'; // everyone walking back to rest
 
 export interface CeremonyState {
   phase: CeremonyPhase;
@@ -94,7 +98,11 @@ function getMovementHandles(companyId: string): Map<string, CharacterMovementHan
   return companyHandles.get(companyId) ?? new Map();
 }
 
-export function registerMovementHandle(companyId: string, employeeId: string, handle: CharacterMovementHandle) {
+export function registerMovementHandle(
+  companyId: string,
+  employeeId: string,
+  handle: CharacterMovementHandle,
+) {
   // Safety cap: evict oldest company entries if too many accumulate (FIFO by Map insertion order)
   if (!companyHandles.has(companyId) && companyHandles.size >= 5) {
     const oldest = companyHandles.keys().next().value;
@@ -144,11 +152,20 @@ export function clearCompanyState(companyId: string): void {
 
 interface OrchestratorDeps {
   companyId: string;
-  eventBus: { on: (prefix: string, handler: (e: RuntimeEvent<any>) => void) => () => void };
+  eventBus: {
+    on: <TPayload = unknown>(
+      prefix: string,
+      handler: (e: RuntimeEvent<TPayload>) => void,
+    ) => () => void;
+  };
   agents: Map<string, AgentState>;
 }
 
-export function useSceneOrchestrator({ companyId, eventBus, agents }: OrchestratorDeps): CeremonyState {
+export function useSceneOrchestrator({
+  companyId,
+  eventBus,
+  agents,
+}: OrchestratorDeps): CeremonyState {
   const [ceremony, setCeremony] = useState<CeremonyState>({
     phase: 'idle',
     bubbleText: '',
@@ -166,7 +183,10 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
   // Timer tracking — clear all pending timeouts on unmount
   const timerRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const safeTimeout = useCallback((fn: () => void, ms: number) => {
-    const id = setTimeout(() => { timerRefs.current.delete(id); fn(); }, ms);
+    const id = setTimeout(() => {
+      timerRefs.current.delete(id);
+      fn();
+    }, ms);
     timerRefs.current.add(id);
     return id;
   }, []);
@@ -198,97 +218,108 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
     allIds.forEach((id, idx) => {
       const handle = getMovementHandles(companyIdRef.current).get(id);
       if (!handle) return;
-      const seat = MTG_POSITIONS[idx % MTG_POSITIONS.length]!;
+      const resolvedSeat =
+        MTG_POSITIONS[idx % MTG_POSITIONS.length] ?? MTG_POSITIONS[0] ?? MTG_CENTER;
       const jittered: [number, number, number] = [
-        seat[0] + (Math.random() - 0.5) * 0.3,
+        resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
         0,
-        seat[2] + (Math.random() - 0.5) * 0.3,
+        resolvedSeat[2] + (Math.random() - 0.5) * 0.3,
       ];
       handle.moveTo(jittered, 5); // ceremony speed
     });
   }, []);
 
   /** Dispatch one employee from MTG to their workstation zone. */
-  const dispatchEmployee = useCallback((employeeId: string, role: string, version: number) => {
-    const handle = getMovementHandles(companyIdRef.current).get(employeeId);
-    if (!handle) return;
+  const dispatchEmployee = useCallback(
+    (employeeId: string, role: string, version: number) => {
+      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      if (!handle) return;
 
-    // Determine target zone from role
-    const zoneId = resolveZone(role);
-    const slot = getNextSlot(zoneId);
-    const targetPos = getWorkstationPos(zoneId, slot);
+      // Determine target zone from role
+      const zoneId = resolveZone(role);
+      const slot = getNextSlot(zoneId);
+      const targetPos = getWorkstationPos(zoneId, slot);
 
-    // Highlight: briefly stop for 0.5s then dispatch (we just dispatch immediately with a small delay effect)
-    safeTimeout(() => {
-      if (ceremonyVersionRef.current !== version) return; // interrupted
-      handle.moveTo(targetPos, 4);
-    }, 500);
+      // Highlight: briefly stop for 0.5s then dispatch (we just dispatch immediately with a small delay effect)
+      safeTimeout(() => {
+        if (ceremonyVersionRef.current !== version) return; // interrupted
+        handle.moveTo(targetPos, 4);
+      }, 500);
 
-    setCeremony(prev => ({
-      ...prev,
-      dispatchedIds: new Set([...prev.dispatchedIds, employeeId]),
-    }));
-  }, [safeTimeout]);
+      setCeremony((prev) => ({
+        ...prev,
+        dispatchedIds: new Set([...prev.dispatchedIds, employeeId]),
+      }));
+    },
+    [safeTimeout],
+  );
 
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
-  const startEndCeremony = useCallback((summaryText: string, version: number) => {
-    // Read current dispatched set before overwriting phase
-    let capturedDispatchedIds: string[] = [];
-    setCeremony(prev => {
-      capturedDispatchedIds = [...prev.dispatchedIds];
-      return { ...prev, phase: 'reporting', bubbleText: summaryText || 'Summarizing results...' };
-    });
+  const startEndCeremony = useCallback(
+    (summaryText: string, version: number) => {
+      // Read current dispatched set before overwriting phase
+      let capturedDispatchedIds: string[] = [];
+      setCeremony((prev) => {
+        capturedDispatchedIds = [...prev.dispatchedIds];
+        return { ...prev, phase: 'reporting', bubbleText: summaryText || 'Summarizing results...' };
+      });
 
-    // Only move employees that were actually dispatched to workstations
-    const dispatchedIds = capturedDispatchedIds.length > 0
-      ? capturedDispatchedIds
-      : [...agentsRef.current.keys()]; // fallback: all employees if no dispatch tracking
+      // Only move employees that were actually dispatched to workstations
+      const dispatchedIds =
+        capturedDispatchedIds.length > 0 ? capturedDispatchedIds : [...agentsRef.current.keys()]; // fallback: all employees if no dispatch tracking
 
-    // Guard: 0 employees → skip straight to dismiss
-    if (dispatchedIds.length === 0) {
-      safeTimeout(() => {
-        if (ceremonyVersionRef.current !== version) return;
-        setCeremony({ phase: 'idle', bubbleText: '', participantIds: new Set(), dispatchedIds: new Set() });
-      }, 1500);
-      return;
-    }
+      // Guard: 0 employees → skip straight to dismiss
+      if (dispatchedIds.length === 0) {
+        safeTimeout(() => {
+          if (ceremonyVersionRef.current !== version) return;
+          setCeremony({
+            phase: 'idle',
+            bubbleText: '',
+            participantIds: new Set(),
+            dispatchedIds: new Set(),
+          });
+        }, 1500);
+        return;
+      }
 
-    let arrivedCount = 0;
+      let arrivedCount = 0;
 
-    dispatchedIds.forEach((id, idx) => {
-      const handle = getMovementHandles(companyIdRef.current).get(id);
-      if (!handle) return;
-      const seat = MTG_POSITIONS[idx % MTG_POSITIONS.length]!;
-      handle.moveTo(
-        [seat[0] + (Math.random() - 0.5) * 0.3, 0, seat[2] + (Math.random() - 0.5) * 0.3],
-        5,
-        () => {
-          arrivedCount++;
-          if (arrivedCount >= dispatchedIds.length && ceremonyVersionRef.current === version) {
-            // All gathered — show summary for 1.5s then dismiss
-            safeTimeout(() => {
-              if (ceremonyVersionRef.current !== version) return;
-              setCeremony(prev => ({ ...prev, phase: 'dismissing', bubbleText: '' }));
-              for (const empId of dispatchedIds) {
-                const h = getMovementHandles(companyIdRef.current).get(empId);
-                h?.moveTo(getRestPos(), 4);
-              }
-              // After 3s, ceremony is fully done
+      dispatchedIds.forEach((id, idx) => {
+        const handle = getMovementHandles(companyIdRef.current).get(id);
+        if (!handle) return;
+        const seat = MTG_POSITIONS[idx % MTG_POSITIONS.length] ?? MTG_POSITIONS[0] ?? MTG_CENTER;
+        handle.moveTo(
+          [seat[0] + (Math.random() - 0.5) * 0.3, 0, seat[2] + (Math.random() - 0.5) * 0.3],
+          5,
+          () => {
+            arrivedCount++;
+            if (arrivedCount >= dispatchedIds.length && ceremonyVersionRef.current === version) {
+              // All gathered — show summary for 1.5s then dismiss
               safeTimeout(() => {
                 if (ceremonyVersionRef.current !== version) return;
-                setCeremony({
-                  phase: 'idle',
-                  bubbleText: '',
-                  participantIds: new Set(),
-                  dispatchedIds: new Set(),
-                });
-              }, 3000);
-            }, 1500);
-          }
-        },
-      );
-    });
-  }, [safeTimeout]);
+                setCeremony((prev) => ({ ...prev, phase: 'dismissing', bubbleText: '' }));
+                for (const empId of dispatchedIds) {
+                  const h = getMovementHandles(companyIdRef.current).get(empId);
+                  h?.moveTo(getRestPos(), 4);
+                }
+                // After 3s, ceremony is fully done
+                safeTimeout(() => {
+                  if (ceremonyVersionRef.current !== version) return;
+                  setCeremony({
+                    phase: 'idle',
+                    bubbleText: '',
+                    participantIds: new Set(),
+                    dispatchedIds: new Set(),
+                  });
+                }, 3000);
+              }, 1500);
+            }
+          },
+        );
+      });
+    },
+    [safeTimeout],
+  );
 
   // ── EventBus subscriptions ──
   useEffect(() => {
@@ -296,54 +327,62 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
     let hasActivePlan = false;
     let lastLlmChunk = '';
 
-    const unsubNode = eventBus.on('graph.node.entered', (e: RuntimeEvent<GraphNodeEnteredPayload>) => {
-      const node = e.payload.nodeName;
-      const version = ++ceremonyVersionRef.current;
+    const unsubNode = eventBus.on(
+      'graph.node.entered',
+      (e: RuntimeEvent<GraphNodeEnteredPayload>) => {
+        const node = e.payload.nodeName;
+        const version = ++ceremonyVersionRef.current;
 
-      if (node === 'manager') {
-        // Interrupt any ongoing ceremony: stop all → send to rest → then gather
-        const handles = getMovementHandles(companyIdRef.current);
-        for (const [, handle] of handles) {
-          handle.stop();
-          handle.moveTo(getRestPos(), 5); // quick return to rest first
-        }
-        hasActivePlan = false;
-        // Brief delay to visually separate the reset from the new gathering
-        safeTimeout(() => {
-          if (ceremonyVersionRef.current !== version) return; // another interrupt happened
-          gatherAll(version);
-          setCeremony(prev => ({
-            ...prev,
-            phase: 'analyzing',
-            bubbleText: 'Analyzing request...',
-          }));
-        }, 300);
-      }
-
-      if (node === 'pm' || node === 'planner' || node === 'project_manager' || node === 'product_manager') {
-        setCeremony(prev => ({
-          ...prev,
-          phase: 'planning',
-          bubbleText: 'Planning tasks...',
-        }));
-      }
-
-      if (node === 'step_dispatcher') {
-        hasActivePlan = true;
-        setCeremony(prev => ({
-          ...prev,
-          phase: 'dispatching',
-          bubbleText: 'Assigning tasks...',
-        }));
-      }
-
-      if (node === 'boss_summary' || node === 'boss') {
-        if (hasActivePlan) {
-          startEndCeremony(lastLlmChunk || 'Work complete.', version);
+        if (node === 'manager') {
+          // Interrupt any ongoing ceremony: stop all → send to rest → then gather
+          const handles = getMovementHandles(companyIdRef.current);
+          for (const [, handle] of handles) {
+            handle.stop();
+            handle.moveTo(getRestPos(), 5); // quick return to rest first
+          }
           hasActivePlan = false;
+          // Brief delay to visually separate the reset from the new gathering
+          safeTimeout(() => {
+            if (ceremonyVersionRef.current !== version) return; // another interrupt happened
+            gatherAll(version);
+            setCeremony((prev) => ({
+              ...prev,
+              phase: 'analyzing',
+              bubbleText: 'Analyzing request...',
+            }));
+          }, 300);
         }
-      }
-    });
+
+        if (
+          node === 'pm' ||
+          node === 'planner' ||
+          node === 'project_manager' ||
+          node === 'product_manager'
+        ) {
+          setCeremony((prev) => ({
+            ...prev,
+            phase: 'planning',
+            bubbleText: 'Planning tasks...',
+          }));
+        }
+
+        if (node === 'step_dispatcher') {
+          hasActivePlan = true;
+          setCeremony((prev) => ({
+            ...prev,
+            phase: 'dispatching',
+            bubbleText: 'Assigning tasks...',
+          }));
+        }
+
+        if (node === 'boss_summary' || node === 'boss') {
+          if (hasActivePlan) {
+            startEndCeremony(lastLlmChunk || 'Work complete.', version);
+            hasActivePlan = false;
+          }
+        }
+      },
+    );
 
     // Listen for individual task dispatches
     const unsubDispatch = eventBus.on(
@@ -353,7 +392,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         const agent = agentsRef.current.get(employeeId);
         const role = agent?.role ?? 'developer';
 
-        setCeremony(prev => ({
+        setCeremony((prev) => ({
           ...prev,
           bubbleText: `→ ${employeeName}: ${truncate(stepLabel, 30)}`,
         }));
@@ -363,7 +402,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         // If this is the last step, switch to working phase
         if (stepIndex === totalSteps - 1) {
           safeTimeout(() => {
-            setCeremony(prev => {
+            setCeremony((prev) => {
               if (prev.phase !== 'dispatching') return prev;
               // Dismiss undispatched employees to rest
               const allIds = new Set(agentsRef.current.keys());
@@ -403,15 +442,14 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         lastLlmChunk = accumulatedBossText;
         // Live-update bubble with streaming boss summary (first 50 chars)
         const preview = truncate(accumulatedBossText, 50);
-        setCeremony(prev => {
+        setCeremony((prev) => {
           if (prev.phase !== 'reporting') return prev;
           return { ...prev, bubbleText: preview };
         });
       } else if (node === 'manager') {
         // Show manager's reasoning as it streams
-        const text = payload.content.length > 40
-          ? payload.content.slice(0, 40) + '…'
-          : payload.content;
+        const text =
+          payload.content.length > 40 ? `${payload.content.slice(0, 40)}…` : payload.content;
         lastLlmChunk = text;
       }
     });
@@ -425,7 +463,7 @@ export function useSceneOrchestrator({ companyId, eventBus, agents }: Orchestrat
         const text = summary
           ? `${truncate(summary, 30)} (${stepCount} steps)`
           : `Planning: ${stepCount} step${stepCount > 1 ? 's' : ''}`;
-        setCeremony(prev => ({
+        setCeremony((prev) => ({
           ...prev,
           bubbleText: text,
         }));
