@@ -2,11 +2,19 @@
 
 import { LoginDialog, useAuthContext } from '@aics/ui-market';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+
+const NAV_LINKS = [
+  { href: '/browse', label: 'Browse' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/how-it-works', label: 'How It Works' },
+] as const;
 
 export function MarketNav() {
   const { user, logout } = useAuthContext();
   const [showLogin, setShowLogin] = useState(false);
+  const pathname = usePathname();
 
   return (
     <>
@@ -16,15 +24,29 @@ export function MarketNav() {
             <span className="font-display text-xl font-bold tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent-indigo)] transition-colors">
               Offisim
             </span>
-            <span className="text-sm font-medium text-[var(--text-muted)]">Market</span>
           </Link>
           <div className="flex items-center gap-5">
-            <Link
-              href="/search"
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`text-sm font-medium transition-colors ${
+                  pathname.startsWith(link.href)
+                    ? 'text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+            <a
+              href="https://github.com"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
-              Browse
-            </Link>
+              GitHub
+            </a>
             {user ? (
               <>
                 <Link

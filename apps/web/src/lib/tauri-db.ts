@@ -9,7 +9,11 @@ let dbPromise: Promise<Database> | null = null;
 export function getTauriDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
-      const { default: Database } = await import('@tauri-apps/plugin-sql');
+      const tauriSqlModule = '@tauri-apps' + '/plugin-sql';
+      const { default: Database } =
+        (await import(/* @vite-ignore */ tauriSqlModule)) as typeof import(
+          '@tauri-apps/plugin-sql'
+        );
       const db = await Database.load('sqlite:aics.db');
       // Enable WAL for concurrent read/write safety
       await db.execute('PRAGMA journal_mode=WAL', []);

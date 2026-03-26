@@ -15,24 +15,24 @@ const syne = Syne({
 });
 
 const description =
-  'Browse, discover, and install AI company employees, skills, SOPs, and templates for Offisim.';
+  'Offisim is the spatial interface for AI — a local-first, open-source runtime where AI agents become visible colleagues in a 3D office.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: '%s — Offisim Market',
-    default: 'Offisim Market — Discover AI Company Assets',
+    template: '%s — Offisim',
+    default: 'Offisim — The Spatial Interface for AI',
   },
   description,
   openGraph: {
     type: 'website',
-    siteName: 'Offisim Market',
+    siteName: 'Offisim',
     locale: 'en_US',
     description,
   },
   twitter: {
     card: 'summary',
-    title: 'Offisim Market',
+    title: 'Offisim',
     description,
   },
   robots: {
@@ -53,29 +53,65 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main>{children}</main>
           <footer className="border-t border-[var(--border)]">
             <div className="mx-auto max-w-content px-6 py-12">
-              <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
+              <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
                 <div>
-                  <span className="font-display text-lg font-bold tracking-tight text-[var(--text-primary)]">
-                    Offisim
-                  </span>
-                  <span className="ml-1 text-sm text-[var(--text-muted)]">Market</span>
-                </div>
-                <div className="flex items-center gap-6 text-sm text-[var(--text-muted)]">
-                  <Link
-                    href="/search"
-                    className="hover:text-[var(--text-secondary)] transition-colors"
-                  >
-                    Browse
+                  <Link href="/" className="group">
+                    <span className="font-display text-lg font-bold tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent-indigo)] transition-colors">
+                      Offisim
+                    </span>
                   </Link>
-                  <Link
-                    href="/dashboard"
-                    className="hover:text-[var(--text-secondary)] transition-colors"
-                  >
-                    Creators
-                  </Link>
-                  <span className="text-[var(--border-bright)]">·</span>
-                  <span>Open Source Runtime + Talent Market</span>
+                  <p className="mt-2 max-w-xs text-xs text-[var(--text-muted)] leading-relaxed">
+                    The spatial interface for AI. Open-source runtime where agent workflows become
+                    visible, tangible, and human-understandable.
+                  </p>
                 </div>
+                <div className="flex gap-16 text-sm">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-medium uppercase tracking-widest text-[var(--text-muted)]">
+                      Product
+                    </span>
+                    <Link
+                      href="/how-it-works"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      How It Works
+                    </Link>
+                    <Link
+                      href="/browse"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Marketplace
+                    </Link>
+                    <Link
+                      href="/docs"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Documentation
+                    </Link>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-medium uppercase tracking-widest text-[var(--text-muted)]">
+                      Community
+                    </span>
+                    <a
+                      href="https://github.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      GitHub
+                    </a>
+                    <Link
+                      href="/docs/contributing"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Contributing
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-8 border-t border-[var(--border)] pt-6 text-xs text-[var(--text-muted)]">
+                Free. Open source. Yours forever.
               </div>
             </div>
           </footer>

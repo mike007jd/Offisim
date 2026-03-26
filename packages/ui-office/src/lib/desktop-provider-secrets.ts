@@ -7,7 +7,9 @@ export interface ProviderSecretStatus {
 }
 
 async function invokeDesktop<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const tauriCoreModule = '@tauri-apps' + '/api/core';
+  const { invoke } =
+    (await import(/* @vite-ignore */ tauriCoreModule)) as typeof import('@tauri-apps/api/core');
   return invoke<T>(command, args);
 }
 
