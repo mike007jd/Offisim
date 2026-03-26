@@ -1,19 +1,17 @@
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('llm');
 import { generateId } from '../utils/generate-id.js';
 import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
+import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
 
 /** @deprecated Use `LlmCallMeta` from `middleware/types.ts` instead. */
 export type RecordedCallMeta = LlmCallMeta;
-
-const conversationBudgetService = new ConversationBudgetService();
 
 export async function recordedLlmCall(
   ctx: RuntimeContext,
@@ -41,8 +39,14 @@ export async function recordedLlmCall(
       callCtx = await ctx.middlewareChain.runBefore(callCtx);
     }
 
-    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, callCtx.request);
-    let response = await ctx.llmGateway.chat(prunedRequest);
+    // Always apply basic prune as safety net (even if middleware chain exists
+    // but SummarizationMiddleware wasn't registered). SummarizationMiddleware
+    // provides *better* pruning with synopsis; this is the minimum guarantee.
+    const safePrunedRequest = {
+      ...callCtx.request,
+      messages: pruneLlmMessages(callCtx.request.messages, { maxNonSystemMessages: 50 }),
+    };
+    let response = await ctx.llmGateway.chat(safePrunedRequest);
     const latencyMs = Date.now() - startedAt;
 
     // --- Middleware: after ---
@@ -149,8 +153,12 @@ export async function recordedLlmStream(
       callCtx = await ctx.middlewareChain.runBefore(callCtx);
     }
 
-    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, callCtx.request);
-    const stream = ctx.llmGateway.chatStream(prunedRequest);
+    // Always apply basic prune as safety net (see recordedLlmCall comment).
+    const safePrunedRequest = {
+      ...callCtx.request,
+      messages: pruneLlmMessages(callCtx.request.messages, { maxNonSystemMessages: 50 }),
+    };
+    const stream = ctx.llmGateway.chatStream(safePrunedRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
 

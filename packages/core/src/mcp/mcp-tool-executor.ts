@@ -155,4 +155,9 @@ export class McpToolExecutor implements ToolExecutor {
   get serverCount(): number {
     return this.servers.size;
   }
+
+  /** Get the names of all currently connected servers. */
+  getConnectedServerNames(): string[] {
+    return [...this.servers.keys()];
+  }
 }

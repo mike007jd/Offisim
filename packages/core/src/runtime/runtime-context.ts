@@ -2,6 +2,7 @@ import type { RuntimePolicyConfig } from '@aics/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
+import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { MemoryService } from '../services/memory-service.js';
@@ -34,6 +35,8 @@ export interface RuntimeContext {
   readonly meetingInterruptBox: MeetingInterruptBox;
   /** Optional middleware chain for LLM call pre/post processing. */
   readonly middlewareChain?: LlmMiddlewareChain;
+  /** Config-driven model catalog. Registry owns gateway lifecycle for registered models. */
+  readonly modelRegistry?: ModelRegistry;
 }
 
 export interface DisposableRuntime {
@@ -41,10 +44,12 @@ export interface DisposableRuntime {
   readonly eventBus?: EventBus;
   readonly toolExecutor?: { dispose?: () => void | Promise<void> };
   readonly notificationBridge?: { deactivate: () => void };
+  readonly modelRegistry?: { disposeAll: () => void };
 }
 
 export function disposeRuntime(d: DisposableRuntime): void {
   d.llmGateway?.dispose();
+  d.modelRegistry?.disposeAll();
   d.notificationBridge?.deactivate();
   if (d.toolExecutor && typeof d.toolExecutor.dispose === 'function') {
     // McpToolExecutor.dispose() is async but we fire-and-forget here —
@@ -67,6 +72,7 @@ export function createRuntimeContext(deps: {
   workstationToolResolver?: WorkstationToolResolver;
   meetingInterruptBox?: MeetingInterruptBox;
   middlewareChain?: LlmMiddlewareChain;
+  modelRegistry?: ModelRegistry;
 }): RuntimeContext {
   const { meetingInterruptBox, ...rest } = deps;
   return Object.freeze({

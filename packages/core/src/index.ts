@@ -145,6 +145,8 @@ export type { SubscriptionAdapterOptions } from './llm/subscription-adapter.js';
 export { createGateway } from './llm/gateway-factory.js';
 export type { GatewayConfig } from './llm/gateway-factory.js';
 export { ModelResolver } from './llm/model-resolver.js';
+export { ModelRegistry } from './llm/model-registry.js';
+export type { ModelRegistryConfig, ModelRegistryEntry } from './llm/model-registry.js';
 export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
 export { teeStream } from './llm/stream-tee.js';
 export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
@@ -154,6 +156,7 @@ export type { RecordedCallMeta } from './llm/recorded-call.js';
 export { LlmMiddlewareChain } from './middleware/chain.js';
 export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
 export { UserPreferenceMiddleware } from './middleware/builtin/user-preference-middleware.js';
+export { SummarizationMiddleware } from './middleware/builtin/summarization-middleware.js';
 
 // --- User Memory ---
 export { UserMemoryService } from './services/user-memory-service.js';
@@ -245,6 +248,13 @@ export { WorkstationAssignmentService } from './runtime/workstation-assignment-s
 // --- MCP ---
 export { McpToolExecutor } from './mcp/mcp-tool-executor.js';
 export { AuditingToolExecutor } from './mcp/auditing-tool-executor.js';
+export { McpConfigLoader } from './mcp/mcp-config-loader.js';
+export type {
+  McpConfigFile,
+  McpServerConfigEntry,
+  McpConfigLoaderOptions,
+  McpExecutorLike,
+} from './mcp/mcp-config-loader.js';
 // NOTE: SdkClientFactory intentionally NOT in barrel — imports node:stream/child_process
 // which breaks browser builds. Use direct import in Node.js/Tauri environments:
 //   import { SdkClientFactory } from '@aics/core/dist/mcp/sdk-client-factory.js';
@@ -299,6 +309,24 @@ export type {
   A2ATaskStatus,
   A2ATextPart,
 } from './a2a/index.js';
+
+// --- Built-in Tools ---
+export {
+  createBuiltinTools,
+  createBashTool,
+  createFileReadTool,
+  createFileWriteTool,
+  createWebSearchTool,
+} from './tools/builtin/index.js';
+export type {
+  BuiltinTool,
+  BuiltinToolConfig,
+  ShellExec,
+  ShellExecResult,
+  ShellExecOptions,
+  FsAdapter,
+} from './tools/builtin/index.js';
+export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
 
 // --- Errors ---
 export { AicsError, LlmError, GraphError, DataError } from './errors.js';
