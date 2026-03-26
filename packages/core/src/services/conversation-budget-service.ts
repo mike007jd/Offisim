@@ -132,8 +132,11 @@ export class ConversationBudgetService {
 
     let summary: string | null = null;
     try {
+      // Use the boss-role model for synopsis (cheap system-level call).
+      // Falls back to whatever the policy default is.
+      const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
       const response = await ctx.llmGateway.chat({
-        model: 'default',
+        model: synopsisModel,
         temperature: 0.2,
         maxTokens: 256,
         messages: [

@@ -61,6 +61,8 @@ export class UserMemoryService {
   constructor(
     private readonly prefRepo: UserPreferenceRepository,
     private readonly llmGateway: LlmGateway,
+    /** Model name to use for extraction LLM calls (e.g., 'gpt-4o-mini'). */
+    private readonly extractionModel: string = 'gpt-4o-mini',
   ) {}
 
   /**
@@ -145,7 +147,7 @@ export class UserMemoryService {
 
       const response = await this.llmGateway.chat({
         messages,
-        model: '', // Use default model
+        model: this.extractionModel,
         temperature: 0.3,
         maxTokens: 500,
       });

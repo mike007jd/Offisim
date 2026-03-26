@@ -39,14 +39,18 @@ export async function recordedLlmCall(
       callCtx = await ctx.middlewareChain.runBefore(callCtx);
     }
 
-    // Always apply basic prune as safety net (even if middleware chain exists
-    // but SummarizationMiddleware wasn't registered). SummarizationMiddleware
-    // provides *better* pruning with synopsis; this is the minimum guarantee.
-    const safePrunedRequest = {
-      ...callCtx.request,
-      messages: pruneLlmMessages(callCtx.request.messages, { maxNonSystemMessages: 50 }),
-    };
-    let response = await ctx.llmGateway.chat(safePrunedRequest);
+    // When a middleware chain is configured, trust its output — SummarizationMiddleware
+    // (or whatever pruning middleware is registered) has already applied the runtime
+    // policy's keepRecentMessages / triggerTokens settings.
+    // Only apply a basic prune fallback when NO middleware chain exists at all
+    // (e.g., in tests or minimal runtime setups).
+    const effectiveRequest = ctx.middlewareChain
+      ? callCtx.request
+      : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
+
+    // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
+    const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
+    let response = await gateway.chat(effectiveRequest);
     const latencyMs = Date.now() - startedAt;
 
     // --- Middleware: after ---
@@ -153,12 +157,14 @@ export async function recordedLlmStream(
       callCtx = await ctx.middlewareChain.runBefore(callCtx);
     }
 
-    // Always apply basic prune as safety net (see recordedLlmCall comment).
-    const safePrunedRequest = {
-      ...callCtx.request,
-      messages: pruneLlmMessages(callCtx.request.messages, { maxNonSystemMessages: 50 }),
-    };
-    const stream = ctx.llmGateway.chatStream(safePrunedRequest);
+    // Same logic as recordedLlmCall: trust middleware chain, fallback basic prune.
+    const effectiveRequest = ctx.middlewareChain
+      ? callCtx.request
+      : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
+
+    // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
+    const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
+    const stream = gateway.chatStream(effectiveRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
 
