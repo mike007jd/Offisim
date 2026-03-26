@@ -12,12 +12,13 @@ import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import {
   buildSubscriptionGatewayConfig,
-  createDefaultRuntimePolicy,
   createDesktopProviderGateway,
-  normalizeRuntimePolicy,
+  getInstallEnvironmentForExecutionMode,
+  resolveEffectiveRuntimePolicy,
 } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import type { RuntimeBundle } from './browser-runtime';
+import { BrowserMcpClientFactory } from './browser-mcp-client';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
@@ -91,9 +92,12 @@ export async function createTauriRuntime(
         })
       : createDesktopProviderGateway(config);
 
-  const runtimePolicy = config.runtimePolicy
-    ? normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model)
-    : createDefaultRuntimePolicy(config.provider, config.model);
+  const runtimePolicy = resolveEffectiveRuntimePolicy(
+    config.runtimePolicy,
+    config.provider,
+    config.model,
+    { tauri: true },
+  );
 
   const modelResolver = new ModelResolver(runtimePolicy, {
     provider: runtimePolicy.modelPolicy.default.provider,
@@ -109,7 +113,10 @@ export async function createTauriRuntime(
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
     companyId,
-    clientFactory: new TauriMcpClientFactory(),
+    clientFactory:
+      runtimePolicy.executionMode === 'browser-limited'
+        ? new BrowserMcpClientFactory()
+        : new TauriMcpClientFactory(),
   });
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
@@ -149,7 +156,7 @@ export async function createTauriRuntime(
     companyId,
     environment: {
       runtimeVersion: '0.1.0',
-      environment: 'desktop',
+      environment: getInstallEnvironmentForExecutionMode(runtimePolicy.executionMode),
       schemaVersion: '2026-03',
     },
     transact: repos.transact,

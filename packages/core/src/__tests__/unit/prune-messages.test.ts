@@ -81,6 +81,13 @@ describe('pruneLlmMessages', () => {
     expect(result.filter((m) => m.role !== 'system')).toHaveLength(5);
   });
 
+  it('supports trimming all non-system messages when max is zero', () => {
+    const messages = makeMessages(['system', 'user', 'assistant', 'user']);
+    const result = pruneLlmMessages(messages, 0);
+
+    expect(result).toEqual([{ role: 'system', content: 'msg-0' }]);
+  });
+
   it('supports a synopsis system message while still trimming non-system messages', () => {
     const messages: readonly LlmMessage[] = [
       { role: 'system', content: 'sys' },

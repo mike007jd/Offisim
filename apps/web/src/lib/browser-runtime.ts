@@ -34,8 +34,8 @@ import { InstallService } from '@aics/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
 import {
   buildSubscriptionGatewayConfig,
-  createDefaultRuntimePolicy,
-  normalizeRuntimePolicy,
+  getInstallEnvironmentForExecutionMode,
+  resolveEffectiveRuntimePolicy,
 } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
@@ -152,9 +152,12 @@ export async function createBrowserRuntime(
     subscription: buildSubscriptionGatewayConfig(config),
   });
 
-  const runtimePolicy = config.runtimePolicy
-    ? normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model)
-    : createDefaultRuntimePolicy(config.provider, config.model);
+  const runtimePolicy = resolveEffectiveRuntimePolicy(
+    config.runtimePolicy,
+    config.provider,
+    config.model,
+    { tauri: false },
+  );
 
   const modelResolver = new ModelResolver(runtimePolicy, {
     provider: runtimePolicy.modelPolicy.default.provider,
@@ -203,7 +206,7 @@ export async function createBrowserRuntime(
     companyId,
     environment: {
       runtimeVersion: '0.1.0',
-      environment: 'web_limited',
+      environment: getInstallEnvironmentForExecutionMode(runtimePolicy.executionMode),
       schemaVersion: '2026-03',
     },
   });

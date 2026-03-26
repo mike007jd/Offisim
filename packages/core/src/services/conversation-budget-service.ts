@@ -27,7 +27,6 @@ interface ResolvedConversationBudgetOptions {
   synopsisTriggerTokens: number;
 }
 
-const DEFAULT_MAX_NON_SYSTEM_MESSAGES = 50;
 const DEFAULT_TAIL_NON_SYSTEM_MESSAGES = 50;
 const DEFAULT_SYNOPSIS_TRIGGER_MESSAGES = 80;
 const DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES = 6;
@@ -91,13 +90,13 @@ export class ConversationBudgetService {
 
   private resolveOptions(ctx: RuntimeContext): ResolvedConversationBudgetOptions {
     const summarization = ctx.runtimePolicy?.summarization;
-    const keepRecentMessages =
-      summarization?.keepRecentMessages ?? DEFAULT_TAIL_NON_SYSTEM_MESSAGES;
+    const keepRecentMessages = Math.max(
+      0,
+      summarization?.keepRecentMessages ?? DEFAULT_TAIL_NON_SYSTEM_MESSAGES,
+    );
     return {
       enabled: summarization?.enabled ?? true,
-      maxNonSystemMessages:
-        this.defaults.maxNonSystemMessages ??
-        Math.max(DEFAULT_MAX_NON_SYSTEM_MESSAGES, keepRecentMessages),
+      maxNonSystemMessages: this.defaults.maxNonSystemMessages ?? keepRecentMessages,
       tailNonSystemMessages: this.defaults.tailNonSystemMessages ?? keepRecentMessages,
       synopsisTriggerMessages:
         this.defaults.synopsisTriggerMessages ??

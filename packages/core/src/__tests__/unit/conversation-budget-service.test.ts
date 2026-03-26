@@ -229,4 +229,55 @@ describe('ConversationBudgetService', () => {
     const thread = await repos.threads.findById(TEST_THREAD_ID);
     expect(thread?.synopsis_json).toBeNull();
   });
+
+  it('trims to keepRecentMessages even before synopsis generation kicks in', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.companies([TEST_COMPANY]);
+    await repos.threads.create({
+      thread_id: TEST_THREAD_ID,
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus: new InMemoryEventBus(),
+      llmGateway: new MockLlmGateway(),
+      modelResolver: new ModelResolver(DEFAULT_MODEL_POLICY),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      runtimePolicy: {
+        executionMode: 'desktop-trusted',
+        modelPolicy: DEFAULT_MODEL_POLICY,
+        summarization: {
+          enabled: true,
+          triggerTokens: 999_999,
+          keepRecentMessages: 4,
+        },
+        memory: {
+          enabled: true,
+          injectionEnabled: true,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.7,
+        },
+        toolSearch: { enabled: true },
+      },
+    });
+
+    const prepared = await new ConversationBudgetService().prepareRequest(runtimeCtx, {
+      model: 'test',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        ...Array.from({ length: 12 }, (_, index) => ({
+          role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+          content: `Turn ${index} about rollout safety`,
+        })),
+      ],
+    });
+
+    expect(prepared.messages.filter((message) => message.role !== 'system')).toHaveLength(4);
+  });
 });

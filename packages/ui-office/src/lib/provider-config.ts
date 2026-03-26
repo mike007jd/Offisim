@@ -192,6 +192,36 @@ export function normalizeRuntimePolicy(
   };
 }
 
+export function resolveEffectiveExecutionMode(
+  executionMode: RuntimeExecutionMode,
+  options: { tauri: boolean },
+): RuntimeExecutionMode {
+  if (executionMode === 'browser-limited') {
+    return 'browser-limited';
+  }
+
+  return options.tauri ? 'desktop-trusted' : 'browser-limited';
+}
+
+export function resolveEffectiveRuntimePolicy(
+  policy: unknown,
+  provider: LlmProvider,
+  model: string,
+  options: { tauri: boolean },
+): RuntimePolicyConfig {
+  const normalized = normalizeRuntimePolicy(policy, provider, model);
+  return {
+    ...normalized,
+    executionMode: resolveEffectiveExecutionMode(normalized.executionMode, options),
+  };
+}
+
+export function getInstallEnvironmentForExecutionMode(
+  executionMode: RuntimeExecutionMode,
+): 'desktop' | 'web_limited' {
+  return executionMode === 'browser-limited' ? 'web_limited' : 'desktop';
+}
+
 export function buildRuntimeModelPolicy(config: ProviderConfig): ModelPolicyConfig {
   return normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model).modelPolicy;
 }

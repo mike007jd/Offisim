@@ -3,6 +3,7 @@ import {
   type ProviderConfig,
   clearProviderConfig,
   loadProviderConfig,
+  resolveEffectiveRuntimePolicy,
   saveProviderConfig,
 } from '../lib/provider-config';
 
@@ -195,5 +196,40 @@ describe('provider-config', () => {
     clearProviderConfig();
 
     expect(loadProviderConfig()).toBeNull();
+  });
+
+  it('resolves execution mode against the actual runtime environment', () => {
+    expect(
+      resolveEffectiveRuntimePolicy(
+        {
+          executionMode: 'auto',
+        },
+        'openai',
+        'gpt-4o-mini',
+        { tauri: false },
+      ).executionMode,
+    ).toBe('browser-limited');
+
+    expect(
+      resolveEffectiveRuntimePolicy(
+        {
+          executionMode: 'auto',
+        },
+        'openai',
+        'gpt-4o-mini',
+        { tauri: true },
+      ).executionMode,
+    ).toBe('desktop-trusted');
+
+    expect(
+      resolveEffectiveRuntimePolicy(
+        {
+          executionMode: 'browser-limited',
+        },
+        'openai',
+        'gpt-4o-mini',
+        { tauri: true },
+      ).executionMode,
+    ).toBe('browser-limited');
   });
 });

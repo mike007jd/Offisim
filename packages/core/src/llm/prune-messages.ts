@@ -39,6 +39,9 @@ export function pruneLlmMessages(
   if (nonSystem.length <= options.maxNonSystemMessages) {
     return [...mergedSystem, ...nonSystem];
   }
+  if (options.maxNonSystemMessages <= 0) {
+    return mergedSystem;
+  }
 
   return [...mergedSystem, ...nonSystem.slice(-options.maxNonSystemMessages)];
 }

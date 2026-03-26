@@ -175,6 +175,37 @@ describe('MemoryService', () => {
       expect(results).toHaveLength(2);
     });
 
+    it('keeps explicit memory recall available when prompt injection is disabled', async () => {
+      service = new MemoryService(memoryRepo, gateway, eventBus, {
+        policy: {
+          enabled: true,
+          injectionEnabled: false,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.2,
+        },
+      });
+
+      await memoryRepo.create({
+        memory_id: 'mem-explicit-recall',
+        company_id: COMPANY_ID,
+        scope: 'employee',
+        owner_id: EMPLOYEE_ID,
+        category: 'knowledge',
+        content: 'Auth incidents should start with token expiry validation',
+        importance: 0.8,
+        confidence: 0.92,
+      });
+
+      const results = await service.getRelevantMemories(
+        EMPLOYEE_ID,
+        COMPANY_ID,
+        'token expiry',
+        10,
+      );
+
+      expect(results.map((memory) => memory.memory_id)).toEqual(['mem-explicit-recall']);
+    });
+
     it('prefers fresher higher-confidence reinforced memories when ranking matches', async () => {
       await memoryRepo.create({
         memory_id: 'mem-old',

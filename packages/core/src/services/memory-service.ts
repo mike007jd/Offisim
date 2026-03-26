@@ -78,7 +78,7 @@ export class MemoryService {
     query: string,
     limit = 10,
   ): Promise<MemoryEntryRow[]> {
-    if (!this.policy.enabled || !this.policy.injectionEnabled) {
+    if (!this.policy.enabled) {
       return [];
     }
 
