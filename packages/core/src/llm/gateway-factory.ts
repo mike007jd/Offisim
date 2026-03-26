@@ -31,6 +31,7 @@ export function createGateway(config: GatewayConfig): LlmGateway {
   switch (config.provider) {
     case 'anthropic':
       return new AnthropicAdapter(config.apiKey, {
+        baseURL: config.baseURL,
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
       });

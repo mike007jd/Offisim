@@ -4,16 +4,19 @@
  * Routes LLM requests through a local ACP (Agent Client Protocol) server
  * that speaks to the user's existing AI subscription (Claude Pro/Max, Codex, etc.).
  *
- * Wire protocol: JSON-RPC 2.0 over stdio (ndjson).
- * Methods: initialize → session/new → session/prompt → session/update notifications.
- *
- * This adapter implements the same LlmGateway interface as the API-based adapters,
- * making it transparent to the rest of the system.
+ * Uses the official @agentclientprotocol/sdk for transport, handshake, and streaming.
  */
 
 import { type ChildProcess, spawn } from 'node:child_process';
-import { createInterface } from 'node:readline';
-import { LlmError } from '../errors.js';
+import { Readable, Writable } from 'node:stream';
+import {
+  ClientSideConnection,
+  ndJsonStream,
+  PROTOCOL_VERSION,
+  type Client,
+  type SessionNotification,
+} from '@agentclientprotocol/sdk';
+import { LlmError, toErrorMessage } from '../errors.js';
 import type {
   LlmGateway,
   LlmRequest,
@@ -21,56 +24,6 @@ import type {
   LlmStreamChunk,
   ToolCallResult,
 } from './gateway.js';
-
-// ── ACP JSON-RPC types ──────────────────────────────────────────────
-
-interface JsonRpcRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: string;
-  params: Record<string, unknown>;
-}
-
-interface JsonRpcResponse {
-  jsonrpc: '2.0';
-  id: number;
-  result?: Record<string, unknown>;
-  error?: { code: number; message: string; data?: unknown };
-}
-
-interface JsonRpcNotification {
-  jsonrpc: '2.0';
-  method: string;
-  params: Record<string, unknown>;
-}
-
-type JsonRpcMessage = JsonRpcResponse | JsonRpcNotification;
-
-// ── AsyncMutex ──────────────────────────────────────────────────────
-
-class AsyncMutex {
-  private queue: (() => void)[] = [];
-  private locked = false;
-  async acquire(): Promise<void> {
-    if (!this.locked) {
-      this.locked = true;
-      return;
-    }
-    return new Promise<void>((resolve) => {
-      this.queue.push(resolve);
-    });
-  }
-  release(): void {
-    const next = this.queue.shift();
-    if (next) {
-      next();
-    } else {
-      this.locked = false;
-    }
-  }
-}
-
-// ── Adapter ─────────────────────────────────────────────────────────
 
 export interface SubscriptionAdapterOptions {
   /** ACP server command (default: 'claude'). */
@@ -85,20 +38,13 @@ export interface SubscriptionAdapterOptions {
 
 export class SubscriptionAdapter implements LlmGateway {
   private process: ChildProcess | null = null;
-  private rl: ReturnType<typeof createInterface> | null = null;
+  private connection: ClientSideConnection | null = null;
   private sessionId: string | null = null;
-  private nextId = 1;
-  private initialized = false;
   private initPromise: Promise<void> | null = null;
-  private readonly pending = new Map<
-    number,
-    {
-      resolve: (msg: JsonRpcResponse) => void;
-      reject: (err: Error) => void;
-    }
-  >();
-  private readonly notificationListeners: ((n: JsonRpcNotification) => void)[] = [];
-  private readonly promptMutex = new AsyncMutex();
+  /** Set by the active chat/chatStream call. Requires promptLock serialization. */
+  private activeChunkHandler: ((n: SessionNotification) => void) | null = null;
+  private promptLock: Promise<void> = Promise.resolve();
+  private disposed = false;
 
   private readonly command: string;
   private readonly args: string[];
@@ -112,14 +58,16 @@ export class SubscriptionAdapter implements LlmGateway {
     this.env = opts.env ?? {};
   }
 
-  // ── Lifecycle ───────────────────────────────────────────────────
-
   private async ensureReady(): Promise<void> {
-    if (this.initialized && this.sessionId && this.process) return;
+    if (this.sessionId && this.connection) return;
     if (this.initPromise) return this.initPromise;
-
     this.initPromise = this.startup();
-    await this.initPromise;
+    try {
+      await this.initPromise;
+    } catch (err) {
+      this.initPromise = null;
+      throw err;
+    }
   }
 
   private async startup(): Promise<void> {
@@ -128,225 +76,179 @@ export class SubscriptionAdapter implements LlmGateway {
       env: { ...process.env, ...this.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-
     this.process = proc;
 
-    if (!proc.stdout) {
-      throw new LlmError('ACP process stdout unavailable', 'subscription');
-    }
-
-    const rl = createInterface({ input: proc.stdout });
-    this.rl = rl;
-    rl.on('line', (line: string) => {
-      if (!line.trim()) return;
-      try {
-        const msg = JSON.parse(line) as JsonRpcMessage;
-        if ('id' in msg && typeof msg.id === 'number') {
-          // Response to a request
-          const pending = this.pending.get(msg.id);
-          if (pending) {
-            this.pending.delete(msg.id);
-            pending.resolve(msg as JsonRpcResponse);
-          }
-        } else if ('method' in msg) {
-          // Notification
-          for (const listener of this.notificationListeners) {
-            listener(msg as JsonRpcNotification);
-          }
-        }
-      } catch {
-        // Skip unparseable lines (stderr leaking into stdout, etc.)
-      }
-    });
-
-    proc.on('error', (err) => {
-      // Reject all pending requests
-      for (const [, p] of this.pending) {
-        p.reject(new LlmError(`ACP process error: ${err.message}`, 'subscription'));
-      }
-      this.pending.clear();
-    });
-
-    proc.on('exit', (code) => {
-      this.initialized = false;
-      this.sessionId = null;
+    if (!proc.stdin || !proc.stdout) {
+      proc.kill();
       this.process = null;
+      throw new LlmError('ACP process stdio unavailable', 'subscription');
+    }
+
+    const output = Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>;
+    const input = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+    const stream = ndJsonStream(output, input);
+
+    this.connection = new ClientSideConnection((): Client => ({
+      requestPermission: async (params) => {
+        const firstAllow = params.options.find((o) => o.optionId !== 'deny');
+        const optionId = firstAllow?.optionId ?? params.options[0]?.optionId ?? 'allow';
+        return { outcome: { outcome: 'selected', optionId } };
+      },
+      sessionUpdate: async (params) => {
+        this.activeChunkHandler?.(params);
+      },
+    }), stream);
+
+    proc.on('exit', () => {
+      this.sessionId = null;
+      this.connection = null;
       this.initPromise = null;
-      for (const [, p] of this.pending) {
-        p.reject(new LlmError(`ACP process exited with code ${code}`, 'subscription'));
-      }
-      this.pending.clear();
+      this.process = null;
     });
 
-    const initResult = await this.rpc('initialize', {
-      protocolVersion: 1,
-      clientCapabilities: {},
-      clientInfo: { name: 'offisim', title: 'Offisim Runtime', version: '1.0.0' },
-    });
-
-    if (!initResult.result) {
-      throw new LlmError(
-        `ACP initialize failed: ${JSON.stringify(initResult.error)}`,
-        'subscription',
-      );
-    }
-
-    const sessionResult = await this.rpc('session/new', {
-      cwd: this.cwd,
-      mcpServers: [],
-    });
-
-    if (!sessionResult.result?.sessionId) {
-      throw new LlmError(
-        `ACP session/new failed: ${JSON.stringify(sessionResult.error)}`,
-        'subscription',
-      );
-    }
-
-    this.sessionId = sessionResult.result.sessionId as string;
-    this.initialized = true;
-  }
-
-  // ── JSON-RPC transport ──────────────────────────────────────────
-
-  private rpc(method: string, params: Record<string, unknown>): Promise<JsonRpcResponse> {
-    if (!this.process?.stdin?.writable) {
-      return Promise.reject(new LlmError('ACP process not running', 'subscription'));
-    }
-
-    const id = this.nextId++;
-    const request: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new LlmError(`ACP request ${method} timed out`, 'subscription'));
-      }, 120_000);
-
-      this.pending.set(id, {
-        resolve: (msg) => {
-          clearTimeout(timeout);
-          resolve(msg);
-        },
-        reject: (err) => {
-          clearTimeout(timeout);
-          reject(err);
-        },
+    try {
+      await this.connection.initialize({
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+        clientInfo: { name: 'offisim', version: '1.0.0' },
       });
+    } catch (err) {
+      this.killAndReset();
+      throw new LlmError(`ACP initialize failed: ${toErrorMessage(err)}`, 'subscription');
+    }
 
-      this.process?.stdin?.write(`${JSON.stringify(request)}\n`);
-    });
+    try {
+      const session = await this.connection.newSession({
+        cwd: this.cwd,
+        mcpServers: [],
+      });
+      this.sessionId = session.sessionId;
+    } catch (err) {
+      this.killAndReset();
+      throw new LlmError(`ACP session/new failed: ${toErrorMessage(err)}`, 'subscription');
+    }
   }
 
-  // ── LlmGateway implementation ──────────────────────────────────
+  /** Acquire the prompt lock. Caller MUST call the returned release function. */
+  private async acquireLock(): Promise<() => void> {
+    if (this.disposed) throw new LlmError('Adapter disposed', 'subscription');
+    let release: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const prev = this.promptLock;
+    this.promptLock = gate;
+    await prev;
+    return release!;
+  }
+
+  private requireConnection(): { connection: ClientSideConnection; sessionId: string } {
+    if (!this.connection || !this.sessionId) {
+      throw new LlmError('ACP connection lost', 'subscription');
+    }
+    return { connection: this.connection, sessionId: this.sessionId };
+  }
+
+  private installCancelHandler(
+    signal: AbortSignal | undefined,
+    connection: ClientSideConnection,
+    sessionId: string,
+  ): (() => void) | undefined {
+    if (!signal) return undefined;
+    const handler = () => {
+      connection.cancel({ sessionId }).catch(() => {});
+    };
+    signal.addEventListener('abort', handler, { once: true });
+    return handler;
+  }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
-    await this.ensureReady();
-
-    // Build ACP prompt from LlmMessages
-    const promptText = this.buildPromptText(request);
-
-    const chunks: string[] = [];
-    const toolCalls: ToolCallResult[] = [];
-    let inputTokens = 0;
-    let outputTokens = 0;
-
-    const listener = (n: JsonRpcNotification) => {
-      if (n.method !== 'session/update') return;
-      const parsed = this.parseNotification(n.params);
-      if (parsed.text) chunks.push(parsed.text);
-      if (parsed.toolCall) toolCalls.push(parsed.toolCall);
-      if (parsed.usage) {
-        inputTokens = parsed.usage.inputTokens ?? inputTokens;
-        outputTokens = parsed.usage.outputTokens ?? outputTokens;
-      }
-    };
-
-    await this.promptMutex.acquire();
+    const release = await this.acquireLock();
     try {
-      this.notificationListeners.push(listener);
+      await this.ensureReady();
+      const { connection, sessionId } = this.requireConnection();
+      const promptText = this.buildPromptText(request);
+      const chunks: string[] = [];
+      const toolCalls: ToolCallResult[] = [];
+
+      this.activeChunkHandler = (n) => {
+        const { text, toolCall } = this.parseUpdate(n);
+        if (text) chunks.push(text);
+        if (toolCall) toolCalls.push(toolCall);
+      };
+
+      const cancelHandler = this.installCancelHandler(request.signal, connection, sessionId);
       try {
-        const result = await this.rpc('session/prompt', {
-          sessionId: this.sessionId,
+        const result = await connection.prompt({
+          sessionId,
           prompt: [{ type: 'text', text: promptText }],
         });
 
-        if (result.error) {
-          throw new LlmError(`ACP prompt failed: ${result.error.message}`, 'subscription');
-        }
-
-        const resultContent = this.extractContent(result.result ?? {});
-        const content = resultContent || chunks.join('');
-
+        const usage = result.usage;
         return {
-          content,
+          content: chunks.join(''),
           toolCalls,
-          usage: { inputTokens, outputTokens },
+          usage: {
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+          },
         };
+      } catch (err) {
+        throw new LlmError(`ACP prompt failed: ${toErrorMessage(err)}`, 'subscription');
       } finally {
-        const idx = this.notificationListeners.indexOf(listener);
-        if (idx >= 0) this.notificationListeners.splice(idx, 1);
+        this.activeChunkHandler = null;
+        if (request.signal && cancelHandler) {
+          request.signal.removeEventListener('abort', cancelHandler);
+        }
       }
     } finally {
-      this.promptMutex.release();
+      release();
     }
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
-    await this.ensureReady();
+    const release = await this.acquireLock();
 
+    await this.ensureReady();
+    const { connection, sessionId } = this.requireConnection();
     const promptText = this.buildPromptText(request);
 
-    // Set up a queue for streaming chunks
+    // Async queue bridges callback-based SDK → AsyncIterable.
     const queue: LlmStreamChunk[] = [];
     let resolveWait: (() => void) | null = null;
     let done = false;
+    let streamError: Error | null = null;
 
-    const listener = (n: JsonRpcNotification) => {
-      if (n.method !== 'session/update') return;
-      const parsed = this.parseNotification(n.params);
-      if (parsed.text) {
-        queue.push({ content: parsed.text, done: false });
+    this.activeChunkHandler = (n) => {
+      const { text, toolCall } = this.parseUpdate(n);
+      if (text) {
+        queue.push({ content: text, done: false });
         resolveWait?.();
       }
-      if (parsed.toolCall) {
-        queue.push({ toolCalls: [parsed.toolCall], done: false });
+      if (toolCall) {
+        queue.push({ toolCalls: [toolCall], done: false });
         resolveWait?.();
       }
     };
 
-    await this.promptMutex.acquire();
-    this.notificationListeners.push(listener);
+    const cancelHandler = this.installCancelHandler(request.signal, connection, sessionId);
 
-    // Send prompt (don't await — we stream notifications while it processes)
-    const rpcPromise = this.rpc('session/prompt', {
-      sessionId: this.sessionId,
+    // Don't await — yield chunks as they arrive via sessionUpdate callback.
+    const rpcPromise = connection.prompt({
+      sessionId,
       prompt: [{ type: 'text', text: promptText }],
     })
       .then((result) => {
-        // Final chunk
-        const content = this.extractContent(result.result ?? {});
-        if (content) {
-          queue.push({ content, done: false });
-        }
-
-        const usage = result.result?.usage as
-          | { inputTokens?: number; outputTokens?: number }
-          | undefined;
+        const usage = result.usage;
         queue.push({
           done: true,
           usage: usage
-            ? { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 }
+            ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens }
             : undefined,
         });
         done = true;
         resolveWait?.();
       })
       .catch((err) => {
-        queue.push({
-          content: `Error: ${err instanceof Error ? err.message : String(err)}`,
-          done: true,
-        });
+        streamError = new LlmError(`ACP prompt failed: ${toErrorMessage(err)}`, 'subscription');
         done = true;
         resolveWait?.();
       });
@@ -354,13 +256,11 @@ export class SubscriptionAdapter implements LlmGateway {
     try {
       while (true) {
         if (queue.length > 0) {
-          const chunk = queue.shift();
-          if (!chunk) {
-            continue;
-          }
+          const chunk = queue.shift()!;
           yield chunk;
           if (chunk.done) break;
         } else if (done) {
+          if (streamError) throw streamError;
           break;
         } else {
           await new Promise<void>((resolve) => {
@@ -370,40 +270,45 @@ export class SubscriptionAdapter implements LlmGateway {
         }
       }
     } finally {
-      const idx = this.notificationListeners.indexOf(listener);
-      if (idx >= 0) this.notificationListeners.splice(idx, 1);
-      this.promptMutex.release();
-      await rpcPromise.catch(() => {}); // ensure cleanup
+      this.activeChunkHandler = null;
+      if (request.signal && cancelHandler) {
+        request.signal.removeEventListener('abort', cancelHandler);
+      }
+      // Wait for RPC to settle but cap at 5s to avoid blocking the lock forever.
+      await Promise.race([
+        rpcPromise.catch(() => {}),
+        new Promise<void>((r) => setTimeout(r, 5_000)),
+      ]);
+      release();
     }
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────
-
-  /** Parse a session/update notification into structured parts. */
-  private parseNotification(params: Record<string, unknown>): {
+  private parseUpdate(n: SessionNotification): {
     text?: string;
     toolCall?: ToolCallResult;
-    usage?: { inputTokens?: number; outputTokens?: number };
   } {
-    const result: ReturnType<SubscriptionAdapter['parseNotification']> = {};
-    if (params.type === 'agent_message' || params.type === 'text') {
-      const text = (params.content as string) ?? (params.text as string) ?? '';
-      if (text) result.text = text;
+    const update = n.update;
+
+    if (update.sessionUpdate === 'agent_message_chunk') {
+      const block = update.content;
+      if (block.type === 'text') {
+        return { text: block.text };
+      }
     }
-    if (params.type === 'tool_call' && params.name) {
-      result.toolCall = {
-        id: (params.toolCallId as string) ?? `tc-${Date.now()}`,
-        name: params.name as string,
-        arguments: (params.input as Record<string, unknown>) ?? {},
+
+    if (update.sessionUpdate === 'tool_call') {
+      return {
+        toolCall: {
+          id: update.toolCallId ?? `tc-${Date.now()}`,
+          name: update.title ?? 'unknown',
+          arguments: {},
+        },
       };
     }
-    if (params.usage) {
-      result.usage = params.usage as { inputTokens?: number; outputTokens?: number };
-    }
-    return result;
+
+    return {};
   }
 
-  /** Convert LlmRequest messages into a single text prompt for ACP. */
   private buildPromptText(request: LlmRequest): string {
     const parts: string[] = [];
 
@@ -419,7 +324,6 @@ export class SubscriptionAdapter implements LlmGateway {
       }
     }
 
-    // Add model/temperature hints if available
     if (request.model) {
       parts.unshift(`[Model: ${request.model}]`);
     }
@@ -427,37 +331,22 @@ export class SubscriptionAdapter implements LlmGateway {
     return parts.join('\n\n');
   }
 
-  /** Extract text content from an ACP response result. */
-  private extractContent(result: Record<string, unknown>): string {
-    // ACP response may have content blocks or direct text
-    if (typeof result.content === 'string') return result.content;
-    if (Array.isArray(result.content)) {
-      return result.content
-        .filter(
-          (b: unknown) =>
-            typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'text',
-        )
-        .map((b: unknown) => ((b as Record<string, unknown>).text as string) ?? '')
-        .join('');
-    }
-    if (typeof result.text === 'string') return result.text;
-    return '';
-  }
-
-  /** Kill the ACP server process and clean up all resources. */
-  dispose(): void {
-    if (this.rl) {
-      this.rl.close();
-      this.rl = null;
-    }
+  /** Reset all connection state and kill the child process. */
+  private killAndReset(): void {
     if (this.process) {
       this.process.kill();
       this.process = null;
     }
-    this.initialized = false;
+    this.connection = null;
     this.sessionId = null;
     this.initPromise = null;
-    this.pending.clear();
-    this.notificationListeners.length = 0;
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.killAndReset();
+    this.activeChunkHandler = null;
+    // Resolve the lock so any queued callers unblock and see the disposed flag.
+    this.promptLock = Promise.resolve();
   }
 }

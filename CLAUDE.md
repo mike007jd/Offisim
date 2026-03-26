@@ -112,6 +112,9 @@ Pre-existing issues that must not be mistaken for regressions:
 - `useSceneOrchestrator`: `zoneSlotCounters.delete(companyId)` in `clearCompanyState()` is dead code — keys are zone IDs not company IDs; actual cleanup is `resetSlotCounters().clear()`
 - E2E tests (Playwright) not configured
 - `tauri dev` smoke test not yet verified
+- **MiniMax thinking token budget**: MiniMax (Anthropic-compat) always returns `thinking` blocks that consume from `max_tokens` budget. With low max_tokens (< 256), thinking exhausts the budget and text content is empty. UI must warn users when configuring Anthropic-compat providers with thinking models that `max_tokens` should be set high (≥ 1024). Smoke tests use `maxTokens: 4096` to avoid this.
+- **Expired provider API keys**: OpenRouter (401), Kimi (402), Gemini (400) keys in `.env.local` are expired. Only MiniMax key is active. Smoke tests for expired providers are auto-skipped by design (skipIf).
+- **AnthropicAdapter baseURL**: Now supports custom `baseURL` for Anthropic-compat providers (e.g. MiniMax at `api.minimax.io/anthropic`). Gateway factory passes baseURL for `anthropic` provider too.
 
 Resource lifecycle patterns (established 2026-03-24):
 

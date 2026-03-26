@@ -12,6 +12,8 @@ import type {
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
 export interface AnthropicAdapterOptions {
+  /** Custom base URL for Anthropic-compatible providers (e.g. MiniMax) */
+  baseURL?: string;
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
@@ -82,6 +84,7 @@ export class AnthropicAdapter implements LlmGateway {
   constructor(apiKey: string, options?: AnthropicAdapterOptions) {
     this.client = new Anthropic({
       apiKey,
+      baseURL: options?.baseURL,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;

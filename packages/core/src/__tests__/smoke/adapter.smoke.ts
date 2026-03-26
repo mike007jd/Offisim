@@ -4,6 +4,7 @@ import { createGateway } from '../../llm/gateway-factory.js';
 import type { LlmGateway, LlmStreamChunk } from '../../llm/gateway.js';
 import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 import { requiredEnv } from '../helpers/fixtures.js';
+import { HAS_MINIMAX, MINIMAX_MODEL, createMiniMaxGateway } from '../helpers/smoke-providers.js';
 
 // --- Provider detection ---
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
@@ -13,13 +14,13 @@ const HAS_KIMI = !!process.env.KIMI_API_KEY;
 const HAS_GEMINI = !!process.env.GEMINI_API_KEY;
 
 // --- Shared assertions ---
-// maxTokens raised to 256 because reasoning models (Kimi, StepFun) consume tokens
-// on internal reasoning before emitting content; 32 is not enough.
+// maxTokens set high because reasoning/thinking models (MiniMax, Kimi, StepFun)
+// consume tokens on internal thinking before emitting text content.
 async function assertChat(adapter: LlmGateway, model: string) {
   const response = await adapter.chat({
     messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
     model,
-    maxTokens: 256,
+    maxTokens: 4096,
   });
   expect(response.content.length).toBeGreaterThan(0);
   expect(response.toolCalls).toEqual([]);
@@ -30,7 +31,7 @@ async function assertChatStream(adapter: LlmGateway, model: string) {
   for await (const chunk of adapter.chatStream({
     messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
     model,
-    maxTokens: 256,
+    maxTokens: 4096,
   })) {
     chunks.push(chunk);
   }
@@ -116,6 +117,23 @@ describe.skipIf(!HAS_KIMI)('Kimi smoke (openai-compat)', () => {
       // Kimi requires a recognized coding agent User-Agent
       defaultHeaders: { 'User-Agent': 'claude-code/1.0.0' },
     });
+  });
+
+  it('chat', async () => {
+    await assertChat(adapter, model);
+  }, 60_000);
+
+  it('chatStream', async () => {
+    await assertChatStream(adapter, model);
+  }, 60_000);
+});
+
+describe.skipIf(!HAS_MINIMAX)('MiniMax smoke (anthropic-compat)', () => {
+  let adapter: LlmGateway;
+  const model = MINIMAX_MODEL;
+
+  beforeAll(() => {
+    adapter = createMiniMaxGateway();
   });
 
   it('chat', async () => {

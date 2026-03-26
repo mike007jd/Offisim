@@ -329,4 +329,4 @@ export type {
 export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
 
 // --- Errors ---
-export { AicsError, LlmError, GraphError, DataError } from './errors.js';
+export { AicsError, LlmError, GraphError, DataError, toErrorMessage } from './errors.js';
