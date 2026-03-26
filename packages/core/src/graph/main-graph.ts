@@ -72,6 +72,8 @@ export function routeFromBoss(state: AicsGraphState): string {
       return 'boss_summary';
     case 'start_meeting':
       return 'meeting_start';
+    case 'direct_delegate':
+      return 'employee_direct_setup';
     default:
       return 'manager';
   }
@@ -315,6 +317,7 @@ export function buildAicsGraph(options?: BuildGraphOptions) {
       'boss_summary',
       'error_handler',
       'meeting_start',
+      'employee_direct_setup',
     ])
     .addConditionalEdges('manager', routeFromManager, ['pm_planner', 'hr'])
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])

@@ -10,11 +10,13 @@ import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface BossDecision {
-  action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess';
+  action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess' | 'direct_delegate';
   reason?: string;
   reply?: string;
   isNewProject?: boolean;
   projectName?: string;
+  /** Employee ID for direct_delegate — Boss picks a specific employee for simple tasks. */
+  targetEmployeeId?: string;
 }
 
 /** @internal — exported for testing */
@@ -23,20 +25,23 @@ export const BOSS_SYSTEM_PROMPT = `You are the Boss AI — the top-level coordin
 Analyze the user's message and decide how to handle it. Respond with JSON only:
 
 {
-  "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess",
+  "action": "delegate" | "direct_reply" | "meeting" | "hire_or_assess" | "direct_delegate",
   "reason": "brief explanation",
   "reply": "only if action is direct_reply",
   "isNewProject": true | false,
-  "projectName": "short name — only if isNewProject is true"
+  "projectName": "short name — only if isNewProject is true",
+  "targetEmployeeId": "employee ID — only if action is direct_delegate"
 }
 
 Rules:
-- "delegate": for tasks requiring employee work (coding, design, analysis, etc.)
+- "delegate": for complex tasks requiring planning, multi-step work, or coordination between multiple employees
 - "direct_reply": for simple greetings, status questions, or things you can answer directly
+- "direct_delegate": for straightforward single-employee tasks where you can immediately identify the right person. Use this when: (1) the task is simple and self-contained, (2) only one employee is clearly suited, (3) no multi-step planning is needed. You MUST include "targetEmployeeId" with the chosen employee's ID.
 - "meeting": when the user explicitly asks for a team meeting or discussion
 - "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")
 - "isNewProject": set to true when the user describes a substantial project, multi-phase work, or long-term initiative (NOT a simple question or single task). Examples: "build a full e-commerce site", "launch a new product", "create a complete mobile app". Single tasks like "fix this bug" or "write a summary" should be false.
-- "projectName": a concise 2-5 word name for the project (only when isNewProject is true)`;
+- "projectName": a concise 2-5 word name for the project (only when isNewProject is true)
+- When in doubt between "direct_delegate" and "delegate", prefer "delegate" — it is safer to plan than to skip planning.`;
 
 function parseBossDecision(content: string): BossDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -47,7 +52,8 @@ function parseBossDecision(content: string): BossDecision | null {
     action === 'delegate' ||
     action === 'direct_reply' ||
     action === 'meeting' ||
-    action === 'hire_or_assess'
+    action === 'hire_or_assess' ||
+    action === 'direct_delegate'
   ) {
     return {
       action,
@@ -55,6 +61,8 @@ function parseBossDecision(content: string): BossDecision | null {
       reply: typeof parsed.reply === 'string' ? parsed.reply : undefined,
       isNewProject: parsed.isNewProject === true,
       projectName: typeof parsed.projectName === 'string' ? parsed.projectName : undefined,
+      targetEmployeeId:
+        typeof parsed.targetEmployeeId === 'string' ? parsed.targetEmployeeId : undefined,
     };
   }
   return null;
@@ -69,6 +77,8 @@ function mapActionToRoute(action: BossDecision['action']): AicsGraphState['route
       return 'direct_reply';
     case 'meeting':
       return 'start_meeting';
+    case 'direct_delegate':
+      return 'direct_delegate';
     default: {
       const _exhaustive: never = action;
       return _exhaustive;
@@ -98,11 +108,24 @@ export async function bossNode(
           .join('\n---\n')
       : 'No user message found';
 
+  // Build employee roster for direct_delegate capability
+  const employees = await runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId);
+  const nonManagerEmployees = employees.filter(
+    (e) => e.role_slug !== 'manager' && e.enabled !== 0,
+  );
+  let rosterSection = '';
+  if (nonManagerEmployees.length > 0) {
+    const roster = nonManagerEmployees
+      .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
+      .join('\n');
+    rosterSection = `\n\nAvailable employees:\n${roster}`;
+  }
+
   const llmResponse = await recordedLlmCall(
     runtimeCtx,
     {
       messages: [
-        { role: 'system', content: BOSS_SYSTEM_PROMPT },
+        { role: 'system', content: BOSS_SYSTEM_PROMPT + rosterSection },
         { role: 'user', content: userContent },
       ],
       model: resolved.model,
@@ -116,7 +139,15 @@ export async function bossNode(
   const decision = parseBossDecision(llmResponse.content);
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
-  const route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
+  let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
+
+  // Validate direct_delegate: must have a valid targetEmployeeId, otherwise fall back to delegate
+  if (route === 'direct_delegate') {
+    const validEmployeeIds = new Set(nonManagerEmployees.map((e) => e.employee_id));
+    if (!decision?.targetEmployeeId || !validEmployeeIds.has(decision.targetEmployeeId)) {
+      route = 'delegate_manager';
+    }
+  }
 
   const replyContent =
     decision?.action === 'direct_reply' && decision.reply
@@ -156,5 +187,9 @@ export async function bossNode(
     routeDecision: route,
     messages: [new AIMessage({ content: messageContent })],
     ...(projectId !== (state.projectId ?? null) ? { projectId } : {}),
+    // For direct_delegate, set targetEmployeeId so employee_direct_setup can use it
+    ...(route === 'direct_delegate' && decision?.targetEmployeeId
+      ? { targetEmployeeId: decision.targetEmployeeId }
+      : {}),
   };
 }

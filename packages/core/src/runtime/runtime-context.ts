@@ -3,6 +3,7 @@ import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
+import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
 import type { RuntimeRepositories } from './repositories.js';
@@ -31,6 +32,8 @@ export interface RuntimeContext {
   readonly workstationToolResolver?: WorkstationToolResolver;
   /** Mutable box for boss meeting interrupts. Nodes read + clear this. */
   readonly meetingInterruptBox: MeetingInterruptBox;
+  /** Optional middleware chain for LLM call pre/post processing. */
+  readonly middlewareChain?: LlmMiddlewareChain;
 }
 
 export interface DisposableRuntime {
@@ -63,6 +66,7 @@ export function createRuntimeContext(deps: {
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
   meetingInterruptBox?: MeetingInterruptBox;
+  middlewareChain?: LlmMiddlewareChain;
 }): RuntimeContext {
   const { meetingInterruptBox, ...rest } = deps;
   return Object.freeze({

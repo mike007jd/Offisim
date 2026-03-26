@@ -223,6 +223,19 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@25.3.5)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(tsx@4.21.0)
 
+  packages/channels:
+    dependencies:
+      '@aics/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@25.3.5)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(tsx@4.21.0)
+
   packages/core:
     dependencies:
       '@aics/db-local':

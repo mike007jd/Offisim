@@ -118,6 +118,53 @@ describe('bossNode', () => {
     expect(result.routeDecision).toBe('start_meeting');
   });
 
+  it('routes to direct_delegate for simple single-employee tasks', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_delegate',
+        reason: 'simple task for one employee',
+        targetEmployeeId: 'e-dev-1',
+      }),
+    });
+
+    const state = makeState({
+      messages: [new HumanMessage('Write a short summary of our latest report')],
+    });
+    const result = await bossNode(state, config);
+
+    expect(result.routeDecision).toBe('direct_delegate');
+    expect(result.targetEmployeeId).toBe('e-dev-1');
+  });
+
+  it('falls back to delegate_manager when direct_delegate has invalid employee ID', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_delegate',
+        reason: 'simple task',
+        targetEmployeeId: 'nonexistent-employee',
+      }),
+    });
+
+    const state = makeState();
+    const result = await bossNode(state, config);
+
+    expect(result.routeDecision).toBe('delegate_manager');
+  });
+
+  it('falls back to delegate_manager when direct_delegate has no employee ID', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_delegate',
+        reason: 'simple task',
+      }),
+    });
+
+    const state = makeState();
+    const result = await bossNode(state, config);
+
+    expect(result.routeDecision).toBe('delegate_manager');
+  });
+
   it('falls back to delegate_manager on unparseable LLM response', async () => {
     gateway.pushResponse({
       content: 'Sure, I can help with that.',

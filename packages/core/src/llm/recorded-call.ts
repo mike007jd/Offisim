@@ -1,4 +1,5 @@
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
+import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { ConversationBudgetService } from '../services/conversation-budget-service.js';
 import { Logger } from '../services/logger.js';
@@ -9,12 +10,8 @@ import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
 
-interface RecordedCallMeta {
-  nodeName: string;
-  provider: string;
-  model: string;
-  taskRunId?: string;
-}
+/** @deprecated Use `LlmCallMeta` from `middleware/types.ts` instead. */
+export type RecordedCallMeta = LlmCallMeta;
 
 const conversationBudgetService = new ConversationBudgetService();
 
@@ -38,9 +35,20 @@ export async function recordedLlmCall(
   );
 
   try {
-    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, request);
-    const response = await ctx.llmGateway.chat(prunedRequest);
+    // --- Middleware: before ---
+    let callCtx: LlmCallContext = { request, runtimeCtx: ctx, meta, extras: {} };
+    if (ctx.middlewareChain) {
+      callCtx = await ctx.middlewareChain.runBefore(callCtx);
+    }
+
+    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, callCtx.request);
+    let response = await ctx.llmGateway.chat(prunedRequest);
     const latencyMs = Date.now() - startedAt;
+
+    // --- Middleware: after ---
+    if (ctx.middlewareChain) {
+      response = await ctx.middlewareChain.runAfter(callCtx, response);
+    }
 
     try {
       await ctx.repos.llmCalls.create({
@@ -135,10 +143,27 @@ export async function recordedLlmStream(
   );
 
   try {
-    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, request);
+    // --- Middleware: before ---
+    let callCtx: LlmCallContext = { request, runtimeCtx: ctx, meta, extras: {} };
+    if (ctx.middlewareChain) {
+      callCtx = await ctx.middlewareChain.runBefore(callCtx);
+    }
+
+    const prunedRequest = await conversationBudgetService.prepareRequest(ctx, callCtx.request);
     const stream = ctx.llmGateway.chatStream(prunedRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
+
+    // --- Middleware: after (stream) ---
+    // Run after hooks with the accumulated stream result so middleware can observe/log.
+    // Note: after hooks cannot alter already-streamed chunks — they see the final content.
+    if (ctx.middlewareChain) {
+      await ctx.middlewareChain.runAfter(callCtx, {
+        content: result.fullContent,
+        toolCalls: result.toolCalls,
+        usage: result.usage,
+      });
+    }
 
     try {
       await ctx.repos.llmCalls.create({

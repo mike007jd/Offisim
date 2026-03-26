@@ -109,7 +109,9 @@ export const AicsGraphAnnotation = Annotation.Root({
   }),
 
   // Routing
-  routeDecision: Annotation<'direct_reply' | 'delegate_manager' | 'start_meeting' | null>({
+  routeDecision: Annotation<
+    'direct_reply' | 'delegate_manager' | 'start_meeting' | 'direct_delegate' | null
+  >({
     reducer: (_prev, next) => next,
     default: () => null,
   }),

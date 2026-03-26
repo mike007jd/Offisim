@@ -327,6 +327,57 @@ export interface MemoryRepository {
 }
 
 // ---------------------------------------------------------------------------
+// User Preferences (cross-session user-level memory)
+// ---------------------------------------------------------------------------
+
+export type UserPreferenceCategory =
+  | 'preference'
+  | 'context'
+  | 'knowledge'
+  | 'behavior'
+  | 'goal';
+
+export interface UserPreferenceRow {
+  preference_id: string;
+  company_id: string;
+  category: UserPreferenceCategory;
+  content: string;
+  confidence: number;
+  importance: number;
+  source: 'explicit' | 'inferred';
+  dedupe_key: string | null;
+  reinforcement_count: number;
+  access_count: number;
+  source_thread_id: string | null;
+  created_at: string;
+  accessed_at: string;
+}
+
+export interface UserPreferenceCreate {
+  preference_id: string;
+  company_id: string;
+  category: UserPreferenceCategory;
+  content: string;
+  confidence?: number;
+  importance?: number;
+  source: 'explicit' | 'inferred';
+  dedupe_key?: string | null;
+  source_thread_id?: string | null;
+}
+
+export interface UserPreferenceRepository {
+  create(entry: UserPreferenceCreate): Promise<UserPreferenceRow>;
+  findByCompany(
+    companyId: string,
+    opts?: { category?: UserPreferenceCategory; limit?: number },
+  ): Promise<UserPreferenceRow[]>;
+  findByDedupeKey(companyId: string, dedupeKey: string): Promise<UserPreferenceRow | null>;
+  reinforce(preferenceId: string): Promise<void>;
+  touchAccess(preferenceId: string): Promise<void>;
+  delete(preferenceId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // MCP Audit
 // ---------------------------------------------------------------------------
 
@@ -677,6 +728,8 @@ export interface RuntimeRepositories {
   prefabInstances: PrefabInstanceRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
+  /** User-level preferences — optional for backward compatibility. */
+  userPreferences?: UserPreferenceRepository;
   /** Agent event sourcing — optional for backward compatibility. */
   agentEvents?: AgentEventRepository;
   /** Recovery knowledge base — optional for backward compatibility. */

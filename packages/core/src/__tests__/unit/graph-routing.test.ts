@@ -150,6 +150,12 @@ describe('routeFromBoss', () => {
     expect(routeFromBoss(makeState({ routeDecision: 'start_meeting' }))).toBe('meeting_start');
   });
 
+  it('direct_delegate → employee_direct_setup', () => {
+    expect(routeFromBoss(makeState({ routeDecision: 'direct_delegate' }))).toBe(
+      'employee_direct_setup',
+    );
+  });
+
   it('null routeDecision → manager (default branch)', () => {
     expect(routeFromBoss(makeState({ routeDecision: null }))).toBe('manager');
   });

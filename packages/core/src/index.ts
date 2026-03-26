@@ -68,6 +68,10 @@ export type {
   OfficeLayoutRow,
   NewOfficeLayout,
   OfficeLayoutRepository,
+  UserPreferenceRow,
+  UserPreferenceCreate,
+  UserPreferenceCategory,
+  UserPreferenceRepository,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -144,6 +148,16 @@ export { ModelResolver } from './llm/model-resolver.js';
 export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
 export { teeStream } from './llm/stream-tee.js';
 export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
+export type { RecordedCallMeta } from './llm/recorded-call.js';
+
+// --- Middleware ---
+export { LlmMiddlewareChain } from './middleware/chain.js';
+export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
+export { UserPreferenceMiddleware } from './middleware/builtin/user-preference-middleware.js';
+
+// --- User Memory ---
+export { UserMemoryService } from './services/user-memory-service.js';
+export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';
