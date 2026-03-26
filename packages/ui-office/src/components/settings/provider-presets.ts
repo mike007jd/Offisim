@@ -15,14 +15,16 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
       model: 'gemini-2.5-flash',
     },
+    hasThinking: true,
   },
-  openrouter: {
-    label: 'OpenRouter',
+  deepseek: {
+    label: 'DeepSeek',
     defaults: {
       provider: 'openai-compat',
-      baseURL: 'https://openrouter.ai/api/v1',
-      model: 'google/gemma-3-4b-it:free',
+      baseURL: 'https://api.deepseek.com/v1',
+      model: 'deepseek-reasoner',
     },
+    hasThinking: true,
   },
   minimax: {
     label: 'MiniMax',
@@ -33,6 +35,14 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
     },
     hasThinking: true,
   },
+  openrouter: {
+    label: 'OpenRouter',
+    defaults: {
+      provider: 'openai-compat',
+      baseURL: 'https://openrouter.ai/api/v1',
+      model: 'google/gemma-3-4b-it:free',
+    },
+  },
   kimi: {
     label: 'Kimi',
     defaults: {
@@ -41,6 +51,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'kimi-for-coding',
       defaultHeaders: { 'User-Agent': 'claude-code/1.0.0' },
     },
+    hasThinking: true,
   },
   openai: {
     label: 'OpenAI',

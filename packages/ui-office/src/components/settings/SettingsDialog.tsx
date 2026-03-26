@@ -289,7 +289,11 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
   const isSubscription = preset === 'subscription';
   const showBaseURL =
-    preset === 'custom' || preset === 'kimi' || preset === 'openrouter' || preset === 'minimax';
+    preset === 'custom' ||
+    preset === 'kimi' ||
+    preset === 'openrouter' ||
+    preset === 'minimax' ||
+    preset === 'deepseek';
   const selectedPreset = PROVIDER_PRESETS[preset];
   const isThinkingProvider = selectedPreset?.hasThinking === true;
 
