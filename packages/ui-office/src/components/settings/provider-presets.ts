@@ -3,6 +3,8 @@ import type { ProviderConfig } from '../../lib/provider-config';
 export interface ProviderPreset {
   label: string;
   defaults: Partial<ProviderConfig>;
+  /** Provider always returns thinking/reasoning blocks that consume max_tokens budget. */
+  hasThinking?: boolean;
 }
 
 export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
@@ -21,6 +23,15 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       baseURL: 'https://openrouter.ai/api/v1',
       model: 'google/gemma-3-4b-it:free',
     },
+  },
+  minimax: {
+    label: 'MiniMax',
+    defaults: {
+      provider: 'anthropic',
+      baseURL: 'https://api.minimax.io/anthropic',
+      model: 'MiniMax-M2.7-highspeed',
+    },
+    hasThinking: true,
   },
   kimi: {
     label: 'Kimi',

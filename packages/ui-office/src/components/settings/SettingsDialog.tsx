@@ -288,8 +288,10 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   }
 
   const isSubscription = preset === 'subscription';
-  const showBaseURL = preset === 'custom' || preset === 'kimi' || preset === 'openrouter';
+  const showBaseURL =
+    preset === 'custom' || preset === 'kimi' || preset === 'openrouter' || preset === 'minimax';
   const selectedPreset = PROVIDER_PRESETS[preset];
+  const isThinkingProvider = selectedPreset?.hasThinking === true;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -420,6 +422,13 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     }}
                     placeholder="model-name"
                   />
+                </div>
+              )}
+
+              {isThinkingProvider && (
+                <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
+                  此提供商的模型会返回 thinking 块，消耗 max_tokens 预算。建议员工的 Max
+                  Tokens 设置 ≥ 1024，否则 thinking 可能耗尽配额导致回复为空。
                 </div>
               )}
 
