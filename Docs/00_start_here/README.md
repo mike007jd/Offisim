@@ -20,6 +20,7 @@ If you are new to the repository, read in this order:
 
 ## Canonical files
 
+- Local Development Setup: `00_start_here/LOCAL_DEVELOPMENT.md`
 - OpenAPI: `02_contracts_and_schemas/offisim_openapi.yaml`
 - Install State Machine: `02_contracts_and_schemas/offisim_install_state_machine.md`
 - Manifest Schema: `02_contracts_and_schemas/offisim_manifest.schema.json`

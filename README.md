@@ -4,6 +4,30 @@ Offisim is a **local-first, open-source AI company runtime** plus an **official 
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
+## Quick Start
+
+If you are pulling this repo onto a new machine, start here:
+
+1. Install `Node.js 22+` and enable `corepack`.
+2. Install `pnpm@10.15.1`.
+3. If you plan to run the desktop app, install Rust/Cargo and the Tauri system prerequisites for your OS.
+4. If you plan to run the platform API, install PostgreSQL and create a local database.
+5. Copy `.env.example` to `.env.local` and fill in the values you need.
+6. Run `pnpm install` from the repo root.
+
+Common local entrypoints:
+
+- Recommended desktop flow: `pnpm --filter @aics/desktop dev`
+- Browser runtime only: `pnpm --filter @aics/web dev`
+- Platform API: `pnpm --filter @aics/platform dev`
+- Marketplace site: `pnpm --filter @aics/market dev`
+
+Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
+
+## Naming Note
+
+The product and docs are now branded as `Offisim`, but parts of the monorepo and package scope still use the older `@aics/*` naming. That is expected for now.
+
 ## Core product truths
 
 1. **Multi-agent collaboration is the product core.**
@@ -36,6 +60,7 @@ Current application/package shape:
 ### Root guidance
 
 - `README.md` — this file; project truth and document routing
+- `Docs/00_start_here/LOCAL_DEVELOPMENT.md` — new-machine setup, prerequisites, env, and local startup commands
 
 ### Human rules
 
