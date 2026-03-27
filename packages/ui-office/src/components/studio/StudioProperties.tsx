@@ -6,7 +6,8 @@
  */
 
 import { getBuiltinPrefab } from '@aics/renderer';
-import { BoxSelect, RotateCw, Trash2 } from 'lucide-react';
+import { UNASSIGNED_ZONE_ID } from '@aics/shared-types';
+import { BoxSelect, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioStore } from './StudioState.js';
 import {
@@ -75,6 +76,12 @@ export function StudioProperties() {
   const definition = useMemo(
     () => (instance ? getBuiltinPrefab(instance.prefabId) : undefined),
     [instance],
+  );
+
+  const zones = useStudioStore((s) => s.zones);
+  const zone = useMemo(
+    () => (instance ? zones.find((z) => z.zoneId === instance.zoneId) : undefined),
+    [instance, zones],
   );
 
   return (
@@ -179,6 +186,33 @@ export function StudioProperties() {
               <div style={SECTION_STYLE}>
                 <div style={labelStyle()}>Grid Size</div>
                 <div style={valueStyle()}>{gridLabel}</div>
+              </div>
+
+              {/* Zone */}
+              <div style={SECTION_STYLE}>
+                <div style={labelStyle()}>Zone</div>
+                <div style={ROW_STYLE}>
+                  <MapPin size={12} style={{ color: zone?.accentColor ?? STUDIO_COLORS.textTertiary, flexShrink: 0 }} />
+                  {zone ? (
+                    <>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: 2,
+                          background: zone.accentColor,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ ...valueStyle() }}>{zone.label}</span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: FONT.sm, color: STUDIO_COLORS.textTertiary, fontStyle: 'italic' }}>
+                      {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Spacer */}

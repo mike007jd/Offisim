@@ -145,23 +145,57 @@ function ZoneOverlays() {
 
 function ZoneFloor({ zone }: { zone: Zone }) {
   const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
+
+  // Border geometry: 4 thin boxes forming the rectangle outline
+  const borderThickness = 0.05;
+  const bh = 0.02; // border height
+
   return (
     <group position={[zone.cx, 0.005, zone.cz]}>
+      {/* Floor fill */}
       <mesh rotation={_zonePlaneRotation}>
         <planeGeometry args={[zone.w, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={0.06} depthWrite={false} />
+        <meshBasicMaterial color={color} transparent opacity={0.12} depthWrite={false} />
       </mesh>
-      {/* Zone label */}
-      <Html position={[0, 0.5, -zone.d / 2 + 0.3]} center distanceFactor={40}>
+
+      {/* Border edges (4 thin boxes) */}
+      {/* Top edge */}
+      <mesh position={[0, bh / 2, -zone.d / 2]}>
+        <boxGeometry args={[zone.w, bh, borderThickness]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} />
+      </mesh>
+      {/* Bottom edge */}
+      <mesh position={[0, bh / 2, zone.d / 2]}>
+        <boxGeometry args={[zone.w, bh, borderThickness]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} />
+      </mesh>
+      {/* Left edge */}
+      <mesh position={[-zone.w / 2, bh / 2, 0]}>
+        <boxGeometry args={[borderThickness, bh, zone.d]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} />
+      </mesh>
+      {/* Right edge */}
+      <mesh position={[zone.w / 2, bh / 2, 0]}>
+        <boxGeometry args={[borderThickness, bh, zone.d]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} />
+      </mesh>
+
+      {/* Zone label pill */}
+      <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
         <div
           style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: zone.accentColor,
-            opacity: 0.7,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            color: '#fff',
+            background: zone.accentColor,
+            padding: '2px 8px',
+            borderRadius: 4,
+            opacity: 0.85,
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
             userSelect: 'none',
+            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
           }}
         >
           {zone.label}
