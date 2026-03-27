@@ -8,6 +8,7 @@ import {
   useAicsRuntime,
 } from '@aics/ui-office';
 import { App } from './App.js';
+import { installThreeConsoleFilter } from './lib/three-console';
 import { AicsRuntimeProvider } from './runtime/AicsRuntimeProvider';
 
 /** Default company ID used to seed the initial runtime. */
@@ -78,6 +79,8 @@ function Shell() {
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
+
+installThreeConsoleFilter();
 
 createRoot(root).render(
   <StrictMode>

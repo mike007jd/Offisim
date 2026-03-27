@@ -51,4 +51,19 @@ describe('createGateway', () => {
     const client = (gw as any).client;
     expect(client).toBeDefined();
   });
+
+  it('passes defaultHeaders to anthropic adapter', () => {
+    const gw = createGateway({
+      provider: 'anthropic',
+      apiKey: 'sk-test',
+      baseURL: 'https://api.minimax.io/anthropic',
+      defaultHeaders: { 'X-LLM-Base-URL': 'https://api.minimax.io/anthropic' },
+    });
+
+    // biome-ignore lint/suspicious/noExplicitAny: test-only introspection
+    const client = (gw as any).client;
+    expect(client?._options?.defaultHeaders).toEqual({
+      'X-LLM-Base-URL': 'https://api.minimax.io/anthropic',
+    });
+  });
 });

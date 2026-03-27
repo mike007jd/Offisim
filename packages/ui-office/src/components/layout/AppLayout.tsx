@@ -103,20 +103,24 @@ export function AppLayout({
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
+          <div
+            aria-hidden={!rightOpen}
+            className={`flex-1 overflow-y-auto custom-scrollbar relative z-10 transition-opacity duration-200 ${
+              rightOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {eventLog}
+          </div>
+
           {rightOpen ? (
-            <>
-              <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                {eventLog}
-              </div>
-              {/* Collapse handle — inside panel, top-left corner */}
-              <button
-                type="button"
-                onClick={() => setRightOpen(false)}
-                className="absolute left-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
-              >
-                <ChevronRight className="w-3 h-3 text-slate-400" />
-              </button>
-            </>
+            /* Collapse handle — inside panel, top-left corner */
+            <button
+              type="button"
+              onClick={() => setRightOpen(false)}
+              className="absolute left-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
+            >
+              <ChevronRight className="w-3 h-3 text-slate-400" />
+            </button>
           ) : (
             <button
               type="button"

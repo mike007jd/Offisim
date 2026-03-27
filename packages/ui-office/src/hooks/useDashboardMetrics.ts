@@ -93,15 +93,30 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
   return (inputTokens * rates.input + outputTokens * rates.output) / 1000;
 }
 
+function getBootstrapEmployeeCount(
+  companyId: string | null,
+  bootstrapEmployees: Array<{ company_id: string }>,
+): number {
+  if (!companyId) return 0;
+  return bootstrapEmployees.filter((row) => row.company_id === companyId).length;
+}
+
 /**
  * Aggregates runtime events into dashboard-level metrics:
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus, repos } = useAicsRuntime();
+  const { eventBus, repos, bootstrapState } = useAicsRuntime();
   const { isRunning } = useAicsRuntimeStatus();
   const { activeCompanyId } = useCompany();
-  const [metrics, setMetrics] = useState<MetricsState>(INITIAL_METRICS);
+  const bootstrapEmployeeCount = getBootstrapEmployeeCount(
+    activeCompanyId,
+    bootstrapState?.reposSnapshot?.employees ?? [],
+  );
+  const [metrics, setMetrics] = useState<MetricsState>(() => ({
+    ...INITIAL_METRICS,
+    employeeUtilization: { active: 0, total: bootstrapEmployeeCount },
+  }));
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
   const activeTasksRef = useRef<Set<string>>(new Set());
@@ -119,6 +134,17 @@ export function useDashboardMetrics(): DashboardMetrics {
   // Load initial employee count from repos on mount (same pattern as useAgentStates).
   // Without this, the status bar shows "0/0 agents" until an employee.created event fires.
   useEffect(() => {
+    if (!repos || !activeCompanyId) {
+      setMetrics((prev) => ({
+        ...prev,
+        employeeUtilization: {
+          active: prev.employeeUtilization.active,
+          total: bootstrapEmployeeCount,
+        },
+      }));
+      return;
+    }
+
     if (!repos || !activeCompanyId) return;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
       const states = employeeStatesRef.current;
@@ -134,7 +160,7 @@ export function useDashboardMetrics(): DashboardMetrics {
         }));
       }
     });
-  }, [repos, activeCompanyId]);
+  }, [repos, activeCompanyId, bootstrapEmployeeCount]);
 
   // Reset all accumulators when a new run starts
   useEffect(() => {
@@ -192,7 +218,10 @@ export function useDashboardMetrics(): DashboardMetrics {
     completedTasksRef.current = 0;
     totalTasksRef.current = 0;
     bossMessagesRef.current = 0;
-    setMetrics(INITIAL_METRICS);
+    setMetrics({
+      ...INITIAL_METRICS,
+      employeeUtilization: { active: 0, total: bootstrapEmployeeCount },
+    });
 
     // --- LLM tokens (from llm.call.completed for totals) ---
     const unsubLlm = eventBus.on(
@@ -341,7 +370,7 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubEmployee();
       unsubBoss();
     };
-  }, [eventBus, updateMetrics]);
+  }, [eventBus, updateMetrics, bootstrapEmployeeCount]);
 
   const getTaskCost = useCallback((taskRunId: string): number => {
     return costByTaskRef.current.get(taskRunId) ?? 0;

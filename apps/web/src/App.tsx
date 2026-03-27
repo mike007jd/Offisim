@@ -18,6 +18,7 @@ import {
   RightSidebar,
   StatusBar,
   loadProviderConfig,
+  primeEventLogStore,
   useAgentStates,
   useAicsRuntime,
   useCompany,
@@ -28,10 +29,27 @@ import {
   useReducedMotion,
 } from '@aics/ui-office';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import {
+  isOfficeSceneInteractive,
+  shouldKeepOfficeMounted,
+  shouldShowEmployeeCreatorOverlay,
+  type AppView,
+} from './lib/app-view-layout';
+
+interface SceneCanvasLazyProps {
+  active?: boolean;
+  reducedMotion?: boolean;
+  viewMode?: '2D' | '3D';
+  selectedEmployeeId?: string | null;
+  onSelectEmployee?: (id: string | null) => void;
+  onDeselectEmployee?: () => void;
+}
 
 /** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
-const SceneCanvas = React.lazy(() =>
-  import('@aics/ui-office/scene').then((m) => ({ default: m.SceneCanvas })),
+const SceneCanvas = React.lazy<React.ComponentType<SceneCanvasLazyProps>>(() =>
+  import('@aics/ui-office/scene').then((m) => ({
+    default: m.SceneCanvas as React.ComponentType<SceneCanvasLazyProps>,
+  })),
 );
 
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
@@ -62,8 +80,6 @@ const StudioPage = React.lazy(() =>
 const KanbanOverlay = React.lazy(() =>
   import('@aics/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
 );
-
-type AppView = 'office' | 'employee-creator' | 'office-editor' | 'company-select' | 'studio';
 
 interface AppProps {
   /** Callback to propagate company switch up to main.tsx (re-keys AicsRuntimeProvider). */
@@ -101,6 +117,10 @@ export function App({ onCompanySwitch }: AppProps) {
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
+
+  useEffect(() => {
+    primeEventLogStore(eventBus);
+  }, [eventBus]);
 
   // Keyboard shortcut: Cmd+D / Ctrl+D toggles Boss Dashboard overlay
   // Keyboard shortcut: Cmd+J / Ctrl+J toggles Kanban Board overlay
@@ -219,17 +239,19 @@ export function App({ onCompanySwitch }: AppProps) {
       <>
         <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-        {/* ── Full-page views ── */}
-        {view === 'employee-creator' && (
-          <Suspense fallback={null}>
-            <EmployeeCreatorOverlay
-              open
-              onClose={() => setView('office')}
-              onDeploy={handleCreatorDeploy}
-            />
-          </Suspense>
+        {shouldShowEmployeeCreatorOverlay(view) && (
+          <div className="fixed inset-0 z-[70]">
+            <Suspense fallback={null}>
+              <EmployeeCreatorOverlay
+                open
+                onClose={() => setView('office')}
+                onDeploy={handleCreatorDeploy}
+              />
+            </Suspense>
+          </div>
         )}
 
+        {/* ── Full-page views ── */}
         {view === 'office-editor' && (
           <Suspense fallback={null}>
             <OfficeEditorOverlay open onClose={() => setView('office')} />
@@ -259,7 +281,7 @@ export function App({ onCompanySwitch }: AppProps) {
         )}
 
         {/* ── Office view (default) ── */}
-        {view === 'office' && (
+        {shouldKeepOfficeMounted(view) && (
           <>
             {unfinishedThreads.length > 0 && (
               <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
@@ -321,6 +343,7 @@ export function App({ onCompanySwitch }: AppProps) {
               sceneCanvas={
                 <Suspense fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}>
                   <SceneCanvas
+                    active={isOfficeSceneInteractive(view)}
                     reducedMotion={reducedMotion}
                     viewMode={viewMode}
                     selectedEmployeeId={selectedEmployeeId}

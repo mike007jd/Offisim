@@ -14,7 +14,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
+import { loadBrowserRuntimeBootstrapState } from '../lib/browser-runtime-storage';
 import { initializeRuntimeBundle } from './initialize-runtime';
+import { isRuntimeReadyForInteraction } from './runtime-readiness';
 
 export interface UnfinishedThread {
   threadId: string;
@@ -43,6 +45,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
   const detectionDoneRef = useRef(false);
+  const bootstrapStateRef = useRef(loadBrowserRuntimeBootstrapState());
 
   // ---------------------------------------------------------------------------
   // Stable EventBus — created once, shared across runtime reinitializations.
@@ -76,6 +79,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     return () => {
       const runtime = runtimeRef.current;
       if (runtime) {
+        runtime.dispose?.();
         disposeRuntime({
           llmGateway: runtime.runtimeCtx?.llmGateway,
           eventBus: eventBusRef.current,
@@ -125,6 +129,8 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     // — it's shared across reinits so UI hooks stay subscribed.
     const oldRuntime = runtimeRef.current;
     if (oldRuntime) {
+      bootstrapStateRef.current = loadBrowserRuntimeBootstrapState();
+      oldRuntime.dispose?.();
       disposeRuntime({
         llmGateway: oldRuntime.runtimeCtx?.llmGateway,
         // eventBus intentionally omitted: keep shared EventBus alive across reinits
@@ -429,7 +435,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
 
     return {
       eventBus,
-      isReady: runtime !== null && !isInitializing,
+      isReady: !isInitializing && isRuntimeReadyForInteraction(runtime),
       // isRunning lives in AicsRuntimeStatusContext — use useAicsRuntimeStatus().
       // Kept here as a getter for backward compat (does NOT trigger re-render).
       get isRunning() {
@@ -450,6 +456,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
       unfinishedThreads,
       dismissUnfinishedThreads,
       resumeThread,
+      bootstrapState: bootstrapStateRef.current,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [

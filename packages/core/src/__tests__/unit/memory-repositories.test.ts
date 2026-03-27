@@ -106,4 +106,67 @@ describe('MemoryRepositories', () => {
       expect(latest?.checkpoint_seq).toBe(2);
     });
   });
+
+  describe('snapshot persistence', () => {
+    it('restores company, employee, and project state from a snapshot', async () => {
+      const repos = createMemoryRepositories();
+      await repos.companies.create({
+        company_id: 'c-1',
+        name: 'Snapshot Co',
+        status: 'active',
+        workspace_root: null,
+        default_model_policy_json: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      repos.seed.employees([
+        {
+          employee_id: 'e-1',
+          company_id: 'c-1',
+          source_asset_id: null,
+          source_package_id: null,
+          name: 'Persisted Agent',
+          role_slug: 'developer',
+          workstation_id: 'dev-desk',
+          persona_json: null,
+          config_json: null,
+          enabled: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+      await repos.projects.create({
+        project_id: 'p-1',
+        company_id: 'c-1',
+        thread_id: 't-1',
+        name: 'Persisted Project',
+        description: 'snapshot roundtrip',
+        status: 'active',
+      });
+
+      const snapshot = repos.snapshot();
+      const restored = createMemoryRepositories(snapshot);
+
+      await expect(restored.companies.findById('c-1')).resolves.toMatchObject({
+        name: 'Snapshot Co',
+      });
+      await expect(restored.employees.findByCompany('c-1')).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            employee_id: 'e-1',
+            name: 'Persisted Agent',
+            workstation_id: 'dev-desk',
+          }),
+        ]),
+      );
+      await expect(restored.projects.findByCompany('c-1')).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            project_id: 'p-1',
+            name: 'Persisted Project',
+          }),
+        ]),
+      );
+    });
+  });
 });

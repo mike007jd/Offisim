@@ -14,8 +14,22 @@ function now(): string {
   return new Date().toISOString();
 }
 
+export interface MemoryInstallRepositoriesSnapshot {
+  installTransactions: InstallTransactionRow[];
+  installedPackages: InstalledPackageRow[];
+  installedAssets: InstalledAssetRow[];
+  assetBindings: AssetBindingRow[];
+}
+
 export class MemoryInstallTransactionRepository implements InstallTransactionRepository {
   private store = new Map<string, InstallTransactionRow>();
+
+  constructor(initialRows?: Iterable<InstallTransactionRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.install_txn_id, { ...row });
+    }
+  }
 
   async create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow> {
     const row: InstallTransactionRow = { ...txn, finished_at: null };
@@ -50,10 +64,21 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
       this.store.set(id, { ...row, state, finished_at: now() });
     }
   }
+
+  snapshot(): InstallTransactionRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
+  }
 }
 
 export class MemoryInstalledPackageRepository implements InstalledPackageRepository {
   private store = new Map<string, InstalledPackageRow>();
+
+  constructor(initialRows?: Iterable<InstalledPackageRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.installed_package_id, { ...row });
+    }
+  }
 
   async create(pkg: InstalledPackageRow): Promise<InstalledPackageRow> {
     this.store.set(pkg.installed_package_id, pkg);
@@ -69,10 +94,21 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
   async delete(id: string): Promise<void> {
     this.store.delete(id);
   }
+
+  snapshot(): InstalledPackageRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
+  }
 }
 
 export class MemoryInstalledAssetRepository implements InstalledAssetRepository {
   private store = new Map<string, InstalledAssetRow>();
+
+  constructor(initialRows?: Iterable<InstalledAssetRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.installed_asset_id, { ...row });
+    }
+  }
 
   async create(asset: InstalledAssetRow): Promise<InstalledAssetRow> {
     this.store.set(asset.installed_asset_id, asset);
@@ -82,10 +118,21 @@ export class MemoryInstalledAssetRepository implements InstalledAssetRepository 
   async delete(id: string): Promise<void> {
     this.store.delete(id);
   }
+
+  snapshot(): InstalledAssetRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
+  }
 }
 
 export class MemoryAssetBindingRepository implements AssetBindingRepository {
   private store = new Map<string, AssetBindingRow>();
+
+  constructor(initialRows?: Iterable<AssetBindingRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.binding_id, { ...row });
+    }
+  }
 
   async create(binding: AssetBindingRow): Promise<AssetBindingRow> {
     this.store.set(binding.binding_id, binding);
@@ -111,18 +158,24 @@ export class MemoryAssetBindingRepository implements AssetBindingRepository {
   async delete(id: string): Promise<void> {
     this.store.delete(id);
   }
+
+  snapshot(): AssetBindingRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
+  }
 }
 
-export function createMemoryInstallRepositories(): {
+export function createMemoryInstallRepositories(
+  snapshot?: Partial<MemoryInstallRepositoriesSnapshot>,
+): {
   installTransactions: MemoryInstallTransactionRepository;
   installedPackages: MemoryInstalledPackageRepository;
   installedAssets: MemoryInstalledAssetRepository;
   assetBindings: MemoryAssetBindingRepository;
 } {
   return {
-    installTransactions: new MemoryInstallTransactionRepository(),
-    installedPackages: new MemoryInstalledPackageRepository(),
-    installedAssets: new MemoryInstalledAssetRepository(),
-    assetBindings: new MemoryAssetBindingRepository(),
+    installTransactions: new MemoryInstallTransactionRepository(snapshot?.installTransactions),
+    installedPackages: new MemoryInstalledPackageRepository(snapshot?.installedPackages),
+    installedAssets: new MemoryInstalledAssetRepository(snapshot?.installedAssets),
+    assetBindings: new MemoryAssetBindingRepository(snapshot?.assetBindings),
   };
 }

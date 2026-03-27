@@ -26,6 +26,13 @@ function normalizeMemoryDedupeKey(content: string): string {
 export class InMemoryMemoryRepository implements MemoryRepository {
   private readonly store = new Map<string, MemoryEntryRow>();
 
+  constructor(initialRows?: Iterable<MemoryEntryRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.memory_id, { ...row });
+    }
+  }
+
   async create(entry: MemoryEntryCreate): Promise<MemoryEntryRow> {
     const ts = now();
     const row: MemoryEntryRow = {
@@ -146,5 +153,9 @@ export class InMemoryMemoryRepository implements MemoryRepository {
         access_count: row.access_count + 1,
       });
     }
+  }
+
+  snapshot(): MemoryEntryRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
   }
 }

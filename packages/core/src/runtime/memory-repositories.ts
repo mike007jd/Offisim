@@ -9,6 +9,7 @@ import type {
 } from '@aics/shared-types';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
+import type { MemoryInstallRepositoriesSnapshot } from './memory-install-repos.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import type {
@@ -86,17 +87,66 @@ export interface MemoryRepositorySeed {
   companies(rows: CompanyRow[]): void;
 }
 
-export function createMemoryRepositories(): RuntimeRepositories & { seed: MemoryRepositorySeed } {
-  const threadsMap = new Map<string, GraphThreadRow>();
-  const taskRunsMap = new Map<string, TaskRunRow>();
-  const employeesMap = new Map<string, EmployeeRow>();
-  const companiesMap = new Map<string, CompanyRow>();
-  const toolCallsMap = new Map<string, ToolCallRow>();
-  const handoffsMap = new Map<string, HandoffEventRow>();
-  const meetingsMap = new Map<string, MeetingSessionRow>();
-  const checkpointsMap = new Map<string, GraphCheckpointRow>();
-  const eventsStore: NewRuntimeEvent[] = [];
-  const llmCallsMap = new Map<string, LlmCallRow>();
+export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSnapshot {
+  threads: GraphThreadRow[];
+  taskRuns: TaskRunRow[];
+  employees: EmployeeRow[];
+  companies: CompanyRow[];
+  toolCalls: ToolCallRow[];
+  handoffs: HandoffEventRow[];
+  meetings: MeetingSessionRow[];
+  checkpoints: GraphCheckpointRow[];
+  events: NewRuntimeEvent[];
+  llmCalls: LlmCallRow[];
+  memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
+  mcpAudit: McpAuditRow[];
+  employeeVersions: EmployeeVersionRow[];
+  costRates: ModelCostRateRow[];
+  sopTemplates: SopTemplateRow[];
+  racks: RackRow[];
+  slots: SlotRow[];
+  workstationRacks: WorkstationRackRow[];
+  libraryDocuments: LibraryDocumentRow[];
+  officeLayouts: OfficeLayoutRow[];
+  prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
+  projects: ProjectRow[];
+  projectAssignments: ProjectAssignmentRow[];
+  agentEvents: AgentEventRow[];
+  recoveryKnowledge: RecoveryKnowledgeRow[];
+}
+
+function cloneRows<T extends object>(rows: Iterable<T>): T[] {
+  return [...rows].map((row) => ({ ...row }));
+}
+
+function createRowMap<Row extends object>(
+  rows: Iterable<Row> | undefined,
+  key: keyof Row,
+): Map<string, Row> {
+  const map = new Map<string, Row>();
+  if (!rows) return map;
+  for (const row of rows) {
+    const id = row[key] as unknown;
+    if (typeof id === 'string') {
+      map.set(id, { ...row });
+    }
+  }
+  return map;
+}
+
+export function createMemoryRepositories(
+  snapshot?: Partial<MemoryRepositoriesSnapshot>,
+): RuntimeRepositories & { seed: MemoryRepositorySeed; snapshot(): MemoryRepositoriesSnapshot } {
+  const threadsMap = createRowMap(snapshot?.threads, 'thread_id');
+  const taskRunsMap = createRowMap(snapshot?.taskRuns, 'task_run_id');
+  const employeesMap = createRowMap(snapshot?.employees, 'employee_id');
+  const companiesMap = createRowMap(snapshot?.companies, 'company_id');
+  const toolCallsMap = createRowMap(snapshot?.toolCalls, 'tool_call_id');
+  const handoffsMap = createRowMap(snapshot?.handoffs, 'handoff_id');
+  const meetingsMap = createRowMap(snapshot?.meetings, 'meeting_id');
+  const checkpointsMap = createRowMap(snapshot?.checkpoints, 'checkpoint_id');
+  const eventsStore: NewRuntimeEvent[] = cloneRows(snapshot?.events ?? []);
+  const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
 
   const companies: CompanyRepository = {
     async findById(id) {
@@ -359,26 +409,26 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     },
   };
 
-  const memories = new InMemoryMemoryRepository();
+  const memories = new InMemoryMemoryRepository(snapshot?.memories);
 
-  const installRepos = createMemoryInstallRepositories();
+  const installRepos = createMemoryInstallRepositories(snapshot);
 
-  const mcpAudit = new MemoryMcpAuditRepository();
-  const employeeVersions = new MemoryEmployeeVersionRepository();
-  const costRates = new MemoryModelCostRateRepository();
-  const sopTemplates = new MemorySopTemplateRepository();
-  const racksRepo = new MemoryRackRepository();
-  const slotsRepo = new MemorySlotRepository();
-  const workstationRacksRepo = new MemoryWorkstationRackRepository();
-  const libraryDocuments = new MemoryLibraryDocumentRepository();
-  const officeLayouts = new MemoryOfficeLayoutRepository();
-  const prefabInstances = createMemoryPrefabRepository();
-  const projects = new MemoryProjectRepository();
-  const projectAssignments = new MemoryProjectAssignmentRepository();
-  const agentEventsRepo = new MemoryAgentEventRepository();
-  const recoveryKnowledgeRepo = new MemoryRecoveryKnowledgeRepository();
+  const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
+  const employeeVersions = new MemoryEmployeeVersionRepository(snapshot?.employeeVersions);
+  const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
+  const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
+  const racksRepo = new MemoryRackRepository(snapshot?.racks);
+  const slotsRepo = new MemorySlotRepository(snapshot?.slots);
+  const workstationRacksRepo = new MemoryWorkstationRackRepository(snapshot?.workstationRacks);
+  const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
+  const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
+  const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
+  const projects = new MemoryProjectRepository(snapshot?.projects);
+  const projectAssignments = new MemoryProjectAssignmentRepository(snapshot?.projectAssignments);
+  const agentEventsRepo = new MemoryAgentEventRepository(snapshot?.agentEvents);
+  const recoveryKnowledgeRepo = new MemoryRecoveryKnowledgeRepository(snapshot?.recoveryKnowledge);
 
-  return {
+  const repositories = {
     companies,
     threads,
     taskRuns,
@@ -406,11 +456,51 @@ export function createMemoryRepositories(): RuntimeRepositories & { seed: Memory
     recoveryKnowledge: recoveryKnowledgeRepo,
     ...installRepos,
     seed,
+    snapshot(): MemoryRepositoriesSnapshot {
+      return {
+        companies: cloneRows(companiesMap.values()),
+        threads: cloneRows(threadsMap.values()),
+        taskRuns: cloneRows(taskRunsMap.values()),
+        employees: cloneRows(employeesMap.values()),
+        toolCalls: cloneRows(toolCallsMap.values()),
+        handoffs: cloneRows(handoffsMap.values()),
+        meetings: cloneRows(meetingsMap.values()),
+        checkpoints: cloneRows(checkpointsMap.values()),
+        events: cloneRows(eventsStore),
+        llmCalls: cloneRows(llmCallsMap.values()),
+        memories: memories.snapshot(),
+        mcpAudit: mcpAudit.snapshot(),
+        employeeVersions: employeeVersions.snapshot(),
+        costRates: costRates.snapshot(),
+        sopTemplates: sopTemplates.snapshot(),
+        racks: racksRepo.snapshot(),
+        slots: slotsRepo.snapshot(),
+        workstationRacks: workstationRacksRepo.snapshot(),
+        libraryDocuments: libraryDocuments.snapshot(),
+        officeLayouts: officeLayouts.snapshot(),
+        prefabInstances: prefabInstances.snapshot(),
+        projects: projects.snapshot(),
+        projectAssignments: projectAssignments.snapshot(),
+        agentEvents: agentEventsRepo.snapshot(),
+        recoveryKnowledge: recoveryKnowledgeRepo.snapshot(),
+        installTransactions: installRepos.installTransactions.snapshot(),
+        installedPackages: installRepos.installedPackages.snapshot(),
+        installedAssets: installRepos.installedAssets.snapshot(),
+        assetBindings: installRepos.assetBindings.snapshot(),
+      };
+    },
   };
+
+  return repositories;
 }
 
 export class MemoryEmployeeVersionRepository implements EmployeeVersionRepository {
   private readonly rows: EmployeeVersionRow[] = [];
+
+  constructor(initialRows?: Iterable<EmployeeVersionRow>) {
+    if (!initialRows) return;
+    this.rows.push(...cloneRows(initialRows));
+  }
 
   async create(version: NewEmployeeVersion): Promise<EmployeeVersionRow> {
     const row: EmployeeVersionRow = {
@@ -443,10 +533,19 @@ export class MemoryEmployeeVersionRepository implements EmployeeVersionRepositor
     if (versions.length === 0) return 0;
     return Math.max(...versions.map((v) => v.version_num));
   }
+
+  snapshot(): EmployeeVersionRow[] {
+    return cloneRows(this.rows);
+  }
 }
 
 export class MemoryModelCostRateRepository implements ModelCostRateRepository {
   private readonly rows: ModelCostRateRow[] = [];
+
+  constructor(initialRows?: Iterable<ModelCostRateRow>) {
+    if (!initialRows) return;
+    this.rows.push(...cloneRows(initialRows));
+  }
 
   async create(rate: NewModelCostRate): Promise<ModelCostRateRow> {
     const row: ModelCostRateRow = {
@@ -487,10 +586,21 @@ export class MemoryModelCostRateRepository implements ModelCostRateRepository {
     }
     return this.create(rate);
   }
+
+  snapshot(): ModelCostRateRow[] {
+    return cloneRows(this.rows);
+  }
 }
 
 export class MemorySopTemplateRepository implements SopTemplateRepository {
   private readonly store = new Map<string, SopTemplateRow>();
+
+  constructor(initialRows?: Iterable<SopTemplateRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.sop_template_id, { ...row });
+    }
+  }
 
   async create(template: NewSopTemplate): Promise<SopTemplateRow> {
     const row: SopTemplateRow = {
@@ -513,10 +623,21 @@ export class MemorySopTemplateRepository implements SopTemplateRepository {
   async delete(sopTemplateId: string): Promise<void> {
     this.store.delete(sopTemplateId);
   }
+
+  snapshot(): SopTemplateRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemoryRackRepository implements RackRepository {
   private readonly store = new Map<string, RackRow>();
+
+  constructor(initialRows?: Iterable<RackRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.rack_id, { ...row });
+    }
+  }
 
   async create(rack: NewRack): Promise<RackRow> {
     const row: RackRow = {
@@ -540,10 +661,21 @@ export class MemoryRackRepository implements RackRepository {
   async delete(rackId: string): Promise<void> {
     this.store.delete(rackId);
   }
+
+  snapshot(): RackRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemorySlotRepository implements SlotRepository {
   private readonly store = new Map<string, SlotRow>();
+
+  constructor(initialRows?: Iterable<SlotRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.slot_id, { ...row });
+    }
+  }
 
   async create(slot: NewSlot): Promise<SlotRow> {
     const row: SlotRow = {
@@ -564,10 +696,19 @@ export class MemorySlotRepository implements SlotRepository {
   async delete(slotId: string): Promise<void> {
     this.store.delete(slotId);
   }
+
+  snapshot(): SlotRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemoryWorkstationRackRepository implements WorkstationRackRepository {
   private readonly store: WorkstationRackRow[] = [];
+
+  constructor(initialRows?: Iterable<WorkstationRackRow>) {
+    if (!initialRows) return;
+    this.store.push(...cloneRows(initialRows));
+  }
 
   async create(binding: NewWorkstationRack): Promise<WorkstationRackRow> {
     const row: WorkstationRackRow = { ...binding, created_at: new Date().toISOString() };
@@ -586,10 +727,21 @@ export class MemoryWorkstationRackRepository implements WorkstationRackRepositor
     );
     if (idx >= 0) this.store.splice(idx, 1);
   }
+
+  snapshot(): WorkstationRackRow[] {
+    return cloneRows(this.store);
+  }
 }
 
 export class MemoryLibraryDocumentRepository implements LibraryDocumentRepository {
   private readonly store = new Map<string, LibraryDocumentRow>();
+
+  constructor(initialRows?: Iterable<LibraryDocumentRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.doc_id, { ...row });
+    }
+  }
 
   async create(doc: NewLibraryDocument): Promise<LibraryDocumentRow> {
     const row: LibraryDocumentRow = {
@@ -630,10 +782,21 @@ export class MemoryLibraryDocumentRepository implements LibraryDocumentRepositor
   async delete(docId: string): Promise<void> {
     this.store.delete(docId);
   }
+
+  snapshot(): LibraryDocumentRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   private readonly store = new Map<string, OfficeLayoutRow>();
+
+  constructor(initialRows?: Iterable<OfficeLayoutRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.layout_id, { ...row });
+    }
+  }
 
   async create(layout: NewOfficeLayout): Promise<OfficeLayoutRow> {
     const row: OfficeLayoutRow = {
@@ -676,10 +839,19 @@ export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   async delete(layoutId: string): Promise<void> {
     this.store.delete(layoutId);
   }
+
+  snapshot(): OfficeLayoutRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemoryMcpAuditRepository implements McpAuditRepository {
   private readonly rows: McpAuditRow[] = [];
+
+  constructor(initialRows?: Iterable<McpAuditRow>) {
+    if (!initialRows) return;
+    this.rows.push(...cloneRows(initialRows));
+  }
 
   async create(audit: NewMcpAudit): Promise<McpAuditRow> {
     this.rows.push(audit);
@@ -689,10 +861,21 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
   async listByThread(threadId: string): Promise<McpAuditRow[]> {
     return this.rows.filter((r) => r.thread_id === threadId);
   }
+
+  snapshot(): McpAuditRow[] {
+    return cloneRows(this.rows);
+  }
 }
 
 export class MemoryProjectRepository implements ProjectRepository {
   private readonly store = new Map<string, ProjectRow>();
+
+  constructor(initialRows?: Iterable<ProjectRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.project_id, { ...row });
+    }
+  }
 
   async create(project: NewProject): Promise<ProjectRow> {
     const row: ProjectRow = {
@@ -744,10 +927,21 @@ export class MemoryProjectRepository implements ProjectRepository {
   async delete(projectId: string): Promise<void> {
     this.store.delete(projectId);
   }
+
+  snapshot(): ProjectRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepository {
   private readonly store = new Map<string, ProjectAssignmentRow>();
+
+  constructor(initialRows?: Iterable<ProjectAssignmentRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(this.key(row.project_id, row.employee_id), { ...row });
+    }
+  }
 
   private key(projectId: string, employeeId: string): string {
     return `${projectId}::${employeeId}`;
@@ -780,6 +974,10 @@ export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepos
   async isAssigned(projectId: string, employeeId: string): Promise<boolean> {
     return this.store.has(this.key(projectId, employeeId));
   }
+
+  snapshot(): ProjectAssignmentRow[] {
+    return cloneRows(this.store.values());
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -788,6 +986,11 @@ export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepos
 
 export class MemoryAgentEventRepository implements AgentEventRepository {
   private readonly rows: AgentEventRow[] = [];
+
+  constructor(initialRows?: Iterable<AgentEventRow>) {
+    if (!initialRows) return;
+    this.rows.push(...cloneRows(initialRows));
+  }
 
   async append(event: NewAgentEvent): Promise<AgentEventRow> {
     const row: AgentEventRow = {
@@ -857,6 +1060,10 @@ export class MemoryAgentEventRepository implements AgentEventRepository {
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, limit);
   }
+
+  snapshot(): AgentEventRow[] {
+    return cloneRows(this.rows);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -865,6 +1072,13 @@ export class MemoryAgentEventRepository implements AgentEventRepository {
 
 export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepository {
   private readonly store = new Map<string, RecoveryKnowledgeRow>();
+
+  constructor(initialRows?: Iterable<RecoveryKnowledgeRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(`${row.symptom}::${row.cause}`, { ...row });
+    }
+  }
 
   async upsert(entry: NewRecoveryKnowledge): Promise<RecoveryKnowledgeRow> {
     const key = `${entry.symptom}::${entry.cause}`;
@@ -942,5 +1156,9 @@ export class MemoryRecoveryKnowledgeRepository implements RecoveryKnowledgeRepos
     let results = [...this.store.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (opts?.limit) results = results.slice(0, opts.limit);
     return results;
+  }
+
+  snapshot(): RecoveryKnowledgeRow[] {
+    return cloneRows(this.store.values());
   }
 }

@@ -1,3 +1,4 @@
+import type { EventBus } from '@aics/core/browser';
 import type { RuntimeEvent } from '@aics/shared-types';
 import { ScrollArea } from '@aics/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,6 +16,66 @@ const EVENT_PREFIXES = [
   'install.',
 ] as const;
 const MAX_EVENTS = 200;
+
+interface EventHistoryStore {
+  events: RuntimeEvent[];
+  buffer: RuntimeEvent[];
+  listeners: Set<() => void>;
+  rafId: number | null;
+  initialized: boolean;
+}
+
+const eventHistoryStores = new WeakMap<object, EventHistoryStore>();
+
+function getEventHistoryStore(eventBus: EventBus): EventHistoryStore {
+  let store = eventHistoryStores.get(eventBus);
+  if (store) return store;
+
+  store = {
+    events: [],
+    buffer: [],
+    listeners: new Set(),
+    rafId: null,
+    initialized: false,
+  };
+  eventHistoryStores.set(eventBus, store);
+  return store;
+}
+
+function flushEventHistory(store: EventHistoryStore) {
+  store.rafId = null;
+  if (store.buffer.length === 0) return;
+  const batch = store.buffer;
+  store.buffer = [];
+  store.events = [...store.events, ...batch].slice(-MAX_EVENTS);
+  for (const listener of store.listeners) {
+    listener();
+  }
+}
+
+export function primeEventLogStore(eventBus: EventBus) {
+  const store = getEventHistoryStore(eventBus);
+  if (store.initialized) return store;
+
+  store.initialized = true;
+  EVENT_PREFIXES.forEach((prefix) => {
+    eventBus.on(prefix, (event: RuntimeEvent) => {
+      store.buffer.push(event);
+      if (store.rafId === null) {
+        store.rafId = requestAnimationFrame(() => flushEventHistory(store));
+      }
+    });
+  });
+
+  return store;
+}
+
+export function hydrateEventLogStore(eventBus: EventBus, events: RuntimeEvent[]) {
+  const store = primeEventLogStore(eventBus);
+  if (store.events.length > 0 || events.length === 0) return store;
+  store.events = events.slice(-MAX_EVENTS);
+  return store;
+}
 
 /** Map a filter type label to the topic prefix(es) it covers */
 const TYPE_PREFIX_MAP: Record<string, string[]> = {
@@ -57,46 +118,28 @@ const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
 };
 
 export function EventLog() {
-  const { eventBus } = useAicsRuntime();
-  const [events, setEvents] = useState<RuntimeEvent[]>([]);
+  const { eventBus, bootstrapState } = useAicsRuntime();
+  const store = useMemo(
+    () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
+    [eventBus, bootstrapState],
+  );
+  const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
   const [filters, setFilters] = useState<EventFilterState>({
     types: ['All'],
     levels: ['Info', 'Warning', 'Error'],
     search: '',
   });
-  const bufferRef = useRef<RuntimeEvent[]>([]);
-  const rafRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const flush = useCallback(() => {
-    rafRef.current = null;
-    if (bufferRef.current.length === 0) return;
-    const batch = bufferRef.current;
-    bufferRef.current = [];
-    setEvents((prev) => [...prev, ...batch].slice(-MAX_EVENTS));
-  }, []);
-
   useEffect(() => {
-    bufferRef.current = [];
-    setEvents([]);
-
-    const unsubs = EVENT_PREFIXES.map((prefix) =>
-      eventBus.on(prefix, (event: RuntimeEvent) => {
-        bufferRef.current.push(event);
-        if (rafRef.current === null) {
-          rafRef.current = requestAnimationFrame(flush);
-        }
-      }),
-    );
+    setEvents(store.events);
+    const syncEvents = () => setEvents(store.events);
+    store.listeners.add(syncEvents);
 
     return () => {
-      for (const unsub of unsubs) unsub();
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
+      store.listeners.delete(syncEvents);
     };
-  }, [eventBus, flush]);
+  }, [store]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: events array triggers scroll-to-bottom intentionally
   useEffect(() => {

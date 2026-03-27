@@ -39,6 +39,10 @@ import {
 } from '@aics/ui-office';
 import type { ProviderConfig } from '@aics/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
+import {
+  createBrowserRuntimePersistence,
+  loadBrowserRuntimeSnapshot,
+} from './browser-runtime-storage';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
@@ -71,6 +75,11 @@ async function seedCompany(
   repos: ReturnType<typeof createMemoryRepositories>,
   companyId: string,
 ): Promise<void> {
+  if (await repos.companies.findById(companyId)) {
+    await seedCostRates(repos);
+    return;
+  }
+
   const now = new Date().toISOString();
 
   const company: CompanyRow = {
@@ -119,6 +128,7 @@ export type RuntimeBundle = {
   installService: InstallService | null;
   mcpToolExecutor: McpToolExecutor | null;
   repos: RuntimeRepositories;
+  dispose?: () => void;
 };
 
 /**
@@ -133,8 +143,9 @@ export async function createBrowserRuntime(
   companyId: string,
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
-  const repos = createMemoryRepositories();
+  const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await seedCompany(repos, companyId);
+  const persistence = createBrowserRuntimePersistence(repos, eventBus);
 
   const proxyBaseURL =
     IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -216,7 +227,16 @@ export async function createBrowserRuntime(
   );
   const orch = new OrchestrationService(graph, runtimeCtx);
 
-  return { eventBus, graph, runtimeCtx, orch, installService, mcpToolExecutor, repos };
+  return {
+    eventBus,
+    graph,
+    runtimeCtx,
+    orch,
+    installService,
+    mcpToolExecutor,
+    repos,
+    dispose: persistence.dispose,
+  };
 }
 
 /**
@@ -228,8 +248,9 @@ export async function createBrowserRuntimeReposOnly(
   eventBus: InMemoryEventBus,
   companyId: string,
 ): Promise<RuntimeBundle> {
-  const repos = createMemoryRepositories();
+  const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await seedCompany(repos, companyId);
+  const persistence = createBrowserRuntimePersistence(repos, eventBus);
 
   return {
     eventBus,
@@ -239,5 +260,6 @@ export async function createBrowserRuntimeReposOnly(
     installService: null,
     mcpToolExecutor: null,
     repos,
+    dispose: persistence.dispose,
   };
 }

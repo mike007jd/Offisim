@@ -8,6 +8,13 @@ function now(): string {
 export class MemoryPrefabInstanceRepository implements PrefabInstanceRepository {
   private store = new Map<string, PrefabInstanceRow>();
 
+  constructor(initialRows?: Iterable<PrefabInstanceRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.instance_id, { ...row });
+    }
+  }
+
   async create(instance: PrefabInstanceRow): Promise<PrefabInstanceRow> {
     this.store.set(instance.instance_id, { ...instance });
     return { ...instance };
@@ -54,8 +61,14 @@ export class MemoryPrefabInstanceRepository implements PrefabInstanceRepository 
       }
     }
   }
+
+  snapshot(): PrefabInstanceRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
+  }
 }
 
-export function createMemoryPrefabRepository(): PrefabInstanceRepository {
-  return new MemoryPrefabInstanceRepository();
+export function createMemoryPrefabRepository(
+  snapshot?: Iterable<PrefabInstanceRow>,
+): MemoryPrefabInstanceRepository {
+  return new MemoryPrefabInstanceRepository(snapshot);
 }

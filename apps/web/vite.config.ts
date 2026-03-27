@@ -27,6 +27,7 @@ export default defineConfig({
           'openrouter.ai',
           'api.kimi.com',
           'api.moonshot.cn',
+          'api.minimax.io',
           'api.openai.com',
           'api.anthropic.com',
           'localhost',

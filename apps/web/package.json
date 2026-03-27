@@ -31,13 +31,15 @@
     "lucide-react": "^0.577.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@tauri-apps/api": "^2.10.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^4.4.0",
     "dotenv": "^17.3.1",
     "typescript": "^5.7.0",

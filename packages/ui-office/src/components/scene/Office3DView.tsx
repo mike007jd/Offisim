@@ -23,6 +23,7 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
+import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { Lobster3D } from './Lobster3D.js';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { Prefab3D } from './prefabs/index.js';
@@ -1056,15 +1057,59 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
   return <ambientLight ref={lightRef} intensity={0.8} color={targetColor} />;
 }
 
+function SceneFrameLoopController({
+  animate,
+  controlsRef,
+}: {
+  animate: boolean;
+  controlsRef: React.RefObject<OrbitControlsHandle | null>;
+}) {
+  const { invalidate } = useThree();
+
+  useEffect(() => {
+    invalidate();
+  }, [invalidate, animate]);
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const handleChange = () => invalidate();
+    controls.addEventListener('change', handleChange);
+    return () => {
+      controls.removeEventListener('change', handleChange);
+    };
+  }, [controlsRef, invalidate]);
+
+  useEffect(() => {
+    if (!animate) return;
+
+    let rafId = 0;
+    const loop = () => {
+      invalidate();
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [animate, invalidate]);
+
+  return null;
+}
+
 // ── Main 3D View ────────────────────────────────────────────────────
 
 interface Office3DViewProps {
+  active?: boolean;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
 }
 
 export default function Office3DView({
+  active = true,
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -1300,6 +1345,16 @@ export default function Office3DView({
       activeCount={activeCount}
       blockedCount={blockedCount}
       ceremony={ceremony}
+      shouldAnimate={
+        active &&
+        shouldAnimateOfficeScene({
+          activeCount,
+          blockedCount,
+          isDragging,
+          flowLineCount: flowLines.length,
+          ceremonyPhase: ceremony.phase,
+        })
+      }
       handleDeselect={handleDeselect}
       handleSelectEmployee={handleSelectEmployee}
       handleEmployeeDragStart={handleEmployeeDragStart}
@@ -1328,6 +1383,7 @@ function Office3DViewInner({
   activeCount,
   blockedCount,
   ceremony,
+  shouldAnimate,
   handleDeselect,
   handleSelectEmployee,
   handleEmployeeDragStart,
@@ -1350,6 +1406,7 @@ function Office3DViewInner({
   activeCount: number;
   blockedCount: number;
   ceremony: import('../../hooks/useSceneOrchestrator').CeremonyState;
+  shouldAnimate: boolean;
   handleDeselect: () => void;
   handleSelectEmployee: (id: string) => void;
   handleEmployeeDragStart: (
@@ -1366,7 +1423,13 @@ function Office3DViewInner({
       className="w-full h-full bg-slate-950"
       style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}
     >
-      <Canvas shadows camera={{ position: [0, 22, 28], fov: 45 }}>
+      <Canvas
+        dpr={[1, 1.5]}
+        frameloop="demand"
+        shadows="percentage"
+        camera={{ position: [0, 22, 28], fov: 45 }}
+      >
+        <SceneFrameLoopController animate={shouldAnimate} controlsRef={controlsRef} />
         <color attach="background" args={['#020617']} />
         <fog attach="fog" args={['#020617', 40, 100]} />
 
@@ -1376,7 +1439,7 @@ function Office3DViewInner({
           castShadow
           position={[12, 25, 12]}
           intensity={1.5}
-          shadow-mapSize={[2048, 2048]}
+          shadow-mapSize={[1024, 1024]}
           shadow-bias={-0.0005}
           shadow-camera-left={-25}
           shadow-camera-right={25}

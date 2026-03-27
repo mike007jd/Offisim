@@ -1,15 +1,22 @@
 import type {
   EmployeeVersionService,
   EventBus,
+  MemoryRepositoriesSnapshot,
   McpServerConfig,
   RuntimeRepositories,
 } from '@aics/core/browser';
+import type { RuntimeEvent } from '@aics/shared-types';
 import type { InstallService } from '@aics/install-core';
 import { createContext, useContext } from 'react';
 
 // ---------------------------------------------------------------------------
 // Stable context — values that change infrequently (repos, eventBus, etc.)
 // ---------------------------------------------------------------------------
+
+export interface AicsRuntimeBootstrapState {
+  reposSnapshot: MemoryRepositoriesSnapshot | null;
+  eventHistory: RuntimeEvent[];
+}
 
 export interface AicsRuntimeValue {
   eventBus: EventBus;
@@ -51,6 +58,8 @@ export interface AicsRuntimeValue {
    * Re-invokes the graph with background_sync entryMode on the given threadId.
    */
   resumeThread: (threadId: string) => Promise<void>;
+  /** Synchronous browser bootstrap data used before async runtime init finishes. */
+  bootstrapState?: AicsRuntimeBootstrapState | null;
 }
 
 export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);

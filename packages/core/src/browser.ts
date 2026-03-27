@@ -174,8 +174,10 @@ export {
   MemoryLibraryDocumentRepository,
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
+export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
+export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
 export {
   MemoryInstallTransactionRepository,
   MemoryInstalledPackageRepository,

@@ -42,36 +42,59 @@ type WorkstationEventPayload =
   | EmployeeWorkstationChangedPayload
   | EmployeeWorkstationDropRequestedPayload;
 
+function buildAgentStateMap(
+  companyId: string | null,
+  employees: Array<{
+    employee_id: string;
+    company_id: string;
+    name: string;
+    role_slug: string;
+    workstation_id: string | null;
+  }>,
+  prev?: Map<string, AgentState>,
+): Map<string, AgentState> {
+  if (!companyId) return new Map();
+
+  const next = new Map<string, AgentState>();
+  for (const row of employees) {
+    if (row.company_id !== companyId) continue;
+    const previous = prev?.get(row.employee_id);
+    next.set(row.employee_id, {
+      name: row.name,
+      role: row.role_slug ?? 'developer',
+      state: previous?.state ?? 'idle',
+      taskRunId: previous?.taskRunId,
+      workstationId: row.workstation_id ?? previous?.workstationId ?? null,
+      currentTask: previous?.currentTask ?? null,
+      subTasks: previous?.subTasks,
+    });
+  }
+  return next;
+}
+
 /**
  * Subscribes to employee events and maintains current state per employee.
  * Loads initial state from repos when available, then dynamically
  * responds to employee.created / employee.updated / employee.deleted events.
  */
 export function useAgentStates(): Map<string, AgentState> {
-  const { eventBus, repos } = useAicsRuntime();
+  const { eventBus, repos, bootstrapState } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
-  const [agents, setAgents] = useState<Map<string, AgentState>>(new Map());
+  const [agents, setAgents] = useState<Map<string, AgentState>>(() =>
+    buildAgentStateMap(activeCompanyId, bootstrapState?.reposSnapshot?.employees ?? []),
+  );
 
-  // Load employees from repos on mount (replaces hardcoded seed)
   useEffect(() => {
+    const bootstrapEmployees = bootstrapState?.reposSnapshot?.employees ?? [];
+    setAgents((prev) => buildAgentStateMap(activeCompanyId, bootstrapEmployees, prev));
+
     if (!repos || !activeCompanyId) return;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
       setAgents((prev) => {
-        const next = new Map(prev);
-        for (const row of rows) {
-          if (!next.has(row.employee_id)) {
-            next.set(row.employee_id, {
-              name: row.name,
-              role: row.role_slug ?? 'developer',
-              state: 'idle',
-              workstationId: row.workstation_id ?? null,
-            });
-          }
-        }
-        return next;
+        return buildAgentStateMap(activeCompanyId, rows, prev);
       });
     });
-  }, [repos, activeCompanyId]);
+  }, [repos, activeCompanyId, bootstrapState]);
 
   useEffect(() => {
     // Employee state changes (runtime activity)

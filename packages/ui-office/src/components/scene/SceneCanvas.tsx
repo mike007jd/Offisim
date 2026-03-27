@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { PerformanceHUD } from './PerformanceHUD';
 import { useScene } from './useScene';
 
@@ -42,6 +42,7 @@ class SceneErrorBoundary extends React.Component<
 // ── SceneCanvas ─────────────────────────────────────────────────
 
 interface SceneCanvasProps {
+  active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
   selectedEmployeeId?: string | null;
@@ -50,6 +51,7 @@ interface SceneCanvasProps {
 }
 
 export function SceneCanvas({
+  active = true,
   reducedMotion = false,
   viewMode = '3D',
   selectedEmployeeId = null,
@@ -57,47 +59,70 @@ export function SceneCanvas({
   onDeselectEmployee,
 }: SceneCanvasProps) {
   useScene(reducedMotion);
+  const [hasMounted2D, setHasMounted2D] = useState(viewMode === '2D');
+  const [hasMounted3D, setHasMounted3D] = useState(viewMode === '3D');
+
+  useEffect(() => {
+    if (viewMode === '2D') {
+      setHasMounted2D(true);
+      return;
+    }
+    setHasMounted3D(true);
+  }, [viewMode]);
 
   return (
     <div className="h-full w-full overflow-hidden bg-surface relative">
       <SceneErrorBoundary>
-        {/* SVG 2D View */}
-        {viewMode === '2D' && (
-          <Suspense
-            fallback={
-              <div className="h-full w-full flex items-center justify-center">
-                <div className="text-[10px] font-mono text-slate-600 animate-pulse">
-                  LOADING 2D MAP...
+        <div
+          aria-hidden={viewMode !== '2D'}
+          className={`absolute inset-0 transition-opacity duration-200 ${
+            viewMode === '2D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          {hasMounted2D && (
+            <Suspense
+              fallback={
+                <div className="h-full w-full flex items-center justify-center">
+                  <div className="text-[10px] font-mono text-slate-600 animate-pulse">
+                    LOADING 2D MAP...
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            <Office2DView
-              selectedEmployeeId={selectedEmployeeId}
-              onSelectEmployee={onSelectEmployee}
-              onDeselectEmployee={onDeselectEmployee}
-            />
-          </Suspense>
-        )}
+              }
+            >
+              <Office2DView
+                selectedEmployeeId={selectedEmployeeId}
+                onSelectEmployee={onSelectEmployee}
+                onDeselectEmployee={onDeselectEmployee}
+              />
+            </Suspense>
+          )}
+        </div>
 
-        {/* Three.js 3D View */}
-        {viewMode === '3D' && (
-          <Suspense
-            fallback={
-              <div className="h-full w-full flex items-center justify-center">
-                <div className="text-[10px] font-mono text-slate-600 animate-pulse">
-                  LOADING 3D ENGINE...
+        <div
+          aria-hidden={viewMode !== '3D'}
+          className={`absolute inset-0 transition-opacity duration-200 ${
+            viewMode === '3D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          {hasMounted3D && (
+            <Suspense
+              fallback={
+                <div className="h-full w-full flex items-center justify-center">
+                  <div className="text-[10px] font-mono text-slate-600 animate-pulse">
+                    LOADING 3D ENGINE...
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            <Office3DView
-              selectedEmployeeId={selectedEmployeeId}
-              onSelectEmployee={onSelectEmployee}
-              onDeselectEmployee={onDeselectEmployee}
-            />
-          </Suspense>
-        )}
+              }
+            >
+              <Office3DView
+                active={active && viewMode === '3D'}
+                selectedEmployeeId={selectedEmployeeId}
+                onSelectEmployee={onSelectEmployee}
+                onDeselectEmployee={onDeselectEmployee}
+              />
+            </Suspense>
+          )}
+        </div>
       </SceneErrorBoundary>
 
       <PerformanceHUD />
