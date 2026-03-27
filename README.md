@@ -19,24 +19,23 @@ The product is not a generic SaaS dashboard and not a literal game engine. It us
 
 ## Repository / project shape
 
-Planned application/package shape:
+Current application/package shape:
 
 - `apps/web` — Vite + React runtime shell in browser
 - `apps/desktop` — Tauri 2 desktop app (**reference environment**)
 - `apps/market` — public marketplace website (Next.js App Router)
-- `apps/platform` — APIs, workers, registry, moderation, publish flow
+- `apps/platform` — registry/auth/review/install support API
 - `packages/core` — orchestration kernel and runtime domain logic
-- `packages/renderer` — PixiJS office scene runtime
-- `packages/asset-schema` / `install-core` / `registry-client` / `db-*` — contracts and platform/runtime support layers
+- `packages/renderer` — scene tokens, layout engine, prefab/state logic
+- `packages/ui-office` — office shell and scene views (`Three.js` 3D + `SVG` 2D)
+- `packages/ui-core` / `packages/ui-market` — shared DOM primitives and market UI
+- `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `channels` / `doc-engine` — contracts and support layers
 
 ## Document map
 
 ### Root guidance
 
 - `README.md` — this file; project truth and document routing
-- `AGENTS.md` — Codex-oriented repo instructions
-- `CLAUDE.md` — Claude Code-oriented repo instructions
-- `GEMINI.md` — Gemini-oriented repo instructions
 
 ### Human rules
 
@@ -45,42 +44,37 @@ Planned application/package shape:
 - `spec/UX_RULES.md` — interaction, install trust, accessibility, motion principles
 - `spec/DESIGN_RULES.md` — visual language and presentation guardrails
 
-### Current product / architecture specs
+### Contracts and schema snapshots
 
-- `Docs/01_current_specs/AI_Company_Simulator_PRD_v1.6_updated.docx`
-- `Docs/01_current_specs/AI_Company_Simulator_TechStack_v1.5_updated.docx`
-- `Docs/01_current_specs/AI_Company_Simulator_Asset_and_Schema_Spec_v0.1.docx`
+- `Docs/02_contracts_and_schemas/offisim_openapi.yaml`
+- `Docs/02_contracts_and_schemas/offisim_install_state_machine.md`
+- `Docs/02_contracts_and_schemas/offisim_manifest.schema.json`
+- `Docs/02_contracts_and_schemas/offisim_manifest_example.json`
+- `Docs/02_contracts_and_schemas/offisim_local_runtime_schema.sql`
+- `Docs/02_contracts_and_schemas/offisim_platform_registry_schema.sql`
 
-### Contracts and schemas
-
-- `Docs/02_contracts_and_schemas/aics_openapi.yaml`
-- `Docs/02_contracts_and_schemas/aics_install_state_machine.md`
-- `Docs/02_contracts_and_schemas/aics_manifest.schema.json`
-- `Docs/02_contracts_and_schemas/aics_manifest_example.json`
-- `Docs/02_contracts_and_schemas/aics_local_runtime_schema.sql`
-- `Docs/02_contracts_and_schemas/aics_platform_registry_schema.sql`
+`Docs/02_contracts_and_schemas/` should track the current public contract surface and schema snapshots.
+Implementation truth still lives in the mounted route files and Drizzle schema/migrations.
 
 ### Migration packs
 
-- `Docs/03_migrations/aics_migrations_local_v0.1/`
-- `Docs/03_migrations/aics_migrations_platform_v0.1/`
+- `Docs/03_migrations/offisim_migrations_local_v0.1/`
+- `Docs/03_migrations/offisim_migrations_platform_v0.1/`
 
 ### Runtime experience / game-grade presentation docs
 
-- `Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`
+- `Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`
 - `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
 - `Docs/04_runtime_experience/ANIMATION_BACKLOG.md`
 
 ## Recommended reading order for AI agents
 
 1. `README.md`
-2. `AGENTS.md` or the tool-specific entry file (`CLAUDE.md`, `GEMINI.md`)
-3. `spec/PROJECT_CONSTITUTION.md`
-4. the rest of `/spec`
-5. relevant files under `Docs/02_contracts_and_schemas/`
-6. the three docs in `Docs/01_current_specs/`
-7. `Docs/04_runtime_experience/` when the task touches scene, animation, install trust presentation, or runtime feedback
-8. `Docs/03_migrations/` when the task touches persistence
+2. `spec/PROJECT_CONSTITUTION.md`
+3. the rest of `/spec`
+4. relevant files under `Docs/02_contracts_and_schemas/`
+5. `Docs/04_runtime_experience/` when the task touches scene, animation, install trust presentation, or runtime feedback
+6. `Docs/03_migrations/` when the task touches persistence
 
 ## Document precedence
 
@@ -92,7 +86,6 @@ When two documents overlap, use this order:
 4. `spec/UX_RULES.md`
 5. `spec/DESIGN_RULES.md`
 6. `Docs/04_runtime_experience/*`
-7. the broader product/architecture docs in `Docs/01_current_specs/`
 
 ## Task routing
 

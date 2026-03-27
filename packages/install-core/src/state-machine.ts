@@ -1,7 +1,7 @@
 /**
  * Install state machine — transition validation and state classification.
  *
- * Source of truth: Docs/02_contracts_and_schemas/aics_install_state_machine.md
+ * Source of truth: Docs/02_contracts_and_schemas/offisim_install_state_machine.md
  */
 
 import type { InstallState } from '@aics/shared-types';

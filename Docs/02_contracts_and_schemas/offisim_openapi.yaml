@@ -1,27 +1,65 @@
 openapi: 3.1.0
 info:
-  title: AI Company Simulator Control APIs
-  version: 0.1.0
-  summary: Marketplace registry APIs plus local runtime install/import APIs.
+  title: Offisim Platform and Local Install APIs
+  version: 0.2.0
+  summary: Platform marketplace APIs plus local runtime install/import contract snapshots.
   description: >
-    This contract defines the first production-grade API surface for AI Company Simulator 1.0.
-    Public marketplace reads are unauthenticated. Creator publishing, reviews, and library access
-    require authenticated user context. Install and import endpoints are intended for the local
-    desktop or self-host runtime surface and remain declaration-driven: no arbitrary install hooks,
-    no postinstall scripts, no remote code execution during import.
+    This file tracks the current public platform HTTP surface mounted from `apps/platform/src/index.ts`
+    together with the local install transaction contract used by `packages/install-core`.
+    Public marketplace reads are unauthenticated. Creator publishing, reviews, creator bootstrap,
+    install receipt recording, and user library access require authenticated user context.
+    Better Auth native session endpoints under `/api/auth/*` and API token management under
+    `/v1/auth/tokens` are implementation-owned and intentionally not expanded here.
+    Local install/import endpoints remain declaration-driven: no arbitrary install hooks,
+    no postinstall scripts, and no remote code execution during import.
 servers:
   - url: https://api.aics.market
     description: Registry and marketplace API
   - url: http://127.0.0.1:43111
     description: Local desktop runtime API
 tags:
+  - name: Creator Auth
   - name: Market Public
+  - name: Creator Profiles
   - name: Creator Publish
   - name: User Library
+  - name: Install Platform
   - name: Install Runtime
   - name: Reviews
 security: []
 paths:
+  /v1/auth/register-creator:
+    post:
+      tags: [Creator Auth]
+      summary: Register a creator profile for the authenticated user
+      operationId: registerCreator
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterCreatorRequest'
+      responses:
+        '200':
+          description: Creator profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatorRegistration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user context missing a linked platform user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Handle already taken or user already has a creator profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/market/search:
     get:
       tags: [Market Public]
@@ -37,7 +75,7 @@ paths:
           name: kind
           schema:
             type: string
-            enum: [employee, skill, sop, company_template, office_layout, bundle]
+            enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
         - in: query
           name: risk_class
           schema:
@@ -57,7 +95,7 @@ paths:
           schema: { type: integer, minimum: 1, default: 1 }
         - in: query
           name: per_page
-          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         '200':
           description: Search result page
@@ -73,6 +111,23 @@ paths:
       security: []
       parameters:
         - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/listings/by-slug/{slug}:
+    get:
+      tags: [Market Public]
+      summary: Get public marketplace listing detail by slug
+      operationId: getListingDetailBySlug
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Slug'
       responses:
         '200':
           description: Listing detail
@@ -128,14 +183,205 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Review'
+  /v1/market/listings/{listingId}/reports:
+    post:
+      tags: [Market Public]
+      summary: Report a listing for moderation review
+      operationId: reportListing
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingReportRequest'
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationFlag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Only the listing creator can change listing status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The current user already reported this listing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/market/listings/{listingId}/forks:
+    get:
+      tags: [Market Public]
+      summary: List listings that forked from this listing
+      operationId: listListingForks
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Fork listings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [forks]
+                properties:
+                  forks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ForkSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/listings/{listingId}/lineage:
+    get:
+      tags: [Market Public]
+      summary: Get lineage chain for a listing
+      operationId: getListingLineage
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing lineage
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ancestors, descendants]
+                properties:
+                  ancestors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LineageNode'
+                  descendants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LineageNode'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/listings/{listingId}/status:
+    patch:
+      tags: [Creator Publish]
+      summary: Change listing visibility status for the owning creator
+      operationId: patchListingStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingStatusPatchRequest'
+      responses:
+        '200':
+          description: Listing status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, listing_id, status]
+                properties:
+                  ok: { type: boolean }
+                  listing_id: { type: string }
+                  status:
+                    type: string
+                    enum: [listed, hidden, retired]
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/market/creators/{handle}:
+    get:
+      tags: [Creator Profiles, Market Public]
+      summary: Get public creator profile and listings
+      operationId: getCreatorProfile
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CreatorHandle'
+      responses:
+        '200':
+          description: Creator profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatorDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/publish/me:
+    get:
+      tags: [Creator Publish]
+      summary: Get the authenticated user's creator profile, if one exists
+      operationId: getMyCreatorProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Creator profile or null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [creator]
+                properties:
+                  creator:
+                    anyOf:
+                      - $ref: '#/components/schemas/CreatorDetail'
+                      - type: 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /v1/publish/drafts:
+    get:
+      tags: [Creator Publish]
+      summary: List publish drafts for the authenticated creator
+      operationId: listPublishDrafts
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, validated, submitted, approved, rejected]
+      responses:
+        '200':
+          description: Draft list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [drafts]
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublishDraft'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     post:
       tags: [Creator Publish]
       summary: Create a publish draft
       operationId: createPublishDraft
       security:
         - BearerAuth: []
-        - SessionCookie: []
       requestBody:
         required: true
         content:
@@ -151,6 +397,66 @@ paths:
                 $ref: '#/components/schemas/PublishDraft'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/publish/drafts/{draftId}:
+    get:
+      tags: [Creator Publish]
+      summary: Get draft detail
+      operationId: getPublishDraft
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      responses:
+        '200':
+          description: Draft detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishDraft'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Creator Publish]
+      summary: Delete a non-submitted draft
+      operationId: deletePublishDraft
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      responses:
+        '200':
+          description: Draft deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, draft_id]
+                properties:
+                  deleted: { type: boolean }
+                  draft_id: { type: string }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
   /v1/publish/drafts/{draftId}/manifest:
     put:
       tags: [Creator Publish]
@@ -158,7 +464,6 @@ paths:
       operationId: putDraftManifest
       security:
         - BearerAuth: []
-        - SessionCookie: []
       parameters:
         - $ref: '#/components/parameters/DraftId'
       requestBody:
@@ -178,6 +483,11 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404':
           $ref: '#/components/responses/NotFound'
   /v1/publish/submit:
@@ -187,7 +497,6 @@ paths:
       operationId: submitPublishDraft
       security:
         - BearerAuth: []
-        - SessionCookie: []
       requestBody:
         required: true
         content:
@@ -212,6 +521,11 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Authenticated user is not a creator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/me/library:
     get:
       tags: [User Library]
@@ -219,16 +533,12 @@ paths:
       operationId: getMyLibrary
       security:
         - BearerAuth: []
-        - SessionCookie: []
       parameters:
         - in: query
           name: kind
           schema:
             type: string
-            enum: [employee, skill, sop, company_template, office_layout, bundle]
-        - in: query
-          name: installed
-          schema: { type: boolean }
+            enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
       responses:
         '200':
           description: User library
@@ -251,7 +561,6 @@ paths:
       operationId: upsertReview
       security:
         - BearerAuth: []
-        - SessionCookie: []
       requestBody:
         required: true
         content:
@@ -259,6 +568,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateReviewRequest'
       responses:
+        '200':
+          description: Existing review updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
         '201':
           description: Review written
           content:
@@ -267,6 +582,59 @@ paths:
                 $ref: '#/components/schemas/Review'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/install/receipts:
+    post:
+      tags: [Install Platform]
+      summary: Record a successful install receipt on the platform
+      operationId: recordInstallReceipt
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallReceiptRequest'
+      responses:
+        '200':
+          description: Install receipt recorded or already present
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [install_receipt_id, listing_id, package_version_id, status]
+                properties:
+                  install_receipt_id: { type: string }
+                  listing_id: { type: string }
+                  package_version_id: { type: string }
+                  status:
+                    type: string
+                    enum: [recorded, already_exists]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/install/download/{versionId}:
+    get:
+      tags: [Install Platform]
+      summary: Get artifact download metadata for a package version
+      operationId: getInstallDownload
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: Artifact metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [package_version_id, artifact_url]
+                properties:
+                  package_version_id: { type: string }
+                  artifact_url: { type: string, format: uri }
+                  artifact_sha256: { type: string, nullable: true }
+                  artifact_size_bytes: { type: integer, nullable: true }
         '404':
           $ref: '#/components/responses/NotFound'
   /v1/install/resolve:
@@ -413,19 +781,30 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
-    SessionCookie:
-      type: apiKey
-      in: cookie
-      name: aics_session
+      bearerFormat: API token or Better Auth bearer session
   parameters:
     ListingId:
       name: listingId
       in: path
       required: true
       schema: { type: string }
+    Slug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string }
+    CreatorHandle:
+      name: handle
+      in: path
+      required: true
+      schema: { type: string }
     DraftId:
       name: draftId
+      in: path
+      required: true
+      schema: { type: string }
+    VersionId:
+      name: versionId
       in: path
       required: true
       schema: { type: string }
@@ -470,7 +849,7 @@ components:
         slug: { type: string }
         kind:
           type: string
-          enum: [employee, skill, sop, company_template, office_layout, bundle]
+          enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
         title: { type: string }
         summary: { type: string }
         creator:
@@ -490,10 +869,13 @@ components:
       allOf:
         - $ref: '#/components/schemas/ListingSummary'
         - type: object
-          required: [description, version, requirements, permissions]
+          required: [description, requirements, permissions]
           properties:
             description: { type: string }
-            version: { $ref: '#/components/schemas/VersionSummary' }
+            version:
+              anyOf:
+                - $ref: '#/components/schemas/VersionSummary'
+                - type: 'null'
             requirements:
               $ref: '#/components/schemas/RequirementsSummary'
             permissions:
@@ -508,6 +890,7 @@ components:
       required: [package_id, version, runtime_range, schema_version, environments, risk_class]
       properties:
         package_id: { type: string }
+        package_version_id: { type: string }
         version: { type: string }
         runtime_range: { type: string }
         schema_version: { type: string }
@@ -533,6 +916,21 @@ components:
         verification_state:
           type: string
           enum: [unverified, verified, trusted]
+    CreatorDetail:
+      allOf:
+        - $ref: '#/components/schemas/CreatorSummary'
+        - type: object
+          required: [created_at, listings]
+          properties:
+            bio: { type: string, nullable: true }
+            website_url: { type: string, nullable: true }
+            created_at:
+              type: string
+              format: date-time
+            listings:
+              type: array
+              items:
+                $ref: '#/components/schemas/ListingSummary'
     RequirementsSummary:
       type: object
       properties:
@@ -576,6 +974,26 @@ components:
         derivative_of:
           type: array
           items: { type: string }
+    LineageNode:
+      type: object
+      required: [listingId, title, slug, version]
+      properties:
+        listingId: { type: string }
+        title: { type: string }
+        slug: { type: string }
+        version: { type: string }
+    ForkSummary:
+      type: object
+      required: [listingId, title, slug, creatorHandle, version, forkedAt]
+      properties:
+        listingId: { type: string }
+        title: { type: string }
+        slug: { type: string }
+        creatorHandle: { type: string }
+        version: { type: string }
+        forkedAt:
+          type: string
+          format: date-time
     PreviewRef:
       type: object
       properties:
@@ -588,11 +1006,16 @@ components:
         alt: { type: string }
     PublishDraft:
       type: object
-      required: [draft_id, creator_id, status, created_at, updated_at]
+      required: [draft_id, creator_id, kind, title, status, created_at, updated_at]
       properties:
         draft_id: { type: string }
         creator_id: { type: string }
         listing_id: { type: string, nullable: true }
+        kind:
+          type: string
+          enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
+        title: { type: string }
+        summary: { type: string, nullable: true }
         artifact_id: { type: string, nullable: true }
         manifest_json:
           type: object
@@ -605,7 +1028,7 @@ components:
           additionalProperties: true
         status:
           type: string
-          enum: [draft, validated, submitted, rejected]
+          enum: [draft, validated, submitted, approved, rejected]
         created_at:
           type: string
           format: date-time
@@ -618,21 +1041,15 @@ components:
       properties:
         kind:
           type: string
-          enum: [employee, skill, sop, company_template, office_layout, bundle]
+          enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
         listing_id:
           type: string
           nullable: true
         title:
           type: string
           minLength: 1
-          maxLength: 120
         summary:
           type: string
-          maxLength: 500
-        artifact_upload_mode:
-          type: string
-          enum: [registry_object, external_url]
-          default: external_url
     PutDraftManifestRequest:
       type: object
       required: [manifest_json]
@@ -643,9 +1060,6 @@ components:
         artifact:
           type: object
           properties:
-            storage_backend:
-              type: string
-              enum: [registry_object, external_url, github_release, npm]
             external_url:
               type: string
               format: uri
@@ -659,9 +1073,7 @@ components:
       required: [draft_id]
       properties:
         draft_id: { type: string }
-        submit_message:
-          type: string
-          maxLength: 1000
+        submit_message: { type: string }
     LibraryItem:
       type: object
       required: [listing, version, saved_at]
@@ -687,10 +1099,79 @@ components:
           maximum: 5
         title:
           type: string
-          maxLength: 120
         body:
           type: string
-          maxLength: 4000
+    ListingReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [spam, malicious_code, copyright, misleading, other]
+        details:
+          type: string
+          maxLength: 1000
+    ModerationFlag:
+      type: object
+      required: [flag_id, target_type, target_id, reason, status, created_at]
+      properties:
+        flag_id: { type: string }
+        target_type: { type: string }
+        target_id: { type: string }
+        reason: { type: string }
+        status: { type: string }
+        created_at:
+          type: string
+          format: date-time
+    RegisterCreatorRequest:
+      type: object
+      required: [handle, display_name]
+      properties:
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 30
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        bio:
+          type: string
+          maxLength: 500
+    CreatorRegistration:
+      type: object
+      required: [creator_id, user_id, handle, display_name, verification_state, created_at]
+      properties:
+        creator_id: { type: string }
+        user_id: { type: string }
+        handle: { type: string }
+        display_name: { type: string }
+        bio: { type: string, nullable: true }
+        verification_state:
+          type: string
+          enum: [unverified, verified, trusted]
+        created_at:
+          type: string
+          format: date-time
+    ListingStatusPatchRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [listed, hidden, retired]
+        reason:
+          type: string
+          maxLength: 500
+    InstallReceiptRequest:
+      type: object
+      required: [listing_id, package_version_id, install_source]
+      properties:
+        listing_id: { type: string }
+        package_version_id: { type: string }
+        install_source:
+          type: string
+          enum: [registry, url, file]
     Review:
       type: object
       required: [review_id, listing_id, rating, moderation_state, created_at, updated_at]
@@ -742,7 +1223,7 @@ components:
             package_id: { type: string }
             kind:
               type: string
-              enum: [employee, skill, sop, company_template, office_layout, bundle]
+              enum: [employee, skill, sop, company_template, office_layout, bundle, prefab]
             version: { type: string }
             title: { type: string }
         compatibility:

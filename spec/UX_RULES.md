@@ -2,7 +2,7 @@
 
 ## UX philosophy
 
-AICS should feel fast, calm, legible, and trustworthy.
+Offisim should feel fast, calm, legible, and trustworthy.
 
 The user is running a company, not playing a game.
 The UI should help them understand work distribution, status, and outputs with minimal friction.
@@ -140,7 +140,7 @@ Motion should improve comprehension only.
 
 Use the motion system that matches the surface:
 
-- office/runtime motion: PixiJS + GSAP where needed
+- office/runtime motion: scene-native animation in the `Three.js` / SVG office views
 - DOM surfaces: subtle CSS/native transitions by default
 
 Recommended durations:
@@ -216,7 +216,7 @@ Do not add motion or stylistic flourish unless it improves at least one of:
 ## Runtime experience reference
 
 If work touches office-scene choreography, employee state feedback, task presentation,
-or install/import review flows inside the runtime shell, read `/Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`.
+or install/import review flows inside the runtime shell, read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`.
 
 That file is the source of truth for the richer game-feel layer of the product.
 It does not add gameplay systems; it defines presentation systems.

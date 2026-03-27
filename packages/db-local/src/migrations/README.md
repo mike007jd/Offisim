@@ -1,6 +1,10 @@
-# AICS local runtime migrations v0.1
+# Offisim local runtime migrations v0.1
 
-Apply in lexical order.
+This directory is the package-local SQLite migration chain used by `packages/db-local`
+and related tests. It is a maintained subset, not a mirror of the desktop app's
+embedded SQL pack under `Docs/03_migrations/offisim_migrations_local_v0.1/`.
+
+Apply in lexical order:
 
 1. `001_core_tables.sql`
 2. `002_install_tables.sql`
@@ -17,4 +21,4 @@ Apply in lexical order.
 13. `013_recovery_knowledge.sql`
 14. `014_memory_and_thread_synopsis.sql`
 
-These migrations target SQLite and reflect the Desktop / self-host local runtime model.
+These migrations target SQLite and reflect the current package-local runtime model.

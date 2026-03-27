@@ -13,11 +13,12 @@ Primary stack direction for this repository:
 - `apps/market`: Next.js App Router for the public marketplace website only
 - `apps/platform`: Hono + PostgreSQL
 - `packages/core`: LangGraph-based orchestration kernel
-- `packages/renderer`: PixiJS office runtime
+- `packages/renderer`: scene tokens, layout engine, and prefab/state logic
+- `packages/ui-office`: office shell with `Three.js` / React Three Fiber 3D views and SVG 2D views
 - Tailwind CSS for DOM UI
 - shadcn/ui primitives for DOM controls where they fit
 - Lucide icons
-- GSAP + Pixi ticker for office/runtime motion
+- scene-native animation in office views plus CSS/native transitions for DOM UI
 - CSS/native transitions for standard DOM UI unless a surface already chose a specific motion implementation
 
 If a generic framework default conflicts with the repo’s actual architecture, the repo wins.
@@ -111,7 +112,7 @@ Promote a package only when the boundary is real.
 - shadcn/ui is for DOM primitives, not the office canvas.
 - Avoid CSS Modules unless a case is truly awkward in Tailwind.
 - Avoid inline styles except for dynamic values that cannot be expressed cleanly.
-- For Pixi rendering, keep drawing constants centralized and data-driven.
+- For office-scene rendering, keep visual constants centralized and data-driven across the `Three.js` 3D view and the `SVG` 2D fallback.
 
 ## State management rules
 
@@ -169,7 +170,7 @@ Add it only if one of these becomes true:
 ## Scene feedback and event mapping
 
 If a change affects runtime events, employee states, task lifecycle, install lifecycle,
-or office-scene choreography, also read `/Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`.
+or office-scene choreography, also read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`.
 
 Engineering rule:
 

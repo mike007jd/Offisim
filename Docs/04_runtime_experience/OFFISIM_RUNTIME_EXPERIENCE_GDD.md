@@ -1,4 +1,4 @@
-# AICS Runtime Experience GDD
+# Offisim Runtime Experience GDD
 
 **Version:** v0.1  
 **Status:** Working design document  
@@ -9,7 +9,7 @@
 
 ## 1. What this document is
 
-AICS is **not** a game product, but it needs **game-grade presentation quality**.
+Offisim is **not** a game product, but it needs **game-grade presentation quality**.
 
 This document exists because the normal PRD / tech stack / UX rules are not enough to define:
 
@@ -27,7 +27,7 @@ This is a **game-design-granularity document for a non-game product**.
 
 This document does **not** introduce classic game systems.
 
-AICS must **not** add:
+Offisim must **not** add:
 
 - player level / account level
 - XP bars
@@ -113,7 +113,7 @@ This loop should be felt visually even when the user only glances at the office.
 
 ## 6. Real systems vs theatrical systems
 
-AICS should only simulate deeply where the simulation creates real product value.
+Offisim should only simulate deeply where the simulation creates real product value.
 Elsewhere, it should use **theatrical implication**.
 
 ### 6.1 Real systems
@@ -154,7 +154,7 @@ If a theatrical effect is used, it must still point back to a real underlying st
 
 The runtime is composed of two coordinated layers:
 
-### 7.1 World layer (Pixi office scene)
+### 7.1 World layer (office scene)
 
 Used for:
 
@@ -496,7 +496,7 @@ Suggested feedback:
 
 ## 12. Install / import presentation system
 
-Install/import is one of the most important “high drama” moments in AICS.
+Install/import is one of the most important “high drama” moments in Offisim.
 It should feel serious, trustworthy, and satisfying.
 
 ### 12.1 Install UX principles
@@ -557,13 +557,14 @@ Presentation:
 The office should use **program art** / procedural art wherever possible,
 not as a cheap fallback but as a coherent style choice.
 
-### 13.1 Art system: Modular Paper Doll Puppet
+### 13.1 Art system: Modular character rig
 
-**All characters (employees + lobster/OpenClaw agents) use a modular puppet system.**
+**All characters (employees + lobster/OpenClaw agents) use a modular rig system.**
 
-The puppet system draws characters from composable body parts using PixiJS Graphics API,
-with each part as a Container with a pivot point (joint). Animation is driven by GSAP
-timelines manipulating joint rotations, positions, and scales.
+The character system should be built from composable body parts with explicit joints and
+state-driven motion. The current runtime uses scene-native rendering and animation
+primitives, with `Three.js`/R3F for the default 3D office view and `SVG` for the fallback
+2D office view.
 
 This approach was chosen because:
 
@@ -584,34 +585,34 @@ This approach was chosen because:
 #### 13.1.2 Employee puppet anatomy
 
 ```
-CharacterPuppet extends Container
-├─ head (Container, pivot: neck)
-│   ├─ face (Graphics - circle/oval, skinColor)
-│   ├─ eyes (Graphics - dots/ovals, state-reactive)
-│   ├─ hair (Graphics - shape varies by hairStyle, hairColor)
-│   └─ mouth (Graphics - expression changes by state)
-├─ body (Container)
-│   ├─ torso (Graphics - rounded rect, clothingColor)
-│   └─ arms × 2 (Container, pivot: shoulder)
-│       ├─ upperArm (Graphics, skinColor)
-│       └─ hand (Graphics, skinColor)
-└─ legs × 2 (Container, pivot: hip)
-    ├─ thigh (Graphics, clothingColor)
-    └─ foot (Graphics)
+CharacterRig
+├─ head (joint: neck)
+│   ├─ face
+│   ├─ eyes
+│   ├─ hair
+│   └─ mouth
+├─ body
+│   ├─ torso
+│   └─ arms × 2 (joint: shoulder)
+│       ├─ upperArm
+│       └─ hand
+└─ legs × 2 (joint: hip)
+    ├─ thigh
+    └─ foot
 ```
 
 #### 13.1.3 Lobster puppet anatomy (OpenClaw agents)
 
 ```
-LobsterPuppet extends Container
+LobsterRig
 ├─ body (oval carapace, brandColor)
-├─ claws × 2 (Container, pivot: shoulder joint)
-│   ├─ arm (Graphics)
-│   └─ pincer (Graphics, open/close rotation)
-├─ antennae × 2 (Container, sway animation)
-├─ legs × 6 (Container, walking cycle)
+├─ claws × 2 (joint: shoulder)
+│   ├─ arm
+│   └─ pincer (open/close rotation)
+├─ antennae × 2 (sway animation)
+├─ legs × 6 (walking cycle)
 ├─ tail (fan shape, bounce)
-└─ eyes × 2 (on stalks, lookAt rotation)
+└─ eyes × 2 (on stalks, look-at rotation)
 ```
 
 #### 13.1.4 Character customization (CharacterConfig)
@@ -650,10 +651,11 @@ Each config produces a visually unique puppet sharing the same animation rig.
 | failed | head down, shoulders slumped | static |
 | paused | frozen pose, grey desaturation | static |
 
-Each state = one GSAP Timeline operating on joint rotations/positions.
-State transitions use crossfade (kill old timeline, start new with ease-in).
+Each state should map to one reusable motion preset operating on joint
+rotations/positions. State transitions should crossfade cleanly so the user sees a
+continuous change instead of an abrupt snap.
 
-### 13.2 Why procedural art fits AICS
+### 13.2 Why procedural art fits Offisim
 
 - it scales with generated/installed assets
 - it keeps the runtime responsive to live state
@@ -846,7 +848,7 @@ But source-of-truth state comes from runtime/domain events.
 
 ## 18. Performance strategy
 
-AICS should feel rich, not expensive.
+Offisim should feel rich, not expensive.
 
 ### 18.1 Budgeting principle
 

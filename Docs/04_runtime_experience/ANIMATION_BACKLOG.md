@@ -1,9 +1,9 @@
-# AICS Animation Backlog
+# Offisim Animation Backlog
 
 **Version:** v0.1  
 **Status:** Implementation backlog  
 **Audience:** rendering, frontend, runtime, AI coding agents  
-**Depends on:** `AICS_RUNTIME_EXPERIENCE_GDD.md`, `SCENE_STATE_MATRIX.md`
+**Depends on:** `OFFISIM_RUNTIME_EXPERIENCE_GDD.md`, `SCENE_STATE_MATRIX.md`
 
 ---
 
@@ -29,7 +29,7 @@ Priority legend:
 
 Surface legend:
 
-- **WORLD** — Pixi office scene
+- **WORLD** — office scene (`Three.js` 3D / `SVG` 2D)
 - **DOM** — inspectors, panels, review surfaces
 - **BRIDGE** — world + DOM coordinated behavior
 

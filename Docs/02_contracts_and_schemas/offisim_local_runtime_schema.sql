@@ -1,4 +1,4 @@
--- AI Company Simulator — Local Runtime Schema Draft (SQLite)
+-- Offisim — Local Runtime Schema Snapshot (SQLite)
 -- Scope: install state, runtime entities, orchestration persistence, audit logs
 PRAGMA foreign_keys = ON;
 

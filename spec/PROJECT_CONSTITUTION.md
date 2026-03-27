@@ -22,7 +22,7 @@ Think in sessions: one session, one production-ready deliverable.
 
 1. Build production-grade from the first meaningful implementation.
    Do not intentionally ship throwaway scaffolding with the plan to “redo it later.”
-2. AICS is local-first.
+2. Offisim is local-first.
    The user’s company runtime belongs on their machine or self-hosted environment, not in an accidental SaaS control plane.
 3. Multi-agent collaboration is the core product primitive.
    Routing, handoffs, meetings, interrupts, queueing, resume, and reporting are first-class.
@@ -93,7 +93,7 @@ When multiple repository docs apply, use this order:
 3. `spec/ENGINEERING_RULES.md`
 4. `spec/UX_RULES.md`
 5. `spec/DESIGN_RULES.md`
-6. `Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md`
+6. `Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`
 
 The GDD is a presentation-system source of truth.
 It does not override constitution-level rules or machine-readable contracts.

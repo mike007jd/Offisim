@@ -1,4 +1,4 @@
-// Types derived from aics_openapi.yaml schemas
+// Types derived from offisim_openapi.yaml schemas
 
 import type { AssetKind, RiskClass, SupportedEnvironment } from '@aics/asset-schema';
 

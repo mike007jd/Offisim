@@ -2,7 +2,7 @@
 
 ## Design philosophy
 
-AICS should feel like a polished productivity product with spatial intelligence.
+Offisim should feel like a polished productivity product with spatial intelligence.
 
 It is **not** a game UI, and it is **not** a generic SaaS dashboard.
 
@@ -49,7 +49,7 @@ Use semantic tokens for:
 - motion
 - status
 
-For the Pixi office scene, use centralized scene token maps rather than ad hoc drawing values sprinkled across feature code.
+For the office scene, use centralized scene token maps rather than ad hoc drawing values sprinkled across feature code.
 
 ## Color system
 
@@ -223,7 +223,7 @@ Rules:
 ## Runtime experience reference
 
 If work touches the office scene, runtime feedback, procedural art, or animation choreography,
-read `/Docs/04_runtime_experience/AICS_RUNTIME_EXPERIENCE_GDD.md` before making changes.
+read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md` before making changes.
 
 That document defines:
 

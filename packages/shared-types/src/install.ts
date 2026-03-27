@@ -1,6 +1,6 @@
 /**
  * Install-system types shared across packages.
- * Source: aics_install_state_machine.md §7 (bindings), §2 (source types).
+ * Source: offisim_install_state_machine.md §7 (bindings), §2 (source types).
  */
 
 /** Binding types — what kind of runtime slot a package asset needs. */

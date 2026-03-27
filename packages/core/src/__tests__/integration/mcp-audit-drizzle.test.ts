@@ -18,11 +18,11 @@ import type { ToolCallRequest } from '../../runtime/tool-executor.js';
 
 const DDL_PATH = resolve(
   import.meta.dirname ?? '.',
-  '../../../../../Docs/02_contracts_and_schemas/aics_local_runtime_schema.sql',
+  '../../../../../Docs/02_contracts_and_schemas/offisim_local_runtime_schema.sql',
 );
 const MIGRATIONS_DIR = resolve(
   import.meta.dirname ?? '.',
-  '../../../../../Docs/03_migrations/aics_migrations_local_v0.1',
+  '../../../../../Docs/03_migrations/offisim_migrations_local_v0.1',
 );
 
 class TestMcpClientFactory implements McpClientFactory {

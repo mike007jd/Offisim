@@ -1,4 +1,4 @@
-# AI Company Simulator — Install State Machine v0.1
+# Offisim — Install State Machine v0.1
 
 This document defines the runtime-local install/import state machine for 1.0.
 

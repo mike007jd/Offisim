@@ -28,7 +28,7 @@ export type TaskState =
   | 'cancelled';
 
 /**
- * Install transaction states — source: aics_install_state_machine.md
+ * Install transaction states — source: offisim_install_state_machine.md
  * Binding happens BEFORE materializing (裁决确认).
  */
 export type InstallState =

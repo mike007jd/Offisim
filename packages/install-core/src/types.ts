@@ -6,8 +6,8 @@
  * Consumers in @aics/core implement these interfaces via adapters.
  *
  * Source contracts:
- * - aics_install_state_machine.md (state machine, transitions)
- * - aics_local_runtime_schema.sql (DB row shapes)
+ * - offisim_install_state_machine.md (state machine, transitions)
+ * - offisim_local_runtime_schema.sql (DB row shapes)
  * - manifest-1.0.0.json (manifest types from @aics/asset-schema)
  */
 
@@ -135,7 +135,7 @@ export interface BindingConfirmation {
 }
 
 // ---------------------------------------------------------------------------
-// DB Row Types (mirrors aics_local_runtime_schema.sql)
+// DB Row Types (mirrors offisim_local_runtime_schema.sql)
 // ---------------------------------------------------------------------------
 
 export interface InstallTransactionRow {

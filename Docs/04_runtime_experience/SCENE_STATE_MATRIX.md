@@ -1,9 +1,9 @@
-# AICS Scene State Matrix
+# Offisim Scene State Matrix
 
 **Version:** v0.1  
 **Status:** Implementation-facing support document  
 **Audience:** rendering, runtime, UX, AI coding agents  
-**Depends on:** `AICS_RUNTIME_EXPERIENCE_GDD.md`, contracts in `Docs/02_contracts_and_schemas/`
+**Depends on:** `OFFISIM_RUNTIME_EXPERIENCE_GDD.md`, contracts in `Docs/02_contracts_and_schemas/`
 
 ---
 
@@ -14,7 +14,7 @@ This document converts the Runtime Experience GDD into a more implementation-fri
 It answers four practical questions:
 
 1. Which runtime states matter visually?
-2. What should the user see in the **world layer** (Pixi office scene)?
+2. What should the user see in the **world layer** (office scene)?
 3. What should the user see in the **control layer** (DOM inspectors, panels, modals, toasts)?
 4. How should the system degrade under reduced motion or performance pressure?
 
@@ -38,7 +38,7 @@ Scene feedback must be driven by explicit domain/runtime events. The client must
 
 ### 3.1 Layers
 
-- **World layer** — Pixi office scene, avatars, desks, zones, ambient feedback
+- **World layer** — office scene, avatars, desks, zones, ambient feedback
 - **Control layer** — DOM side panels, inspectors, install review, detail UI, logs, forms
 - **Global layer** — route-level overlays, modal scrims, compatibility banners, panic/error rails
 

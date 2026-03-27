@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 
 const DDL_PATH = resolve(
   import.meta.dirname ?? '.',
-  '../../../../../Docs/02_contracts_and_schemas/aics_local_runtime_schema.sql',
+  '../../../../../Docs/02_contracts_and_schemas/offisim_local_runtime_schema.sql',
 );
 
 function createTestDb() {
