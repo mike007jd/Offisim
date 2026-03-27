@@ -4,6 +4,8 @@ import { ROLE_TO_DEPARTMENT } from '@aics/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
+import type { ZoneRepository } from '../repos/zone-repository.js';
+import { ZoneService } from './zone-service.js';
 import type {
   EmployeeRepository,
   OfficeLayoutRepository,
@@ -64,6 +66,8 @@ const UTILITY_ZONES = [
 // ── Service ────────────────────────────────────────────────────────
 
 export class CompanyTemplateService {
+  private readonly zoneService: ZoneService | null;
+
   constructor(
     private readonly employeeRepo: EmployeeRepository,
     private readonly sopTemplateRepo: SopTemplateRepository,
@@ -71,7 +75,10 @@ export class CompanyTemplateService {
     private readonly eventBus: EventBus,
     private readonly prefabRepo?: PrefabInstanceRepository,
     private readonly transact?: <T>(fn: () => T) => T,
-  ) {}
+    zoneRepo?: ZoneRepository,
+  ) {
+    this.zoneService = zoneRepo ? new ZoneService(zoneRepo) : null;
+  }
 
   /** List available built-in templates */
   listTemplates(): CompanyTemplate[] {
@@ -227,6 +234,11 @@ export class CompanyTemplateService {
           is_active: 1,
         });
 
+        // Zones — seed system zones from SYSTEM_ZONE_TEMPLATES
+        if (this.zoneService) {
+          void this.zoneService.seedSystemZones(companyId);
+        }
+
         // Prefabs
         if (this.prefabRepo) {
           for (const inst of prefabInstances) {
@@ -299,6 +311,11 @@ export class CompanyTemplateService {
       layout_json: JSON.stringify({ preset: template.layoutPreset }),
       is_active: 1,
     });
+
+    // ── Seed system zones ──────────────────────────────────────────
+    if (this.zoneService) {
+      await this.zoneService.seedSystemZones(companyId);
+    }
 
     // ── Create default prefab instances (if repo provided) ─────────
     const prefabInstanceIds: string[] = [];

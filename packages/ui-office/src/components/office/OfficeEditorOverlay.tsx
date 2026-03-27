@@ -9,11 +9,12 @@
  */
 
 import { getAllBuiltinPrefabs } from '@aics/renderer';
-import type { PrefabDefinition, PrefabInstanceRow, SemanticCategory } from '@aics/shared-types';
+import type { PrefabDefinition, PrefabInstanceRow, SemanticCategory, Zone } from '@aics/shared-types';
+import { resolveZoneForPosition } from '@aics/shared-types';
 import { ArrowLeft, Grid3X3, Minus, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
-import { ZONES } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
 
@@ -58,8 +59,8 @@ function toSVG(cx: number, cz: number): { sx: number; sy: number } {
   return { sx: OX + cx * SCALE, sy: OY + cz * SCALE };
 }
 
-/** Zone SVG rect from zone-config */
-function zoneRect(z: (typeof ZONES)[number]) {
+/** Zone SVG rect from dynamic zone */
+function zoneRect(z: Zone) {
   const { sx, sy } = toSVG(z.cx, z.cz);
   const w = z.w * SCALE;
   const h = z.d * SCALE;
@@ -108,6 +109,7 @@ function prefabColor(category: SemanticCategory): string {
 export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps) {
   const { repos, eventBus } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
+  const { zones } = useCompanyZones();
   const { instances: dbInstances, refresh } = usePrefabInstances();
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -175,15 +177,9 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
       // Convert SVG coords back to 3D world coords
       const worldX = (svgX - OX) / SCALE;
       const worldZ = (svgY - OY) / SCALE;
-      // Find which zone this falls in
-      let zoneId = 'dev';
-      for (const z of ZONES) {
-        const r = zoneRect(z);
-        if (svgX >= r.x && svgX <= r.x + r.w && svgY >= r.y && svgY <= r.y + r.h) {
-          zoneId = z.id;
-          break;
-        }
-      }
+      // Resolve zone via shared hit-test (trigger point 1: place)
+      const match = resolveZoneForPosition(worldX, worldZ, placingPrefab.category, zones);
+      const zoneId = match.zoneId;
       const newItem: PlacedItem = {
         instanceId: `studio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         prefabId: placingPrefab.prefabId,
@@ -197,7 +193,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
       setDirty(true);
       // Stay in placement mode for rapid placement
     },
-    [placingPrefab],
+    [placingPrefab, zones],
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -465,18 +461,18 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
             <rect width={SVG_W} height={SVG_H} fill="url(#studio-grid)" />
 
             {/* Zone floor plan */}
-            {ZONES.map((z) => {
+            {zones.map((z) => {
               const r = zoneRect(z);
               return (
-                <g key={z.id}>
+                <g key={z.zoneId}>
                   <rect
                     x={r.x}
                     y={r.y}
                     width={r.w}
                     height={r.h}
                     rx={4}
-                    fill={`${z.accent}08`}
-                    stroke={`${z.accent}30`}
+                    fill={`${z.accentColor}08`}
+                    stroke={`${z.accentColor}30`}
                     strokeWidth={1}
                   />
                   <rect
@@ -484,7 +480,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                     y={r.y}
                     width={r.w}
                     height={2}
-                    fill={z.accent}
+                    fill={z.accentColor}
                     opacity={0.5}
                     rx={4}
                   />
@@ -493,7 +489,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                     y={r.y + r.h / 2}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={`${z.accent}40`}
+                    fill={`${z.accentColor}40`}
                     fontSize="9"
                     fontFamily="monospace"
                     fontWeight="700"
@@ -749,7 +745,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
                         Zone
                       </p>
                       <p className="font-mono text-[10px] text-zinc-400">
-                        {ZONES.find((z) => z.id === selectedItem.zoneId)?.label ??
+                        {zones.find((z) => z.zoneId === selectedItem.zoneId)?.label ??
                           selectedItem.zoneId}
                       </p>
                     </div>

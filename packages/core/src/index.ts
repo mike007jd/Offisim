@@ -78,8 +78,10 @@ export type { InstalledPackageRepository } from './repos/installed-package-repos
 export type { InstalledAssetRepository } from './repos/installed-asset-repository.js';
 export type { AssetBindingRepository } from './repos/asset-binding-repository.js';
 export type { PrefabInstanceRepository } from './repos/prefab-instance-repository.js';
+export type { ZoneRepository, NewZone } from './repos/zone-repository.js';
 export { createMemoryPrefabRepository } from './runtime/memory-prefab-repository.js';
 export { PrefabService } from './services/prefab-service.js';
+export { ZoneService, hydrateZone, dehydrateZone } from './services/zone-service.js';
 export type {
   LlmGateway,
   LlmRequest,

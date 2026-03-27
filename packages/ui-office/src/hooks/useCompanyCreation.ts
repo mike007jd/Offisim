@@ -87,6 +87,7 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
         eventBus,
         repos.prefabInstances,
         repos.transact,
+        repos.zones,
       );
       await service.materializeTemplate(selectedTemplateId, activeCompanyId);
       setStep('ready');

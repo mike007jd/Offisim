@@ -285,7 +285,7 @@ export function StudioGhost() {
             return; // don't place
           }
 
-          placeInstance([x, 0, z], 'editor');
+          placeInstance([x, 0, z]);
           invalidate();
         }}
         onContextMenu={(e) => {

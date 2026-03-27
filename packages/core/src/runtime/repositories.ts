@@ -11,6 +11,7 @@ import type { InstallTransactionRepository } from '../repos/install-transaction-
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
+import type { ZoneRepository } from '../repos/zone-repository.js';
 
 export type { ProjectRow, NewProject, ProjectStatus, ProjectAssignmentRow, NewProjectAssignment };
 
@@ -726,6 +727,7 @@ export interface RuntimeRepositories {
   libraryDocuments: LibraryDocumentRepository;
   officeLayouts: OfficeLayoutRepository;
   prefabInstances: PrefabInstanceRepository;
+  zones: ZoneRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
   /** User-level preferences — optional for backward compatibility. */

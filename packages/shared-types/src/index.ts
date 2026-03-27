@@ -136,3 +136,23 @@ export type {
   NewProjectAssignment,
 } from './project.js';
 export { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from './project.js';
+
+export type {
+  ZoneKind,
+  ZoneArchetype,
+  ActivityType,
+  ZoneRow,
+  Zone,
+  SystemZoneTemplate,
+} from './zone.js';
+export { UNASSIGNED_ZONE_ID } from './zone.js';
+
+export { SYSTEM_ZONE_TEMPLATES, findSystemTemplate, templateToZone } from './zone-templates.js';
+
+export type { ZoneMatch } from './zone-resolution.js';
+export {
+  isInsideZone,
+  resolveZoneForPosition,
+  resolveZoneForRole,
+  resolveEmployeeZone,
+} from './zone-resolution.js';

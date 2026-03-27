@@ -2,7 +2,7 @@ import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
-import { ZONES } from '../../lib/zone-config.js';
+import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
 import { PolicyEditor } from './PolicyEditor';
 
@@ -200,6 +200,7 @@ interface ZoneSummaryTabProps {
 }
 
 function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabProps) {
+  const { zones } = useCompanyZones();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
@@ -222,16 +223,16 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
       </div>
 
       <div className="flex flex-col gap-2">
-        {ZONES.map((zone) => {
-          const props = zoneLayoutMap[zone.id];
-          const accentColor = props?.accentColor ?? zone.accent;
+        {zones.map((zone) => {
+          const props = zoneLayoutMap[zone.zoneId];
+          const accentColor = props?.accentColor ?? zone.accentColor;
           const displayName = props?.displayName?.trim() || zone.label;
           const isEnabled = props?.enabled ?? true;
           const seats = props?.workstationCount ?? zone.deskSlots;
 
           return (
             <div
-              key={zone.id}
+              key={zone.zoneId}
               className={`flex items-center gap-3 rounded-md border px-3 py-2.5 ${
                 isEnabled ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-900 opacity-50'
               }`}
@@ -244,7 +245,7 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
                 <span className="block truncate text-sm font-medium text-gray-200">
                   {displayName}
                 </span>
-                <span className="text-xs text-gray-500">{zone.spaceType}</span>
+                <span className="text-xs text-gray-500">{zone.archetype ?? zone.label}</span>
               </div>
               {seats > 0 && <span className="shrink-0 text-xs text-gray-500">{seats} seats</span>}
               <span

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { Zone } from '@aics/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
 import {
   type ZoneBounds,
   computeFloorPlan,
   computeRestAreaSeats,
 } from '../layout/zone-layout-engine.js';
-import { RD_COMPANY_ZONES } from '../tokens/departments.js';
+
+/** Convert SYSTEM_ZONE_TEMPLATES to Zone[] for test input. */
+const TEST_ZONES: readonly Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, 'test-company'));
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -38,16 +42,16 @@ describe('zone-layout-engine', () => {
   describe('computeFloorPlan', () => {
     it('empty company (0 employees) — should have minimum slots per department', () => {
       const counts = new Map<string, number>();
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // Should still produce zones
-      expect(plan.zones.length).toBeGreaterThanOrEqual(RD_COMPANY_ZONES.length);
+      expect(plan.zones.length).toBeGreaterThanOrEqual(TEST_ZONES.length);
 
       // Department zones should have at least minSlots workstations
       const deptZones = plan.zones.filter((z) => z.type === 'department');
       for (const dz of deptZones) {
-        const config = RD_COMPANY_ZONES.find((c) => c.zoneId === dz.zoneId);
-        expect(dz.workstations.length).toBeGreaterThanOrEqual(config?.minSlots ?? 0);
+        const config = TEST_ZONES.find((c) => c.zoneId === dz.zoneId);
+        expect(dz.workstations.length).toBeGreaterThanOrEqual(config?.deskSlots ?? 0);
       }
 
       // Dimensions should be positive
@@ -61,25 +65,25 @@ describe('zone-layout-engine', () => {
         ['zone-product', 1],
         ['zone-art', 1],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
-      // Dev zone gets ceil(2 * 1.2) = 3 slots (>= minSlots=2)
+      // Dev zone gets max(deskSlots=4, ceil(2 * 1.2)=3) = 4 slots
       const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
       expect(devZone).toBeDefined();
       if (!devZone) throw new Error('Expected dev zone');
-      expect(devZone.workstations.length).toBe(3);
+      expect(devZone.workstations.length).toBe(4);
 
-      // Product: ceil(1 * 1.2) = 2 (== minSlots)
+      // Product: max(deskSlots=4, ceil(1 * 1.2)=2) = 4
       const prodZone = plan.zones.find((z) => z.zoneId === 'zone-product');
       expect(prodZone).toBeDefined();
       if (!prodZone) throw new Error('Expected product zone');
-      expect(prodZone.workstations.length).toBe(2);
+      expect(prodZone.workstations.length).toBe(4);
 
-      // Art: ceil(1 * 1.2) = 2 (== minSlots)
+      // Art: max(deskSlots=4, ceil(1 * 1.2)=2) = 4
       const artZone = plan.zones.find((z) => z.zoneId === 'zone-art');
       expect(artZone).toBeDefined();
       if (!artZone) throw new Error('Expected art zone');
-      expect(artZone.workstations.length).toBe(2);
+      expect(artZone.workstations.length).toBe(4);
 
       // Should be within sane total dimensions
       expect(plan.totalWidth).toBeGreaterThanOrEqual(800);
@@ -93,7 +97,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 4],
         ['zone-art', 4],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // Dev: ceil(8 * 1.2) = 10 slots
       const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
@@ -124,7 +128,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 3],
         ['zone-art', 3],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       const zones = plan.zones;
       for (const [i, a] of zones.entries()) {
@@ -140,7 +144,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 3],
         ['zone-art', 2],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // All workstation IDs must be unique
       const ids = new Set<string>();
@@ -165,7 +169,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 2],
         ['zone-art', 2],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // Sum workstations across zones
       const totalFromZones = plan.zones.reduce((sum, z) => sum + z.workstations.length, 0);
@@ -191,7 +195,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 2],
         ['zone-art', 2],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
       const mtg = plan.zones.find((z) => z.type === 'meeting_room');
       const srv = plan.zones.find((z) => z.type === 'server_room');
       expect(mtg).toBeDefined();
@@ -216,7 +220,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 10],
         ['zone-art', 10],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
       const library = plan.zones.find((z) => z.type === 'library');
       const restArea = plan.zones.find((z) => z.type === 'rest_area');
       expect(library).toBeDefined();
@@ -241,11 +245,11 @@ describe('zone-layout-engine', () => {
         ['zone-product', 10],
         ['zone-art', 10],
       ]);
-      const largePlan = computeFloorPlan(RD_COMPANY_ZONES, largeCounts);
+      const largePlan = computeFloorPlan(TEST_ZONES, largeCounts);
 
       // Small team → narrow floor → default padding
       const smallCounts = new Map<string, number>();
-      const smallPlan = computeFloorPlan(RD_COMPANY_ZONES, smallCounts);
+      const smallPlan = computeFloorPlan(TEST_ZONES, smallCounts);
 
       // For small office at MIN_FLOOR_WIDTH (800), dynamic padding = max(20, 800*0.02=16) = 20
       // So small office should keep default padding of 20
@@ -262,7 +266,7 @@ describe('zone-layout-engine', () => {
         ['zone-art', 10],
       ]);
       const customPadding = 10;
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts, { zonePadding: customPadding });
+      const plan = computeFloorPlan(TEST_ZONES, counts, { zonePadding: customPadding });
 
       // Check that zones use the custom padding
       const deptZones = plan.zones.filter((z) => z.type === 'department');
@@ -281,7 +285,7 @@ describe('zone-layout-engine', () => {
         ['zone-product', 1],
         ['zone-art', 1],
       ]);
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
 
       const deptZones = plan.zones.filter((z) => z.type === 'department');
       const utilityZones = plan.zones.filter((z) => z.type === 'library' || z.type === 'rest_area');
@@ -301,7 +305,7 @@ describe('zone-layout-engine', () => {
     it('should generate valid positions within zone bounds', () => {
       // Create a floor plan first to get a real rest area zone
       const counts = new Map<string, number>();
-      const plan = computeFloorPlan(RD_COMPANY_ZONES, counts);
+      const plan = computeFloorPlan(TEST_ZONES, counts);
       const restZone = plan.zones.find((z) => z.type === 'rest_area');
       expect(restZone).toBeDefined();
       if (!restZone) throw new Error('Expected rest area zone');

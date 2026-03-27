@@ -1,4 +1,6 @@
-import { RD_COMPANY_ZONES, computeFloorPlan } from '@aics/renderer';
+import { computeFloorPlan } from '@aics/renderer';
+import type { Zone } from '@aics/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
 import {
   Button,
   Dialog,
@@ -28,7 +30,8 @@ import { TestChatTab } from './TestChatTab';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
 // Generate workstation options from the default floor plan
-const _defaultPlan = computeFloorPlan(RD_COMPANY_ZONES, new Map());
+const _defaultZones: Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, ''));
+const _defaultPlan = computeFloorPlan(_defaultZones, new Map());
 const WORKSTATION_OPTIONS = Array.from(_defaultPlan.allWorkstations.entries()).map(([id], i) => ({
   value: id,
   label: `Workstation ${i + 1}`,

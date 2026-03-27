@@ -16,31 +16,50 @@ import type {
   GraphNodeEnteredPayload,
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
+  Zone,
+  RoleSlug,
 } from '@aics/shared-types';
+import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@aics/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { truncate } from '../lib/format-time';
-import { SEAT_OFFSETS, getZoneCenter3D, resolveZone } from '../lib/zone-config';
+import { SEAT_OFFSETS } from '../lib/zone-config';
 import type { AgentState } from '../runtime/use-agent-states';
 import type { CharacterMovementHandle } from './useCharacterMovement';
 
-// ── Zone coordinates (derived from zone-config) ────────────────
+// ── Zone-aware coordinate helpers ────────────────────────────────
 
-const MTG_CENTER = getZoneCenter3D('mtg');
-const REST_CENTER = getZoneCenter3D('rest');
 const MTG_RADIUS = 2.5;
 
-/** Pre-computed semicircle positions around MTG center (up to 8 seats). */
-const MTG_POSITIONS = Array.from({ length: 8 }, (_, i) => {
-  const angle = (Math.PI * (i + 1)) / 9;
-  return [
-    MTG_CENTER[0] + Math.cos(angle) * MTG_RADIUS,
-    0,
-    MTG_CENTER[2] + Math.sin(angle) * MTG_RADIUS,
-  ] as [number, number, number];
-});
+/** Fallback center if zone not found. */
+const ORIGIN: [number, number, number] = [0, 0, 0];
 
-function getWorkstationPos(zoneId: string, slotIdx: number): [number, number, number] {
-  const center = getZoneCenter3D(zoneId);
+function getZoneCenter(zones: readonly Zone[], archetype: string): [number, number, number] {
+  const z = zones.find((zone) => zone.archetype === archetype);
+  return z ? [z.cx, 0, z.cz] : ORIGIN;
+}
+
+function getZoneCenterById(zones: readonly Zone[], zoneId: string): [number, number, number] {
+  const z = zones.find((zone) => zone.zoneId === zoneId);
+  return z ? [z.cx, 0, z.cz] : ORIGIN;
+}
+
+function computeMtgPositions(mtgCenter: [number, number, number]) {
+  return Array.from({ length: 8 }, (_, i) => {
+    const angle = (Math.PI * (i + 1)) / 9;
+    return [
+      mtgCenter[0] + Math.cos(angle) * MTG_RADIUS,
+      0,
+      mtgCenter[2] + Math.sin(angle) * MTG_RADIUS,
+    ] as [number, number, number];
+  });
+}
+
+function getWorkstationPos(
+  zones: readonly Zone[],
+  zoneId: string,
+  slotIdx: number,
+): [number, number, number] {
+  const center = getZoneCenterById(zones, zoneId);
   const offset = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
   return [
     center[0] + offset[0] + (Math.random() - 0.5) * 0.3,
@@ -49,11 +68,12 @@ function getWorkstationPos(zoneId: string, slotIdx: number): [number, number, nu
   ];
 }
 
-function getRestPos(): [number, number, number] {
+function getRestPos(zones: readonly Zone[]): [number, number, number] {
+  const restCenter = getZoneCenter(zones, 'rest');
   return [
-    REST_CENTER[0] + (Math.random() - 0.5) * 4,
+    restCenter[0] + (Math.random() - 0.5) * 4,
     0,
-    REST_CENTER[2] + (Math.random() - 0.5) * 3,
+    restCenter[2] + (Math.random() - 0.5) * 3,
   ];
 }
 
@@ -159,12 +179,14 @@ interface OrchestratorDeps {
     ) => () => void;
   };
   agents: Map<string, AgentState>;
+  zones: readonly Zone[];
 }
 
 export function useSceneOrchestrator({
   companyId,
   eventBus,
   agents,
+  zones,
 }: OrchestratorDeps): CeremonyState {
   const [ceremony, setCeremony] = useState<CeremonyState>({
     phase: 'idle',
@@ -179,6 +201,8 @@ export function useSceneOrchestrator({
   agentsRef.current = agents;
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
+  const zonesRef = useRef(zones);
+  zonesRef.current = zones;
 
   // Timer tracking — clear all pending timeouts on unmount
   const timerRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -215,11 +239,14 @@ export function useSceneOrchestrator({
       dispatchedIds: new Set(),
     });
 
+    const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
+    const mtgPositions = computeMtgPositions(mtgCenter);
+
     allIds.forEach((id, idx) => {
       const handle = getMovementHandles(companyIdRef.current).get(id);
       if (!handle) return;
       const resolvedSeat =
-        MTG_POSITIONS[idx % MTG_POSITIONS.length] ?? MTG_POSITIONS[0] ?? MTG_CENTER;
+        mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
       const jittered: [number, number, number] = [
         resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
         0,
@@ -236,9 +263,10 @@ export function useSceneOrchestrator({
       if (!handle) return;
 
       // Determine target zone from role
-      const zoneId = resolveZone(role);
+      const resolvedZone = resolveZoneForRole(role as RoleSlug, zonesRef.current);
+      const zoneId = resolvedZone?.zoneId ?? UNASSIGNED_ZONE_ID;
       const slot = getNextSlot(zoneId);
-      const targetPos = getWorkstationPos(zoneId, slot);
+      const targetPos = getWorkstationPos(zonesRef.current, zoneId, slot);
 
       // Highlight: briefly stop for 0.5s then dispatch (we just dispatch immediately with a small delay effect)
       safeTimeout(() => {
@@ -283,11 +311,13 @@ export function useSceneOrchestrator({
       }
 
       let arrivedCount = 0;
+      const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
+      const mtgPositions = computeMtgPositions(mtgCenter);
 
       dispatchedIds.forEach((id, idx) => {
         const handle = getMovementHandles(companyIdRef.current).get(id);
         if (!handle) return;
-        const seat = MTG_POSITIONS[idx % MTG_POSITIONS.length] ?? MTG_POSITIONS[0] ?? MTG_CENTER;
+        const seat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
         handle.moveTo(
           [seat[0] + (Math.random() - 0.5) * 0.3, 0, seat[2] + (Math.random() - 0.5) * 0.3],
           5,
@@ -300,7 +330,7 @@ export function useSceneOrchestrator({
                 setCeremony((prev) => ({ ...prev, phase: 'dismissing', bubbleText: '' }));
                 for (const empId of dispatchedIds) {
                   const h = getMovementHandles(companyIdRef.current).get(empId);
-                  h?.moveTo(getRestPos(), 4);
+                  h?.moveTo(getRestPos(zonesRef.current), 4);
                 }
                 // After 3s, ceremony is fully done
                 safeTimeout(() => {
@@ -338,7 +368,7 @@ export function useSceneOrchestrator({
           const handles = getMovementHandles(companyIdRef.current);
           for (const [, handle] of handles) {
             handle.stop();
-            handle.moveTo(getRestPos(), 5); // quick return to rest first
+            handle.moveTo(getRestPos(zonesRef.current), 5); // quick return to rest first
           }
           hasActivePlan = false;
           // Brief delay to visually separate the reset from the new gathering
@@ -409,7 +439,7 @@ export function useSceneOrchestrator({
               for (const id of allIds) {
                 if (!prev.dispatchedIds.has(id)) {
                   const handle = getMovementHandles(companyIdRef.current).get(id);
-                  handle?.moveTo(getRestPos(), 4);
+                  handle?.moveTo(getRestPos(zonesRef.current), 4);
                 }
               }
               return { ...prev, phase: 'working', bubbleText: '' };

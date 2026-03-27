@@ -16,7 +16,16 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
-import { resolveZone } from '../../lib/zone-config.js';
+import type { RoleSlug, Zone } from '@aics/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone, resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@aics/shared-types';
+
+/** Static Zone objects from templates — used only for wizard preview. */
+const _previewZones: Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, ''));
+
+/** Local shim matching old resolveZone(role) signature for minimal churn. */
+function resolveZone(role: string): string {
+  return resolveZoneForRole(role as RoleSlug, _previewZones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Template metadata — UI-only, not stored in core

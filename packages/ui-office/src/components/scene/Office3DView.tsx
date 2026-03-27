@@ -1,10 +1,12 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RoleSlug, RuntimeEvent, Zone } from '@aics/shared-types';
+import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@aics/shared-types';
 import { Environment, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAgentAnimation } from '../../hooks/useAgentAnimation.js';
 import { useCharacterMovement } from '../../hooks/useCharacterMovement.js';
+import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import {
   registerMovementHandle,
@@ -12,12 +14,7 @@ import {
   useSceneOrchestrator,
 } from '../../hooks/useSceneOrchestrator.js';
 import { STATE_LABELS } from '../../lib/state-labels';
-import {
-  DROP_TARGET_ZONES,
-  SEAT_OFFSETS,
-  ZONES,
-  resolveEmployeeZone,
-} from '../../lib/zone-config.js';
+import { SEAT_OFFSETS } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
@@ -37,9 +34,9 @@ import {
 } from './prefabs/index.js';
 
 // ── 3D-specific zone position/size bridge ────────────────────────────
-// zone-config uses { cx, cz, w, d } (2D/logical coords).
+// Zone uses { cx, cz, w, d } (2D/logical coords).
 // Three.js needs [x, y, z] position and [w, d] size.
-// This mapping is the ONLY place that bridges the two formats.
+// Derived dynamically from useCompanyZones() via useMemo inside components.
 
 interface Zone3DLayout {
   /** Three.js world position [x, y, z] — y=0 means on the floor plane. */
@@ -48,27 +45,29 @@ interface Zone3DLayout {
   size: [number, number];
 }
 
-/** Maps zone ID → Three.js position and size (derived from zone-config cx/cz/w/d). */
-const ZONE_3D_LAYOUT: Readonly<Record<string, Zone3DLayout>> = Object.fromEntries(
-  ZONES.map((z) => [
-    z.id,
-    { position: [z.cx, 0, z.cz] as [number, number, number], size: [z.w, z.d] as [number, number] },
-  ]),
-);
+/** Zone with 3D layout attached (position + size derived from cx/cz/w/d). */
+type Zone3D = Zone & Zone3DLayout;
 
-function getZone3DLayout(zoneId: string): Zone3DLayout {
-  const layout = ZONE_3D_LAYOUT[zoneId];
-  if (!layout) {
-    throw new Error(`Missing 3D layout for zone "${zoneId}"`);
-  }
-  return layout;
+/** Derive 3D layout from a Zone's cx/cz/w/d fields. */
+function toZone3DLayout(z: Zone): Zone3DLayout {
+  return {
+    position: [z.cx, 0, z.cz] as [number, number, number],
+    size: [z.w, z.d] as [number, number],
+  };
 }
 
-/** Zones that accept employee drops (those with desk slots) — with 3D layout attached. */
-const DROP_TARGET_ZONES_3D = DROP_TARGET_ZONES.map((z) => ({ ...z, ...getZone3DLayout(z.id) }));
-
-/** All zones with 3D layout attached (for rendering zone overlays). */
-const ZONES_3D = ZONES.map((z) => ({ ...z, ...getZone3DLayout(z.id) }));
+/** Resolve employee zone using dynamic zones. Returns the zone ID or UNASSIGNED_ZONE_ID. */
+function resolveEmployeeZoneDynamic(
+  agent: { role: string; workstationId?: string | null },
+  zones: readonly Zone[],
+): string {
+  // Priority: persisted workstationId → role-based fallback
+  if (agent.workstationId) {
+    const validIds = new Set(zones.filter((z) => z.deskSlots > 0).map((z) => z.zoneId));
+    if (validIds.has(agent.workstationId)) return agent.workstationId;
+  }
+  return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+}
 
 // ── Drag state ───────────────────────────────────────────────────────
 
@@ -102,8 +101,9 @@ const _intersectPoint = new THREE.Vector3();
 function hitTestZone3D(
   worldX: number,
   worldZ: number,
-): (typeof DROP_TARGET_ZONES_3D)[number] | null {
-  for (const zone of DROP_TARGET_ZONES_3D) {
+  dropTargets: readonly Zone3D[],
+): Zone3D | null {
+  for (const zone of dropTargets) {
     const halfW = zone.size[0] / 2;
     const halfD = zone.size[1] / 2;
     const cx = zone.position[0];
@@ -443,27 +443,39 @@ interface PlacedEmployee {
   position: [number, number, number];
 }
 
-/** Rest area zone layout — used for idle employee default positioning. */
-const REST_ZONE_3D = getZone3DLayout('rest');
 const DEFAULT_SEAT_OFFSET = SEAT_OFFSETS[0] ?? [0, 0, 0];
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
-function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
+function usePlacedEmployees(
+  agents: Map<string, AgentState>,
+  zones3D: readonly Zone3D[],
+  zones: readonly Zone[],
+): PlacedEmployee[] {
   return useMemo(() => {
+    if (zones3D.length === 0) return [];
+
+    // Find rest zone for idle employee positioning
+    const restZone = zones3D.find((z) => z.archetype === 'rest');
+    const restZoneLayout = restZone
+      ? { position: restZone.position, size: restZone.size }
+      : { position: [8, 0, 2] as [number, number, number], size: [14, 8] as [number, number] };
+    const restZoneId = restZone?.zoneId ?? 'rest';
+
     // Space = State: idle employees go to rest area, working employees go to workstations.
     // The SceneOrchestrator overrides these positions during ceremonies via moveTo().
     const zoneEmployees = new Map<
       string,
       { id: string; agent: AgentState; globalIndex: number }[]
     >();
-    for (const z of ZONES_3D) {
-      zoneEmployees.set(z.id, []);
+    for (const z of zones3D) {
+      zoneEmployees.set(z.zoneId, []);
     }
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
       // Idle employees default to rest area — "space = state"
-      const zoneId = agent.state === 'idle' ? 'rest' : resolveEmployeeZone(agent);
+      const zoneId =
+        agent.state === 'idle' ? restZoneId : resolveEmployeeZoneDynamic(agent, zones);
       const arr = zoneEmployees.get(zoneId);
       if (arr) {
         arr.push({ id, agent, globalIndex: globalIdx });
@@ -472,10 +484,10 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
     }
 
     const placed: PlacedEmployee[] = [];
-    for (const zone of ZONES_3D) {
-      const emps = zoneEmployees.get(zone.id) ?? [];
+    for (const zone of zones3D) {
+      const emps = zoneEmployees.get(zone.zoneId) ?? [];
       emps.forEach((emp, slotIdx) => {
-        if (zone.id === 'rest') {
+        if (zone.zoneId === restZoneId) {
           // Rest area: scatter employees in a natural cluster
           const angle = (slotIdx / Math.max(emps.length, 1)) * Math.PI * 1.5 + 0.3;
           const radius = 1.2 + (slotIdx % 3) * 0.8;
@@ -484,9 +496,9 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
             agent: emp.agent,
             globalIndex: emp.globalIndex,
             position: [
-              REST_ZONE_3D.position[0] + Math.cos(angle) * radius,
+              restZoneLayout.position[0] + Math.cos(angle) * radius,
               0,
-              REST_ZONE_3D.position[2] + Math.sin(angle) * radius,
+              restZoneLayout.position[2] + Math.sin(angle) * radius,
             ],
           });
         } else {
@@ -506,7 +518,7 @@ function usePlacedEmployees(agents: Map<string, AgentState>): PlacedEmployee[] {
       });
     }
     return placed;
-  }, [agents]);
+  }, [agents, zones3D, zones]);
 }
 
 function EmployeeMarker({
@@ -1115,13 +1127,46 @@ export default function Office3DView({
   onDeselectEmployee,
 }: Office3DViewProps) {
   const agents = useAgentStates();
-  const placed = usePlacedEmployees(agents);
   const { eventBus } = useAicsRuntime();
   const { activeCompanyId } = useCompany();
   const sceneCompanyId = activeCompanyId ?? 'default-scene-company';
 
+  // ── Dynamic zone loading ──
+  const { zones } = useCompanyZones();
+
+  // Derive 3D layouts from dynamic zones (replaces static ZONE_3D_LAYOUT / ZONES_3D)
+  const zones3D: Zone3D[] = useMemo(
+    () => zones.map((z) => ({ ...z, ...toZone3DLayout(z) })),
+    [zones],
+  );
+
+  // Drop-target zones: those with desk slots (replaces static DROP_TARGET_ZONES_3D)
+  const dropTargetZones3D: Zone3D[] = useMemo(
+    () => zones3D.filter((z) => z.deskSlots > 0),
+    [zones3D],
+  );
+
+  // Zone ID → 3D layout lookup (replaces static ZONE_3D_LAYOUT record)
+  const zone3DLayoutMap: Readonly<Record<string, Zone3DLayout>> = useMemo(
+    () =>
+      Object.fromEntries(
+        zones3D.map((z) => [z.zoneId, { position: z.position, size: z.size }]),
+      ),
+    [zones3D],
+  );
+
+  // Keep stable refs for event handlers that need latest zone data without re-subscribing
+  const zone3DLayoutMapRef = useRef(zone3DLayoutMap);
+  zone3DLayoutMapRef.current = zone3DLayoutMap;
+  const zonesRef = useRef(zones);
+  zonesRef.current = zones;
+  const dropTargetZones3DRef = useRef(dropTargetZones3D);
+  dropTargetZones3DRef.current = dropTargetZones3D;
+
+  const placed = usePlacedEmployees(agents, zones3D, zones);
+
   // ── Scene choreography (ceremony orchestration) ──
-  const ceremony = useSceneOrchestrator({ companyId: sceneCompanyId, eventBus, agents });
+  const ceremony = useSceneOrchestrator({ companyId: sceneCompanyId, eventBus, agents, zones });
 
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
@@ -1150,15 +1195,15 @@ export default function Office3DView({
   // ── Per-zone activity counters ──
   const zoneActivity = useMemo(() => {
     const activity: Record<string, { count: number; blocked: boolean }> = {};
-    for (const zone of ZONES_3D) activity[zone.id] = { count: 0, blocked: false };
+    for (const zone of zones3D) activity[zone.zoneId] = { count: 0, blocked: false };
     for (const [, agent] of agents) {
-      const zoneId = resolveEmployeeZone(agent);
+      const zoneId = resolveEmployeeZoneDynamic(agent, zones);
       if (!activity[zoneId]) continue;
       if (agent.state !== 'idle') activity[zoneId].count++;
       if (agent.state === 'blocked' || agent.state === 'failed') activity[zoneId].blocked = true;
     }
     return activity;
-  }, [agents]);
+  }, [agents, zones3D, zones]);
 
   // ── Scene-level stats for HUD ──
   const activeCount = useMemo(
@@ -1183,11 +1228,24 @@ export default function Office3DView({
     const unsub = eventBus.on('task.state.changed', (event: RuntimeEvent) => {
       const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
       if (payload?.taskState !== 'active') return;
+      const layoutMap = zone3DLayoutMapRef.current;
+      const currentZones = zonesRef.current;
+      const defaultWorkspaceZoneId =
+        currentZones.find((z) => z.archetype === 'workspace')?.zoneId ?? UNASSIGNED_ZONE_ID;
       const assignedZoneId = payload.assignedTo
-        ? resolveEmployeeZone(agentsRef.current.get(payload.assignedTo) ?? { role: 'employee' })
-        : 'prod';
-      const mtgLayout = ZONE_3D_LAYOUT.mtg;
-      const targetLayout = ZONE_3D_LAYOUT[assignedZoneId] ?? ZONE_3D_LAYOUT.prod;
+        ? resolveEmployeeZoneDynamic(
+            agentsRef.current.get(payload.assignedTo) ?? { role: 'employee' },
+            currentZones,
+          )
+        : defaultWorkspaceZoneId;
+      // Find meeting zone layout (archetype 'meeting') for flow line origin
+      const mtgZone = currentZones.find((z) => z.archetype === 'meeting');
+      const mtgLayout = mtgZone ? layoutMap[mtgZone.zoneId] : undefined;
+      // Fallback: first workspace zone if assigned zone not in layout map
+      const fallbackZone = currentZones.find((z) => z.archetype === 'workspace');
+      const targetLayout =
+        layoutMap[assignedZoneId] ??
+        (fallbackZone ? layoutMap[fallbackZone.zoneId] : undefined);
       if (!mtgLayout || !targetLayout) return;
       const line: FlowLineData = {
         id: `flow-${Date.now()}-${Math.random()}`,
@@ -1254,7 +1312,7 @@ export default function Office3DView({
       // Only primary button
       const nativeEvent = e as unknown as PointerEvent;
       if (nativeEvent.button !== 0) return;
-      const zoneId = resolveEmployeeZone(agent);
+      const zoneId = resolveEmployeeZoneDynamic(agent, zonesRef.current);
       setDragState({
         employeeId: empId,
         sourceZoneId: zoneId,
@@ -1283,8 +1341,8 @@ export default function Office3DView({
         };
       });
       // Update hovered zone
-      const zone = hitTestZone3D(worldX, worldZ);
-      setHoveredZoneId(zone?.id ?? null);
+      const zone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
+      setHoveredZoneId(zone?.zoneId ?? null);
     },
     [],
   );
@@ -1296,8 +1354,8 @@ export default function Office3DView({
       if (!ds) return;
 
       if (ds.active) {
-        const targetZone = hitTestZone3D(worldX, worldZ);
-        if (activeCompanyId && targetZone && targetZone.id !== ds.sourceZoneId) {
+        const targetZone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
+        if (activeCompanyId && targetZone && targetZone.zoneId !== ds.sourceZoneId) {
           eventBus.emit({
             type: 'employee.workstation.drop-requested',
             entityId: ds.employeeId,
@@ -1306,7 +1364,7 @@ export default function Office3DView({
             timestamp: Date.now(),
             payload: {
               employeeId: ds.employeeId,
-              targetWorkstationId: targetZone.id,
+              targetWorkstationId: targetZone.zoneId,
             },
           });
         }
@@ -1332,6 +1390,7 @@ export default function Office3DView({
     <Office3DViewInner
       agents={agents}
       placed={placed}
+      zones3D={zones3D}
       selectedEmployeeId={selectedEmployeeId}
       isDragging={isDragging}
       dragState={dragState}
@@ -1370,6 +1429,7 @@ export default function Office3DView({
 function Office3DViewInner({
   agents,
   placed,
+  zones3D,
   selectedEmployeeId,
   isDragging,
   dragState,
@@ -1393,6 +1453,7 @@ function Office3DViewInner({
 }: {
   agents: Map<string, AgentState>;
   placed: PlacedEmployee[];
+  zones3D: readonly Zone3D[];
   selectedEmployeeId: string | null;
   isDragging: boolean;
   dragState: DragState3D | null;
@@ -1454,19 +1515,21 @@ function Office3DViewInner({
         <RoomShell onFloorClick={handleDeselect} />
 
         {/* ── Zone overlays (with drag highlight and activity glow) ── */}
-        {ZONES_3D.map((z) => (
+        {zones3D.map((z) => (
           <ZoneLabel
-            key={z.id}
+            key={z.zoneId}
             position={z.position}
             size={z.size}
-            color={z.accent}
+            color={z.accentColor}
             name={z.label}
             isDragging={isDragging && z.deskSlots > 0}
-            isHovered={hoveredZoneId === z.id}
-            isSource={isDragging ? dragState?.sourceZoneId === z.id : false}
-            activityCount={zoneActivity[z.id]?.count ?? 0}
-            hasBlocked={zoneActivity[z.id]?.blocked ?? false}
-            isMeetingActive={z.id === 'mtg' && (zoneActivity.mtg?.count ?? 0) > 0}
+            isHovered={hoveredZoneId === z.zoneId}
+            isSource={isDragging ? dragState?.sourceZoneId === z.zoneId : false}
+            activityCount={zoneActivity[z.zoneId]?.count ?? 0}
+            hasBlocked={zoneActivity[z.zoneId]?.blocked ?? false}
+            isMeetingActive={
+              z.archetype === 'meeting' && (zoneActivity[z.zoneId]?.count ?? 0) > 0
+            }
           />
         ))}
 

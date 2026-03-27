@@ -7,7 +7,9 @@
  */
 
 import type { RuntimeRepositories } from '@aics/core/browser';
+import { hydrateZone, ZoneService } from '@aics/core/browser';
 import type { PrefabInstanceRow } from '@aics/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StudioCanvas } from './StudioCanvas.js';
@@ -220,19 +222,33 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
   useEffect(() => {
     if (mode === 'edit' && companyId && repos) {
       setLoading(true);
-      repos.prefabInstances.findByCompany(companyId).then((rows) => {
-        const instances = rows.map((r) => ({
+      Promise.all([
+        repos.prefabInstances.findByCompany(companyId),
+        repos.zones.findByCompany(companyId),
+      ]).then(([instanceRows, zoneRows]) => {
+        const store = useStudioStore.getState();
+
+        // Hydrate zones
+        const zones = zoneRows.map((r) => hydrateZone(r));
+        store.setZones(zones);
+
+        // Load instances
+        const instances = instanceRows.map((r) => ({
           id: r.instance_id,
           prefabId: r.prefab_id,
           position: [r.position_x, 0, r.position_y] as [number, number, number],
           rotation: r.rotation,
           zoneId: r.zone_id,
         }));
-        useStudioStore.getState().setInstances(instances);
+        store.setInstances(instances);
         setLoading(false);
       });
     } else {
-      useStudioStore.getState().setInstances([]);
+      // Create mode: populate with default zone templates so placement can resolve
+      const store = useStudioStore.getState();
+      const defaultZones = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, ''));
+      store.setZones(defaultZones);
+      store.setInstances([]);
       setLoading(false);
     }
   }, [mode, companyId, repos]);
@@ -270,6 +286,11 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           created_at: now,
           updated_at: now,
         });
+
+        // Seed system zones for the new company
+        const zoneService = new ZoneService(repos.zones);
+        const seededZones = await zoneService.seedSystemZones(targetCompanyId);
+        useStudioStore.getState().setZones(seededZones);
       } else if (targetCompanyId) {
         // Edit mode: wipe existing prefab instances before re-writing
         await repos.prefabInstances.deleteByCompany(targetCompanyId);

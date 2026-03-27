@@ -15,7 +15,9 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
+  ZoneRow,
 } from '@aics/shared-types';
+import type { NewZone } from '../repos/zone-repository.js';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
@@ -1105,6 +1107,43 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
   };
 
+  // ── Zones ───────────────────────────────────────────────────────
+  const zones: RuntimeRepositories['zones'] = {
+    async create(zone: NewZone) {
+      const ts = now();
+      const row: ZoneRow = { ...zone, created_at: ts, updated_at: ts };
+      db.insert(schema.zones).values(row).run();
+      return row;
+    },
+    async findById(zoneId) {
+      const rows = db
+        .select()
+        .from(schema.zones)
+        .where(eq(schema.zones.zone_id, zoneId))
+        .all();
+      return (rows[0] as ZoneRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.zones)
+        .where(eq(schema.zones.company_id, companyId))
+        .all() as ZoneRow[];
+    },
+    async update(zoneId, fields) {
+      db.update(schema.zones)
+        .set({ ...fields, updated_at: now() })
+        .where(eq(schema.zones.zone_id, zoneId))
+        .run();
+    },
+    async delete(zoneId) {
+      db.delete(schema.zones).where(eq(schema.zones.zone_id, zoneId)).run();
+    },
+    async deleteByCompany(companyId) {
+      db.delete(schema.zones).where(eq(schema.zones.company_id, companyId)).run();
+    },
+  };
+
   const projects: ProjectRepository = {
     async create(project: NewProject) {
       const ts = now();
@@ -1449,6 +1488,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     libraryDocuments,
     officeLayouts,
     prefabInstances,
+    zones,
     projects,
     projectAssignments,
     agentEvents,

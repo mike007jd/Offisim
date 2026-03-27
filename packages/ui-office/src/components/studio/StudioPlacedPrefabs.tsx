@@ -6,6 +6,7 @@
  */
 
 import { getBuiltinPrefab } from '@aics/renderer';
+import { resolveZoneForPosition } from '@aics/shared-types';
 import { Html, TransformControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -201,6 +202,17 @@ export function StudioPlacedPrefabs() {
       // Read world position from the group (re-use pre-allocated vector)
       group.getWorldPosition(_pos);
       updatePosition(selectedId, [_pos.x, _pos.y, _pos.z]);
+
+      // Re-resolve zone assignment (trigger point 2: drag)
+      const inst = useStudioStore.getState().instances.find((i) => i.id === selectedId);
+      const def = inst ? getBuiltinPrefab(inst.prefabId) : null;
+      if (def) {
+        const { zones } = useStudioStore.getState();
+        const match = resolveZoneForPosition(_pos.x, _pos.z, def.category, zones);
+        if (inst && match.zoneId !== inst.zoneId) {
+          useStudioStore.getState().updateZoneId(selectedId, match.zoneId);
+        }
+      }
     } else {
       // Read Y rotation (euler) and snap to nearest 90-degree increment
       _euler.setFromQuaternion(group.quaternion, 'YXZ');

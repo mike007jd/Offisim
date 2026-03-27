@@ -6,7 +6,9 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
+  ZoneRow,
 } from '@aics/shared-types';
+import type { ZoneRepository, NewZone } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
 import type { MemoryInstallRepositoriesSnapshot } from './memory-install-repos.js';
@@ -108,6 +110,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   workstationRacks: WorkstationRackRow[];
   libraryDocuments: LibraryDocumentRow[];
   officeLayouts: OfficeLayoutRow[];
+  zones: ZoneRow[];
   prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
   projects: ProjectRow[];
   projectAssignments: ProjectAssignmentRow[];
@@ -422,6 +425,7 @@ export function createMemoryRepositories(
   const workstationRacksRepo = new MemoryWorkstationRackRepository(snapshot?.workstationRacks);
   const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
+  const zonesRepo = new MemoryZoneRepository(snapshot?.zones);
   const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
   const projects = new MemoryProjectRepository(snapshot?.projects);
   const projectAssignments = new MemoryProjectAssignmentRepository(snapshot?.projectAssignments);
@@ -449,6 +453,7 @@ export function createMemoryRepositories(
     workstationRacks: workstationRacksRepo,
     libraryDocuments,
     officeLayouts,
+    zones: zonesRepo,
     prefabInstances,
     projects,
     projectAssignments,
@@ -478,6 +483,7 @@ export function createMemoryRepositories(
         workstationRacks: workstationRacksRepo.snapshot(),
         libraryDocuments: libraryDocuments.snapshot(),
         officeLayouts: officeLayouts.snapshot(),
+        zones: zonesRepo.snapshot(),
         prefabInstances: prefabInstances.snapshot(),
         projects: projects.snapshot(),
         projectAssignments: projectAssignments.snapshot(),
@@ -841,6 +847,65 @@ export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   }
 
   snapshot(): OfficeLayoutRow[] {
+    return cloneRows(this.store.values());
+  }
+}
+
+export class MemoryZoneRepository implements ZoneRepository {
+  private readonly store = new Map<string, ZoneRow>();
+
+  constructor(initialRows?: Iterable<ZoneRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.zone_id, { ...row });
+    }
+  }
+
+  async create(zone: NewZone): Promise<ZoneRow> {
+    const row: ZoneRow = { ...zone, created_at: now(), updated_at: now() };
+    this.store.set(row.zone_id, row);
+    return row;
+  }
+  async findById(zoneId: string): Promise<ZoneRow | null> {
+    return this.store.get(zoneId) ?? null;
+  }
+  async findByCompany(companyId: string): Promise<ZoneRow[]> {
+    return [...this.store.values()].filter((z) => z.company_id === companyId);
+  }
+  async update(
+    zoneId: string,
+    fields: Partial<
+      Pick<
+        ZoneRow,
+        | 'label'
+        | 'accent_color'
+        | 'floor_color'
+        | 'cx'
+        | 'cz'
+        | 'w'
+        | 'd'
+        | 'target_roles_json'
+        | 'allowed_categories_json'
+        | 'activity_types_json'
+        | 'desk_slots'
+        | 'sort_order'
+        | 'archetype'
+      >
+    >,
+  ): Promise<void> {
+    const row = this.store.get(zoneId);
+    if (row) this.store.set(zoneId, { ...row, ...fields, updated_at: now() });
+  }
+  async delete(zoneId: string): Promise<void> {
+    this.store.delete(zoneId);
+  }
+  async deleteByCompany(companyId: string): Promise<void> {
+    for (const [id, row] of this.store.entries()) {
+      if (row.company_id === companyId) this.store.delete(id);
+    }
+  }
+
+  snapshot(): ZoneRow[] {
     return cloneRows(this.store.values());
   }
 }

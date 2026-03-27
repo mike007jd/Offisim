@@ -10,17 +10,14 @@ import { avataaars } from '@dicebear/collection';
  */
 import { createAvatar } from '@dicebear/core';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RoleSlug, Zone } from '@aics/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@aics/shared-types';
 import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
+import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { getPhaseColor } from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
 import { STATE_LABELS } from '../../lib/state-labels';
-import {
-  DROP_TARGET_ZONES,
-  STATUS_COLORS,
-  ZONES,
-  resolveEmployeeZone,
-} from '../../lib/zone-config.js';
-import type { ZoneDef } from '../../lib/zone-config.js';
+import { STATUS_COLORS } from '../../lib/zone-config.js';
 import { useAicsRuntime } from '../../runtime/aics-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
@@ -45,24 +42,18 @@ function toSVG(cx: number, cz: number, w: number, d: number) {
   };
 }
 
-/** Pre-compute zone bounding boxes in SVG space for hit testing. */
-const ZONE_SVG_BOUNDS = DROP_TARGET_ZONES.map((z) => {
-  const s = toSVG(z.cx, z.cz, z.w, z.d);
-  return { zone: z, x: s.x, y: s.y, w: s.w, h: s.h };
-});
-
 /** Find which drop-target zone contains a point in SVG coords. */
-function hitTestZone(svgX: number, svgY: number): ZoneDef | null {
-  for (const b of ZONE_SVG_BOUNDS) {
+function hitTestZone(
+  svgX: number,
+  svgY: number,
+  bounds: ReadonlyArray<{ zone: Zone; x: number; y: number; w: number; h: number }>,
+): Zone | null {
+  for (const b of bounds) {
     if (svgX >= b.x && svgX <= b.x + b.w && svgY >= b.y && svgY <= b.y + b.h) {
       return b.zone;
     }
   }
   return null;
-}
-
-function getZoneById(zoneId: string): ZoneDef | null {
-  return ZONES.find((zone) => zone.id === zoneId) ?? null;
 }
 
 // ── Drag State ────────────────────────────────────────────────────────
@@ -591,9 +582,36 @@ export default function Office2DView({
   const { activeCompanyId } = useCompany();
   const { eventBus } = useAicsRuntime();
   const companyId = activeCompanyId ?? '';
+  const { zones } = useCompanyZones();
+
+  // ── Dynamic zone derivations ──
+  const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
+
+  /** Pre-computed zone bounding boxes in SVG space for hit testing. */
+  const zoneSvgBounds = useMemo(
+    () =>
+      dropTargetZones.map((z) => {
+        const s = toSVG(z.cx, z.cz, z.w, z.d);
+        return { zone: z, x: s.x, y: s.y, w: s.w, h: s.h };
+      }),
+    [dropTargetZones],
+  );
+
+  /** Resolve which zone an employee belongs to (role-based, dynamic). */
+  const resolveEmployeeZone = useCallback(
+    (agent: { role: string; workstationId?: string | null }): string => {
+      // Priority: persisted workstationId → role-based fallback
+      if (agent.workstationId) {
+        const validIds = new Set(dropTargetZones.map((z) => z.zoneId));
+        if (validIds.has(agent.workstationId)) return agent.workstationId;
+      }
+      return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+    },
+    [zones, dropTargetZones],
+  );
 
   // ── Scene choreography (ceremony orchestration) ──
-  const ceremony = useSceneOrchestrator({ companyId, eventBus, agents });
+  const ceremony = useSceneOrchestrator({ companyId, eventBus, agents, zones });
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -692,7 +710,7 @@ export default function Office2DView({
         active: false,
       });
     },
-    [screenToSvg],
+    [screenToSvg, resolveEmployeeZone],
   );
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -721,8 +739,8 @@ export default function Office2DView({
       });
 
       // Update hovered zone for highlight feedback
-      const hitZone = hitTestZone(svgPos.x, svgPos.y);
-      setHoveredZoneId(hitZone?.id ?? null);
+      const hitZone = hitTestZone(svgPos.x, svgPos.y, zoneSvgBounds);
+      setHoveredZoneId(hitZone?.zoneId ?? null);
       return;
     }
 
@@ -736,10 +754,10 @@ export default function Office2DView({
       if (dragState.active) {
         // Determine drop target
         const svgPos = screenToSvg(e.clientX, e.clientY);
-        const targetZone = hitTestZone(svgPos.x, svgPos.y);
+        const targetZone = hitTestZone(svgPos.x, svgPos.y, zoneSvgBounds);
         const sourceZoneId = dragState.sourceZoneId;
 
-        if (targetZone && targetZone.id !== sourceZoneId) {
+        if (targetZone && targetZone.zoneId !== sourceZoneId) {
           // Valid drop — emit the workstation assignment event.
           // Use zone ID as targetWorkstationId, matching the convention that
           // zones map 1:1 to workstation clusters in the 2D view.
@@ -753,7 +771,7 @@ export default function Office2DView({
             timestamp: Date.now(),
             payload: {
               employeeId: dragState.employeeId,
-              targetWorkstationId: targetZone.id,
+              targetWorkstationId: targetZone.zoneId,
             },
           });
         }
@@ -817,13 +835,16 @@ export default function Office2DView({
   // Idle employees go to rest area (space = state).
   const zoneEmployees = useMemo(() => {
     const map = new Map<string, Array<{ agent: AgentState; seed: string; empId: string }>>();
-    for (const z of ZONES) map.set(z.id, []);
+    for (const z of zones) map.set(z.zoneId, []);
     for (const [empId, agent] of agents) {
-      const zId = agent.state === 'idle' ? 'rest' : resolveEmployeeZone(agent);
+      // Idle employees go to the rest archetype zone
+      const restZone = zones.find((z) => z.archetype === 'rest');
+      const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
+      const zId = agent.state === 'idle' ? restId : resolveEmployeeZone(agent);
       map.get(zId)?.push({ agent, seed: agent.name, empId });
     }
     return map;
-  }, [agents]);
+  }, [agents, zones, resolveEmployeeZone]);
 
   // ── Ceremony-aware employee SVG positions ──
   // During active ceremony, override employee positions with CSS transitions.
@@ -867,8 +888,8 @@ export default function Office2DView({
       } else if (isDispatched && ceremony.phase === 'dispatching') {
         // Dispatched: move to their work zone
         const agent = agents.get(empId);
-        const zoneId = agent ? resolveEmployeeZone(agent) : 'dev';
-        const zone = ZONES.find((z) => z.id === zoneId);
+        const zoneId = agent ? resolveEmployeeZone(agent) : UNASSIGNED_ZONE_ID;
+        const zone = zones.find((z) => z.zoneId === zoneId);
         if (zone) {
           const zoneSvg = toSVG(zone.cx, zone.cz, zone.w, zone.d);
           positions.set(empId, {
@@ -892,7 +913,7 @@ export default function Office2DView({
     });
 
     return positions;
-  }, [ceremonyActive, ceremony.phase, dispatchedIds, participantIds, agents]);
+  }, [ceremonyActive, ceremony.phase, dispatchedIds, participantIds, agents, zones, resolveEmployeeZone]);
 
   // Determine if an active drag is happening (past threshold)
   const isDragging = dragState?.active ?? false;
@@ -962,26 +983,27 @@ export default function Office2DView({
           />
 
           {/* Zones — with drag highlight overlay */}
-          {ZONES.map((z) => {
+          {zones.map((z) => {
             const s = toSVG(z.cx, z.cz, z.w, z.d);
             const isDropTarget = isDragging && z.deskSlots > 0;
-            const isHovered = isDragging && hoveredZoneId === z.id;
-            const isSourceZone = isDragging && dragState?.sourceZoneId === z.id;
+            const isHovered = isDragging && hoveredZoneId === z.zoneId;
+            const isSourceZone = isDragging && dragState?.sourceZoneId === z.zoneId;
+            const isInfra = z.deskSlots === 0;
             return (
-              <g key={z.id}>
+              <g key={z.zoneId}>
                 <rect
                   x={s.x}
                   y={s.y}
                   width={s.w}
                   height={s.h}
                   rx="16"
-                  fill={z.accent}
+                  fill={z.accentColor}
                   fillOpacity={isHovered && !isSourceZone ? 0.18 : 0.06}
-                  stroke={z.accent}
+                  stroke={z.accentColor}
                   strokeWidth={isDropTarget ? (isHovered && !isSourceZone ? 3 : 2) : 1.5}
                   strokeOpacity={isDropTarget ? (isHovered && !isSourceZone ? 0.8 : 0.5) : 0.3}
                   strokeDasharray={
-                    z.type === 'infra' ? '8 4' : isDropTarget && !isSourceZone ? '6 3' : 'none'
+                    isInfra ? '8 4' : isDropTarget && !isSourceZone ? '6 3' : 'none'
                   }
                   style={{
                     transition: 'fill-opacity 0.15s, stroke-width 0.15s, stroke-opacity 0.15s',
@@ -992,7 +1014,7 @@ export default function Office2DView({
                   <text
                     x={s.x + s.w / 2}
                     y={s.y + s.h / 2 + 5}
-                    fill={z.accent}
+                    fill={z.accentColor}
                     fontSize="14"
                     fontWeight="700"
                     textAnchor="middle"
@@ -1006,7 +1028,7 @@ export default function Office2DView({
                 <text
                   x={s.x + s.w / 2}
                   y={s.y + 28}
-                  fill={z.accent}
+                  fill={z.accentColor}
                   fontSize="18"
                   fontWeight="900"
                   letterSpacing="6"
@@ -1158,12 +1180,12 @@ export default function Office2DView({
 
           {/* Rest area employees — idle employees scattered naturally */}
           {(() => {
-            const restZ = getZoneById('rest');
+            const restZ = zones.find((z) => z.archetype === 'rest');
             if (!restZ) return null;
             const rs = toSVG(restZ.cx, restZ.cz, restZ.w, restZ.d);
             const rcx = rs.x + rs.w / 2;
             const rcy = rs.y + rs.h / 2;
-            const restEmps = zoneEmployees.get('rest') ?? [];
+            const restEmps = zoneEmployees.get(restZ.zoneId) ?? [];
             return restEmps.map((emp, idx) => {
               if (employeeCeremonyPositions.has(emp.empId)) return null;
               // Scatter in a natural cluster within the rest area
@@ -1188,13 +1210,11 @@ export default function Office2DView({
           })()}
 
           {/* Department employees — each in their own quadrant within the zone */}
-          {(['dev', 'prod', 'art'] as const).map((id) => {
-            const z = getZoneById(id);
-            if (!z) return null;
+          {dropTargetZones.map((z) => {
             const s = toSVG(z.cx, z.cz, z.w, z.d);
             const cx = s.x + s.w / 2;
             const cy = s.y + s.h / 2;
-            const emps = zoneEmployees.get(id) ?? [];
+            const emps = zoneEmployees.get(z.zoneId) ?? [];
             // 4 quadrant positions spread across the zone (30% from center)
             const qx = s.w * 0.28;
             const qy = s.h * 0.25;
@@ -1205,7 +1225,7 @@ export default function Office2DView({
               [qx, qy],
             ];
             return (
-              <g key={id}>
+              <g key={z.zoneId}>
                 {/* Individual desks + employees at quadrant positions */}
                 {quads.map(([dx, dy], i) => {
                   const emp = emps[i] ?? null;

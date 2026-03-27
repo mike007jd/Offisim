@@ -1,7 +1,8 @@
-import { Grid, OrbitControls } from '@react-three/drei';
+import { Grid, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import type { Zone } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
@@ -18,6 +19,7 @@ function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
     plotSize: s.plotSize,
     gridSnap: s.gridSnap,
     tool: s.tool,
+    zones: s.zones,
   };
 }
 
@@ -118,7 +120,54 @@ function StudioScene({
 
       {/* Plot boundary */}
       <PlotBoundary />
+
+      {/* Zone overlays */}
+      <ZoneOverlays />
     </>
+  );
+}
+
+// ── Zone floor overlays ─────────────────────────────────────────────
+
+const _zonePlaneRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
+
+function ZoneOverlays() {
+  const zones = useStudioStore((s) => s.zones);
+  if (zones.length === 0) return null;
+  return (
+    <>
+      {zones.map((zone) => (
+        <ZoneFloor key={zone.zoneId} zone={zone} />
+      ))}
+    </>
+  );
+}
+
+function ZoneFloor({ zone }: { zone: Zone }) {
+  const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
+  return (
+    <group position={[zone.cx, 0.005, zone.cz]}>
+      <mesh rotation={_zonePlaneRotation}>
+        <planeGeometry args={[zone.w, zone.d]} />
+        <meshBasicMaterial color={color} transparent opacity={0.06} depthWrite={false} />
+      </mesh>
+      {/* Zone label */}
+      <Html position={[0, 0.5, -zone.d / 2 + 0.3]} center distanceFactor={40}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: zone.accentColor,
+            opacity: 0.7,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          {zone.label}
+        </div>
+      </Html>
+    </group>
   );
 }
 

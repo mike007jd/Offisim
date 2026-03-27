@@ -1,4 +1,5 @@
-import type { PrefabDefinition } from '@aics/shared-types';
+import type { PrefabDefinition, Zone } from '@aics/shared-types';
+import { resolveZoneForPosition } from '@aics/shared-types';
 import { create } from 'zustand';
 
 export type StudioTool = 'select' | 'move' | 'rotate' | 'place';
@@ -33,6 +34,7 @@ export interface StudioStore {
   ghostRotation: 0 | 90 | 180 | 270;
   selectedInstanceId: string | null;
   instances: PlacedInstance[];
+  zones: Zone[];
   dirty: boolean;
   gridSnap: boolean;
 
@@ -43,14 +45,17 @@ export interface StudioStore {
   startPlacement: (def: PrefabDefinition) => void;
   cancelPlacement: () => void;
   rotateGhost: () => void;
-  placeInstance: (position: [number, number, number], zoneId: string) => void;
+  /** Place instance — zone resolved automatically from position + zones. */
+  placeInstance: (position: [number, number, number]) => void;
   selectInstance: (id: string | null) => void;
   deleteSelected: () => void;
   updatePosition: (id: string, position: [number, number, number]) => void;
   updateRotation: (id: string, rotation: 0 | 90 | 180 | 270) => void;
+  updateZoneId: (instanceId: string, zoneId: string) => void;
   rotateSelected: () => void;
   toggleGridSnap: () => void;
   setInstances: (instances: PlacedInstance[]) => void;
+  setZones: (zones: Zone[]) => void;
   markClean: () => void;
 }
 
@@ -75,6 +80,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   ghostRotation: 0,
   selectedInstanceId: null,
   instances: [],
+  zones: [],
   dirty: false,
   gridSnap: true,
 
@@ -88,6 +94,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       ghostRotation: 0,
       selectedInstanceId: null,
       instances: [],
+      zones: [],
       dirty: false,
       gridSnap: true,
     });
@@ -112,15 +119,21 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     set({ ghostRotation: nextRotation ?? 0 });
   },
 
-  placeInstance: (position, zoneId) => {
-    const { placingPrefab, ghostRotation, instances } = get();
+  placeInstance: (position) => {
+    const { placingPrefab, ghostRotation, instances, zones } = get();
     if (!placingPrefab) return;
+    const match = resolveZoneForPosition(
+      position[0],
+      position[2],
+      placingPrefab.category,
+      zones,
+    );
     const instance: PlacedInstance = {
       id: generateId(),
       prefabId: placingPrefab.prefabId,
       position,
       rotation: ghostRotation,
-      zoneId,
+      zoneId: match.zoneId,
     };
     set({ instances: [...instances, instance], dirty: true });
   },
@@ -183,7 +196,18 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
 
+  updateZoneId: (id, zoneId) =>
+    set((s) => {
+      const inst = s.instances.find((i) => i.id === id);
+      if (inst && inst.zoneId === zoneId) return s;
+      return {
+        instances: s.instances.map((i) => (i.id === id ? { ...i, zoneId } : i)),
+        dirty: true,
+      };
+    }),
+
   toggleGridSnap: () => set((s) => ({ gridSnap: !s.gridSnap })),
   setInstances: (instances) => set({ instances, dirty: false }),
+  setZones: (zones) => set({ zones }),
   markClean: () => set({ dirty: false }),
 }));

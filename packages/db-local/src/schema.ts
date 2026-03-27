@@ -680,3 +680,34 @@ export const officeLayouts = sqliteTable(
   },
   (table) => [index('idx_office_layouts_company').on(table.company_id)],
 );
+
+// ---------------------------------------------------------------------------
+// Zones — spatial regions within the office
+// ---------------------------------------------------------------------------
+
+export const zones = sqliteTable(
+  'zones',
+  {
+    zone_id: text('zone_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    archetype: text('archetype'),
+    label: text('label').notNull(),
+    accent_color: text('accent_color').notNull().default('#64748b'),
+    floor_color: integer('floor_color').notNull().default(0x2a3a5c),
+    cx: real('cx').notNull().default(0),
+    cz: real('cz').notNull().default(0),
+    w: real('w').notNull().default(10),
+    d: real('d').notNull().default(8),
+    target_roles_json: text('target_roles_json'),
+    allowed_categories_json: text('allowed_categories_json'),
+    activity_types_json: text('activity_types_json'),
+    desk_slots: integer('desk_slots').notNull().default(0),
+    sort_order: integer('sort_order').notNull().default(0),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [index('idx_zones_company').on(table.company_id)],
+);

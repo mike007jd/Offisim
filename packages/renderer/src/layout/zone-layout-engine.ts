@@ -3,7 +3,45 @@
 // Computes an OfficeFloorPlan from zone configs and employee counts.
 // The office is one floor divided into typed zones arranged in rows.
 
-import type { ZoneConfig } from '../tokens/departments.js';
+import type { Zone, ZoneArchetype } from '@aics/shared-types';
+
+// ── Legacy ZoneConfig adapter ────────────────────────────────────
+// The layout engine internally uses a ZoneType classification.
+// Map Zone.archetype to the legacy type for backward compat.
+
+type LayoutZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
+
+function archetypeToLayoutType(archetype: ZoneArchetype | null): LayoutZoneType {
+  switch (archetype) {
+    case 'workspace': return 'department';
+    case 'library': return 'library';
+    case 'rest': return 'rest_area';
+    case 'meeting': return 'meeting_room';
+    case 'server': return 'server_room';
+    default: return 'department';
+  }
+}
+
+/** Internal zone representation used by the layout algorithm. */
+interface LayoutZone {
+  readonly zoneId: string;
+  readonly type: LayoutZoneType;
+  readonly label: string;
+  readonly labelEn: string;
+  readonly floorColor: number;
+  readonly minSlots: number;
+}
+
+function toLayoutZone(zone: Zone): LayoutZone {
+  return {
+    zoneId: zone.zoneId,
+    type: archetypeToLayoutType(zone.archetype),
+    label: zone.label,
+    labelEn: zone.label,
+    floorColor: zone.floorColor,
+    minSlots: zone.deskSlots,
+  };
+}
 
 // ── Public types ────────────────────────────────────────────────────
 
@@ -80,12 +118,14 @@ const MAX_FLOOR_WIDTH = 2400;
  *   Row 3: Meeting Room (full width, centered)
  */
 export function computeFloorPlan(
-  zones: readonly ZoneConfig[],
+  inputZones: readonly Zone[],
   employeeCounts: Map<string, number>,
   options?: FloorPlanOptions,
 ): OfficeFloorPlan {
   const userOpts = options ?? {};
   const opts = { ...DEFAULT_OPTIONS, ...userOpts };
+
+  const zones = inputZones.map(toLayoutZone);
 
   // ── Classify zones by type ──────────────────────────────────────
   const departmentZones = zones.filter((z) => z.type === 'department');
@@ -110,7 +150,7 @@ export function computeFloorPlan(
 
   // ── Step 2: Compute each department zone's internal dimensions ──
   interface DeptLayout {
-    zone: ZoneConfig;
+    zone: LayoutZone;
     slots: number;
     cols: number;
     rows: number;
@@ -132,7 +172,7 @@ export function computeFloorPlan(
   // ── Step 4: Arrange Row 2 (Library + Rest Area) ─────────────────
   // These zones share the row, each gets half the available width
   const hasRow2 = libraryZone || restZone;
-  const row2Zones = [libraryZone, restZone].filter(Boolean) as ZoneConfig[];
+  const row2Zones = [libraryZone, restZone].filter(Boolean) as LayoutZone[];
 
   // ── Step 5: Determine total floor width ─────────────────────────
   const rawFloorWidth = Math.max(row1Width, MIN_FLOOR_WIDTH);
@@ -163,7 +203,7 @@ export function computeFloorPlan(
   // Row 3 (meeting room + server room)
   const hasRow3 = meetingZone || serverZone;
   const row3Height = hasRow3 ? MIN_UTILITY_HEIGHT : 0;
-  const row3Zones = [meetingZone, serverZone].filter(Boolean) as ZoneConfig[];
+  const row3Zones = [meetingZone, serverZone].filter(Boolean) as LayoutZone[];
 
   // ── Step 6: Compute total dimensions ────────────────────────────
   const rowCount = [finalRow1Height > 0, hasRow2, hasRow3].filter(Boolean).length;
@@ -340,7 +380,7 @@ export function computeRestAreaSeats(zone: ZoneBounds, count: number): DeskPosit
 /**
  * Compute internal grid dimensions for a department zone.
  */
-function computeDeptZoneLayout(zone: ZoneConfig, slots: number, opts: Required<FloorPlanOptions>) {
+function computeDeptZoneLayout(zone: LayoutZone, slots: number, opts: Required<FloorPlanOptions>) {
   const cellWidth = opts.deskWidth + opts.deskGap;
   const cellHeight = opts.deskHeight + opts.deskGap;
 
