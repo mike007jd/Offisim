@@ -3,6 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Zone } from '@aics/shared-types';
+import { computeOverlapMap } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
@@ -189,6 +190,10 @@ function ZoneOverlays() {
   const zones = useStudioStore((s) => s.zones);
   const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
+  const overlapMap = useMemo(
+    () => computeOverlapMap(zones.map((z) => ({ ...z, id: z.zoneId }))),
+    [zones],
+  );
   if (zones.length === 0) return null;
   return (
     <>
@@ -199,6 +204,7 @@ function ZoneOverlays() {
           isFocused={focusedZoneId === zone.zoneId}
           isDimmed={focusedZoneId !== null && focusedZoneId !== zone.zoneId}
           isSelected={selectedZoneId === zone.zoneId}
+          hasOverlap={overlapMap.has(zone.zoneId)}
         />
       ))}
     </>
@@ -218,10 +224,12 @@ function ZoneFloor({
   isFocused,
   isDimmed,
   isSelected,
+  hasOverlap,
 }: {
   zone: Zone;
   isFocused: boolean;
   isDimmed: boolean;
+  hasOverlap: boolean;
   isSelected: boolean;
 }) {
   const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
@@ -348,6 +356,14 @@ function ZoneFloor({
         <planeGeometry args={[zone.w, zone.d]} />
         <meshBasicMaterial color={color} transparent opacity={fillOpacity} depthWrite={false} />
       </mesh>
+
+      {/* Overlap warning tint */}
+      {hasOverlap && (
+        <mesh position={[0, 0.005, 0]} rotation={_zonePlaneRotation}>
+          <planeGeometry args={[zone.w, zone.d]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.1} depthWrite={false} />
+        </mesh>
+      )}
 
       {/* Invisible drag surface — larger than the zone, only visible during drag.
           Ensures pointer events continue even if the cursor leaves the zone floor. */}

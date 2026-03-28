@@ -7,7 +7,7 @@
  */
 
 import type { RuntimeRepositories } from '@aics/core/browser';
-import { hydrateZone, ZoneService } from '@aics/core/browser';
+import { dehydrateZone, hydrateZone, ZoneService } from '@aics/core/browser';
 import type { PrefabInstanceRow } from '@aics/shared-types';
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
 import { Loader2 } from 'lucide-react';
@@ -297,6 +297,13 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
       }
 
       if (targetCompanyId) {
+        // Persist zones: wipe and re-insert from store
+        await repos.zones.deleteByCompany(targetCompanyId);
+        for (const zone of useStudioStore.getState().zones) {
+          const dehydrated = dehydrateZone(zone);
+          await repos.zones.create(dehydrated);
+        }
+
         const now = new Date().toISOString();
         for (const inst of state.instances) {
           const row: PrefabInstanceRow = {
