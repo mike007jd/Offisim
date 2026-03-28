@@ -350,3 +350,19 @@ export const ZONE_PRESETS: readonly ZonePreset[] = ZONE_PRESET_GROUPS.flatMap((g
 export function findZonePreset(id: string): ZonePreset | undefined {
   return ZONE_PRESETS.find((p) => p.id === id);
 }
+
+// ── Required Zone Archetypes ───────────────────────────────────────
+// These archetypes are functionally required for the game loop:
+// - rest: employees start/idle here, ceremony dismiss target
+// - meeting: ceremony gathering point, requirement discussions
+
+export const REQUIRED_ARCHETYPES: readonly ZoneArchetype[] = ['rest', 'meeting'] as const;
+
+export function isRequiredArchetype(archetype: ZoneArchetype | null): boolean {
+  return archetype !== null && (REQUIRED_ARCHETYPES as readonly string[]).includes(archetype);
+}
+
+/** Get presets for a given archetype (for variant swapping). */
+export function getPresetsForArchetype(archetype: ZoneArchetype): readonly ZonePreset[] {
+  return ZONE_PRESET_GROUPS.find((g) => g.archetype === archetype)?.presets ?? [];
+}

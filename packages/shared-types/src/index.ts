@@ -150,7 +150,17 @@ export { UNASSIGNED_ZONE_ID } from './zone.js';
 export { SYSTEM_ZONE_TEMPLATES, findSystemTemplate, templateToZone } from './zone-templates.js';
 
 export type { ZonePresetPrefab, ZonePreset } from './zone-presets.js';
-export { ZONE_PRESETS, ZONE_PRESET_GROUPS, findZonePreset } from './zone-presets.js';
+export {
+  ZONE_PRESETS,
+  ZONE_PRESET_GROUPS,
+  REQUIRED_ARCHETYPES,
+  findZonePreset,
+  isRequiredArchetype,
+  getPresetsForArchetype,
+} from './zone-presets.js';
+
+export type { ZoneRect } from './zone-overlap.js';
+export { zonesOverlap, findOverlaps, computeOverlapMap } from './zone-overlap.js';
 
 export type { ZoneMatch } from './zone-resolution.js';
 export {
