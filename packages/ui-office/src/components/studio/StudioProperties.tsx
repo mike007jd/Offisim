@@ -6,7 +6,13 @@
  * When a zone is selected: zone name, archetype, size, position, furniture count, variant, delete.
  */
 
-import { getAllBuiltinPrefabs, getBuiltinPrefab } from '@aics/renderer';
+import { getBuiltinPrefab, getAllBuiltinPrefabs } from '@aics/renderer';
+import type { PrefabDefinition } from '@aics/shared-types';
+
+// Module-level constant — built-in prefabs never change at runtime
+const ALL_PREFABS_MAP: Map<string, PrefabDefinition> = new Map(
+  getAllBuiltinPrefabs().map((p) => [p.prefabId, p]),
+);
 import type { ZonePreset } from '@aics/shared-types';
 import { UNASSIGNED_ZONE_ID, getPresetsForArchetype, isRequiredArchetype } from '@aics/shared-types';
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
@@ -112,13 +118,7 @@ export function StudioProperties() {
     [instance, zones],
   );
 
-  // Lazy-build map for swapZoneVariant (only when zone panel is active)
-  const allPrefabsMap = useMemo(() => {
-    if (!selectedZone) return new Map();
-    const map = new Map();
-    for (const p of getAllBuiltinPrefabs()) map.set(p.prefabId, p);
-    return map;
-  }, [selectedZone]);
+  const allPrefabsMap = ALL_PREFABS_MAP;
 
   const showZone = Boolean(selectedZoneId && selectedZone);
   const showInstance = Boolean(!showZone && instance && definition);

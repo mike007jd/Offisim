@@ -8,7 +8,7 @@
 
 import type { RuntimeRepositories } from '@aics/core/browser';
 import { dehydrateZone, hydrateZone, ZoneService } from '@aics/core/browser';
-import type { PrefabInstanceRow } from '@aics/shared-types';
+
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -297,31 +297,32 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
       }
 
       if (targetCompanyId) {
-        // Persist zones: wipe and re-insert from store
+        // Persist zones: wipe and re-insert from store (parallel)
         await repos.zones.deleteByCompany(targetCompanyId);
-        for (const zone of useStudioStore.getState().zones) {
-          const dehydrated = dehydrateZone(zone);
-          await repos.zones.create(dehydrated);
-        }
+        await Promise.all(
+          useStudioStore.getState().zones.map((zone) => repos.zones.create(dehydrateZone(zone))),
+        );
 
+        // Persist prefab instances (parallel)
         const now = new Date().toISOString();
-        for (const inst of state.instances) {
-          const row: PrefabInstanceRow = {
-            instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX) ? crypto.randomUUID() : inst.id,
-            company_id: targetCompanyId,
-            prefab_id: inst.prefabId,
-            zone_id: inst.zoneId,
-            position_x: Number.parseFloat(inst.position[0].toFixed(4)),
-            position_y: Number.parseFloat(inst.position[2].toFixed(4)),
-            rotation: inst.rotation,
-            bindings_json: null,
-            config_json: null,
-            enabled: 1,
-            created_at: now,
-            updated_at: now,
-          };
-          await repos.prefabInstances.create(row);
-        }
+        await Promise.all(
+          state.instances.map((inst) =>
+            repos.prefabInstances.create({
+              instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX) ? crypto.randomUUID() : inst.id,
+              company_id: targetCompanyId,
+              prefab_id: inst.prefabId,
+              zone_id: inst.zoneId,
+              position_x: Number.parseFloat(inst.position[0].toFixed(4)),
+              position_y: Number.parseFloat(inst.position[2].toFixed(4)),
+              rotation: inst.rotation,
+              bindings_json: null,
+              config_json: null,
+              enabled: 1,
+              created_at: now,
+              updated_at: now,
+            }),
+          ),
+        );
       }
 
       useStudioStore.getState().markClean();
@@ -379,7 +380,9 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           break;
         case 'Escape':
           if (store.focusedZoneId) store.unfocusZone();
+          else if (store.placingZonePreset) store.cancelZonePlacement();
           else if (store.placingPrefab) store.cancelPlacement();
+          else if (store.selectedZoneId) store.selectZone(null);
           else store.selectInstance(null);
           break;
         // Number keys 1-7: focus zones by sort order

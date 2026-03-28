@@ -95,30 +95,26 @@ function StudioScene({
   const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   const zones = useStudioStore((s) => s.zones);
 
+  // Derive target coords from focused zone — only these values should restart the animation
+  const focusedZone = focusedZoneId ? zones.find((z) => z.zoneId === focusedZoneId) : null;
+  const camTargetCx = focusedZone?.cx ?? 0;
+  const camTargetCz = focusedZone?.cz ?? 0;
+  const camTargetDist = focusedZone
+    ? Math.max(focusedZone.w, focusedZone.d) * 1.2
+    : maxDim * 0.8;
+
   useEffect(() => {
     const orbit = orbitRef.current;
     if (!orbit) return;
 
-    let targetX: number;
-    let targetZ: number;
-    let dist: number;
-
-    if (focusedZoneId) {
-      const zone = zones.find((z) => z.zoneId === focusedZoneId);
-      if (!zone) return;
-      targetX = zone.cx;
-      targetZ = zone.cz;
-      dist = Math.max(zone.w, zone.d) * 1.2;
-    } else {
-      targetX = 0;
-      targetZ = 0;
-      dist = maxDim * 0.8;
-    }
-
     const startTarget = orbit.target.clone();
     const startPos = camera.position.clone();
-    const endTarget = new THREE.Vector3(targetX, 0, targetZ);
-    const endPos = new THREE.Vector3(targetX + dist * 0.6, dist * 0.7, targetZ + dist * 0.6);
+    const endTarget = new THREE.Vector3(camTargetCx, 0, camTargetCz);
+    const endPos = new THREE.Vector3(
+      camTargetCx + camTargetDist * 0.6,
+      camTargetDist * 0.7,
+      camTargetCz + camTargetDist * 0.6,
+    );
 
     let frame = 0;
     let cancelled = false;
@@ -127,7 +123,7 @@ function StudioScene({
       if (cancelled) return;
       frame++;
       const t = frame / totalFrames;
-      const ease = 1 - Math.pow(1 - t, 3);
+      const ease = 1 - (1 - t) ** 3;
 
       orbit.target.lerpVectors(startTarget, endTarget, ease);
       camera.position.lerpVectors(startPos, endPos, ease);
@@ -141,7 +137,7 @@ function StudioScene({
     requestAnimationFrame(animate);
 
     return () => { cancelled = true; };
-  }, [focusedZoneId, zones, camera, invalidate, maxDim]);
+  }, [focusedZoneId, camTargetCx, camTargetCz, camTargetDist, camera, invalidate]);
 
   return (
     <>

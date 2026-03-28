@@ -248,8 +248,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   toggleGridSnap: () => set((s) => ({ gridSnap: !s.gridSnap })),
   setInstances: (instances) => set({ instances, dirty: false }),
   setZones: (zones) => set({ zones }),
-  focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedInstanceId: null }),
-  unfocusZone: () => set({ focusedZoneId: null, selectedInstanceId: null }),
+  focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedZoneId: zoneId, selectedInstanceId: null }),
+  unfocusZone: () => set({ focusedZoneId: null, selectedZoneId: null, selectedInstanceId: null }),
 
   selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
 
@@ -297,6 +297,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const { zones, instances } = get();
     const zone = zones.find((z) => z.zoneId === zoneId);
     if (!zone) return;
+    // Skip if position unchanged — avoids array allocations every snap frame (PERF-3)
+    if (zone.cx === newCx && zone.cz === newCz) return;
     const dx = newCx - zone.cx;
     const dz = newCz - zone.cz;
     set({
