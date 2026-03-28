@@ -20,6 +20,7 @@ function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
     gridSnap: s.gridSnap,
     tool: s.tool,
     zones: s.zones,
+    focusedZoneId: s.focusedZoneId,
   };
 }
 
@@ -133,72 +134,91 @@ const _zonePlaneRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
 
 function ZoneOverlays() {
   const zones = useStudioStore((s) => s.zones);
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   if (zones.length === 0) return null;
   return (
     <>
       {zones.map((zone) => (
-        <ZoneFloor key={zone.zoneId} zone={zone} />
+        <ZoneFloor
+          key={zone.zoneId}
+          zone={zone}
+          isFocused={focusedZoneId === zone.zoneId}
+          isDimmed={focusedZoneId !== null && focusedZoneId !== zone.zoneId}
+        />
       ))}
     </>
   );
 }
 
-function ZoneFloor({ zone }: { zone: Zone }) {
+function ZoneFloor({
+  zone,
+  isFocused,
+  isDimmed,
+}: {
+  zone: Zone;
+  isFocused: boolean;
+  isDimmed: boolean;
+}) {
   const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
+  const focusZone = useStudioStore((s) => s.focusZone);
+  const unfocusZone = useStudioStore((s) => s.unfocusZone);
 
-  // Border geometry: 4 thin boxes forming the rectangle outline
-  const borderThickness = 0.05;
-  const bh = 0.02; // border height
+  const fillOpacity = isDimmed ? 0.04 : isFocused ? 0.2 : 0.12;
+  const borderOpacity = isDimmed ? 0.15 : isFocused ? 0.8 : 0.5;
+  const labelOpacity = isDimmed ? 0.3 : 0.85;
+
+  // Border geometry
+  const borderThickness = isFocused ? 0.08 : 0.05;
+  const bh = 0.02;
 
   return (
     <group position={[zone.cx, 0.005, zone.cz]}>
       {/* Floor fill */}
       <mesh rotation={_zonePlaneRotation}>
         <planeGeometry args={[zone.w, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={0.12} depthWrite={false} />
+        <meshBasicMaterial color={color} transparent opacity={fillOpacity} depthWrite={false} />
       </mesh>
 
-      {/* Border edges (4 thin boxes) */}
-      {/* Top edge */}
+      {/* Border edges */}
       <mesh position={[0, bh / 2, -zone.d / 2]}>
         <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={0.5} />
+        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
       </mesh>
-      {/* Bottom edge */}
       <mesh position={[0, bh / 2, zone.d / 2]}>
         <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={0.5} />
+        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
       </mesh>
-      {/* Left edge */}
       <mesh position={[-zone.w / 2, bh / 2, 0]}>
         <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={0.5} />
+        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
       </mesh>
-      {/* Right edge */}
       <mesh position={[zone.w / 2, bh / 2, 0]}>
         <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={0.5} />
+        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
       </mesh>
 
-      {/* Zone label pill */}
+      {/* Zone label pill — clickable to focus/unfocus */}
       <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
         <div
+          onClick={() => (isFocused ? unfocusZone() : focusZone(zone.zoneId))}
           style={{
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: '0.05em',
             color: '#fff',
             background: zone.accentColor,
-            padding: '2px 8px',
+            padding: isFocused ? '3px 10px' : '2px 8px',
             borderRadius: 4,
-            opacity: 0.85,
+            border: isFocused ? '2px solid #fff' : '2px solid transparent',
+            opacity: labelOpacity,
             whiteSpace: 'nowrap',
-            pointerEvents: 'none',
+            cursor: 'pointer',
             userSelect: 'none',
             textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            transition: 'all 0.15s ease',
           }}
         >
-          {zone.label}
+          {isFocused ? `✦ ${zone.label}` : zone.label}
         </div>
       </Html>
     </group>

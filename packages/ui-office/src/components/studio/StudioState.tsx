@@ -35,6 +35,8 @@ export interface StudioStore {
   selectedInstanceId: string | null;
   instances: PlacedInstance[];
   zones: Zone[];
+  /** Currently focused zone for "container editing". null = overview mode. */
+  focusedZoneId: string | null;
   dirty: boolean;
   gridSnap: boolean;
 
@@ -56,6 +58,10 @@ export interface StudioStore {
   toggleGridSnap: () => void;
   setInstances: (instances: PlacedInstance[]) => void;
   setZones: (zones: Zone[]) => void;
+  /** Focus a zone for container editing. Camera should fly to this zone. */
+  focusZone: (zoneId: string) => void;
+  /** Return to overview mode (all zones visible). */
+  unfocusZone: () => void;
   markClean: () => void;
 }
 
@@ -81,6 +87,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   selectedInstanceId: null,
   instances: [],
   zones: [],
+  focusedZoneId: null,
   dirty: false,
   gridSnap: true,
 
@@ -95,6 +102,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       selectedInstanceId: null,
       instances: [],
       zones: [],
+      focusedZoneId: null,
       dirty: false,
       gridSnap: true,
     });
@@ -209,5 +217,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   toggleGridSnap: () => set((s) => ({ gridSnap: !s.gridSnap })),
   setInstances: (instances) => set({ instances, dirty: false }),
   setZones: (zones) => set({ zones }),
+  focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedInstanceId: null }),
+  unfocusZone: () => set({ focusedZoneId: null, selectedInstanceId: null }),
   markClean: () => set({ dirty: false }),
 }));

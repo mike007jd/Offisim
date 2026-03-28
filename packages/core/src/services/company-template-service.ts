@@ -1,5 +1,5 @@
 import type { PrefabInstanceRow, RoleSlug } from '@aics/shared-types';
-import { ROLE_TO_DEPARTMENT } from '@aics/shared-types';
+import { ROLE_TO_DEPARTMENT, SYSTEM_ZONE_TEMPLATES } from '@aics/shared-types';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
@@ -16,6 +16,27 @@ import { getTemplate, listTemplates as listAllTemplates } from '../templates/ind
 
 function resolveRoleDepartment(roleSlug: string): string | null {
   return ROLE_TO_DEPARTMENT.get(roleSlug as RoleSlug) ?? null;
+}
+
+/** Get zone center coordinates from SYSTEM_ZONE_TEMPLATES by slug. */
+function getZoneCenter(slug: string): { cx: number; cz: number } {
+  const t = SYSTEM_ZONE_TEMPLATES.find((z) => z.slug === slug);
+  return t ? { cx: t.cx, cz: t.cz } : { cx: 0, cz: 0 };
+}
+
+/** Compute a grid position within a zone for the i-th item. Spacing = 2.5 units. */
+function computeGridPosition(
+  cx: number,
+  cz: number,
+  index: number,
+  cols: number = 3,
+  spacing: number = 2.5,
+): { x: number; z: number } {
+  const col = index % cols;
+  const row = Math.floor(index / cols);
+  const offsetX = (col - (cols - 1) / 2) * spacing;
+  const offsetZ = row * spacing;
+  return { x: cx + offsetX, z: cz + offsetZ };
 }
 
 // ── Default prefab layouts per utility zone type ───────────────────
@@ -147,14 +168,16 @@ export class CompanyTemplateService {
           }
         }
         for (const [zoneId, count] of zoneCounts) {
+          const center = getZoneCenter(zoneId);
           for (let i = 0; i < count; i++) {
+            const pos = computeGridPosition(center.cx, center.cz, i);
             const inst: PrefabInstanceRow = {
               instance_id: crypto.randomUUID(),
               company_id: companyId,
               prefab_id: 'workstation-standard',
               zone_id: zoneId,
-              position_x: 0,
-              position_y: 0,
+              position_x: pos.x,
+              position_y: pos.z,
               rotation: 0,
               bindings_json: null,
               config_json: null,
@@ -167,14 +190,18 @@ export class CompanyTemplateService {
           }
         }
         for (const uz of UTILITY_ZONES) {
-          for (const d of getDefaultPrefabs(uz.type)) {
+          const center = getZoneCenter(uz.zoneId);
+          const defaults = getDefaultPrefabs(uz.type);
+          for (let i = 0; i < defaults.length; i++) {
+            const d = defaults[i]!;
+            const pos = computeGridPosition(center.cx, center.cz, i);
             const inst: PrefabInstanceRow = {
               instance_id: crypto.randomUUID(),
               company_id: companyId,
               prefab_id: d.prefabId,
               zone_id: uz.zoneId,
-              position_x: 0,
-              position_y: 0,
+              position_x: pos.x,
+              position_y: pos.z,
               rotation: 0,
               bindings_json: null,
               config_json: null,
@@ -333,14 +360,16 @@ export class CompanyTemplateService {
 
       // Create workspace prefabs for department zones (one workstation per employee)
       for (const [zoneId, count] of zoneCounts) {
+        const center = getZoneCenter(zoneId);
         for (let i = 0; i < count; i++) {
+          const pos = computeGridPosition(center.cx, center.cz, i);
           const instance: PrefabInstanceRow = {
             instance_id: crypto.randomUUID(),
             company_id: companyId,
             prefab_id: 'workstation-standard',
             zone_id: zoneId,
-            position_x: 0,
-            position_y: 0,
+            position_x: pos.x,
+            position_y: pos.z,
             rotation: 0,
             bindings_json: null,
             config_json: null,
@@ -355,15 +384,18 @@ export class CompanyTemplateService {
 
       // Create utility zone default prefabs
       for (const uz of UTILITY_ZONES) {
+        const center = getZoneCenter(uz.zoneId);
         const defaults = getDefaultPrefabs(uz.type);
-        for (const d of defaults) {
+        for (let i = 0; i < defaults.length; i++) {
+          const d = defaults[i]!;
+          const pos = computeGridPosition(center.cx, center.cz, i);
           const instance: PrefabInstanceRow = {
             instance_id: crypto.randomUUID(),
             company_id: companyId,
             prefab_id: d.prefabId,
             zone_id: uz.zoneId,
-            position_x: 0,
-            position_y: 0,
+            position_x: pos.x,
+            position_y: pos.z,
             rotation: 0,
             bindings_json: null,
             config_json: null,
