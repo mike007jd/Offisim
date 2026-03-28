@@ -108,24 +108,24 @@ function StudioScene({
       targetZ = zone.cz;
       dist = Math.max(zone.w, zone.d) * 1.2;
     } else {
-      // Return to overview: center on origin, zoom to fit plot
       targetX = 0;
       targetZ = 0;
       dist = maxDim * 0.8;
     }
 
-    // Animate camera smoothly (simple lerp over 20 frames)
     const startTarget = orbit.target.clone();
     const startPos = camera.position.clone();
     const endTarget = new THREE.Vector3(targetX, 0, targetZ);
     const endPos = new THREE.Vector3(targetX + dist * 0.6, dist * 0.7, targetZ + dist * 0.6);
 
     let frame = 0;
+    let cancelled = false;
     const totalFrames = 20;
     const animate = () => {
+      if (cancelled) return;
       frame++;
       const t = frame / totalFrames;
-      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const ease = 1 - Math.pow(1 - t, 3);
 
       orbit.target.lerpVectors(startTarget, endTarget, ease);
       camera.position.lerpVectors(startPos, endPos, ease);
@@ -137,6 +137,8 @@ function StudioScene({
       }
     };
     requestAnimationFrame(animate);
+
+    return () => { cancelled = true; };
   }, [focusedZoneId, zones, camera, invalidate, maxDim]);
 
   return (
