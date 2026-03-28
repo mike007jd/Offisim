@@ -89,6 +89,56 @@ function StudioScene({
     }
   }, [focusRef, camera, invalidate]);
 
+  // Auto-fly camera when a zone is focused / unfocused
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
+  const zones = useStudioStore((s) => s.zones);
+
+  useEffect(() => {
+    const orbit = orbitRef.current;
+    if (!orbit) return;
+
+    let targetX: number;
+    let targetZ: number;
+    let dist: number;
+
+    if (focusedZoneId) {
+      const zone = zones.find((z) => z.zoneId === focusedZoneId);
+      if (!zone) return;
+      targetX = zone.cx;
+      targetZ = zone.cz;
+      dist = Math.max(zone.w, zone.d) * 1.2;
+    } else {
+      // Return to overview: center on origin, zoom to fit plot
+      targetX = 0;
+      targetZ = 0;
+      dist = maxDim * 0.8;
+    }
+
+    // Animate camera smoothly (simple lerp over 20 frames)
+    const startTarget = orbit.target.clone();
+    const startPos = camera.position.clone();
+    const endTarget = new THREE.Vector3(targetX, 0, targetZ);
+    const endPos = new THREE.Vector3(targetX + dist * 0.6, dist * 0.7, targetZ + dist * 0.6);
+
+    let frame = 0;
+    const totalFrames = 20;
+    const animate = () => {
+      frame++;
+      const t = frame / totalFrames;
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+
+      orbit.target.lerpVectors(startTarget, endTarget, ease);
+      camera.position.lerpVectors(startPos, endPos, ease);
+      orbit.update();
+      invalidate();
+
+      if (frame < totalFrames) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }, [focusedZoneId, zones, camera, invalidate, maxDim]);
+
   return (
     <>
       <InvalidateBridge />
