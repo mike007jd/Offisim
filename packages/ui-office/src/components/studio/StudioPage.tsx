@@ -371,9 +371,22 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           store.deleteSelected();
           break;
         case 'Escape':
-          if (store.placingPrefab) store.cancelPlacement();
+          if (store.focusedZoneId) store.unfocusZone();
+          else if (store.placingPrefab) store.cancelPlacement();
           else store.selectInstance(null);
           break;
+        // Number keys 1-7: focus zones by sort order
+        case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
+          if (e.ctrlKey || e.metaKey || e.altKey) break;
+          const idx = Number.parseInt(e.key) - 1;
+          const sorted = [...store.zones].sort((a, b) => a.sortOrder - b.sortOrder);
+          const target = sorted[idx];
+          if (target) {
+            if (store.focusedZoneId === target.zoneId) store.unfocusZone();
+            else store.focusZone(target.zoneId);
+          }
+          break;
+        }
         case 's':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
