@@ -1,6 +1,6 @@
 import { Grid, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Zone } from '@aics/shared-types';
 import { useStudioStore } from './StudioState.js';
@@ -21,6 +21,7 @@ function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
     tool: s.tool,
     zones: s.zones,
     focusedZoneId: s.focusedZoneId,
+    selectedZoneId: s.selectedZoneId,
   };
 }
 
@@ -187,6 +188,7 @@ const _zonePlaneRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
 function ZoneOverlays() {
   const zones = useStudioStore((s) => s.zones);
   const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
+  const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
   if (zones.length === 0) return null;
   return (
     <>
@@ -196,57 +198,187 @@ function ZoneOverlays() {
           zone={zone}
           isFocused={focusedZoneId === zone.zoneId}
           isDimmed={focusedZoneId !== null && focusedZoneId !== zone.zoneId}
+          isSelected={selectedZoneId === zone.zoneId}
         />
       ))}
     </>
   );
 }
 
+/** Reusable y=0 ground plane for raycasting pointer position during zone drag. */
+const _groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+/** Snap value to a 0.5 grid. */
+function snapToGrid(v: number): number {
+  return Math.round(v * 2) / 2;
+}
+
 function ZoneFloor({
   zone,
   isFocused,
   isDimmed,
+  isSelected,
 }: {
   zone: Zone;
   isFocused: boolean;
   isDimmed: boolean;
+  isSelected: boolean;
 }) {
   const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
   const focusZone = useStudioStore((s) => s.focusZone);
   const unfocusZone = useStudioStore((s) => s.unfocusZone);
 
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{
+    startPointerX: number;
+    startPointerZ: number;
+    startCx: number;
+    startCz: number;
+  } | null>(null);
+  const { invalidate } = useThree();
+  // Access OrbitControls set by `makeDefault` via the R3F store
+  const getControls = useThree((s) => s.controls);
+
   const fillOpacity = isDimmed ? 0.04 : isFocused ? 0.2 : 0.12;
   const borderOpacity = isDimmed ? 0.15 : isFocused ? 0.8 : 0.5;
   const labelOpacity = isDimmed ? 0.3 : 0.85;
 
+  // Selection highlight: brighten border when selected
+  const effectiveBorderOpacity = isSelected ? Math.min(borderOpacity + 0.3, 1) : borderOpacity;
+
   // Border geometry
-  const borderThickness = isFocused ? 0.08 : 0.05;
+  const borderThickness = isFocused ? 0.08 : isSelected ? 0.07 : 0.05;
   const bh = 0.02;
 
+  // Lift zone slightly when dragging for visual feedback
+  const groupY = isDragging ? 0.1 : 0.005;
+
+  /** Project the pointer ray onto the y=0 ground plane. */
+  const getGroundPoint = useCallback(
+    (e: { ray: THREE.Ray }) => {
+      const target = new THREE.Vector3();
+      e.ray.intersectPlane(_groundPlane, target);
+      return target;
+    },
+    [],
+  );
+
+  const onPointerDown = useCallback(
+    (e: { stopPropagation: () => void; ray: THREE.Ray }) => {
+      const { tool } = useStudioStore.getState();
+      if (tool !== 'select' && tool !== 'move') return;
+
+      e.stopPropagation();
+
+      const pt = getGroundPoint(e);
+      const currentZone = useStudioStore.getState().zones.find((z) => z.zoneId === zone.zoneId);
+      if (!currentZone) return;
+
+      dragRef.current = {
+        startPointerX: pt.x,
+        startPointerZ: pt.z,
+        startCx: currentZone.cx,
+        startCz: currentZone.cz,
+      };
+
+      setIsDragging(true);
+
+      // Select this zone
+      useStudioStore.getState().selectZone(zone.zoneId);
+
+      // Disable orbit controls while dragging
+      if (getControls) {
+        (getControls as unknown as { enabled: boolean }).enabled = false;
+      }
+    },
+    [zone.zoneId, getGroundPoint, getControls],
+  );
+
+  const onPointerMove = useCallback(
+    (e: { stopPropagation: () => void; ray: THREE.Ray }) => {
+      if (!dragRef.current) return;
+      e.stopPropagation();
+
+      const pt = getGroundPoint(e);
+      const { startPointerX, startPointerZ, startCx, startCz } = dragRef.current;
+      const dx = pt.x - startPointerX;
+      const dz = pt.z - startPointerZ;
+
+      let newCx = startCx + dx;
+      let newCz = startCz + dz;
+
+      // Snap to 0.5 grid if enabled
+      if (useStudioStore.getState().gridSnap) {
+        newCx = snapToGrid(newCx);
+        newCz = snapToGrid(newCz);
+      }
+
+      useStudioStore.getState().moveZone(zone.zoneId, newCx, newCz);
+      invalidate();
+    },
+    [zone.zoneId, getGroundPoint, invalidate],
+  );
+
+  const onPointerUp = useCallback(
+    () => {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      setIsDragging(false);
+
+      // Re-enable orbit controls
+      if (getControls) {
+        (getControls as unknown as { enabled: boolean }).enabled = true;
+      }
+      invalidate();
+    },
+    [getControls, invalidate],
+  );
+
   return (
-    <group position={[zone.cx, 0.005, zone.cz]}>
-      {/* Floor fill */}
-      <mesh rotation={_zonePlaneRotation}>
+    <group position={[zone.cx, groupY, zone.cz]}>
+      {/* Floor fill — receives drag pointer events */}
+      <mesh
+        rotation={_zonePlaneRotation}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
         <planeGeometry args={[zone.w, zone.d]} />
         <meshBasicMaterial color={color} transparent opacity={fillOpacity} depthWrite={false} />
       </mesh>
 
+      {/* Invisible drag surface — larger than the zone, only visible during drag.
+          Ensures pointer events continue even if the cursor leaves the zone floor. */}
+      {isDragging && (
+        <mesh
+          rotation={_zonePlaneRotation}
+          position={[0, -0.001, 0]}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          <planeGeometry args={[zone.w * 10, zone.d * 10]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
+      )}
+
       {/* Border edges */}
       <mesh position={[0, bh / 2, -zone.d / 2]}>
         <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
+        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
       </mesh>
       <mesh position={[0, bh / 2, zone.d / 2]}>
         <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
+        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
       </mesh>
       <mesh position={[-zone.w / 2, bh / 2, 0]}>
         <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
+        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
       </mesh>
       <mesh position={[zone.w / 2, bh / 2, 0]}>
         <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={borderOpacity} />
+        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
       </mesh>
 
       {/* Zone label pill — clickable to focus/unfocus */}
@@ -264,7 +396,7 @@ function ZoneFloor({
             border: isFocused ? '2px solid #fff' : '2px solid transparent',
             opacity: labelOpacity,
             whiteSpace: 'nowrap',
-            cursor: 'pointer',
+            cursor: isDragging ? 'grabbing' : 'pointer',
             userSelect: 'none',
             textShadow: '0 1px 2px rgba(0,0,0,0.3)',
             transition: 'all 0.15s ease',
@@ -284,7 +416,9 @@ export interface StudioCanvasProps {
 
 export function StudioCanvas({ children, focusRef }: StudioCanvasProps) {
   const onPointerMissed = useCallback(() => {
-    useStudioStore.getState().selectInstance(null);
+    const s = useStudioStore.getState();
+    s.selectInstance(null);
+    s.selectZone(null);
   }, []);
 
   return (
