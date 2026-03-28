@@ -7,7 +7,9 @@
 
 import { getAllBuiltinPrefabs } from '@aics/renderer';
 import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
-import { BookOpen, Cpu, Leaf, Monitor, Server, Users } from 'lucide-react';
+import type { ZonePreset } from '@aics/shared-types';
+import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@aics/shared-types';
+import { BookOpen, Cpu, Leaf, Lock, Monitor, Server, Users } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { PrefabThumbnail } from './PrefabThumbnail.js';
 import { useStudioStore } from './StudioState.js';
@@ -62,6 +64,7 @@ export function StudioPalette() {
   const startPlacement = useStudioStore((s) => s.startPlacement);
   const tool = useStudioStore((s) => s.tool);
 
+  const [activeTab, setActiveTab] = useState<'assets' | 'zones'>('assets');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const grouped = useMemo(() => {
@@ -85,88 +88,220 @@ export function StudioPalette() {
 
   return (
     <div style={panelStyle('left')}>
-      <div style={sectionHeaderStyle()}>Assets</div>
-      <div style={LIST_STYLE}>
-        {CATEGORIES.map((cat) => {
-          const items = grouped.get(cat.id) ?? [];
-          const isCollapsed = collapsed[cat.id] ?? false;
-          const catColor = STUDIO_COLORS[cat.colorKey];
+      {/* Header */}
+      <div style={sectionHeaderStyle()}>{activeTab === 'assets' ? 'Assets' : 'Zones'}</div>
 
+      {/* Tab bar */}
+      <div
+        style={{
+          display: 'flex',
+          borderBottom: `1px solid ${STUDIO_COLORS.border}`,
+          flexShrink: 0,
+        }}
+      >
+        {(['assets', 'zones'] as const).map((tab) => {
+          const isActive = activeTab === tab;
           return (
-            <div key={cat.id}>
-              {/* Category header */}
-              <button
-                type="button"
-                onClick={() => toggleCategory(cat.id)}
-                aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${cat.label} category (${items.length} items)`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: SP.sm,
-                  width: '100%',
-                  padding: `${SP.sm}px ${SP.md}px`,
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontSize: FONT.base,
-                  fontWeight: FONT.bold,
-                  color: STUDIO_COLORS.textSecondary,
-                  fontFamily: FONT.family,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: FONT.xs,
-                    color: STUDIO_COLORS.textTertiary,
-                    transition: 'transform 0.15s',
-                    transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                    display: 'inline-block',
-                  }}
-                >
-                  &#9660;
-                </span>
-                <cat.Icon size={12} style={{ color: catColor }} />
-                <span>{cat.label}</span>
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    fontSize: FONT.xs,
-                    color: STUDIO_COLORS.textTertiary,
-                    fontWeight: FONT.medium,
-                  }}
-                >
-                  {items.length}
-                </span>
-              </button>
-
-              {/* Grid of prefab cards */}
-              {!isCollapsed && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: SP.xs,
-                    padding: `${SP.xs / 2}px ${SP.sm}px ${SP.sm}px`,
-                  }}
-                >
-                  {items.map((prefab) => {
-                    const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
-                    return (
-                      <PrefabCard
-                        key={prefab.prefabId}
-                        definition={prefab}
-                        isActive={isActive}
-                        onSelect={() => startPlacement(prefab)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                padding: `${SP.sm}px ${SP.md}px`,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: isActive
+                  ? `2px solid ${STUDIO_COLORS.accent}`
+                  : '2px solid transparent',
+                cursor: 'pointer',
+                fontSize: FONT.sm,
+                fontWeight: isActive ? FONT.semibold : FONT.normal,
+                color: isActive ? STUDIO_COLORS.textPrimary : STUDIO_COLORS.textTertiary,
+                fontFamily: FONT.family,
+                letterSpacing: 0.3,
+                transition: 'color 0.12s, border-color 0.12s',
+                textTransform: 'capitalize' as const,
+              }}
+            >
+              {tab === 'assets' ? 'Assets' : 'Zones'}
+            </button>
           );
         })}
       </div>
+
+      {/* Tab content */}
+      {activeTab === 'assets' ? (
+        <div style={LIST_STYLE}>
+          {CATEGORIES.map((cat) => {
+            const items = grouped.get(cat.id) ?? [];
+            const isCollapsed = collapsed[cat.id] ?? false;
+            const catColor = STUDIO_COLORS[cat.colorKey];
+
+            return (
+              <div key={cat.id}>
+                {/* Category header */}
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(cat.id)}
+                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${cat.label} category (${items.length} items)`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: SP.sm,
+                    width: '100%',
+                    padding: `${SP.sm}px ${SP.md}px`,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: FONT.base,
+                    fontWeight: FONT.bold,
+                    color: STUDIO_COLORS.textSecondary,
+                    fontFamily: FONT.family,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: FONT.xs,
+                      color: STUDIO_COLORS.textTertiary,
+                      transition: 'transform 0.15s',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                      display: 'inline-block',
+                    }}
+                  >
+                    &#9660;
+                  </span>
+                  <cat.Icon size={12} style={{ color: catColor }} />
+                  <span>{cat.label}</span>
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: FONT.xs,
+                      color: STUDIO_COLORS.textTertiary,
+                      fontWeight: FONT.medium,
+                    }}
+                  >
+                    {items.length}
+                  </span>
+                </button>
+
+                {/* Grid of prefab cards */}
+                {!isCollapsed && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: SP.xs,
+                      padding: `${SP.xs / 2}px ${SP.sm}px ${SP.sm}px`,
+                    }}
+                  >
+                    {items.map((prefab) => {
+                      const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
+                      return (
+                        <PrefabCard
+                          key={prefab.prefabId}
+                          definition={prefab}
+                          isActive={isActive}
+                          onSelect={() => startPlacement(prefab)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={LIST_STYLE}>
+          {ZONE_PRESET_GROUPS.map((group) => {
+            const isCollapsed = collapsed[`zone-${group.archetype}`] ?? false;
+            const required = isRequiredArchetype(group.archetype);
+
+            return (
+              <div key={group.archetype}>
+                {/* Group header */}
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(`zone-${group.archetype}`)}
+                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} zone group (${group.presets.length} presets)`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: SP.sm,
+                    width: '100%',
+                    padding: `${SP.sm}px ${SP.md}px`,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: FONT.base,
+                    fontWeight: FONT.bold,
+                    color: STUDIO_COLORS.textSecondary,
+                    fontFamily: FONT.family,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: FONT.xs,
+                      color: STUDIO_COLORS.textTertiary,
+                      transition: 'transform 0.15s',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                      display: 'inline-block',
+                    }}
+                  >
+                    &#9660;
+                  </span>
+                  <span style={{ fontSize: FONT.base }}>{group.icon}</span>
+                  <span>{group.label}</span>
+                  {required && (
+                    <span
+                      style={{
+                        fontSize: FONT.xs,
+                        fontWeight: FONT.semibold,
+                        color: STUDIO_COLORS.warning,
+                        background: STUDIO_COLORS.warningMuted,
+                        borderRadius: 10,
+                        padding: `1px ${SP.xs}px`,
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      REQUIRED
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: FONT.xs,
+                      color: STUDIO_COLORS.textTertiary,
+                      fontWeight: FONT.medium,
+                    }}
+                  >
+                    {group.presets.length}
+                  </span>
+                </button>
+
+                {/* Zone preset cards */}
+                {!isCollapsed && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: SP.xs,
+                      padding: `${SP.xs / 2}px ${SP.sm}px ${SP.sm}px`,
+                    }}
+                  >
+                    {group.presets.map((preset) => (
+                      <ZonePresetCard key={preset.id} preset={preset} isRequired={required} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -236,6 +371,135 @@ function PrefabCard({
       >
         {definition.name}
       </span>
+    </button>
+  );
+}
+
+// -- Zone preset card ---------------------------------------------------------
+
+function ZonePresetCard({
+  preset,
+  isRequired,
+}: {
+  preset: ZonePreset;
+  isRequired: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const handleClick = () => {
+    useStudioStore.getState().startZonePlacement(preset);
+  };
+
+  const sizeLabel = `${preset.w}x${preset.d}`;
+  const itemsLabel = `${preset.prefabs.length} items`;
+  const desksLabel = preset.deskSlots > 0 ? `${preset.deskSlots} desks` : null;
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-label={`Place ${preset.label} zone (${sizeLabel})`}
+      title={preset.description}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: SP.sm,
+        padding: `${SP.sm}px ${SP.xs}px`,
+        borderRadius: LAYOUT.cardRadius,
+        background: hovered ? STUDIO_COLORS.surface2 : STUDIO_COLORS.surface1,
+        border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
+        cursor: 'pointer',
+        fontFamily: FONT.family,
+        textAlign: 'left',
+        transition: 'all 0.12s',
+        width: '100%',
+      }}
+    >
+      {/* Color swatch with optional lock overlay */}
+      <div
+        style={{
+          position: 'relative',
+          flexShrink: 0,
+          width: 28,
+          height: 28,
+          borderRadius: 4,
+          background: preset.accentColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Inner proportional size indicator */}
+        <div
+          style={{
+            width: Math.min(20, Math.round((preset.w / Math.max(preset.w, preset.d)) * 20)),
+            height: Math.min(20, Math.round((preset.d / Math.max(preset.w, preset.d)) * 20)),
+            borderRadius: 2,
+            background: 'rgba(255,255,255,0.25)',
+          }}
+        />
+        {/* Lock icon overlay for required archetypes */}
+        {isRequired && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 1,
+              right: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Lock size={8} style={{ color: 'rgba(255,255,255,0.85)' }} />
+          </div>
+        )}
+      </div>
+
+      {/* Text info */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <span
+          style={{
+            fontSize: FONT.base,
+            fontWeight: FONT.medium,
+            color: STUDIO_COLORS.textSecondary,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {preset.label}
+        </span>
+        <span
+          style={{
+            fontSize: FONT.xs,
+            color: STUDIO_COLORS.textTertiary,
+            display: 'flex',
+            gap: SP.xs,
+            flexWrap: 'wrap' as const,
+          }}
+        >
+          <span>{sizeLabel}</span>
+          <span style={{ color: STUDIO_COLORS.textDisabled }}>·</span>
+          <span>{itemsLabel}</span>
+          {desksLabel && (
+            <>
+              <span style={{ color: STUDIO_COLORS.textDisabled }}>·</span>
+              <span>{desksLabel}</span>
+            </>
+          )}
+        </span>
+      </div>
     </button>
   );
 }

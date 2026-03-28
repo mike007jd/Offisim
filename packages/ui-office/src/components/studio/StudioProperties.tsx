@@ -6,7 +6,7 @@
  */
 
 import { getBuiltinPrefab } from '@aics/renderer';
-import { UNASSIGNED_ZONE_ID } from '@aics/shared-types';
+import { UNASSIGNED_ZONE_ID, isRequiredArchetype } from '@aics/shared-types';
 import { BoxSelect, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioStore } from './StudioState.js';
@@ -206,6 +206,11 @@ export function StudioProperties() {
                         }}
                       />
                       <span style={{ ...valueStyle() }}>{zone.label}</span>
+                      {isRequiredArchetype(zone.archetype) && (
+                        <span style={{ fontSize: FONT.sm, color: STUDIO_COLORS.warning, marginLeft: SP.xs }}>
+                          (in required zone)
+                        </span>
+                      )}
                     </>
                   ) : (
                     <span style={{ fontSize: FONT.sm, color: STUDIO_COLORS.textTertiary, fontStyle: 'italic' }}>

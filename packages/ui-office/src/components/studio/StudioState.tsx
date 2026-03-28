@@ -1,5 +1,5 @@
-import type { PrefabDefinition, Zone } from '@aics/shared-types';
-import { resolveZoneForPosition } from '@aics/shared-types';
+import type { PrefabDefinition, Zone, ZonePreset } from '@aics/shared-types';
+import { isRequiredArchetype, resolveZoneForPosition } from '@aics/shared-types';
 import { create } from 'zustand';
 
 export type StudioTool = 'select' | 'move' | 'rotate' | 'place';
@@ -37,6 +37,10 @@ export interface StudioStore {
   zones: Zone[];
   /** Currently focused zone for "container editing". null = overview mode. */
   focusedZoneId: string | null;
+  /** Currently selected zone for properties panel (mutually exclusive with selectedInstanceId). */
+  selectedZoneId: string | null;
+  /** Active zone preset during zone placement mode. */
+  placingZonePreset: ZonePreset | null;
   dirty: boolean;
   gridSnap: boolean;
 
@@ -62,6 +66,29 @@ export interface StudioStore {
   focusZone: (zoneId: string) => void;
   /** Return to overview mode (all zones visible). */
   unfocusZone: () => void;
+  /** Select a zone for the properties panel. Clears selectedInstanceId. */
+  selectZone: (zoneId: string | null) => void;
+  /** Enter zone placement mode with the given preset. */
+  startZonePlacement: (preset: ZonePreset) => void;
+  /** Cancel zone placement mode. */
+  cancelZonePlacement: () => void;
+  /** Place a zone preset at the given world position, creating zone + prefab instances. */
+  placeZoneFromPreset: (
+    position: [number, number, number],
+    allPrefabsMap: Map<string, PrefabDefinition>,
+  ) => void;
+  /** Move a zone and all its associated prefab instances by computing a dx/dz delta. */
+  moveZone: (zoneId: string, newCx: number, newCz: number) => void;
+  /** Delete a zone and its prefabs. Refuses if the zone archetype is required. */
+  deleteZone: (zoneId: string) => void;
+  /** Replace a zone's furniture with a different preset variant while keeping position. */
+  swapZoneVariant: (
+    zoneId: string,
+    preset: ZonePreset,
+    allPrefabsMap: Map<string, PrefabDefinition>,
+  ) => void;
+  /** Update a zone's display label. */
+  updateZoneLabel: (zoneId: string, label: string) => void;
   markClean: () => void;
 }
 
@@ -88,6 +115,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   instances: [],
   zones: [],
   focusedZoneId: null,
+  selectedZoneId: null,
+  placingZonePreset: null,
   dirty: false,
   gridSnap: true,
 
@@ -103,6 +132,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       instances: [],
       zones: [],
       focusedZoneId: null,
+      selectedZoneId: null,
+      placingZonePreset: null,
       dirty: false,
       gridSnap: true,
     });
@@ -219,5 +250,121 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setZones: (zones) => set({ zones }),
   focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedInstanceId: null }),
   unfocusZone: () => set({ focusedZoneId: null, selectedInstanceId: null }),
+
+  selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
+
+  startZonePlacement: (preset) =>
+    set({ tool: 'place', placingZonePreset: preset, placingPrefab: null, ghostRotation: 0, selectedInstanceId: null, selectedZoneId: null }),
+
+  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null }),
+
+  placeZoneFromPreset: (position, allPrefabsMap) => {
+    const { placingZonePreset, instances, zones } = get();
+    if (!placingZonePreset) return;
+    const [x, , z] = position;
+    const zoneId = crypto.randomUUID();
+    const newZone: Zone = {
+      zoneId,
+      companyId: get().companyId ?? '',
+      kind: 'system',
+      archetype: placingZonePreset.archetype,
+      label: placingZonePreset.label,
+      accentColor: placingZonePreset.accentColor,
+      floorColor: placingZonePreset.floorColor,
+      cx: x,
+      cz: z,
+      w: placingZonePreset.w,
+      d: placingZonePreset.d,
+      targetRoles: placingZonePreset.targetRoles,
+      allowedCategories: placingZonePreset.allowedCategories,
+      activityTypes: placingZonePreset.activityTypes,
+      deskSlots: placingZonePreset.deskSlots,
+      sortOrder: zones.length,
+    };
+    const newInstances: PlacedInstance[] = placingZonePreset.prefabs
+      .filter((p) => allPrefabsMap.has(p.prefabId))
+      .map((p) => ({
+        id: generateId(),
+        prefabId: p.prefabId,
+        position: [x + p.offsetX, 0, z + p.offsetZ] as [number, number, number],
+        rotation: p.rotation ?? 0,
+        zoneId,
+      }));
+    set({ zones: [...zones, newZone], instances: [...instances, ...newInstances], dirty: true });
+  },
+
+  moveZone: (zoneId, newCx, newCz) => {
+    const { zones, instances } = get();
+    const zone = zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+    const dx = newCx - zone.cx;
+    const dz = newCz - zone.cz;
+    set({
+      zones: zones.map((z) => (z.zoneId === zoneId ? { ...z, cx: newCx, cz: newCz } : z)),
+      instances: instances.map((i) =>
+        i.zoneId === zoneId
+          ? { ...i, position: [i.position[0] + dx, i.position[1], i.position[2] + dz] as [number, number, number] }
+          : i,
+      ),
+      dirty: true,
+    });
+  },
+
+  deleteZone: (zoneId) => {
+    const { zones, instances } = get();
+    const zone = zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+    if (isRequiredArchetype(zone.archetype)) return;
+    set({
+      zones: zones.filter((z) => z.zoneId !== zoneId),
+      instances: instances.filter((i) => i.zoneId !== zoneId),
+      selectedZoneId: null,
+      dirty: true,
+    });
+  },
+
+  swapZoneVariant: (zoneId, preset, allPrefabsMap) => {
+    const { zones, instances } = get();
+    const zone = zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+    const { cx, cz } = zone;
+    const newInstances: PlacedInstance[] = preset.prefabs
+      .filter((p) => allPrefabsMap.has(p.prefabId))
+      .map((p) => ({
+        id: generateId(),
+        prefabId: p.prefabId,
+        position: [cx + p.offsetX, 0, cz + p.offsetZ] as [number, number, number],
+        rotation: p.rotation ?? 0,
+        zoneId,
+      }));
+    set({
+      zones: zones.map((z) =>
+        z.zoneId === zoneId
+          ? {
+              ...z,
+              archetype: preset.archetype,
+              label: preset.label,
+              accentColor: preset.accentColor,
+              floorColor: preset.floorColor,
+              w: preset.w,
+              d: preset.d,
+              deskSlots: preset.deskSlots,
+              targetRoles: preset.targetRoles,
+              allowedCategories: preset.allowedCategories,
+              activityTypes: preset.activityTypes,
+            }
+          : z,
+      ),
+      instances: [...instances.filter((i) => i.zoneId !== zoneId), ...newInstances],
+      dirty: true,
+    });
+  },
+
+  updateZoneLabel: (zoneId, label) =>
+    set((s) => ({
+      zones: s.zones.map((z) => (z.zoneId === zoneId ? { ...z, label } : z)),
+      dirty: true,
+    })),
+
   markClean: () => set({ dirty: false }),
 }));
