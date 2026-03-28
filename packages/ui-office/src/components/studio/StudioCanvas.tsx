@@ -260,7 +260,9 @@ function ZoneFloor({
   const bh = 0.02;
 
   // Lift zone slightly when dragging for visual feedback
-  const groupY = isDragging ? 0.1 : 0.005;
+  // Zone floor sits below prefabs (y=-0.005) so prefab clicks take raycaster priority.
+  // During drag, lift slightly for visual feedback.
+  const groupY = isDragging ? 0.05 : -0.005;
 
   /** Project the pointer ray onto the y=0 ground plane. */
   const getGroundPoint = useCallback(
@@ -274,9 +276,17 @@ function ZoneFloor({
 
   const onPointerDown = useCallback(
     (e: { stopPropagation: () => void; ray: THREE.Ray }) => {
-      const { tool } = useStudioStore.getState();
+      const { tool, selectedZoneId } = useStudioStore.getState();
       if (tool !== 'select' && tool !== 'move') return;
 
+      // First click on a zone = just select it (don't block prefab clicks).
+      // Only start drag if the zone is ALREADY selected (second interaction).
+      if (selectedZoneId !== zone.zoneId) {
+        useStudioStore.getState().selectZone(zone.zoneId);
+        return;
+      }
+
+      // Zone is already selected — start drag
       e.stopPropagation();
 
       const pt = getGroundPoint(e);
@@ -292,10 +302,6 @@ function ZoneFloor({
 
       setIsDragging(true);
 
-      // Select this zone
-      useStudioStore.getState().selectZone(zone.zoneId);
-
-      // Disable orbit controls while dragging
       if (getControls) {
         (getControls as unknown as { enabled: boolean }).enabled = false;
       }
