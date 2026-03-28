@@ -1,9 +1,9 @@
-import { cn } from '@aics/ui-core';
+import { cn } from '@offisim/ui-core';
 import { useCallback, useRef } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { KanbanColumn } from './KanbanColumn';
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
   const deliverables = useDeliverables();
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Card click → emit ui.task.focused (same pattern as TaskDashboard) ──

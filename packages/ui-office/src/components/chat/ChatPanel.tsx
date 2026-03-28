@@ -1,10 +1,10 @@
-import type { ProjectRow } from '@aics/shared-types';
-import { ScrollArea } from '@aics/ui-core';
+import type { ProjectRow } from '@offisim/shared-types';
+import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
@@ -55,7 +55,7 @@ export function ChatPanel({
   onUserMessage,
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
-    useAicsRuntime();
+    useOffisimRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();

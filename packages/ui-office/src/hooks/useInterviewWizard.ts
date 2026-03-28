@@ -1,7 +1,7 @@
-import { employeeCreated } from '@aics/core/browser';
+import { employeeCreated } from '@offisim/core/browser';
 import { useCallback, useReducer, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
 import { DEFAULT_APPEARANCE } from './useEmployeeEditor';
 
@@ -153,7 +153,7 @@ export interface UseInterviewWizardReturn {
 
 export function useInterviewWizard(): UseInterviewWizardReturn {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
-  const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
+  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
 

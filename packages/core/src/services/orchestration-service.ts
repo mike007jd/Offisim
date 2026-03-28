@@ -1,6 +1,6 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { graphNodeExited } from '../events/event-factories.js';
-import type { AicsGraphState, MeetingInterrupt, MeetingInterruptType } from '../graph/state.js';
+import type { OffisimGraphState, MeetingInterrupt, MeetingInterruptType } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 /**
@@ -75,7 +75,7 @@ export class OrchestrationService {
    * Resume a paused meeting.
    * Re-invokes the graph with the paused meeting's ID and a resume signal.
    */
-  async resumeMeeting(meetingId: string, messages: BaseMessage[]): Promise<AicsGraphState> {
+  async resumeMeeting(meetingId: string, messages: BaseMessage[]): Promise<OffisimGraphState> {
     return this.execute({
       entryMode: 'meeting',
       messages,
@@ -88,7 +88,7 @@ export class OrchestrationService {
    * End a paused meeting.
    * Re-invokes the graph with the paused meeting's ID and an end signal.
    */
-  async endPausedMeeting(meetingId: string, messages: BaseMessage[]): Promise<AicsGraphState> {
+  async endPausedMeeting(meetingId: string, messages: BaseMessage[]): Promise<OffisimGraphState> {
     return this.execute({
       entryMode: 'meeting',
       messages,
@@ -98,14 +98,14 @@ export class OrchestrationService {
   }
 
   async execute(input: {
-    entryMode: AicsGraphState['entryMode'];
+    entryMode: OffisimGraphState['entryMode'];
     messages: BaseMessage[];
     targetEmployeeId?: string | null;
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
     /** Override runtimeCtx.threadId — useful when service is long-lived across multiple threads. */
     threadId?: string;
-  }): Promise<AicsGraphState> {
+  }): Promise<OffisimGraphState> {
     const threadId = input.threadId ?? this.runtimeCtx.threadId;
 
     // Reject if queue is already too deep (prevents unbounded wait times)
@@ -147,14 +147,14 @@ export class OrchestrationService {
   }
 
   private async _executeInner(input: {
-    entryMode: AicsGraphState['entryMode'];
+    entryMode: OffisimGraphState['entryMode'];
     messages: BaseMessage[];
     targetEmployeeId?: string | null;
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
     threadId: string;
     signal: AbortSignal;
-  }): Promise<AicsGraphState> {
+  }): Promise<OffisimGraphState> {
     const threadId = input.threadId;
     const fullInput = {
       threadId,
@@ -174,7 +174,7 @@ export class OrchestrationService {
       },
     };
 
-    let finalState: Partial<AicsGraphState> = { ...fullInput };
+    let finalState: Partial<OffisimGraphState> = { ...fullInput };
     let lastNodeName: string | undefined;
 
     const stream = await this.graph.stream(fullInput, {
@@ -191,7 +191,7 @@ export class OrchestrationService {
             graphNodeExited(this.runtimeCtx.companyId, threadId, nodeName),
           );
           // Merge node output, accumulating messages to match graph.invoke() behavior
-          const delta = nodeOutput as Partial<AicsGraphState>;
+          const delta = nodeOutput as Partial<OffisimGraphState>;
           if (delta.messages) {
             finalState = {
               ...finalState,
@@ -205,7 +205,7 @@ export class OrchestrationService {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        return finalState as AicsGraphState;
+        return finalState as OffisimGraphState;
       }
       const original = error instanceof Error ? error : new Error(String(error));
       const contextMsg = lastNodeName
@@ -216,6 +216,6 @@ export class OrchestrationService {
       throw wrapped;
     }
 
-    return finalState as AicsGraphState;
+    return finalState as OffisimGraphState;
   }
 }

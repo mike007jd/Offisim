@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LlmError } from '../../errors.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { type RetryConfig, withRetry } from '../../llm/retry.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
@@ -27,7 +27,7 @@ type StubGraph = ConstructorParameters<typeof OrchestrationService>[0];
 
 function makeInput(threadId: string) {
   return {
-    entryMode: 'boss_chat' as AicsGraphState['entryMode'],
+    entryMode: 'boss_chat' as OffisimGraphState['entryMode'],
     messages: [],
     threadId,
   };

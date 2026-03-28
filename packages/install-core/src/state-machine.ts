@@ -4,7 +4,7 @@
  * Source of truth: Docs/02_contracts_and_schemas/offisim_install_state_machine.md
  */
 
-import type { InstallState } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
 import type { TransitionMap, TransitionResult } from './types.js';
 
 // ---------------------------------------------------------------------------

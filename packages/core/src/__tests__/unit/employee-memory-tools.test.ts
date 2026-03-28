@@ -1,10 +1,10 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
@@ -19,7 +19,7 @@ import {
 } from '../helpers/fixtures.js';
 import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
@@ -131,7 +131,7 @@ describe('employee-node memory tools', () => {
     });
 
     const state = makeState();
-    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
+    const result = (await employeeNode(state, config)) as Partial<OffisimGraphState>;
 
     expect(result.messages).toHaveLength(1);
 
@@ -178,7 +178,7 @@ describe('employee-node memory tools', () => {
     gateway.pushResponse({ content: '{ "memories": [] }' });
 
     const state = makeState();
-    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
+    const result = (await employeeNode(state, config)) as Partial<OffisimGraphState>;
 
     expect(result.messages).toHaveLength(1);
 

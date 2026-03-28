@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
+import { Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 import type { CostSummary } from '../../hooks/useCostDashboard';
 
 function formatCost(usd: number): string {

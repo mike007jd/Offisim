@@ -1,7 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
@@ -68,7 +68,7 @@ function parseBossDecision(content: string): BossDecision | null {
   return null;
 }
 
-function mapActionToRoute(action: BossDecision['action']): AicsGraphState['routeDecision'] {
+function mapActionToRoute(action: BossDecision['action']): OffisimGraphState['routeDecision'] {
   switch (action) {
     case 'delegate':
     case 'hire_or_assess':
@@ -87,9 +87,9 @@ function mapActionToRoute(action: BossDecision['action']): AicsGraphState['route
 }
 
 export async function bossNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'boss');
 
   // Announce node entry

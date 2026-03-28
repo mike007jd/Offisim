@@ -5,17 +5,17 @@ import {
   CompanyProvider,
   NotificationProvider,
   ThemeProvider,
-  useAicsRuntime,
-} from '@aics/ui-office';
+  useOffisimRuntime,
+} from '@offisim/ui-office';
 import { App } from './App.js';
 import { installThreeConsoleFilter } from './lib/three-console';
-import { AicsRuntimeProvider } from './runtime/AicsRuntimeProvider';
+import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
 
 /** Default company ID used to seed the initial runtime. */
 const DEFAULT_COMPANY_ID = 'company-001';
 
 /** Persist active company across page reloads. */
-const STORAGE_KEY = 'aics:active-company';
+const STORAGE_KEY = 'offisim:active-company';
 
 function readStoredCompany(): string {
   return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_COMPANY_ID;
@@ -28,7 +28,7 @@ function storeCompany(id: string) {
 /**
  * Wrapper that provides CompanyContext powered by runtime repos.
  * Receives controlled `activeCompanyId` + `onCompanySwitch` from parent
- * so company switching propagates up to re-key AicsRuntimeProvider.
+ * so company switching propagates up to re-key OffisimRuntimeProvider.
  */
 function CompanyBridge({
   children,
@@ -39,7 +39,7 @@ function CompanyBridge({
   activeCompanyId: string;
   onCompanySwitch: (id: string) => void;
 }) {
-  const { repos } = useAicsRuntime();
+  const { repos } = useOffisimRuntime();
   return (
     <CompanyProvider
       repos={repos}
@@ -53,7 +53,7 @@ function CompanyBridge({
 
 /**
  * Root shell — owns the active company ID state.
- * Keying AicsRuntimeProvider on `companyId` ensures a full runtime
+ * Keying OffisimRuntimeProvider on `companyId` ensures a full runtime
  * teardown + re-init when the user switches companies.
  */
 function Shell() {
@@ -66,13 +66,13 @@ function Shell() {
 
   return (
     <ThemeProvider>
-      <AicsRuntimeProvider key={companyId} companyId={companyId}>
+      <OffisimRuntimeProvider key={companyId} companyId={companyId}>
         <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
           <NotificationProvider>
             <App onCompanySwitch={handleCompanySwitch} />
           </NotificationProvider>
         </CompanyBridge>
-      </AicsRuntimeProvider>
+      </OffisimRuntimeProvider>
     </ThemeProvider>
   );
 }

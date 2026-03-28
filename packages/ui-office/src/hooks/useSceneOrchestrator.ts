@@ -18,8 +18,8 @@ import type {
   TaskAssignmentDispatchedPayload,
   Zone,
   RoleSlug,
-} from '@aics/shared-types';
-import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@aics/shared-types';
+} from '@offisim/shared-types';
+import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { truncate } from '../lib/format-time';
 import { SEAT_OFFSETS } from '../lib/zone-config';

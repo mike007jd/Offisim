@@ -134,7 +134,7 @@ pub fn run() {
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:aics.db", migrations())
+                .add_migrations("sqlite:offisim.db", migrations())
                 .build(),
         )
         .plugin(tauri_plugin_cors_fetch::init())

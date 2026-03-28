@@ -5,7 +5,7 @@
  * basic gateway info when connected. Config is persisted via useOpenClaw.
  */
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@aics/ui-core';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@offisim/ui-core';
 import { useCallback, useEffect, useState } from 'react';
 import { useOpenClaw } from '../../hooks/useOpenClaw.js';
 import { LobsterInvitePanel } from './LobsterInvitePanel.js';

@@ -6,7 +6,7 @@
  * dispatch point: usePrefabInstances provides the data, Prefab3D renders it.
  */
 
-import type { PrefabDefinition } from '@aics/shared-types';
+import type { PrefabDefinition } from '@offisim/shared-types';
 import { BookshelfMesh3D } from './BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './DecorativeMesh3D.js';
 import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';

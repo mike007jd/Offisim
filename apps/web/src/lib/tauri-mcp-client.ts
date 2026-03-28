@@ -3,7 +3,7 @@ import type {
   McpConnection,
   McpServerConfig,
   McpToolDef,
-} from '@aics/core/browser';
+} from '@offisim/core/browser';
 /**
  * MCP client factory for Tauri desktop environment.
  *

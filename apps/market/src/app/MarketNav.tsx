@@ -1,6 +1,6 @@
 'use client';
 
-import { LoginDialog, useAuthContext } from '@aics/ui-market';
+import { LoginDialog, useAuthContext } from '@offisim/ui-market';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';

@@ -2,7 +2,7 @@ import { HumanMessage } from '@langchain/core/messages';
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { createCheckpointSaver } from '../../graph/checkpoint-saver.js';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { buildOffisimGraph } from '../../graph/main-graph.js';
 import { TEST_THREAD_ID } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
@@ -13,7 +13,7 @@ describe('checkpoint persistence (E2E)', () => {
     const checkpointer = createCheckpointSaver(db);
 
     const { gateway, runtimeCtx } = createTestRuntime();
-    const graph = buildAicsGraph({ checkpointer });
+    const graph = buildOffisimGraph({ checkpointer });
 
     // Boss decides direct reply
     gateway.pushResponse({
@@ -67,7 +67,7 @@ describe('checkpoint persistence (E2E)', () => {
     const checkpointer = createCheckpointSaver(db);
 
     const { gateway, runtimeCtx } = createTestRuntime();
-    const graph = buildAicsGraph({ checkpointer });
+    const graph = buildOffisimGraph({ checkpointer });
 
     // Run thread 1
     gateway.pushResponse({

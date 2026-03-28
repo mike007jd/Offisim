@@ -59,7 +59,7 @@ packages/
         </p>
         <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-mono text-sm">
           <div className="text-[var(--text-muted)]"># Start the desktop app (recommended)</div>
-          <div className="text-[var(--text-secondary)]">pnpm --filter @aics/desktop dev</div>
+          <div className="text-[var(--text-secondary)]">pnpm --filter @offisim/desktop dev</div>
         </div>
         <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
           <p className="text-xs font-semibold text-[var(--warning)]">Important</p>
@@ -83,7 +83,7 @@ packages/
           , build it first:
         </p>
         <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-mono text-sm text-[var(--text-secondary)]">
-          pnpm --filter @aics/ui-office build
+          pnpm --filter @offisim/ui-office build
         </div>
       </section>
 

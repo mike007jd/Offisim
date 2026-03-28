@@ -1,4 +1,4 @@
-import type { SopDefinition } from '@aics/shared-types';
+import type { SopDefinition } from '@offisim/shared-types';
 
 import { agencyLiteTemplate } from './agency-lite.js';
 import { aiStartupTemplate } from './ai-startup.js';

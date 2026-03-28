@@ -1,4 +1,4 @@
-import type { ZoneArchetype } from '@aics/shared-types';
+import type { ZoneArchetype } from '@offisim/shared-types';
 
 /** SVG path data for archetype icons (from lucide-react, 24x24 viewBox). */
 export const ARCHETYPE_ICONS: Record<ZoneArchetype, { path: string; label: string }> = {

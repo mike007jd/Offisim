@@ -1,4 +1,4 @@
-import type { CreatorProfile, ListingDetail } from '@aics/registry-client';
+import type { CreatorProfile, ListingDetail } from '@offisim/registry-client';
 import { SITE_URL } from './url';
 
 export function stringifyJsonLd(value: unknown): string {

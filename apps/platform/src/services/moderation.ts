@@ -11,7 +11,7 @@ import {
   packageLineage,
   packageVersions,
   publishDrafts,
-} from '@aics/db-platform';
+} from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 

@@ -1,10 +1,10 @@
 /**
  * Publishing workflow routes.
  * Handles draft creation, manifest upload, validation, submission,
- * and auto-moderation for the AICS marketplace.
+ * and auto-moderation for the Offisim marketplace.
  */
 
-import { creators, moderationJobs, publishDrafts } from '@aics/db-platform';
+import { creators, moderationJobs, publishDrafts } from '@offisim/db-platform';
 import { and, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';

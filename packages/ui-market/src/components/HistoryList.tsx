@@ -1,4 +1,4 @@
-import type { LibraryItem } from '@aics/registry-client';
+import type { LibraryItem } from '@offisim/registry-client';
 import { formatDate } from '../lib/format.js';
 
 export interface HistoryListProps {

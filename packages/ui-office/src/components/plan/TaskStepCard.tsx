@@ -1,4 +1,4 @@
-import { cn } from '@aics/ui-core';
+import { cn } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
 import type { DashboardStep } from '../../hooks/useTaskDashboard';
 import { TaskItem } from './TaskItem';

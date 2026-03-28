@@ -1,7 +1,7 @@
-import type { AicsDebugBridge } from '@aics/ui-office';
+import type { OffisimDebugBridge } from '@offisim/ui-office';
 
 declare global {
   interface Window {
-    __AICS_DEBUG__?: AicsDebugBridge;
+    __OFFISIM_DEBUG__?: OffisimDebugBridge;
   }
 }

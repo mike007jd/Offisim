@@ -1,4 +1,4 @@
-import type { ModelPolicyConfig, RuntimePolicyConfig } from '@aics/shared-types';
+import type { ModelPolicyConfig, RuntimePolicyConfig } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { ModelResolver } from '../../llm/model-resolver.js';
 

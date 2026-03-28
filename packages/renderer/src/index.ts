@@ -1,4 +1,4 @@
-// @aics/renderer — pure logic: prefab catalog, state machines, layout engine, tokens
+// @offisim/renderer — pure logic: prefab catalog, state machines, layout engine, tokens
 // No rendering engine dependency (PixiJS removed; 3D = Three.js, 2D = SVG).
 
 // Tokens — colors, motion buckets, state-feedback matrix, departments/zones

@@ -1,4 +1,4 @@
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 import { describe, expect, it } from 'vitest';
 import { computeUpgradeDiff } from '../upgrade-differ.js';
 import { TEST_MANIFEST } from './fixtures/create-test-pkg.js';

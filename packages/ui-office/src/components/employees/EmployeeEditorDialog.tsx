@@ -1,6 +1,6 @@
-import { computeFloorPlan } from '@aics/renderer';
-import type { Zone } from '@aics/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
+import { computeFloorPlan } from '@offisim/renderer';
+import type { Zone } from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -18,7 +18,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';

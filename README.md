@@ -8,7 +8,7 @@ The product is not a generic SaaS dashboard and not a literal game engine. It us
 
 If you are pulling this repo onto a new machine, start here:
 
-1. Install `Node.js 22+` and enable `corepack`.
+1. Install `Node.js 20+` and enable `corepack`.
 2. Install `pnpm@10.15.1`.
 3. If you plan to run the desktop app, install Rust/Cargo and the Tauri system prerequisites for your OS.
 4. If you plan to run the platform API, install PostgreSQL and create a local database.
@@ -17,16 +17,16 @@ If you are pulling this repo onto a new machine, start here:
 
 Common local entrypoints:
 
-- Recommended desktop flow: `pnpm --filter @aics/desktop dev`
-- Browser runtime only: `pnpm --filter @aics/web dev`
-- Platform API: `pnpm --filter @aics/platform dev`
-- Marketplace site: `pnpm --filter @aics/market dev`
+- Recommended desktop flow: `pnpm --filter @offisim/desktop dev`
+- Browser runtime only: `pnpm --filter @offisim/web dev`
+- Platform API: `pnpm --filter @offisim/platform dev`
+- Marketplace site: `pnpm --filter @offisim/market dev`
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 
 ## Naming Note
 
-The product and docs are now branded as `Offisim`, but parts of the monorepo and package scope still use the older `@aics/*` naming. That is expected for now.
+The product and package scope are branded as `Offisim` / `@offisim/*`.
 
 ## Core product truths
 

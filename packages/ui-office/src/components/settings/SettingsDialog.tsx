@@ -1,4 +1,4 @@
-import type { ModelProfile, RuntimeExecutionMode, RuntimePolicyConfig } from '@aics/shared-types';
+import type { ModelProfile, RuntimeExecutionMode, RuntimePolicyConfig } from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -16,7 +16,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import { useEffect, useState } from 'react';
 import {
   clearProviderSecret,

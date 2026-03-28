@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Zone } from '@aics/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
-import { hydrateZone } from '@aics/core/browser';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import type { Zone } from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
+import { hydrateZone } from '@offisim/core/browser';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 import { useCompany } from '../components/company/CompanyContext.js';
 
 /**
@@ -10,7 +10,7 @@ import { useCompany } from '../components/company/CompanyContext.js';
  * Falls back to SYSTEM_ZONE_TEMPLATES if no zones are persisted yet.
  */
 export function useCompanyZones(): { zones: Zone[]; loading: boolean; refresh: () => void } {
-  const { repos } = useAicsRuntime();
+  const { repos } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);

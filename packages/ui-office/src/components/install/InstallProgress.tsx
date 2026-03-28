@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Progress } from '@aics/ui-core';
+import { Alert, AlertDescription, Progress } from '@offisim/ui-core';
 /**
  * InstallProgress — shows install state machine progression.
  * Highlights the current step and displays errors if any.

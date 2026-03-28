@@ -1,8 +1,8 @@
 'use client';
 
-import { RegistryClient } from '@aics/registry-client';
-import type { MyCreatorProfile } from '@aics/registry-client';
-import { CreatorNav, LoginDialog, PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
+import { RegistryClient } from '@offisim/registry-client';
+import type { MyCreatorProfile } from '@offisim/registry-client';
+import { CreatorNav, LoginDialog, PLATFORM_API_URL, useAuthContext } from '@offisim/ui-market';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 

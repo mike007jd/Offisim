@@ -1,11 +1,11 @@
-import { Alert, AlertDescription, Badge, Button } from '@aics/ui-core';
+import { Alert, AlertDescription, Badge, Button } from '@offisim/ui-core';
 /**
  * ManifestReview — shows package metadata and permissions for user review.
  * Part of the install dialog flow (step: 'review').
  */
 
-import type { RiskClass } from '@aics/asset-schema';
-import type { InstallPlan } from '@aics/install-core';
+import type { RiskClass } from '@offisim/asset-schema';
+import type { InstallPlan } from '@offisim/install-core';
 import { AlertTriangle, Globe, HardDrive, KeyRound, Server, Shield } from 'lucide-react';
 
 interface ManifestReviewProps {

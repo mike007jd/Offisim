@@ -1,5 +1,5 @@
 {
-  "name": "@aics/platform",
+  "name": "@offisim/platform",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/asset-schema": "workspace:*",
-    "@aics/db-platform": "workspace:*",
-    "@aics/shared-types": "workspace:*",
+    "@offisim/asset-schema": "workspace:*",
+    "@offisim/db-platform": "workspace:*",
+    "@offisim/shared-types": "workspace:*",
     "@hono/node-server": "^1.14.0",
     "better-auth": "^1.5.5",
     "drizzle-orm": "^0.45.1",

@@ -1,7 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import {
@@ -32,9 +32,9 @@ function tryParseStructuredError(raw: string): StructuredError | null {
 }
 
 export async function errorHandlerNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   // Announce node entry (best-effort — error handler must not throw)
   const runtimeCtx = getRuntime(config, 'error_handler', { optional: true });
   if (runtimeCtx) {

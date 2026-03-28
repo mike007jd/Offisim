@@ -1,4 +1,4 @@
-import type { VersionDiff } from '@aics/core/browser';
+import type { VersionDiff } from '@offisim/core/browser';
 
 interface VersionDiffTableProps {
   diffs: VersionDiff[];

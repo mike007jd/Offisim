@@ -1,5 +1,5 @@
 {
-  "name": "@aics/channels",
+  "name": "@offisim/channels",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/core": "workspace:*"
+    "@offisim/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

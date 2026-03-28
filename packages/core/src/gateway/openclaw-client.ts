@@ -34,7 +34,7 @@ import type {
   WireFrame,
 } from './openclaw-types.js';
 
-const DEVICE_ID_KEY = 'aics.openclaw.deviceId';
+const DEVICE_ID_KEY = 'offisim.openclaw.deviceId';
 const REQUEST_TIMEOUT_MS = 30_000;
 const PING_INTERVAL_MS = 20_000;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 30_000];

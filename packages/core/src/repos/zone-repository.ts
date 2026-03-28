@@ -1,4 +1,4 @@
-import type { ZoneRow } from '@aics/shared-types';
+import type { ZoneRow } from '@offisim/shared-types';
 
 export type NewZone = Omit<ZoneRow, 'created_at' | 'updated_at'>;
 

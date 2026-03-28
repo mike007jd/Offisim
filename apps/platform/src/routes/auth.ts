@@ -1,4 +1,4 @@
-import { apiTokens, creators, users } from '@aics/db-platform';
+import { apiTokens, creators, users } from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -75,11 +75,11 @@ authRoute.post('/register-creator', requireAuth, async (c) => {
 // ── API Token Management ──
 
 /**
- * Generate a random API token with aics_ prefix.
+ * Generate a random API token with offisim_ prefix.
  */
 function generateApiToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let token = 'aics_';
+  let token = 'offisim_';
   const array = new Uint8Array(40);
   crypto.getRandomValues(array);
   for (const byte of array) {
@@ -105,15 +105,15 @@ authRoute.post('/tokens', requireAuth, async (c) => {
   }
 
   // Look up ba_user_id for the current user
-  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+  const [offisimUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
-  if (!aicsUser?.ba_user_id) {
+  if (!offisimUser?.ba_user_id) {
     throw new HTTPException(400, { message: 'User is not linked to an auth account' });
   }
 
   const rawToken = generateApiToken();
   const hash = await sha256(rawToken);
-  const prefix = rawToken.slice(0, 12); // "aics_" + 7 chars
+  const prefix = rawToken.slice(0, 15); // "offisim_" + 7 chars
 
   const expiresAt = body.expires_in_days
     ? new Date(Date.now() + body.expires_in_days * 24 * 60 * 60 * 1000)
@@ -122,7 +122,7 @@ authRoute.post('/tokens', requireAuth, async (c) => {
   const [created] = await db
     .insert(apiTokens)
     .values({
-      user_id: aicsUser.ba_user_id,
+      user_id: offisimUser.ba_user_id,
       name,
       token_hash: hash,
       token_prefix: prefix,
@@ -156,9 +156,9 @@ authRoute.get('/tokens', requireAuth, async (c) => {
     throw new HTTPException(401, { message: 'Unauthorized' });
   }
 
-  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+  const [offisimUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
-  if (!aicsUser?.ba_user_id) {
+  if (!offisimUser?.ba_user_id) {
     return c.json({ tokens: [] });
   }
 
@@ -173,7 +173,7 @@ authRoute.get('/tokens', requireAuth, async (c) => {
       created_at: apiTokens.created_at,
     })
     .from(apiTokens)
-    .where(eq(apiTokens.user_id, aicsUser.ba_user_id));
+    .where(eq(apiTokens.user_id, offisimUser.ba_user_id));
 
   return c.json({
     tokens: tokens.map((t) => ({
@@ -195,9 +195,9 @@ authRoute.delete('/tokens/:tokenId', requireAuth, async (c) => {
     throw new HTTPException(401, { message: 'Unauthorized' });
   }
 
-  const [aicsUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+  const [offisimUser] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
-  if (!aicsUser?.ba_user_id) {
+  if (!offisimUser?.ba_user_id) {
     throw new HTTPException(404, { message: 'Token not found' });
   }
 
@@ -208,7 +208,7 @@ authRoute.delete('/tokens/:tokenId', requireAuth, async (c) => {
     .where(eq(apiTokens.token_id, tokenId))
     .limit(1);
 
-  if (!tokenRow || tokenRow.user_id !== aicsUser.ba_user_id) {
+  if (!tokenRow || tokenRow.user_id !== offisimUser.ba_user_id) {
     throw new HTTPException(404, { message: 'Token not found' });
   }
 

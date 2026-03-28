@@ -6,7 +6,7 @@ import {
   taskAssignmentDispatched,
   taskStateChanged,
 } from '../events/event-factories.js';
-import type { AicsGraphState, PendingAssignment, PlanStep } from '../graph/state.js';
+import type { OffisimGraphState, PendingAssignment, PlanStep } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -24,9 +24,9 @@ import { getRuntime } from '../utils/get-runtime.js';
  * steps dispatch one at a time in index order, identical to the old behavior.
  */
 export async function stepDispatcherNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'step_dispatcher');
 
   // Announce node entry

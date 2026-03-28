@@ -9,7 +9,7 @@ import {
   planCompleted,
   planStepCompleted,
 } from '../events/event-factories.js';
-import type { AicsGraphState, MeetingActionItem } from '../graph/state.js';
+import type { OffisimGraphState, MeetingActionItem } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
@@ -44,9 +44,9 @@ function formatMeetingActionItems(items: MeetingActionItem[]): string {
  * the full content for graph state.
  */
 export async function bossSummaryNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'boss_summary', { optional: true });
 
   // Announce node entry

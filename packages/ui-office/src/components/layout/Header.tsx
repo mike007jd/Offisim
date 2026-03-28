@@ -1,4 +1,4 @@
-import { Button } from '@aics/ui-core';
+import { Button } from '@offisim/ui-core';
 import { FolderOpen, PenTool, Settings, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';

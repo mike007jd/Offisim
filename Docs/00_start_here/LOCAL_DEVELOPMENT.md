@@ -5,7 +5,7 @@ This guide is for pulling Offisim onto a new machine and getting the repo runnin
 ## Prerequisites
 
 - `git`
-- `Node.js 22+`
+- `Node.js 20+`
 - `corepack` enabled so the repo uses the pinned `pnpm@10.15.1`
 - `pnpm install` from the repo root
 
@@ -49,7 +49,7 @@ Minimum useful variables by surface:
 - Desktop or browser runtime with platform-backed install flows:
   - `VITE_PLATFORM_API_URL=http://localhost:4100`
 - Platform API:
-  - `DATABASE_URL=postgres://localhost:5432/aics_platform`
+  - `DATABASE_URL=postgres://localhost:5432/offisim_platform`
   - `BETTER_AUTH_URL=http://localhost:4100`
   - `BETTER_AUTH_SECRET=<32+ char secret>`
   - Recommended for local multi-app work: `CORS_ORIGINS=http://localhost:3000,http://localhost:5176,http://localhost:1420`
@@ -67,7 +67,7 @@ Run these from the repo root in separate terminals as needed.
 ### Recommended Desktop Flow
 
 ```bash
-pnpm --filter @aics/desktop dev
+pnpm --filter @offisim/desktop dev
 ```
 
 Notes:
@@ -79,7 +79,7 @@ Notes:
 ### Browser Runtime Only
 
 ```bash
-pnpm --filter @aics/web dev
+pnpm --filter @offisim/web dev
 ```
 
 Use this only if you specifically want the browser shell without Tauri.
@@ -87,7 +87,7 @@ Use this only if you specifically want the browser shell without Tauri.
 ### Platform API
 
 ```bash
-pnpm --filter @aics/platform dev
+pnpm --filter @offisim/platform dev
 ```
 
 Defaults:
@@ -99,7 +99,7 @@ Defaults:
 ## Marketplace Site
 
 ```bash
-pnpm --filter @aics/market dev
+pnpm --filter @offisim/market dev
 ```
 
 Defaults:
@@ -115,7 +115,7 @@ Defaults:
 Use when you only want the local runtime shell:
 
 ```bash
-pnpm --filter @aics/desktop dev
+pnpm --filter @offisim/desktop dev
 ```
 
 ### Platform + Market
@@ -123,8 +123,8 @@ pnpm --filter @aics/desktop dev
 Use when you want the publish/auth/registry flow:
 
 ```bash
-pnpm --filter @aics/platform dev
-pnpm --filter @aics/market dev
+pnpm --filter @offisim/platform dev
+pnpm --filter @offisim/market dev
 ```
 
 ### Full Local Stack
@@ -132,9 +132,9 @@ pnpm --filter @aics/market dev
 Use when you want everything available:
 
 ```bash
-pnpm --filter @aics/platform dev
-pnpm --filter @aics/market dev
-pnpm --filter @aics/desktop dev
+pnpm --filter @offisim/platform dev
+pnpm --filter @offisim/market dev
+pnpm --filter @offisim/desktop dev
 ```
 
 ## Verification

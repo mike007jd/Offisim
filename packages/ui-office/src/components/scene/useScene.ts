@@ -1,6 +1,6 @@
-import { WorkstationAssignmentService } from '@aics/core/browser';
+import { WorkstationAssignmentService } from '@offisim/core/browser';
 import { useEffect, useState } from 'react';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 
 /**
  * Scene integration hook — wires EventBus listeners for selection sync
@@ -9,7 +9,7 @@ import { useAicsRuntime } from '../../runtime/aics-runtime-context';
  * 3D/2D views get employee data independently via useAgentStates().
  */
 export function useScene(_reducedMotion = false) {
-  const { eventBus, repos } = useAicsRuntime();
+  const { eventBus, repos } = useOffisimRuntime();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   // Listen for scene-initiated selection events and sync to React state.

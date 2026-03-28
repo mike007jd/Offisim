@@ -1,6 +1,6 @@
 'use client';
 
-import { RegistryClient } from '@aics/registry-client';
+import { RegistryClient } from '@offisim/registry-client';
 import { useReducer } from 'react';
 import { PLATFORM_API_URL } from '../lib/config.js';
 import { useAuthContext } from './AuthProvider.js';
@@ -486,7 +486,7 @@ export function PublishWizard({ onComplete }: PublishWizardProps) {
               </div>
 
               <p className="text-sm text-[var(--text-muted)]">
-                By submitting, you confirm this listing complies with AICS marketplace policies.
+                By submitting, you confirm this listing complies with Offisim marketplace policies.
                 Your listing will enter moderation review.
               </p>
             </>

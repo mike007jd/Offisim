@@ -1,4 +1,4 @@
-import type { InstallState } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   TRANSITIONS,

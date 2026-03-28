@@ -1,4 +1,4 @@
-import type { ListingSummary } from '@aics/registry-client';
+import type { ListingSummary } from '@offisim/registry-client';
 import { formatInstallCount, kindLabel } from '../lib/format.js';
 import { CreatorBadge } from './CreatorBadge.js';
 import { KindIcon } from './KindIcon.js';

@@ -1,11 +1,11 @@
-import { getAllBuiltinPrefabs } from '@aics/renderer';
-import type { PrefabDefinition, ZoneArchetype, ZonePreset } from '@aics/shared-types';
-import { isRequiredArchetype, computeOverlapMap, findOverlaps } from '@aics/shared-types';
-import { dehydrateZone } from '@aics/core/browser';
+import { getAllBuiltinPrefabs } from '@offisim/renderer';
+import type { PrefabDefinition, ZoneArchetype, ZonePreset } from '@offisim/shared-types';
+import { isRequiredArchetype, computeOverlapMap, findOverlaps } from '@offisim/shared-types';
+import { dehydrateZone } from '@offisim/core/browser';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../../hooks/usePrefabInstances.js';
-import { useAicsRuntime } from '../../../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../../company/CompanyContext.js';
 import type { EditorZone, PlacedItem, DragState } from './types.js';
 import { SVG_W, SVG_H, SCALE, fromSVG, spawnFromPreset } from './types.js';
@@ -61,7 +61,7 @@ export interface UseOfficeEditorReturn {
 }
 
 export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEditorReturn {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const { zones: dbZones, refresh: refreshZones } = useCompanyZones();
   const { instances: dbInstances, refresh: refreshPrefabs } = usePrefabInstances();

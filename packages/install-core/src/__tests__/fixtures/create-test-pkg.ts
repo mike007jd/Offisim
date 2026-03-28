@@ -1,12 +1,12 @@
 /**
- * Test fixture helper — creates a valid .aicspkg ZIP archive in memory.
+ * Test fixture helper — creates a valid .offisimpkg ZIP archive in memory.
  *
  * Uses fflate.zipSync to produce a Uint8Array that extractPackage can consume.
- * The manifest is based on the valid-manifest.json fixture from @aics/asset-schema
+ * The manifest is based on the valid-manifest.json fixture from @offisim/asset-schema
  * with adjustments for hashes (they will be computed at runtime, not checked here).
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 import { zipSync } from 'fflate';
 
 /**
@@ -17,7 +17,7 @@ import { zipSync } from 'fflate';
 export const TEST_MANIFEST: PackageManifest = {
   spec_version: '1.0.0',
   package: {
-    id: 'aics.employee.test-writer',
+    id: 'offisim.employee.test-writer',
     kind: 'employee',
     version: '1.0.0',
     title: 'Test Writer',
@@ -65,7 +65,7 @@ export const TEST_MANIFEST: PackageManifest = {
     },
   ],
   distribution: {
-    source_url: 'https://market.example/packages/test-writer-1.0.0.aicspkg',
+    source_url: 'https://market.example/packages/test-writer-1.0.0.offisimpkg',
     mirror_policy: 'registry_or_external',
     artifact_size_bytes: 4096,
   },
@@ -91,7 +91,7 @@ export const TEST_ASSET_CONTENT = JSON.stringify({
 });
 
 /**
- * Create a valid .aicspkg ZIP archive from the test manifest.
+ * Create a valid .offisimpkg ZIP archive from the test manifest.
  *
  * @param manifestOverride - partial overrides merged shallowly onto TEST_MANIFEST
  * @param extraFiles - additional files to include in the ZIP beyond manifest.json and the default asset

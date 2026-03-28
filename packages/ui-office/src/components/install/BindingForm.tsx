@@ -1,10 +1,10 @@
-import { Badge, Button, Input } from '@aics/ui-core';
+import { Badge, Button, Input } from '@offisim/ui-core';
 /**
  * BindingForm — lets users configure model_profile bindings before install.
  * MVP: model_profile type only. Future: mcp_endpoint, secret_slot.
  */
 
-import type { BindingRequirement } from '@aics/install-core';
+import type { BindingRequirement } from '@offisim/install-core';
 
 interface BindingFormProps {
   bindings: readonly BindingRequirement[];

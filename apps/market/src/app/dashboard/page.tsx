@@ -1,14 +1,14 @@
 'use client';
 
-import type { ListingSummary, PublishDraft } from '@aics/registry-client';
-import { RegistryClient } from '@aics/registry-client';
+import type { ListingSummary, PublishDraft } from '@offisim/registry-client';
+import { RegistryClient } from '@offisim/registry-client';
 import {
   DashboardStats,
   DraftCard,
   ListingCard,
   PLATFORM_API_URL,
   useAuthContext,
-} from '@aics/ui-market';
+} from '@offisim/ui-market';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 

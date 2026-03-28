@@ -36,7 +36,7 @@ test.describe('Smoke: Scene Rendering', () => {
     const nodeEntered = page.evaluate(() => {
       return new Promise<boolean>((resolve) => {
         // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-        const bus = (window as any).__AICS_DEBUG__?.eventBus;
+        const bus = (window as any).__OFFISIM_DEBUG__?.eventBus;
         if (!bus) {
           resolve(false);
           return;

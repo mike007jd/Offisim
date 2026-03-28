@@ -2,22 +2,22 @@
  * install-core type contracts and DI interfaces.
  *
  * This file is the single source of truth for the install system's type layer.
- * It MUST NOT import from @aics/core to avoid circular dependencies.
- * Consumers in @aics/core implement these interfaces via adapters.
+ * It MUST NOT import from @offisim/core to avoid circular dependencies.
+ * Consumers in @offisim/core implement these interfaces via adapters.
  *
  * Source contracts:
  * - offisim_install_state_machine.md (state machine, transitions)
  * - offisim_local_runtime_schema.sql (DB row shapes)
- * - manifest-1.0.0.json (manifest types from @aics/asset-schema)
+ * - manifest-1.0.0.json (manifest types from @offisim/asset-schema)
  */
 
-import type { AssetKind, PackageManifest, SupportedEnvironment } from '@aics/asset-schema';
+import type { AssetKind, PackageManifest, SupportedEnvironment } from '@offisim/asset-schema';
 import type {
   BindingStatus,
   BindingType,
   InstallSourceType,
   InstallState,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 
 // ---------------------------------------------------------------------------
 // State Machine
@@ -38,7 +38,7 @@ export interface TransitionResult {
 // Manifest Loader
 // ---------------------------------------------------------------------------
 
-/** Result of extracting and parsing a .aicspkg ZIP archive. */
+/** Result of extracting and parsing a .offisimpkg ZIP archive. */
 export interface ExtractedPackage {
   readonly manifest: PackageManifest;
   /** All files in the archive keyed by relative path. */
@@ -65,7 +65,7 @@ export interface IntegrityResult {
 
 /** Describes the current runtime environment for compatibility checks. */
 export interface RuntimeEnvironment {
-  /** Semantic version of the AICS runtime (e.g. "1.0.0"). */
+  /** Semantic version of the Offisim runtime (e.g. "1.0.0"). */
   readonly runtimeVersion: string;
   /** Current environment type. */
   readonly environment: SupportedEnvironment;
@@ -213,13 +213,13 @@ export interface NewEmployee {
 }
 
 // ---------------------------------------------------------------------------
-// Dependency Injection Interfaces (avoids @aics/core import)
+// Dependency Injection Interfaces (avoids @offisim/core import)
 // ---------------------------------------------------------------------------
 
 /**
  * Repository facades that install-core needs.
- * @aics/core provides memory and drizzle implementations.
- * apps/web bridges them via an adapter in AicsRuntimeProvider.
+ * @offisim/core provides memory and drizzle implementations.
+ * apps/web bridges them via an adapter in OffisimRuntimeProvider.
  */
 export interface InstallRepositories {
   readonly installTransactions: {
@@ -260,7 +260,7 @@ export interface InstallRepositories {
 
 /**
  * Event emission facade for install state changes.
- * @aics/core's EventBus provides the concrete implementation.
+ * @offisim/core's EventBus provides the concrete implementation.
  */
 export interface InstallEventEmitter {
   emitInstallState(

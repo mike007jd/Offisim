@@ -10,7 +10,7 @@ import type { McpClientFactory, McpConnection, McpServerConfig, McpToolDef } fro
 export class SdkClientFactory implements McpClientFactory {
   async createClient(config: McpServerConfig): Promise<McpConnection> {
     const client = new Client(
-      { name: `aics-${config.name}`, version: '0.1.0' },
+      { name: `offisim-${config.name}`, version: '0.1.0' },
       { capabilities: {} },
     );
 

@@ -1,4 +1,4 @@
-import type { Review } from '@aics/registry-client';
+import type { Review } from '@offisim/registry-client';
 import { formatDate } from '../lib/format.js';
 import { RatingStars } from './RatingStars.js';
 

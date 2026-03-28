@@ -1,7 +1,7 @@
-import type { SopDefinition, SopStep } from '@aics/shared-types';
+import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
-import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
+import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -218,9 +218,9 @@ export async function tryBuildSopPlan(
 }
 
 export async function pmPlannerNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'pm_planner');
 
   // Announce node entry

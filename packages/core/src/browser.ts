@@ -1,12 +1,12 @@
 /**
- * @aics/core/browser — Browser-safe barrel export.
+ * @offisim/core/browser — Browser-safe barrel export.
  *
  * This subpath exports ONLY modules that are safe to import in browser bundles
  * without pulling in heavy server-side dependencies (LangGraph, OpenAI SDK,
  * Anthropic SDK, checkpoint-sqlite, MCP SDK).
  *
- * Use `@aics/core/browser` in UI packages and browser-only code.
- * Use `@aics/core` for the full runtime (graphs, LLM adapters, MCP, etc.).
+ * Use `@offisim/core/browser` in UI packages and browser-only code.
+ * Use `@offisim/core` for the full runtime (graphs, LLM adapters, MCP, etc.).
  */
 
 // --- Types (all type-only, zero runtime cost) ---
@@ -95,7 +95,7 @@ export type {
 export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export type {
-  AicsGraphState,
+  OffisimGraphState,
   PendingAssignment,
   TaskPlan,
   PlanStep,
@@ -209,7 +209,7 @@ export { generateId } from './utils/generate-id.js';
 export { globToRegex, matchCostRate } from './utils/glob-match.js';
 
 // --- Errors ---
-export { AicsError, LlmError, GraphError, DataError } from './errors.js';
+export { OffisimError, LlmError, GraphError, DataError } from './errors.js';
 
 // --- Runtime (browser-safe parts) ---
 export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';

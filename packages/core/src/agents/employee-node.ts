@@ -14,7 +14,7 @@ import {
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { MemoryEntryRow } from '../runtime/repositories.js';
@@ -380,9 +380,9 @@ async function attemptLocalRecovery(
 }
 
 export async function employeeNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState> | Command> {
+): Promise<Partial<OffisimGraphState> | Command> {
   const runtimeCtx = getRuntime(config, 'employee');
 
   // Announce node entry

@@ -1,11 +1,11 @@
 /**
- * Manifest loader — extract and validate .aicspkg ZIP archives.
+ * Manifest loader — extract and validate .offisimpkg ZIP archives.
  *
  * Uses fflate for ZIP decompression and crypto.subtle for SHA-256 hashing.
- * Validation delegates to @aics/asset-schema's parseManifest (JSON Schema).
+ * Validation delegates to @offisim/asset-schema's parseManifest (JSON Schema).
  */
 
-import { parseManifest } from '@aics/asset-schema';
+import { parseManifest } from '@offisim/asset-schema';
 import { unzipSync } from 'fflate';
 import type { ExtractedPackage } from './types.js';
 
@@ -32,7 +32,7 @@ async function sha256Hex(data: Uint8Array): Promise<string> {
 const MANIFEST_FILENAME = 'manifest.json';
 
 /**
- * Extract a `.aicspkg` ZIP archive, locate and validate `manifest.json`,
+ * Extract a `.offisimpkg` ZIP archive, locate and validate `manifest.json`,
  * and compute integrity hashes.
  *
  * @throws {Error} If the archive is corrupt, manifest.json is missing, or

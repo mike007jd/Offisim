@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { AlertCircle, CheckCircle, Play } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time.js';
 

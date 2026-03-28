@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@aics/shared-types';
+import type { ProjectRow } from '@offisim/shared-types';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProjectSelector } from '../../components/project/ProjectSelector.js';

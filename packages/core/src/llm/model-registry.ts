@@ -1,4 +1,4 @@
-import type { LlmProvider } from '@aics/shared-types';
+import type { LlmProvider } from '@offisim/shared-types';
 import { Logger } from '../services/logger.js';
 import type { LlmGateway } from './gateway.js';
 import { createGateway, type GatewayConfig } from './gateway-factory.js';

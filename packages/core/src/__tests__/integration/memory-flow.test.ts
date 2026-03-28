@@ -2,11 +2,11 @@ import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { TEST_COMPANY_ID, TEST_THREAD_ID } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,

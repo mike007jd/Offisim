@@ -1,8 +1,8 @@
-import type { TaskRunRow } from '@aics/core/browser';
-import type { RuntimeEvent, TaskStatePayload } from '@aics/shared-types';
+import type { TaskRunRow } from '@offisim/core/browser';
+import type { RuntimeEvent, TaskStatePayload } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface TaskQueueState {
   activeTasks: TaskRunRow[];
@@ -23,7 +23,7 @@ const COMPLETED_STATUSES = ['completed', 'failed', 'cancelled'];
  * events for live updates. Uses rAF batching to coalesce rapid updates.
  */
 export function useTaskQueue(): TaskQueueState {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [state, setState] = useState<TaskQueueState>({
     activeTasks: [],

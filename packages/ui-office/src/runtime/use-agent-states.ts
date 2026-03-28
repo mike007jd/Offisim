@@ -8,10 +8,10 @@ import type {
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from './aics-runtime-context';
+import { useOffisimRuntime } from './offisim-runtime-context';
 
 export interface AgentTaskInfo {
   stepLabel: string;
@@ -78,7 +78,7 @@ function buildAgentStateMap(
  * responds to employee.created / employee.updated / employee.deleted events.
  */
 export function useAgentStates(): Map<string, AgentState> {
-  const { eventBus, repos, bootstrapState } = useAicsRuntime();
+  const { eventBus, repos, bootstrapState } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [agents, setAgents] = useState<Map<string, AgentState>>(() =>
     buildAgentStateMap(activeCompanyId, bootstrapState?.reposSnapshot?.employees ?? []),

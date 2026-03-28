@@ -64,7 +64,7 @@ export default function CreatingPackagesPage() {
         <p className="mt-3 text-sm text-[var(--text-secondary)] leading-relaxed">
           Every package starts with a{' '}
           <code className="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--accent-indigo)]">
-            aics-manifest.json
+            offisim-manifest.json
           </code>{' '}
           file:
         </p>

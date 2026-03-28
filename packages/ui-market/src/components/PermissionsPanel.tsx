@@ -1,4 +1,4 @@
-import type { PermissionSummary } from '@aics/registry-client';
+import type { PermissionSummary } from '@offisim/registry-client';
 import { FolderOpen, KeyRound, Shield, Wifi } from 'lucide-react';
 import { RiskBadge } from './RiskBadge.js';
 

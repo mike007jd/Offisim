@@ -5,8 +5,8 @@
  * required zone protection, overlap detection, and zoom/pan.
  */
 
-import type { PrefabDefinition, ZonePreset } from '@aics/shared-types';
-import { ZONE_PRESET_GROUPS, isRequiredArchetype, getPresetsForArchetype } from '@aics/shared-types';
+import type { PrefabDefinition, ZonePreset } from '@offisim/shared-types';
+import { ZONE_PRESET_GROUPS, isRequiredArchetype, getPresetsForArchetype } from '@offisim/shared-types';
 import {
   ArrowLeft,
   Grid3X3,

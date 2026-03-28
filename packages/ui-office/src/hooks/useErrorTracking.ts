@@ -1,6 +1,6 @@
-import type { ErrorOccurredPayload, RuntimeEvent } from '@aics/shared-types';
+import type { ErrorOccurredPayload, RuntimeEvent } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface TrackedError {
   errorCode: string;
@@ -19,7 +19,7 @@ const MAX_ERROR_HISTORY = 100;
  * Capped at {@link MAX_ERROR_HISTORY} entries to prevent unbounded growth.
  */
 export function useErrorTracking(): TrackedError[] {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [errors, setErrors] = useState<TrackedError[]>([]);
 
   useEffect(() => {

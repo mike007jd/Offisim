@@ -6,15 +6,15 @@
  * When a zone is selected: zone name, archetype, size, position, furniture count, variant, delete.
  */
 
-import { getBuiltinPrefab, getAllBuiltinPrefabs } from '@aics/renderer';
-import type { PrefabDefinition } from '@aics/shared-types';
+import { getBuiltinPrefab, getAllBuiltinPrefabs } from '@offisim/renderer';
+import type { PrefabDefinition } from '@offisim/shared-types';
 
 // Module-level constant — built-in prefabs never change at runtime
 const ALL_PREFABS_MAP: Map<string, PrefabDefinition> = new Map(
   getAllBuiltinPrefabs().map((p) => [p.prefabId, p]),
 );
-import type { ZonePreset } from '@aics/shared-types';
-import { UNASSIGNED_ZONE_ID, getPresetsForArchetype, isRequiredArchetype } from '@aics/shared-types';
+import type { ZonePreset } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, getPresetsForArchetype, isRequiredArchetype } from '@offisim/shared-types';
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioStore } from './StudioState.js';

@@ -4,8 +4,8 @@ import {
   initialWizardState,
   isStepValid,
   wizardReducer,
-} from '@aics/ui-office';
-import type { WizardAction, WizardState } from '@aics/ui-office';
+} from '@offisim/ui-office';
+import type { WizardAction, WizardState } from '@offisim/ui-office';
 import { describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------

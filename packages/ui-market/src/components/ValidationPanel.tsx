@@ -1,6 +1,6 @@
 'use client';
 
-// Simple inline manifest validation — intentionally does NOT import @aics/asset-schema
+// Simple inline manifest validation — intentionally does NOT import @offisim/asset-schema
 // to avoid pulling in AJV and Node-only dependencies into the browser bundle.
 
 import { getField } from '../lib/manifest-utils.js';

@@ -3,8 +3,8 @@ import type {
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
-} from '@aics/install-core';
-import type { BindingStatus, InstallState } from '@aics/shared-types';
+} from '@offisim/install-core';
+import type { BindingStatus, InstallState } from '@offisim/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';

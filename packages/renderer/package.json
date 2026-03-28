@@ -1,5 +1,5 @@
 {
-  "name": "@aics/renderer",
+  "name": "@offisim/renderer",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/shared-types": "workspace:*"
+    "@offisim/shared-types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

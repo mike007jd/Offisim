@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, Button } from '@aics/ui-core';
+import { Alert, AlertDescription, Badge, Button } from '@offisim/ui-core';
 /**
  * SkillReview — shows OpenClaw skill details for user review before import.
  * Displayed instead of ManifestReview when the import source is a SKILL.md file.
@@ -8,7 +8,7 @@ import type {
   SkillValidationResult as BaseSkillValidationResult,
   InstallPlan,
   SkillRequirements,
-} from '@aics/install-core';
+} from '@offisim/install-core';
 import { AlertTriangle, ExternalLink, FileText, Info, Terminal } from 'lucide-react';
 
 interface SkillReviewProps {

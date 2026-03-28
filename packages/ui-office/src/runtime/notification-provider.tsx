@@ -1,4 +1,4 @@
-import type { NotificationPayload, RuntimeEvent } from '@aics/shared-types';
+import type { NotificationPayload, RuntimeEvent } from '@offisim/shared-types';
 import {
   type ReactNode,
   createContext,
@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import type { Notification, UseNotificationsResult } from '../hooks/useNotifications';
-import { useAicsRuntime } from './aics-runtime-context';
+import { useOffisimRuntime } from './offisim-runtime-context';
 
 const MAX_NOTIFICATIONS = 50;
 
@@ -19,12 +19,12 @@ export const NotificationContext = createContext<UseNotificationsResult | null>(
 /**
  * Single source of truth for notification state.
  *
- * Must be mounted as a child of AicsRuntimeProvider (needs EventBus).
+ * Must be mounted as a child of OffisimRuntimeProvider (needs EventBus).
  * All calls to useNotifications() read from this context, ensuring
  * markRead/dismiss/clearAll propagate everywhere instantly.
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const previousCompanyIdRef = useRef(activeCompanyId);

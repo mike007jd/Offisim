@@ -1,4 +1,4 @@
-import type { SemanticCategory } from '@aics/shared-types';
+import type { SemanticCategory } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   getAllBuiltinPrefabs,

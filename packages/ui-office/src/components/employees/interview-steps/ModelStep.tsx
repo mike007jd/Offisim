@@ -1,4 +1,4 @@
-import { Button, Input } from '@aics/ui-core';
+import { Button, Input } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 interface ModelStepProps {

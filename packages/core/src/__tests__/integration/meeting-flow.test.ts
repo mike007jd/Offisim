@@ -1,18 +1,18 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { describe, expect, it } from 'vitest';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { buildOffisimGraph } from '../../graph/main-graph.js';
 import {
   meetingEndNode,
   meetingStartNode,
   meetingTurnCheck,
   participantTurnNode,
 } from '../../graph/meeting-subgraph.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { TEST_THREAD_ID, assertDefined } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: 'c-test-1',
@@ -194,7 +194,7 @@ describe('meeting flow — full graph integration', () => {
   it('boss → meeting_start → participant turns → meeting_end → boss_summary', async () => {
     const { gateway, events, runtimeCtx } = createTestRuntime();
 
-    const graph = buildAicsGraph();
+    const graph = buildOffisimGraph();
 
     // 1. Boss decides to call a meeting
     gateway.pushResponse({

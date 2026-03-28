@@ -1,4 +1,4 @@
-import { Button, Input } from '@aics/ui-core';
+import { Button, Input } from '@offisim/ui-core';
 import { Dices } from 'lucide-react';
 import { useCallback } from 'react';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';

@@ -1,11 +1,11 @@
 [package]
-name = "aics-desktop"
+name = "offisim-desktop"
 version = "0.0.1"
 description = "AI Company Simulator — Desktop Runtime"
 edition = "2021"
 
 [lib]
-name = "aics_desktop_lib"
+name = "offisim_desktop_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

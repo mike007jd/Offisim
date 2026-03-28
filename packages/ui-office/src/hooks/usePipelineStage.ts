@@ -1,7 +1,7 @@
-import type { GraphNodeEnteredPayload, RoleSlug, RuntimeEvent } from '@aics/shared-types';
-import { SYSTEM_ROLES } from '@aics/shared-types';
+import type { GraphNodeEnteredPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
+import { SYSTEM_ROLES } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { useAicsRuntime, useAicsRuntimeStatus } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Shared pipeline stage hook — consumed by ChatPanel, StatusBar, PipelineProgress.
@@ -118,8 +118,8 @@ function nodeToPipelineStage(nodeName: string): NonNullable<PipelineStage> {
  * Clears automatically 3s after the runtime stops running.
  */
 export function usePipelineStage(): PipelineStage {
-  const { eventBus } = useAicsRuntime();
-  const { isRunning } = useAicsRuntimeStatus();
+  const { eventBus } = useOffisimRuntime();
+  const { isRunning } = useOffisimRuntimeStatus();
   const [stage, setStage] = useState<PipelineStage>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -19,7 +19,7 @@ interface Props {
  * Shown on the marketplace website when a user clicks "Install in Offisim"
  * but the desktop app did not open (or is not installed). Provides:
  * 1. A "Try Again" button to re-attempt the deep link
- * 2. A "Download Package" button for manual .aicspkg import
+ * 2. A "Download Package" button for manual .offisimpkg import
  * 3. A "Copy Install Link" button so the user can paste into the desktop app
  * 4. A download prompt to get the Offisim Desktop app
  */
@@ -107,7 +107,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
               className="flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface,theme(colors.white))] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover,theme(colors.gray.50))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-60"
             >
               <Package size={16} />
-              {downloading ? 'Downloading...' : 'Download .aicspkg File'}
+              {downloading ? 'Downloading...' : 'Download .offisimpkg File'}
             </button>
           )}
 
@@ -134,7 +134,7 @@ export function InstallModal({ listingId, version, packageVersionId, title, onCl
             Download the free desktop runtime to install and run AI company assets locally.
           </p>
           <a
-            href="https://github.com/AICraftsman/AICS/releases"
+            href="https://github.com/AICraftsman/Offisim/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent-indigo)] hover:text-[var(--accent-indigo)]"

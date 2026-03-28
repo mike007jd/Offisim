@@ -1,4 +1,4 @@
-import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk } from '@aics/core/browser';
+import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk } from '@offisim/core/browser';
 import { isTauri } from './env';
 import type { ProviderConfig } from './provider-config';
 

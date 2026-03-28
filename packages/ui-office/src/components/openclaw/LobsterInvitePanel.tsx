@@ -6,7 +6,7 @@
  * the "Powered by OpenClaw" badge.
  */
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 import { CheckCircle2 } from 'lucide-react';
 import type { OpenClawAgent } from '../../hooks/useOpenClaw.js';
 

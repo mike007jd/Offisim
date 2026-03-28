@@ -1,11 +1,11 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAicsRuntime } from './aics-runtime-context';
+import { useOffisimRuntime } from './offisim-runtime-context';
 
 const DEFAULT_MAX = 200;
 
 export function useEventStream(pattern: string, maxEvents = DEFAULT_MAX): RuntimeEvent[] {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [events, setEvents] = useState<RuntimeEvent[]>([]);
   const bufferRef = useRef<RuntimeEvent[]>([]);
   const rafRef = useRef<number | null>(null);

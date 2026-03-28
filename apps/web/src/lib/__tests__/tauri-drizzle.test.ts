@@ -38,7 +38,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
 
     // Trigger a SELECT through Drizzle — this will invoke our proxy callback
     // which should convert ? to $1, $2, etc.
-    const { employees } = await import('@aics/db-local');
+    const { employees } = await import('@offisim/db-local');
     const { eq } = await import('drizzle-orm');
 
     mockSelect.mockResolvedValue([{ employee_id: 'emp-alice', name: 'Alice' }]);
@@ -57,7 +57,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
     const { createTauriDrizzleDb } = await import('../tauri-drizzle');
     const db = createTauriDrizzleDb();
 
-    const { employees } = await import('@aics/db-local');
+    const { employees } = await import('@offisim/db-local');
     const { eq, and } = await import('drizzle-orm');
 
     mockSelect.mockResolvedValue([]);
@@ -79,7 +79,7 @@ describe('convertPlaceholders (via proxy callback)', () => {
     const { createTauriDrizzleDb } = await import('../tauri-drizzle');
     const db = createTauriDrizzleDb();
 
-    const { companies } = await import('@aics/db-local');
+    const { companies } = await import('@offisim/db-local');
 
     mockExecute.mockResolvedValue({ lastInsertId: 0, rowsAffected: 1 });
 

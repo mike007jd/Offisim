@@ -5,8 +5,8 @@ import type {
   Zone,
   ZoneArchetype,
   ZoneRow,
-} from '@aics/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
+} from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 
 import type { ZoneRepository, NewZone } from '../repos/zone-repository.js';
 

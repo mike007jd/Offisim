@@ -1,4 +1,4 @@
-import type { VersionSummary } from '@aics/registry-client';
+import type { VersionSummary } from '@offisim/registry-client';
 import { formatDate } from '../lib/format.js';
 import { RiskBadge } from './RiskBadge.js';
 

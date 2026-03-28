@@ -1,4 +1,4 @@
-import { cn } from '@aics/ui-core';
+import { cn } from '@offisim/ui-core';
 import { useState } from 'react';
 
 // ---------------------------------------------------------------------------

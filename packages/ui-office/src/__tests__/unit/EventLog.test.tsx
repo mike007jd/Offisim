@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
-import type { RuntimeEvent as SharedRuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent as SharedRuntimeEvent } from '@offisim/shared-types';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventLog, primeEventLogStore } from '../../components/events/EventLog';
-import { AicsRuntimeContext, type AicsRuntimeValue } from '../../runtime/aics-runtime-context';
+import { OffisimRuntimeContext, type OffisimRuntimeValue } from '../../runtime/offisim-runtime-context';
 
 type TestEvent = {
   type: string;
@@ -50,10 +50,10 @@ class TestEventBus {
 
 function createRuntimeValue(
   eventBus: TestEventBus,
-  bootstrapState?: AicsRuntimeValue['bootstrapState'],
-): AicsRuntimeValue {
+  bootstrapState?: OffisimRuntimeValue['bootstrapState'],
+): OffisimRuntimeValue {
   return {
-    eventBus: eventBus as unknown as AicsRuntimeValue['eventBus'],
+    eventBus: eventBus as unknown as OffisimRuntimeValue['eventBus'],
     isReady: true,
     isRunning: false,
     error: null,
@@ -75,9 +75,9 @@ function createRuntimeValue(
   };
 }
 
-function createWrapper(runtimeValue: AicsRuntimeValue) {
+function createWrapper(runtimeValue: OffisimRuntimeValue) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <AicsRuntimeContext.Provider value={runtimeValue}>{children}</AicsRuntimeContext.Provider>;
+    return <OffisimRuntimeContext.Provider value={runtimeValue}>{children}</OffisimRuntimeContext.Provider>;
   };
 }
 
@@ -144,7 +144,7 @@ describe('EventLog', () => {
     const eventBus = new TestEventBus();
     const wrapper = createWrapper(createRuntimeValue(eventBus));
 
-    primeEventLogStore(eventBus as unknown as AicsRuntimeValue['eventBus']);
+    primeEventLogStore(eventBus as unknown as OffisimRuntimeValue['eventBus']);
 
     act(() => {
       eventBus.emit({

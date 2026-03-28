@@ -1,4 +1,4 @@
-import type { ProjectAssignmentRow } from '@aics/shared-types';
+import type { ProjectAssignmentRow } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 
 interface ProjectAssignmentRepos {

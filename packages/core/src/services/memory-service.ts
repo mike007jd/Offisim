@@ -1,4 +1,4 @@
-import type { RuntimeMemoryPolicy } from '@aics/shared-types';
+import type { RuntimeMemoryPolicy } from '@offisim/shared-types';
 import { z } from 'zod';
 import type { EventBus } from '../events/event-bus.js';
 import { Logger } from './logger.js';

@@ -1,4 +1,4 @@
-import { Badge, ScrollArea } from '@aics/ui-core';
+import { Badge, ScrollArea } from '@offisim/ui-core';
 import {
   AlertTriangle,
   CheckSquare,

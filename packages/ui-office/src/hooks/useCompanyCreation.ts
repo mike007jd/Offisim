@@ -1,9 +1,9 @@
-import { CompanyTemplateService, listTemplates } from '@aics/core/browser';
-import type { CompanyTemplate } from '@aics/core/browser';
+import { CompanyTemplateService, listTemplates } from '@offisim/core/browser';
+import type { CompanyTemplate } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 export type CreationStep = 'checking' | 'first-run' | 'creating' | 'ready';
 
@@ -20,7 +20,7 @@ export interface UseCompanyCreationReturn {
 }
 
 export function useCompanyCreation(): UseCompanyCreationReturn {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [step, setStep] = useState<CreationStep>('checking');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);

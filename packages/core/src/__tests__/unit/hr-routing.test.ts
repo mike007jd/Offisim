@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { bossNode } from '../../agents/boss-node.js';
 import { managerNode } from '../../agents/manager-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
@@ -18,7 +18,7 @@ import {
 } from '../helpers/fixtures.js';
 import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,

@@ -1,7 +1,7 @@
-import { Button } from '@aics/ui-core';
+import { Button } from '@offisim/ui-core';
 /**
  * FileImportTrigger — hidden file input + visible trigger button.
- * Supports .aicspkg and .zip files with 50MB size limit.
+ * Supports .offisimpkg and .zip files with 50MB size limit.
  * Optional drag-and-drop zone can be shown via showDropZone prop.
  */
 
@@ -9,7 +9,7 @@ import { Package } from 'lucide-react';
 import { type DragEvent, useCallback, useRef, useState } from 'react';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ACCEPTED_EXTENSIONS = '.aicspkg,.zip,.md';
+const ACCEPTED_EXTENSIONS = '.offisimpkg,.zip,.md';
 
 interface FileImportTriggerProps {
   onFileSelect: (file: File) => void;
@@ -107,7 +107,7 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
           }`}
         >
           <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-sm">Drop .aicspkg, .zip, or SKILL.md file here</p>
+          <p className="text-sm">Drop .offisimpkg, .zip, or SKILL.md file here</p>
           <p className="text-xs mt-1">Max 50MB</p>
         </div>
       )}

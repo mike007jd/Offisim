@@ -1,4 +1,4 @@
-// @aics/install-core — Phase 6 install system
+// @offisim/install-core — Phase 6 install system
 
 // ---------------------------------------------------------------------------
 // Type re-exports from types.ts

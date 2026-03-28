@@ -13,7 +13,7 @@ import type {
   PrefabDefinition,
   RenderTemplate2D,
   SemanticCategory,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 
 // ── Helpers ─────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { listings, reviews } from '@aics/db-platform';
+import { listings, reviews } from '@offisim/db-platform';
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';

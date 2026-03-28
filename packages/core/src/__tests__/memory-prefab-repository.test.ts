@@ -1,4 +1,4 @@
-import type { PrefabInstanceRow } from '@aics/shared-types';
+import type { PrefabInstanceRow } from '@offisim/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';
 

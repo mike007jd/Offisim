@@ -1,6 +1,6 @@
-import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface Deliverable {
   id: string;
@@ -12,7 +12,7 @@ export interface Deliverable {
 }
 
 export function useDeliverables(): Deliverable[] {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
 
   useEffect(() => {

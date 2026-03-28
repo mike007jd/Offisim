@@ -1,4 +1,4 @@
-import { creators, listings, packageVersions } from '@aics/db-platform';
+import { creators, listings, packageVersions } from '@offisim/db-platform';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';

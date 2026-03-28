@@ -1,4 +1,4 @@
-import * as schema from '@aics/db-local';
+import * as schema from '@offisim/db-local';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { getTauriDb } from './tauri-db';
 

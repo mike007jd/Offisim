@@ -1,4 +1,4 @@
-import { Badge, Button, ScrollArea } from '@aics/ui-core';
+import { Badge, Button, ScrollArea } from '@offisim/ui-core';
 import { useState } from 'react';
 import { useEmployeeVersions } from '../../hooks/useEmployeeVersions';
 import { VersionDiffTable } from './VersionDiffTable';

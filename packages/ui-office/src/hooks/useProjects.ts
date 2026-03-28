@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@aics/shared-types';
+import type { ProjectRow } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 
 interface UseProjectsOptions {

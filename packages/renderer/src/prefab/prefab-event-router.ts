@@ -8,7 +8,7 @@
  * - Matching prefab runtimes receive inferred state transitions.
  * - Special provider→rack index supports compute category routing for LLM events.
  */
-import type { PrefabDefinition, RuntimeEvent, SemanticCategory } from '@aics/shared-types';
+import type { PrefabDefinition, RuntimeEvent, SemanticCategory } from '@offisim/shared-types';
 import { inferWorkspaceState } from './state-machines.js';
 
 /**

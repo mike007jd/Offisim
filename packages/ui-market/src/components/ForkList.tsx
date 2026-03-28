@@ -1,4 +1,4 @@
-import type { ForkSummary } from '@aics/registry-client';
+import type { ForkSummary } from '@offisim/registry-client';
 import { formatDate } from '../lib/format.js';
 
 export interface ForkListProps {

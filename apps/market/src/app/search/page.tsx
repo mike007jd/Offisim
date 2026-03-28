@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
-import type { SearchParams, SearchResponse } from '@aics/registry-client';
-import { ListingCard, SearchFilters } from '@aics/ui-market';
+import type { SearchParams, SearchResponse } from '@offisim/registry-client';
+import { ListingCard, SearchFilters } from '@offisim/ui-market';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';

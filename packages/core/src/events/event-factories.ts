@@ -51,7 +51,7 @@ import type {
   TaskState,
   TaskStatePayload,
   TaskSubtaskProgressPayload,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 
 export function employeeStateChanged(
   companyId: string,

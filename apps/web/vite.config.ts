@@ -10,7 +10,7 @@ import { defineConfig } from 'vite';
  * Key concerns:
  * 1. Alias node:async_hooks → browser polyfill (LangChain uses AsyncLocalStorage)
  * 2. Alias better-sqlite3 → empty stub (Node-only, unused in browser)
- * 3. Pre-bundle @aics/core so CJS transitive deps get ESM conversion
+ * 3. Pre-bundle @offisim/core so CJS transitive deps get ESM conversion
  * 4. LLM proxy middleware to avoid CORS during development
  */
 export default defineConfig({
@@ -139,21 +139,21 @@ export default defineConfig({
         find: /^@tauri-apps\//,
         replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
       },
-      // Redirect bare `@aics/core` imports (from @aics/ui-office compiled output)
+      // Redirect bare `@offisim/core` imports (from @offisim/ui-office compiled output)
       // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
       // from being pulled into the initial bundle via ui-office's static imports.
-      // Heavy runtime modules (graph, LLM, MCP) use direct @aics/core/dist/ path
+      // Heavy runtime modules (graph, LLM, MCP) use direct @offisim/core/dist/ path
       // imports in browser-runtime.ts and tauri-runtime.ts to bypass this alias.
-      // Uses regex with exact match ($ anchor) so @aics/core/browser, @aics/core/dist/...
+      // Uses regex with exact match ($ anchor) so @offisim/core/browser, @offisim/core/dist/...
       // are NOT affected.
       {
-        find: /^@aics\/core$/,
+        find: /^@offisim\/core$/,
         replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js'),
       },
     ],
   },
   optimizeDeps: {
-    include: ['@aics/core', '@aics/core/browser', '@aics/shared-types'],
+    include: ['@offisim/core', '@offisim/core/browser', '@offisim/shared-types'],
     exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
   },
   build: {
@@ -174,7 +174,7 @@ export default defineConfig({
         //   vendor-3d      — Three.js + React Three Fiber (lazy on 3D view toggle)
         //   vendor-ui      — Radix primitives + lucide icons
         //   vendor-install — fflate + ajv + gray-matter + js-yaml
-        //   vendor-drizzle — drizzle-orm (leaks via @aics/core barrel export)
+        //   vendor-drizzle — drizzle-orm (leaks via @offisim/core barrel export)
         // ---------------------------------------------------------------------------
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return;
@@ -225,7 +225,7 @@ export default defineConfig({
             return 'vendor-install';
           }
 
-          // Drizzle ORM — leaks via @aics/core barrel export, isolate it
+          // Drizzle ORM — leaks via @offisim/core barrel export, isolate it
           if (id.includes('/drizzle-orm/')) {
             return 'vendor-drizzle';
           }

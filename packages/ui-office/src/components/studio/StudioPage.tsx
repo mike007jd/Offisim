@@ -6,10 +6,10 @@
  * (create or edit) via RuntimeRepositories.
  */
 
-import type { RuntimeRepositories } from '@aics/core/browser';
-import { dehydrateZone, hydrateZone, ZoneService } from '@aics/core/browser';
+import type { RuntimeRepositories } from '@offisim/core/browser';
+import { dehydrateZone, hydrateZone, ZoneService } from '@offisim/core/browser';
 
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StudioCanvas } from './StudioCanvas.js';

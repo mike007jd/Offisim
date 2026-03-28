@@ -1,8 +1,8 @@
 'use client';
 
-import { RegistryClient } from '@aics/registry-client';
-import type { LibraryItem } from '@aics/registry-client';
-import { HistoryList, PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
+import { RegistryClient } from '@offisim/registry-client';
+import type { LibraryItem } from '@offisim/registry-client';
+import { HistoryList, PLATFORM_API_URL, useAuthContext } from '@offisim/ui-market';
 import { useEffect, useState } from 'react';
 
 export default function HistoryPage() {

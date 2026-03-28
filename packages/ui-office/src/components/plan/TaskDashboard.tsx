@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
 import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 import { TaskStepCard } from './TaskStepCard';
@@ -9,7 +9,7 @@ import { TaskStepCard } from './TaskStepCard';
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [stepFilter, setStepFilter] = useState<number | null>(null);
   /** Ref to the scroll container for programmatic scrolling on scene.employee.selected */

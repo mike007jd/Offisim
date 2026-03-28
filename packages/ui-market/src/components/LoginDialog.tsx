@@ -61,7 +61,7 @@ export function LoginDialog({ onClose }: Props) {
       <div className="w-full max-w-sm rounded-lg bg-[var(--bg-secondary)] p-6 shadow-none border border-[var(--border-bright)]">
         <div className="mb-4 flex items-start justify-between">
           <h2 id="login-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">
-            {mode === 'sign-in' ? 'Sign in to AICS Market' : 'Create an Account'}
+            {mode === 'sign-in' ? 'Sign in to Offisim Market' : 'Create an Account'}
           </h2>
           {onClose && (
             <button

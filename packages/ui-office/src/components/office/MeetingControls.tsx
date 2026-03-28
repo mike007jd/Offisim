@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@aics/ui-core';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 import {
   ClipboardCheck,
   Lightbulb,

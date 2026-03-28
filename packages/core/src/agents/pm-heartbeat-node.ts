@@ -1,6 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
 
@@ -16,9 +16,9 @@ import { getRuntime } from '../utils/get-runtime.js';
  * 4. If all done, emit completion summary
  */
 export async function pmHeartbeatNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'pm_heartbeat', { optional: true });
   if (!runtimeCtx) return {};
 

@@ -1,4 +1,4 @@
-import { Textarea } from '@aics/ui-core';
+import { Textarea } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 interface InstructionsStepProps {

@@ -1,5 +1,5 @@
-import type { InstallState } from '@aics/shared-types';
-import type { BindingStatus, BindingType } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
+import type { BindingStatus, BindingType } from '@offisim/shared-types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InstallService, InstallServiceError } from '../install-service.js';
 import type {
@@ -259,7 +259,7 @@ describe('InstallService', () => {
       expect(result.installTxnId).toBeDefined();
       expect(result.plan).toBeDefined();
       expect(result.error).toBeUndefined();
-      expect(result.plan?.manifest.package.id).toBe('aics.employee.test-writer');
+      expect(result.plan?.manifest.package.id).toBe('offisim.employee.test-writer');
     });
 
     it('creates a transaction row in the store', async () => {

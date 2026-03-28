@@ -5,10 +5,10 @@
  * Categories as collapsible sections, prefabs as icon cards.
  */
 
-import { getAllBuiltinPrefabs } from '@aics/renderer';
-import type { PrefabDefinition, SemanticCategory } from '@aics/shared-types';
-import type { ZonePreset } from '@aics/shared-types';
-import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@aics/shared-types';
+import { getAllBuiltinPrefabs } from '@offisim/renderer';
+import type { PrefabDefinition, SemanticCategory } from '@offisim/shared-types';
+import type { ZonePreset } from '@offisim/shared-types';
+import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@offisim/shared-types';
 import { BookOpen, Cpu, Leaf, Lock, Monitor, Server, Users } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { PrefabThumbnail } from './PrefabThumbnail.js';

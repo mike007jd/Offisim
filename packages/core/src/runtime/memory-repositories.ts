@@ -1,5 +1,5 @@
-import type { NewEmployee } from '@aics/install-core';
-import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
+import type { NewEmployee } from '@offisim/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
   NewProject,
   NewProjectAssignment,
@@ -7,7 +7,7 @@ import type {
   ProjectRow,
   ProjectStatus,
   ZoneRow,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import type { ZoneRepository, NewZone } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';

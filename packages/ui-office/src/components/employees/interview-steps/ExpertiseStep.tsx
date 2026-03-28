@@ -1,5 +1,5 @@
-import { Textarea } from '@aics/ui-core';
-import { cn } from '@aics/ui-core';
+import { Textarea } from '@offisim/ui-core';
+import { cn } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 /** Suggested expertise tags by role. */

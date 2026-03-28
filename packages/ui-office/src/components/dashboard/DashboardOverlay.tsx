@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@aics/ui-core';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { AlertTriangle, Bell, FileOutput, Trash2, X, XCircle } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
 import { useCostDashboard } from '../../hooks/useCostDashboard';

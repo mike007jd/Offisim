@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AicsError, DataError, GraphError, LlmError } from '../../errors.js';
+import { OffisimError, DataError, GraphError, LlmError } from '../../errors.js';
 
-describe('AicsError', () => {
+describe('OffisimError', () => {
   it('has code and recoverable properties', () => {
-    const err = new AicsError('test', 'TEST_CODE', true);
+    const err = new OffisimError('test', 'TEST_CODE', true);
     expect(err.message).toBe('test');
     expect(err.code).toBe('TEST_CODE');
     expect(err.recoverable).toBe(true);

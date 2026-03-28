@@ -1,4 +1,4 @@
-import { Badge, Button } from '@aics/ui-core';
+import { Badge, Button } from '@offisim/ui-core';
 import { MessageSquare, Pencil, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { ROLE_LABELS } from '../../lib/roles';

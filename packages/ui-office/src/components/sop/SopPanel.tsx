@@ -1,8 +1,8 @@
-import { Button } from '@aics/ui-core';
+import { Button } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight, ClipboardList, Play, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useSops } from '../../hooks/useSops';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -178,7 +178,7 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
 
 export function SopPanel() {
   const { sops, loading, deleteSop } = useSops();
-  const { sendMessage } = useAicsRuntime();
+  const { sendMessage } = useOffisimRuntime();
 
   const handleRun = useCallback(
     (name: string) => {

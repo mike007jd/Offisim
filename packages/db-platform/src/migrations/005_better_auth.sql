@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
 
--- Bridge: link Better Auth users to existing AICS users table.
+-- Bridge: link Better Auth users to existing Offisim users table.
 -- The old `users.user_id` (UUID) is kept for backward compatibility with
 -- creators, reviews, install_receipts, etc.
 -- New column on `users` to link to Better Auth user.id (text).

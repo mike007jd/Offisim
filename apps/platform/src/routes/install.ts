@@ -9,7 +9,7 @@
  * 2. GET /download/:versionId — redirect to artifact download URL
  */
 
-import { installReceipts, listings, packageVersions } from '@aics/db-platform';
+import { installReceipts, listings, packageVersions } from '@offisim/db-platform';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -84,7 +84,7 @@ installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
  * GET /v1/install/download/:versionId — Get artifact download URL.
  *
  * Returns the artifact URL + SHA256 for the given package version.
- * The local runtime uses this to download the .aicspkg file.
+ * The local runtime uses this to download the .offisimpkg file.
  * No auth required — artifacts are public (same as npm/crates.io).
  */
 installRoute.get('/download/:versionId', async (c) => {

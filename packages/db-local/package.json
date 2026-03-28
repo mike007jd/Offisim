@@ -1,5 +1,5 @@
 {
-  "name": "@aics/db-local",
+  "name": "@offisim/db-local",
   "version": "0.0.1",
   "private": true,
   "type": "module",

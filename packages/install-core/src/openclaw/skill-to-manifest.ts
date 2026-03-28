@@ -11,7 +11,7 @@
  *   the skill without flattening all instructions into the foreground
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 import { buildSkillCapabilityIndex } from './skill-validator.js';
 import type { ParsedSkill } from './types.js';
 

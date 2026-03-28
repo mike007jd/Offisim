@@ -1,6 +1,6 @@
 'use client';
 
-import type { PublishDraft } from '@aics/registry-client';
+import type { PublishDraft } from '@offisim/registry-client';
 import { formatDate } from '../lib/format.js';
 import { KindIcon } from './KindIcon.js';
 

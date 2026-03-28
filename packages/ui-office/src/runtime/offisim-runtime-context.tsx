@@ -4,24 +4,24 @@ import type {
   MemoryRepositoriesSnapshot,
   McpServerConfig,
   RuntimeRepositories,
-} from '@aics/core/browser';
-import type { RuntimeEvent } from '@aics/shared-types';
-import type { InstallService } from '@aics/install-core';
+} from '@offisim/core/browser';
+import type { RuntimeEvent } from '@offisim/shared-types';
+import type { InstallService } from '@offisim/install-core';
 import { createContext, useContext } from 'react';
 
 // ---------------------------------------------------------------------------
 // Stable context — values that change infrequently (repos, eventBus, etc.)
 // ---------------------------------------------------------------------------
 
-export interface AicsRuntimeBootstrapState {
+export interface OffisimRuntimeBootstrapState {
   reposSnapshot: MemoryRepositoriesSnapshot | null;
   eventHistory: RuntimeEvent[];
 }
 
-export interface AicsRuntimeValue {
+export interface OffisimRuntimeValue {
   eventBus: EventBus;
   isReady: boolean;
-  /** @deprecated Use `useAicsRuntimeStatus().isRunning` for re-render optimization. */
+  /** @deprecated Use `useOffisimRuntimeStatus().isRunning` for re-render optimization. */
   isRunning: boolean;
   error: string | null;
   sendMessage: (
@@ -59,14 +59,14 @@ export interface AicsRuntimeValue {
    */
   resumeThread: (threadId: string) => Promise<void>;
   /** Synchronous browser bootstrap data used before async runtime init finishes. */
-  bootstrapState?: AicsRuntimeBootstrapState | null;
+  bootstrapState?: OffisimRuntimeBootstrapState | null;
 }
 
-export const AicsRuntimeContext = createContext<AicsRuntimeValue | null>(null);
+export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);
 
-export function useAicsRuntime(): AicsRuntimeValue {
-  const ctx = useContext(AicsRuntimeContext);
-  if (!ctx) throw new Error('useAicsRuntime must be used within <AicsRuntimeProvider>');
+export function useOffisimRuntime(): OffisimRuntimeValue {
+  const ctx = useContext(OffisimRuntimeContext);
+  if (!ctx) throw new Error('useOffisimRuntime must be used within <OffisimRuntimeProvider>');
   return ctx;
 }
 
@@ -76,23 +76,23 @@ export function useAicsRuntime(): AicsRuntimeValue {
 // to avoid re-rendering when stable values are unchanged.
 // ---------------------------------------------------------------------------
 
-export interface AicsRuntimeStatusValue {
+export interface OffisimRuntimeStatusValue {
   isRunning: boolean;
   /** Internal version counter — bumped on reinitRuntime(). */
   version: number;
 }
 
-export const AicsRuntimeStatusContext = createContext<AicsRuntimeStatusValue>({
+export const OffisimRuntimeStatusContext = createContext<OffisimRuntimeStatusValue>({
   isRunning: false,
   version: 0,
 });
 
 /**
  * Returns volatile runtime status (isRunning, version).
- * Prefer this over `useAicsRuntime().isRunning` in components that don't need
+ * Prefer this over `useOffisimRuntime().isRunning` in components that don't need
  * repos/eventBus/sendMessage — it avoids unnecessary re-renders when those
  * stable values haven't changed.
  */
-export function useAicsRuntimeStatus(): AicsRuntimeStatusValue {
-  return useContext(AicsRuntimeStatusContext);
+export function useOffisimRuntimeStatus(): OffisimRuntimeStatusValue {
+  return useContext(OffisimRuntimeStatusContext);
 }

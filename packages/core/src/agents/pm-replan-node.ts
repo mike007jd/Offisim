@@ -1,7 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
-import type { AicsGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
+import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -105,9 +105,9 @@ function parseReplanResult(content: string): ReplanResult | null {
  * Keeps completed steps intact, replaces only unexecuted steps.
  */
 export async function pmReplanNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'pm_replan');
 
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan'));

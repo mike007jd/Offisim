@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@aics/shared-types';
+import type { ProjectRow } from '@offisim/shared-types';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useProjects } from '../../hooks/useProjects.js';
 

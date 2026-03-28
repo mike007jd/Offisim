@@ -8,11 +8,11 @@
  * The actual OpenClawClient is mocked until the client package is available.
  */
 
-import { employeeDeleted, employeeInstalled } from '@aics/core/browser';
-import type { ConnectionState, OpenClawAgent, OpenClawConfig } from '@aics/core/browser';
+import { employeeDeleted, employeeInstalled } from '@offisim/core/browser';
+import type { ConnectionState, OpenClawAgent, OpenClawConfig } from '@offisim/core/browser';
 import { useCallback, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 // ---------------------------------------------------------------------------
 // Re-export core types that consumers of this hook may need
@@ -127,7 +127,7 @@ async function mockConnect(_url: string, _token: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export function useOpenClaw() {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
 
   const [config, setConfigState] = useState<Pick<OpenClawConfig, 'url' | 'token'> | null>(

@@ -1,4 +1,4 @@
-import { Badge, Button, ScrollArea } from '@aics/ui-core';
+import { Badge, Button, ScrollArea } from '@offisim/ui-core';
 import { Bell, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';

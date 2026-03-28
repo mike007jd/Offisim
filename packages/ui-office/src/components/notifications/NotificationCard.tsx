@@ -1,4 +1,4 @@
-import { Button } from '@aics/ui-core';
+import { Button } from '@offisim/ui-core';
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react';
 import type { Notification } from '../../hooks/useNotifications';
 

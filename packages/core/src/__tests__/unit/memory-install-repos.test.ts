@@ -3,7 +3,7 @@ import type {
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
-} from '@aics/install-core';
+} from '@offisim/install-core';
 import { describe, expect, it } from 'vitest';
 import { createMemoryInstallRepositories } from '../../runtime/memory-install-repos.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -15,7 +15,7 @@ function makeTxn(
     install_txn_id: 'txn-1',
     company_id: 'c-1',
     source_type: 'registry',
-    source_ref: 'https://example.com/pkg.aicspkg',
+    source_ref: 'https://example.com/pkg.offisimpkg',
     target_package_id: 'pkg-1',
     target_version: '1.0.0',
     state: 'created',

@@ -1,4 +1,4 @@
-import { Badge } from '@aics/ui-core';
+import { Badge } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 /** Role slug to human-readable label map. */

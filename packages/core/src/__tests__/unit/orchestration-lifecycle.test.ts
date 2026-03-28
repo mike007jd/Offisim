@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
 import { assertDefined } from '../helpers/fixtures.js';
@@ -67,7 +67,7 @@ function makeTrackedGraph(delayMs = 0): {
 
 function makeInput(threadId: string) {
   return {
-    entryMode: 'boss_chat' as AicsGraphState['entryMode'],
+    entryMode: 'boss_chat' as OffisimGraphState['entryMode'],
     messages: [],
     threadId,
   };
@@ -135,7 +135,7 @@ describe('OrchestrationService lifecycle', () => {
     const orch = new OrchestrationService(graph, runtimeCtx);
 
     // Flood the queue — 4th should be rejected (1 running + 2 queued = depth 3, 4th over limit)
-    const promises: Promise<AicsGraphState | { error: Error }>[] = [
+    const promises: Promise<OffisimGraphState | { error: Error }>[] = [
       orch.execute(makeInput('thread-Q')),
       orch.execute(makeInput('thread-Q')),
       orch.execute(makeInput('thread-Q')),

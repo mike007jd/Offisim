@@ -22,7 +22,7 @@ if (!authSecret && nodeEnv === 'production') {
 }
 
 /**
- * Better Auth instance for the AICS platform.
+ * Better Auth instance for the Offisim platform.
  *
  * Supports:
  * - Email/password authentication
@@ -36,7 +36,7 @@ if (!authSecret && nodeEnv === 'production') {
  */
 export const auth = betterAuth({
   basePath: '/api/auth',
-  secret: authSecret ?? 'aics-dev-secret-change-in-production',
+  secret: authSecret ?? 'offisim-dev-secret-change-in-production',
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:4100',
 
   database: drizzleAdapter(db, {

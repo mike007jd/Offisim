@@ -1,5 +1,5 @@
 {
-  "name": "@aics/registry-client",
+  "name": "@offisim/registry-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/shared-types": "workspace:*",
-    "@aics/asset-schema": "workspace:*"
+    "@offisim/shared-types": "workspace:*",
+    "@offisim/asset-schema": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.7.0", "vitest": "^3.0.0" }
 }

@@ -7,7 +7,7 @@ import type {
   RuntimePolicyConfig,
   RuntimeSummarizationPolicy,
   RuntimeToolSearchPolicy,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { isTauri } from './env';
 
 export interface ProviderConfig {
@@ -21,7 +21,7 @@ export interface ProviderConfig {
   runtimePolicy?: Partial<RuntimePolicyConfig>;
 }
 
-const STORAGE_KEY = 'aics-provider-config';
+const STORAGE_KEY = 'offisim-provider-config';
 
 const DEFAULT_EXECUTION_MODE: RuntimeExecutionMode = 'auto';
 const DEFAULT_SUMMARIZATION: RuntimeSummarizationPolicy = {

@@ -10,7 +10,7 @@
  *     skill summary before any full content is consumed at execution time.
  */
 
-import type { SupportedEnvironment } from '@aics/asset-schema';
+import type { SupportedEnvironment } from '@offisim/asset-schema';
 import type {
   ParsedSkill,
   SkillCapabilityDescriptor,

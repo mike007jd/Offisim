@@ -1,11 +1,11 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import type { LlmRequest, ToolDef } from '../../llm/gateway.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -22,7 +22,7 @@ import {
 } from '../helpers/fixtures.js';
 import { MockLlmGateway } from '../helpers/mock-gateway.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
@@ -324,7 +324,7 @@ describe('employeeNode — handoff via Command', () => {
 
     // Should return normal state (not a Command)
     expect(result).not.toBeInstanceOf(Command);
-    expect((result as Partial<AicsGraphState>).messages).toHaveLength(1);
+    expect((result as Partial<OffisimGraphState>).messages).toHaveLength(1);
   });
 
   it('does NOT inject handoff_to tool when handoffCount >= 3', async () => {
@@ -335,7 +335,7 @@ describe('employeeNode — handoff via Command', () => {
 
     // Should return normal state (not a Command)
     expect(result).not.toBeInstanceOf(Command);
-    expect((result as Partial<AicsGraphState>).messages).toHaveLength(1);
+    expect((result as Partial<OffisimGraphState>).messages).toHaveLength(1);
   });
 
   it('does NOT inject handoff_to tool when no colleagues exist', async () => {
@@ -390,7 +390,7 @@ describe('employeeNode — handoff via Command', () => {
 
     // Should return normal state (not a Command)
     expect(result).not.toBeInstanceOf(Command);
-    const stateResult = result as Partial<AicsGraphState>;
+    const stateResult = result as Partial<OffisimGraphState>;
     expect(stateResult.currentEmployeeId).toBe('e-dev-1');
     expect(stateResult.pendingAssignments).toHaveLength(0);
     expect(stateResult.messages).toHaveLength(1);

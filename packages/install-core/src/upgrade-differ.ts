@@ -10,7 +10,7 @@
  * - 'breaking' — changes that may break existing usage or require migration
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 
 // ---------------------------------------------------------------------------
 // Types

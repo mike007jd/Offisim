@@ -1,5 +1,5 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aics/ui-core';
-import { cn } from '@aics/ui-core';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
+import { cn } from '@offisim/ui-core';
 import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
 
 interface AvatarCustomizerProps {

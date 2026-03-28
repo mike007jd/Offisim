@@ -1,13 +1,13 @@
-import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
+import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
 import {
   employeeCreated,
   employeeDeleted,
   employeeUpdated,
   employeeWorkstationChanged,
-} from '@aics/core/browser';
+} from '@offisim/core/browser';
 import { useCallback, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface AvatarAppearance {
   skinColor: number;
@@ -126,7 +126,7 @@ export interface UseEmployeeEditorReturn {
 }
 
 export function useEmployeeEditor(): UseEmployeeEditorReturn {
-  const { repos, eventBus, employeeVersionService: versionService } = useAicsRuntime();
+  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);

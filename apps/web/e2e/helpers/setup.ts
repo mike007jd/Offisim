@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 
-const STORAGE_KEY = 'aics-provider-config';
+const STORAGE_KEY = 'offisim-provider-config';
 
 export interface TestProviderConfig {
   provider: 'openai-compat';
@@ -43,11 +43,11 @@ export async function injectProvider(page: Page): Promise<void> {
 }
 
 /**
- * Wait for the AICS runtime to be ready (debug bridge available on window).
+ * Wait for the Offisim runtime to be ready (debug bridge available on window).
  */
 export async function waitForRuntime(page: Page): Promise<void> {
   // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-  await page.waitForFunction(() => (window as any).__AICS_DEBUG__ !== undefined, {
+  await page.waitForFunction(() => (window as any).__OFFISIM_DEBUG__ !== undefined, {
     timeout: 15_000,
   });
 }

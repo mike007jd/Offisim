@@ -1,4 +1,4 @@
-import { ROLE_REGISTRY, ROLE_LABELS as _ROLE_LABELS_MAP } from '@aics/shared-types';
+import { ROLE_REGISTRY, ROLE_LABELS as _ROLE_LABELS_MAP } from '@offisim/shared-types';
 
 /** Hireable (non-system) roles for dropdowns / role pickers. */
 export const ROLE_OPTIONS = ROLE_REGISTRY.filter((r) => !r.isSystem).map((r) => ({

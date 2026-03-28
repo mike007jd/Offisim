@@ -2,7 +2,7 @@
  *  Single source of truth — consumed by AgentCard, EmployeeInspector,
  *  TeamHealthCard, CompanyStatusCard. */
 
-import type { BadgeProps } from '@aics/ui-core';
+import type { BadgeProps } from '@offisim/ui-core';
 
 export const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
   idle: 'secondary',

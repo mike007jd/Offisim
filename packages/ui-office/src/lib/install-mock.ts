@@ -1,17 +1,17 @@
 /**
  * Mock data for the install flow UI.
- * Based on valid-manifest.json fixture from @aics/asset-schema.
+ * Based on valid-manifest.json fixture from @offisim/asset-schema.
  * Track D will replace mock usage with real InstallService calls.
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
-import type { BindingRequirement, InstallPlan } from '@aics/install-core';
+import type { PackageManifest } from '@offisim/asset-schema';
+import type { BindingRequirement, InstallPlan } from '@offisim/install-core';
 
 /** Mock manifest based on the Writer Pro fixture */
 export const MOCK_MANIFEST: PackageManifest = {
   spec_version: '1.0.0',
   package: {
-    id: 'aics.employee.writer_pro',
+    id: 'offisim.employee.writer_pro',
     kind: 'employee',
     version: '1.2.0',
     title: 'Writer Pro',
@@ -28,7 +28,7 @@ export const MOCK_MANIFEST: PackageManifest = {
     supported_environments: ['desktop', 'docker'],
   },
   lineage: {
-    origin_package_id: 'aics.employee.writer_base',
+    origin_package_id: 'offisim.employee.writer_base',
     forked_from_version: '1.0.0',
   },
   requirements: {
@@ -56,7 +56,7 @@ export const MOCK_MANIFEST: PackageManifest = {
     },
   ],
   distribution: {
-    source_url: 'https://market.example/packages/writer-pro-1.2.0.aicspkg',
+    source_url: 'https://market.example/packages/writer-pro-1.2.0.offisimpkg',
     mirror_policy: 'registry_or_external',
     artifact_size_bytes: 128304,
   },

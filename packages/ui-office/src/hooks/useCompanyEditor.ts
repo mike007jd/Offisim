@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import type { CompanyPolicy } from '../components/company/PolicyEditor';
 import { DEFAULT_COMPANY_POLICY } from '../components/company/PolicyEditor';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export type { CompanyPolicy };
 
@@ -36,7 +36,7 @@ export interface UseCompanyEditorReturn {
  * any other keys (e.g. `zoneProps` written by OfficeEditorOverlay).
  */
 export function useCompanyEditor(): UseCompanyEditorReturn {
-  const { repos } = useAicsRuntime();
+  const { repos } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);

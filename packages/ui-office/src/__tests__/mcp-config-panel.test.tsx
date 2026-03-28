@@ -6,8 +6,8 @@ import { McpConfigPanel } from '../components/settings/McpConfigPanel';
 const connectMcpServer = vi.fn();
 const disconnectMcpServer = vi.fn();
 
-vi.mock('../runtime/aics-runtime-context', () => ({
-  useAicsRuntime: () => ({
+vi.mock('../runtime/offisim-runtime-context', () => ({
+  useOffisimRuntime: () => ({
     connectMcpServer,
     disconnectMcpServer,
     connectedMcpServers: new Set<string>(),
@@ -41,7 +41,7 @@ describe('McpConfigPanel', () => {
 
   it('keeps legacy browser MCP configs reconnectable', async () => {
     localStorage.setItem(
-      'aics:mcp-servers',
+      'offisim:mcp-servers',
       JSON.stringify([
         {
           name: 'legacy-fs',

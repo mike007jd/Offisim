@@ -5,8 +5,8 @@
  * Memoized items to prevent TransformControls flicker.
  */
 
-import { getBuiltinPrefab } from '@aics/renderer';
-import { resolveZoneForPosition } from '@aics/shared-types';
+import { getBuiltinPrefab } from '@offisim/renderer';
+import { resolveZoneForPosition } from '@offisim/shared-types';
 import { Html, TransformControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';

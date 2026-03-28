@@ -1,6 +1,6 @@
-import { act, renderHook } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { ThemeProvider, useTheme } from '../theme/index';
+import { ThemeProvider } from '../theme/index';
 import { useSceneColors } from '../theme/use-scene-colors';
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -29,21 +29,13 @@ describe('useSceneColors', () => {
     }
   });
 
-  it('returns different desk color for light vs dark', () => {
-    function useTestHook() {
-      const theme = useTheme();
-      const colors = useSceneColors();
-      return { theme, colors };
-    }
+  it('ignores legacy stored light preference and still returns the dark palette', () => {
+    const defaultRender = renderHook(() => useSceneColors(), { wrapper: Wrapper });
+    const defaultDesk = defaultRender.result.current.desk;
 
-    const { result } = renderHook(() => useTestHook(), { wrapper: Wrapper });
+    localStorage.setItem('offisim-theme', 'light');
+    const storedLightRender = renderHook(() => useSceneColors(), { wrapper: Wrapper });
 
-    act(() => result.current.theme.setTheme('dark'));
-    const darkDesk = result.current.colors.desk;
-
-    act(() => result.current.theme.setTheme('light'));
-    const lightDesk = result.current.colors.desk;
-
-    expect(darkDesk).not.toBe(lightDesk);
+    expect(storedLightRender.result.current.desk).toBe(defaultDesk);
   });
 });

@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('event-bus');

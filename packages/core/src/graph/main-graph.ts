@@ -25,7 +25,7 @@ import {
   meetingTurnCheck,
   participantTurnNode,
 } from './meeting-subgraph.js';
-import { AicsGraphAnnotation, type AicsGraphState } from './state.js';
+import { OffisimGraphAnnotation, type OffisimGraphState } from './state.js';
 
 /** Max replans before escalating to user */
 const MAX_REPLAN_COUNT = 3;
@@ -40,7 +40,7 @@ const MAX_REPLAN_COUNT = 3;
 const REPLAN_SIGNAL_RE = /\[SIGNAL:REPLAN_NEEDED\]|\bREPLAN_NEEDED\b/i;
 
 /** @internal — exported for testing */
-export function routeFromStart(state: AicsGraphState): string {
+export function routeFromStart(state: OffisimGraphState): string {
   if (state.entryMode === 'direct_chat' && state.targetEmployeeId) {
     return 'employee_direct_setup';
   }
@@ -63,7 +63,7 @@ export function routeFromStart(state: AicsGraphState): string {
 }
 
 /** @internal — exported for testing */
-export function routeFromBoss(state: AicsGraphState): string {
+export function routeFromBoss(state: OffisimGraphState): string {
   if (state.interruptReason) return 'error_handler';
   switch (state.routeDecision) {
     case 'delegate_manager':
@@ -80,7 +80,7 @@ export function routeFromBoss(state: AicsGraphState): string {
 }
 
 /** @internal — exported for testing */
-export function routeFromManager(state: AicsGraphState): string {
+export function routeFromManager(state: OffisimGraphState): string {
   // If the manager directive indicates a hiring or team assessment intent, route to HR
   if (
     state.managerDirective?.constraints === 'hire' ||
@@ -92,7 +92,7 @@ export function routeFromManager(state: AicsGraphState): string {
 }
 
 /** @internal — exported for testing */
-export function routeFromPm(state: AicsGraphState): string {
+export function routeFromPm(state: OffisimGraphState): string {
   if (!state.taskPlan || state.taskPlan.steps.length === 0) {
     return 'boss_summary';
   }
@@ -100,7 +100,7 @@ export function routeFromPm(state: AicsGraphState): string {
 }
 
 /** @internal — exported for testing */
-export function routeFromEmployee(state: AicsGraphState): string {
+export function routeFromEmployee(state: OffisimGraphState): string {
   if (state.interruptReason) return 'error_handler';
 
   // Still have pending assignments in the queue — loop back to process them.
@@ -139,9 +139,9 @@ export function routeFromEmployee(state: AicsGraphState): string {
  * After this, step_dispatcher is called and will find newly unblocked steps.
  */
 async function stepAdvanceNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'step_advance', { optional: true });
 
   if (runtimeCtx) {
@@ -246,7 +246,7 @@ async function stepAdvanceNode(
  * AND replanCount hasn't exceeded the maximum (prevents infinite loops).
  */
 /** @internal — exported for testing */
-export function routeFromStepAdvance(state: AicsGraphState): string {
+export function routeFromStepAdvance(state: OffisimGraphState): string {
   // Check if any recent employee output signals a replan need
   const outputs =
     state.currentStepOutputs.length > 0
@@ -267,7 +267,7 @@ export interface BuildGraphOptions {
 }
 
 /**
- * Build and compile the AICS main StateGraph.
+ * Build and compile the Offisim main StateGraph.
  *
  * Flow: Boss → Manager → PM Planner → Step Dispatcher → Employee (loop)
  *       → Step Advance (loop) → Boss Summary
@@ -276,17 +276,17 @@ export interface BuildGraphOptions {
  * `config.configurable.runtimeCtx` at invoke time, so the same
  * compiled graph can serve multiple threads/companies.
  */
-export function buildAicsGraph(options?: BuildGraphOptions) {
+export function buildOffisimGraph(options?: BuildGraphOptions) {
   const checkpointer = options?.checkpointer ?? createMemoryCheckpointSaver();
 
-  const graph = new StateGraph(AicsGraphAnnotation)
+  const graph = new StateGraph(OffisimGraphAnnotation)
     .addNode('boss', (state, config) => bossNode(state, config))
     .addNode('manager', (state, config) => managerNode(state, config))
     .addNode('pm_planner', (state, config) => pmPlannerNode(state, config))
     .addNode('step_dispatcher', (state, config) => stepDispatcherNode(state, config))
     .addNode(
       'employee',
-      (state: AicsGraphState, config: RunnableConfig) => employeeNode(state, config),
+      (state: OffisimGraphState, config: RunnableConfig) => employeeNode(state, config),
       {
         // employee node may return Command (handoff) targeting itself
         ends: ['employee'],

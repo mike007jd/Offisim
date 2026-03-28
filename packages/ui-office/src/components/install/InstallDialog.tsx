@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 /**
  * InstallDialog — shadcn Dialog wrapper that renders different content
  * based on the current install flow step.

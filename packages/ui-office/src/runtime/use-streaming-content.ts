@@ -2,17 +2,17 @@ import type {
   GraphNodeEnteredPayload,
   LlmStreamChunkPayload,
   RuntimeEvent,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { useAicsRuntime, useAicsRuntimeStatus } from './aics-runtime-context';
+import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
 export function useStreamingContent(): {
   content: string;
   isStreaming: boolean;
   nodeName: string | null;
 } {
-  const { eventBus } = useAicsRuntime();
-  const { isRunning } = useAicsRuntimeStatus();
+  const { eventBus } = useOffisimRuntime();
+  const { isRunning } = useOffisimRuntimeStatus();
   const [content, setContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [nodeName, setNodeName] = useState<string | null>(null);

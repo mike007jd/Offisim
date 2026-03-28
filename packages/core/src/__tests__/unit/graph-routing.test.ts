@@ -10,10 +10,10 @@ import {
   routeFromPm,
   routeFromStart,
 } from '../../graph/main-graph.js';
-import type { AicsGraphState, PlanStep, PlanTask } from '../../graph/state.js';
+import type { OffisimGraphState, PlanStep, PlanTask } from '../../graph/state.js';
 
 /** Build a minimal state, overriding only the fields under test. */
-function makeState(overrides: Partial<AicsGraphState> = {}): AicsGraphState {
+function makeState(overrides: Partial<OffisimGraphState> = {}): OffisimGraphState {
   return {
     threadId: 't-1',
     companyId: 'c-1',
@@ -55,7 +55,7 @@ function makeTask(): PlanTask {
   };
 }
 
-function makePlan(stepCount: number): AicsGraphState['taskPlan'] {
+function makePlan(stepCount: number): OffisimGraphState['taskPlan'] {
   const steps: PlanStep[] = Array.from({ length: stepCount }, (_, i) => ({
     stepIndex: i,
     description: `step ${i}`,

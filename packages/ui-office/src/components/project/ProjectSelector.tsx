@@ -1,5 +1,5 @@
-import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@aics/shared-types';
-import type { ProjectRow, ProjectStatus } from '@aics/shared-types';
+import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@offisim/shared-types';
+import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
 import { ChevronDown, Folder } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 

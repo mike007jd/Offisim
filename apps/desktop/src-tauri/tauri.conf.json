@@ -4,9 +4,9 @@
   "version": "0.0.1",
   "identifier": "com.offisim.desktop",
   "build": {
-    "beforeDevCommand": "pnpm --filter @aics/web dev",
+    "beforeDevCommand": "pnpm --filter @offisim/web dev",
     "devUrl": "http://localhost:5176",
-    "beforeBuildCommand": "pnpm --filter @aics/web build",
+    "beforeBuildCommand": "pnpm --filter @offisim/web build",
     "frontendDist": "../../web/dist"
   },
   "app": {

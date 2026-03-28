@@ -1,6 +1,6 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { buildOffisimGraph } from '../../graph/main-graph.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
@@ -47,7 +47,7 @@ export function createTestRuntime() {
     memoryService,
   });
 
-  const graph = buildAicsGraph();
+  const graph = buildOffisimGraph();
   const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
   // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types
@@ -97,7 +97,7 @@ export function createTestRuntimeWithExtraEmployee() {
     memoryService,
   });
 
-  const graph = buildAicsGraph();
+  const graph = buildOffisimGraph();
   const orchestrationService = new OrchestrationService(graph, runtimeCtx);
 
   // biome-ignore lint/suspicious/noExplicitAny: event collector captures all payload types

@@ -1,10 +1,10 @@
-import { Badge } from '@aics/ui-core';
+import { Badge } from '@offisim/ui-core';
 import { Circle, Plus, Server, Trash2, Unplug, Wifi } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { RackWithSlots } from '@aics/core/browser';
+import type { RackWithSlots } from '@offisim/core/browser';
 import { useRackSlot } from '../../hooks/useRackSlot.js';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 
 // ─── Status helpers ─────────────────────────────────────────────────────────
 
@@ -224,7 +224,7 @@ function EmptyRacks() {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function ServerRoom() {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const {
     racks,
     loading,

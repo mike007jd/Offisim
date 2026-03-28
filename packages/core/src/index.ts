@@ -1,4 +1,4 @@
-// @aics/core — Phase 6 Install Pipeline
+// @offisim/core — Phase 6 Install Pipeline
 
 // --- Types ---
 export type {
@@ -96,7 +96,7 @@ export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export { WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 export type {
-  AicsGraphState,
+  OffisimGraphState,
   PendingAssignment,
   TaskPlan,
   PlanStep,
@@ -113,7 +113,7 @@ export type { ExecutionTrace, ExecutionTraceService } from './services/execution
 export type { ThreadForkService } from './services/thread-fork-service.js';
 
 // --- Factories ---
-export { buildAicsGraph } from './graph/main-graph.js';
+export { buildOffisimGraph } from './graph/main-graph.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export {
@@ -129,7 +129,7 @@ export {
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
-// Drizzle repositories: import from '@aics/core/drizzle'
+// Drizzle repositories: import from '@offisim/core/drizzle'
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
 export {
@@ -261,7 +261,7 @@ export type {
 } from './mcp/mcp-config-loader.js';
 // NOTE: SdkClientFactory intentionally NOT in barrel — imports node:stream/child_process
 // which breaks browser builds. Use direct import in Node.js/Tauri environments:
-//   import { SdkClientFactory } from '@aics/core/dist/mcp/sdk-client-factory.js';
+//   import { SdkClientFactory } from '@offisim/core/dist/mcp/sdk-client-factory.js';
 export type {
   McpServerConfig,
   McpConnection,
@@ -333,4 +333,4 @@ export type {
 export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
 
 // --- Errors ---
-export { AicsError, LlmError, GraphError, DataError, toErrorMessage } from './errors.js';
+export { OffisimError, LlmError, GraphError, DataError, toErrorMessage } from './errors.js';

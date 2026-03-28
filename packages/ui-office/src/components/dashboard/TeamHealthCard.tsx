@@ -1,4 +1,4 @@
-import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@aics/ui-core';
+import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { HeartPulse } from 'lucide-react';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';

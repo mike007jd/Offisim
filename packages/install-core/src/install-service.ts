@@ -2,10 +2,10 @@
  * InstallService — orchestrates the full install lifecycle.
  *
  * Each state change: validateTransition -> persist -> emit event.
- * All dependencies are injected via constructor (no @aics/core imports).
+ * All dependencies are injected via constructor (no @offisim/core imports).
  */
 
-import type { InstallState } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
 import { resolveBindings } from './binding-resolver.js';
 import { checkCompatibility } from './compatibility-checker.js';
 import { createInstallPlan } from './install-planner.js';
@@ -109,14 +109,14 @@ export class InstallService {
   // -------------------------------------------------------------------------
 
   /**
-   * Import a .aicspkg archive and run the pre-install pipeline.
+   * Import a .offisimpkg archive and run the pre-install pipeline.
    *
    * 1. Create install transaction (state: 'created')
    * 2. Run createInstallPlan (extract -> integrity -> compatibility -> bindings)
    * 3. Transition through states at each pipeline stage
    * 4. End in 'awaiting_confirmation' on success or 'failed' on error
    *
-   * @param archiveBytes - Raw bytes of the .aicspkg ZIP archive.
+   * @param archiveBytes - Raw bytes of the .offisimpkg ZIP archive.
    * @returns ImportResult with txnId and either plan or error.
    */
   async importFile(archiveBytes: Uint8Array): Promise<ImportResult> {

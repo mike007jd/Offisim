@@ -13,7 +13,7 @@ info:
     Local install/import endpoints remain declaration-driven: no arbitrary install hooks,
     no postinstall scripts, and no remote code execution during import.
 servers:
-  - url: https://api.aics.market
+  - url: https://api.offisim.market
     description: Registry and marketplace API
   - url: http://127.0.0.1:43111
     description: Local desktop runtime API
@@ -646,7 +646,7 @@ paths:
         with the local runtime, and returns a declaration-only install plan. No package materialization
         occurs at this stage.
       operationId: resolveInstallPlan
-      x-aics-runtime-scope: local
+      x-offisim-runtime-scope: local
       requestBody:
         required: true
         content:
@@ -669,12 +669,12 @@ paths:
   /v1/install/file-import:
     post:
       tags: [Install Runtime]
-      summary: Import a local .aicspkg file into the runtime
+      summary: Import a local .offisimpkg file into the runtime
       description: >
         Runtime-local endpoint. Reads a local package archive, validates manifest and checksums,
         computes required bindings, and creates an install transaction. No arbitrary scripts may run.
       operationId: importPackageFile
-      x-aics-runtime-scope: local
+      x-offisim-runtime-scope: local
       requestBody:
         required: true
         content:
@@ -706,7 +706,7 @@ paths:
         Runtime-local endpoint. Downloads a remote package artifact from an allowlisted origin or
         explicit user-provided URL, validates the package, then creates an install transaction.
       operationId: importPackageUrl
-      x-aics-runtime-scope: local
+      x-offisim-runtime-scope: local
       requestBody:
         required: true
         content:
@@ -735,7 +735,7 @@ paths:
       tags: [Install Runtime]
       summary: Fetch install transaction state
       operationId: getInstallTransaction
-      x-aics-runtime-scope: local
+      x-offisim-runtime-scope: local
       parameters:
         - $ref: '#/components/parameters/InstallTxnId'
       responses:
@@ -752,7 +752,7 @@ paths:
       tags: [Install Runtime]
       summary: Confirm model, MCP, and workspace bindings required by an install plan
       operationId: confirmInstallBindings
-      x-aics-runtime-scope: local
+      x-offisim-runtime-scope: local
       parameters:
         - $ref: '#/components/parameters/InstallTxnId'
       requestBody:

@@ -1,4 +1,4 @@
-import type { SopDefinition } from '@aics/shared-types';
+import type { SopDefinition } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';

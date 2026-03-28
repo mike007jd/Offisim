@@ -1,4 +1,4 @@
-import { AuthProvider } from '@aics/ui-market';
+import { AuthProvider } from '@offisim/ui-market';
 import type { Metadata } from 'next';
 import { Syne } from 'next/font/google';
 import Link from 'next/link';

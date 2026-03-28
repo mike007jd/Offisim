@@ -6,9 +6,9 @@ import type {
   RuntimeEvent,
   TaskAssignmentPayload,
   TaskStatePayload,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,7 +100,7 @@ function findTask(steps: DashboardStep[], taskRunId: string): [number, number] {
 // ---------------------------------------------------------------------------
 
 export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDashboardState {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [state, setState] = useState<InternalState>(INITIAL);
   const stateRef = useRef<InternalState>(INITIAL);
   const agentsRef = useRef(agents);

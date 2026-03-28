@@ -1,5 +1,5 @@
-import type { RoleSlug, RuntimeEvent, Zone } from '@aics/shared-types';
-import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@aics/shared-types';
+import type { RoleSlug, RuntimeEvent, Zone } from '@offisim/shared-types';
+import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import { Environment, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +15,7 @@ import {
 } from '../../hooks/useSceneOrchestrator.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { SEAT_OFFSETS } from '../../lib/zone-config.js';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
@@ -1127,7 +1127,7 @@ export default function Office3DView({
   onDeselectEmployee,
 }: Office3DViewProps) {
   const agents = useAgentStates();
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const sceneCompanyId = activeCompanyId ?? 'default-scene-company';
 

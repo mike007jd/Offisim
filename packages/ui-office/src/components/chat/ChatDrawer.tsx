@@ -1,7 +1,7 @@
 import { ChevronUp, MessageSquare } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'aics-chat-open';
+const STORAGE_KEY = 'offisim-chat-open';
 
 interface ChatDrawerProps {
   children: ReactNode;

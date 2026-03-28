@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { McpToolExecutor } from '../../mcp/mcp-tool-executor.js';

@@ -1,5 +1,5 @@
-import type { PrefabDefinition, Zone, ZonePreset } from '@aics/shared-types';
-import { isRequiredArchetype, resolveZoneForPosition } from '@aics/shared-types';
+import type { PrefabDefinition, Zone, ZonePreset } from '@offisim/shared-types';
+import { isRequiredArchetype, resolveZoneForPosition } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 export type StudioTool = 'select' | 'move' | 'rotate' | 'place';

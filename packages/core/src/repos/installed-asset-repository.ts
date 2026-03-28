@@ -1,4 +1,4 @@
-import type { InstalledAssetRow } from '@aics/install-core';
+import type { InstalledAssetRow } from '@offisim/install-core';
 
 export interface InstalledAssetRepository {
   create(asset: InstalledAssetRow): Promise<InstalledAssetRow>;

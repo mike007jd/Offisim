@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import { ArrowLeft, Box, Dices, Monitor, Rocket } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROLE_OPTIONS } from '../../lib/roles';

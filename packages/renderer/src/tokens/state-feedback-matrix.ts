@@ -5,7 +5,7 @@
  * Used by the renderer to decide which visual feedback to apply.
  */
 
-import type { EmployeeState } from '@aics/shared-types';
+import type { EmployeeState } from '@offisim/shared-types';
 
 /** Signal types available in the scene */
 export type SceneSignalType =

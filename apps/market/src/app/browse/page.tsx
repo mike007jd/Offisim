@@ -1,6 +1,6 @@
 export const revalidate = 60;
 
-import type { ListingSummary } from '@aics/registry-client';
+import type { ListingSummary } from '@offisim/registry-client';
 import { ArrowRight, Download, Search, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';

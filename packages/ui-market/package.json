@@ -1,5 +1,5 @@
 {
-  "name": "@aics/ui-market",
+  "name": "@offisim/ui-market",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/registry-client": "workspace:*",
-    "@aics/ui-core": "workspace:*",
+    "@offisim/registry-client": "workspace:*",
+    "@offisim/ui-core": "workspace:*",
     "better-auth": "^1.5.5",
     "lucide-react": "^0.468.0"
   },

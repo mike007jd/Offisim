@@ -1,4 +1,4 @@
-import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
+import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------

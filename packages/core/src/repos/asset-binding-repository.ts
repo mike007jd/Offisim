@@ -1,5 +1,5 @@
-import type { AssetBindingRow } from '@aics/install-core';
-import type { BindingStatus } from '@aics/shared-types';
+import type { AssetBindingRow } from '@offisim/install-core';
+import type { BindingStatus } from '@offisim/shared-types';
 
 export interface AssetBindingRepository {
   create(binding: AssetBindingRow): Promise<AssetBindingRow>;

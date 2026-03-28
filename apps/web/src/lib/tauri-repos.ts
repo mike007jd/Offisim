@@ -53,7 +53,7 @@ import type {
   ToolCallRepository,
   ToolCallRow,
   WorkstationRackRow,
-} from '@aics/core/browser';
+} from '@offisim/core/browser';
 import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
@@ -61,24 +61,24 @@ import type {
   ModelCostRateRow,
   NewEmployeeVersion,
   NewModelCostRate,
-} from '@aics/core/browser';
-import * as schema from '@aics/db-local';
+} from '@offisim/core/browser';
+import * as schema from '@offisim/db-local';
 import type {
   AssetBindingRow,
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
   NewEmployee,
-} from '@aics/install-core';
-import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
+} from '@offisim/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
   NewProject,
   NewProjectAssignment,
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
-} from '@aics/shared-types';
-import type { BindingStatus, InstallState } from '@aics/shared-types';
+} from '@offisim/shared-types';
+import type { BindingStatus, InstallState } from '@offisim/shared-types';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
@@ -997,6 +997,45 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const zones: RuntimeRepositories['zones'] = {
+    async create(zone) {
+      const row = {
+        ...zone,
+        created_at: now(),
+        updated_at: now(),
+      };
+      await db.insert(schema.zones).values(row);
+      return row;
+    },
+    async findById(zoneId) {
+      const rows = await db.select().from(schema.zones).where(eq(schema.zones.zone_id, zoneId));
+      return (rows[0] ?? null) as Awaited<ReturnType<RuntimeRepositories['zones']['findById']>>;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.zones)
+        .where(eq(schema.zones.company_id, companyId))) as Awaited<
+        ReturnType<RuntimeRepositories['zones']['findByCompany']>
+      >;
+    },
+    async update(zoneId, fields) {
+      await db
+        .update(schema.zones)
+        .set({
+          ...fields,
+          updated_at: now(),
+        })
+        .where(eq(schema.zones.zone_id, zoneId));
+    },
+    async delete(zoneId) {
+      await db.delete(schema.zones).where(eq(schema.zones.zone_id, zoneId));
+    },
+    async deleteByCompany(companyId) {
+      await db.delete(schema.zones).where(eq(schema.zones.company_id, companyId));
+    },
+  };
+
   // ── Prefab instances ──────────────────────────────────────────────
   const prefabInstances: RuntimeRepositories['prefabInstances'] = {
     async create(instance) {
@@ -1181,6 +1220,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     workstationRacks,
     libraryDocuments,
     officeLayouts,
+    zones,
     prefabInstances,
     projects,
     projectAssignments,

@@ -7,7 +7,7 @@
  * - schema_version: exact match required
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 import type { CompatibilityError, CompatibilityResult, RuntimeEnvironment } from './types.js';
 
 // ---------------------------------------------------------------------------

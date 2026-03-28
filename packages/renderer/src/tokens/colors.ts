@@ -1,4 +1,4 @@
-import type { EmployeeState } from '@aics/shared-types';
+import type { EmployeeState } from '@offisim/shared-types';
 
 /** Hex colors for each employee state — source: SCENE_STATE_MATRIX + DESIGN_RULES */
 export const STATE_COLORS: Record<EmployeeState, number> = {

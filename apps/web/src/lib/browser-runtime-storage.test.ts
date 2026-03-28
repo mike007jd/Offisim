@@ -1,4 +1,4 @@
-import { createMemoryRepositories } from '@aics/core/browser';
+import { createMemoryRepositories } from '@offisim/core/browser';
 import { describe, expect, it } from 'vitest';
 import {
   clearBrowserRuntimeSnapshot,
@@ -69,14 +69,14 @@ describe('browser runtime storage', () => {
 
   it('returns null for invalid stored JSON', () => {
     const storage = createStorageMock();
-    storage.setItem('aics:browser-runtime-snapshot:v1', '{bad json');
+    storage.setItem('offisim:browser-runtime-snapshot:v1', '{bad json');
 
     expect(loadBrowserRuntimeSnapshot(storage)).toBeNull();
   });
 
   it('clears the stored snapshot', () => {
     const storage = createStorageMock();
-    storage.setItem('aics:browser-runtime-snapshot:v1', '{"companies":[]}');
+    storage.setItem('offisim:browser-runtime-snapshot:v1', '{"companies":[]}');
 
     clearBrowserRuntimeSnapshot(storage);
 

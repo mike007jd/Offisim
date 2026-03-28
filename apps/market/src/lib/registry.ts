@@ -1,4 +1,4 @@
-import { RegistryClient } from '@aics/registry-client';
+import { RegistryClient } from '@offisim/registry-client';
 
 const PLATFORM_API_URL = process.env.PLATFORM_API_URL ?? 'http://localhost:4100';
 

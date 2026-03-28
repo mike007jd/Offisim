@@ -1,5 +1,5 @@
 /**
- * @aics/core — Checkpoint saver factories
+ * @offisim/core — Checkpoint saver factories
  *
  * Production: SqliteSaver from @langchain/langgraph-checkpoint-sqlite
  * Testing: MemorySaver from @langchain/langgraph

@@ -16,7 +16,7 @@
  *   Ghost group and invisible floor are on Layer 1 (not pickable).
  */
 
-import { getBuiltinPrefab } from '@aics/renderer';
+import { getBuiltinPrefab } from '@offisim/renderer';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';

@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';

@@ -1,5 +1,5 @@
 /**
- * Lightweight structured logger for @aics/core.
+ * Lightweight structured logger for @offisim/core.
  *
  * Replaces scattered console.error/warn calls with a unified, testable
  * logging facility. Default handler emits JSON to console; replaceable

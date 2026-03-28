@@ -11,7 +11,7 @@ import { Logger } from '../services/logger.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
-import type { AicsGraphState, MeetingActionItem } from './state.js';
+import type { OffisimGraphState, MeetingActionItem } from './state.js';
 
 const logger = new Logger('meeting');
 
@@ -27,7 +27,7 @@ interface MeetingTurnState {
   transcript: string[];
 }
 
-function parseMeetingTurnState(state: AicsGraphState): MeetingTurnState {
+function parseMeetingTurnState(state: OffisimGraphState): MeetingTurnState {
   // Extract turn state from the last message metadata or defaults
   const existing = state.pendingAssignments.find((a) => a.taskType === MEETING_STATE_TASK_TYPE);
   if (existing) {
@@ -40,9 +40,9 @@ function parseMeetingTurnState(state: AicsGraphState): MeetingTurnState {
  * Meeting start — creates meeting_sessions record and gathers participants.
  */
 export async function meetingStartNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'meeting_start');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
@@ -111,9 +111,9 @@ export async function meetingStartNode(
  * Participant turn — each participant speaks in sequence.
  */
 export async function participantTurnNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'participant_turn');
 
   const { modelResolver, repos, companyId } = runtimeCtx;
@@ -224,7 +224,7 @@ export async function participantTurnNode(
  * Turn check — decides if meeting should continue or end.
  * Now checks for boss interrupts before proceeding to next turn.
  */
-export function meetingTurnCheck(state: AicsGraphState): string {
+export function meetingTurnCheck(state: OffisimGraphState): string {
   // Check for boss interrupt first
   if (state.meetingInterrupt) {
     switch (state.meetingInterrupt.type) {
@@ -261,9 +261,9 @@ export function meetingTurnCheck(state: AicsGraphState): string {
  * The boss can later send a resume or end command via OrchestrationService.
  */
 export async function meetingPausedNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'meeting_paused');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
@@ -299,7 +299,7 @@ export async function meetingPausedNode(
  * Resume check — called after meeting_paused when the boss sends a command.
  * Routes to participant_turn (resume) or meeting_end (end).
  */
-export function meetingResumeCheck(state: AicsGraphState): string {
+export function meetingResumeCheck(state: OffisimGraphState): string {
   if (state.meetingInterrupt?.type === 'end') {
     return 'meeting_end';
   }
@@ -311,9 +311,9 @@ export function meetingResumeCheck(state: AicsGraphState): string {
  * Meeting resume — restores meeting to running state and continues turns.
  */
 export async function meetingResumeNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'meeting_resume');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
@@ -349,9 +349,9 @@ export async function meetingResumeNode(
  * Meeting inject — boss comment gets injected into the meeting transcript as a turn.
  */
 export async function meetingInjectNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   // Validate runtime exists (throws if missing) even though this node doesn't use it directly
   getRuntime(config, 'meeting_inject');
 
@@ -544,9 +544,9 @@ Do not include any text outside the JSON object.`;
  * Meeting end — produce summary, extract action items, and update meeting record.
  */
 export async function meetingEndNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'meeting_end');
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;

@@ -1,4 +1,4 @@
-import type { CompanyRow, RuntimeRepositories } from '@aics/core/browser';
+import type { CompanyRow, RuntimeRepositories } from '@offisim/core/browser';
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface CompanyContextValue {

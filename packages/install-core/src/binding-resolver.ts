@@ -5,7 +5,7 @@
  * cross-referenced with manifest.requirements.recommended_models for hints.
  */
 
-import type { PackageManifest } from '@aics/asset-schema';
+import type { PackageManifest } from '@offisim/asset-schema';
 import type { BindingRequirement } from './types.js';
 
 // ---------------------------------------------------------------------------

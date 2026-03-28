@@ -7,7 +7,7 @@ import {
 } from '../../agents/recovery-agent.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { routeFromStart, routeFromStepAdvance } from '../../graph/main-graph.js';
-import type { AicsGraphState, PlanStep, TaskPlan } from '../../graph/state.js';
+import type { OffisimGraphState, PlanStep, TaskPlan } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { appendAgentEvent } from '../../utils/append-agent-event.js';
@@ -17,7 +17,7 @@ import { generateId } from '../../utils/generate-id.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: 'thread-test',
     companyId: 'company-test',
@@ -45,7 +45,7 @@ function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     hrAssessment: null,
     replanCount: 0,
     ...overrides,
-  } as AicsGraphState;
+  } as OffisimGraphState;
 }
 
 function makeRuntimeCtx(overrides?: Partial<RuntimeContext>): RuntimeContext {

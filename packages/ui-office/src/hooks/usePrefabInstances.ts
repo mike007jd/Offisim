@@ -5,11 +5,11 @@
  * pairs each with its PrefabDefinition from the catalog.
  */
 
-import { getBuiltinPrefab } from '@aics/renderer';
-import type { PrefabDefinition, PrefabInstanceRow } from '@aics/shared-types';
+import { getBuiltinPrefab } from '@offisim/renderer';
+import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 /** A prefab instance paired with its definition from the catalog. */
 export interface PrefabInstanceWithDef {
@@ -28,7 +28,7 @@ export interface UsePrefabInstancesReturn {
  * Returns empty array when no instances exist for the company.
  */
 export function usePrefabInstances(): UsePrefabInstancesReturn {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [instances, setInstances] = useState<PrefabInstanceWithDef[]>([]);
   const [loading, setLoading] = useState(true);

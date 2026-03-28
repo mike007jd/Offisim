@@ -1,4 +1,4 @@
-// @aics/channels — IM Channel Integration
+// @offisim/channels — IM Channel Integration
 
 export type {
   ChannelAdapter,

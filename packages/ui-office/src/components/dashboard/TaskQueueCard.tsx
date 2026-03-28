@@ -1,4 +1,4 @@
-import type { TaskRunRow } from '@aics/core/browser';
+import type { TaskRunRow } from '@offisim/core/browser';
 import {
   Badge,
   type BadgeProps,
@@ -10,7 +10,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import type { TaskQueueState } from '../../hooks/useTaskQueue';
 
 const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {

@@ -1,5 +1,5 @@
-import type { PrefabInstanceRow, RoleSlug } from '@aics/shared-types';
-import { ROLE_TO_DEPARTMENT, SYSTEM_ZONE_TEMPLATES } from '@aics/shared-types';
+import type { PrefabInstanceRow, RoleSlug } from '@offisim/shared-types';
+import { ROLE_TO_DEPARTMENT, SYSTEM_ZONE_TEMPLATES } from '@offisim/shared-types';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';

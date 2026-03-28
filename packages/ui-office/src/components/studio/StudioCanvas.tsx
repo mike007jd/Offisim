@@ -2,8 +2,8 @@ import { Grid, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import type { Zone } from '@aics/shared-types';
-import { computeOverlapMap } from '@aics/shared-types';
+import type { Zone } from '@offisim/shared-types';
+import { computeOverlapMap } from '@offisim/shared-types';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 

@@ -1,4 +1,4 @@
-import type { ProjectAssignmentRow } from '@aics/shared-types';
+import type { ProjectAssignmentRow } from '@offisim/shared-types';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useProjectAssignments } from '../../hooks/useProjectAssignments.js';
 

@@ -1,4 +1,4 @@
-import type { McpServerConfig as CoreMcpServerConfig } from '@aics/core/browser';
+import type { McpServerConfig as CoreMcpServerConfig } from '@offisim/core/browser';
 import {
   Badge,
   Button,
@@ -12,7 +12,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import { useCallback, useEffect, useState } from 'react';
 import {
   listDesktopMcpServers,
@@ -21,7 +21,7 @@ import {
   unregisterDesktopMcpServer,
 } from '../../lib/desktop-mcp-registry';
 import { isTauri } from '../../lib/env';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 
 type DesktopCoreMcpServerConfig = CoreMcpServerConfig & {
   registeredServerId?: string;
@@ -47,7 +47,7 @@ export interface McpServerConfig {
   url?: string;
 }
 
-const STORAGE_KEY = 'aics:mcp-servers';
+const STORAGE_KEY = 'offisim:mcp-servers';
 
 // ---------------------------------------------------------------------------
 // localStorage persistence
@@ -103,7 +103,7 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
 // ---------------------------------------------------------------------------
 
 export function McpConfigPanel() {
-  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } = useAicsRuntime();
+  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } = useOffisimRuntime();
   const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
   const [connecting, setConnecting] = useState<string | null>(null);
 

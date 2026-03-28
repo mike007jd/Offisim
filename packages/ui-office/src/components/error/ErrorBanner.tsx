@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import {
   AlertCircle,
   ChevronDown,

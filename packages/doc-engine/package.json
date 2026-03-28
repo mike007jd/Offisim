@@ -1,5 +1,5 @@
 {
-  "name": "@aics/doc-engine",
+  "name": "@offisim/doc-engine",
   "version": "0.0.1",
   "private": true,
   "type": "module",

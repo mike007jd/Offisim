@@ -81,7 +81,7 @@ app.on(['POST', 'GET'], '/api/auth/*', (c) => {
   return auth.handler(c.req.raw);
 });
 
-// AICS Routes
+// Offisim Routes
 app.route('/', health);
 app.route('/v1/auth', authRoute);
 app.route('/v1/market', market);
@@ -93,7 +93,7 @@ app.route('/v1/me', meRoute);
 
 const port = Number.parseInt(process.env.PORT ?? '4100', 10);
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AICS Platform API listening on :${port}`);
+  console.log(`Offisim Platform API listening on :${port}`);
 });
 
 export default app;

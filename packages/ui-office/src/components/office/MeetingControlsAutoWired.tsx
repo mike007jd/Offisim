@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useEventStream } from '../../runtime/use-event-stream';
 import { MeetingControls } from './MeetingControls';
 
@@ -8,7 +8,7 @@ import { MeetingControls } from './MeetingControls';
  * and dispatches meeting interrupt commands via EventBus.
  */
 export function MeetingControlsAutoWired() {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const meetingEvents = useEventStream('meeting.state.changed', 1);
   const latest = meetingEvents[0] ?? null;
 

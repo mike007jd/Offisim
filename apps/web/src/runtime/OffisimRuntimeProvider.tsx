@@ -1,16 +1,16 @@
-import { EmployeeVersionService, InMemoryEventBus } from '@aics/core/browser';
-import type { McpServerConfig } from '@aics/core/browser';
-import { disposeRuntime } from '@aics/core/dist/runtime/runtime-context.js';
-import { NotificationBridge } from '@aics/core/dist/services/notification-bridge.js';
+import { EmployeeVersionService, InMemoryEventBus } from '@offisim/core/browser';
+import type { McpServerConfig } from '@offisim/core/browser';
+import { disposeRuntime } from '@offisim/core/dist/runtime/runtime-context.js';
+import { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
 import {
-  AicsRuntimeContext,
-  AicsRuntimeStatusContext,
-  type AicsRuntimeStatusValue,
-  type AicsRuntimeValue,
+  OffisimRuntimeContext,
+  OffisimRuntimeStatusContext,
+  type OffisimRuntimeStatusValue,
+  type OffisimRuntimeValue,
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
-} from '@aics/ui-office';
+} from '@offisim/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
@@ -32,7 +32,7 @@ type DesktopMcpServerConfig = McpServerConfig & {
   registeredServerId?: string;
 };
 
-export function AicsRuntimeProvider({ companyId, children }: Props) {
+export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const [isRunning, setIsRunning] = useState(false);
   const isRunningRef = useRef(false);
   isRunningRef.current = isRunning;
@@ -383,7 +383,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   // Separated so that consumers of stable values (repos, eventBus) don't
   // re-render when isRunning flips.
   // ---------------------------------------------------------------------------
-  const statusValue = useMemo<AicsRuntimeStatusValue>(
+  const statusValue = useMemo<OffisimRuntimeStatusValue>(
     () => ({ isRunning, version }),
     [isRunning, version],
   );
@@ -394,7 +394,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   // or MCP server set changes. NOT on isRunning toggles.
   // ---------------------------------------------------------------------------
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; getRuntime is a render-scoped function
-  const value = useMemo<AicsRuntimeValue>(() => {
+  const value = useMemo<OffisimRuntimeValue>(() => {
     // Runtime initialization is async (both browser and Tauri). On first render
     // getRuntime() returns null. The useEffect above kicks off initRuntime(),
     // which sets runtimeRef.current and bumps version to trigger a re-render.
@@ -410,8 +410,8 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     // EventBus for subscription-based assertions during async init.
     // Preserve existing getSceneState if SceneManager already mounted it.
     if (import.meta.env.DEV) {
-      const existingGetSceneState = window.__AICS_DEBUG__?.getSceneState;
-      window.__AICS_DEBUG__ = {
+      const existingGetSceneState = window.__OFFISIM_DEBUG__?.getSceneState;
+      window.__OFFISIM_DEBUG__ = {
         eventBus,
         installService: runtime?.installService ?? null,
         getSceneState:
@@ -436,7 +436,7 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
     return {
       eventBus,
       isReady: !isInitializing && isRuntimeReadyForInteraction(runtime),
-      // isRunning lives in AicsRuntimeStatusContext — use useAicsRuntimeStatus().
+      // isRunning lives in OffisimRuntimeStatusContext — use useOffisimRuntimeStatus().
       // Kept here as a getter for backward compat (does NOT trigger re-render).
       get isRunning() {
         return isRunningRef.current;
@@ -477,8 +477,8 @@ export function AicsRuntimeProvider({ companyId, children }: Props) {
   ]);
 
   return (
-    <AicsRuntimeStatusContext.Provider value={statusValue}>
-      <AicsRuntimeContext.Provider value={value}>{children}</AicsRuntimeContext.Provider>
-    </AicsRuntimeStatusContext.Provider>
+    <OffisimRuntimeStatusContext.Provider value={statusValue}>
+      <OffisimRuntimeContext.Provider value={value}>{children}</OffisimRuntimeContext.Provider>
+    </OffisimRuntimeStatusContext.Provider>
   );
 }

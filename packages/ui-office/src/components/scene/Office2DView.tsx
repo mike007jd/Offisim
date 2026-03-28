@@ -10,15 +10,15 @@ import { avataaars } from '@dicebear/collection';
  */
 import { createAvatar } from '@dicebear/core';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { RoleSlug, Zone } from '@aics/shared-types';
-import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@aics/shared-types';
+import type { RoleSlug, Zone } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { getPhaseColor } from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { STATUS_COLORS } from '../../lib/zone-config.js';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
@@ -580,7 +580,7 @@ export default function Office2DView({
 }: Office2DViewProps) {
   const agents = useAgentStates();
   const { activeCompanyId } = useCompany();
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const companyId = activeCompanyId ?? '';
   const { zones } = useCompanyZones();
 

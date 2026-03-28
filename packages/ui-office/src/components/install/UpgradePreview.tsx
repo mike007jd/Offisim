@@ -9,8 +9,8 @@
  * - Migration notice if schema_version changed
  */
 
-import type { DiffCategory, DiffEntry, DiffSeverity, UpgradeDiff } from '@aics/install-core';
-import { Alert, AlertDescription, Badge, Button, ScrollArea } from '@aics/ui-core';
+import type { DiffCategory, DiffEntry, DiffSeverity, UpgradeDiff } from '@offisim/install-core';
+import { Alert, AlertDescription, Badge, Button, ScrollArea } from '@offisim/ui-core';
 import {
   AlertTriangle,
   ArrowRight,

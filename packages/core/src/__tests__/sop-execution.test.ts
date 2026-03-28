@@ -1,4 +1,4 @@
-import type { SopDefinition } from '@aics/shared-types';
+import type { SopDefinition } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -10,7 +10,7 @@ import {
 } from '../agents/pm-planner-node.js';
 import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { ModelResolver } from '../llm/model-resolver.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { EmployeeRow, SopTemplateRow } from '../runtime/repositories.js';
@@ -106,7 +106,7 @@ function makeReviewer(): EmployeeRow {
   });
 }
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,

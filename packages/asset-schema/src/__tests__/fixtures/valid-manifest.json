@@ -1,7 +1,7 @@
 {
   "spec_version": "1.0.0",
   "package": {
-    "id": "aics.employee.writer_pro",
+    "id": "offisim.employee.writer_pro",
     "kind": "employee",
     "version": "1.2.0",
     "title": "Writer Pro",
@@ -21,7 +21,7 @@
     ]
   },
   "lineage": {
-    "origin_package_id": "aics.employee.writer_base",
+    "origin_package_id": "offisim.employee.writer_base",
     "forked_from_version": "1.0.0"
   },
   "requirements": {
@@ -61,7 +61,7 @@
     }
   ],
   "distribution": {
-    "source_url": "https://market.example/packages/writer-pro-1.2.0.aicspkg",
+    "source_url": "https://market.example/packages/writer-pro-1.2.0.offisimpkg",
     "mirror_policy": "registry_or_external",
     "artifact_size_bytes": 128304
   },

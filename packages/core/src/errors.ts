@@ -3,21 +3,21 @@ export function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export class AicsError extends Error {
+export class OffisimError extends Error {
   constructor(
     message: string,
     public readonly code: string,
     public readonly recoverable: boolean,
   ) {
     super(message);
-    this.name = 'AicsError';
+    this.name = 'OffisimError';
   }
 }
 
 /** HTTP status codes that indicate a transient error worth retrying. */
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504, 529]);
 
-export class LlmError extends AicsError {
+export class LlmError extends OffisimError {
   constructor(
     message: string,
     public readonly provider: string,
@@ -29,7 +29,7 @@ export class LlmError extends AicsError {
   }
 }
 
-export class GraphError extends AicsError {
+export class GraphError extends OffisimError {
   constructor(
     message: string,
     public readonly nodeName: string,
@@ -39,7 +39,7 @@ export class GraphError extends AicsError {
   }
 }
 
-export class DataError extends AicsError {
+export class DataError extends OffisimError {
   constructor(message: string) {
     super(message, 'DATA_ERROR', false);
     this.name = 'DataError';

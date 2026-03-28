@@ -1,5 +1,5 @@
-import type { InstallTransactionRow } from '@aics/install-core';
-import type { InstallState } from '@aics/shared-types';
+import type { InstallTransactionRow } from '@offisim/install-core';
+import type { InstallState } from '@offisim/shared-types';
 
 export interface InstallTransactionRepository {
   create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow>;

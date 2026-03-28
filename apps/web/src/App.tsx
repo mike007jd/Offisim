@@ -1,6 +1,6 @@
-import { employeeCreated } from '@aics/core/browser';
-import type { DeliverableCreatedPayload, RuntimeEvent } from '@aics/shared-types';
-import { ToastBanner, useToasts } from '@aics/ui-core';
+import { employeeCreated } from '@offisim/core/browser';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   AgentPanel,
   AppLayout,
@@ -20,14 +20,14 @@ import {
   loadProviderConfig,
   primeEventLogStore,
   useAgentStates,
-  useAicsRuntime,
+  useOffisimRuntime,
   useCompany,
   useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
   useProjects,
   useReducedMotion,
-} from '@aics/ui-office';
+} from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   isOfficeSceneInteractive,
@@ -47,42 +47,42 @@ interface SceneCanvasLazyProps {
 
 /** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
 const SceneCanvas = React.lazy<React.ComponentType<SceneCanvasLazyProps>>(() =>
-  import('@aics/ui-office/scene').then((m) => ({
+  import('@offisim/ui-office/scene').then((m) => ({
     default: m.SceneCanvas as React.ComponentType<SceneCanvasLazyProps>,
   })),
 );
 
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
-  import('@aics/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
+  import('@offisim/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
 );
 const DashboardOverlay = React.lazy(() =>
-  import('@aics/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
+  import('@offisim/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
 );
 const EmployeeCreatorOverlay = React.lazy(() =>
-  import('@aics/ui-office/employee-creator').then((m) => ({ default: m.EmployeeCreatorOverlay })),
+  import('@offisim/ui-office/employee-creator').then((m) => ({ default: m.EmployeeCreatorOverlay })),
 );
 const OfficeEditorOverlay = React.lazy(() =>
-  import('@aics/ui-office/office-editor').then((m) => ({ default: m.OfficeEditorOverlay })),
+  import('@offisim/ui-office/office-editor').then((m) => ({ default: m.OfficeEditorOverlay })),
 );
 const SettingsDialog = React.lazy(() =>
-  import('@aics/ui-office/settings').then((m) => ({ default: m.SettingsDialog })),
+  import('@offisim/ui-office/settings').then((m) => ({ default: m.SettingsDialog })),
 );
 const CompanyEditor = React.lazy(() =>
-  import('@aics/ui-office/company-editor').then((m) => ({ default: m.CompanyEditor })),
+  import('@offisim/ui-office/company-editor').then((m) => ({ default: m.CompanyEditor })),
 );
 const InstallDialog = React.lazy(() =>
-  import('@aics/ui-office/install').then((m) => ({ default: m.InstallDialog })),
+  import('@offisim/ui-office/install').then((m) => ({ default: m.InstallDialog })),
 );
 const StudioPage = React.lazy(() =>
-  import('@aics/ui-office/studio').then((m) => ({ default: m.StudioPage })),
+  import('@offisim/ui-office/studio').then((m) => ({ default: m.StudioPage })),
 );
 const KanbanOverlay = React.lazy(() =>
-  import('@aics/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
+  import('@offisim/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
 );
 
 interface AppProps {
-  /** Callback to propagate company switch up to main.tsx (re-keys AicsRuntimeProvider). */
+  /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
   onCompanySwitch: (id: string) => void;
 }
 
@@ -106,7 +106,7 @@ export function App({ onCompanySwitch }: AppProps) {
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
-  } = useAicsRuntime();
+  } = useOffisimRuntime();
   const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
     repos,

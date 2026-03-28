@@ -1,8 +1,8 @@
-import type { EmployeeRow, EmployeeUpdate } from '@aics/core/browser';
-import { employeeUpdated } from '@aics/core/browser';
+import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
+import { employeeUpdated } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 export interface UseEmployeeWorkshopReturn {
   /** All employees for the current company. */
@@ -22,7 +22,7 @@ export interface UseEmployeeWorkshopReturn {
 }
 
 export function useEmployeeWorkshop(): UseEmployeeWorkshopReturn {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);

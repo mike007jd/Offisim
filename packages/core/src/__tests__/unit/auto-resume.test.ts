@@ -1,6 +1,6 @@
 import { HumanMessage } from '@langchain/core/messages';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { NewGraphThread } from '../../runtime/repositories.js';
 import {
@@ -15,7 +15,7 @@ import {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function makeBaseState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeBaseState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
@@ -43,7 +43,7 @@ function makeBaseState(overrides?: Partial<AicsGraphState>): AicsGraphState {
     dispatchedStepIndices: [],
     completedStepIndices: [],
     ...overrides,
-  } as AicsGraphState;
+  } as OffisimGraphState;
 }
 
 // ---------------------------------------------------------------------------

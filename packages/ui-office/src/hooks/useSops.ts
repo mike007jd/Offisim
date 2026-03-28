@@ -1,7 +1,7 @@
-import type { SopTemplateRow } from '@aics/core/browser';
+import type { SopTemplateRow } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface SopTemplate {
   sopTemplateId: string;
@@ -44,7 +44,7 @@ export interface UseSopsResult {
 }
 
 export function useSops(): UseSopsResult {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [sops, setSops] = useState<SopTemplate[]>([]);
   const [loading, setLoading] = useState(false);

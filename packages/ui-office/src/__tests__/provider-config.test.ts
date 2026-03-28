@@ -57,8 +57,8 @@ describe('provider-config', () => {
 
     saveProviderConfig(config);
 
-    expect(localStorage.getItem('aics-provider-config')).toContain('"apiKey":"sk-browser"');
-    expect(localStorage.getItem('aics-provider-config')).toContain('"runtimePolicy"');
+    expect(localStorage.getItem('offisim-provider-config')).toContain('"apiKey":"sk-browser"');
+    expect(localStorage.getItem('offisim-provider-config')).toContain('"runtimePolicy"');
     expect(loadProviderConfig()).toMatchObject({
       provider: 'openai',
       apiKey: 'sk-browser',
@@ -117,7 +117,7 @@ describe('provider-config', () => {
 
     saveProviderConfig(config);
 
-    expect(localStorage.getItem('aics-provider-config')).not.toContain('sk-desktop');
+    expect(localStorage.getItem('offisim-provider-config')).not.toContain('sk-desktop');
     expect(loadProviderConfig()).toMatchObject({
       provider: 'openai',
       model: 'gpt-4o-mini',
@@ -150,7 +150,7 @@ describe('provider-config', () => {
 
   it('upgrades legacy provider configs with runtime policy defaults on load', () => {
     localStorage.setItem(
-      'aics-provider-config',
+      'offisim-provider-config',
       JSON.stringify({
         provider: 'openai',
         model: 'gpt-4o-mini',

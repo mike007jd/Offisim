@@ -8,13 +8,13 @@
  * 4. Events: mcpToolCalled emitted during tool execution
  */
 
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { McpToolExecutor } from '../../mcp/mcp-tool-executor.js';
 import type {
   McpClientFactory,
@@ -75,7 +75,7 @@ class TestMcpClientFactory implements McpClientFactory {
 
 // ── Test helpers ─────────────────────────────────────────────────
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,
@@ -227,7 +227,7 @@ describe('MCP tool flow integration', () => {
 
     const state = makeState();
     const raw = await employeeNode(state, config);
-    const result = raw as Partial<AicsGraphState>;
+    const result = raw as Partial<OffisimGraphState>;
 
     // Verify final output
     expect(result.messages).toHaveLength(1);
@@ -281,7 +281,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
+    const result = (await employeeNode(state, config)) as Partial<OffisimGraphState>;
 
     // Verify final output
     expect(result.messages).toHaveLength(1);
@@ -351,7 +351,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
+    const result = (await employeeNode(state, config)) as Partial<OffisimGraphState>;
 
     // Employee should still produce output despite tool error
     expect(result.messages).toHaveLength(1);
@@ -375,7 +375,7 @@ describe('MCP tool flow integration', () => {
     });
 
     const state = makeState();
-    const result = (await employeeNode(state, config)) as Partial<AicsGraphState>;
+    const result = (await employeeNode(state, config)) as Partial<OffisimGraphState>;
 
     expect(result.messages).toHaveLength(1);
 

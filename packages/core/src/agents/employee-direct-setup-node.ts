@@ -4,7 +4,7 @@ import {
   employeeStateChanged,
   graphNodeEntered,
 } from '../events/event-factories.js';
-import type { AicsGraphState, PendingAssignment } from '../graph/state.js';
+import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
 
 /**
@@ -13,9 +13,9 @@ import { getRuntime } from '../utils/get-runtime.js';
  * PendingAssignment with taskType 'direct_chat', and emits entry events.
  */
 export async function employeeDirectSetupNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'employee_direct_setup', { optional: true });
 
   // Announce node entry (best-effort)

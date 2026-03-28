@@ -1,22 +1,22 @@
-import { DEFAULT_COST_RATES, bindingStateChanged, installStateChanged } from '@aics/core/browser';
-import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@aics/core/browser';
-// Heavy imports — direct dist paths to bypass the @aics/core barrel alias.
-import { buildAicsGraph } from '@aics/core/dist/graph/main-graph.js';
-import { createGateway } from '@aics/core/dist/llm/gateway-factory.js';
-import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
-import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
-import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
-import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
-import { MemoryService } from '@aics/core/dist/services/memory-service.js';
-import { InstallService } from '@aics/install-core';
-import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { DEFAULT_COST_RATES, bindingStateChanged, installStateChanged } from '@offisim/core/browser';
+import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
+// Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
+import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
+import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
+import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
+import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
+import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
+import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
+import { InstallService } from '@offisim/install-core';
+import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import {
   buildSubscriptionGatewayConfig,
   createDesktopProviderGateway,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
-} from '@aics/ui-office';
-import type { ProviderConfig } from '@aics/ui-office';
+} from '@offisim/ui-office';
+import type { ProviderConfig } from '@offisim/ui-office';
 import type { RuntimeBundle } from './browser-runtime';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
@@ -26,7 +26,7 @@ import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
 
 // ---------------------------------------------------------------------------
-// Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
+// Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
 // ---------------------------------------------------------------------------
 
 /** Adapts RuntimeRepositories to InstallRepositories (structurally identical). */
@@ -107,7 +107,7 @@ export async function createTauriRuntime(
   });
 
   const checkpointer = new TauriCheckpointSaver();
-  const graph = buildAicsGraph({ checkpointer });
+  const graph = buildOffisimGraph({ checkpointer });
 
   // MCP tool executor — TauriMcpClientFactory supports both stdio (via Rust bridge) and SSE
   const mcpToolExecutor = new McpToolExecutor({
@@ -163,7 +163,7 @@ export async function createTauriRuntime(
   });
 
   const { OrchestrationService } = await import(
-    '@aics/core/dist/services/orchestration-service.js'
+    '@offisim/core/dist/services/orchestration-service.js'
   );
   const orch = new OrchestrationService(graph, runtimeCtx);
 

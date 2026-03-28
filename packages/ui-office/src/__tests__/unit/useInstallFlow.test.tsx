@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { CompanyProvider } from '../../components/company/CompanyContext.js';
 import { useInstallFlow } from '../../hooks/useInstallFlow.js';
-import { AicsRuntimeContext, type AicsRuntimeValue } from '../../runtime/aics-runtime-context.js';
+import { OffisimRuntimeContext, type OffisimRuntimeValue } from '../../runtime/offisim-runtime-context.js';
 
 const registryMocks = vi.hoisted(() => {
   class RegistryApiError extends Error {
@@ -24,7 +24,7 @@ const registryMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@aics/registry-client', () => ({
+vi.mock('@offisim/registry-client', () => ({
   RegistryApiError: registryMocks.RegistryApiError,
   RegistryClient: vi.fn().mockImplementation(() => ({
     getListingDetail: registryMocks.getListingDetail,
@@ -33,12 +33,12 @@ vi.mock('@aics/registry-client', () => ({
   })),
 }));
 
-function createRuntimeValue(overrides: Partial<AicsRuntimeValue> = {}): AicsRuntimeValue {
+function createRuntimeValue(overrides: Partial<OffisimRuntimeValue> = {}): OffisimRuntimeValue {
   return {
     eventBus: {
       emit: vi.fn(),
       on: vi.fn(),
-    } as unknown as AicsRuntimeValue['eventBus'],
+    } as unknown as OffisimRuntimeValue['eventBus'],
     isReady: true,
     isRunning: false,
     error: null,
@@ -60,14 +60,14 @@ function createRuntimeValue(overrides: Partial<AicsRuntimeValue> = {}): AicsRunt
   };
 }
 
-function createWrapper(runtimeValue: AicsRuntimeValue) {
+function createWrapper(runtimeValue: OffisimRuntimeValue) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <AicsRuntimeContext.Provider value={runtimeValue}>
+      <OffisimRuntimeContext.Provider value={runtimeValue}>
         <CompanyProvider repos={null} activeCompanyId="company-1">
           {children}
         </CompanyProvider>
-      </AicsRuntimeContext.Provider>
+      </OffisimRuntimeContext.Provider>
     );
   };
 }
@@ -93,7 +93,7 @@ describe('useInstallFlow', () => {
       ],
     });
     registryMocks.getArtifactDownloadInfo.mockResolvedValue({
-      artifact_url: 'https://cdn.example.com/writer-pro.aicspkg',
+      artifact_url: 'https://cdn.example.com/writer-pro.offisimpkg',
     });
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
@@ -145,7 +145,7 @@ describe('useInstallFlow', () => {
       wrapper: createWrapper(createRuntimeValue()),
     });
 
-    const file = new File(['package'], 'example.aicspkg', {
+    const file = new File(['package'], 'example.offisimpkg', {
       type: 'application/octet-stream',
     });
 

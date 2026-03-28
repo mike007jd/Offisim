@@ -61,7 +61,7 @@ export function loadStoredBrowserMcpServers(
   storage: Pick<Storage, 'getItem'> = localStorage,
 ): BrowserMcpServerRecord[] {
   try {
-    const raw = storage.getItem('aics:mcp-servers');
+    const raw = storage.getItem('offisim:mcp-servers');
     if (!raw) return [];
 
     const parsed = JSON.parse(raw);

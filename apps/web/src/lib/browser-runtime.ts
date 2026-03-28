@@ -2,7 +2,7 @@
  * Browser-mode runtime factory.
  *
  * This module is dynamically imported (like tauri-runtime.ts) so that heavy
- * dependencies (@aics/core full barrel — LangGraph, OpenAI SDK, etc.) are
+ * dependencies (@offisim/core full barrel — LangGraph, OpenAI SDK, etc.) are
  * code-split into a separate chunk and not included in the initial bundle.
  */
 
@@ -12,32 +12,32 @@ import {
   bindingStateChanged,
   createMemoryRepositories,
   installStateChanged,
-} from '@aics/core/browser';
+} from '@offisim/core/browser';
 import type {
   CompanyRow,
   EventBus,
   InMemoryEventBus,
   RuntimeRepositories,
-} from '@aics/core/browser';
-import { createMemoryCheckpointSaver } from '@aics/core/dist/graph/checkpoint-saver.js';
-// Heavy imports — direct dist paths to bypass the @aics/core barrel alias.
+} from '@offisim/core/browser';
+import { createMemoryCheckpointSaver } from '@offisim/core/dist/graph/checkpoint-saver.js';
+// Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 // These modules pull in @langchain/langgraph, openai SDK, etc.
-import { buildAicsGraph } from '@aics/core/dist/graph/main-graph.js';
-import { createGateway } from '@aics/core/dist/llm/gateway-factory.js';
-import { ModelResolver } from '@aics/core/dist/llm/model-resolver.js';
-import { AuditingToolExecutor } from '@aics/core/dist/mcp/auditing-tool-executor.js';
-import { McpToolExecutor } from '@aics/core/dist/mcp/mcp-tool-executor.js';
-import { createRuntimeContext } from '@aics/core/dist/runtime/runtime-context.js';
-import { MemoryService } from '@aics/core/dist/services/memory-service.js';
-import type { OrchestrationService } from '@aics/core/dist/services/orchestration-service.js';
-import { InstallService } from '@aics/install-core';
-import type { InstallEventEmitter, InstallRepositories } from '@aics/install-core';
+import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
+import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
+import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
+import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
+import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
+import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
+import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
+import { InstallService } from '@offisim/install-core';
+import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
-} from '@aics/ui-office';
-import type { ProviderConfig } from '@aics/ui-office';
+} from '@offisim/ui-office';
+import type { ProviderConfig } from '@offisim/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import {
   createBrowserRuntimePersistence,
@@ -45,7 +45,7 @@ import {
 } from './browser-runtime-storage';
 
 // ---------------------------------------------------------------------------
-// Adapters: bridge @aics/core repos + EventBus to @aics/install-core DI
+// Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
 // ---------------------------------------------------------------------------
 
 function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositories {
@@ -84,7 +84,7 @@ async function seedCompany(
 
   const company: CompanyRow = {
     company_id: companyId,
-    name: 'AICS Demo Company',
+    name: 'Offisim Demo Company',
     status: 'active',
     workspace_root: null,
     default_model_policy_json: null,
@@ -117,7 +117,7 @@ const IS_DEV = import.meta.env.DEV;
 
 export type RuntimeBundle = {
   eventBus: InMemoryEventBus;
-  graph: ReturnType<typeof buildAicsGraph>;
+  graph: ReturnType<typeof buildOffisimGraph>;
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
   /**
    * Long-lived OrchestrationService instance — null in repos-only mode.
@@ -178,7 +178,7 @@ export async function createBrowserRuntime(
   });
 
   const checkpointer = createMemoryCheckpointSaver();
-  const graph = buildAicsGraph({ checkpointer });
+  const graph = buildOffisimGraph({ checkpointer });
 
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
@@ -223,7 +223,7 @@ export async function createBrowserRuntime(
   });
 
   const { OrchestrationService } = await import(
-    '@aics/core/dist/services/orchestration-service.js'
+    '@offisim/core/dist/services/orchestration-service.js'
   );
   const orch = new OrchestrationService(graph, runtimeCtx);
 

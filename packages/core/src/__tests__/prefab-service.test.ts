@@ -1,4 +1,4 @@
-import type { PrefabBinding } from '@aics/shared-types';
+import type { PrefabBinding } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import { createMemoryPrefabRepository } from '../runtime/memory-prefab-repository.js';

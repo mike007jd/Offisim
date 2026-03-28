@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aics/ui-core';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import { Bell, Book, Columns3, Database, LayoutDashboard, Terminal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';

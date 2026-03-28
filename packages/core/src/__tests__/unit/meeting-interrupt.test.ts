@@ -9,11 +9,11 @@ import {
   meetingTurnCheck,
   participantTurnNode,
 } from '../../graph/meeting-subgraph.js';
-import type { AicsGraphState } from '../../graph/state.js';
+import type { OffisimGraphState } from '../../graph/state.js';
 import { TEST_THREAD_ID, assertDefined } from '../helpers/fixtures.js';
 import { createTestRuntime } from '../helpers/test-runtime.js';
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: 'c-test-1',

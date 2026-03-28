@@ -136,7 +136,7 @@ describe('materializer / materialize', () => {
     const pkg = requireDefined(store.packages[0], 'Expected installed package row');
     expect(pkg.installed_package_id).toBe(result.installedPackageId);
     expect(pkg.company_id).toBe(companyId);
-    expect(pkg.package_id).toBe('aics.employee.test-writer');
+    expect(pkg.package_id).toBe('offisim.employee.test-writer');
     expect(pkg.package_kind).toBe('employee');
     expect(pkg.version).toBe('1.0.0');
     expect(pkg.source_type).toBe('file');
@@ -178,7 +178,7 @@ describe('materializer / materialize', () => {
     expect(emp.name).toBe('Test Writer');
     expect(emp.role_slug).toBe('test-writer-default');
     expect(emp.source_asset_id).toBe('test-writer-default');
-    expect(emp.source_package_id).toBe('aics.employee.test-writer');
+    expect(emp.source_package_id).toBe('offisim.employee.test-writer');
   });
 
   it('does not create employees for non-employee assets', async () => {

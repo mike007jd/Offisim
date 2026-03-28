@@ -1,9 +1,9 @@
-import { CostCalculationService } from '@aics/core/browser';
-import type { CostAggregate } from '@aics/core/browser';
-import type { LlmUsageRecordedPayload, RuntimeEvent } from '@aics/shared-types';
+import { CostCalculationService } from '@offisim/core/browser';
+import type { CostAggregate } from '@offisim/core/browser';
+import type { LlmUsageRecordedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface CostSummary {
   totalCost: number;
@@ -27,7 +27,7 @@ const INITIAL_SUMMARY: CostSummary = {
  * aggregation instead of 3 separate queries.
  */
 export function useCostDashboard() {
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [summary, setSummary] = useState<CostSummary>(INITIAL_SUMMARY);
   const [byModel, setByModel] = useState<CostAggregate[]>([]);

@@ -7,7 +7,7 @@ import type { Page } from '@playwright/test';
 export async function getEmployeeCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-    return (window as any).__AICS_DEBUG__?.getSceneState()?.employeeCount ?? 0;
+    return (window as any).__OFFISIM_DEBUG__?.getSceneState()?.employeeCount ?? 0;
   });
 }
 
@@ -18,7 +18,7 @@ export async function getEmployeeCount(page: Page): Promise<number> {
 export async function getEmployeeIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-    return (window as any).__AICS_DEBUG__?.getSceneState()?.employeeIds ?? [];
+    return (window as any).__OFFISIM_DEBUG__?.getSceneState()?.employeeIds ?? [];
   });
 }
 
@@ -46,7 +46,7 @@ export async function waitForEmployeeCount(
   await page.waitForFunction(
     (count) => {
       // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-      const state = (window as any).__AICS_DEBUG__?.getSceneState();
+      const state = (window as any).__OFFISIM_DEBUG__?.getSceneState();
       return state?.employeeCount === count;
     },
     expectedCount,

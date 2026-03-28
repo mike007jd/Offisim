@@ -5,7 +5,7 @@
  * Each category defines a finite set of states and allowed transitions.
  * "decorative" has no state machine (stateless visual elements).
  */
-import type { EmployeeState, SemanticCategory, WorkspacePrefabState } from '@aics/shared-types';
+import type { EmployeeState, SemanticCategory, WorkspacePrefabState } from '@offisim/shared-types';
 
 // ── Transition Tables ───────────────────────────────────────────
 // Record<fromState, readonly toState[]>

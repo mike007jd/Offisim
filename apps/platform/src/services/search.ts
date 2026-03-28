@@ -1,4 +1,4 @@
-import { creators, listingTags, listings, packageVersions } from '@aics/db-platform';
+import { creators, listingTags, listings, packageVersions } from '@offisim/db-platform';
 import { and, desc, eq, exists, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@aics/shared-types",
+  "name": "@offisim/shared-types",
   "version": "0.0.1",
   "private": true,
   "type": "module",

@@ -1,4 +1,4 @@
-import type { PrefabInstanceRow } from '@aics/shared-types';
+import type { PrefabInstanceRow } from '@offisim/shared-types';
 
 export interface PrefabInstanceRepository {
   create(instance: PrefabInstanceRow): Promise<PrefabInstanceRow>;

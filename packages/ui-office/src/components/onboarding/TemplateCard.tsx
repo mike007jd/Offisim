@@ -1,4 +1,4 @@
-import type { CompanyTemplate } from '@aics/core/browser';
+import type { CompanyTemplate } from '@offisim/core/browser';
 import { Brain, Briefcase, FlaskConical, PenTool, Rocket } from 'lucide-react';
 import type { ReactNode } from 'react';
 

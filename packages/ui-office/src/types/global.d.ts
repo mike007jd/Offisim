@@ -1,7 +1,7 @@
-import type { EventBus } from '@aics/core/browser';
-import type { InstallService } from '@aics/install-core';
+import type { EventBus } from '@offisim/core/browser';
+import type { InstallService } from '@offisim/install-core';
 
-export interface AicsDebugBridge {
+export interface OffisimDebugBridge {
   eventBus: EventBus;
   installService: InstallService | null;
   getSceneState: () => {
@@ -13,6 +13,6 @@ export interface AicsDebugBridge {
 
 declare global {
   interface Window {
-    __AICS_DEBUG__?: AicsDebugBridge;
+    __OFFISIM_DEBUG__?: OffisimDebugBridge;
   }
 }

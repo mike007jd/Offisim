@@ -1,4 +1,4 @@
-import { Button } from '@aics/ui-core';
+import { Button } from '@offisim/ui-core';
 import { X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';

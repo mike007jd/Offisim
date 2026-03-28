@@ -1,6 +1,6 @@
 'use client';
 
-import { PLATFORM_API_URL, useAuthContext } from '@aics/ui-market';
+import { PLATFORM_API_URL, useAuthContext } from '@offisim/ui-market';
 import { useCallback, useEffect, useState } from 'react';
 
 interface ApiToken {

@@ -1,10 +1,10 @@
-import type { RuntimeEvent } from '@aics/shared-types';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { stepDispatcherNode } from '../../agents/step-dispatcher-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import type { AicsGraphState, TaskPlan } from '../../graph/state.js';
+import type { OffisimGraphState, TaskPlan } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
@@ -43,7 +43,7 @@ function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
   };
 }
 
-function makeState(overrides?: Partial<AicsGraphState>): AicsGraphState {
+function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   return {
     threadId: TEST_THREAD_ID,
     companyId: TEST_COMPANY_ID,

@@ -2,9 +2,9 @@ import type {
   MeetingActionCreatedPayload,
   MeetingStatePayload,
   RuntimeEvent,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAicsRuntime } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 /** Meeting runtime status — mirrors MeetingControls.MeetingStatus but scoped to this hook. */
 export type MeetingRunStatus = 'idle' | 'running' | 'paused';
@@ -60,7 +60,7 @@ export interface UseMeetingReturn {
  * flooding the React scheduler during rapid event bursts.
  */
 export function useMeeting(): UseMeetingReturn {
-  const { eventBus } = useAicsRuntime();
+  const { eventBus } = useOffisimRuntime();
   const [state, setState] = useState<MeetingState>(INITIAL_STATE);
   const [duration, setDuration] = useState<number | null>(null);
 

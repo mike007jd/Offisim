@@ -4,11 +4,11 @@
  * These tests exercise InstallService through complete flows (importFile -> confirmBindings / cancel)
  * verifying state transitions, repository mutations, and event emissions at every step.
  *
- * Uses in-memory repositories and a recording event emitter (no @aics/core imports).
+ * Uses in-memory repositories and a recording event emitter (no @offisim/core imports).
  */
 
-import type { InstallState } from '@aics/shared-types';
-import type { BindingStatus, BindingType } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
+import type { BindingStatus, BindingType } from '@offisim/shared-types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InstallService, InstallServiceError } from '../../install-service.js';
 import type {
@@ -315,7 +315,7 @@ describe('Install Full-Flow Integration', () => {
 
       // Step 5: Verify materialized entities
       expect(store.packages).toHaveLength(1);
-      expect(store.packages[0]?.package_id).toBe('aics.employee.test-writer');
+      expect(store.packages[0]?.package_id).toBe('offisim.employee.test-writer');
       expect(store.packages[0]?.install_state).toBe('installed');
 
       expect(store.assets).toHaveLength(1);
@@ -657,7 +657,7 @@ describe('Install Full-Flow Integration', () => {
       // carry the packageId
       const bindingsEvent = installEvents.find((e) => e.next === 'awaiting_bindings');
       expect(bindingsEvent).toBeDefined();
-      expect(bindingsEvent?.packageId).toBe('aics.employee.test-writer');
+      expect(bindingsEvent?.packageId).toBe('offisim.employee.test-writer');
 
       // Earlier transitions don't carry packageId
       const manifestEvent = installEvents.find((e) => e.next === 'manifest_loaded');

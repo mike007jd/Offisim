@@ -26,18 +26,18 @@ importers:
 
   apps/market:
     dependencies:
-      '@aics/registry-client':
-        specifier: workspace:*
-        version: link:../../packages/registry-client
-      '@aics/ui-core':
-        specifier: workspace:*
-        version: link:../../packages/ui-core
-      '@aics/ui-market':
-        specifier: workspace:*
-        version: link:../../packages/ui-market
       '@better-auth/core':
         specifier: 1.5.5
         version: 1.5.5(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.3.2(zod@4.3.6))(jose@6.2.1)(kysely@0.28.12)(nanostores@1.2.0)
+      '@offisim/registry-client':
+        specifier: workspace:*
+        version: link:../../packages/registry-client
+      '@offisim/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@offisim/ui-market':
+        specifier: workspace:*
+        version: link:../../packages/ui-market
       better-auth:
         specifier: ^1.5.5
         version: 1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(gel@2.2.0)(kysely@0.28.12)(postgres@3.4.8))(mongodb@7.1.0)(next@15.5.12(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@3.2.4(@types/node@25.3.5)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(tsx@4.21.0))
@@ -75,18 +75,18 @@ importers:
 
   apps/platform:
     dependencies:
-      '@aics/asset-schema':
-        specifier: workspace:*
-        version: link:../../packages/asset-schema
-      '@aics/db-platform':
-        specifier: workspace:*
-        version: link:../../packages/db-platform
-      '@aics/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.19.11(hono@4.12.5)
+      '@offisim/asset-schema':
+        specifier: workspace:*
+        version: link:../../packages/asset-schema
+      '@offisim/db-platform':
+        specifier: workspace:*
+        version: link:../../packages/db-platform
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       better-auth:
         specifier: ^1.5.5
         version: 1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(gel@2.2.0)(kysely@0.28.12)(postgres@3.4.8))(mongodb@7.1.0)(next@15.5.12(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@3.2.4(@types/node@25.3.5)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(tsx@4.21.0))
@@ -124,30 +124,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@aics/asset-schema':
-        specifier: workspace:*
-        version: link:../../packages/asset-schema
-      '@aics/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@aics/db-local':
-        specifier: workspace:*
-        version: link:../../packages/db-local
-      '@aics/install-core':
-        specifier: workspace:*
-        version: link:../../packages/install-core
-      '@aics/renderer':
-        specifier: workspace:*
-        version: link:../../packages/renderer
-      '@aics/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
-      '@aics/ui-core':
-        specifier: workspace:*
-        version: link:../../packages/ui-core
-      '@aics/ui-office':
-        specifier: workspace:*
-        version: link:../../packages/ui-office
       '@langchain/core':
         specifier: ^1.1.31
         version: 1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6))
@@ -157,6 +133,30 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.1
         version: 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)
+      '@offisim/asset-schema':
+        specifier: workspace:*
+        version: link:../../packages/asset-schema
+      '@offisim/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@offisim/db-local':
+        specifier: workspace:*
+        version: link:../../packages/db-local
+      '@offisim/install-core':
+        specifier: workspace:*
+        version: link:../../packages/install-core
+      '@offisim/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@offisim/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@offisim/ui-office':
+        specifier: workspace:*
+        version: link:../../packages/ui-office
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@6.4.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
@@ -231,7 +231,7 @@ importers:
 
   packages/channels:
     dependencies:
-      '@aics/core':
+      '@offisim/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -247,15 +247,6 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^0.17.0
         version: 0.17.0(zod@4.3.6)
-      '@aics/db-local':
-        specifier: workspace:*
-        version: link:../db-local
-      '@aics/install-core':
-        specifier: workspace:*
-        version: link:../install-core
-      '@aics/shared-types':
-        specifier: workspace:*
-        version: link:../shared-types
       '@anthropic-ai/sdk':
         specifier: ^0.78.0
         version: 0.78.0(zod@4.3.6)
@@ -271,6 +262,15 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.1
         version: 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)
+      '@offisim/db-local':
+        specifier: workspace:*
+        version: link:../db-local
+      '@offisim/install-core':
+        specifier: workspace:*
+        version: link:../install-core
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       openai:
         specifier: ^6.27.0
         version: 6.27.0(ws@8.20.0)(zod@4.3.6)
@@ -338,16 +338,16 @@ importers:
 
   packages/install-core:
     dependencies:
-      '@aics/asset-schema':
+      '@offisim/asset-schema':
         specifier: workspace:*
         version: link:../asset-schema
-      '@aics/db-local':
+      '@offisim/db-local':
         specifier: workspace:*
         version: link:../db-local
-      '@aics/registry-client':
+      '@offisim/registry-client':
         specifier: workspace:*
         version: link:../registry-client
-      '@aics/shared-types':
+      '@offisim/shared-types':
         specifier: workspace:*
         version: link:../shared-types
       fflate:
@@ -366,10 +366,10 @@ importers:
 
   packages/registry-client:
     dependencies:
-      '@aics/asset-schema':
+      '@offisim/asset-schema':
         specifier: workspace:*
         version: link:../asset-schema
-      '@aics/shared-types':
+      '@offisim/shared-types':
         specifier: workspace:*
         version: link:../shared-types
     devDependencies:
@@ -382,7 +382,7 @@ importers:
 
   packages/renderer:
     dependencies:
-      '@aics/shared-types':
+      '@offisim/shared-types':
         specifier: workspace:*
         version: link:../shared-types
     devDependencies:
@@ -447,10 +447,10 @@ importers:
 
   packages/ui-market:
     dependencies:
-      '@aics/registry-client':
+      '@offisim/registry-client':
         specifier: workspace:*
         version: link:../registry-client
-      '@aics/ui-core':
+      '@offisim/ui-core':
         specifier: workspace:*
         version: link:../ui-core
       better-auth:
@@ -478,36 +478,36 @@ importers:
 
   packages/ui-office:
     dependencies:
-      '@aics/asset-schema':
-        specifier: workspace:*
-        version: link:../asset-schema
-      '@aics/core':
-        specifier: workspace:*
-        version: link:../core
-      '@aics/doc-engine':
-        specifier: workspace:*
-        version: link:../doc-engine
-      '@aics/install-core':
-        specifier: workspace:*
-        version: link:../install-core
-      '@aics/registry-client':
-        specifier: workspace:*
-        version: link:../registry-client
-      '@aics/renderer':
-        specifier: workspace:*
-        version: link:../renderer
-      '@aics/shared-types':
-        specifier: workspace:*
-        version: link:../shared-types
-      '@aics/ui-core':
-        specifier: workspace:*
-        version: link:../ui-core
       '@dicebear/collection':
         specifier: ^9.4.2
         version: 9.4.2(@dicebear/core@9.4.2)
       '@dicebear/core':
         specifier: ^9.4.2
         version: 9.4.2
+      '@offisim/asset-schema':
+        specifier: workspace:*
+        version: link:../asset-schema
+      '@offisim/core':
+        specifier: workspace:*
+        version: link:../core
+      '@offisim/doc-engine':
+        specifier: workspace:*
+        version: link:../doc-engine
+      '@offisim/install-core':
+        specifier: workspace:*
+        version: link:../install-core
+      '@offisim/registry-client':
+        specifier: workspace:*
+        version: link:../registry-client
+      '@offisim/renderer':
+        specifier: workspace:*
+        version: link:../renderer
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@offisim/ui-core':
+        specifier: workspace:*
+        version: link:../ui-core
       '@react-three/drei':
         specifier: ^10.7.7
         version: 10.7.7(@react-three/fiber@9.5.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.183.2))(@types/react@19.2.14)(@types/three@0.183.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.183.2)

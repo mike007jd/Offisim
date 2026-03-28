@@ -1,4 +1,4 @@
-import type { CompanyTemplate } from '@aics/core/browser';
+import type { CompanyTemplate } from '@offisim/core/browser';
 import { render } from '@testing-library/react';
 import { CompanyCreationWizard } from '../components/onboarding/CompanyCreationWizard.js';
 import { useCompanyCreation } from '../hooks/useCompanyCreation.js';

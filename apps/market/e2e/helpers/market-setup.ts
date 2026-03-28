@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 
-const AUTH_STORAGE_KEY = 'aics-auth-token';
+const AUTH_STORAGE_KEY = 'offisim-auth-token';
 
 /**
  * Inject a mock auth JWT into localStorage to simulate logged-in state.

@@ -3,7 +3,7 @@ import type {
   ModelProfile,
   ResolvedModel,
   RuntimePolicyConfig,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 
 /**
  * System-level fallback when no policy and no explicit fallback is provided.

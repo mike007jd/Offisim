@@ -1,4 +1,4 @@
-import type { SopDefinition, SopStep } from '@aics/shared-types';
+import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { SopTemplateRepository, SopTemplateRow } from '../runtime/repositories.js';
 

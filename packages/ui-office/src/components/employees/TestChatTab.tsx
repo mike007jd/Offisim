@@ -1,5 +1,5 @@
-import type { LlmGateway, LlmMessage } from '@aics/core/browser';
-import { Button, ScrollArea, Textarea, cn } from '@aics/ui-core';
+import type { LlmGateway, LlmMessage } from '@offisim/core/browser';
+import { Button, ScrollArea, Textarea, cn } from '@offisim/ui-core';
 import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { EmployeeFormData } from '../../hooks/useEmployeeEditor';
@@ -57,7 +57,7 @@ async function createTestGateway(): Promise<LlmGateway | null> {
   }
 
   // Dynamic import keeps LLM SDKs out of the initial bundle
-  const { createGateway } = await import('@aics/core');
+  const { createGateway } = await import('@offisim/core');
 
   return createGateway({
     provider: config.provider,

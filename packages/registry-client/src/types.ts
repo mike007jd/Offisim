@@ -1,6 +1,6 @@
 // Types derived from offisim_openapi.yaml schemas
 
-import type { AssetKind, RiskClass, SupportedEnvironment } from '@aics/asset-schema';
+import type { AssetKind, RiskClass, SupportedEnvironment } from '@offisim/asset-schema';
 
 // ── Search ──
 

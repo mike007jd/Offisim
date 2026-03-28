@@ -1,5 +1,5 @@
 /**
- * @aics/db-local — Drizzle ORM SQLite schema
+ * @offisim/db-local — Drizzle ORM SQLite schema
  *
  * Derived from the migration DDL files in src/migrations/.
  * Those SQL files remain the canonical source of truth for column

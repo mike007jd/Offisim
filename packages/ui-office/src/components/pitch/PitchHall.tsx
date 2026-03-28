@@ -1,5 +1,5 @@
-import { type ExportFormat, type ExportableDocument, exportDocument } from '@aics/doc-engine';
-import type { DeliverableCreatedPayload, RuntimeEvent, SopDefinition } from '@aics/shared-types';
+import { type ExportFormat, type ExportableDocument, exportDocument } from '@offisim/doc-engine';
+import type { DeliverableCreatedPayload, RuntimeEvent, SopDefinition } from '@offisim/shared-types';
 import {
   Badge,
   Button,
@@ -12,11 +12,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@aics/ui-core';
+} from '@offisim/ui-core';
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
-import { useAicsRuntime } from '../../runtime/aics-runtime-context';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
 // ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
 
 export function PitchHall() {
   const deliverables = useDeliverables();
-  const { repos, eventBus } = useAicsRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);
 

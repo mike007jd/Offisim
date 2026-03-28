@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Zone } from '@aics/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@aics/shared-types';
+import type { Zone } from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import {
   type ZoneBounds,
   computeFloorPlan,

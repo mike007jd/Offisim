@@ -4,7 +4,7 @@ import type {
   PrefabStateChangedPayload,
   RuntimeEvent,
   SemanticCategory,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 

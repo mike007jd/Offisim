@@ -1,5 +1,5 @@
-import type { InMemoryEventBus } from '@aics/core/browser';
-import type { ProviderConfig } from '@aics/ui-office';
+import type { InMemoryEventBus } from '@offisim/core/browser';
+import type { ProviderConfig } from '@offisim/ui-office';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
 export async function initializeRuntimeBundle(

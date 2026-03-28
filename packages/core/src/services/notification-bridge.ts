@@ -5,7 +5,7 @@ import type {
   InstallStatePayload,
   PlanCompletedPayload,
   RuntimeEvent,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { notificationCreated } from '../events/event-factories.js';
 import { generateId } from '../utils/generate-id.js';

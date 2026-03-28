@@ -6,10 +6,10 @@ import type {
   LlmUsageRecordedPayload,
   RuntimeEvent,
   TaskStatePayload,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useAicsRuntime, useAicsRuntimeStatus } from '../runtime/aics-runtime-context';
+import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
 
 export interface DashboardMetrics {
   activeTaskCount: number;
@@ -106,8 +106,8 @@ function getBootstrapEmployeeCount(
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus, repos, bootstrapState } = useAicsRuntime();
-  const { isRunning } = useAicsRuntimeStatus();
+  const { eventBus, repos, bootstrapState } = useOffisimRuntime();
+  const { isRunning } = useOffisimRuntimeStatus();
   const { activeCompanyId } = useCompany();
   const bootstrapEmployeeCount = getBootstrapEmployeeCount(
     activeCompanyId,

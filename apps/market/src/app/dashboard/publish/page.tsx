@@ -1,6 +1,6 @@
 'use client';
 
-import { PublishWizard, useAuthContext } from '@aics/ui-market';
+import { PublishWizard, useAuthContext } from '@offisim/ui-market';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 

@@ -14,7 +14,7 @@ export function getTauriDb(): Promise<Database> {
         (await import(/* @vite-ignore */ tauriSqlModule)) as typeof import(
           '@tauri-apps/plugin-sql'
         );
-      const db = await Database.load('sqlite:aics.db');
+      const db = await Database.load('sqlite:offisim.db');
       // Enable WAL for concurrent read/write safety
       await db.execute('PRAGMA journal_mode=WAL', []);
       await db.execute('PRAGMA busy_timeout=5000', []);

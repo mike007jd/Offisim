@@ -1,10 +1,10 @@
-import { createMemoryRepositories } from '@aics/core/browser';
-import type { InMemoryEventBus } from '@aics/core/browser';
-import type { RuntimeEvent } from '@aics/shared-types';
-import type { MemoryRepositoriesSnapshot } from '@aics/core/browser';
+import { createMemoryRepositories } from '@offisim/core/browser';
+import type { InMemoryEventBus } from '@offisim/core/browser';
+import type { RuntimeEvent } from '@offisim/shared-types';
+import type { MemoryRepositoriesSnapshot } from '@offisim/core/browser';
 
-const STORAGE_KEY = 'aics:browser-runtime-snapshot:v1';
-const EVENT_HISTORY_KEY = 'aics:browser-event-history:v1';
+const STORAGE_KEY = 'offisim:browser-runtime-snapshot:v1';
+const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
 const SAVE_DEBOUNCE_MS = 300;
 const SAVE_INTERVAL_MS = 5000;
 const MAX_EVENT_HISTORY = 200;

@@ -1,4 +1,4 @@
-import type { RuntimePolicyConfig } from '@aics/shared-types';
+import type { RuntimePolicyConfig } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';

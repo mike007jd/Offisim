@@ -6,7 +6,7 @@ import type {
   ZoneArchetype,
   ZoneKind,
   ZonePreset,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 
 /** A zone placed on the editor canvas. */
 export interface EditorZone {

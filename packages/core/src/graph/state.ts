@@ -82,7 +82,7 @@ export interface MeetingInterrupt {
   bossComment?: string;
 }
 
-export const AicsGraphAnnotation = Annotation.Root({
+export const OffisimGraphAnnotation = Annotation.Root({
   // Thread tracking
   threadId: Annotation<string>,
   companyId: Annotation<string>,
@@ -217,4 +217,4 @@ export const AicsGraphAnnotation = Annotation.Root({
   }),
 });
 
-export type AicsGraphState = typeof AicsGraphAnnotation.State;
+export type OffisimGraphState = typeof OffisimGraphAnnotation.State;

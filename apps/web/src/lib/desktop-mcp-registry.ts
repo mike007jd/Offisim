@@ -1,4 +1,4 @@
-import { isTauri } from '@aics/ui-office';
+import { isTauri } from '@offisim/ui-office';
 
 export interface DesktopMcpServerRecord {
   serverId: string;

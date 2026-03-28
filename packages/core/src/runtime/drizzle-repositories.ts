@@ -1,12 +1,12 @@
-import * as schema from '@aics/db-local';
+import * as schema from '@offisim/db-local';
 import type {
   AssetBindingRow,
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
   NewEmployee,
-} from '@aics/install-core';
-import { ACTIVE_PROJECT_STATUSES } from '@aics/shared-types';
+} from '@offisim/install-core';
+import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
   BindingStatus,
   InstallState,
@@ -16,7 +16,7 @@ import type {
   ProjectRow,
   ProjectStatus,
   ZoneRow,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import type { NewZone } from '../repos/zone-repository.js';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';

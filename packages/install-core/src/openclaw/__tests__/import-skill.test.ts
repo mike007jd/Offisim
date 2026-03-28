@@ -1,5 +1,5 @@
-import type { InstallState } from '@aics/shared-types';
-import type { BindingStatus, BindingType } from '@aics/shared-types';
+import type { InstallState } from '@offisim/shared-types';
+import type { BindingStatus, BindingType } from '@offisim/shared-types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InstallService } from '../../install-service.js';
 import type {

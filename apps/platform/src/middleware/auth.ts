@@ -1,4 +1,4 @@
-import { apiTokens, users } from '@aics/db-platform';
+import { apiTokens, users } from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
@@ -10,7 +10,7 @@ import type { PlatformEnv } from '../types.js';
  * Auth Middleware — Better Auth session + API token validation.
  *
  * Priority:
- * 1. Bearer token with `aics_` prefix → validate against api_tokens table (SHA-256 hash)
+ * 1. Bearer token with `offisim_` prefix → validate against api_tokens table (SHA-256 hash)
  * 2. Better Auth session (cookie or Bearer token via bearer plugin)
  * 3. Unauthenticated — request continues without userId/userEmail
  */
@@ -18,8 +18,8 @@ import type { PlatformEnv } from '../types.js';
 export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   const authHeader = c.req.header('authorization');
 
-  // 1. Check for API token (aics_ prefix)
-  if (authHeader?.startsWith('Bearer aics_')) {
+  // 1. Check for API token (offisim_ prefix)
+  if (authHeader?.startsWith('Bearer offisim_')) {
     const rawToken = authHeader.slice(7); // remove "Bearer "
     try {
       const hash = await sha256(rawToken);
@@ -38,16 +38,16 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
           return;
         }
 
-        // Look up the linked AICS user
-        const [aicsUser] = await db
+        // Look up the linked Offisim user
+        const [offisimUser] = await db
           .select()
           .from(users)
           .where(eq(users.ba_user_id, tokenRow.user_id))
           .limit(1);
 
-        if (aicsUser) {
-          c.set('userId', aicsUser.user_id);
-          c.set('userEmail', aicsUser.email);
+        if (offisimUser) {
+          c.set('userId', offisimUser.user_id);
+          c.set('userEmail', offisimUser.email);
         }
 
         // Update last_used_at (fire-and-forget)
@@ -69,19 +69,19 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
 
     if (session?.user) {
-      // Look up the linked AICS user by ba_user_id
+      // Look up the linked Offisim user by ba_user_id
       const db = c.get('db');
-      const [aicsUser] = await db
+      const [offisimUser] = await db
         .select()
         .from(users)
         .where(eq(users.ba_user_id, session.user.id))
         .limit(1);
 
-      if (aicsUser) {
-        c.set('userId', aicsUser.user_id);
-        c.set('userEmail', aicsUser.email);
+      if (offisimUser) {
+        c.set('userId', offisimUser.user_id);
+        c.set('userEmail', offisimUser.email);
       } else {
-        // Auto-create AICS user if not linked yet (first login after migration)
+        // Auto-create Offisim user if not linked yet (first login after migration)
         try {
           const [created] = await db
             .insert(users)
@@ -109,7 +109,7 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
             .limit(1);
 
           if (existingByEmail) {
-            // Link existing AICS user to Better Auth user
+            // Link existing Offisim user to Better Auth user
             await db
               .update(users)
               .set({ ba_user_id: session.user.id })

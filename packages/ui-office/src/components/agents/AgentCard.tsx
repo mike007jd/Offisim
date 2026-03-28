@@ -1,4 +1,4 @@
-import { Badge } from '@aics/ui-core';
+import { Badge } from '@offisim/ui-core';
 import { Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { truncate } from '../../lib/format-time';

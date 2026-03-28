@@ -1,6 +1,6 @@
 export const revalidate = 300;
 
-import type { ListingDetail } from '@aics/registry-client';
+import type { ListingDetail } from '@offisim/registry-client';
 import {
   CreatorBadge,
   ForkButton,
@@ -13,8 +13,8 @@ import {
   ReviewForm,
   ReviewList,
   VersionTable,
-} from '@aics/ui-market';
-import { formatInstallCount, kindLabel } from '@aics/ui-market';
+} from '@offisim/ui-market';
+import { formatInstallCount, kindLabel } from '@offisim/ui-market';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';

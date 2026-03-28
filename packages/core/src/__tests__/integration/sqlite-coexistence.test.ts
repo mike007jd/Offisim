@@ -11,7 +11,7 @@ describe('SqliteSaver coexistence with app tables', () => {
   function createTempDb(): { db: Database.Database; filePath: string } {
     const filePath = path.join(
       os.tmpdir(),
-      `aics-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+      `offisim-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
     );
     tmpFiles.push(filePath);
     const db = new Database(filePath);

@@ -1,5 +1,5 @@
-import { Button, Dialog, DialogContent, DialogTitle, Progress } from '@aics/ui-core';
-import { cn } from '@aics/ui-core';
+import { Button, Dialog, DialogContent, DialogTitle, Progress } from '@offisim/ui-core';
+import { cn } from '@offisim/ui-core';
 import { ArrowLeft, ArrowRight, SkipForward, UserPlus } from 'lucide-react';
 import { type UseInterviewWizardReturn, WIZARD_STEPS } from '../../hooks/useInterviewWizard';
 import { AppearanceStep } from './interview-steps/AppearanceStep';

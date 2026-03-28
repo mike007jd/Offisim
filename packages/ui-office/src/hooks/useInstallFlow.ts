@@ -6,19 +6,19 @@
  * so scene views can add them to the display.
  */
 
-import { employeeInstalled } from '@aics/core/browser';
+import { employeeInstalled } from '@offisim/core/browser';
 import type {
   BindingConfirmation,
   InstallPlan,
   SkillValidationResult,
   UpgradeDiff,
-} from '@aics/install-core';
-import { computeUpgradeDiff, readPackageFile } from '@aics/install-core';
-import { RegistryApiError, RegistryClient } from '@aics/registry-client';
+} from '@offisim/install-core';
+import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
+import { RegistryApiError, RegistryClient } from '@offisim/registry-client';
 import { useCallback, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
-import { useAicsRuntime } from '../runtime/aics-runtime-context.js';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 export type InstallStep =
   | 'idle'
@@ -35,7 +35,7 @@ export interface InstallFlowState {
   plan: InstallPlan | null;
   error: string | null;
   bindingValues: Map<string, string>;
-  /** True when importing a SKILL.md (vs .aicspkg) — affects review UI */
+  /** True when importing a SKILL.md (vs .offisimpkg) — affects review UI */
   isSkillImport: boolean;
   /** Soft validation warnings from skill validator */
   skillValidation: SkillValidationResult | null;
@@ -51,7 +51,7 @@ export interface InstallFlowActions {
    * Start an upgrade flow. Provide the currently installed manifest so the
    * dialog can compute and show a diff before confirming.
    */
-  startUpgrade: (file: File, currentManifest: import('@aics/asset-schema').PackageManifest) => void;
+  startUpgrade: (file: File, currentManifest: import('@offisim/asset-schema').PackageManifest) => void;
   confirmInstall: () => void;
   submitBindings: () => void;
   setBindingValue: (key: string, value: string) => void;
@@ -62,7 +62,7 @@ export interface InstallFlowActions {
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
-  const { installService, eventBus } = useAicsRuntime();
+  const { installService, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -75,7 +75,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const [upgradeDiff, setUpgradeDiff] = useState<UpgradeDiff | null>(null);
 
   // Ref for the current manifest (used during upgrade to compute diff after plan is ready)
-  const currentManifestRef = useRef<import('@aics/asset-schema').PackageManifest | null>(null);
+  const currentManifestRef = useRef<import('@offisim/asset-schema').PackageManifest | null>(null);
 
   // Track the active transaction ID for cancel / confirm operations
   const txnIdRef = useRef<string | null>(null);
@@ -124,10 +124,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
       // Validate file extension
       const ext = file.name.toLowerCase();
-      if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip') && !ext.endsWith('.md')) {
+      if (!ext.endsWith('.offisimpkg') && !ext.endsWith('.zip') && !ext.endsWith('.md')) {
         setIsOpen(true);
         setStep('error');
-        setError('Invalid file type. Expected .aicspkg, .zip, or .md');
+        setError('Invalid file type. Expected .offisimpkg, .zip, or .md');
         return;
       }
 
@@ -177,7 +177,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         return;
       }
 
-      // --- Package import path (.aicspkg / .zip) ---
+      // --- Package import path (.offisimpkg / .zip) ---
       if (!installService) {
         // Mock fallback — no real service available
         timerRef.current = setTimeout(() => {
@@ -217,7 +217,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    * which the UI shows via UpgradePreview instead of ManifestReview.
    */
   const startUpgrade = useCallback(
-    (file: File, currentManifest: import('@aics/asset-schema').PackageManifest) => {
+    (file: File, currentManifest: import('@offisim/asset-schema').PackageManifest) => {
       currentManifestRef.current = currentManifest;
       setUpgradeDiff(null);
 
@@ -232,10 +232,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         }
 
         const ext = file.name.toLowerCase();
-        if (!ext.endsWith('.aicspkg') && !ext.endsWith('.zip')) {
+        if (!ext.endsWith('.offisimpkg') && !ext.endsWith('.zip')) {
           setIsOpen(true);
           setStep('error');
-          setError('Upgrade only supports .aicspkg or .zip packages');
+          setError('Upgrade only supports .offisimpkg or .zip packages');
           return;
         }
 
@@ -341,7 +341,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           const blob = await artifactRes.blob();
 
           // 5. Feed into standard file import flow
-          const file = new File([blob], `${detail.slug ?? listingId}.aicspkg`, {
+          const file = new File([blob], `${detail.slug ?? listingId}.offisimpkg`, {
             type: 'application/octet-stream',
           });
 

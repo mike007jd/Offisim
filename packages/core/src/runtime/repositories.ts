@@ -1,11 +1,11 @@
-import type { NewEmployee } from '@aics/install-core';
+import type { NewEmployee } from '@offisim/install-core';
 import type {
   NewProject,
   NewProjectAssignment,
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
-} from '@aics/shared-types';
+} from '@offisim/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';

@@ -25,8 +25,8 @@ export const SHOWCASE_LISTINGS: ShowcaseListing[] = [
     kind: 'employee',
     summary:
       'Deep expertise in React 19, server components, and performance optimization. Excels at code reviews, mentoring, and building scalable frontend architectures.',
-    creator_handle: 'aics-official',
-    creator_name: 'AICS Official',
+    creator_handle: 'offisim-official',
+    creator_name: 'Offisim Official',
     install_count: 2847,
     rating: 4.8,
     tags: ['react', 'typescript', 'architecture', 'mentoring'],
@@ -67,8 +67,8 @@ export const SHOWCASE_LISTINGS: ShowcaseListing[] = [
     kind: 'company_template',
     summary:
       'Complete product team with PM, 3 developers, designer, and QA. Pre-configured sprints, standups, and retrospective SOPs.',
-    creator_handle: 'aics-official',
-    creator_name: 'AICS Official',
+    creator_handle: 'offisim-official',
+    creator_name: 'Offisim Official',
     install_count: 3201,
     rating: 4.7,
     tags: ['product', 'team', 'agile', 'starter'],
@@ -95,8 +95,8 @@ export const SHOWCASE_LISTINGS: ShowcaseListing[] = [
     kind: 'bundle',
     summary:
       'Everything you need: 5 specialized developers, debugging skills, code review SOP, and a startup office layout. One-click setup.',
-    creator_handle: 'aics-official',
-    creator_name: 'AICS Official',
+    creator_handle: 'offisim-official',
+    creator_name: 'Offisim Official',
     install_count: 4102,
     rating: 4.8,
     tags: ['fullstack', 'bundle', 'starter', 'complete'],

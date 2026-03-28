@@ -1,5 +1,5 @@
 {
-  "name": "@aics/install-core",
+  "name": "@offisim/install-core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,10 +17,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aics/asset-schema": "workspace:*",
-    "@aics/db-local": "workspace:*",
-    "@aics/registry-client": "workspace:*",
-    "@aics/shared-types": "workspace:*",
+    "@offisim/asset-schema": "workspace:*",
+    "@offisim/db-local": "workspace:*",
+    "@offisim/registry-client": "workspace:*",
+    "@offisim/shared-types": "workspace:*",
     "fflate": "^0.8.2",
     "gray-matter": "^4.0.3"
   },

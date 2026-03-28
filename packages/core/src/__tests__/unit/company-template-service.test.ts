@@ -1,4 +1,4 @@
-import type { PrefabInstanceRow } from '@aics/shared-types';
+import type { PrefabInstanceRow } from '@offisim/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { PrefabInstanceRepository } from '../../repos/prefab-instance-repository.js';

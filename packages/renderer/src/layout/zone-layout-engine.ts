@@ -3,7 +3,7 @@
 // Computes an OfficeFloorPlan from zone configs and employee counts.
 // The office is one floor divided into typed zones arranged in rows.
 
-import type { Zone, ZoneArchetype } from '@aics/shared-types';
+import type { Zone, ZoneArchetype } from '@offisim/shared-types';
 
 // ── Legacy ZoneConfig adapter ────────────────────────────────────
 // The layout engine internally uses a ZoneType classification.

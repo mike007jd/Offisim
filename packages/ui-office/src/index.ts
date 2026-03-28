@@ -1,7 +1,7 @@
 // Components
 // Note: CompanyCreationWizard, CompanyEditor, DashboardOverlay, EmployeeCreatorOverlay,
 // InstallDialog, OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from
-// the barrel — they are lazy-loaded via subpath exports (e.g. @aics/ui-office/wizard).
+// the barrel — they are lazy-loaded via subpath exports (e.g. @offisim/ui-office/wizard).
 export * from './components/ErrorBoundary.js';
 export { CompanyProvider, useCompany } from './components/company/CompanyContext.js';
 export { CompanySelectionPage } from './components/company/CompanySelectionPage.js';
@@ -50,7 +50,7 @@ export * from './components/install/FileImportTrigger.js';
 export * from './components/install/InstallProgress.js';
 export * from './components/install/ManifestReview.js';
 export * from './components/install/SkillReview.js';
-// Note: Kanban is NOT exported from the barrel — lazy-loaded via subpath @aics/ui-office/kanban
+// Note: Kanban is NOT exported from the barrel — lazy-loaded via subpath @offisim/ui-office/kanban
 export * from './components/layout/AppLayout.js';
 export * from './components/notifications/NotificationCard.js';
 export * from './components/notifications/NotificationCenter.js';
@@ -106,14 +106,14 @@ export * from './lib/desktop-provider-secrets.js';
 export * from './lib/provider-config.js';
 
 // Runtime
-export * from './runtime/aics-runtime-context.js';
+export * from './runtime/offisim-runtime-context.js';
 export * from './runtime/notification-provider.js';
 export * from './runtime/use-agent-states.js';
 export * from './runtime/use-event-stream.js';
 export * from './runtime/use-streaming-content.js';
 
 // Types
-export type { AicsDebugBridge } from './types/global.js';
+export type { OffisimDebugBridge } from './types/global.js';
 
 // Theme
 export { ThemeProvider, useTheme, type Theme } from './theme/index.js';

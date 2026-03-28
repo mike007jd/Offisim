@@ -1,4 +1,4 @@
-import type { PrefabInstanceRow } from '@aics/shared-types';
+import type { PrefabInstanceRow } from '@offisim/shared-types';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
 function now(): string {

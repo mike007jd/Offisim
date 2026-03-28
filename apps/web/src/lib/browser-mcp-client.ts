@@ -13,7 +13,7 @@ import type {
   McpConnection,
   McpServerConfig,
   McpToolDef,
-} from '@aics/core/browser';
+} from '@offisim/core/browser';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
@@ -36,7 +36,7 @@ export class BrowserMcpClientFactory implements McpClientFactory {
     }
 
     const client = new Client(
-      { name: `aics-browser-${config.name}`, version: '0.1.0' },
+      { name: `offisim-browser-${config.name}`, version: '0.1.0' },
       { capabilities: {} },
     );
 

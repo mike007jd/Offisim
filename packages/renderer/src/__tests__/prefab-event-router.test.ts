@@ -1,4 +1,4 @@
-import type { RuntimeEvent, SemanticCategory } from '@aics/shared-types';
+import type { RuntimeEvent, SemanticCategory } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrefabEventRouter, type PrefabRuntimeHandle } from '../prefab/prefab-event-router.js';
 

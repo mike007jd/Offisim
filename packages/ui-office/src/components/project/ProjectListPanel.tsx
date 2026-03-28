@@ -1,4 +1,4 @@
-import type { ProjectRow, ProjectStatus } from '@aics/shared-types';
+import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
 import { Archive, FolderOpen, Plus, X } from 'lucide-react';
 
 interface ProjectListPanelProps {

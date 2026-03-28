@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@aics/shared-types';
+import type { ProjectRow } from '@offisim/shared-types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps, PropsWithChildren } from 'react';
@@ -6,7 +6,7 @@ import type { ComponentProps, PropsWithChildren } from 'react';
 /**
  * ChatPanel — focused tests on project-scoping behavior.
  *
- * ChatPanel has a deep dependency chain (AicsRuntimeContext, CompanyContext,
+ * ChatPanel has a deep dependency chain (OffisimRuntimeContext, CompanyContext,
  * EventBus, MeetingPanel, etc.). We mock all hooks/contexts at the module
  * level and test only the project-scoping surface area:
  *  - When activeProject is set, the project name banner is shown.
@@ -31,8 +31,8 @@ type ChatInputProps = {
   onSend: (message: string) => void;
 };
 
-vi.mock('../../runtime/aics-runtime-context.js', () => ({
-  useAicsRuntime: () => ({
+vi.mock('../../runtime/offisim-runtime-context.js', () => ({
+  useOffisimRuntime: () => ({
     sendMessage: mockSendMessage,
     retryLastMessage: vi.fn().mockResolvedValue(undefined),
     isRunning: false,
@@ -43,9 +43,9 @@ vi.mock('../../runtime/aics-runtime-context.js', () => ({
     eventBus: mockEventBus,
     repos: null,
   }),
-  useAicsRuntimeStatus: () => ({ isRunning: false, version: 0 }),
-  AicsRuntimeContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
-  AicsRuntimeStatusContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
+  useOffisimRuntimeStatus: () => ({ isRunning: false, version: 0 }),
+  OffisimRuntimeContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
+  OffisimRuntimeStatusContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
 }));
 
 vi.mock('../../runtime/use-streaming-content.js', () => ({
@@ -98,7 +98,7 @@ vi.mock('../../components/error/ErrorBanner.js', () => ({
   ErrorBanner: () => null,
 }));
 
-vi.mock('@aics/ui-core', () => ({
+vi.mock('@offisim/ui-core', () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
   ScrollArea: ({ children }: ChildrenOnlyProps) => <div>{children}</div>,
 }));

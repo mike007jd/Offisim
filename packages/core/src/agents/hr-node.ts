@@ -1,4 +1,4 @@
-import { ROLE_REGISTRY } from '@aics/shared-types';
+import { ROLE_REGISTRY } from '@offisim/shared-types';
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import {
@@ -7,7 +7,7 @@ import {
   hrAssessmentStarted,
   hrRecommendation,
 } from '../events/event-factories.js';
-import type { AicsGraphState } from '../graph/state.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -62,9 +62,9 @@ function parseHrAssessment(content: string): HrAssessmentResult | null {
  * HR does NOT execute tasks or call tools — it is an advisory node.
  */
 export async function hrNode(
-  state: AicsGraphState,
+  state: OffisimGraphState,
   config: RunnableConfig,
-): Promise<Partial<AicsGraphState>> {
+): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'hr');
 
   // Announce node entry

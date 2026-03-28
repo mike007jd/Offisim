@@ -7,35 +7,11 @@
 @source "../../../packages/ui-core/src/**/*.ts";
 
 /*
- * Offisim Web Shell — Theme System
- * Light/dark mode via CSS custom properties + class toggle on <html>.
- * ThemeProvider in @aics/ui-office manages the .dark/.light class.
+ * Offisim Web Shell — Dark-only theme tokens.
+ * ThemeProvider in @offisim/ui-office keeps the root in dark mode.
  */
 
-/* ── Light mode (default) ── */
 :root {
-  --surface: #ffffff;
-  --surface-light: #f8fafc;
-  --surface-lighter: #f1f5f9;
-  --surface-mid: #e2e8f0;
-  --border-val: rgba(0, 0, 0, 0.1);
-  --text-primary-val: #0f172a;
-  --text-secondary-val: #475569;
-  --text-muted-val: #94a3b8;
-  --accent-val: #2563eb;
-  --accent-hover-val: #1d4ed8;
-  --success-val: #059669;
-  --warning-val: #d97706;
-  --error-val: #dc2626;
-  --info-val: #2563eb;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --scrollbar-thumb: rgba(100, 116, 139, 0.3);
-  --scrollbar-thumb-hover: rgba(100, 116, 139, 0.5);
-}
-
-/* ── Dark mode ── */
-:root.dark {
   --surface: #0c1118;
   --surface-light: #151d2e;
   --surface-lighter: #1e293b;
@@ -149,32 +125,26 @@ body {
   color: var(--accent-val);
 }
 
-/* ── Noise overlay (dark mode only) ── */
+/* ── Noise overlay ── */
 .noise {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0;
+  opacity: 0.015;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-:root.dark .noise {
-  opacity: 0.015;
-}
 
-/* ── Scanline overlay (dark mode only) ── */
+/* ── Scanline overlay ── */
 .scanline {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9998;
-  opacity: 0;
+  opacity: 0.02;
   background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
     linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
   background-size: 100% 2px, 3px 100%;
-}
-:root.dark .scanline {
-  opacity: 0.02;
 }
 
 /* ── Custom scrollbar ── */

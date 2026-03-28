@@ -1,8 +1,8 @@
-import type { LlmProvider, ModelPolicyConfig } from '@aics/shared-types';
+import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import { describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
-import { buildAicsGraph } from '../../graph/main-graph.js';
+import { buildOffisimGraph } from '../../graph/main-graph.js';
 import { createGateway } from '../../llm/gateway-factory.js';
 import type { LlmGateway } from '../../llm/gateway.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
@@ -146,7 +146,7 @@ function createSmokeRuntime() {
     threadId,
   });
 
-  const graph = buildAicsGraph();
+  const graph = buildOffisimGraph();
   return { graph, repos, runtimeCtx, threadId, companyId };
 }
 

@@ -1,5 +1,5 @@
-import type { RoleSlug } from '@aics/shared-types';
-import { SYSTEM_ROLES } from '@aics/shared-types';
+import type { RoleSlug } from '@offisim/shared-types';
+import { SYSTEM_ROLES } from '@offisim/shared-types';
 
 import type { ToolDef } from '../llm/gateway.js';
 import type {

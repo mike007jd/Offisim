@@ -1,7 +1,7 @@
 export const revalidate = 300;
 
-import type { CreatorProfile } from '@aics/registry-client';
-import { ListingCard } from '@aics/ui-market';
+import type { CreatorProfile } from '@offisim/registry-client';
+import { ListingCard } from '@offisim/ui-market';
 import { Globe, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
