@@ -234,12 +234,13 @@ export function notificationCreated(
     dismissable?: boolean;
   },
 ): RuntimeEvent<NotificationPayload> {
+  const now = Date.now();
   return {
     type: 'notification.created',
     entityId: notificationId,
     entityType: 'company',
     companyId,
-    timestamp: Date.now(),
+    timestamp: now,
     payload: {
       notificationId,
       level,
@@ -249,7 +250,7 @@ export function notificationCreated(
       actionUrl: opts?.actionUrl,
       employeeId: opts?.employeeId,
       dismissable: opts?.dismissable ?? true,
-      timestamp: Date.now(),
+      timestamp: now,
     },
   };
 }

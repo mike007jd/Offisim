@@ -312,4 +312,4 @@ CREATE TABLE IF NOT EXISTS mcp_audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_mcp_audit_thread   ON mcp_audit_log(thread_id);
 CREATE INDEX IF NOT EXISTS idx_mcp_audit_employee ON mcp_audit_log(employee_id);
-CREATE INDEX IF NOT EXISTS idx_mcp_audit_server   ON mcp_audit_log(server_name);
+CREATE INDEX IF NOT EXISTS idx_mcp_audit_server_tool ON mcp_audit_log(server_name, tool_name);

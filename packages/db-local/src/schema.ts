@@ -559,7 +559,7 @@ export const mcpAuditLog = sqliteTable(
   (table) => [
     index('idx_mcp_audit_thread').on(table.thread_id),
     index('idx_mcp_audit_employee').on(table.employee_id),
-    index('idx_mcp_audit_server').on(table.server_name),
+    index('idx_mcp_audit_server_tool').on(table.server_name, table.tool_name),
   ],
 );
 
