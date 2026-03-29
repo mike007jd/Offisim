@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as schema from '@offisim/db-local';
 import Database from 'better-sqlite3';
@@ -20,11 +20,6 @@ const DDL_PATH = resolve(
   import.meta.dirname ?? '.',
   '../../../../../Docs/02_contracts_and_schemas/offisim_local_runtime_schema.sql',
 );
-const MIGRATIONS_DIR = resolve(
-  import.meta.dirname ?? '.',
-  '../../../../../Docs/03_migrations/offisim_migrations_local_v0.1',
-);
-
 class TestMcpClientFactory implements McpClientFactory {
   private readonly serverTools = new Map<string, McpToolDef[]>();
   private readonly toolHandlers = new Map<string, (args: Record<string, unknown>) => unknown>();
@@ -67,20 +62,7 @@ function createSchemaContractDb() {
   return { sqlite, db };
 }
 
-function createMigratedDb() {
-  const sqlite = new Database(':memory:');
-  sqlite.pragma('foreign_keys = ON');
-  const migrationFiles = readdirSync(MIGRATIONS_DIR)
-    .filter((file) => file.endsWith('.sql'))
-    .sort();
-  for (const file of migrationFiles) {
-    sqlite.exec(readFileSync(resolve(MIGRATIONS_DIR, file), 'utf-8'));
-  }
-  const db = drizzle(sqlite, { schema });
-  return { sqlite, db };
-}
-
-async function createHarness(createDb: typeof createMigratedDb | typeof createSchemaContractDb) {
+async function createHarness(createDb: typeof createSchemaContractDb) {
   const testDb = createDb();
   const repos = createDrizzleRepositories(testDb.db);
   const eventBus = new InMemoryEventBus();
@@ -151,12 +133,12 @@ describe('MCP audit integration with Drizzle repositories', () => {
   let executor: AuditingToolExecutor;
 
   beforeEach(async () => {
-    ({ sqlite, repos, eventBus, inner, executor } = await createHarness(createMigratedDb));
+    ({ sqlite, repos, eventBus, inner, executor } = await createHarness(createSchemaContractDb));
   });
 
   afterEach(async () => {
-    await inner.dispose();
-    sqlite.close();
+    await inner?.dispose();
+    sqlite?.close();
   });
 
   it('persists MCP audit rows in SQLite and emits paired events on success', async () => {
@@ -202,7 +184,7 @@ describe('MCP audit integration with Drizzle repositories', () => {
     expect(resultEvents).toHaveLength(1);
   });
 
-  it('fails against the published local runtime schema because mcp_audit_log is missing', async () => {
+  it('works against the published DDL schema (mcp_audit_log now present)', async () => {
     const contractHarness = await createHarness(createSchemaContractDb);
 
     await contractHarness.executor.execute({
@@ -212,9 +194,9 @@ describe('MCP audit integration with Drizzle repositories', () => {
       employeeId: 'emp-1',
     });
 
-    expect(() => contractHarness.sqlite.prepare('select * from mcp_audit_log').all()).toThrow(
-      /no such table: mcp_audit_log/i,
-    );
+    const rows = await contractHarness.repos.mcpAudit.listByThread('thread-1');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tool_name).toBe('readFile');
 
     await contractHarness.inner.dispose();
     contractHarness.sqlite.close();
