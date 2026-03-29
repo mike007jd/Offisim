@@ -149,7 +149,8 @@ export async function createTauriRuntime(
   await seedCostRates(repos);
 
   // Install service — Drizzle-backed repos for persistent install state.
-  // Pass repos.transact so materialize() wraps all writes in one SQLite transaction.
+  // sqlite-proxy repos are async, so they intentionally do not expose the
+  // synchronous transact() contract used by the better-sqlite3 runtime.
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
@@ -159,7 +160,7 @@ export async function createTauriRuntime(
       environment: getInstallEnvironmentForExecutionMode(runtimePolicy.executionMode),
       schemaVersion: '2026-03',
     },
-    transact: repos.transact,
+    transact: undefined,
   });
 
   const { OrchestrationService } = await import(

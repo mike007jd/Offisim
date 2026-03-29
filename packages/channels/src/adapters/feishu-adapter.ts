@@ -16,20 +16,19 @@ import { BaseChannelAdapter } from './base-adapter.js';
 export class FeishuAdapter extends BaseChannelAdapter {
   readonly name = 'feishu';
 
+  private unsupported(): never {
+    throw new Error(
+      'Feishu adapter is declared but not implemented yet. Install the Feishu SDK integration before enabling this channel.',
+    );
+  }
+
   async initialize(config: ChannelConfig): Promise<void> {
     if (!config.enabled) return;
-
-    // TODO: Initialize Feishu SDK with WebSocket mode
-    // const { Client } = await import('@larksuiteoapi/node-sdk');
-    // this.client = new Client({ appId, appSecret });
-    // Use EventDispatcher with WebSocket transport (no webhook needed)
-    // Set this.connected = true after successful SDK initialization.
+    this.unsupported();
   }
 
   async reply(_channelRef: string, _message: OutboundMessage): Promise<void> {
-    // TODO: Use Feishu API to send/update message
-    // If message.update, use im.v1.message.patch
-    // Otherwise, use im.v1.message.create
+    this.unsupported();
   }
 
   /**
