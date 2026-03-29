@@ -7,6 +7,7 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
+import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { SceneFrameLoopController } from './SceneFrameLoopController.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
@@ -221,6 +222,7 @@ function Office3DViewInner({
     blockedCount,
   } = ui;
   const { controlsRef, shouldAnimate } = controls;
+  const perfConfig = getOffice3DPerformanceConfig(import.meta.env.DEV);
   const {
     setFlowLines,
     handleDeselect,
@@ -237,9 +239,9 @@ function Office3DViewInner({
       style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}
     >
       <Canvas
-        dpr={[1, 1.5]}
+        dpr={perfConfig.dpr}
         frameloop={shouldAnimate ? 'always' : 'demand'}
-        shadows="percentage"
+        shadows={perfConfig.shadows}
         camera={{ position: [0, 22, 28], fov: 45 }}
       >
         <SceneFrameLoopController animate={shouldAnimate} controlsRef={controlsRef} />
@@ -251,7 +253,7 @@ function Office3DViewInner({
           castShadow
           position={[12, 25, 12]}
           intensity={1.5}
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize={perfConfig.shadowMapSize}
           shadow-bias={-0.0005}
           shadow-camera-left={-25}
           shadow-camera-right={25}
@@ -260,7 +262,7 @@ function Office3DViewInner({
         />
         <pointLight position={[-15, 12, -10]} intensity={0.4} color="#3b82f6" />
         <pointLight position={[15, 8, 10]} intensity={0.3} color="#06b6d4" />
-        <Environment preset="city" />
+        {perfConfig.environmentPreset && <Environment preset={perfConfig.environmentPreset} />}
 
         <RoomShell onFloorClick={handleDeselect} />
 
