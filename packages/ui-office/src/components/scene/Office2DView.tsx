@@ -1,16 +1,13 @@
-import { avataaars } from '@dicebear/collection';
 /**
  * SVG-based 2D office top-down view.
  * Replaces PixiJS for visual rendering — cleaner, matches 3D layout 1:1.
- * Inspired by OffisimArt Office2D.tsx.
  *
  * Supports drag-to-assign: drag an employee avatar to a department zone
  * to reassign their workstation. Emits 'employee.workstation.drop-requested'
  * which is consumed by WorkstationAssignmentService via useScene.
  */
-import { createAvatar } from '@dicebear/core';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { RoleSlug, Zone } from '@offisim/shared-types';
+import type { RoleSlug } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
@@ -23,75 +20,9 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
 
-// ── Constants ─────────────────────────────────────────────────────────
-
-const SCALE = 50; // px per 3D unit
-const ROOM_W = 2000; // 40 * 50
-const ROOM_H = 1500; // 30 * 50
-
-/** Minimum pointer movement (in screen px) before a click becomes a drag. */
-const DRAG_THRESHOLD = 5;
-
-/** Map 3D center coords → SVG top-left */
-function toSVG(cx: number, cz: number, w: number, d: number) {
-  return {
-    x: (cx + 20) * SCALE - (w * SCALE) / 2,
-    y: (cz + 15) * SCALE - (d * SCALE) / 2,
-    w: w * SCALE,
-    h: d * SCALE,
-  };
-}
-
-/** Find which drop-target zone contains a point in SVG coords. */
-function hitTestZone(
-  svgX: number,
-  svgY: number,
-  bounds: ReadonlyArray<{ zone: Zone; x: number; y: number; w: number; h: number }>,
-): Zone | null {
-  for (const b of bounds) {
-    if (svgX >= b.x && svgX <= b.x + b.w && svgY >= b.y && svgY <= b.y + b.h) {
-      return b.zone;
-    }
-  }
-  return null;
-}
-
-// ── Drag State ────────────────────────────────────────────────────────
-
-interface DragState {
-  /** Employee being dragged. */
-  employeeId: string;
-  /** Employee name (for ghost label). */
-  employeeName: string;
-  /** Employee role (to determine source zone fallback). */
-  employeeRole: string;
-  /** Resolved source zone at drag-start time (uses workstationId if set). */
-  sourceZoneId: string;
-  /** Avatar seed for the ghost. */
-  avatarSeed: string;
-  /** Status color for the ghost ring. */
-  statusColor: string;
-  /** Screen position where pointer went down. */
-  startScreenX: number;
-  startScreenY: number;
-  /** Current position in SVG coords (for the ghost). */
-  currentSvgX: number;
-  currentSvgY: number;
-  /** Whether the drag threshold has been exceeded (true drag vs potential click). */
-  active: boolean;
-}
-
-// ── Avatar helper ─────────────────────────────────────────────────────
-
-const avatarCache = new Map<string, string>();
-
-function getAvatarUri(seed: string): string {
-  const cached = avatarCache.get(seed);
-  if (cached) return cached;
-  const uri = createAvatar(avataaars, { seed, size: 64 }).toDataUri();
-  avatarCache.set(seed, uri);
-  return uri;
-}
+import { ROOM_H, ROOM_W, type ViewportTransform, screenToSvg as screenToSvgPure, toSVG } from './office-2d-geometry';
+import { getAvatarUri } from './office-2d-avatar-cache';
+import { useOffice2DDrag } from './useOffice2DDrag';
 
 // ── SVG Furniture Components ──────────────────────────────────────────
 
@@ -267,6 +198,7 @@ const EmployeeNode = memo(function EmployeeNode({
   y,
   agent,
   seed,
+  companyId,
   selected,
   onClick,
   onDragStart,
@@ -276,12 +208,13 @@ const EmployeeNode = memo(function EmployeeNode({
   y: number;
   agent: AgentState;
   seed: string;
+  companyId: string;
   selected: boolean;
   onClick: () => void;
   onDragStart?: (e: React.PointerEvent) => void;
   dimmed?: boolean;
 }) {
-  const avatarUri = useMemo(() => getAvatarUri(seed), [seed]);
+  const avatarUri = useMemo(() => getAvatarUri(seed, companyId), [seed, companyId]);
   const statusColor = STATUS_COLORS[agent.state] ?? '#64748b';
 
   const isActive = agent.state !== 'idle';
@@ -314,7 +247,6 @@ const EmployeeNode = memo(function EmployeeNode({
       style={{ cursor: 'grab', touchAction: 'none' }}
       opacity={dimmed ? 0.35 : 1}
     >
-      {/* Selection ring — rendered below avatar so stroke doesn't obscure it */}
       {selected && (
         <circle
           cx="0"
@@ -326,7 +258,6 @@ const EmployeeNode = memo(function EmployeeNode({
           opacity={0.9}
         />
       )}
-      {/* Status aura — with pulse animation for active states */}
       <circle
         cx="0"
         cy="0"
@@ -352,7 +283,6 @@ const EmployeeNode = memo(function EmployeeNode({
           />
         )}
       </circle>
-      {/* Avatar background — smooth color transition */}
       <circle
         cx="0"
         cy="0"
@@ -362,7 +292,6 @@ const EmployeeNode = memo(function EmployeeNode({
         strokeWidth={isActive ? '3' : '2.5'}
         style={{ transition: 'stroke 0.4s ease, stroke-width 0.3s ease' }}
       />
-      {/* Avatar image */}
       <image
         href={avatarUri}
         x="-16"
@@ -371,7 +300,6 @@ const EmployeeNode = memo(function EmployeeNode({
         height="32"
         clipPath="circle(16px at center)"
       />
-      {/* Status pip — with pulse for working states */}
       <circle
         cx="12"
         cy="12"
@@ -388,7 +316,6 @@ const EmployeeNode = memo(function EmployeeNode({
           <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
         )}
       </circle>
-      {/* Status bubble — floats above avatar for non-idle states */}
       {isActive && STATE_LABELS[agent.state] && (
         <g transform="translate(0, -28)" style={{ opacity: 1 }}>
           <rect
@@ -427,7 +354,6 @@ const EmployeeNode = memo(function EmployeeNode({
           </text>
         </g>
       )}
-      {/* Name plate */}
       <g transform="translate(0, 28)">
         <rect
           x="-32"
@@ -450,28 +376,26 @@ const EmployeeNode = memo(function EmployeeNode({
 
 // ── Drag Ghost ────────────────────────────────────────────────────────
 
-/** A simplified avatar rendered at SVG root level during drag. */
 function DragGhost({
   svgX,
   svgY,
   seed,
+  companyId,
   statusColor,
   name,
 }: {
   svgX: number;
   svgY: number;
   seed: string;
+  companyId: string;
   statusColor: string;
   name: string;
 }) {
-  const avatarUri = useMemo(() => getAvatarUri(seed), [seed]);
+  const avatarUri = useMemo(() => getAvatarUri(seed, companyId), [seed, companyId]);
   return (
     <g transform={`translate(${svgX}, ${svgY})`} style={{ pointerEvents: 'none' }}>
-      {/* Drop shadow */}
       <circle cx="2" cy="2" r="22" fill="rgba(0,0,0,0.3)" />
-      {/* Aura — slightly larger during drag for emphasis */}
       <circle cx="0" cy="0" r="24" fill={statusColor} opacity="0.2" />
-      {/* Avatar background */}
       <circle
         cx="0"
         cy="0"
@@ -480,7 +404,6 @@ function DragGhost({
         stroke={statusColor}
         strokeWidth="3"
       />
-      {/* Avatar image */}
       <image
         href={avatarUri}
         x="-18"
@@ -489,7 +412,6 @@ function DragGhost({
         height="36"
         clipPath="circle(18px at center)"
       />
-      {/* Name label */}
       <g transform="translate(0, 32)">
         <rect
           x="-36"
@@ -515,14 +437,12 @@ function DragGhost({
 function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
   if (ceremony.phase === 'idle' || !ceremony.bubbleText) return null;
 
-  // MTG zone center in SVG coords: cx=-10, cz=-8, toSVG(-10, -8, 14, 6) → center
   const mtg = toSVG(-10, -8, 14, 6);
   const bx = mtg.x + mtg.w / 2;
-  const by = mtg.y - 30; // above the zone
+  const by = mtg.y - 30;
 
   return (
     <g>
-      {/* Blurred background pill */}
       <rect
         x={bx - 140}
         y={by - 16}
@@ -533,11 +453,9 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
         stroke="rgba(255,255,255,0.10)"
         strokeWidth="1"
       />
-      {/* Phase indicator dot — color matches 3D bubble */}
       <circle cx={bx - 120} cy={by} r="4" fill={getPhaseColor(ceremony.phase)} opacity="0.8">
         <animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.5s" repeatCount="indefinite" />
       </circle>
-      {/* Text */}
       <text
         x={bx - 108}
         y={by + 4}
@@ -548,7 +466,6 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
       >
         {truncate(ceremony.bubbleText, 35)}
       </text>
-      {/* Participant count */}
       {ceremony.participantIds.size > 0 && (
         <text
           x={bx + 125}
@@ -587,7 +504,6 @@ export default function Office2DView({
   // ── Dynamic zone derivations ──
   const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
 
-  /** Pre-computed zone bounding boxes in SVG space for hit testing. */
   const zoneSvgBounds = useMemo(
     () =>
       dropTargetZones.map((z) => {
@@ -600,7 +516,6 @@ export default function Office2DView({
   /** Resolve which zone an employee belongs to (role-based, dynamic). */
   const resolveEmployeeZone = useCallback(
     (agent: { role: string; workstationId?: string | null }): string => {
-      // Priority: persisted workstationId → role-based fallback
       if (agent.workstationId) {
         const validIds = new Set(dropTargetZones.map((z) => z.zoneId));
         if (validIds.has(agent.workstationId)) return agent.workstationId;
@@ -610,38 +525,98 @@ export default function Office2DView({
     [zones, dropTargetZones],
   );
 
-  // ── Scene choreography (ceremony orchestration) ──
+  // ── Scene choreography ──
   const ceremony = useSceneOrchestrator({ companyId, eventBus, agents, zones });
+
+  // ── Viewport state ──
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState<ViewportTransform>({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
-  // Use external state if provided, otherwise fall back to local
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
 
-  // Keep transform in a ref so pointer handlers can read current value
-  // without causing re-renders via closure capture.
   const transformRef = useRef(transform);
   transformRef.current = transform;
 
-  /** Convert screen (clientX, clientY) → SVG viewBox coordinates. */
-  const screenToSvg = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
+  /** screenToSvg bound to current viewport — used by drag hook and pointer handlers. */
+  const screenToSvgBound = useCallback((clientX: number, clientY: number) => {
     const el = viewportRef.current;
     if (!el) return { x: 0, y: 0 };
-    const rect = el.getBoundingClientRect();
-    const t = transformRef.current;
-    // Screen → CSS div space (accounting for pan + scale)
-    const divX = (clientX - rect.left - t.x) / t.scale;
-    const divY = (clientY - rect.top - t.y) / t.scale;
-    // The inner div is sized ROOM_W x ROOM_H and the SVG has viewBox 0..ROOM_W x 0..ROOM_H,
-    // so CSS div coords = SVG coords (no additional viewBox transform needed).
-    return { x: divX, y: divY };
+    return screenToSvgPure(clientX, clientY, el.getBoundingClientRect(), transformRef.current);
   }, []);
 
-  // Fit to viewport on mount
+  // ── Employee selection ──
+  const handleEmployeeClick = useCallback(
+    (empId: string) => {
+      if (onSelectEmployee) {
+        onSelectEmployee(empId);
+      } else {
+        setLocalSelectedId(empId);
+      }
+      eventBus.emit({
+        type: 'scene.employee.selected',
+        entityId: empId,
+        entityType: 'employee',
+        companyId,
+        timestamp: Date.now(),
+        payload: { employeeId: empId, source: 'scene' },
+      });
+    },
+    [onSelectEmployee, eventBus, companyId],
+  );
+
+  const handleDeselect = useCallback(() => {
+    if (onDeselectEmployee) {
+      onDeselectEmployee();
+    } else {
+      setLocalSelectedId(null);
+    }
+    eventBus.emit({
+      type: 'ui.selection.changed',
+      entityId: '',
+      entityType: 'employee',
+      companyId,
+      timestamp: Date.now(),
+      payload: { entityId: null, source: 'scene' },
+    });
+  }, [onDeselectEmployee, eventBus, companyId]);
+
+  // ── Drag hook ──
+  const {
+    dragState,
+    isDragging,
+    hoveredZoneId,
+    startDrag,
+    onPointerMove: onDragPointerMove,
+    onPointerUp: onDragPointerUp,
+    cancelDrag,
+  } = useOffice2DDrag({
+    screenToSvg: screenToSvgBound,
+    zoneSvgBounds,
+    eventBus,
+    companyId,
+    onEmployeeClick: handleEmployeeClick,
+  });
+
+  /** Start a drag from an EmployeeNode. */
+  const handleEmployeeDragStart = useCallback(
+    (empId: string, agent: AgentState, seed: string, e: React.PointerEvent) => {
+      const statusColor = STATUS_COLORS[agent.state] ?? '#64748b';
+      startDrag(
+        empId,
+        agent.name,
+        agent.role,
+        resolveEmployeeZone(agent),
+        seed,
+        statusColor,
+        e,
+      );
+    },
+    [startDrag, resolveEmployeeZone],
+  );
+
+  // ── Fit to viewport on mount ──
   useEffect(() => {
     if (viewportRef.current) {
       const rect = viewportRef.current.getBoundingClientRect();
@@ -654,7 +629,7 @@ export default function Office2DView({
     }
   }, []);
 
-  // Wheel zoom
+  // ── Wheel zoom ──
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -676,168 +651,39 @@ export default function Office2DView({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Cancel drag on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dragState) {
-        setDragState(null);
-        setHoveredZoneId(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dragState]);
-
-  // ── Drag-to-assign handlers ──
-
-  /** Called from EmployeeNode onPointerDown — initiates potential drag. */
-  const handleEmployeeDragStart = useCallback(
-    (empId: string, agent: AgentState, seed: string, e: React.PointerEvent) => {
-      // Only primary button
-      if (e.button !== 0) return;
-      const svgPos = screenToSvg(e.clientX, e.clientY);
-      setDragState({
-        employeeId: empId,
-        employeeName: agent.name,
-        employeeRole: agent.role,
-        sourceZoneId: resolveEmployeeZone(agent),
-        avatarSeed: seed,
-        statusColor: STATUS_COLORS[agent.state] ?? '#64748b',
-        startScreenX: e.clientX,
-        startScreenY: e.clientY,
-        currentSvgX: svgPos.x,
-        currentSvgY: svgPos.y,
-        active: false,
-      });
-    },
-    [screenToSvg, resolveEmployeeZone],
-  );
+  // ── Pointer handlers (drag-first, then pan) ──
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Don't start panning if we're initiating a drag on an employee
     if (dragState) return;
     setIsPanning(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (dragState) {
-      const svgPos = screenToSvg(e.clientX, e.clientY);
-
-      setDragState((prev) => {
-        if (!prev) return null;
-        // Check if we've exceeded drag threshold
-        const dx = e.clientX - prev.startScreenX;
-        const dy = e.clientY - prev.startScreenY;
-        const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD;
-        return {
-          ...prev,
-          currentSvgX: svgPos.x,
-          currentSvgY: svgPos.y,
-          active,
-        };
-      });
-
-      // Update hovered zone for highlight feedback
-      const hitZone = hitTestZone(svgPos.x, svgPos.y, zoneSvgBounds);
-      setHoveredZoneId(hitZone?.zoneId ?? null);
-      return;
-    }
-
+    if (onDragPointerMove(e)) return;
     if (isPanning) {
       setTransform((prev) => ({ ...prev, x: prev.x + e.movementX, y: prev.y + e.movementY }));
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragState) {
-      if (dragState.active) {
-        // Determine drop target
-        const svgPos = screenToSvg(e.clientX, e.clientY);
-        const targetZone = hitTestZone(svgPos.x, svgPos.y, zoneSvgBounds);
-        const sourceZoneId = dragState.sourceZoneId;
-
-        if (targetZone && targetZone.zoneId !== sourceZoneId) {
-          // Valid drop — emit the workstation assignment event.
-          // Use zone ID as targetWorkstationId, matching the convention that
-          // zones map 1:1 to workstation clusters in the 2D view.
-          // useAgentStates subscribes to 'employee.workstation.' and will update
-          // workstationId on the AgentState, which triggers a re-render via resolveEmployeeZone.
-          eventBus.emit({
-            type: 'employee.workstation.drop-requested',
-            entityId: dragState.employeeId,
-            entityType: 'employee',
-            companyId,
-            timestamp: Date.now(),
-            payload: {
-              employeeId: dragState.employeeId,
-              targetWorkstationId: targetZone.zoneId,
-            },
-          });
-        }
-        // If dropped outside any valid zone or on the same zone → cancel (no-op)
-      } else {
-        // Didn't exceed drag threshold — treat as a click
-        handleEmployeeClick(dragState.employeeId);
-      }
-
-      setDragState(null);
-      setHoveredZoneId(null);
-      return;
-    }
-
+    if (onDragPointerUp(e)) return;
     setIsPanning(false);
   };
 
   const handlePointerLeave = () => {
     if (dragState) {
-      // Cancel drag when pointer leaves the viewport
-      setDragState(null);
-      setHoveredZoneId(null);
+      cancelDrag();
       return;
     }
     setIsPanning(false);
   };
 
-  const handleEmployeeClick = (empId: string) => {
-    if (onSelectEmployee) {
-      onSelectEmployee(empId);
-    } else {
-      setLocalSelectedId(empId);
-    }
-    eventBus.emit({
-      type: 'scene.employee.selected',
-      entityId: empId,
-      entityType: 'employee',
-      companyId,
-      timestamp: Date.now(),
-      payload: { employeeId: empId, source: 'scene' },
-    });
-  };
-
-  const handleDeselect = () => {
-    if (onDeselectEmployee) {
-      onDeselectEmployee();
-    } else {
-      setLocalSelectedId(null);
-    }
-    eventBus.emit({
-      type: 'ui.selection.changed',
-      entityId: '',
-      entityType: 'employee',
-      companyId,
-      timestamp: Date.now(),
-      payload: { entityId: null, source: 'scene' },
-    });
-  };
-
-  // Group employees by zone for desk cluster assignment.
-  // Idle employees go to rest area (space = state).
+  // ── Group employees by zone ──
   const zoneEmployees = useMemo(() => {
     const map = new Map<string, Array<{ agent: AgentState; seed: string; empId: string }>>();
     for (const z of zones) map.set(z.zoneId, []);
     for (const [empId, agent] of agents) {
-      // Idle employees go to the rest archetype zone
       const restZone = zones.find((z) => z.archetype === 'rest');
       const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
       const zId = agent.state === 'idle' ? restId : resolveEmployeeZone(agent);
@@ -846,8 +692,7 @@ export default function Office2DView({
     return map;
   }, [agents, zones, resolveEmployeeZone]);
 
-  // ── Ceremony-aware employee SVG positions ──
-  // During active ceremony, override employee positions with CSS transitions.
+  // ── Ceremony-aware positions ──
   const ceremonyActive = ceremony.phase !== 'idle';
   const dispatchedIds = useMemo(
     () => Array.from(ceremony.dispatchedIds).sort(),
@@ -869,24 +714,21 @@ export default function Office2DView({
     const restCy = restSvg.y + restSvg.h / 2;
 
     const allEmps = [...agents.entries()];
-    const mtgRadius = 100; // SVG px
+    const mtgRadius = 100;
 
     allEmps.forEach(([empId], idx) => {
       const isDispatched = dispatchedIds.includes(empId);
       const isParticipant = participantIds.includes(empId);
 
       if (ceremony.phase === 'dismissing') {
-        // Everyone goes to rest
         const angle = (idx / Math.max(allEmps.length, 1)) * Math.PI * 1.5 + 0.3;
         positions.set(empId, {
           x: restCx + Math.cos(angle) * 60,
           y: restCy + Math.sin(angle) * 40,
         });
       } else if (ceremony.phase === 'working' && isDispatched) {
-        // Dispatched employees at workstations — use zone-based position (don't override)
-        // Let them stay at their desk (no entry in map → default rendering)
+        // Dispatched at workstations — no override
       } else if (isDispatched && ceremony.phase === 'dispatching') {
-        // Dispatched: move to their work zone
         const agent = agents.get(empId);
         const zoneId = agent ? resolveEmployeeZone(agent) : UNASSIGNED_ZONE_ID;
         const zone = zones.find((z) => z.zoneId === zoneId);
@@ -903,7 +745,6 @@ export default function Office2DView({
         ceremony.phase === 'analyzing' ||
         ceremony.phase === 'planning'
       ) {
-        // Gathering at MTG in semicircle
         const angle = Math.PI * ((idx + 1) / (allEmps.length + 2));
         positions.set(empId, {
           x: mtgCx + Math.cos(angle) * mtgRadius,
@@ -915,11 +756,9 @@ export default function Office2DView({
     return positions;
   }, [ceremonyActive, ceremony.phase, dispatchedIds, participantIds, agents, zones, resolveEmployeeZone]);
 
-  // Determine if an active drag is happening (past threshold)
-  const isDragging = dragState?.active ?? false;
-
-  // Cursor logic: dragging overrides panning cursor
   const cursor = isDragging ? 'grabbing' : isPanning ? 'grabbing' : 'grab';
+
+  // ── Render ──────────────────────────────────────────────────────────
 
   return (
     <div
@@ -958,7 +797,7 @@ export default function Office2DView({
             </pattern>
           </defs>
 
-          {/* Floor — also acts as deselect target */}
+          {/* Floor — deselect target */}
           <rect
             width={ROOM_W}
             height={ROOM_H}
@@ -1009,7 +848,6 @@ export default function Office2DView({
                     transition: 'fill-opacity 0.15s, stroke-width 0.15s, stroke-opacity 0.15s',
                   }}
                 />
-                {/* Drop target label — visible during drag */}
                 {isDropTarget && !isSourceZone && (
                   <text
                     x={s.x + s.w / 2}
@@ -1024,7 +862,6 @@ export default function Office2DView({
                     Drop here
                   </text>
                 )}
-                {/* Zone label */}
                 <text
                   x={s.x + s.w / 2}
                   y={s.y + 28}
@@ -1041,9 +878,9 @@ export default function Office2DView({
             );
           })}
 
-          {/* ── Furniture — exact 3D positions (offset * 50px) ── */}
+          {/* ── Furniture ── */}
 
-          {/* MTG: conference table center + 4 chairs each side + whiteboard */}
+          {/* MTG: conference table + whiteboard */}
           {(() => {
             const cx = toSVG(-10, -8, 14, 6);
             const mx = cx.x + cx.w / 2;
@@ -1051,7 +888,6 @@ export default function Office2DView({
             return (
               <g>
                 <MeetingTableSVG x={mx} y={my} />
-                {/* Whiteboard on left wall: 3D [-5.5, 1.8, 0] */}
                 <rect
                   x={mx - 275}
                   y={my - 60}
@@ -1066,7 +902,7 @@ export default function Office2DView({
             );
           })()}
 
-          {/* SRV: 4 racks at x=[-4,-1.5,1,3.5]*50, z=-0.5*50=-25 + cable channels + glow */}
+          {/* SRV: server racks + cable channels + glow */}
           {(() => {
             const cx = toSVG(8, -8, 14, 6);
             const mx = cx.x + cx.w / 2;
@@ -1076,7 +912,6 @@ export default function Office2DView({
                 {[-200, -75, 50, 175].map((ox) => (
                   <ServerRackSVG key={ox} x={mx + ox} y={my - 25} />
                 ))}
-                {/* Cable channels: 3D x=[-3,0,3]*50, z=1.5*50=75 */}
                 {[-150, 0, 150].map((ox) => (
                   <rect
                     key={ox}
@@ -1089,13 +924,12 @@ export default function Office2DView({
                     opacity="0.4"
                   />
                 ))}
-                {/* Cyan glow circle */}
                 <circle cx={mx} cy={my} r="40" fill="#06b6d4" opacity="0.03" />
               </g>
             );
           })()}
 
-          {/* LIB: 4 bookshelves at x=[-4,-1.5,1,3.5]*50, z=-2.5*50=-125 + 2 reading tables + chairs + plant */}
+          {/* LIB: bookshelves + reading tables + chairs + plant */}
           {(() => {
             const cx = toSVG(-10, 2, 14, 8);
             const mx = cx.x + cx.w / 2;
@@ -1105,7 +939,6 @@ export default function Office2DView({
                 {[-200, -75, 50, 175].map((ox) => (
                   <BookshelfSVG key={ox} x={mx + ox} y={my - 125} />
                 ))}
-                {/* 2 reading tables at x=[-3,1.5]*50=[-150,75], z=1.5*50=75 */}
                 {[-150, 75].map((ox) => (
                   <g key={ox}>
                     <rect
@@ -1118,7 +951,6 @@ export default function Office2DView({
                       stroke="var(--surface-mid)"
                       strokeWidth="1"
                     />
-                    {/* 4 chairs per table */}
                     {[-35, 35].map((cx2) => (
                       <g key={cx2}>
                         <circle
@@ -1146,14 +978,13 @@ export default function Office2DView({
             );
           })()}
 
-          {/* REST: sofa1 at [-1,-2.2]*50, sofa2 at [1,2]*50, coffee table center, vending [5.5,-2]*50, 2 plants */}
+          {/* REST: sofas + coffee table + vending + plants */}
           {(() => {
             const cx = toSVG(8, 2, 14, 8);
             const mx = cx.x + cx.w / 2;
             const my = cx.y + cx.h / 2;
             return (
               <g>
-                {/* Carpet */}
                 <rect
                   x={mx - 180}
                   y={my - 60}
@@ -1163,15 +994,10 @@ export default function Office2DView({
                   fill="var(--surface-mid)"
                   opacity="0.2"
                 />
-                {/* Sofa 1 (L-shape): 3D [-1, -2.2] → [-50, -110] */}
                 <SofaSVG x={mx - 50} y={my - 110} />
-                {/* Sofa 2: 3D [1, 2] → [50, 100] */}
                 <SofaSVG x={mx + 50} y={my + 100} color="#d97706" />
-                {/* Coffee table: center */}
                 <CoffeeTableSVG x={mx} y={my} />
-                {/* Vending: 3D [5.5, -2] → [275, -100] */}
                 <VendingMachineSVG x={mx + 275} y={my - 100} />
-                {/* Plants: 3D [-5,-2.5] and [4,2.5] → [-250,-125] and [200,125] */}
                 <PlantSVG x={mx - 250} y={my - 125} />
                 <PlantSVG x={mx + 200} y={my + 125} />
               </g>
@@ -1188,7 +1014,6 @@ export default function Office2DView({
             const restEmps = zoneEmployees.get(restZ.zoneId) ?? [];
             return restEmps.map((emp, idx) => {
               if (employeeCeremonyPositions.has(emp.empId)) return null;
-              // Scatter in a natural cluster within the rest area
               const angle = (idx / Math.max(restEmps.length, 1)) * Math.PI * 1.5 + 0.3;
               const radius = 60 + (idx % 3) * 40;
               const ex = rcx + Math.cos(angle) * radius;
@@ -1200,6 +1025,7 @@ export default function Office2DView({
                   y={ey}
                   agent={emp.agent}
                   seed={emp.seed}
+                  companyId={companyId}
                   selected={selectedEmployeeId === emp.empId}
                   dimmed={isDragging && dragState?.employeeId === emp.empId}
                   onClick={() => handleEmployeeClick(emp.empId)}
@@ -1209,13 +1035,12 @@ export default function Office2DView({
             });
           })()}
 
-          {/* Department employees — each in their own quadrant within the zone */}
+          {/* Department employees — desk clusters */}
           {dropTargetZones.map((z) => {
             const s = toSVG(z.cx, z.cz, z.w, z.d);
             const cx = s.x + s.w / 2;
             const cy = s.y + s.h / 2;
             const emps = zoneEmployees.get(z.zoneId) ?? [];
-            // 4 quadrant positions spread across the zone (30% from center)
             const qx = s.w * 0.28;
             const qy = s.h * 0.25;
             const quads: [number, number][] = [
@@ -1226,12 +1051,10 @@ export default function Office2DView({
             ];
             return (
               <g key={z.zoneId}>
-                {/* Individual desks + employees at quadrant positions */}
                 {quads.map(([dx, dy], i) => {
                   const emp = emps[i] ?? null;
                   return (
                     <g key={`${dx},${dy}`} transform={`translate(${cx + dx}, ${cy + dy})`}>
-                      {/* Mini desk */}
                       <rect
                         x="-28"
                         y="-22"
@@ -1250,7 +1073,6 @@ export default function Office2DView({
                         fill="var(--surface-light)"
                       />
                       <rect x="-14" y="-4" width="28" height="3" fill="#0ea5e9" opacity="0.5" />
-                      {/* Chair */}
                       <circle
                         cx="0"
                         cy={dy < 0 ? 32 : -32}
@@ -1259,13 +1081,13 @@ export default function Office2DView({
                         stroke="var(--surface-mid)"
                         strokeWidth="1"
                       />
-                      {/* Employee avatar at chair — hidden during ceremony (rendered in overlay) */}
                       {emp && !employeeCeremonyPositions.has(emp.empId) && (
                         <EmployeeNode
                           x={0}
                           y={dy < 0 ? 32 : -32}
                           agent={emp.agent}
                           seed={emp.seed}
+                          companyId={companyId}
                           selected={selectedEmployeeId === emp.empId}
                           dimmed={isDragging && dragState?.employeeId === emp.empId}
                           onClick={() => handleEmployeeClick(emp.empId)}
@@ -1281,14 +1103,14 @@ export default function Office2DView({
             );
           })}
 
-          {/* Plants — 3D positions [-18,-13],[-18,13],[18,-13],[18,13],[0,13] */}
+          {/* Corner plants */}
           <PlantSVG x={130} y={130} />
           <PlantSVG x={130} y={1430} />
           <PlantSVG x={1930} y={130} />
           <PlantSVG x={1930} y={1430} />
           <PlantSVG x={1030} y={1430} />
 
-          {/* ── Ceremony position overlay — employees with CSS-transitioned positions ── */}
+          {/* Ceremony position overlay */}
           {ceremonyActive &&
             [...employeeCeremonyPositions.entries()].map(([empId, pos]) => {
               const agent = agents.get(empId);
@@ -1308,6 +1130,7 @@ export default function Office2DView({
                     y={0}
                     agent={agent}
                     seed={agent.name}
+                    companyId={companyId}
                     selected={selectedEmployeeId === empId || isHighlighted}
                     onClick={() => handleEmployeeClick(empId)}
                   />
@@ -1315,18 +1138,19 @@ export default function Office2DView({
               );
             })}
 
-          {/* ── Drag ghost overlay ── */}
+          {/* Drag ghost overlay */}
           {isDragging && dragState && (
             <DragGhost
               svgX={dragState.currentSvgX}
               svgY={dragState.currentSvgY}
               seed={dragState.avatarSeed}
+              companyId={companyId}
               statusColor={dragState.statusColor}
               name={dragState.employeeName}
             />
           )}
 
-          {/* ── Meeting bubble (SVG overlay above MTG zone) ── */}
+          {/* Meeting bubble */}
           <MeetingBubble2D ceremony={ceremony} />
         </svg>
       </div>

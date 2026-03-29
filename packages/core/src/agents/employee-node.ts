@@ -9,16 +9,13 @@ import {
   employeeStateChanged,
   graphNodeEntered,
   handoffInitiated,
-  memoryAccessed,
   taskAssignmentChanged,
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
+import type { LlmMessage, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
-import type { MemoryEntryRow } from '../runtime/repositories.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
@@ -28,11 +25,13 @@ import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 import { buildEmployeePrompt } from './employee-builder.js';
+import { attemptLocalRecovery } from './employee-local-recovery.js';
 import {
-  type RecoveryDecision,
-  diagnoseAndRecover,
-  recordRecoveryOutcome,
-} from './recovery-agent.js';
+  MEMORY_TOOL_NAMES,
+  buildMemoryTools,
+  formatMemoriesSection,
+  handleMemoryTool,
+} from './employee-memory-tools.js';
 
 import type { CitationRef } from '../graph/state.js';
 
@@ -46,8 +45,6 @@ const MAX_CONTEXT_MESSAGES = 20;
 /** Task type for handoff continuation tasks. */
 const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
-/** Virtual tool names for memory operations */
-const MEMORY_TOOL_NAMES = ['remember', 'recall', 'forget'] as const;
 const SKILL_TOOL_NAME = 'activate_skill_context';
 
 interface RuntimeSkillCapability {
@@ -138,70 +135,6 @@ function buildSkillActivationTool(): ToolDef {
   };
 }
 
-/** Build memory tool definitions */
-function buildMemoryTools(): ToolDef[] {
-  return [
-    {
-      name: 'remember',
-      description:
-        'Store a memory for future reference. Use this to save important insights, decisions, or learnings.',
-      parameters: {
-        type: 'object',
-        properties: {
-          content: { type: 'string', description: 'What to remember' },
-          category: {
-            type: 'string',
-            enum: ['experience', 'decision', 'knowledge', 'preference'],
-            description: 'Category of memory',
-          },
-          scope: {
-            type: 'string',
-            enum: ['employee', 'team'],
-            description:
-              'Visibility scope (employee=personal, team=team-wide). Company scope is reserved for SOP/config.',
-          },
-          importance: {
-            type: 'number',
-            description:
-              'Importance 0.0-1.0 (0.3=minor, 0.5=moderate, 0.7=important, 0.9=critical)',
-          },
-        },
-        required: ['content', 'category', 'scope', 'importance'],
-      },
-    },
-    {
-      name: 'recall',
-      description: 'Search your memories for relevant past experiences, decisions, or knowledge.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'What to search for in memories' },
-        },
-        required: ['query'],
-      },
-    },
-    {
-      name: 'forget',
-      description: 'Delete a specific memory by its ID.',
-      parameters: {
-        type: 'object',
-        properties: {
-          memoryId: { type: 'string', description: 'The ID of the memory to delete' },
-        },
-        required: ['memoryId'],
-      },
-    },
-  ];
-}
-
-/** Format memories into a prompt section */
-function formatMemoriesSection(memories: MemoryEntryRow[]): string {
-  if (memories.length === 0) return '';
-  const lines = memories.map(
-    (m) => `- [${m.scope}/${m.category}] (importance: ${m.importance}) ${m.content}`,
-  );
-  return `\n\n## Your memories\n${lines.join('\n')}`;
-}
 
 /**
  * Extract [N] citation references from an LLM response and map them
@@ -230,154 +163,6 @@ export function extractUsedCitations(
     }));
 }
 
-/** Maximum local recovery retries before escalating to error_handler. */
-const MAX_RECOVERY_RETRIES = 2;
-
-/**
- * Attempt local recovery when an LLM call fails.
- * Consults the recovery knowledge base, then tries the suggested fix strategy.
- *
- * Returns the LLM response if recovery succeeded, null if it failed.
- */
-async function attemptLocalRecovery(
-  runtimeCtx: RuntimeContext,
-  config: Parameters<typeof employeeNode>[1],
-  errorMessage: string,
-  callArgs: {
-    systemPrompt: string;
-    taskDescription: string;
-    model: string;
-    provider: string;
-    temperature: number;
-    maxTokens: number;
-    tools: ToolDef[] | undefined;
-    taskRunId: string | undefined;
-  },
-): Promise<LlmResponse | null> {
-  const { repos, modelResolver } = runtimeCtx;
-  if (!repos.recoveryKnowledge) return null;
-
-  // Diagnose
-  let recovery: RecoveryDecision | null = null;
-  try {
-    recovery = await diagnoseAndRecover(
-      runtimeCtx,
-      config,
-      {
-        errorCode: 'LLM_CALL_FAILED',
-        message: errorMessage,
-        recoverable: true,
-        nodeName: 'employee',
-        provider: callArgs.provider,
-        model: callArgs.model,
-      },
-      runtimeCtx.threadId,
-      null,
-    );
-  } catch {
-    return null; // Diagnosis itself failed
-  }
-
-  if (!recovery || recovery.strategy === 'escalate') return null;
-
-  // Execute fix strategy
-  for (let attempt = 0; attempt < MAX_RECOVERY_RETRIES; attempt++) {
-    try {
-      let retryModel = callArgs.model;
-      let retryProvider = callArgs.provider;
-
-      if (recovery.strategy === 'retry_with_backoff') {
-        // Exponential backoff: 2s, 4s
-        const delayMs = 2000 * 2 ** attempt;
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      } else if (recovery.strategy === 'switch_model') {
-        // Fall back to the system default model
-        const fallback = modelResolver.resolve(null);
-        retryModel = fallback.model;
-        retryProvider = fallback.provider;
-      } else if (recovery.strategy === 'skip_and_continue') {
-        // Mark as recovered with a skip message — don't retry the LLM call
-        await recordRecoveryOutcome(
-          runtimeCtx,
-          'LLM_CALL_FAILED',
-          recovery.cause,
-          recovery.strategy,
-          true,
-          recovery.knowledgeId,
-        );
-        return {
-          content:
-            '[Task skipped due to error — recovery agent determined this task is non-critical]',
-          toolCalls: [],
-          usage: { inputTokens: 0, outputTokens: 0 },
-        };
-      } else {
-        // replan_step or unknown — can't handle locally
-        return null;
-      }
-
-      const response = await recordedLlmCall(
-        runtimeCtx,
-        {
-          messages: [
-            { role: 'system', content: callArgs.systemPrompt },
-            { role: 'user', content: callArgs.taskDescription },
-          ],
-          model: retryModel,
-          temperature: callArgs.temperature,
-          maxTokens: callArgs.maxTokens,
-          tools: callArgs.tools,
-          signal: getConfigSignal(config),
-        },
-        {
-          nodeName: 'employee',
-          provider: retryProvider,
-          model: retryModel,
-          taskRunId: callArgs.taskRunId,
-        },
-      );
-
-      // Recovery succeeded
-      await recordRecoveryOutcome(
-        runtimeCtx,
-        'LLM_CALL_FAILED',
-        recovery.cause,
-        recovery.strategy,
-        true,
-        recovery.knowledgeId,
-      );
-
-      await appendAgentEvent(runtimeCtx, {
-        threadId: runtimeCtx.threadId,
-        agentName: 'recovery',
-        eventType: 'recovery',
-        payload: {
-          symptom: 'LLM_CALL_FAILED',
-          cause: recovery.cause,
-          fix: recovery.strategy,
-          attempt: attempt + 1,
-          succeeded: true,
-          retryModel,
-        },
-      });
-
-      return response;
-    } catch {
-      // This retry attempt also failed — continue to next attempt
-    }
-  }
-
-  // All retries exhausted
-  await recordRecoveryOutcome(
-    runtimeCtx,
-    'LLM_CALL_FAILED',
-    recovery.cause,
-    recovery.strategy,
-    false,
-    recovery.knowledgeId,
-  );
-  return null;
-}
 
 export async function employeeNode(
   state: OffisimGraphState,
@@ -1089,74 +874,3 @@ export async function employeeNode(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Memory tool handler
-// ---------------------------------------------------------------------------
-
-async function handleMemoryTool(
-  toolName: (typeof MEMORY_TOOL_NAMES)[number],
-  args: Record<string, unknown>,
-  employeeId: string,
-  companyId: string,
-  threadId: string,
-  runtimeCtx: RuntimeContext,
-): Promise<string> {
-  const { memoryService, repos, eventBus } = runtimeCtx;
-  if (!memoryService) return 'Memory service unavailable';
-
-  switch (toolName) {
-    case 'remember': {
-      const content = String(args.content ?? '');
-      const category = String(args.category ?? 'experience') as
-        | 'experience'
-        | 'decision'
-        | 'knowledge'
-        | 'preference';
-      const scope = String(args.scope ?? 'employee') as 'employee' | 'team' | 'company';
-      const importance = Math.max(0, Math.min(1, Number(args.importance ?? 0.5)));
-
-      const memoryId = await memoryService.createMemory({
-        employeeId,
-        companyId,
-        scope,
-        category,
-        content,
-        importance,
-        threadId,
-      });
-
-      return `Memory stored (id: ${memoryId})`;
-    }
-
-    case 'recall': {
-      const query = String(args.query ?? '');
-      const memories = await memoryService.getRelevantMemories(employeeId, companyId, query, 5);
-
-      if (memories.length === 0) return 'No relevant memories found.';
-
-      // Touch access for each recalled memory (parallel — independent operations)
-      await Promise.all(
-        memories.map(async (mem) => {
-          await repos.memories.touchAccess(mem.memory_id);
-          eventBus.emit(memoryAccessed(companyId, mem.memory_id, employeeId, query, threadId));
-        }),
-      );
-
-      return memories
-        .map(
-          (m) =>
-            `[${m.memory_id}] (${m.scope}/${m.category}, importance: ${m.importance}) ${m.content}`,
-        )
-        .join('\n');
-    }
-
-    case 'forget': {
-      const memoryId = String(args.memoryId ?? '');
-      await repos.memories.delete(memoryId);
-      return `Memory ${memoryId} deleted.`;
-    }
-
-    default:
-      return `Unknown memory tool: ${toolName}`;
-  }
-}
