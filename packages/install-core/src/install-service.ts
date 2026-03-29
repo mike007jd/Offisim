@@ -24,8 +24,6 @@ import type {
   InstallTransactionRow,
   RuntimeEnvironment,
 } from './types.js';
-// TODO: wire rollback() into catch block once materialize supports partial results
-// import { rollback } from './rollback.js';
 
 // ---------------------------------------------------------------------------
 // Error
@@ -413,12 +411,12 @@ export class InstallService {
         this.transact,
       );
     } catch (err) {
-      // Materialization failed -> attempt rollback
+      // Materialization failed — DB writes are already atomic via this.transact
+      // (passed to materialize at the call above), so no explicit rollback needed.
+      // If materialize ever gains non-DB side effects (e.g. file writes), add
+      // compensating cleanup here.
       const errorMsg = err instanceof Error ? err.message : String(err);
       try {
-        // If we had a partial result we could roll it back, but materialize either
-        // succeeds fully or throws. In case of future partial results, we'd pass them here.
-        // For now, just transition to rolled_back or failed.
         await this.transitionToFailed(
           installTxnId,
           'materializing',
