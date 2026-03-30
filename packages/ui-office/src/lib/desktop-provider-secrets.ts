@@ -31,19 +31,3 @@ export async function clearRuntimeSecret(): Promise<void> {
   if (!isTauri()) return;
   await invokeDesktop('runtime_secret_clear');
 }
-
-// ---------------------------------------------------------------------------
-// Backwards-compatible aliases (deprecated — migrate callers to new names)
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use `getRuntimeSecretStatus()` instead. */
-export const getProviderSecretStatus = async () => {
-  const status = await getRuntimeSecretStatus();
-  return { hasApiKey: status.hasSecret };
-};
-
-/** @deprecated Use `setRuntimeSecret()` instead. */
-export const setProviderSecret = setRuntimeSecret;
-
-/** @deprecated Use `clearRuntimeSecret()` instead. */
-export const clearProviderSecret = clearRuntimeSecret;

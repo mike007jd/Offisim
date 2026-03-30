@@ -19,9 +19,9 @@ import {
 } from '@offisim/ui-core';
 import { useEffect, useState } from 'react';
 import {
-  clearProviderSecret,
-  getProviderSecretStatus,
-  setProviderSecret,
+  clearRuntimeSecret,
+  getRuntimeSecretStatus,
+  setRuntimeSecret,
 } from '../../lib/desktop-provider-secrets';
 import { isTauri } from '../../lib/env';
 import {
@@ -43,7 +43,7 @@ interface SettingsDialogProps {
   onSaveSuccess?: () => void;
 }
 
-const DEFAULT_POLICY = createDefaultRuntimePolicy('openai-compat', '');
+const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
 
 function parsePositiveInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -61,7 +61,7 @@ function parseConfidence(value: string, fallback: number): number {
 }
 
 export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
-  const [preset, setPreset] = useState('gemini');
+  const [preset, setPreset] = useState('subscription');
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [model, setModel] = useState('');
@@ -90,7 +90,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   const [runtimeModelOverrides, setRuntimeModelOverrides] = useState<
     Record<string, ModelProfile> | undefined
   >(undefined);
-  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [hasStoredSecret, setHasStoredSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -166,13 +166,13 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
       if (isTauri()) {
         try {
-          const status = await getProviderSecretStatus();
-          if (!cancelled) setHasStoredApiKey(status.hasApiKey);
+          const status = await getRuntimeSecretStatus();
+          if (!cancelled) setHasStoredSecret(status.hasSecret);
         } catch {
-          if (!cancelled) setHasStoredApiKey(false);
+          if (!cancelled) setHasStoredSecret(false);
         }
       } else {
-        setHasStoredApiKey(Boolean(saved?.apiKey));
+        setHasStoredSecret(Boolean(saved?.apiKey));
       }
     }
 
@@ -217,12 +217,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
       if (isTauri()) {
         if (isSubscription) {
-          await clearProviderSecret();
-          setHasStoredApiKey(false);
+          await clearRuntimeSecret();
+          setHasStoredSecret(false);
         } else if (apiKey.trim()) {
-          await setProviderSecret(apiKey.trim());
-          setHasStoredApiKey(true);
-        } else if (!hasStoredApiKey) {
+          await setRuntimeSecret(apiKey.trim());
+          setHasStoredSecret(true);
+        } else if (!hasStoredSecret) {
           setSaveError('API Key is required.');
           return;
         }
@@ -390,9 +390,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={hasStoredApiKey ? 'Stored securely on this device' : 'sk-...'}
+                    placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-...'}
                   />
-                  {isTauri() && hasStoredApiKey && (
+                  {isTauri() && hasStoredSecret && (
                     <p className="text-[10px] text-slate-500 mt-1">
                       Leave blank to keep the API key already stored securely on this device.
                     </p>
@@ -412,11 +412,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     placeholder="https://api.example.com/v1"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    {preset === 'openrouter'
-                      ? 'OpenRouter endpoint: https://openrouter.ai/api/v1'
-                      : preset === 'kimi'
-                        ? 'Kimi endpoint: https://api.moonshot.cn/v1'
-                        : 'Enter your OpenAI-compatible API endpoint URL'}
+                    Enter the endpoint URL for this dev-only provider preset.
                   </p>
                 </div>
               )}
@@ -453,7 +449,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
               <Button
                 onClick={() => void handleSave()}
-                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredApiKey)}
+                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
               >
                 {isSaving ? 'Saving…' : 'Save Configuration'}
               </Button>

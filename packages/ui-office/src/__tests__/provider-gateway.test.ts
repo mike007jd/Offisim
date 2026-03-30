@@ -35,10 +35,11 @@ describe('desktop runtime secrets', () => {
     expect(mod.createDesktopProviderGateway).toBeUndefined();
   });
 
-  it('exports deprecated backwards-compatible aliases', () => {
-    expect(typeof desktopSecrets.getProviderSecretStatus).toBe('function');
-    expect(typeof desktopSecrets.setProviderSecret).toBe('function');
-    expect(typeof desktopSecrets.clearProviderSecret).toBe('function');
+  it('does not export old provider secret aliases (removed)', () => {
+    const mod = desktopSecrets as Record<string, unknown>;
+    expect(mod.getProviderSecretStatus).toBeUndefined();
+    expect(mod.setProviderSecret).toBeUndefined();
+    expect(mod.clearProviderSecret).toBeUndefined();
   });
 
   it('getRuntimeSecretStatus calls runtime_secret_status', async () => {
