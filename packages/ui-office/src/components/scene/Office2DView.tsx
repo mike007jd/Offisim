@@ -22,31 +22,9 @@ import { useCompany } from '../company/CompanyContext.js';
 
 import { ROOM_H, ROOM_W, type ViewportTransform, positionToSVG, screenToSvg as screenToSvgPure, toSVG } from './office-2d-geometry';
 import { getAvatarUri } from './office-2d-avatar-cache';
-import { Office2DPrefab } from './Office2DPrefab.js';
+import { Office2DPrefab, PlantSVG } from './Office2DPrefab.js';
 import { useOffice2DDrag } from './useOffice2DDrag';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
-
-// ── SVG Ambient Decorations (not data-driven — room-level chrome) ────
-
-const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <circle
-        cx="0"
-        cy="5"
-        r="12"
-        fill="var(--surface-mid)"
-        stroke="var(--text-muted-val)"
-        strokeWidth="1"
-      />
-      <path d="M0,0 C-12,-18 12,-18 0,0" fill="#10b981" />
-      <path d="M0,0 C-12,-18 12,-18 0,0" fill="#059669" transform="rotate(72)" />
-      <path d="M0,0 C-12,-18 12,-18 0,0" fill="#34d399" transform="rotate(144)" />
-      <path d="M0,0 C-12,-18 12,-18 0,0" fill="#10b981" transform="rotate(216)" />
-      <path d="M0,0 C-12,-18 12,-18 0,0" fill="#059669" transform="rotate(288)" />
-    </g>
-  );
-});
 
 // ── Employee Node ─────────────────────────────────────────────────────
 
@@ -361,6 +339,10 @@ export default function Office2DView({
 
   // ── Dynamic zone derivations ──
   const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
+  const dropTargetZoneIds = useMemo(
+    () => new Set(dropTargetZones.map((z) => z.zoneId)),
+    [dropTargetZones],
+  );
 
   const zoneSvgBounds = useMemo(
     () =>
@@ -374,13 +356,12 @@ export default function Office2DView({
   /** Resolve which zone an employee belongs to (role-based, dynamic). */
   const resolveEmployeeZone = useCallback(
     (agent: { role: string; workstationId?: string | null }): string => {
-      if (agent.workstationId) {
-        const validIds = new Set(dropTargetZones.map((z) => z.zoneId));
-        if (validIds.has(agent.workstationId)) return agent.workstationId;
+      if (agent.workstationId && dropTargetZoneIds.has(agent.workstationId)) {
+        return agent.workstationId;
       }
       return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
     },
-    [zones, dropTargetZones],
+    [zones, dropTargetZoneIds],
   );
 
   // ── Scene choreography ──

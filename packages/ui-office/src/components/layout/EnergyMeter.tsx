@@ -15,7 +15,7 @@ export function EnergyMeter({ usedTokens, costUsd }: EnergyMeterProps) {
   if (usedTokens === 0 && costUsd === 0) return null;
 
   return (
-    <div className="flex items-center space-x-2 group relative" title="Energy — token usage for this session">
+    <div className="flex items-center space-x-2 group relative">
       {usedTokens > 0 && (
         <span className="flex items-center space-x-1 font-mono">
           <Zap className="w-3 h-3 text-amber-400/60" />

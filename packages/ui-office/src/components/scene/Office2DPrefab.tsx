@@ -80,7 +80,8 @@ function SofaSVG({ x, y }: { x: number; y: number }) {
   );
 }
 
-function PlantSVG({ x, y }: { x: number; y: number }) {
+/** Exported for reuse by Office2DView corner decorations. */
+export function PlantSVG({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <circle cx="0" cy="5" r="12" fill="var(--surface-mid)" stroke="var(--text-muted-val)" strokeWidth="1" />
@@ -130,7 +131,49 @@ function GenericPrefabSVG({ x, y, label, color }: { x: number; y: number; label:
   );
 }
 
-// ── Category → SVG mapping ──────────────────────────────────────────
+// ── Lookup tables (declared before component) ───────────────────────
+
+type SvgFC = React.FC<{ x: number; y: number }>;
+
+const SVG_COMPONENTS: Record<string, SvgFC> = {
+  'workstation': WorkstationSVG,
+  'server-rack': ServerRackSVG,
+  'bookshelf': BookshelfSVG,
+  'meeting-table': MeetingTableSVG,
+  'sofa': SofaSVG,
+  'plant': PlantSVG,
+  'coffee-table': CoffeeTableSVG,
+  'vending-machine': VendingMachineSVG,
+  'whiteboard': WhiteboardSVG,
+};
+
+const PREFAB_SVG_MAP: Record<string, string> = {
+  'workstation-standard': 'workstation',
+  'workstation-compact': 'workstation',
+  'workstation-dual': 'workstation',
+  'server-rack-2u': 'server-rack',
+  'server-rack-4u': 'server-rack',
+  'gpu-cluster': 'server-rack',
+  'bookshelf-single': 'bookshelf',
+  'bookshelf-double': 'bookshelf',
+  'filing-cabinet': 'generic',
+  'whiteboard': 'whiteboard',
+  'meeting-table-4': 'meeting-table',
+  'meeting-table-8': 'meeting-table',
+  'sofa-set': 'sofa',
+  'standing-table': 'coffee-table',
+  'network-switch': 'generic',
+  'cable-tray': 'generic',
+  'patch-panel': 'generic',
+  'plant-small': 'plant',
+  'plant-large': 'plant',
+  'coffee-table': 'coffee-table',
+  'vending-machine': 'vending-machine',
+  'water-cooler': 'vending-machine',
+  'reading-table': 'workstation',
+  'chair-standalone': 'generic',
+  'status-board': 'whiteboard',
+};
 
 const CATEGORY_SVG: Record<string, string> = {
   workspace: 'workstation',
@@ -169,66 +212,16 @@ export const Office2DPrefab = memo(function Office2DPrefab({
   y,
   rotation,
 }: Office2DPrefabProps) {
-  // Map prefab ID or category to SVG component
   const resolvedType = PREFAB_SVG_MAP[prefabId] ?? CATEGORY_SVG[category] ?? 'generic';
+  const Svg = SVG_COMPONENTS[resolvedType];
 
   return (
     <g transform={`rotate(${rotation}, ${x}, ${y})`}>
-      {renderSvgForType(resolvedType, x, y, prefabId, category)}
+      {Svg ? (
+        <Svg x={x} y={y} />
+      ) : (
+        <GenericPrefabSVG x={x} y={y} label={prefabId} color={CATEGORY_COLORS[category] ?? '#64748b'} />
+      )}
     </g>
   );
 });
-
-// Specific prefab ID → SVG type mapping
-const PREFAB_SVG_MAP: Record<string, string> = {
-  'workstation-standard': 'workstation',
-  'workstation-compact': 'workstation',
-  'workstation-dual': 'workstation',
-  'server-rack-2u': 'server-rack',
-  'server-rack-4u': 'server-rack',
-  'gpu-cluster': 'server-rack',
-  'bookshelf-single': 'bookshelf',
-  'bookshelf-double': 'bookshelf',
-  'filing-cabinet': 'generic',
-  'whiteboard': 'whiteboard',
-  'meeting-table-4': 'meeting-table',
-  'meeting-table-8': 'meeting-table',
-  'sofa-set': 'sofa',
-  'standing-table': 'coffee-table',
-  'network-switch': 'generic',
-  'cable-tray': 'generic',
-  'patch-panel': 'generic',
-  'plant-small': 'plant',
-  'plant-large': 'plant',
-  'coffee-table': 'coffee-table',
-  'vending-machine': 'vending-machine',
-  'water-cooler': 'vending-machine',
-  'reading-table': 'workstation',
-  'chair-standalone': 'generic',
-  'status-board': 'whiteboard',
-};
-
-function renderSvgForType(type: string, x: number, y: number, prefabId: string, category: string) {
-  switch (type) {
-    case 'workstation':
-      return <WorkstationSVG x={x} y={y} />;
-    case 'server-rack':
-      return <ServerRackSVG x={x} y={y} />;
-    case 'bookshelf':
-      return <BookshelfSVG x={x} y={y} />;
-    case 'meeting-table':
-      return <MeetingTableSVG x={x} y={y} />;
-    case 'sofa':
-      return <SofaSVG x={x} y={y} />;
-    case 'plant':
-      return <PlantSVG x={x} y={y} />;
-    case 'coffee-table':
-      return <CoffeeTableSVG x={x} y={y} />;
-    case 'vending-machine':
-      return <VendingMachineSVG x={x} y={y} />;
-    case 'whiteboard':
-      return <WhiteboardSVG x={x} y={y} />;
-    default:
-      return <GenericPrefabSVG x={x} y={y} label={prefabId} color={CATEGORY_COLORS[category] ?? '#64748b'} />;
-  }
-}

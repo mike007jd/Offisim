@@ -58,14 +58,13 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const instanceCount = useStudioStore((s) => s.instances.length);
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
   const isEditingZone = useStudioStore((s) => s.isEditingZone);
-  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
-  const zones = useStudioStore((s) => s.zones);
   const enterEditZone = useStudioStore((s) => s.enterEditZone);
   const exitEditZone = useStudioStore((s) => s.exitEditZone);
-
-  const editingZoneLabel = isEditingZone
-    ? zones.find((z) => z.zoneId === focusedZoneId)?.label ?? 'Zone'
-    : null;
+  const editingZoneLabel = useStudioStore((s) =>
+    s.isEditingZone && s.focusedZoneId
+      ? (s.zones.find((z) => z.zoneId === s.focusedZoneId)?.label ?? 'Zone')
+      : null,
+  );
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(
