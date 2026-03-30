@@ -24,7 +24,7 @@ const rawCorsOrigins = process.env.CORS_ORIGINS?.trim();
 
 const DEV_DEFAULT_ORIGINS = [
   'http://localhost:3000',
-  'http://localhost:5173',
+  'http://localhost:5176',
   'http://localhost:1420',
 ];
 

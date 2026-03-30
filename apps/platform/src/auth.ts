@@ -79,7 +79,7 @@ export const auth = betterAuth({
 
   trustedOrigins: process.env.CORS_ORIGINS?.split(',')
     .map((o) => o.trim())
-    .filter(Boolean) ?? ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:1420'],
+    .filter(Boolean) ?? ['http://localhost:3000', 'http://localhost:5176', 'http://localhost:1420'],
 });
 
 export type Auth = typeof auth;

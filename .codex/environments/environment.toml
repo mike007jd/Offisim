@@ -8,4 +8,4 @@ script = ""
 [[actions]]
 name = "Run"
 icon = "run"
-command = "pnpm --filter @offisim/platform dev & pnpm --filter @offisim/desktop dev"
+command = "pnpm launcher"

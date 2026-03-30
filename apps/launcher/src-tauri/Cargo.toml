@@ -1,0 +1,22 @@
+[package]
+name = "offisim-launcher"
+version = "0.0.1"
+description = "Offisim Development Launcher"
+edition = "2021"
+
+[lib]
+name = "offisim_launcher_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros", "net"] }
+thiserror = "1"
+libc = "0.2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+local-ip-address = "0.6"

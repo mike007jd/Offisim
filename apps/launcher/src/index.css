@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* Scan ui-core for Tailwind classes */
+@source "../../../packages/ui-core/src/**/*.tsx";
+@source "../../../packages/ui-core/src/**/*.ts";
+
+:root {
+  --surface: #0c1118;
+  --surface-light: #151d2e;
+  --surface-lighter: #1e293b;
+  --surface-mid: #334155;
+  --border-val: rgba(255, 255, 255, 0.1);
+  --text-primary-val: #f1f5f9;
+  --text-secondary-val: #94a3b8;
+  --text-muted-val: #64748b;
+  --accent-val: #3b82f6;
+  --accent-hover-val: #2563eb;
+  --success-val: #10b981;
+  --warning-val: #f59e0b;
+  --error-val: #ef4444;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
