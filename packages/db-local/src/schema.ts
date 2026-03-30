@@ -25,6 +25,8 @@ export const companies = sqliteTable('companies', {
   company_id: text('company_id').primaryKey(),
   name: text('name').notNull(),
   status: text('status').notNull().default('active'),
+  template_id: text('template_id'),
+  template_label: text('template_label'),
   workspace_root: text('workspace_root'),
   default_model_policy_json: text('default_model_policy_json'),
   created_at: text('created_at').notNull(),

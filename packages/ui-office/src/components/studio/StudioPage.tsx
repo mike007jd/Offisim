@@ -281,6 +281,8 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           company_id: targetCompanyId,
           name,
           status: 'active',
+          template_id: null,
+          template_label: null,
           workspace_root: null,
           default_model_policy_json: null,
           created_at: now,

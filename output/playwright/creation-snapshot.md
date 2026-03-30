@@ -1,0 +1,247 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e118]:
+      - generic:
+        - generic:
+          - generic: DEVELOPMENT
+      - generic:
+        - generic:
+          - generic: PRODUCT
+      - generic:
+        - generic:
+          - generic: ART & DESIGN
+      - generic:
+        - generic:
+          - generic: LIBRARY
+      - generic:
+        - generic:
+          - generic: REST AREA
+      - generic:
+        - generic:
+          - generic: MEETING ROOM
+      - generic:
+        - generic:
+          - generic: SERVER ROOM
+      - generic:
+        - generic:
+          - generic:
+            - generic: 0 active
+    - banner [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - button "3D" [ref=e10]
+          - button "2D" [ref=e11]
+        - button "All" [ref=e14]:
+          - img [ref=e15]
+          - generic [ref=e17]: All
+          - img [ref=e18]
+      - generic [ref=e20]:
+        - button "Install Package" [ref=e21]:
+          - img [ref=e22]
+          - text: Install Package
+        - button [ref=e27]:
+          - img [ref=e28]
+        - button "Create Employee" [ref=e31]:
+          - img [ref=e32]
+        - button "Studio Editor" [ref=e35]:
+          - img [ref=e36]
+        - button "Switch Company" [ref=e41]:
+          - img [ref=e42]
+        - button [ref=e46]:
+          - img [ref=e47]
+    - generic:
+      - button "Personnel" [ref=e51]:
+        - img [ref=e52]
+        - generic [ref=e57]: Personnel
+        - img [ref=e58]
+      - main
+      - generic [ref=e60]:
+        - generic:
+          - generic:
+            - generic:
+              - tablist:
+                - tab:
+                  - img
+                - tab:
+                  - img
+                - tab [selected]:
+                  - img
+                - tab:
+                  - img
+                - tab:
+                  - img
+            - generic:
+              - tabpanel:
+                - generic:
+                  - heading [level=2]: Event Log
+                  - generic:
+                    - generic:
+                      - combobox
+                      - generic:
+                        - button: Info
+                        - button: Warn
+                        - button: Error
+                    - textbox:
+                      - /placeholder: Search events...
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: No events yet
+            - generic:
+              - button:
+                - img
+                - generic: Board
+              - button:
+                - img
+                - generic: Dashboard
+        - button "Operations" [ref=e61]:
+          - img [ref=e62]
+          - generic [ref=e67]: Operations
+          - img [ref=e68]
+    - generic [ref=e71]:
+      - button "Chat" [ref=e72]:
+        - generic [ref=e73]:
+          - img [ref=e74]
+          - generic [ref=e76]: Chat
+        - img [ref=e78]
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - paragraph [ref=e87]:
+            - button "Configure provider" [ref=e88]
+            - text: to get started.
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - textbox "Message your team..." [disabled] [ref=e91]
+            - button "Send message" [disabled]:
+              - img
+          - generic [ref=e92]:
+            - generic [ref=e93]: / commands
+            - generic [ref=e94]: "@ mention"
+    - contentinfo [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e100]: Standby
+        - generic [ref=e103]:
+          - img [ref=e104]
+          - generic [ref=e108]: 0/0 agents
+      - generic [ref=e111]:
+        - img [ref=e112]
+        - generic [ref=e114]: v1.0.4
+  - generic [ref=e121]:
+    - generic [ref=e122]:
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - button [ref=e127]:
+                - img [ref=e128]
+              - generic [ref=e130]:
+                - img [ref=e132]
+                - heading "R&D Company" [level=2] [ref=e134]
+              - button [ref=e135]:
+                - img [ref=e136]
+            - generic [ref=e138]:
+              - button [ref=e139]
+              - button [ref=e140]
+              - button [ref=e141]
+              - button [ref=e142]
+              - button [ref=e143]
+              - button [ref=e144]
+          - generic [ref=e145]:
+            - button "Team · 8" [ref=e146]
+            - button "Workflows · 2" [ref=e147]
+        - generic [ref=e149]:
+          - button "Alex Chen Lead Developer Architectural thinker who loves clean code" [ref=e152]:
+            - generic [ref=e155]:
+              - generic [ref=e156]: Alex Chen
+              - generic [ref=e157]: Lead Developer
+              - generic [ref=e158]: Architectural thinker who loves clean code
+            - img [ref=e160]
+          - button "Maya Lin Frontend Engineer Pixel-perfect UI with a passion for animation" [ref=e164]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: Maya Lin
+              - generic [ref=e169]: Frontend Engineer
+              - generic [ref=e170]: Pixel-perfect UI with a passion for animation
+            - img [ref=e172]
+          - button "Marcus Johnson Backend Engineer Database whisperer and API craftsman" [ref=e176]:
+            - generic [ref=e179]:
+              - generic [ref=e180]: Marcus Johnson
+              - generic [ref=e181]: Backend Engineer
+              - generic [ref=e182]: Database whisperer and API craftsman
+            - img [ref=e184]
+          - button "Kai Nakamura Full Stack Engineer Bridge builder between frontend and backend" [ref=e188]:
+            - generic [ref=e191]:
+              - generic [ref=e192]: Kai Nakamura
+              - generic [ref=e193]: Full Stack Engineer
+              - generic [ref=e194]: Bridge builder between frontend and backend
+            - img [ref=e196]
+          - button "Sophie Park Project Manager Turns chaos into roadmaps" [ref=e200]:
+            - generic [ref=e203]:
+              - generic [ref=e204]: Sophie Park
+              - generic [ref=e205]: Project Manager
+              - generic [ref=e206]: Turns chaos into roadmaps
+            - img [ref=e208]
+          - button "Ryan Torres QA Engineer Finds the story hidden in the data" [ref=e212]:
+            - generic [ref=e215]:
+              - generic [ref=e216]: Ryan Torres
+              - generic [ref=e217]: QA Engineer
+              - generic [ref=e218]: Finds the story hidden in the data
+            - img [ref=e220]
+          - button "Zara Okafor ux_designer Makes complex things feel simple" [ref=e224]:
+            - generic [ref=e227]:
+              - generic [ref=e228]: Zara Okafor
+              - generic [ref=e229]: ux_designer
+              - generic [ref=e230]: Makes complex things feel simple
+            - img [ref=e232]
+          - button "Jamie Reeves UI Designer Typography nerd and accessibility advocate" [ref=e236]:
+            - generic [ref=e239]:
+              - generic [ref=e240]: Jamie Reeves
+              - generic [ref=e241]: UI Designer
+              - generic [ref=e242]: Typography nerd and accessibility advocate
+            - img [ref=e244]
+      - img "Company office preview" [ref=e248]:
+        - generic [ref=e254]: MEETING ROOM
+        - generic [ref=e275]: SERVER ROOM
+        - generic [ref=e300]: LIBRARY
+        - generic [ref=e359]: REST AREA
+        - generic [ref=e390]:
+          - generic [ref=e393]: ZONE-DEV
+          - generic [ref=e394]: 4 STAFF
+          - generic [ref=e396]:
+            - generic: AC
+            - generic [ref=e402]: Alex
+          - generic [ref=e404]:
+            - generic: ML
+            - generic [ref=e410]: Maya
+          - generic [ref=e412]:
+            - generic: MJ
+            - generic [ref=e418]: Marcus
+          - generic [ref=e420]:
+            - generic: KN
+            - generic [ref=e426]: Kai
+        - generic [ref=e427]:
+          - generic [ref=e430]: ZONE-PRODUCT
+          - generic [ref=e431]: 2 STAFF
+          - generic [ref=e433]:
+            - generic: SP
+            - generic [ref=e439]: Sophie
+          - generic [ref=e441]:
+            - generic: RT
+            - generic [ref=e447]: Ryan
+        - generic [ref=e448]:
+          - generic [ref=e451]: ZONE-ART
+          - generic [ref=e452]: 2 STAFF
+          - generic [ref=e454]:
+            - generic: ZO
+            - generic [ref=e460]: Zara
+          - generic [ref=e462]:
+            - generic: JR
+            - generic [ref=e468]: Jamie
+    - generic [ref=e470]:
+      - generic [ref=e471]:
+        - generic [ref=e472]: Company Name
+        - textbox "Company Name" [ref=e473]:
+          - /placeholder: My AI Company
+          - text: My AI Company
+      - button "Start Company" [ref=e474]

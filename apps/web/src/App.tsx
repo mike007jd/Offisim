@@ -36,6 +36,8 @@ import {
   type AppView,
 } from './lib/app-view-layout';
 
+const PENDING_VIEW_KEY = 'offisim:pending-view';
+
 interface SceneCanvasLazyProps {
   active?: boolean;
   reducedMotion?: boolean;
@@ -83,11 +85,12 @@ const KanbanOverlay = React.lazy(() =>
 
 interface AppProps {
   /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
-  onCompanySwitch: (id: string) => void;
+  onCompanySwitch: (id: string | null) => void;
 }
 
 export function App({ onCompanySwitch }: AppProps) {
-  const [view, setView] = useState<AppView>('office');
+  const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
+  const [view, setView] = useState<AppView>(() => (activeCompanyId ? 'office' : 'company-select'));
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -99,6 +102,8 @@ export function App({ onCompanySwitch }: AppProps) {
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const [projectListOpen, setProjectListOpen] = useState(false);
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
+  const [companyWizardMode, setCompanyWizardMode] = useState<'create-new' | null>(null);
+  const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(activeCompanyId);
   const {
     reinitRuntime,
     repos,
@@ -107,7 +112,6 @@ export function App({ onCompanySwitch }: AppProps) {
     dismissUnfinishedThreads,
     resumeThread,
   } = useOffisimRuntime();
-  const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
   const activeCompanyName = companies.find((c) => c.company_id === activeCompanyId)?.name;
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
     repos,
@@ -118,6 +122,39 @@ export function App({ onCompanySwitch }: AppProps) {
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
+
+  useEffect(() => {
+    setView(activeCompanyId ? 'office' : 'company-select');
+  }, [activeCompanyId]);
+
+  useEffect(() => {
+    if (!activeCompanyId || !repos) return;
+    let cancelled = false;
+    void repos.companies.findById(activeCompanyId).then((company) => {
+      if (!cancelled && !company) {
+        onCompanySwitch(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, repos, onCompanySwitch]);
+
+  useEffect(() => {
+    if (!portalPreviewCompanyId && activeCompanyId) {
+      setPortalPreviewCompanyId(activeCompanyId);
+    }
+  }, [activeCompanyId, portalPreviewCompanyId]);
+
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    const pendingView = sessionStorage.getItem(PENDING_VIEW_KEY);
+    if (pendingView === 'studio-edit') {
+      sessionStorage.removeItem(PENDING_VIEW_KEY);
+      setStudioMode('edit');
+      setView('studio');
+    }
+  }, [activeCompanyId]);
 
   useEffect(() => {
     primeEventLogStore(eventBus);
@@ -202,14 +239,42 @@ export function App({ onCompanySwitch }: AppProps) {
     [repos, eventBus, addToast, activeCompanyId],
   );
 
+  const handleArchiveCompany = useCallback(
+    async (companyId: string) => {
+      if (!repos) return;
+      try {
+        await repos.companies.update(companyId, { status: 'archived' });
+        await refreshCompanies();
+        addToast('Company archived', 'success');
+      } catch (err) {
+        addToast(err instanceof Error ? err.message : 'Failed to archive company', 'error');
+        return;
+      }
+      setPortalPreviewCompanyId((prev) => {
+        if (prev !== companyId) return prev;
+        const next = companies.find((c) => c.company_id !== companyId && c.status !== 'archived');
+        return next?.company_id ?? null;
+      });
+      if (activeCompanyId === companyId) {
+        onCompanySwitch(null);
+      }
+    },
+    [repos, refreshCompanies, addToast, companies, activeCompanyId, onCompanySwitch],
+  );
+
   function handleSaveConfig(config: ProviderConfig) {
     setProviderConfig(config);
     reinitRuntime();
   }
 
-  function handleWizardComplete() {
+  function handleWizardComplete(newCompanyId?: string) {
     refreshCompanies();
-    if (!providerConfig) {
+    if (newCompanyId) {
+      setPortalPreviewCompanyId(newCompanyId);
+      setCompanyWizardMode(null);
+      setView('company-select');
+    }
+    if (!providerConfig && !companyWizardMode && activeCompanyId) {
       setSettingsOpen(true);
     }
   }
@@ -222,9 +287,13 @@ export function App({ onCompanySwitch }: AppProps) {
   }
 
   /** Handle "Create Your Own" from wizard — opens Studio in create mode. */
-  function handleCreateYourOwn() {
-    setStudioMode('create');
-    setView('studio');
+  function handleCreateYourOwn(newCompanyId: string) {
+    refreshCompanies();
+    setPortalPreviewCompanyId(newCompanyId);
+    sessionStorage.setItem(PENDING_VIEW_KEY, 'studio-edit');
+    switchCompany(newCompanyId);
+    onCompanySwitch(newCompanyId);
+    setCompanyWizardMode(null);
   }
 
   /** Handle Studio save — switch to the new/edited company and return to office. */
@@ -232,6 +301,7 @@ export function App({ onCompanySwitch }: AppProps) {
     switchCompany(newId);
     onCompanySwitch(newId);
     refreshCompanies();
+    setPortalPreviewCompanyId(newId);
     setView('office');
   }
 
@@ -261,11 +331,13 @@ export function App({ onCompanySwitch }: AppProps) {
 
         {view === 'company-select' && (
           <CompanySelectionPage
-            onSelectCompany={handleSelectCompany}
+            previewCompanyId={portalPreviewCompanyId}
+            onPreviewCompany={setPortalPreviewCompanyId}
+            onEnterCompany={handleSelectCompany}
             onCreateNew={() => {
-              // Return to office so the wizard (rendered globally) can appear
-              setView('office');
+              setCompanyWizardMode('create-new');
             }}
+            onArchiveCompany={handleArchiveCompany}
           />
         )}
 
@@ -426,6 +498,17 @@ export function App({ onCompanySwitch }: AppProps) {
         {view === 'office' && (
           <Suspense fallback={null}>
             <CompanyCreationWizard
+              mode="populate-existing"
+              companyId={activeCompanyId}
+              onComplete={handleWizardComplete}
+              onCreateYourOwn={handleCreateYourOwn}
+            />
+          </Suspense>
+        )}
+        {companyWizardMode === 'create-new' && (
+          <Suspense fallback={null}>
+            <CompanyCreationWizard
+              mode="create-new"
               onComplete={handleWizardComplete}
               onCreateYourOwn={handleCreateYourOwn}
             />

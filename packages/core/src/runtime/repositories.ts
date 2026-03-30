@@ -61,6 +61,8 @@ export interface CompanyRow {
   company_id: string;
   name: string;
   status: string;
+  template_id: string | null;
+  template_label: string | null;
   workspace_root: string | null;
   default_model_policy_json: string | null;
   created_at: string;
@@ -160,7 +162,10 @@ export interface CompanyRepository {
   findById(companyId: string): Promise<CompanyRow | null>;
   findAll(): Promise<CompanyRow[]>;
   create(company: CompanyRow): Promise<CompanyRow>;
-  update(companyId: string, fields: Partial<Pick<CompanyRow, 'name' | 'status'>>): Promise<void>;
+  update(
+    companyId: string,
+    fields: Partial<Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label'>>,
+  ): Promise<void>;
 }
 
 export interface ThreadRepository {

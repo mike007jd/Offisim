@@ -88,6 +88,8 @@ describe('convertPlaceholders (via proxy callback)', () => {
       company_id: 'test-co',
       name: 'Test',
       status: 'active',
+      template_id: null,
+      template_label: null,
       created_at: now,
       updated_at: now,
     });

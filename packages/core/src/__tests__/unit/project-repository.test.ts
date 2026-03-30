@@ -26,6 +26,8 @@ function seedCompany(repos: RuntimeRepositories) {
     company_id: 'c-1',
     name: 'Test Corp',
     status: 'active',
+    template_id: null,
+    template_label: null,
     workspace_root: null,
     default_model_policy_json: null,
     created_at: new Date().toISOString(),

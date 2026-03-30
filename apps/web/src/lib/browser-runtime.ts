@@ -14,7 +14,6 @@ import {
   installStateChanged,
 } from '@offisim/core/browser';
 import type {
-  CompanyRow,
   EventBus,
   InMemoryEventBus,
   RuntimeRepositories,
@@ -71,32 +70,7 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
   };
 }
 
-async function seedCompany(
-  repos: ReturnType<typeof createMemoryRepositories>,
-  companyId: string,
-): Promise<void> {
-  if (await repos.companies.findById(companyId)) {
-    await seedCostRates(repos);
-    return;
-  }
-
-  const now = new Date().toISOString();
-
-  const company: CompanyRow = {
-    company_id: companyId,
-    name: 'Offisim Demo Company',
-    status: 'active',
-    workspace_root: null,
-    default_model_policy_json: null,
-    created_at: now,
-    updated_at: now,
-  };
-
-  repos.seed.companies([company]);
-  await seedCostRates(repos);
-}
-
-async function seedCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
+async function ensureCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
   const existing = await repos.costRates.findAll();
   if (existing.length > 0) return;
 
@@ -144,7 +118,7 @@ export async function createBrowserRuntime(
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
-  await seedCompany(repos, companyId);
+  await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
 
   const proxyBaseURL =
@@ -246,10 +220,10 @@ export async function createBrowserRuntime(
  */
 export async function createBrowserRuntimeReposOnly(
   eventBus: InMemoryEventBus,
-  companyId: string,
+  _companyId?: string,
 ): Promise<RuntimeBundle> {
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
-  await seedCompany(repos, companyId);
+  await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
 
   return {
@@ -263,3 +237,5 @@ export async function createBrowserRuntimeReposOnly(
     dispose: persistence.dispose,
   };
 }
+
+export { ensureCostRates };

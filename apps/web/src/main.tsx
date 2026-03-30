@@ -9,20 +9,22 @@ import {
 } from '@offisim/ui-office';
 import { App } from './App.js';
 import { installThreeConsoleFilter } from './lib/three-console';
+import { BootstrapProvider } from './runtime/BootstrapProvider';
 import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
-
-/** Default company ID used to seed the initial runtime. */
-const DEFAULT_COMPANY_ID = 'company-001';
 
 /** Persist active company across page reloads. */
 const STORAGE_KEY = 'offisim:active-company';
 
-function readStoredCompany(): string {
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_COMPANY_ID;
+function readStoredCompany(): string | null {
+  return localStorage.getItem(STORAGE_KEY);
 }
 
-function storeCompany(id: string) {
-  localStorage.setItem(STORAGE_KEY, id);
+function storeCompany(id: string | null) {
+  if (id) {
+    localStorage.setItem(STORAGE_KEY, id);
+    return;
+  }
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 /**
@@ -37,7 +39,7 @@ function CompanyBridge({
 }: {
   children: React.ReactNode;
   activeCompanyId: string;
-  onCompanySwitch: (id: string) => void;
+  onCompanySwitch: (id: string | null) => void;
 }) {
   const { repos } = useOffisimRuntime();
   return (
@@ -59,10 +61,22 @@ function CompanyBridge({
 function Shell() {
   const [companyId, setCompanyId] = useState(readStoredCompany);
 
-  const handleCompanySwitch = useCallback((id: string) => {
+  const handleCompanySwitch = useCallback((id: string | null) => {
     storeCompany(id);
     setCompanyId(id);
   }, []);
+
+  if (!companyId) {
+    return (
+      <ThemeProvider>
+        <BootstrapProvider>
+          <NotificationProvider>
+            <App onCompanySwitch={handleCompanySwitch} />
+          </NotificationProvider>
+        </BootstrapProvider>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>

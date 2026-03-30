@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS companies (
   company_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  template_id TEXT,
+  template_label TEXT,
   workspace_root TEXT,
   default_model_policy_json TEXT,
   created_at TEXT NOT NULL,

@@ -14,11 +14,18 @@ import { Office2DPreview } from './company-creation-wizard-preview.js';
 import { ensureCompanyCreationWizardKeyframes } from './company-creation-wizard-styles.js';
 
 interface Props {
-  onComplete?: () => void;
-  onCreateYourOwn?: () => void;
+  mode?: 'create-new' | 'populate-existing';
+  companyId?: string | null;
+  onComplete?: (companyId: string) => void;
+  onCreateYourOwn?: (companyId: string) => void;
 }
 
-export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
+export function CompanyCreationWizard({
+  mode = 'populate-existing',
+  companyId,
+  onComplete,
+  onCreateYourOwn,
+}: Props) {
   const {
     step,
     templates: coreTemplates,
@@ -27,9 +34,10 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
     setSelectedTemplateId,
     setCompanyName,
     create,
+    createCustomCompany,
     error,
     runtimeReady,
-  } = useCompanyCreation();
+  } = useCompanyCreation({ mode, companyId });
 
   const templates = useMemo(() => [...coreTemplates, CREATE_YOUR_OWN_TEMPLATE], [coreTemplates]);
   const isCreateYourOwn = selectedTemplateId === 'create-your-own';
@@ -39,7 +47,7 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
 
   useEffect(() => {
     if (prevStepRef.current === 'creating' && step === 'ready') {
-      onComplete?.();
+      // handled explicitly on submit
     }
     prevStepRef.current = step;
   }, [step, onComplete]);
@@ -80,6 +88,21 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
     },
     [selectedTemplateId, templates, setSelectedTemplateId],
   );
+
+  const handlePrimaryAction = useCallback(async () => {
+    if (isCreateYourOwn) {
+      const newCompanyId = await createCustomCompany();
+      if (newCompanyId) {
+        onCreateYourOwn?.(newCompanyId);
+      }
+      return;
+    }
+
+    const createdCompanyId = await create();
+    if (createdCompanyId) {
+      onComplete?.(createdCompanyId);
+    }
+  }, [create, createCustomCompany, isCreateYourOwn, onComplete, onCreateYourOwn]);
 
   if (step === 'checking') {
     return (
@@ -276,7 +299,9 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
             </div>
             <button
               type="button"
-              onClick={isCreateYourOwn ? onCreateYourOwn : create}
+              onClick={() => {
+                void handlePrimaryAction();
+              }}
               disabled={
                 !selectedTemplateId || (!isCreateYourOwn && !runtimeReady) || !companyName.trim()
               }

@@ -80,6 +80,7 @@ export * from './components/settings/provider-presets.js';
 export * from './hooks/use-reduced-motion.js';
 export * from './hooks/useCompanyEditor.js';
 export * from './hooks/useCompanyCreation.js';
+export * from './hooks/useCompanyPreview.js';
 export * from './hooks/useCostDashboard.js';
 export * from './hooks/useDashboardMetrics.js';
 export * from './hooks/useDeepLinkInstall.js';

@@ -132,7 +132,10 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db.insert(schema.companies).values(company);
       return company;
     },
-    async update(companyId: string, fields: Partial<Pick<CompanyRow, 'name' | 'status'>>) {
+    async update(
+      companyId: string,
+      fields: Partial<Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label'>>,
+    ) {
       await db
         .update(schema.companies)
         .set({ ...fields, updated_at: now() })

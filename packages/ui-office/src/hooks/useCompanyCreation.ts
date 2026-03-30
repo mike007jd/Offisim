@@ -6,6 +6,12 @@ import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 export type CreationStep = 'checking' | 'first-run' | 'creating' | 'ready';
+export type CompanyCreationMode = 'create-new' | 'populate-existing';
+
+interface UseCompanyCreationOptions {
+  mode?: CompanyCreationMode;
+  companyId?: string | null;
+}
 
 export interface UseCompanyCreationReturn {
   step: CreationStep;
@@ -14,14 +20,19 @@ export interface UseCompanyCreationReturn {
   companyName: string;
   setSelectedTemplateId: (id: string) => void;
   setCompanyName: (name: string) => void;
-  create: () => Promise<void>;
+  create: () => Promise<string | null>;
+  createCustomCompany: () => Promise<string | null>;
   error: string | null;
   runtimeReady: boolean;
 }
 
-export function useCompanyCreation(): UseCompanyCreationReturn {
+export function useCompanyCreation({
+  mode = 'populate-existing',
+  companyId: explicitCompanyId,
+}: UseCompanyCreationOptions = {}): UseCompanyCreationReturn {
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
+  const targetCompanyId = explicitCompanyId ?? activeCompanyId;
   const [step, setStep] = useState<CreationStep>('checking');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState('My AI Company');
@@ -35,45 +46,87 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
       setStep('first-run');
       return;
     }
-    if (!activeCompanyId) {
+    if (mode === 'create-new') {
+      setStep('first-run');
+      return;
+    }
+    if (!targetCompanyId) {
       setStep('first-run');
       return;
     }
     (async () => {
       try {
-        const employees = await repos.employees.findByCompany(activeCompanyId);
+        const employees = await repos.employees.findByCompany(targetCompanyId);
         setStep(employees.length === 0 ? 'first-run' : 'ready');
       } catch {
         setStep('first-run');
       }
     })();
-  }, [repos, activeCompanyId]);
+  }, [repos, mode, targetCompanyId]);
 
   const runtimeReady = repos !== null;
 
   // Guard against double-submit (e.g. Settings dialog opens during creation)
   const [isCreating, setIsCreating] = useState(false);
 
+  const createCompanyRecord = useCallback(
+    async (template: CompanyTemplate | null, templateLabelOverride?: string) => {
+      if (!repos) {
+        setError('Runtime is still initializing. Please wait a moment and try again.');
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const newCompanyId = crypto.randomUUID();
+      await repos.companies.create({
+        company_id: newCompanyId,
+        name: companyName.trim(),
+        status: 'active',
+        template_id: template?.id ?? null,
+        template_label: templateLabelOverride ?? template?.name ?? 'Custom',
+        workspace_root: null,
+        default_model_policy_json: null,
+        created_at: now,
+        updated_at: now,
+      });
+      return newCompanyId;
+    },
+    [companyName, repos],
+  );
+
   const create = useCallback(async () => {
-    if (!selectedTemplateId || isCreating) return;
+    if (!selectedTemplateId || isCreating) return null;
     if (!repos) {
       setError('Runtime is still initializing. Please wait a moment and try again.');
-      return;
+      return null;
     }
-    if (!activeCompanyId) {
+    if (mode === 'populate-existing' && !targetCompanyId) {
       setError('No active company. Please wait a moment and try again.');
-      return;
+      return null;
     }
 
-    // Prevent duplicate creation: check if employees already exist
-    try {
-      const existing = await repos.employees.findByCompany(activeCompanyId);
-      if (existing.length > 0) {
-        setStep('ready');
-        return;
+    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
+    if (!selectedTemplate) {
+      setError('Selected template not found.');
+      return null;
+    }
+
+    const resolvedCompanyId =
+      mode === 'create-new'
+        ? await createCompanyRecord(selectedTemplate)
+        : targetCompanyId;
+    if (!resolvedCompanyId) return null;
+
+    if (mode === 'populate-existing') {
+      try {
+        const existing = await repos.employees.findByCompany(resolvedCompanyId);
+        if (existing.length > 0) {
+          setStep('ready');
+          return resolvedCompanyId;
+        }
+      } catch {
+        /* proceed with creation */
       }
-    } catch {
-      /* proceed with creation */
     }
 
     setIsCreating(true);
@@ -89,15 +142,42 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
         repos.transact,
         repos.zones,
       );
-      await service.materializeTemplate(selectedTemplateId, activeCompanyId);
+      await service.materializeTemplate(selectedTemplateId, resolvedCompanyId);
+      if (mode === 'populate-existing') {
+        await repos.companies.update(resolvedCompanyId, {
+          template_id: selectedTemplate.id,
+          template_label: selectedTemplate.name,
+        });
+      }
       setStep('ready');
+      return resolvedCompanyId;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create company');
       setStep('first-run');
+      return null;
     } finally {
       setIsCreating(false);
     }
-  }, [repos, selectedTemplateId, eventBus, activeCompanyId, isCreating]);
+  }, [
+    repos,
+    selectedTemplateId,
+    eventBus,
+    targetCompanyId,
+    isCreating,
+    mode,
+    templates,
+    createCompanyRecord,
+  ]);
+
+  const createCustomCompany = useCallback(async () => {
+    if (isCreating) return null;
+    if (!companyName.trim()) {
+      setError('Please enter a company name.');
+      return null;
+    }
+    setError(null);
+    return createCompanyRecord(null, 'Custom');
+  }, [companyName, createCompanyRecord, isCreating]);
 
   return {
     step,
@@ -107,6 +187,7 @@ export function useCompanyCreation(): UseCompanyCreationReturn {
     setSelectedTemplateId,
     setCompanyName,
     create,
+    createCustomCompany,
     error,
     runtimeReady,
   };

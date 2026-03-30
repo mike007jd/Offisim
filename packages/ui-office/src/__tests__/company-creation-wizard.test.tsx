@@ -34,6 +34,7 @@ describe('CompanyCreationWizard', () => {
       setSelectedTemplateId: vi.fn(),
       setCompanyName: vi.fn(),
       create: vi.fn(),
+      createCustomCompany: vi.fn(),
       error: null,
       runtimeReady: true,
     });
