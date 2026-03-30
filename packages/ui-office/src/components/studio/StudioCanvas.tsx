@@ -448,15 +448,18 @@ export interface StudioCanvasProps {
 }
 
 export function StudioCanvas({ children, focusRef }: StudioCanvasProps) {
-  const onPointerMissed = useCallback((e: MouseEvent) => {
-    // Html overlay clicks (zone labels) fire as DOM events that miss the R3F scene.
-    // If the click target is inside an Html overlay, don't clear selection.
-    const target = e.target as HTMLElement | null;
-    if (target && target.closest?.('.studio-zone-label')) return;
-
+  const onPointerMissed = useCallback(() => {
     const s = useStudioStore.getState();
     s.selectInstance(null);
-    s.selectZone(null);
+    // When a zone is focused (camera flew to it, label shows ✦), preserve its
+    // selection — focusZone sets both focusedZoneId and selectedZoneId, but
+    // Html overlay label clicks also trigger onPointerMissed (the native pointer
+    // event reaches the Canvas because overlay and canvas are sibling DOM elements).
+    // Without this guard, selectedZoneId gets cleared while focusedZoneId stays,
+    // causing toolbar/properties to show empty despite the zone appearing focused.
+    if (!s.focusedZoneId) {
+      s.selectZone(null);
+    }
   }, []);
 
   return (
