@@ -20,137 +20,13 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
 
-import { ROOM_H, ROOM_W, type ViewportTransform, screenToSvg as screenToSvgPure, toSVG } from './office-2d-geometry';
+import { ROOM_H, ROOM_W, type ViewportTransform, positionToSVG, screenToSvg as screenToSvgPure, toSVG } from './office-2d-geometry';
 import { getAvatarUri } from './office-2d-avatar-cache';
+import { Office2DPrefab } from './Office2DPrefab.js';
 import { useOffice2DDrag } from './useOffice2DDrag';
+import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 
-// ── SVG Furniture Components ──────────────────────────────────────────
-
-const MeetingTableSVG = memo(function MeetingTableSVG({ x, y }: { x: number; y: number }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <rect
-        x="-100"
-        y="-35"
-        width="200"
-        height="70"
-        rx="20"
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
-        strokeWidth="2"
-      />
-      <rect x="-85" y="-25" width="170" height="50" rx="12" fill="var(--surface-light)" />
-      {[-60, -20, 20, 60].map((cx) => (
-        <g key={cx}>
-          <circle
-            cx={cx}
-            cy={-55}
-            r="12"
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
-            strokeWidth="1"
-          />
-          <circle
-            cx={cx}
-            cy={55}
-            r="12"
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
-            strokeWidth="1"
-          />
-        </g>
-      ))}
-    </g>
-  );
-});
-
-const BookshelfSVG = memo(function BookshelfSVG({ x, y }: { x: number; y: number }) {
-  const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <rect
-        x="-25"
-        y="-35"
-        width="50"
-        height="70"
-        rx="3"
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
-        strokeWidth="1"
-      />
-      {[0, 1, 2, 3].map((shelf) => (
-        <g key={shelf}>
-          <rect x="-23" y={-30 + shelf * 17} width="46" height="1" fill="var(--surface-mid)" />
-          {[0, 1, 2, 3, 4, 5, 6].map((b) => (
-            <rect
-              key={b}
-              x={-21 + b * 6.5}
-              y={-28 + shelf * 17}
-              width="5"
-              height="14"
-              rx="0.5"
-              fill={bookColors[(shelf * 7 + b) % bookColors.length]}
-            />
-          ))}
-        </g>
-      ))}
-    </g>
-  );
-});
-
-const SofaSVG = memo(function SofaSVG({
-  x,
-  y,
-  color = '#f59e0b',
-}: { x: number; y: number; color?: string }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <path d="M-50,-20 L50,-20 L50,10 L30,10 L30,-5 L-30,-5 L-30,10 L-50,10 Z" fill={color} />
-      <rect x="-55" y="-20" width="10" height="30" rx="4" fill="var(--surface-light)" />
-      <rect x="45" y="-20" width="10" height="30" rx="4" fill="var(--surface-light)" />
-    </g>
-  );
-});
-
-const CoffeeTableSVG = memo(function CoffeeTableSVG({ x, y }: { x: number; y: number }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <circle
-        cx="0"
-        cy="0"
-        r="25"
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
-        strokeWidth="1"
-      />
-      <circle cx="0" cy="0" r="12" fill="var(--surface-light)" />
-    </g>
-  );
-});
-
-const ServerRackSVG = memo(function ServerRackSVG({ x, y }: { x: number; y: number }) {
-  const rackRows = [-40, -29, -18, -7, 4, 15, 26, 37] as const;
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <rect
-        x="-18"
-        y="-45"
-        width="36"
-        height="90"
-        rx="3"
-        fill="var(--surface-light)"
-        stroke="var(--surface-lighter)"
-        strokeWidth="1.5"
-      />
-      {rackRows.map((row, index) => (
-        <g key={row}>
-          <rect x="-14" y={row} width="28" height="9" rx="1" fill="var(--surface-light)" />
-          <circle cx="10" cy={row + 4} r="2" fill={index % 3 === 0 ? '#fbbf24' : '#22c55e'} />
-        </g>
-      ))}
-    </g>
-  );
-});
+// ── SVG Ambient Decorations (not data-driven — room-level chrome) ────
 
 const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
   return (
@@ -168,25 +44,6 @@ const PlantSVG = memo(function PlantSVG({ x, y }: { x: number; y: number }) {
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#34d399" transform="rotate(144)" />
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#10b981" transform="rotate(216)" />
       <path d="M0,0 C-12,-18 12,-18 0,0" fill="#059669" transform="rotate(288)" />
-    </g>
-  );
-});
-
-const VendingMachineSVG = memo(function VendingMachineSVG({ x, y }: { x: number; y: number }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <rect
-        x="-16"
-        y="-30"
-        width="32"
-        height="60"
-        rx="4"
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
-        strokeWidth="1"
-      />
-      <rect x="-12" y="-26" width="24" height="25" rx="2" fill="#0ea5e9" opacity="0.5" />
-      <rect x="-10" y="5" width="20" height="8" rx="2" fill="var(--surface-light)" />
     </g>
   );
 });
@@ -500,6 +357,7 @@ export default function Office2DView({
   const { eventBus } = useOffisimRuntime();
   const companyId = activeCompanyId ?? '';
   const { zones } = useCompanyZones();
+  const { instances: prefabInstances } = usePrefabInstances();
 
   // ── Dynamic zone derivations ──
   const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
@@ -878,131 +736,37 @@ export default function Office2DView({
             );
           })}
 
-          {/* ── Furniture ── */}
-
-          {/* MTG: conference table + whiteboard */}
-          {(() => {
-            const cx = toSVG(-10, -8, 14, 6);
-            const mx = cx.x + cx.w / 2;
-            const my = cx.y + cx.h / 2;
-            return (
-              <g>
-                <MeetingTableSVG x={mx} y={my} />
-                <rect
-                  x={mx - 275}
-                  y={my - 60}
-                  width="8"
-                  height="100"
-                  rx="2"
-                  fill="#f1f5f9"
-                  stroke="var(--text-secondary-val)"
-                  strokeWidth="1"
-                />
-              </g>
-            );
-          })()}
-
-          {/* SRV: server racks + cable channels + glow */}
-          {(() => {
-            const cx = toSVG(8, -8, 14, 6);
-            const mx = cx.x + cx.w / 2;
-            const my = cx.y + cx.h / 2;
-            return (
-              <g>
-                {[-200, -75, 50, 175].map((ox) => (
-                  <ServerRackSVG key={ox} x={mx + ox} y={my - 25} />
-                ))}
-                {[-150, 0, 150].map((ox) => (
-                  <rect
-                    key={ox}
-                    x={mx + ox - 4}
-                    y={my + 50}
-                    width="8"
-                    height="80"
-                    rx="2"
-                    fill="#0c4a6e"
-                    opacity="0.4"
+          {/* ── Furniture — data-driven from prefab instances ── */}
+          {prefabInstances.length > 0
+            ? prefabInstances.map((inst) => {
+                const svgPos = positionToSVG(inst.instance.position_x, inst.instance.position_y);
+                return (
+                  <Office2DPrefab
+                    key={inst.instance.instance_id}
+                    prefabId={inst.definition.prefabId}
+                    category={inst.definition.category}
+                    x={svgPos.x}
+                    y={svgPos.y}
+                    rotation={inst.instance.rotation}
                   />
-                ))}
-                <circle cx={mx} cy={my} r="40" fill="#06b6d4" opacity="0.03" />
-              </g>
-            );
-          })()}
-
-          {/* LIB: bookshelves + reading tables + chairs + plant */}
-          {(() => {
-            const cx = toSVG(-10, 2, 14, 8);
-            const mx = cx.x + cx.w / 2;
-            const my = cx.y + cx.h / 2;
-            return (
-              <g>
-                {[-200, -75, 50, 175].map((ox) => (
-                  <BookshelfSVG key={ox} x={mx + ox} y={my - 125} />
-                ))}
-                {[-150, 75].map((ox) => (
-                  <g key={ox}>
-                    <rect
-                      x={mx + ox - 55}
-                      y={my + 55}
-                      width="110"
-                      height="40"
-                      rx="6"
-                      fill="#064e3b"
-                      stroke="var(--surface-mid)"
-                      strokeWidth="1"
-                    />
-                    {[-35, 35].map((cx2) => (
-                      <g key={cx2}>
-                        <circle
-                          cx={mx + ox + cx2}
-                          cy={my + 25}
-                          r="10"
-                          fill="var(--surface-light)"
-                          stroke="var(--surface-mid)"
-                          strokeWidth="0.8"
-                        />
-                        <circle
-                          cx={mx + ox + cx2}
-                          cy={my + 105}
-                          r="10"
-                          fill="var(--surface-light)"
-                          stroke="var(--surface-mid)"
-                          strokeWidth="0.8"
-                        />
-                      </g>
-                    ))}
-                  </g>
-                ))}
-                <PlantSVG x={mx + 275} y={my - 125} />
-              </g>
-            );
-          })()}
-
-          {/* REST: sofas + coffee table + vending + plants */}
-          {(() => {
-            const cx = toSVG(8, 2, 14, 8);
-            const mx = cx.x + cx.w / 2;
-            const my = cx.y + cx.h / 2;
-            return (
-              <g>
-                <rect
-                  x={mx - 180}
-                  y={my - 60}
-                  width="360"
-                  height="140"
-                  rx="10"
-                  fill="var(--surface-mid)"
-                  opacity="0.2"
-                />
-                <SofaSVG x={mx - 50} y={my - 110} />
-                <SofaSVG x={mx + 50} y={my + 100} color="#d97706" />
-                <CoffeeTableSVG x={mx} y={my} />
-                <VendingMachineSVG x={mx + 275} y={my - 100} />
-                <PlantSVG x={mx - 250} y={my - 125} />
-                <PlantSVG x={mx + 200} y={my + 125} />
-              </g>
-            );
-          })()}
+                );
+              })
+            : /* Fallback: generic desk clusters when no studio data saved */
+              zones.map((z) => {
+                const s = toSVG(z.cx, z.cz, z.w, z.d);
+                const mx = s.x + s.w / 2;
+                const my = s.y + s.h / 2;
+                return (
+                  <Office2DPrefab
+                    key={`fallback-${z.zoneId}`}
+                    prefabId={z.archetype === 'server' ? 'server-rack-2u' : z.archetype === 'meeting' ? 'meeting-table-4' : z.archetype === 'library' ? 'bookshelf-single' : z.archetype === 'rest' ? 'sofa-set' : 'workstation-standard'}
+                    category={z.archetype === 'server' ? 'compute' : z.archetype === 'meeting' ? 'meeting' : z.archetype === 'library' ? 'knowledge' : z.archetype === 'rest' ? 'rest' : 'workspace'}
+                    x={mx}
+                    y={my}
+                    rotation={0}
+                  />
+                );
+              })}
 
           {/* Rest area employees — idle employees scattered naturally */}
           {(() => {

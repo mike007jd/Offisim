@@ -23,6 +23,7 @@ function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
     zones: s.zones,
     focusedZoneId: s.focusedZoneId,
     selectedZoneId: s.selectedZoneId,
+    isEditingZone: s.isEditingZone,
   };
 }
 
@@ -272,8 +273,17 @@ function ZoneFloor({
 
   const onPointerDown = useCallback(
     (e: { stopPropagation: () => void; ray: THREE.Ray }) => {
-      const { tool, selectedZoneId } = useStudioStore.getState();
+      const { tool, selectedZoneId, isEditingZone, focusedZoneId } = useStudioStore.getState();
       if (tool !== 'select' && tool !== 'move') return;
+
+      // In Edit Zone mode: block all zone interaction (no select, no drag)
+      if (isEditingZone) {
+        // Allow clicking the focused zone floor to deselect prefabs, but no drag
+        if (zone.zoneId === focusedZoneId) {
+          useStudioStore.getState().selectInstance(null);
+        }
+        return;
+      }
 
       // First click on a zone = just select it (don't block prefab clicks).
       // Only start drag if the zone is ALREADY selected (second interaction).

@@ -34,6 +34,8 @@ const _euler = new THREE.Euler();
 interface PlacedPrefabItemProps {
   instance: PlacedInstance;
   isSelected: boolean;
+  /** Whether this prefab is outside the focused zone in Edit Zone mode. */
+  isDimmed: boolean;
   onSelect: (id: string) => void;
   highlightRingGeo: THREE.RingGeometry;
   highlightRingMat: THREE.MeshBasicMaterial;
@@ -42,6 +44,7 @@ interface PlacedPrefabItemProps {
 const PlacedPrefabItem = memo(function PlacedPrefabItem({
   instance,
   isSelected,
+  isDimmed,
   onSelect,
   highlightRingGeo,
   highlightRingMat,
@@ -55,11 +58,13 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       // Prevent OrbitControls / canvas pointerMissed from firing
       (e as unknown as { stopPropagation: () => void }).stopPropagation();
       // Only allow selection with appropriate tools (Skill §2)
-      const tool = useStudioStore.getState().tool;
+      const { tool, isEditingZone, focusedZoneId } = useStudioStore.getState();
       if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
+      // In Edit Zone mode, only allow selecting prefabs inside the focused zone
+      if (isEditingZone && instance.zoneId !== focusedZoneId) return;
       onSelect(instance.id);
     },
-    [instance.id, onSelect],
+    [instance.id, instance.zoneId, onSelect],
   );
 
   // Hover feedback — emissive highlight + pointer cursor (Skill §10)
@@ -100,9 +105,9 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
     <group
       position={instance.position}
       rotation={[0, (instance.rotation * Math.PI) / 180, 0]}
-      onPointerDown={handleClick}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
+      onPointerDown={isDimmed ? undefined : handleClick}
+      onPointerOver={isDimmed ? undefined : handlePointerOver}
+      onPointerOut={isDimmed ? undefined : handlePointerOut}
     >
       <Prefab3D definition={definition} state="idle" />
       {isSelected && (
@@ -140,6 +145,8 @@ export function StudioPlacedPrefabs() {
   const instances = useStudioStore((s) => s.instances);
   const selectedId = useStudioStore((s) => s.selectedInstanceId);
   const tool = useStudioStore((s) => s.tool);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   const updatePosition = useStudioStore((s) => s.updatePosition);
   const updateRotation = useStudioStore((s) => s.updateRotation);
   const selectInstance = useStudioStore((s) => s.selectInstance);
@@ -244,6 +251,7 @@ export function StudioPlacedPrefabs() {
           key={inst.id}
           instance={inst}
           isSelected={false}
+          isDimmed={isEditingZone && inst.zoneId !== focusedZoneId}
           onSelect={handleSelect}
           highlightRingGeo={highlightRingGeo}
           highlightRingMat={highlightRingMat}

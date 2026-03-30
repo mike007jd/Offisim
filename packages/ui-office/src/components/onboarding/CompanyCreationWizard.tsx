@@ -237,7 +237,11 @@ export function CompanyCreationWizard({ onComplete, onCreateYourOwn }: Props) {
                     </p>
                   </div>
                 ) : (
-                  <Office2DPreview employees={selected.employees} />
+                  <Office2DPreview
+                    employees={selected.employees}
+                    highlightZones={meta.highlightZones}
+                    accentHex={meta.accentHex}
+                  />
                 )}
               </div>
             </div>

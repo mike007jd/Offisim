@@ -506,10 +506,21 @@ function computeTemplateZones(employees: CompanyTemplate['employees']) {
   return zones;
 }
 
-export function Office2DPreview({ employees }: { employees: CompanyTemplate['employees'] }) {
+export function Office2DPreview({
+  employees,
+  highlightZones,
+  accentHex,
+}: {
+  employees: CompanyTemplate['employees'];
+  /** Zone IDs to emphasize for the selected template. */
+  highlightZones?: string[];
+  /** Template accent color for highlight glow. */
+  accentHex?: string;
+}) {
   const W = 640;
   const H = 440;
   const [hoveredZone, setHoveredZone] = useState<string | null>(null);
+  const highlightSet = useMemo(() => new Set(highlightZones ?? []), [highlightZones]);
 
   const zones = useMemo(() => computeTemplateZones(employees), [employees]);
   const employeesByZone = useMemo(() => {
@@ -545,6 +556,8 @@ export function Office2DPreview({ employees }: { employees: CompanyTemplate['emp
         const sc = Math.min(zone.w, zone.h) / 55;
         const isHovered = hoveredZone === zone.id;
         const tooltip = ZONE_TOOLTIPS[zone.id];
+        const isHighlighted = highlightSet.size > 0 && highlightSet.has(zone.id);
+        const isDimmed = highlightSet.size > 0 && !isHighlighted;
 
         return (
           <g
@@ -558,11 +571,11 @@ export function Office2DPreview({ employees }: { employees: CompanyTemplate['emp
               width={zone.w}
               height={zone.h}
               rx={3}
-              fill={zone.accent}
-              fillOpacity={isHovered ? 0.08 : 0.04}
-              stroke={zone.accent}
-              strokeWidth={isHovered ? 1 : 0.6}
-              strokeOpacity={isHovered ? 0.5 : 0.2}
+              fill={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
+              fillOpacity={isHighlighted ? 0.14 : isDimmed ? 0.02 : isHovered ? 0.08 : 0.04}
+              stroke={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
+              strokeWidth={isHighlighted ? 1.5 : isHovered ? 1 : 0.6}
+              strokeOpacity={isHighlighted ? 0.6 : isDimmed ? 0.1 : isHovered ? 0.5 : 0.2}
               strokeDasharray={zone.type === 'infra' ? '3 1.5' : 'none'}
               style={{
                 transition: 'fill-opacity 0.3s, stroke-width 0.3s, stroke-opacity 0.3s',

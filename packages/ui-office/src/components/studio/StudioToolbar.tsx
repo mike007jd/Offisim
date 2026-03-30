@@ -5,7 +5,7 @@
  * Keyboard shortcuts: 1=Select, 2=Move, 3=Rotate, 4=Place, G=Grid snap.
  */
 
-import { ArrowLeft, Grid3x3, MousePointer2, Move, Plus, RotateCcw, Save } from 'lucide-react';
+import { ArrowLeft, BoxSelect, Grid3x3, MousePointer2, Move, Plus, RotateCcw, Save, X } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { type StudioTool, useStudioStore } from './StudioState.js';
 import { FONT, SP, STUDIO_COLORS, kbdStyle, panelStyle, toolButtonStyle } from './studio-tokens.js';
@@ -56,12 +56,28 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const toggleGridSnap = useStudioStore((s) => s.toggleGridSnap);
   const dirty = useStudioStore((s) => s.dirty);
   const instanceCount = useStudioStore((s) => s.instances.length);
+  const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
+  const zones = useStudioStore((s) => s.zones);
+  const enterEditZone = useStudioStore((s) => s.enterEditZone);
+  const exitEditZone = useStudioStore((s) => s.exitEditZone);
+
+  const editingZoneLabel = isEditingZone
+    ? zones.find((z) => z.zoneId === focusedZoneId)?.label ?? 'Zone'
+    : null;
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       // Don't capture when typing in inputs
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Esc exits Edit Zone mode
+      if (e.key === 'Escape' && isEditingZone) {
+        exitEditZone();
+        return;
+      }
 
       switch (e.key) {
         case 'q':
@@ -86,7 +102,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           break;
       }
     },
-    [setTool, toggleGridSnap],
+    [setTool, toggleGridSnap, isEditingZone, exitEditZone],
   );
 
   useEffect(() => {
@@ -143,6 +159,41 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         <Grid3x3 size={14} />
         <kbd style={kbdStyle()}>G</kbd>
       </button>
+
+      <div style={SEPARATOR} />
+
+      {/* Edit Zone controls */}
+      {isEditingZone ? (
+        <button
+          type="button"
+          onClick={exitEditZone}
+          aria-label="Exit zone editing (Esc)"
+          style={{
+            ...toolButtonStyle(true),
+            borderColor: '#f59e0b',
+            background: 'rgba(245, 158, 11, 0.12)',
+            color: '#fbbf24',
+            gap: SP.xs,
+          }}
+        >
+          <X size={14} />
+          <span style={{ fontSize: FONT.sm, fontWeight: 600 }}>{editingZoneLabel}</span>
+          <kbd style={kbdStyle()}>Esc</kbd>
+        </button>
+      ) : selectedZoneId ? (
+        <button
+          type="button"
+          onClick={() => enterEditZone(selectedZoneId)}
+          aria-label="Enter zone editing mode"
+          style={{
+            ...toolButtonStyle(false),
+            gap: SP.xs,
+          }}
+        >
+          <BoxSelect size={14} />
+          <span>Edit Zone</span>
+        </button>
+      ) : null}
 
       <div style={SEPARATOR} />
 

@@ -39,6 +39,8 @@ export interface StudioStore {
   focusedZoneId: string | null;
   /** Currently selected zone for properties panel (mutually exclusive with selectedInstanceId). */
   selectedZoneId: string | null;
+  /** Whether the user is in Edit Zone mode — restricts interaction to focused zone only. */
+  isEditingZone: boolean;
   /** Active zone preset during zone placement mode. */
   placingZonePreset: ZonePreset | null;
   dirty: boolean;
@@ -66,6 +68,10 @@ export interface StudioStore {
   focusZone: (zoneId: string) => void;
   /** Return to overview mode (all zones visible). */
   unfocusZone: () => void;
+  /** Enter Edit Zone mode — focuses zone and restricts interaction to its contents. */
+  enterEditZone: (zoneId: string) => void;
+  /** Exit Edit Zone mode — returns to overview with all zones interactive. */
+  exitEditZone: () => void;
   /** Select a zone for the properties panel. Clears selectedInstanceId. */
   selectZone: (zoneId: string | null) => void;
   /** Enter zone placement mode with the given preset. */
@@ -116,6 +122,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   zones: [],
   focusedZoneId: null,
   selectedZoneId: null,
+  isEditingZone: false,
   placingZonePreset: null,
   dirty: false,
   gridSnap: true,
@@ -133,6 +140,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       zones: [],
       focusedZoneId: null,
       selectedZoneId: null,
+      isEditingZone: false,
       placingZonePreset: null,
       dirty: false,
       gridSnap: true,
@@ -249,7 +257,23 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setInstances: (instances) => set({ instances, dirty: false }),
   setZones: (zones) => set({ zones }),
   focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedZoneId: zoneId, selectedInstanceId: null }),
-  unfocusZone: () => set({ focusedZoneId: null, selectedZoneId: null, selectedInstanceId: null }),
+  unfocusZone: () => set({ focusedZoneId: null, selectedZoneId: null, selectedInstanceId: null, isEditingZone: false }),
+
+  enterEditZone: (zoneId) => set({
+    focusedZoneId: zoneId,
+    selectedZoneId: zoneId,
+    selectedInstanceId: null,
+    isEditingZone: true,
+    tool: 'select',
+    placingPrefab: null,
+    placingZonePreset: null,
+  }),
+  exitEditZone: () => set({
+    focusedZoneId: null,
+    selectedZoneId: null,
+    selectedInstanceId: null,
+    isEditingZone: false,
+  }),
 
   selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
 

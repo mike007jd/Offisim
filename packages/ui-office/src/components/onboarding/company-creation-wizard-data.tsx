@@ -35,6 +35,8 @@ export interface TemplateMeta {
   complexity: number;
   capabilities: string[];
   gradient: string;
+  /** Zone IDs that are primary for this template — highlighted in the preview. */
+  highlightZones: string[];
 }
 
 export const TEMPLATE_META: Record<string, TemplateMeta> = {
@@ -49,6 +51,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 4,
     capabilities: ['Full-stack development', 'Code review & testing', 'Technical documentation'],
     gradient: 'from-blue-500/20 via-blue-600/10 to-transparent',
+    highlightZones: ['dev', 'srv'],
   },
   'content-studio': {
     icon: <PenTool className="h-4 w-4" />,
@@ -61,6 +64,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 2,
     capabilities: ['Article & blog writing', 'Design & illustration', 'Editorial workflow'],
     gradient: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
+    highlightZones: ['art', 'lib'],
   },
   'product-team': {
     icon: <Rocket className="h-4 w-4" />,
@@ -73,6 +77,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 3,
     capabilities: ['User research', 'Product strategy', 'Design prototyping'],
     gradient: 'from-violet-500/20 via-violet-600/10 to-transparent',
+    highlightZones: ['prod', 'mtg'],
   },
   'agency-lite': {
     icon: <Briefcase className="h-4 w-4" />,
@@ -85,6 +90,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 2,
     capabilities: ['Fast turnaround', 'Multi-client support', 'Flexible roles'],
     gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
+    highlightZones: ['dev', 'prod'],
   },
   'ai-startup': {
     icon: <Brain className="h-4 w-4" />,
@@ -97,6 +103,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 5,
     capabilities: ['ML research', 'Data analysis', 'Rapid prototyping'],
     gradient: 'from-cyan-500/20 via-cyan-600/10 to-transparent',
+    highlightZones: ['dev', 'srv', 'lib'],
   },
   'create-your-own': {
     icon: <Wrench className="h-4 w-4" />,
@@ -109,6 +116,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 0,
     capabilities: ['3D Studio Editor', 'Custom plot size', 'Free placement'],
     gradient: 'from-emerald-600 to-teal-500',
+    highlightZones: [],
   },
 };
 

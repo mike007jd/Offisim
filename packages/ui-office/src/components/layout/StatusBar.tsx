@@ -2,6 +2,7 @@ import { Activity, Cpu, Database, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
+import { EnergyMeter } from './EnergyMeter.js';
 
 // ---------------------------------------------------------------------------
 
@@ -76,16 +77,10 @@ export function StatusBar({ modelName }: StatusBarProps) {
       </div>
 
       <div className="flex items-center space-x-5 relative z-10">
-        {metrics.totalInputTokens + metrics.totalOutputTokens > 0 && (
-          <span className="font-mono">
-            TKN: {(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}
-          </span>
-        )}
-        {metrics.estimatedCostUsd > 0 && (
-          <span className="font-mono text-emerald-500/50">
-            ${metrics.estimatedCostUsd.toFixed(4)}
-          </span>
-        )}
+        <EnergyMeter
+          usedTokens={metrics.totalInputTokens + metrics.totalOutputTokens}
+          costUsd={metrics.estimatedCostUsd}
+        />
         {metrics.elapsedMs != null && (
           <span className="font-mono">LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s</span>
         )}

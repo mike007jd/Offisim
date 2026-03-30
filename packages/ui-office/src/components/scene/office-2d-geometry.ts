@@ -26,6 +26,14 @@ export function toSVG(cx: number, cz: number, w: number, d: number) {
   };
 }
 
+/** Convert a single 3D world position [x, z] to SVG coordinates. */
+export function positionToSVG(posX: number, posZ: number): { x: number; y: number } {
+  return {
+    x: (posX + 20) * SCALE,
+    y: (posZ + 15) * SCALE,
+  };
+}
+
 export interface ViewportTransform {
   x: number;
   y: number;

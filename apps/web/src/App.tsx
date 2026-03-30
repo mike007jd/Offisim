@@ -107,7 +107,8 @@ export function App({ onCompanySwitch }: AppProps) {
     dismissUnfinishedThreads,
     resumeThread,
   } = useOffisimRuntime();
-  const { activeCompanyId, switchCompany, refreshCompanies } = useCompany();
+  const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
+  const activeCompanyName = companies.find((c) => c.company_id === activeCompanyId)?.name;
   const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
     repos,
     companyId: activeCompanyId ?? '',
@@ -296,6 +297,7 @@ export function App({ onCompanySwitch }: AppProps) {
               header={
                 <Header
                   providerName={providerConfig?.model}
+                  companyName={activeCompanyName}
                   onOpenSettings={() => setSettingsOpen(true)}
                   onOpenEmployeeCreator={() => setView('employee-creator')}
                   onOpenStudio={() => {

@@ -1,6 +1,6 @@
 import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@offisim/shared-types';
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { ChevronDown, Folder } from 'lucide-react';
+import { ChevronDown, GitBranch } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ProjectSelectorProps {
@@ -68,7 +68,7 @@ export function ProjectSelector({ projects, activeProjectId, onSelect }: Project
         className="flex items-center gap-1.5 h-7 px-2 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-colors text-xs text-slate-300"
         title="Select project context"
       >
-        <Folder className="h-3 w-3 text-slate-500 flex-shrink-0" />
+        <GitBranch className="h-3 w-3 text-blue-400/60 flex-shrink-0" />
         {activeProject ? (
           <>
             <StatusDot status={activeProject.status} />

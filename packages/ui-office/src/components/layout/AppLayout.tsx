@@ -80,7 +80,7 @@ export function AppLayout({
             <button
               type="button"
               onClick={() => setLeftOpen(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors"
+              className="flex-1 flex flex-col items-center justify-start pt-5 gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
             >
               <Users className="w-4 h-4 text-blue-400" />
               <span
@@ -125,7 +125,7 @@ export function AppLayout({
             <button
               type="button"
               onClick={() => setRightOpen(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors"
+              className="flex-1 flex flex-col items-center justify-start pt-5 gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
             >
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
               <span
