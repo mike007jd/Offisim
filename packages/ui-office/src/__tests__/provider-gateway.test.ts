@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as desktopProviderSecrets from '../lib/desktop-provider-secrets';
-import type { ProviderConfig } from '../lib/provider-config';
+import * as desktopSecrets from '../lib/desktop-provider-secrets';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -18,57 +17,42 @@ function setTauriMode(enabled: boolean) {
   Reflect.deleteProperty(window, '__TAURI__');
 }
 
-describe('createDesktopProviderGateway', () => {
+describe('desktop runtime secrets', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     setTauriMode(true);
   });
 
-  it('routes desktop chat calls through provider_chat', async () => {
-    const mod = desktopProviderSecrets as Record<string, unknown>;
-    expect(typeof mod.createDesktopProviderGateway).toBe('function');
+  it('exports runtime secret functions', () => {
+    expect(typeof desktopSecrets.getRuntimeSecretStatus).toBe('function');
+    expect(typeof desktopSecrets.setRuntimeSecret).toBe('function');
+    expect(typeof desktopSecrets.clearRuntimeSecret).toBe('function');
+  });
 
+  it('does not export createDesktopProviderGateway (removed per AI Runtime Policy)', () => {
+    const mod = desktopSecrets as Record<string, unknown>;
+    expect(mod.createDesktopProviderGateway).toBeUndefined();
+  });
+
+  it('exports deprecated backwards-compatible aliases', () => {
+    expect(typeof desktopSecrets.getProviderSecretStatus).toBe('function');
+    expect(typeof desktopSecrets.setProviderSecret).toBe('function');
+    expect(typeof desktopSecrets.clearProviderSecret).toBe('function');
+  });
+
+  it('getRuntimeSecretStatus calls runtime_secret_status', async () => {
     const { invoke } = await import('@tauri-apps/api/core');
-    vi.mocked(invoke).mockResolvedValueOnce({
-      content: 'hello from rust',
-      toolCalls: [],
-      usage: { inputTokens: 12, outputTokens: 4 },
-    });
+    vi.mocked(invoke).mockResolvedValueOnce({ hasSecret: true });
 
-    const gateway = (
-      mod.createDesktopProviderGateway as (config: ProviderConfig) => {
-        chat: (request: unknown) => Promise<unknown>;
-      }
-    )({
-      provider: 'openai',
-      model: 'gpt-5.4',
-      baseURL: 'https://api.openai.com/v1',
-    });
+    const status = await desktopSecrets.getRuntimeSecretStatus();
+    expect(status).toEqual({ hasSecret: true });
+    expect(invoke).toHaveBeenCalledWith('runtime_secret_status', undefined);
+  });
 
-    const request = {
-      messages: [{ role: 'user', content: 'hi' }],
-      model: 'gpt-5.4',
-      temperature: 0.2,
-      maxTokens: 256,
-    };
-
-    await expect(gateway.chat(request)).resolves.toEqual({
-      content: 'hello from rust',
-      toolCalls: [],
-      usage: { inputTokens: 12, outputTokens: 4 },
-    });
-
-    expect(invoke).toHaveBeenCalledWith('provider_chat', {
-      request: {
-        provider: 'openai',
-        baseURL: 'https://api.openai.com/v1',
-        defaultHeaders: undefined,
-        llmRequest: request,
-      },
-    });
-    expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).not.toContain(
-      'provider_secret_get',
-    );
+  it('returns { hasSecret: false } when not in Tauri', async () => {
+    setTauriMode(false);
+    const status = await desktopSecrets.getRuntimeSecretStatus();
+    expect(status).toEqual({ hasSecret: false });
   });
 });

@@ -45,6 +45,8 @@ interface ProviderOption {
   value: string;
   label: string;
   models: string[];
+  /** Vendor-direct model groups — hidden in production builds. */
+  devOnly?: boolean;
 }
 
 const PROVIDER_OPTIONS: ProviderOption[] = [
@@ -57,21 +59,25 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'openai',
     label: 'OpenAI',
     models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+    devOnly: true,
   },
   {
     value: 'anthropic',
     label: 'Anthropic',
     models: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-3-5-haiku-latest'],
+    devOnly: true,
   },
   {
     value: 'google',
     label: 'Google',
     models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+    devOnly: true,
   },
   {
     value: 'ollama',
     label: 'Ollama (local)',
     models: ['llama3.2', 'mistral', 'phi3', 'gemma2'],
+    devOnly: true,
   },
   {
     value: 'custom',
@@ -79,6 +85,10 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
     models: [],
   },
 ];
+
+const VISIBLE_PROVIDER_OPTIONS = import.meta.env.DEV
+  ? PROVIDER_OPTIONS
+  : PROVIDER_OPTIONS.filter((o) => !o.devOnly);
 
 /** Derive the provider from a model preference string (best-effort). */
 function inferProvider(modelPref: string): string {
@@ -162,7 +172,7 @@ export function EmployeeEditorDialog({
             <TabsTrigger value="config" className="flex-1">
               Config
             </TabsTrigger>
-            {isEditMode && (
+            {import.meta.env.DEV && isEditMode && (
               <TabsTrigger value="test" className="flex-1">
                 <MessageSquare className="h-3.5 w-3.5 mr-1" />
                 Test
@@ -341,7 +351,7 @@ export function EmployeeEditorDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROVIDER_OPTIONS.map((opt) => (
+                    {VISIBLE_PROVIDER_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
@@ -442,8 +452,8 @@ export function EmployeeEditorDialog({
             </div>
           </TabsContent>
 
-          {/* Test Chat Tab (edit mode only) */}
-          {isEditMode && employeeId && (
+          {/* Test Chat Tab — dev-only, bypasses runtime pipeline (AI Runtime Policy) */}
+          {import.meta.env.DEV && isEditMode && employeeId && (
             <TabsContent value="test" className="flex-1 overflow-y-auto min-h-0">
               <TestChatTab formData={formData} employeeName={formData.name} />
             </TabsContent>

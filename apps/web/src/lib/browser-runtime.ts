@@ -27,10 +27,12 @@ import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
+import { isProductionProvider } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
@@ -116,6 +118,13 @@ export async function createBrowserRuntime(
   eventBus: InMemoryEventBus,
   companyId: string,
 ): Promise<RuntimeBundle> {
+  if (!isProductionProvider(config.provider)) {
+    throw new Error(
+      `Provider "${config.provider}" is not allowed in production runtime. ` +
+        'Only self-developed transport adapters (e.g. "subscription") are valid production providers.',
+    );
+  }
+
   const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
@@ -167,9 +176,18 @@ export async function createBrowserRuntime(
     companyId,
     threadId,
   );
+  const systemCaller = new RecordedSystemLlmCaller({
+    llmGateway: gateway,
+    llmCalls: repos.llmCalls,
+    eventBus,
+    companyId,
+    threadId,
+  });
+
   const memoryService = runtimePolicy.memory.enabled
     ? new MemoryService(repos.memories, gateway, eventBus, {
         policy: runtimePolicy.memory,
+        systemCaller,
       })
     : undefined;
 
@@ -183,6 +201,7 @@ export async function createBrowserRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    systemCaller,
   });
 
   const installService = new InstallService({

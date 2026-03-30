@@ -1,9 +1,13 @@
-import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk } from '@offisim/core/browser';
+/**
+ * Desktop runtime secret storage — neutral keyring capability.
+ *
+ * Provides local secret storage for self-developed transport adapters.
+ * Does NOT provide vendor-direct gateway creation (removed per AI Runtime Policy).
+ */
 import { isTauri } from './env';
-import type { ProviderConfig } from './provider-config';
 
-export interface ProviderSecretStatus {
-  hasApiKey: boolean;
+export interface RuntimeSecretStatus {
+  hasSecret: boolean;
 }
 
 async function invokeDesktop<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -13,59 +17,33 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
   return invoke<T>(command, args);
 }
 
-export async function getProviderSecretStatus(): Promise<ProviderSecretStatus> {
-  if (!isTauri()) return { hasApiKey: false };
-  return invokeDesktop<ProviderSecretStatus>('provider_secret_status');
+export async function getRuntimeSecretStatus(): Promise<RuntimeSecretStatus> {
+  if (!isTauri()) return { hasSecret: false };
+  return invokeDesktop<RuntimeSecretStatus>('runtime_secret_status');
 }
 
-export async function setProviderSecret(apiKey: string): Promise<void> {
+export async function setRuntimeSecret(secret: string): Promise<void> {
   if (!isTauri()) return;
-  await invokeDesktop('provider_secret_set', { apiKey });
+  await invokeDesktop('runtime_secret_set', { secret });
 }
 
-export async function clearProviderSecret(): Promise<void> {
+export async function clearRuntimeSecret(): Promise<void> {
   if (!isTauri()) return;
-  await invokeDesktop('provider_secret_clear');
+  await invokeDesktop('runtime_secret_clear');
 }
 
-interface DesktopProviderChatRequest {
-  provider: ProviderConfig['provider'];
-  baseURL?: string;
-  defaultHeaders?: Record<string, string>;
-  llmRequest: LlmRequest;
-}
+// ---------------------------------------------------------------------------
+// Backwards-compatible aliases (deprecated — migrate callers to new names)
+// ---------------------------------------------------------------------------
 
-export function createDesktopProviderGateway(config: ProviderConfig): LlmGateway {
-  const chat = async (request: LlmRequest): Promise<LlmResponse> => {
-    if (!isTauri()) {
-      throw new Error('Desktop provider gateway requires a Tauri runtime.');
-    }
+/** @deprecated Use `getRuntimeSecretStatus()` instead. */
+export const getProviderSecretStatus = async () => {
+  const status = await getRuntimeSecretStatus();
+  return { hasApiKey: status.hasSecret };
+};
 
-    return invokeDesktop<LlmResponse>('provider_chat', {
-      request: {
-        provider: config.provider,
-        baseURL: config.baseURL,
-        defaultHeaders: config.defaultHeaders,
-        llmRequest: request,
-      } satisfies DesktopProviderChatRequest,
-    });
-  };
+/** @deprecated Use `setRuntimeSecret()` instead. */
+export const setProviderSecret = setRuntimeSecret;
 
-  return {
-    chat,
-    async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
-      const response = await chat(request);
-      if (response.content) {
-        yield { content: response.content, done: false };
-      }
-      yield {
-        toolCalls: response.toolCalls,
-        usage: response.usage,
-        done: true,
-      };
-    },
-    dispose() {
-      // Stateless desktop provider bridge.
-    },
-  };
-}
+/** @deprecated Use `clearRuntimeSecret()` instead. */
+export const clearProviderSecret = clearRuntimeSecret;

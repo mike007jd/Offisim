@@ -1,7 +1,8 @@
 import type { EventBus } from '../events/event-bus.js';
 import { memoryCreated } from '../events/event-factories.js';
-import type { LlmGateway } from '../llm/gateway.js';
+import type { LlmGateway, LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
+import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { AgentEventRepository, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
@@ -37,12 +38,17 @@ Events:
  * This closes the "write-only" loop: events → experience → PM reads → better plans.
  */
 export class EventConsolidator {
+  private readonly systemCaller: RecordedSystemLlmCaller | null;
+
   constructor(
     private readonly agentEvents: AgentEventRepository,
     private readonly memoryRepo: MemoryRepository,
     private readonly llmGateway: LlmGateway,
     private readonly eventBus: EventBus,
-  ) {}
+    systemCaller?: RecordedSystemLlmCaller,
+  ) {
+    this.systemCaller = systemCaller ?? null;
+  }
 
   /**
    * Consolidate recent events for a thread into an experience summary.
@@ -79,12 +85,15 @@ export class EventConsolidator {
         { role: 'system', content: CONSOLIDATE_PROMPT + eventsText },
         { role: 'user', content: `Summarize the execution experience${projectLabel}.` },
       ]);
-      const response = await this.llmGateway.chat({
+      const chatRequest: LlmRequest = {
         messages,
         model: 'default',
         temperature: 0.3,
         maxTokens: 512,
-      });
+      };
+      const response = this.systemCaller
+        ? await this.systemCaller.chat('event_consolidation', chatRequest)
+        : await this.llmGateway.chat(chatRequest);
       rawResponse = response.content;
     } catch (err) {
       logger.error('Consolidation LLM call failed', err);

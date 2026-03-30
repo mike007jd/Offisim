@@ -3,6 +3,7 @@ import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelRegistry } from '../llm/model-registry.js';
+import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { MemoryService } from '../services/memory-service.js';
@@ -37,6 +38,8 @@ export interface RuntimeContext {
   readonly middlewareChain?: LlmMiddlewareChain;
   /** Config-driven model catalog. Registry owns gateway lifecycle for registered models. */
   readonly modelRegistry?: ModelRegistry;
+  /** Recorded caller for system services — provides audit trail for background LLM calls. */
+  readonly systemCaller?: RecordedSystemLlmCaller;
 }
 
 export interface DisposableRuntime {

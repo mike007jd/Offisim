@@ -5,8 +5,9 @@ import { Logger } from './logger.js';
 
 const logger = new Logger('memory');
 import { memoryCreated } from '../events/event-factories.js';
-import type { LlmGateway } from '../llm/gateway.js';
+import type { LlmGateway, LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
+import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
@@ -50,6 +51,8 @@ export class MemoryService {
   private readonly queue: MemoryUpdateQueueService;
   private readonly policy: RuntimeMemoryPolicy;
 
+  private readonly systemCaller: RecordedSystemLlmCaller | null;
+
   constructor(
     private readonly memoryRepo: MemoryRepository,
     private readonly llmGateway: LlmGateway,
@@ -57,8 +60,10 @@ export class MemoryService {
     options?: {
       queue?: MemoryUpdateQueueService;
       policy?: RuntimeMemoryPolicy;
+      systemCaller?: RecordedSystemLlmCaller;
     },
   ) {
+    this.systemCaller = options?.systemCaller ?? null;
     this.queue = options?.queue ?? new MemoryUpdateQueueService();
     this.policy = options?.policy ?? {
       enabled: true,
@@ -225,13 +230,16 @@ export class MemoryService {
           { role: 'system', content: REFLECT_PROMPT + taskContent },
           { role: 'user', content: 'Extract memories from the task above.' },
         ]);
-        const response = await this.llmGateway.chat({
+        const chatRequest: LlmRequest = {
           messages,
           model: 'default',
           temperature: 0.3,
           maxTokens: 1024,
           signal: opts?.signal,
-        });
+        };
+        const response = this.systemCaller
+          ? await this.systemCaller.chat('memory_reflection', chatRequest)
+          : await this.llmGateway.chat(chatRequest);
         rawResponse = response.content;
       } catch (error) {
         logger.error('reflectAndRemember failed', error, { employeeId });

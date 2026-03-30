@@ -88,6 +88,7 @@ export async function bossSummaryNode(
         runtimeCtx.repos.memories,
         runtimeCtx.llmGateway,
         runtimeCtx.eventBus,
+        runtimeCtx.systemCaller,
       );
       consolidator
         .consolidate({

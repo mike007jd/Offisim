@@ -4,8 +4,6 @@ import { MessageSquare, Send, Trash2 } from 'lucide-react';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { EmployeeFormData } from '../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
-import { createDesktopProviderGateway } from '../../lib/desktop-provider-secrets';
-import { isTauri } from '../../lib/env';
 import { loadProviderConfig } from '../../lib/provider-config';
 
 // ---------------------------------------------------------------------------
@@ -40,23 +38,13 @@ async function createTestGateway(): Promise<LlmGateway | null> {
   const config = loadProviderConfig();
   if (!config) return null;
 
-  const isDev = typeof window !== 'undefined' && '__VITE_DEV_SERVER_URL' in window;
   const proxyBaseURL =
-    isDev && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
-  const proxyHeaders =
-    isDev && config.baseURL
-      ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
-      : config.defaultHeaders;
+    config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
+  const proxyHeaders = config.baseURL
+    ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
+    : config.defaultHeaders;
 
-  if (isTauri()) {
-    return createDesktopProviderGateway({
-      ...config,
-      baseURL: config.baseURL,
-      defaultHeaders: config.defaultHeaders,
-    });
-  }
-
-  // Dynamic import keeps LLM SDKs out of the initial bundle
+  // Dynamic import keeps LLM SDKs out of the initial bundle (dev-only component)
   const { createGateway } = await import('@offisim/core');
 
   return createGateway({

@@ -8,6 +8,7 @@ import type {
   RuntimeSummarizationPolicy,
   RuntimeToolSearchPolicy,
 } from '@offisim/shared-types';
+import { isProductionProvider } from '@offisim/shared-types';
 import { isTauri } from './env';
 
 export interface ProviderConfig {
@@ -275,7 +276,18 @@ export function loadProviderConfig(): ProviderConfig | null {
     if (!raw) return null;
     const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return null;
-    if (isTauri() && parsed.provider !== 'subscription') {
+
+    // Warn about legacy vendor-direct configs that are no longer valid for production
+    if (!isProductionProvider(parsed.provider)) {
+      console.warn(
+        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter ` +
+          'and is not allowed in production runtime. Please switch to a self-developed ' +
+          'transport (e.g. "subscription") in Settings.',
+      );
+    }
+
+    if (isTauri() && isProductionProvider(parsed.provider)) {
+      // Self-developed providers use secure transport — strip any stored apiKey
       const { apiKey: _apiKey, ...desktopConfig } = parsed;
       return desktopConfig;
     }
@@ -293,11 +305,11 @@ export function clearProviderConfig(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-/** Build the subscription portion of GatewayConfig from ProviderConfig (shared by all runtimes). */
+/** Build the self-developed transport config from ProviderConfig (shared by all runtimes). */
 export function buildSubscriptionGatewayConfig(
   config: ProviderConfig,
 ): { command?: string; args?: string[] } | undefined {
-  if (config.provider !== 'subscription') return undefined;
+  if (!isProductionProvider(config.provider)) return undefined;
   return {
     command: config.acpCommand ?? 'claude',
     args: config.acpArgs ?? ['acp'],

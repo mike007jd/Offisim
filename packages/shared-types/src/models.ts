@@ -1,5 +1,17 @@
-/** Supported LLM providers */
-export type LlmProvider = 'anthropic' | 'openai' | 'openai-compat' | 'subscription';
+/**
+ * Provider classification for AI Runtime Policy enforcement.
+ *
+ * - SelfDevelopedProvider: Offisim's own transport adapters — valid production paths.
+ * - AdapterOnlyProvider: External vendor adapters — test/adapter-layer only, never production.
+ */
+export type SelfDevelopedProvider = 'subscription';
+export type AdapterOnlyProvider = 'openai' | 'anthropic' | 'openai-compat';
+export type LlmProvider = SelfDevelopedProvider | AdapterOnlyProvider;
+
+/** Returns true if the provider is allowed in production runtime. */
+export function isProductionProvider(provider: LlmProvider): provider is SelfDevelopedProvider {
+  return provider === 'subscription';
+}
 
 /** Abstract model profile — maps to a concrete provider+model */
 export interface ModelProfile {

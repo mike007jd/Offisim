@@ -7,12 +7,13 @@ import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
+import { isProductionProvider } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
-  createDesktopProviderGateway,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office';
@@ -73,24 +74,27 @@ export async function createTauriRuntime(
   eventBus: InMemoryEventBus,
   companyId: string,
 ): Promise<RuntimeBundle> {
+  if (!isProductionProvider(config.provider)) {
+    throw new Error(
+      `Provider "${config.provider}" is not allowed in production runtime. ` +
+        'Only self-developed transport adapters (e.g. "subscription") are valid production providers.',
+    );
+  }
+
   const threadId = `thread-${companyId}`;
   await seedTauriDb();
 
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
 
-  // No proxy needed — tauri-plugin-cors-fetch hooks fetch() transparently
-  const gateway =
-    config.provider === 'subscription'
-      ? createGateway({
-          provider: config.provider,
-          apiKey: '',
-          baseURL: config.baseURL,
-          defaultHeaders: config.defaultHeaders,
-          dangerouslyAllowBrowser: true,
-          subscription: buildSubscriptionGatewayConfig(config),
-        })
-      : createDesktopProviderGateway(config);
+  const gateway = createGateway({
+    provider: config.provider,
+    apiKey: '',
+    baseURL: config.baseURL,
+    defaultHeaders: config.defaultHeaders,
+    dangerouslyAllowBrowser: true,
+    subscription: buildSubscriptionGatewayConfig(config),
+  });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
     config.runtimePolicy,
@@ -127,9 +131,18 @@ export async function createTauriRuntime(
     companyId,
     threadId,
   );
+  const systemCaller = new RecordedSystemLlmCaller({
+    llmGateway: gateway,
+    llmCalls: repos.llmCalls,
+    eventBus,
+    companyId,
+    threadId,
+  });
+
   const memoryService = runtimePolicy.memory.enabled
     ? new MemoryService(repos.memories, gateway, eventBus, {
         policy: runtimePolicy.memory,
+        systemCaller,
       })
     : undefined;
 
@@ -143,6 +156,7 @@ export async function createTauriRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    systemCaller,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)

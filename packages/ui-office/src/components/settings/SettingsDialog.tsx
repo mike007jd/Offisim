@@ -33,7 +33,7 @@ import {
 } from '../../lib/provider-config';
 import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
-import { PROVIDER_PRESETS } from './provider-presets';
+import { PRODUCTION_PRESETS, PROVIDER_PRESETS } from './provider-presets';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -92,6 +92,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   >(undefined);
   const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -125,17 +126,29 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         const match = Object.entries(PROVIDER_PRESETS).find(
           ([, p]) => p.defaults.provider === saved.provider && p.defaults.baseURL === saved.baseURL,
         );
-        if (match) setPreset(match[0]);
-        else setPreset('custom');
+        if (match) {
+          const [matchKey, matchPreset] = match;
+          // In production builds, force-migrate legacy vendor-direct configs
+          if (!import.meta.env.DEV && matchPreset.devOnly) {
+            setPreset('subscription');
+            setSaveError(
+              `已保存的 provider "${matchPreset.label}" 不再是有效的生产配置，已自动切换为订阅制。请重新保存。`,
+            );
+          } else {
+            setPreset(matchKey);
+          }
+        } else {
+          setPreset(import.meta.env.DEV ? 'custom' : 'subscription');
+        }
       } else {
         // Apply default preset values on first open
-        const defaultPreset = PROVIDER_PRESETS.gemini;
-        setPreset('gemini');
+        const defaultPreset = PROVIDER_PRESETS.subscription;
+        setPreset('subscription');
         setBaseURL(defaultPreset?.defaults.baseURL ?? '');
         setModel(defaultPreset?.defaults.model ?? '');
         setDefaultHeaders('');
         const runtimePolicy: RuntimePolicyConfig = createDefaultRuntimePolicy(
-          defaultPreset?.defaults.provider ?? 'openai-compat',
+          defaultPreset?.defaults.provider ?? 'subscription',
           defaultPreset?.defaults.model ?? '',
         );
         setExecutionMode(runtimePolicy.executionMode);
@@ -184,8 +197,6 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
       }));
     }
   }
-
-  const [saveError, setSaveError] = useState('');
 
   async function handleSave() {
     setSaveError('');
@@ -333,9 +344,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
+                    {Object.entries(
+                      import.meta.env.DEV ? PROVIDER_PRESETS : PRODUCTION_PRESETS,
+                    ).map(([key, p]) => (
                       <SelectItem key={key} value={key}>
                         {p.label}
+                        {p.devOnly ? ' (dev)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>

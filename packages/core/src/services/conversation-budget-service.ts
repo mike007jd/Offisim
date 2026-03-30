@@ -135,7 +135,7 @@ export class ConversationBudgetService {
       // Use the boss-role model for synopsis (cheap system-level call).
       // Falls back to whatever the policy default is.
       const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
-      const response = await ctx.llmGateway.chat({
+      const chatRequest: LlmRequest = {
         model: synopsisModel,
         temperature: 0.2,
         maxTokens: 256,
@@ -148,7 +148,10 @@ export class ConversationBudgetService {
               : `Conversation to condense:\n${transcript}`,
           },
         ],
-      });
+      };
+      const response = ctx.systemCaller
+        ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
+        : await ctx.llmGateway.chat(chatRequest);
       summary = this.normalizeSummary(response);
     } catch (error) {
       summary = this.buildHeuristicSummary(existing, sourceMessages);

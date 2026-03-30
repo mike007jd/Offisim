@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import type { LlmGateway } from '../llm/gateway.js';
+import type { LlmGateway, LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
+import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type {
   UserPreferenceCategory,
   UserPreferenceRepository,
@@ -58,12 +59,17 @@ Conversation:
 export class UserMemoryService {
   private pendingExtraction: Promise<void> | null = null;
 
+  private readonly systemCaller: RecordedSystemLlmCaller | null;
+
   constructor(
     private readonly prefRepo: UserPreferenceRepository,
     private readonly llmGateway: LlmGateway,
     /** Model name to use for extraction LLM calls (e.g., 'gpt-4o-mini'). */
     private readonly extractionModel: string = 'gpt-4o-mini',
-  ) {}
+    systemCaller?: RecordedSystemLlmCaller,
+  ) {
+    this.systemCaller = systemCaller ?? null;
+  }
 
   /**
    * Extract user preferences from a completed conversation.
@@ -145,12 +151,15 @@ export class UserMemoryService {
         { maxNonSystemMessages: 4 },
       );
 
-      const response = await this.llmGateway.chat({
+      const chatRequest: LlmRequest = {
         messages,
         model: this.extractionModel,
         temperature: 0.3,
         maxTokens: 500,
-      });
+      };
+      const response = this.systemCaller
+        ? await this.systemCaller.chat('user_memory_extraction', chatRequest)
+        : await this.llmGateway.chat(chatRequest);
 
       const parsed = extractJsonFromLlm(response.content);
       if (!parsed) return;
