@@ -11,6 +11,9 @@ pub enum LauncherError {
     #[error("Port {0} is already in use by another application")]
     PortConflict(u16),
 
+    #[error("Port {0} stayed busy after stopping existing listener(s): {1:?}")]
+    FailedToFreePort(u16, Vec<u32>),
+
     #[error("Platform health check failed after {0}s")]
     PlatformHealthTimeout(u64),
 
@@ -40,6 +43,7 @@ impl From<&LauncherError> for LauncherErrorPayload {
             LauncherError::SpawnFailed(..) => "SPAWN_FAILED",
             LauncherError::ProcessNotFound(_) => "PROCESS_NOT_FOUND",
             LauncherError::PortConflict(_) => "PORT_CONFLICT",
+            LauncherError::FailedToFreePort(..) => "FAILED_TO_FREE_PORT",
             LauncherError::PlatformHealthTimeout(_) => "PLATFORM_HEALTH_TIMEOUT",
             LauncherError::PlatformNotOffisim(_) => "PLATFORM_NOT_OFFISIM",
             LauncherError::NoActiveMode => "NO_ACTIVE_MODE",

@@ -183,29 +183,18 @@ impl LauncherState {
         }
 
         if port_checker::is_port_in_use(PLATFORM_PORT) {
-            match self.check_platform_health().await {
-                Ok(()) => {
-                    let mut procs = self.processes.lock().await;
-                    if !procs.contains_key("platform") {
-                        procs.insert(
-                            "platform".to_string(),
-                            ManagedProcess {
-                                name: "platform".to_string(),
-                                child: None,
-                                status: ProcessStatus::Running,
-                                pid: None,
-                                port: Some(PLATFORM_PORT),
-                                started_at_ms: epoch_ms(),
-                                exit_code: None,
-                                external: true,
-                            },
-                        );
-                    }
-                    return Ok(());
+            let killed_pids = port_checker::terminate_listeners_on_port(PLATFORM_PORT)?;
+
+            let start = std::time::Instant::now();
+            while port_checker::is_port_in_use(PLATFORM_PORT) {
+                if start.elapsed().as_secs() >= KILL_TIMEOUT_SECS {
+                    return Err(if killed_pids.is_empty() {
+                        LauncherError::PortConflict(PLATFORM_PORT)
+                    } else {
+                        LauncherError::FailedToFreePort(PLATFORM_PORT, killed_pids)
+                    });
                 }
-                Err(_) => {
-                    return Err(LauncherError::PlatformNotOffisim(PLATFORM_PORT));
-                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
             }
         }
 
