@@ -572,10 +572,10 @@ export function Office2DPreview({
               height={zone.h}
               rx={3}
               fill={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
-              fillOpacity={isHighlighted ? 0.14 : isDimmed ? 0.02 : isHovered ? 0.08 : 0.04}
+              fillOpacity={isHighlighted ? 0.22 : isDimmed ? 0.02 : isHovered ? 0.08 : 0.04}
               stroke={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
-              strokeWidth={isHighlighted ? 1.5 : isHovered ? 1 : 0.6}
-              strokeOpacity={isHighlighted ? 0.6 : isDimmed ? 0.1 : isHovered ? 0.5 : 0.2}
+              strokeWidth={isHighlighted ? 2 : isHovered ? 1 : 0.6}
+              strokeOpacity={isHighlighted ? 0.7 : isDimmed ? 0.1 : isHovered ? 0.5 : 0.2}
               strokeDasharray={zone.type === 'infra' ? '3 1.5' : 'none'}
               style={{
                 transition: 'fill-opacity 0.3s, stroke-width 0.3s, stroke-opacity 0.3s',
