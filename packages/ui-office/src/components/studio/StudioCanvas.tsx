@@ -412,7 +412,12 @@ function ZoneFloor({
       {/* Zone label pill — clickable to focus/unfocus */}
       <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
         <div
-          onClick={() => (isFocused ? unfocusZone() : focusZone(zone.zoneId))}
+          className="studio-zone-label"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
+            if (isFocused) unfocusZone();
+            else focusZone(zone.zoneId);
+          }}
           style={{
             fontSize: 11,
             fontWeight: 700,
@@ -443,7 +448,12 @@ export interface StudioCanvasProps {
 }
 
 export function StudioCanvas({ children, focusRef }: StudioCanvasProps) {
-  const onPointerMissed = useCallback(() => {
+  const onPointerMissed = useCallback((e: MouseEvent) => {
+    // Html overlay clicks (zone labels) fire as DOM events that miss the R3F scene.
+    // If the click target is inside an Html overlay, don't clear selection.
+    const target = e.target as HTMLElement | null;
+    if (target && target.closest?.('.studio-zone-label')) return;
+
     const s = useStudioStore.getState();
     s.selectInstance(null);
     s.selectZone(null);

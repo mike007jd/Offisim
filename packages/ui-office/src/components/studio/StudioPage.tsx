@@ -379,7 +379,8 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           store.deleteSelected();
           break;
         case 'Escape':
-          if (store.focusedZoneId) store.unfocusZone();
+          if (store.isEditingZone) store.exitEditZone();
+          else if (store.focusedZoneId) store.unfocusZone();
           else if (store.placingZonePreset) store.cancelZonePlacement();
           else if (store.placingPrefab) store.cancelPlacement();
           else if (store.selectedZoneId) store.selectZone(null);
