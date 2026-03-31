@@ -1,6 +1,6 @@
 # Offisim
 
-Offisim is a **local-first, open-source AI company runtime** plus an **official marketplace website** for installable assets.
+Offisim is a **local-first, open-source AI company runtime** plus a **platform/registry backend** for installable assets.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
@@ -20,7 +20,6 @@ Common local entrypoints:
 - Recommended desktop flow: `pnpm --filter @offisim/desktop dev`
 - Browser runtime only: `pnpm --filter @offisim/web dev`
 - Platform API: `pnpm --filter @offisim/platform dev`
-- Marketplace site: `pnpm --filter @offisim/market dev`
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 
@@ -47,12 +46,11 @@ Current application/package shape:
 
 - `apps/web` — Vite + React runtime shell in browser
 - `apps/desktop` — Tauri 2 desktop app (**reference environment**)
-- `apps/market` — public marketplace website (Next.js App Router)
 - `apps/platform` — registry/auth/review/install support API
 - `packages/core` — orchestration kernel and runtime domain logic
 - `packages/renderer` — scene tokens, layout engine, prefab/state logic
 - `packages/ui-office` — office shell and scene views (`Three.js` 3D + `SVG` 2D)
-- `packages/ui-core` / `packages/ui-market` — shared DOM primitives and market UI
+- `packages/ui-core` — shared DOM primitives
 - `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `channels` / `doc-engine` — contracts and support layers
 
 ## Document map

@@ -42,8 +42,6 @@ Important caveat:
 
 - The root `.env.local` is the shared template used by repo tooling such as web Playwright smoke tests.
 - `apps/platform` reads from the shell environment when you run it. Export the variables in your shell before starting it.
-- `apps/market` needs its server-side variables available to Next.js. In practice, keep the values in your shell or mirror them into an app-local env file if you prefer.
-
 Minimum useful variables by surface:
 
 - Desktop or browser runtime with platform-backed install flows:
@@ -53,10 +51,6 @@ Minimum useful variables by surface:
   - `BETTER_AUTH_URL=http://localhost:4100`
   - `BETTER_AUTH_SECRET=<32+ char secret>`
   - Recommended for local multi-app work: `CORS_ORIGINS=http://localhost:3000,http://localhost:5176,http://localhost:1420`
-- Marketplace site:
-  - `NEXT_PUBLIC_PLATFORM_API_URL=http://localhost:4100`
-  - `PLATFORM_API_URL=http://localhost:4100`
-  - Optional: `NEXT_PUBLIC_SITE_URL=http://localhost:3000`
 - LLM-backed smoke tests:
   - one provider key such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENROUTER_API_KEY`
 
@@ -96,18 +90,6 @@ Defaults:
 - Development CORS allowlist: `3000`, `5173`, and `1420` unless overridden
 - Because `apps/web` currently serves on `5176`, set `CORS_ORIGINS` explicitly if you want browser runtime and platform API to talk to each other locally
 
-## Marketplace Site
-
-```bash
-pnpm --filter @offisim/market dev
-```
-
-Defaults:
-
-- Port: `3000`
-- Server-side API base URL comes from `PLATFORM_API_URL`
-- Client-side API base URL comes from `NEXT_PUBLIC_PLATFORM_API_URL`
-
 ## Common Local Setups
 
 ### Desktop Only
@@ -118,13 +100,13 @@ Use when you only want the local runtime shell:
 pnpm --filter @offisim/desktop dev
 ```
 
-### Platform + Market
+### Platform + Runtime
 
-Use when you want the publish/auth/registry flow:
+Use when you want the publish/auth/registry flow plus the local runtime:
 
 ```bash
 pnpm --filter @offisim/platform dev
-pnpm --filter @offisim/market dev
+pnpm --filter @offisim/desktop dev
 ```
 
 ### Full Local Stack
@@ -133,7 +115,6 @@ Use when you want everything available:
 
 ```bash
 pnpm --filter @offisim/platform dev
-pnpm --filter @offisim/market dev
 pnpm --filter @offisim/desktop dev
 ```
 
@@ -151,7 +132,6 @@ pnpm test
 
 - `pnpm` version mismatch: run `corepack enable` and retry.
 - Desktop app fails before opening: confirm Rust/Cargo and Tauri prerequisites are installed.
-- Market loads but API calls fail: check both `PLATFORM_API_URL` and `NEXT_PUBLIC_PLATFORM_API_URL`.
 - Platform starts but auth behaves strangely: confirm `BETTER_AUTH_URL` matches `http://localhost:4100`.
 - Browser or desktop install flows cannot reach the platform: check `VITE_PLATFORM_API_URL`.
 - Postgres connection errors: verify the local DB exists and matches `DATABASE_URL`.

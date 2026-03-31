@@ -76,6 +76,7 @@ export function createRuntimeContext(deps: {
   meetingInterruptBox?: MeetingInterruptBox;
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
+  systemCaller?: RecordedSystemLlmCaller;
 }): RuntimeContext {
   const { meetingInterruptBox, ...rest } = deps;
   return Object.freeze({

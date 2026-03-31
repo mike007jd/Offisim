@@ -10,7 +10,6 @@ Primary stack direction for this repository:
 - TypeScript
 - `apps/web`: Vite + React SPA
 - `apps/desktop`: Tauri 2 desktop shell
-- `apps/market`: Next.js App Router for the public marketplace website only
 - `apps/platform`: Hono + PostgreSQL
 - `packages/core`: LangGraph-based orchestration kernel
 - `packages/renderer`: scene tokens, layout engine, and prefab/state logic
@@ -51,7 +50,6 @@ Do not couple marketplace rendering concerns to office runtime code.
 
 - `apps/web`: browser runtime shell, constrained by browser capabilities
 - `apps/desktop`: full-capability reference environment
-- `apps/market`: public website, SEO pages, creator/listing/version surfaces
 - `apps/platform`: APIs, workers, moderation, publish flow, registry metadata
 
 ### Package responsibilities
@@ -60,7 +58,6 @@ Prefer dedicated packages for clearly different concerns, such as:
 
 - `ui-core`
 - `ui-office`
-- `ui-market`
 - `asset-schema`
 - `install-core`
 - `registry-client`

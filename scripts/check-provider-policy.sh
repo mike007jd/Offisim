@@ -14,7 +14,6 @@ FORBIDDEN_PATTERNS=(
 
 SCAN_DIRS=(
   "apps/web/src"
-  "apps/market/src"
   "packages/ui-office/src"
 )
 
