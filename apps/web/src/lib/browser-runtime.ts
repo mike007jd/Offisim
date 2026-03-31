@@ -9,6 +9,7 @@
 // Browser-safe imports — lightweight, no LLM/graph deps
 import {
   DEFAULT_COST_RATES,
+  MemoryUserPreferenceRepository,
   bindingStateChanged,
   createMemoryRepositories,
   installStateChanged,
@@ -28,11 +29,13 @@ import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-execu
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
+import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
+import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
+import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
-import { isProductionProvider } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
@@ -40,6 +43,7 @@ import {
 } from '@offisim/ui-office';
 import type { ProviderConfig } from '@offisim/ui-office';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
+import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
   loadBrowserRuntimeSnapshot,
@@ -104,6 +108,7 @@ export type RuntimeBundle = {
   installService: InstallService | null;
   mcpToolExecutor: McpToolExecutor | null;
   repos: RuntimeRepositories;
+  userMemoryService?: UserMemoryService;
   dispose?: () => void;
 };
 
@@ -118,12 +123,7 @@ export async function createBrowserRuntime(
   eventBus: InMemoryEventBus,
   companyId: string,
 ): Promise<RuntimeBundle> {
-  if (!isProductionProvider(config.provider)) {
-    throw new Error(
-      `Provider "${config.provider}" is not allowed in production runtime. ` +
-        'Only self-developed transport adapters (e.g. "subscription") are valid production providers.',
-    );
-  }
+  assertBrowserProviderAllowed(config.provider, IS_DEV);
 
   const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
@@ -190,6 +190,11 @@ export async function createBrowserRuntime(
         systemCaller,
       })
     : undefined;
+  const userPrefRepo =
+    repos.userPreferences ?? (repos.userPreferences = new MemoryUserPreferenceRepository());
+  const userMemoryService = new UserMemoryService(userPrefRepo, gateway, 'gpt-4o-mini', systemCaller);
+  const middlewareChain = new LlmMiddlewareChain();
+  middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -201,6 +206,7 @@ export async function createBrowserRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    middlewareChain,
     systemCaller,
   });
 
@@ -228,6 +234,7 @@ export async function createBrowserRuntime(
     installService,
     mcpToolExecutor,
     repos,
+    userMemoryService,
     dispose: persistence.dispose,
   };
 }
@@ -253,6 +260,7 @@ export async function createBrowserRuntimeReposOnly(
     installService: null,
     mcpToolExecutor: null,
     repos,
+    userMemoryService: undefined,
     dispose: persistence.dispose,
   };
 }

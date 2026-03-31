@@ -7,10 +7,10 @@ export interface ValidationResult {
   readonly errors?: readonly { message: string; path: string }[];
 }
 
-// NOTE: strict: false suppresses "unknown format" warnings for "uri" in distribution.source_url.
-// AJV does not validate format keywords by default in 2020-12 (they are annotations, not assertions).
+// NOTE: validateFormats=false keeps "format" as metadata and suppresses noisy
+// "unknown format: uri" warnings for distribution.source_url in local/dev usage.
 // TODO: If strict URI validation is needed later, install `ajv-formats` and call `addFormats(ajv)`.
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
 const validate = ajv.compile(schema);
 
 export function validateManifest(data: unknown): ValidationResult {

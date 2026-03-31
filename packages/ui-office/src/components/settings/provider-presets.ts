@@ -125,6 +125,38 @@ export const PRODUCTION_PRESETS: Record<string, ProviderPreset> = Object.fromEnt
   ),
 );
 
+export const BROWSER_DEV_DEFAULT_PRESET_KEY = 'minimax';
+
+/** Presets for browser dev mode — excludes desktop-only subscription. Pre-computed like PRODUCTION_PRESETS. */
+export const BROWSER_DEV_PRESETS: Record<string, ProviderPreset> = Object.fromEntries(
+  Object.entries(PROVIDER_PRESETS).filter(([key]) => key !== 'subscription'),
+);
+
+/** Browser production does not expose runtime provider configuration. */
+export const BROWSER_PROD_PRESETS: Record<string, ProviderPreset> = {};
+
+export function getAvailableProviderPresets(options: {
+  dev: boolean;
+  tauri: boolean;
+}): Record<string, ProviderPreset> {
+  if (!options.tauri && !options.dev) return BROWSER_PROD_PRESETS;
+  if (!options.dev) return PRODUCTION_PRESETS;
+  return options.tauri ? PROVIDER_PRESETS : BROWSER_DEV_PRESETS;
+}
+
+export function getDefaultProviderPresetKey(options: {
+  dev: boolean;
+  tauri: boolean;
+}): keyof typeof PROVIDER_PRESETS | null {
+  if (!options.tauri && !options.dev) {
+    return null;
+  }
+  if (options.dev && !options.tauri) {
+    return BROWSER_DEV_DEFAULT_PRESET_KEY;
+  }
+  return 'subscription';
+}
+
 /** @deprecated Use PRODUCTION_PRESETS instead. */
 export const getProductionPresets = (): Record<string, ProviderPreset> => PRODUCTION_PRESETS;
 

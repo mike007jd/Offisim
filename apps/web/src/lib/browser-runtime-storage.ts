@@ -10,6 +10,7 @@ const SAVE_INTERVAL_MS = 5000;
 const MAX_EVENT_HISTORY = 200;
 const EVENT_PREFIXES = [
   'graph.node.',
+  'meeting.',
   'plan.',
   'task.',
   'deliverable.',

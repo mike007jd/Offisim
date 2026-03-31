@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AnthropicAdapter } from '../../llm/anthropic-adapter.js';
-import { createGateway } from '../../llm/gateway-factory.js';
+import { createGateway, shouldRejectSubscriptionInRenderer } from '../../llm/gateway-factory.js';
 import { OpenAiAdapter } from '../../llm/openai-adapter.js';
 
 describe('createGateway', () => {
@@ -65,5 +65,15 @@ describe('createGateway', () => {
     expect(client?._options?.defaultHeaders).toEqual({
       'X-LLM-Base-URL': 'https://api.minimax.io/anthropic',
     });
+  });
+
+  it('allows subscription in a trusted desktop renderer', () => {
+    expect(shouldRejectSubscriptionInRenderer(true, true)).toBe(false);
+  });
+
+  it('still rejects subscription in an untrusted browser renderer', () => {
+    expect(shouldRejectSubscriptionInRenderer(true, false)).toBe(true);
+    expect(shouldRejectSubscriptionInRenderer(true, undefined)).toBe(true);
+    expect(shouldRejectSubscriptionInRenderer(false, false)).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import type {
 } from '@offisim/shared-types';
 import type { ZoneRepository, NewZone } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
+import { MemoryUserPreferenceRepository } from '../repositories/memory-user-preference-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
 import type { MemoryInstallRepositoriesSnapshot } from './memory-install-repos.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
@@ -76,6 +77,7 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
+  UserPreferenceRow,
   WorkstationRackRepository,
   WorkstationRackRow,
 } from './repositories.js';
@@ -101,6 +103,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   events: NewRuntimeEvent[];
   llmCalls: LlmCallRow[];
   memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
+  userPreferences: UserPreferenceRow[];
   mcpAudit: McpAuditRow[];
   employeeVersions: EmployeeVersionRow[];
   costRates: ModelCostRateRow[];
@@ -413,6 +416,7 @@ export function createMemoryRepositories(
   };
 
   const memories = new InMemoryMemoryRepository(snapshot?.memories);
+  const userPreferences = new MemoryUserPreferenceRepository(snapshot?.userPreferences);
 
   const installRepos = createMemoryInstallRepositories(snapshot);
 
@@ -444,6 +448,7 @@ export function createMemoryRepositories(
     events,
     llmCalls,
     memories,
+    userPreferences,
     mcpAudit,
     employeeVersions,
     costRates,
@@ -474,6 +479,7 @@ export function createMemoryRepositories(
         events: cloneRows(eventsStore),
         llmCalls: cloneRows(llmCallsMap.values()),
         memories: memories.snapshot(),
+        userPreferences: userPreferences.snapshot(),
         mcpAudit: mcpAudit.snapshot(),
         employeeVersions: employeeVersions.snapshot(),
         costRates: costRates.snapshot(),

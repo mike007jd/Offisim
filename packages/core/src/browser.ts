@@ -74,6 +74,8 @@ export type {
   NewOfficeLayout,
   OfficeLayoutRepository,
   ProjectRepository,
+  UserPreferenceRepository,
+  UserPreferenceRow,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -178,6 +180,7 @@ export {
 } from './runtime/memory-repositories.js';
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
+export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';
 export type { MemoryInstallRepositoriesSnapshot } from './runtime/memory-install-repos.js';
 export {

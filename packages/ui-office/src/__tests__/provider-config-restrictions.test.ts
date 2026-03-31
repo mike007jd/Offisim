@@ -4,7 +4,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { isProductionProvider } from '@offisim/shared-types';
-import { PROVIDER_PRESETS, getProductionPresets } from '../components/settings/provider-presets';
+import {
+  BROWSER_DEV_DEFAULT_PRESET_KEY,
+  BROWSER_DEV_PRESETS,
+  BROWSER_PROD_PRESETS,
+  PROVIDER_PRESETS,
+  getAvailableProviderPresets,
+  getDefaultProviderPresetKey,
+  getProductionPresets,
+} from '../components/settings/provider-presets';
 
 describe('AI Runtime Policy — provider config restrictions', () => {
   it('getProductionPresets() only returns self-developed providers', () => {
@@ -31,6 +39,25 @@ describe('AI Runtime Policy — provider config restrictions', () => {
 
   it('subscription preset is NOT devOnly', () => {
     expect(PROVIDER_PRESETS.subscription.devOnly).toBeFalsy();
+  });
+
+  it('browser dev presets exclude desktop-only subscription', () => {
+    expect(BROWSER_DEV_PRESETS.subscription).toBeUndefined();
+    expect(BROWSER_DEV_PRESETS.minimax).toBeDefined();
+  });
+
+  it('browser dev catalog and default preset are vendor-adapter only', () => {
+    const browserDevPresets = getAvailableProviderPresets({ dev: true, tauri: false });
+    expect(browserDevPresets.subscription).toBeUndefined();
+    expect(getDefaultProviderPresetKey({ dev: true, tauri: false })).toBe(
+      BROWSER_DEV_DEFAULT_PRESET_KEY,
+    );
+  });
+
+  it('browser production exposes no provider presets and no default preset', () => {
+    expect(BROWSER_PROD_PRESETS).toEqual({});
+    expect(getAvailableProviderPresets({ dev: false, tauri: false })).toEqual({});
+    expect(getDefaultProviderPresetKey({ dev: false, tauri: false })).toBeNull();
   });
 
   it('createDesktopProviderGateway is not exported from desktop-provider-secrets', async () => {

@@ -26,7 +26,11 @@ export interface OffisimRuntimeValue {
   error: string | null;
   sendMessage: (
     text: string,
-    options?: { targetEmployeeId?: string; threadId?: string },
+    options?: {
+      targetEmployeeId?: string;
+      threadId?: string;
+      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+    },
   ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;
   clearError: () => void;

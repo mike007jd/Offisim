@@ -4,6 +4,67 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+const uiOfficeSrc = path.resolve(__dirname, '../../packages/ui-office/src');
+
+/**
+ * Dev-mode aliases: resolve @offisim/ui-office imports to source (.ts/.tsx) instead of
+ * compiled dist, enabling HMR without rebuilding the package.
+ *
+ * SYNC: This list must mirror the `exports` field in packages/ui-office/package.json.
+ * When adding a new subpath export there, add a matching alias here.
+ *
+ * Only active during `vite dev` (command === 'serve'). Production builds resolve
+ * through node_modules, which requires ui-office to be built first (turbo handles this).
+ */
+function createUiOfficeAliases() {
+  return [
+    {
+      find: /^@offisim\/ui-office$/,
+      replacement: path.resolve(uiOfficeSrc, 'index.ts'),
+    },
+    {
+      find: /^@offisim\/ui-office\/scene$/,
+      replacement: path.resolve(uiOfficeSrc, 'scene.ts'),
+    },
+    {
+      find: /^@offisim\/ui-office\/wizard$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/onboarding/CompanyCreationWizard.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/dashboard$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/dashboard/DashboardOverlay.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/employee-creator$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/employees/EmployeeCreatorOverlay.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/office-editor$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/office/OfficeEditorOverlay.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/settings$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/settings/SettingsDialog.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/company-editor$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/company/CompanyEditor.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/install$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/install/InstallDialog.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/studio$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/studio/StudioPage.tsx'),
+    },
+    {
+      find: /^@offisim\/ui-office\/kanban$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/kanban/index.ts'),
+    },
+  ];
+}
+
 /**
  * Vite config for apps/web — browser SPA.
  *
@@ -13,7 +74,7 @@ import { defineConfig } from 'vite';
  * 3. Pre-bundle @offisim/core so CJS transitive deps get ESM conversion
  * 4. LLM proxy middleware to avoid CORS during development
  */
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tailwindcss(),
     react(),
@@ -126,6 +187,7 @@ export default defineConfig({
   },
   resolve: {
     alias: [
+      ...(command === 'serve' ? createUiOfficeAliases() : []),
       {
         find: 'node:async_hooks',
         replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
@@ -233,4 +295,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

@@ -75,12 +75,17 @@ export class OrchestrationService {
    * Resume a paused meeting.
    * Re-invokes the graph with the paused meeting's ID and a resume signal.
    */
-  async resumeMeeting(meetingId: string, messages: BaseMessage[]): Promise<OffisimGraphState> {
+  async resumeMeeting(
+    meetingId: string,
+    messages: BaseMessage[],
+    threadId?: string,
+  ): Promise<OffisimGraphState> {
     return this.execute({
       entryMode: 'meeting',
       messages,
       meetingId,
       meetingInterrupt: { type: null }, // null type = resume
+      threadId,
     });
   }
 
@@ -88,12 +93,17 @@ export class OrchestrationService {
    * End a paused meeting.
    * Re-invokes the graph with the paused meeting's ID and an end signal.
    */
-  async endPausedMeeting(meetingId: string, messages: BaseMessage[]): Promise<OffisimGraphState> {
+  async endPausedMeeting(
+    meetingId: string,
+    messages: BaseMessage[],
+    threadId?: string,
+  ): Promise<OffisimGraphState> {
     return this.execute({
       entryMode: 'meeting',
       messages,
       meetingId,
       meetingInterrupt: { type: 'end' },
+      threadId,
     });
   }
 

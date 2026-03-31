@@ -122,10 +122,10 @@ describe('routeFromStart', () => {
     ).toBe('meeting_resume');
   });
 
-  it('meeting without meetingId → boss (condition not met)', () => {
+  it('meeting without meetingId → meeting_start', () => {
     expect(
       routeFromStart(makeState({ entryMode: 'meeting', meetingId: null, meetingInterrupt: null })),
-    ).toBe('boss');
+    ).toBe('meeting_start');
   });
 });
 

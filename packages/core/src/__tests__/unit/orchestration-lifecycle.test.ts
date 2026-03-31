@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { OffisimGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
@@ -151,5 +151,47 @@ describe('OrchestrationService lifecycle', () => {
     );
     expect(errorResult).toBeDefined();
     expect(errorResult?.value.error.message).toContain('queued requests');
+  });
+
+  it('resumeMeeting forwards the originating thread when provided', async () => {
+    const { graph } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const orch = new OrchestrationService(graph, runtimeCtx);
+    const executeSpy = vi.spyOn(orch, 'execute').mockResolvedValue({} as OffisimGraphState);
+
+    await (orch as OrchestrationService & {
+      resumeMeeting(meetingId: string, messages: [], threadId: string): Promise<OffisimGraphState>;
+    }).resumeMeeting('mtg-1', [], 'thread-project-1');
+
+    expect(executeSpy).toHaveBeenCalledWith({
+      entryMode: 'meeting',
+      messages: [],
+      meetingId: 'mtg-1',
+      meetingInterrupt: { type: null },
+      threadId: 'thread-project-1',
+    });
+  });
+
+  it('endPausedMeeting forwards the originating thread when provided', async () => {
+    const { graph } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const orch = new OrchestrationService(graph, runtimeCtx);
+    const executeSpy = vi.spyOn(orch, 'execute').mockResolvedValue({} as OffisimGraphState);
+
+    await (orch as OrchestrationService & {
+      endPausedMeeting(
+        meetingId: string,
+        messages: [],
+        threadId: string,
+      ): Promise<OffisimGraphState>;
+    }).endPausedMeeting('mtg-1', [], 'thread-project-1');
+
+    expect(executeSpy).toHaveBeenCalledWith({
+      entryMode: 'meeting',
+      messages: [],
+      meetingId: 'mtg-1',
+      meetingInterrupt: { type: 'end' },
+      threadId: 'thread-project-1',
+    });
   });
 });

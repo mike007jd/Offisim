@@ -20,6 +20,13 @@ export interface GatewayConfig {
   subscription?: SubscriptionAdapterOptions;
 }
 
+export function shouldRejectSubscriptionInRenderer(
+  hasWindow: boolean,
+  dangerouslyAllowBrowser?: boolean,
+): boolean {
+  return hasWindow && !dangerouslyAllowBrowser;
+}
+
 /**
  * Create an LlmGateway instance from a provider config.
  *
@@ -52,10 +59,27 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
       });
     case 'subscription': {
+      if (
+        shouldRejectSubscriptionInRenderer(
+          typeof globalThis.window !== 'undefined',
+          config.dangerouslyAllowBrowser,
+        )
+      ) {
+        throw new Error(
+          'Provider "subscription" requires Node.js (child_process) and cannot run in the browser. ' +
+            'Use assertBrowserProviderAllowed() to guard before calling createGateway().',
+        );
+      }
       // Dynamic require — keeps node:child_process out of browser bundles.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       type SubscriptionModule = typeof import('./subscription-adapter.js');
-      const subscriptionModule: SubscriptionModule = require('./subscription-adapter.js');
+      let subscriptionModule: SubscriptionModule;
+      try {
+        subscriptionModule = require('./subscription-adapter.js');
+      } catch {
+        // Vitest executes the TS sources directly, so the .ts path exists before build output.
+        subscriptionModule = require('./subscription-adapter.ts') as SubscriptionModule;
+      }
       const { SubscriptionAdapter } = subscriptionModule;
       return new SubscriptionAdapter(config.subscription);
     }

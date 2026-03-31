@@ -44,6 +44,9 @@ export function routeFromStart(state: OffisimGraphState): string {
   if (state.entryMode === 'direct_chat' && state.targetEmployeeId) {
     return 'employee_direct_setup';
   }
+  if (state.entryMode === 'meeting' && !state.meetingId) {
+    return 'meeting_start';
+  }
   // Resume a paused meeting — meetingId present + meetingInterrupt indicates resume/end
   if (state.entryMode === 'meeting' && state.meetingId && state.meetingInterrupt) {
     if (state.meetingInterrupt.type === 'end') {
@@ -308,6 +311,7 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
     .addConditionalEdges('__start__', routeFromStart, [
       'boss',
       'employee_direct_setup',
+      'meeting_start',
       'meeting_resume',
       'meeting_end',
       'pm_heartbeat',

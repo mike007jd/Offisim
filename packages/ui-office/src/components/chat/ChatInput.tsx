@@ -64,7 +64,10 @@ function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string
 // ── ChatInput props ─────────────────────────────────────────────────
 
 export interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (
+    message: string,
+    options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
+  ) => void;
   disabled?: boolean;
   placeholder?: string;
   agents?: Map<string, AgentState>;
@@ -210,7 +213,7 @@ export function ChatInput({
       const args = trimmed.slice(cmdName.length).trim();
       const transformed = transformSlashToMessage(cmdName, args);
       if (transformed) {
-        onSend(transformed);
+        onSend(transformed, cmdName === '/meeting' ? { entryMode: 'meeting' } : undefined);
         setText('');
         return;
       }

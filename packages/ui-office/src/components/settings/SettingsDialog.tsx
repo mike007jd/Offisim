@@ -33,7 +33,11 @@ import {
 } from '../../lib/provider-config';
 import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
-import { PRODUCTION_PRESETS, PROVIDER_PRESETS } from './provider-presets';
+import {
+  getAvailableProviderPresets,
+  getDefaultProviderPresetKey,
+  PROVIDER_PRESETS,
+} from './provider-presets';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -44,6 +48,12 @@ interface SettingsDialogProps {
 }
 
 const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
+
+const IS_DESKTOP = isTauri();
+const IS_DEV = import.meta.env.DEV;
+const IS_BROWSER_PROD = !IS_DESKTOP && !IS_DEV;
+const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ dev: IS_DEV, tauri: IS_DESKTOP });
+const AVAILABLE_PRESETS = getAvailableProviderPresets({ dev: IS_DEV, tauri: IS_DESKTOP });
 
 function parsePositiveInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -61,7 +71,7 @@ function parseConfidence(value: string, fallback: number): number {
 }
 
 export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
-  const [preset, setPreset] = useState('subscription');
+  const [preset, setPreset] = useState(DEFAULT_PRESET_KEY ?? '');
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [model, setModel] = useState('');
@@ -129,26 +139,34 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         if (match) {
           const [matchKey, matchPreset] = match;
           // In production builds, force-migrate legacy vendor-direct configs
-          if (!import.meta.env.DEV && matchPreset.devOnly) {
+          if (IS_BROWSER_PROD) {
+            setPreset('');
+            setSaveError(
+              `浏览器版不支持 AI provider 配置。当前已保存的 provider "${matchPreset.label}" 不会在浏览器版启用。`,
+            );
+          } else if (!IS_DEV && matchPreset.devOnly) {
             setPreset('subscription');
             setSaveError(
               `已保存的 provider "${matchPreset.label}" 不再是有效的生产配置，已自动切换为订阅制。请重新保存。`,
             );
+          } else if (IS_DEV && !IS_DESKTOP && matchKey === 'subscription') {
+            setPreset(DEFAULT_PRESET_KEY ?? '');
+            setSaveError('订阅制 (Subscription) 仅支持桌面版。已自动切换为 MiniMax，请重新保存。');
           } else {
             setPreset(matchKey);
           }
         } else {
-          setPreset(import.meta.env.DEV ? 'custom' : 'subscription');
+          setPreset(DEFAULT_PRESET_KEY ?? '');
         }
       } else {
         // Apply default preset values on first open
-        const defaultPreset = PROVIDER_PRESETS.subscription;
-        setPreset('subscription');
+        const defaultPreset = DEFAULT_PRESET_KEY ? PROVIDER_PRESETS[DEFAULT_PRESET_KEY] : undefined;
+        setPreset(DEFAULT_PRESET_KEY ?? '');
         setBaseURL(defaultPreset?.defaults.baseURL ?? '');
         setModel(defaultPreset?.defaults.model ?? '');
         setDefaultHeaders('');
         const runtimePolicy: RuntimePolicyConfig = createDefaultRuntimePolicy(
-          defaultPreset?.defaults.provider ?? 'subscription',
+          defaultPreset?.defaults.provider ?? 'openai-compat',
           defaultPreset?.defaults.model ?? '',
         );
         setExecutionMode(runtimePolicy.executionMode);
@@ -164,7 +182,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
       }
 
-      if (isTauri()) {
+      if (IS_DESKTOP) {
         try {
           const status = await getRuntimeSecretStatus();
           if (!cancelled) setHasStoredSecret(status.hasSecret);
@@ -201,6 +219,10 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   async function handleSave() {
     setSaveError('');
     try {
+      if (IS_BROWSER_PROD) {
+        setSaveError('浏览器版不支持保存 AI provider 配置。请使用桌面版。');
+        return;
+      }
       setIsSaving(true);
       const p = PROVIDER_PRESETS[preset];
       const effectiveBaseURL = baseURL || p?.defaults.baseURL;
@@ -300,11 +322,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
   const isSubscription = preset === 'subscription';
   const showBaseURL =
-    preset === 'custom' ||
-    preset === 'kimi' ||
-    preset === 'openrouter' ||
-    preset === 'minimax' ||
-    preset === 'deepseek';
+    preset === 'custom' || PROVIDER_PRESETS[preset]?.defaults.baseURL !== undefined;
   const selectedPreset = PROVIDER_PRESETS[preset];
   const isThinkingProvider = selectedPreset?.hasThinking === true;
 
@@ -335,28 +353,38 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
           <TabsContent value="provider" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
-              <div>
-                <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
-                  Provider
-                </label>
-                <Select value={preset} onValueChange={handlePresetChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(
-                      import.meta.env.DEV ? PROVIDER_PRESETS : PRODUCTION_PRESETS,
-                    ).map(([key, p]) => (
-                      <SelectItem key={key} value={key}>
-                        {p.label}
-                        {p.devOnly ? ' (dev)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {IS_BROWSER_PROD && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                  <p className="text-xs text-amber-300 font-medium mb-1">浏览器版功能受限</p>
+                  <p className="text-[10px] text-slate-400">
+                    AI 运行时仅在桌面版（Offisim Desktop）中可用。浏览器版可用于公司管理和办公室编辑，
+                    但不支持 AI 对话功能。请下载桌面版以获得完整体验。
+                  </p>
+                </div>
+              )}
 
-              {isSubscription ? (
+              {!IS_BROWSER_PROD && (
+                <div>
+                  <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
+                    Provider
+                  </label>
+                  <Select value={preset} onValueChange={handlePresetChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(AVAILABLE_PRESETS).map(([key, p]) => (
+                        <SelectItem key={key} value={key}>
+                          {p.label}
+                          {p.devOnly ? ' (dev)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {!IS_BROWSER_PROD && (isSubscription ? (
                 <>
                   <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
                     <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
@@ -398,9 +426,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     </p>
                   )}
                 </div>
-              )}
+              ))}
 
-              {showBaseURL && (
+              {!IS_BROWSER_PROD && showBaseURL && (
                 <div>
                   <label htmlFor="settings-base-url" className="text-sm text-shell mb-1 block">
                     Base URL
@@ -417,7 +445,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </div>
               )}
 
-              {!isSubscription && (
+              {!IS_BROWSER_PROD && !isSubscription && (
                 <div>
                   <label htmlFor="settings-model" className="text-sm text-shell mb-1 block">
                     Model
@@ -439,7 +467,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </div>
               )}
 
-              {isThinkingProvider && (
+              {!IS_BROWSER_PROD && isThinkingProvider && (
                 <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
                   此提供商的模型会返回 thinking 块，消耗 max_tokens 预算。建议员工的 Max
                   Tokens 设置 ≥ 1024，否则 thinking 可能耗尽配额导致回复为空。
@@ -447,12 +475,14 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               )}
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
-              <Button
-                onClick={() => void handleSave()}
-                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
-              >
-                {isSaving ? 'Saving…' : 'Save Configuration'}
-              </Button>
+              {!IS_BROWSER_PROD && (
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
+                >
+                  {isSaving ? 'Saving…' : 'Save Configuration'}
+                </Button>
+              )}
             </div>
           </TabsContent>
 

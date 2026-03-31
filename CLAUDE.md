@@ -1,5 +1,72 @@
 # CLAUDE.md
 
+## Quick Start
+
+```bash
+pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
+pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
+pnpm test             # 全量测试 (vitest, ~1100+ tests)
+pnpm typecheck        # 全量类型检查 (28 packages)
+pnpm lint             # Biome check
+pnpm lint:fix         # Biome auto-fix
+pnpm check:provider-policy  # CI guard: 扫描生产代码中的 vendor-direct 用法
+```
+
+单包操作:
+```bash
+pnpm --filter @offisim/core test        # 跑单包测试
+pnpm --filter @offisim/core build       # 构建单包
+cd apps/web && pnpm dev                 # 启动 web SPA (port 5176)
+cd apps/platform && pnpm dev            # 启动 platform API (port 4100)
+```
+
+## Monorepo Structure
+
+```
+packages/
+  shared-types    — 零依赖类型包, 所有包的基础
+  core            — LangGraph kernel, agents, services, repos (Node.js)
+  renderer        — 纯逻辑层: tokens, layout engine, prefab catalog
+  ui-office       — Office UI 组件 (React 19, 依赖 core + shared-types)
+  ui-core         — 共享 UI 原子组件
+  db-local        — Drizzle + SQLite (桌面本地存储)
+  db-platform     — Drizzle + PostgreSQL (平台数据库)
+  doc-engine      — 文档导出 (docx/pdf/pptx/csv/html/txt)
+  install-core    — 安装状态机 + planner + materializer
+  asset-schema    — Manifest 校验 (AJV)
+  registry-client — Marketplace API 客户端
+  channels        — 通信渠道抽象
+apps/
+  web             — Vite + React 19 SPA (浏览器版)
+  desktop         — Tauri 2 桌面应用
+  platform        — Hono API 服务端
+  launcher        — Tauri launcher
+```
+
+构建顺序: `shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps`
+Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
+
+## Code Style
+
+- Biome: 2-space indent, single quotes, trailing commas, semicolons, 100 char line width
+- TypeScript strict mode (`noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`)
+- ESM (`"module": "ESNext"`, `"moduleResolution": "bundler"`)
+- 测试: vitest, `__tests__/` 目录, `.test.ts` 后缀
+- 不写不必要的注释和 docstring — 代码自解释
+
+## Gotchas
+
+- `@offisim/core` 有 browser subpath (`@offisim/core/browser`) — 浏览器代码必须用它,
+  否则会拉入 LangGraph/OpenAI SDK 等 Node-only 依赖
+- `apps/web/vite.config.ts` 的 ui-office alias 列表必须与
+  `packages/ui-office/package.json` 的 `exports` 字段保持同步
+- `subscription` provider 依赖 `node:child_process`, 只能在桌面端运行,
+  浏览器中会被 `assertBrowserProviderAllowed()` 拦截
+- Tauri 包 (`@tauri-apps/*`) 在浏览器 dev 中被 stub 为空模块
+- `gateway-factory.ts` 的 `subscription` case 用 `require()` 动态加载,
+  避免 `node:child_process` 进入浏览器 bundle
+- Platform API 的错误处理: DB 连接错误返回 503, 非 500
+
 ## Product Boundary: AI Runtime Policy
 
 Offisim must use its own agent/runtime pipeline as the only production AI path.

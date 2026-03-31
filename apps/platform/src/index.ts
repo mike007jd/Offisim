@@ -92,6 +92,17 @@ app.route('/v1/install', installRoute);
 app.route('/v1/me', meRoute);
 
 const port = Number.parseInt(process.env.PORT ?? '4100', 10);
+
+// Fail fast if DB is unreachable — don't accept traffic against a broken backend.
+import { sql } from 'drizzle-orm';
+try {
+  await db.execute(sql`SELECT 1`);
+  console.log('[startup] DB connection verified');
+} catch (err) {
+  console.error('[startup] FATAL: Cannot connect to database:', err);
+  process.exit(1);
+}
+
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Offisim Platform API listening on :${port}`);
 });

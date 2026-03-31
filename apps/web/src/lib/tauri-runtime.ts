@@ -1,14 +1,22 @@
-import { DEFAULT_COST_RATES, bindingStateChanged, installStateChanged } from '@offisim/core/browser';
+import {
+  DEFAULT_COST_RATES,
+  MemoryUserPreferenceRepository,
+  bindingStateChanged,
+  installStateChanged,
+} from '@offisim/core/browser';
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
+import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
+import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
+import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import { isProductionProvider } from '@offisim/shared-types';
@@ -145,6 +153,11 @@ export async function createTauriRuntime(
         systemCaller,
       })
     : undefined;
+  const userPrefRepo =
+    repos.userPreferences ?? (repos.userPreferences = new MemoryUserPreferenceRepository());
+  const userMemoryService = new UserMemoryService(userPrefRepo, gateway, 'gpt-4o-mini', systemCaller);
+  const middlewareChain = new LlmMiddlewareChain();
+  middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -156,6 +169,7 @@ export async function createTauriRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    middlewareChain,
     systemCaller,
   });
 
@@ -182,7 +196,16 @@ export async function createTauriRuntime(
   );
   const orch = new OrchestrationService(graph, runtimeCtx);
 
-  return { eventBus, graph, runtimeCtx, orch, installService, mcpToolExecutor, repos };
+  return {
+    eventBus,
+    graph,
+    runtimeCtx,
+    orch,
+    installService,
+    mcpToolExecutor,
+    repos,
+    userMemoryService,
+  };
 }
 
 /**

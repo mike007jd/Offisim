@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
+import { baAccount, baSession, baUser, baVerification } from '@offisim/db-platform';
 import { db } from './db.js';
 
 // ── Auth secret guard ──
@@ -41,6 +42,12 @@ export const auth = betterAuth({
 
   database: drizzleAdapter(db, {
     provider: 'pg',
+    schema: {
+      user: baUser,
+      session: baSession,
+      account: baAccount,
+      verification: baVerification,
+    },
   }),
 
   emailAndPassword: {

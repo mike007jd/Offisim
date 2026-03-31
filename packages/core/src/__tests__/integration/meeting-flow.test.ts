@@ -224,8 +224,8 @@ describe('meeting flow — full graph integration', () => {
     // Should have completed
     expect(result.completed).toBe(true);
 
-    // Route decision should be start_meeting
-    expect(result.routeDecision).toBe('start_meeting');
+    // Entry mode starts the meeting directly, bypassing boss routing.
+    expect(result.routeDecision ?? null).toBeNull();
 
     // Should have a meetingId
     expect(result.meetingId).toBeTruthy();

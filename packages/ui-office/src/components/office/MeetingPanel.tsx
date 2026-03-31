@@ -218,7 +218,7 @@ export function MeetingPanel({
       )}
 
       {/* ── Controls (pause / resume / end / inject) ─────────────────── */}
-      <MeetingControlsAutoWired />
+      <MeetingControlsAutoWired meetingId={meetingState.meetingId} status={status} />
     </div>
   );
 }

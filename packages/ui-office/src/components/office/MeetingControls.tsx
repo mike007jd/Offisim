@@ -10,13 +10,14 @@ import {
   Users,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { useEventStream } from '../../runtime/use-event-stream';
 
 export type MeetingStatus = 'idle' | 'running' | 'paused';
 
 export interface MeetingControlsProps {
   /** Current meeting ID, null when no meeting is active. */
   meetingId: string | null;
+  /** Current meeting status when managed by a parent hook. */
+  status?: MeetingStatus;
   /** Called when boss wants to pause the meeting. */
   onPause: () => void;
   /** Called when boss wants to resume a paused meeting. */
@@ -59,6 +60,7 @@ export type MeetingType = (typeof MEETING_TYPES)[number]['value'];
  */
 export function MeetingControls({
   meetingId,
+  status: statusProp,
   onPause,
   onResume,
   onEnd,
@@ -77,19 +79,7 @@ export function MeetingControls({
     [onMeetingTypeChange],
   );
 
-  // Derive meeting status from events
-  const meetingEvents = useEventStream('meeting.state.changed', 1);
-  const latestEvent = meetingEvents[0] ?? null;
-
-  let status: MeetingStatus = 'idle';
-  if (meetingId && latestEvent) {
-    const payload = latestEvent.payload as { next: string };
-    if (payload.next === 'running') status = 'running';
-    else if (payload.next === 'paused') status = 'paused';
-    else if (payload.next === 'completed' || payload.next === 'cancelled') status = 'idle';
-  } else if (meetingId) {
-    status = 'running';
-  }
+  const status: MeetingStatus = statusProp ?? (meetingId ? 'running' : 'idle');
 
   const handleInjectSubmit = useCallback(() => {
     const trimmed = injectText.trim();

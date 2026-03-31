@@ -1,11 +1,20 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import config from '../../../vite.config';
+import type { ConfigEnv, UserConfig } from 'vite';
 
 type ProxyHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
+function resolveConfig(): UserConfig {
+  if (typeof config === 'function') {
+    return config({ command: 'serve', mode: 'test' } as ConfigEnv);
+  }
+  return config;
+}
+
 function getProxyHandler(): ProxyHandler {
-  const plugin = (config.plugins ?? []).find(
+  const resolvedConfig = resolveConfig();
+  const plugin = (resolvedConfig.plugins ?? []).find(
     (
       candidate: unknown,
     ): candidate is { name: string; configureServer: (server: unknown) => void } =>

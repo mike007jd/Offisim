@@ -11,6 +11,13 @@ import type {
 export class MemoryUserPreferenceRepository implements UserPreferenceRepository {
   private store = new Map<string, UserPreferenceRow>();
 
+  constructor(initialRows?: Iterable<UserPreferenceRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.preference_id, { ...row });
+    }
+  }
+
   async create(entry: UserPreferenceCreate): Promise<UserPreferenceRow> {
     const now = new Date().toISOString();
     const row: UserPreferenceRow = {
@@ -81,5 +88,9 @@ export class MemoryUserPreferenceRepository implements UserPreferenceRepository 
 
   async delete(preferenceId: string): Promise<void> {
     this.store.delete(preferenceId);
+  }
+
+  snapshot(): UserPreferenceRow[] {
+    return [...this.store.values()].map((row) => ({ ...row }));
   }
 }

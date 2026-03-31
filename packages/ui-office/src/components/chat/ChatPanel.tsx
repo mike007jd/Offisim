@@ -111,7 +111,10 @@ export function ChatPanel({
     });
   }
 
-  async function handleSend(text: string) {
+  async function handleSend(
+    text: string,
+    options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
+  ) {
     lastStreamRef.current = '';
     errorTargetRef.current = targetKey;
 
@@ -123,6 +126,7 @@ export function ChatPanel({
     addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
 
     const response = await sendMessage(text, {
+      entryMode: options?.entryMode,
       targetEmployeeId: selectedEmployeeId ?? undefined,
       threadId: activeProject?.thread_id ?? undefined,
     });
