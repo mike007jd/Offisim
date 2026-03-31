@@ -92,10 +92,9 @@ describe('provider-config', () => {
   it('strips api keys from persisted desktop config', () => {
     setTauriMode(true);
     const config: ProviderConfig = {
-      provider: 'openai',
+      provider: 'subscription',
       apiKey: 'sk-desktop',
       model: 'gpt-4o-mini',
-      baseURL: 'https://api.openai.com/v1',
       runtimePolicy: {
         executionMode: 'browser-limited',
         summarization: {
@@ -119,14 +118,13 @@ describe('provider-config', () => {
 
     expect(localStorage.getItem('offisim-provider-config')).not.toContain('sk-desktop');
     expect(loadProviderConfig()).toMatchObject({
-      provider: 'openai',
+      provider: 'subscription',
       model: 'gpt-4o-mini',
-      baseURL: 'https://api.openai.com/v1',
       runtimePolicy: {
         executionMode: 'browser-limited',
         modelPolicy: {
           default: {
-            provider: 'openai',
+            provider: 'subscription',
             model: 'gpt-4o-mini',
           },
         },
@@ -146,6 +144,17 @@ describe('provider-config', () => {
         },
       },
     });
+  });
+
+  it('returns null for vendor-direct provider on desktop', () => {
+    setTauriMode(true);
+    saveProviderConfig({
+      provider: 'openai',
+      apiKey: 'sk-desktop',
+      model: 'gpt-4o-mini',
+    });
+
+    expect(loadProviderConfig()).toBeNull();
   });
 
   it('upgrades legacy provider configs with runtime policy defaults on load', () => {

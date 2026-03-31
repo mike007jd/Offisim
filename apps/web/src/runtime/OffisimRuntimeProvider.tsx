@@ -13,8 +13,8 @@ import {
 } from '@offisim/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
-import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { loadBrowserRuntimeBootstrapState } from '../lib/browser-runtime-storage';
+import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { initializeRuntimeBundle } from './initialize-runtime';
 import { isRuntimeReadyForInteraction } from './runtime-readiness';
 
@@ -26,6 +26,19 @@ export interface UnfinishedThread {
 interface Props {
   companyId: string;
   children: React.ReactNode;
+}
+
+function parseExplicitUserMemory(text: string): string | null {
+  const trimmed = text.trim();
+  const prefixed = trimmed.match(/^remember(?:\s+this)?\s+user\s+(?:fact|preference)\s*:\s*(.+)$/i);
+  if (prefixed?.[1]) return prefixed[1].trim();
+
+  const rememberThat = trimmed.match(/^remember\s+that\s+i\s+(.+)$/i);
+  if (rememberThat?.[1]) {
+    return `I ${rememberThat[1].trim()}`;
+  }
+
+  return null;
 }
 
 type DesktopMcpServerConfig = McpServerConfig & {
@@ -73,6 +86,84 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       notificationBridgeRef.current = null;
     };
   }, [companyId]);
+
+  // Bridge meeting control UI events onto the orchestration service.
+  // Running meetings consume pause/end/inject via interruptMeeting();
+  // paused meetings need an explicit resume/end invocation because no graph is active.
+  useEffect(() => {
+    const eventBus = eventBusRef.current;
+
+    const unsubPause = eventBus.on('meeting.interrupt.pause', () => {
+      runtimeRef.current?.orch?.interruptMeeting('pause');
+    });
+
+    const unsubInject = eventBus.on('meeting.interrupt.inject', (event) => {
+      const payload = event.payload as { comment?: string } | undefined;
+      runtimeRef.current?.orch?.interruptMeeting('inject', payload?.comment);
+    });
+
+    const unsubResume = eventBus.on('meeting.interrupt.resume', (event) => {
+      const runtime = runtimeRef.current;
+      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
+      if (!runtime?.orch || !meetingId) return;
+
+      void (async () => {
+        const meeting = await runtime.repos?.meetings.findById(meetingId);
+        if (!meeting || meeting.status !== 'paused') return;
+
+        setIsRunning(true);
+        try {
+          const { HumanMessage } = await import('@langchain/core/messages');
+          await runtime.orch.resumeMeeting(
+            meetingId,
+            [new HumanMessage('Resume meeting')],
+            meeting.thread_id ?? undefined,
+          );
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        } finally {
+          setIsRunning(false);
+        }
+      })();
+    });
+
+    const unsubEnd = eventBus.on('meeting.interrupt.end', (event) => {
+      const runtime = runtimeRef.current;
+      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
+      if (!runtime?.orch || !meetingId) return;
+
+      void (async () => {
+        const meeting = await runtime.repos?.meetings.findById(meetingId);
+        if (!meeting) return;
+
+        if (meeting.status === 'paused') {
+          setIsRunning(true);
+          try {
+            const { HumanMessage } = await import('@langchain/core/messages');
+            await runtime.orch.endPausedMeeting(
+              meetingId,
+              [new HumanMessage('End meeting')],
+              meeting.thread_id ?? undefined,
+            );
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+          } finally {
+            setIsRunning(false);
+          }
+          return;
+        }
+
+        runtime.orch.interruptMeeting('end');
+      })();
+    });
+
+    return () => {
+      unsubPause();
+      unsubInject();
+      unsubResume();
+      unsubEnd();
+    };
+  }, []);
 
   // Full dispose on unmount — release gateway, MCP connections, EventBus subs.
   useEffect(() => {
@@ -147,13 +238,18 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     text: string;
     targetEmployeeId?: string;
     threadId?: string;
+    entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
   } | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; getRuntime is a render-scoped function that reads refs
   const sendMessage = useCallback(
     async (
       text: string,
-      options?: { targetEmployeeId?: string; threadId?: string },
+      options?: {
+        targetEmployeeId?: string;
+        threadId?: string;
+        entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      },
     ): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
 
@@ -183,7 +279,17 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           setError('Runtime not fully initialized (no orchestration service).');
           return undefined;
         }
-        const entryMode = options?.targetEmployeeId ? 'direct_chat' : 'boss_chat';
+        const explicitMemory = parseExplicitUserMemory(text);
+        if (explicitMemory && runtime.userMemoryService) {
+          await runtime.userMemoryService.saveExplicit(
+            companyId,
+            explicitMemory,
+            'preference',
+            options?.threadId ?? runtime.runtimeCtx.threadId,
+          );
+        }
+        const entryMode =
+          options?.entryMode ?? (options?.targetEmployeeId ? 'direct_chat' : 'boss_chat');
         const result = await runtime.orch.execute({
           entryMode,
           messages: [new HumanMessage(text)],
@@ -207,6 +313,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           text,
           targetEmployeeId: options?.targetEmployeeId,
           threadId: options?.threadId,
+          entryMode: options?.entryMode,
         };
         return undefined;
       } finally {
@@ -223,6 +330,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     return sendMessage(last.text, {
       targetEmployeeId: last.targetEmployeeId,
       threadId: last.threadId,
+      entryMode: last.entryMode,
     });
   }, [sendMessage]);
 
