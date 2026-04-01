@@ -30,13 +30,16 @@ type StubGraph = ConstructorParameters<typeof OrchestrationService>[0];
 function makeTrackedGraph(delayMs = 0): {
   graph: StubGraph;
   callLog: Array<{ start: number; end: number; threadId: string }>;
+  inputs: Record<string, unknown>[];
 } {
   const callLog: Array<{ start: number; end: number; threadId: string }> = [];
+  const inputs: Record<string, unknown>[] = [];
 
   const graph: StubGraph = {
     async stream(input: Record<string, unknown>) {
       const tid = String(input.threadId ?? '');
       const start = Date.now();
+      inputs.push(input);
       const updates: Record<string, unknown>[] = [{ stubNode: { threadId: tid, messages: [] } }];
       // Yield after delay
       async function* gen() {
@@ -63,7 +66,7 @@ function makeTrackedGraph(delayMs = 0): {
     },
   };
 
-  return { graph, callLog };
+  return { graph, callLog, inputs };
 }
 
 function makeInput(threadId: string) {
@@ -248,5 +251,168 @@ describe('OrchestrationService lifecycle', () => {
     });
 
     expect(staleService.saveThreadBaseline).toHaveBeenCalledWith('thread-sync', 'company-test');
+  });
+
+  it('resumePlan restores the latest checkpoint state and re-enters through background_sync', async () => {
+    const { graph, inputs } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const checkpointSaver = {
+      getTuple: vi.fn().mockResolvedValue({
+        checkpoint: {
+          channel_values: {
+            threadId: 'thread-plan',
+            companyId: 'company-test',
+            entryMode: 'boss_chat',
+            messages: [],
+            taskPlan: {
+              planId: 'plan-1',
+              threadId: 'thread-plan',
+              companyId: 'company-test',
+              summary: 'demo plan',
+              steps: [{ stepIndex: 0, description: 'Do thing', tasks: [] }],
+            },
+            currentStepIndex: 0,
+            completedStepIndices: [],
+            dispatchedStepIndices: [],
+            pendingAssignments: [{ taskType: 'code', employeeId: 'emp-1', inputJson: {} }],
+            currentTaskRunId: 'tr-1',
+            currentEmployeeId: 'emp-1',
+            currentStepOutputs: [
+              { employeeId: 'emp-1', employeeName: 'Dev', content: 'wip', taskRunId: 'tr-1' },
+            ],
+            routeDecision: 'delegate_manager',
+            interruptReason: 'previous',
+          },
+        },
+        config: {
+          configurable: { thread_id: 'thread-plan', checkpoint_id: 'cp-latest' },
+        },
+      }),
+    };
+    const orch = new OrchestrationService(graph, runtimeCtx, {
+      checkpointSaver: checkpointSaver as never,
+    });
+
+    await orch.resumePlan('thread-plan');
+
+    expect(checkpointSaver.getTuple).toHaveBeenCalledWith({
+      configurable: { thread_id: 'thread-plan' },
+    });
+    expect(inputs[0]).toMatchObject({
+      threadId: 'thread-plan',
+      companyId: 'company-test',
+      entryMode: 'background_sync',
+      taskPlan: { planId: 'plan-1' },
+      currentStepIndex: 0,
+      pendingAssignments: [],
+      currentTaskRunId: null,
+      currentEmployeeId: null,
+      currentStepOutputs: [],
+      routeDecision: null,
+      interruptReason: null,
+    });
+  });
+
+  it('resumePlan can rewind execution to an earlier step boundary', async () => {
+    const { graph, inputs } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const checkpointSaver = {
+      getTuple: vi.fn().mockResolvedValue({
+        checkpoint: {
+          channel_values: {
+            threadId: 'thread-plan',
+            companyId: 'company-test',
+            entryMode: 'boss_chat',
+            messages: [],
+            taskPlan: {
+              planId: 'plan-1',
+              threadId: 'thread-plan',
+              companyId: 'company-test',
+              summary: 'demo plan',
+              steps: [
+                { stepIndex: 0, description: 'A', tasks: [] },
+                { stepIndex: 1, description: 'B', tasks: [] },
+                { stepIndex: 2, description: 'C', tasks: [] },
+              ],
+            },
+            currentStepIndex: 2,
+            completedStepIndices: [0, 1],
+            dispatchedStepIndices: [0, 1, 2],
+            stepResults: [
+              { stepIndex: 0, outputs: [] },
+              { stepIndex: 1, outputs: [] },
+            ],
+          },
+        },
+        config: {
+          configurable: { thread_id: 'thread-plan', checkpoint_id: 'cp-latest' },
+        },
+      }),
+    };
+    const orch = new OrchestrationService(graph, runtimeCtx, {
+      checkpointSaver: checkpointSaver as never,
+    });
+
+    await orch.resumePlan('thread-plan', { fromStepIndex: 1 });
+
+    expect(inputs[0]).toMatchObject({
+      currentStepIndex: 1,
+      completedStepIndices: [0],
+      dispatchedStepIndices: [0],
+      stepResults: [{ stepIndex: 0, outputs: [] }],
+    });
+  });
+
+  it('serializeExecutionState returns a compact view of the latest checkpoint state', async () => {
+    const { graph } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const checkpointSaver = {
+      getTuple: vi.fn().mockResolvedValue({
+        checkpoint: {
+          channel_values: {
+            threadId: 'thread-plan',
+            companyId: 'company-test',
+            entryMode: 'background_sync',
+            messages: [{ id: 'm1' }, { id: 'm2' }],
+            taskPlan: {
+              planId: 'plan-1',
+              threadId: 'thread-plan',
+              companyId: 'company-test',
+              summary: 'demo plan',
+              steps: [{ stepIndex: 0, description: 'A', tasks: [] }],
+            },
+            currentStepIndex: 0,
+            completedStepIndices: [],
+            dispatchedStepIndices: [0],
+            pendingAssignments: [{ taskType: 'code', employeeId: 'emp-1', inputJson: {} }],
+            meetingId: null,
+          },
+        },
+        config: {
+          configurable: { thread_id: 'thread-plan', checkpoint_id: 'cp-latest' },
+        },
+      }),
+    };
+    const orch = new OrchestrationService(graph, runtimeCtx, {
+      checkpointSaver: checkpointSaver as never,
+    });
+
+    const serialized = await orch.serializeExecutionState('thread-plan');
+
+    expect(serialized).toEqual({
+      threadId: 'thread-plan',
+      companyId: 'company-test',
+      checkpointId: 'cp-latest',
+      entryMode: 'background_sync',
+      currentStepIndex: 0,
+      completedStepIndices: [],
+      dispatchedStepIndices: [0],
+      pendingAssignmentsCount: 1,
+      messageCount: 2,
+      meetingId: null,
+      routeDecision: null,
+      hasTaskPlan: true,
+      taskPlanSummary: 'demo plan',
+    });
   });
 });

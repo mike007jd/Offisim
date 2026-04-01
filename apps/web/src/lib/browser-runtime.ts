@@ -252,7 +252,9 @@ export async function createBrowserRuntime(
   const { OrchestrationService } = await import(
     '@offisim/core/dist/services/orchestration-service.js'
   );
-  const orch = new OrchestrationService(graph, runtimeCtx);
+  const orch = new OrchestrationService(graph, runtimeCtx, {
+    checkpointSaver: checkpointer,
+  });
 
   return {
     eventBus,

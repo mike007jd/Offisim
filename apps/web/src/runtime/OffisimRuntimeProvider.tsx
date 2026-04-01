@@ -347,13 +347,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     setIsRunning(true);
     setError(null);
 
-    const { HumanMessage } = await import('@langchain/core/messages');
     try {
-      await runtime.orch.execute({
-        entryMode: 'background_sync' as const,
-        messages: [new HumanMessage('Resume from last checkpoint')],
-        threadId,
-      });
+      await runtime.orch.resumePlan(threadId, { skipCompletedSteps: true });
       // Clear the resumed thread from the unfinished list
       setUnfinishedThreads((prev) => prev.filter((t) => t.threadId !== threadId));
     } catch (err) {

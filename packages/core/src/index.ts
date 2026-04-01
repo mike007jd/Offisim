@@ -121,6 +121,7 @@ export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { ExecutionTrace, ExecutionTraceService } from './services/execution-trace-service.js';
 export type { ThreadForkService } from './services/thread-fork-service.js';
+export type { SerializedExecutionState } from './services/orchestration-service.js';
 
 // --- Factories ---
 export { buildOffisimGraph } from './graph/main-graph.js';

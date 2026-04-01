@@ -66,6 +66,7 @@ export type RuntimeEntityType =
   | 'meeting'
   | 'install'
   | 'report'
+  | 'runtime'
   | 'llm'
   | 'graph'
   | 'plan'

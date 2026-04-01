@@ -1,4 +1,5 @@
 import type { BaseMessage } from '@langchain/core/messages';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { graphNodeExited } from '../events/event-factories.js';
 import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -20,6 +21,22 @@ import type { WorkspaceStalenessService } from './workspace-staleness-service.js
 /** Max queued execute() calls per thread before rejecting. */
 const MAX_QUEUE_DEPTH = 3;
 
+export interface SerializedExecutionState {
+  threadId: string;
+  companyId: string;
+  checkpointId: string | null;
+  entryMode: OffisimGraphState['entryMode'];
+  currentStepIndex: number;
+  completedStepIndices: number[];
+  dispatchedStepIndices: number[];
+  pendingAssignmentsCount: number;
+  messageCount: number;
+  meetingId: string | null;
+  routeDecision: OffisimGraphState['routeDecision'];
+  hasTaskPlan: boolean;
+  taskPlanSummary: string | null;
+}
+
 export class OrchestrationService {
   /**
    * Per-thread execution lock.
@@ -36,6 +53,7 @@ export class OrchestrationService {
   private readonly currentAborts = new Map<string, AbortController>();
 
   private readonly workspaceStalenessService: WorkspaceStalenessService | null;
+  private readonly checkpointSaver: Pick<BaseCheckpointSaver, 'getTuple'> | null;
 
   constructor(
     private graph: {
@@ -47,9 +65,11 @@ export class OrchestrationService {
     private runtimeCtx: RuntimeContext,
     options?: {
       workspaceStalenessService?: WorkspaceStalenessService | null;
+      checkpointSaver?: Pick<BaseCheckpointSaver, 'getTuple'> | null;
     },
   ) {
     this.workspaceStalenessService = options?.workspaceStalenessService ?? null;
+    this.checkpointSaver = options?.checkpointSaver ?? null;
   }
 
   /**
@@ -116,6 +136,60 @@ export class OrchestrationService {
     });
   }
 
+  async getLatestCheckpointState(threadId: string): Promise<OffisimGraphState | null> {
+    const tuple = await this.getLatestCheckpointTuple(threadId);
+    if (!tuple) return null;
+    return tuple.checkpoint.channel_values as OffisimGraphState;
+  }
+
+  async resumePlan(
+    threadId: string,
+    opts?: {
+      fromStepIndex?: number;
+      updatedPlan?: OffisimGraphState['taskPlan'];
+      skipCompletedSteps?: boolean;
+    },
+  ): Promise<OffisimGraphState> {
+    const restored = await this.getLatestCheckpointState(threadId);
+    if (!restored) {
+      throw new Error(`No checkpoint state found for thread "${threadId}".`);
+    }
+
+    const resumeState = this.buildResumeState(restored, {
+      threadId,
+      updatedPlan: opts?.updatedPlan,
+      fromStepIndex: opts?.fromStepIndex,
+      skipCompletedSteps: opts?.skipCompletedSteps,
+    });
+
+    return this.executeState(resumeState, threadId);
+  }
+
+  async serializeExecutionState(threadId: string): Promise<SerializedExecutionState | null> {
+    const tuple = await this.getLatestCheckpointTuple(threadId);
+    if (!tuple) return null;
+
+    const state = tuple.checkpoint.channel_values as Partial<OffisimGraphState>;
+    return {
+      threadId,
+      companyId: state.companyId ?? this.runtimeCtx.companyId,
+      checkpointId:
+        typeof tuple.config?.configurable?.checkpoint_id === 'string'
+          ? tuple.config.configurable.checkpoint_id
+          : null,
+      entryMode: (state.entryMode ?? 'background_sync') as OffisimGraphState['entryMode'],
+      currentStepIndex: state.currentStepIndex ?? 0,
+      completedStepIndices: [...(state.completedStepIndices ?? [])],
+      dispatchedStepIndices: [...(state.dispatchedStepIndices ?? [])],
+      pendingAssignmentsCount: state.pendingAssignments?.length ?? 0,
+      messageCount: state.messages?.length ?? 0,
+      meetingId: state.meetingId ?? null,
+      routeDecision: state.routeDecision ?? null,
+      hasTaskPlan: Boolean(state.taskPlan),
+      taskPlanSummary: state.taskPlan?.summary ?? null,
+    };
+  }
+
   async execute(input: {
     entryMode: OffisimGraphState['entryMode'];
     messages: BaseMessage[];
@@ -165,6 +239,45 @@ export class OrchestrationService {
     }
   }
 
+  private async executeState(
+    state: Partial<OffisimGraphState>,
+    threadId: string,
+  ): Promise<OffisimGraphState> {
+    const depth = this.threadQueueDepth.get(threadId) ?? 0;
+    if (depth >= MAX_QUEUE_DEPTH) {
+      throw new Error(
+        `Thread "${threadId}" has ${depth} queued requests — rejecting to prevent unbounded wait. Try again later.`,
+      );
+    }
+    this.threadQueueDepth.set(threadId, depth + 1);
+
+    const abort = new AbortController();
+    this.currentAborts.set(threadId, abort);
+
+    const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    this.threadLocks.set(threadId, gate);
+    try {
+      await prev;
+      return await this._executeStateInner(state, threadId, abort.signal);
+    } finally {
+      release?.();
+      this.currentAborts.delete(threadId);
+      const remaining = (this.threadQueueDepth.get(threadId) ?? 1) - 1;
+      if (remaining <= 0) {
+        this.threadQueueDepth.delete(threadId);
+      } else {
+        this.threadQueueDepth.set(threadId, remaining);
+      }
+      if (this.threadLocks.get(threadId) === gate) {
+        this.threadLocks.delete(threadId);
+      }
+    }
+  }
+
   private async _executeInner(input: {
     entryMode: OffisimGraphState['entryMode'];
     messages: BaseMessage[];
@@ -175,9 +288,7 @@ export class OrchestrationService {
     signal: AbortSignal;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId;
-    await this.checkWorkspaceStaleness(input.entryMode, threadId);
-
-    const fullInput = {
+    const fullInput: Partial<OffisimGraphState> = {
       threadId,
       companyId: this.runtimeCtx.companyId,
       entryMode: input.entryMode,
@@ -186,19 +297,31 @@ export class OrchestrationService {
       meetingId: input.meetingId ?? null,
       meetingInterrupt: input.meetingInterrupt ?? null,
     };
+    return this._executeStateInner(fullInput, threadId, input.signal);
+  }
+
+  private async _executeStateInner(
+    state: Partial<OffisimGraphState>,
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<OffisimGraphState> {
+    await this.checkWorkspaceStaleness(
+      (state.entryMode ?? 'boss_chat') as OffisimGraphState['entryMode'],
+      threadId,
+    );
 
     const config = {
       configurable: {
         thread_id: threadId,
         runtimeCtx: this.runtimeCtx,
-        signal: input.signal,
+        signal,
       },
     };
 
-    let finalState: Partial<OffisimGraphState> = { ...fullInput };
+    let finalState: Partial<OffisimGraphState> = { ...state };
     let lastNodeName: string | undefined;
 
-    const stream = await this.graph.stream(fullInput, {
+    const stream = await this.graph.stream(state as Record<string, unknown>, {
       ...config,
       streamMode: 'updates' as const,
     });
@@ -219,7 +342,7 @@ export class OrchestrationService {
 
     try {
       for await (const update of stream) {
-        if (input.signal.aborted) break;
+        if (signal.aborted) break;
         for (const [nodeName, nodeOutput] of Object.entries(update)) {
           lastNodeName = nodeName;
           const previousState = finalState as Partial<OffisimGraphState>;
@@ -282,6 +405,76 @@ export class OrchestrationService {
     await this.workspaceStalenessService?.saveThreadBaseline(threadId, this.runtimeCtx.companyId);
 
     return finalState as OffisimGraphState;
+  }
+
+  private async getLatestCheckpointTuple(threadId: string) {
+    if (!this.checkpointSaver) {
+      throw new Error('Checkpoint saver is not configured for this orchestration runtime.');
+    }
+    return this.checkpointSaver.getTuple({
+      configurable: { thread_id: threadId },
+    });
+  }
+
+  private buildResumeState(
+    restored: OffisimGraphState,
+    opts: {
+      threadId: string;
+      updatedPlan?: OffisimGraphState['taskPlan'];
+      fromStepIndex?: number;
+      skipCompletedSteps?: boolean;
+    },
+  ): Partial<OffisimGraphState> {
+    const plan = opts.updatedPlan ?? restored.taskPlan ?? null;
+    const completedStepIndices = [...(restored.completedStepIndices ?? [])];
+    const dispatchedStepIndices = [...(restored.dispatchedStepIndices ?? [])];
+    const stepResults = [...(restored.stepResults ?? [])];
+    const rewindStepIndex = typeof opts.fromStepIndex === 'number' ? opts.fromStepIndex : null;
+
+    let currentStepIndex = restored.currentStepIndex ?? 0;
+    if (rewindStepIndex !== null) {
+      currentStepIndex = rewindStepIndex;
+    } else if (opts.skipCompletedSteps && plan) {
+      const completed = new Set(completedStepIndices);
+      currentStepIndex =
+        plan.steps.map((step) => step.stepIndex).find((index) => !completed.has(index)) ??
+        currentStepIndex;
+    }
+
+    const prunedCompleted =
+      rewindStepIndex !== null
+        ? completedStepIndices.filter((index) => index < rewindStepIndex)
+        : completedStepIndices;
+    const prunedDispatched =
+      rewindStepIndex !== null
+        ? dispatchedStepIndices.filter((index) => index < rewindStepIndex)
+        : dispatchedStepIndices;
+    const prunedResults =
+      rewindStepIndex !== null
+        ? stepResults.filter((result) => result.stepIndex < rewindStepIndex)
+        : stepResults;
+
+    return {
+      ...restored,
+      threadId: opts.threadId,
+      companyId: restored.companyId ?? this.runtimeCtx.companyId,
+      entryMode: 'background_sync',
+      taskPlan: plan,
+      currentStepIndex,
+      completedStepIndices: prunedCompleted,
+      dispatchedStepIndices: prunedDispatched,
+      stepResults: prunedResults,
+      pendingAssignments: [],
+      currentTaskRunId: null,
+      currentEmployeeId: null,
+      currentStepOutputs: [],
+      routeDecision: null,
+      interruptReason: null,
+      meetingInterrupt: null,
+      completed: false,
+      handoffCount: 0,
+      messages: restored.messages ?? [],
+    };
   }
 
   private async checkWorkspaceStaleness(
