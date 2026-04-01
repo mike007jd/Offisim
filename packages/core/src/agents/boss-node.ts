@@ -1,8 +1,8 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { graphNodeEntered } from '../events/event-factories.js';
+import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmCall } from '../llm/recorded-call.js';
+import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -42,6 +42,16 @@ Rules:
 - "isNewProject": set to true when the user describes a substantial project, multi-phase work, or long-term initiative (NOT a simple question or single task). Examples: "build a full e-commerce site", "launch a new product", "create a complete mobile app". Single tasks like "fix this bug" or "write a summary" should be false.
 - "projectName": a concise 2-5 word name for the project (only when isNewProject is true)
 - When in doubt between "direct_delegate" and "delegate", prefer "delegate" — it is safer to plan than to skip planning.`;
+
+const BOSS_DIRECT_REPLY_PROMPT = `You are the Boss AI speaking directly to the user.
+
+Write the final user-facing reply. Do not return JSON.
+
+Rules:
+- Be concise, clear, and helpful
+- Answer directly in natural language
+- Do not mention internal routing, plans, or delegation logic
+- If the user is greeting or asking a simple question, respond naturally and briefly`;
 
 function parseBossDecision(content: string): BossDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -152,6 +162,35 @@ export async function bossNode(
       ? decision.reply
       : (decision?.reason ?? llmResponse.content);
 
+  let finalReplyContent = replyContent;
+  if (route === 'direct_reply') {
+    const streamResult = await recordedLlmStream(
+      runtimeCtx,
+      {
+        messages: [
+          { role: 'system', content: BOSS_DIRECT_REPLY_PROMPT },
+          {
+            role: 'user',
+            content: `User request:\n${userContent}\n\nPlanned response intent:\n${replyContent}`,
+          },
+        ],
+        model: resolved.model,
+        temperature: resolved.temperature,
+        maxTokens: resolved.maxTokens,
+        signal: getConfigSignal(config),
+      },
+      { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
+      (chunk) => {
+        if (chunk.content) {
+          runtimeCtx.eventBus.emit(
+            llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss', chunk.content),
+          );
+        }
+      },
+    );
+    finalReplyContent = streamResult.fullContent.trim() || replyContent;
+  }
+
   // Project intent detection — create a project when the boss flags a substantial initiative
   let projectId: string | null = state.projectId ?? null;
   if (decision?.isNewProject && decision.projectName && !state.projectId) {
@@ -159,7 +198,7 @@ export async function bossNode(
     const project = await projectService.createProject(
       decision.projectName,
       // Pass the user's original message as description for context
-      replyContent,
+      finalReplyContent,
     );
     projectId = project.project_id;
   }
@@ -179,7 +218,8 @@ export async function bossNode(
 
   // Prefix direct_reply messages with [Boss]: so the UI can display agent identity.
   // Non-direct-reply messages are consumed by downstream graph nodes and don't need the prefix.
-  const messageContent = route === 'direct_reply' ? `[Boss]: ${replyContent}` : replyContent;
+  const messageContent =
+    route === 'direct_reply' ? `[Boss]: ${finalReplyContent}` : finalReplyContent;
 
   return {
     routeDecision: route,

@@ -169,6 +169,10 @@ export class OrchestrationService {
       skipCompletedSteps: opts?.skipCompletedSteps,
     });
 
+    if (typeof opts?.fromStepIndex === 'number') {
+      await this.runtimeCtx.fileHistoryService?.restoreThreadToStep(threadId, opts.fromStepIndex);
+    }
+
     this.runtimeCtx.eventBus.emit(
       executionResumed(this.runtimeCtx.companyId, threadId, {
         threadId,

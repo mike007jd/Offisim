@@ -200,7 +200,6 @@ export async function employeeNode(
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'));
 
   const { modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
-  const streamEmployeeReplies = state.entryMode === 'direct_chat';
 
   // Pop the first pending assignment
   const remaining = [...state.pendingAssignments];
@@ -209,6 +208,8 @@ export async function employeeNode(
   if (!assignment) {
     return { pendingAssignments: [], completed: true };
   }
+  const isDirectChatTask = assignment.taskType === 'direct_chat';
+  const streamEmployeeReplies = isDirectChatTask;
 
   const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
     | string
@@ -356,7 +357,7 @@ export async function employeeNode(
   }
 
   // Handoff tool: only if NOT direct_chat, NOT at max handoffs, AND has colleagues
-  if (state.entryMode !== 'direct_chat' && state.handoffCount < MAX_HANDOFF_COUNT) {
+  if (!isDirectChatTask && state.handoffCount < MAX_HANDOFF_COUNT) {
     const employees = await repos.employees.findByCompany(companyId);
     const colleagues = employees.filter((e) => e.employee_id !== employee.employee_id);
 
@@ -630,6 +631,7 @@ export async function employeeNode(
             nodeName: 'employee',
             employeeId: employee.employee_id,
             taskRunId: taskRunId ?? undefined,
+            stepIndex: state.currentStepIndex,
           });
           return { callId: toolCall.id, name: toolCall.name, result };
         }),
@@ -738,10 +740,10 @@ export async function employeeNode(
 
     // Reflect and remember before returning so the next task can rely on
     // newly extracted memory in the same local runtime session.
-    // Skip for direct_chat and handoff_continuation.
+    // Skip for direct-chat style tasks and handoff_continuation.
     if (memoryService) {
       const skipReflection =
-        state.entryMode === 'direct_chat' || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
+        isDirectChatTask || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
       try {
         await memoryService.reflectAndRemember(
           employee.employee_id,

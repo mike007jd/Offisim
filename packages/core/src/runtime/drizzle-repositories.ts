@@ -1,4 +1,4 @@
-import * as schema from '@offisim/db-local';
+import * as schema from '@offisim/db-local/dist/schema.js';
 import type {
   AssetBindingRow,
   InstallTransactionRow,
@@ -36,6 +36,8 @@ import type {
   EmployeeVersionRepository,
   EmployeeVersionRow,
   EventRepository,
+  FileHistoryRepository,
+  FileHistoryRow,
   GraphCheckpointRow,
   GraphThreadRow,
   HandoffEventRow,
@@ -55,6 +57,7 @@ import type {
   NewAgentEvent,
   NewCompactSummary,
   NewEmployeeVersion,
+  NewFileHistory,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
@@ -803,6 +806,35 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       db.delete(schema.compactSummaries)
         .where(eq(schema.compactSummaries.thread_id, threadId))
         .run();
+    },
+  };
+
+  const fileHistory: FileHistoryRepository = {
+    async create(entry: NewFileHistory) {
+      db.insert(schema.fileHistory).values(entry).run();
+      return entry as FileHistoryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.fileHistory)
+        .where(eq(schema.fileHistory.thread_id, threadId))
+        .orderBy(desc(schema.fileHistory.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as FileHistoryRow[];
+    },
+    async listBySnapshot(snapshotId) {
+      return db
+        .select()
+        .from(schema.fileHistory)
+        .where(eq(schema.fileHistory.snapshot_id, snapshotId))
+        .orderBy(schema.fileHistory.created_at)
+        .all() as FileHistoryRow[];
+    },
+    async deleteByThread(threadId) {
+      db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId)).run();
     },
   };
 
@@ -1571,6 +1603,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     mcpAudit,
     nodeSummaries,
     compactSummaries,
+    fileHistory,
     installTransactions,
     installedPackages,
     installedAssets,

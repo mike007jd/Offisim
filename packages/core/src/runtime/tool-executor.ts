@@ -10,6 +10,8 @@ export interface ToolCallRequest {
   readonly employeeId?: string;
   /** The task run that initiated this tool call, when available. */
   readonly taskRunId?: string;
+  /** The plan step that initiated this tool call, when available. */
+  readonly stepIndex?: number;
 }
 
 export interface ToolCallResponse {

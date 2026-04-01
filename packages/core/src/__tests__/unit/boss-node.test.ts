@@ -51,14 +51,16 @@ function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
 describe('bossNode', () => {
   let gateway: MockLlmGateway;
   let config: RunnableConfig;
+  let eventBus: InMemoryEventBus;
+  let repos: ReturnType<typeof createMemoryRepositories>;
 
   beforeEach(() => {
     gateway = new MockLlmGateway();
-    const repos = createMemoryRepositories();
+    repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
     repos.seed.employees([makeManager(), makeEmployee()]);
 
-    const eventBus = new InMemoryEventBus();
+    eventBus = new InMemoryEventBus();
     const resolver = new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json));
     const toolExecutor = new MockToolExecutor();
 
@@ -103,6 +105,44 @@ describe('bossNode', () => {
 
     expect(result.routeDecision).toBe('direct_reply');
     expect(result.messages).toHaveLength(1);
+  });
+
+  it('streams the final boss direct reply after routing decision', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reason: 'simple greeting',
+        reply: 'Hello there.',
+      }),
+    });
+    gateway.pushStreamResponse({
+      content: 'Hello! How can I help today?',
+      usage: { inputTokens: 20, outputTokens: 7 },
+    });
+
+    const streamedChunks: string[] = [];
+    eventBus.on('llm.stream.chunk', (event) => {
+      if (event.payload.nodeName === 'boss') {
+        streamedChunks.push(event.payload.content);
+      }
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('Hello!')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('direct_reply');
+    expect(result.messages?.[0]?.content).toBe('[Boss]: Hello! How can I help today?');
+    expect(streamedChunks.length).toBeGreaterThan(0);
+
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    const bossCalls = llmCalls.filter((call) => call.node_name === 'boss');
+    expect(bossCalls).toHaveLength(2);
+    expect(bossCalls[1]?.input_tokens).toBe(20);
+    expect(bossCalls[1]?.output_tokens).toBe(7);
   });
 
   it('routes to start_meeting when LLM returns meeting', async () => {

@@ -6,9 +6,10 @@ import {
   hrAssessmentCompleted,
   hrAssessmentStarted,
   hrRecommendation,
+  llmStreamChunk,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmCall } from '../llm/recorded-call.js';
+import { recordedLlmStream } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -104,7 +105,7 @@ export async function hrNode(
 
   const resolved = modelResolver.resolve(null, 'hr');
 
-  const llmResponse = await recordedLlmCall(
+  const streamResult = await recordedLlmStream(
     runtimeCtx,
     {
       messages: [
@@ -123,11 +124,17 @@ export async function hrNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'hr', provider: resolved.provider, model: resolved.model },
+    (chunk) => {
+      if (chunk.content) {
+        eventBus.emit(llmStreamChunk(companyId, state.threadId, 'hr', chunk.content));
+      }
+    },
   );
 
-  const result = parseHrAssessment(llmResponse.content);
+  const fullContent = streamResult.fullContent;
+  const result = parseHrAssessment(fullContent);
 
-  const assessmentText = result?.assessment ?? llmResponse.content;
+  const assessmentText = result?.assessment ?? fullContent;
 
   // Emit completion events
   eventBus.emit(hrAssessmentCompleted(companyId, hrAction, assessmentText, state.threadId));

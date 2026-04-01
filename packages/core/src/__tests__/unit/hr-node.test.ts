@@ -52,10 +52,11 @@ describe('hrNode', () => {
   let gateway: MockLlmGateway;
   let config: RunnableConfig;
   let eventBus: InMemoryEventBus;
+  let repos: ReturnType<typeof createMemoryRepositories>;
 
   beforeEach(() => {
     gateway = new MockLlmGateway();
-    const repos = createMemoryRepositories();
+    repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
     repos.seed.employees([makeManager(), makeEmployee()]);
 
@@ -171,5 +172,33 @@ describe('hrNode', () => {
     // Falls back to raw content
     expect(result.hrAssessment).toContain('more developers');
     expect(result.messages).toHaveLength(1);
+  });
+
+  it('streams HR assessment chunks and records streamed usage', async () => {
+    gateway.pushStreamResponse({
+      content: JSON.stringify({
+        assessment: 'Streamed HR assessment.',
+        suggestedRoles: ['designer'],
+      }),
+      usage: { inputTokens: 24, outputTokens: 8 },
+    });
+
+    const streamedChunks: string[] = [];
+    eventBus.on('llm.stream.chunk', (event) => {
+      if (event.payload.nodeName === 'hr') {
+        streamedChunks.push(event.payload.content);
+      }
+    });
+
+    const result = await hrNode(makeState(), config);
+
+    expect(result.hrAssessment).toContain('Streamed HR assessment.');
+    expect(streamedChunks.length).toBeGreaterThan(0);
+
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    const hrCalls = llmCalls.filter((call) => call.node_name === 'hr');
+    expect(hrCalls).toHaveLength(1);
+    expect(hrCalls[0]?.input_tokens).toBe(24);
+    expect(hrCalls[0]?.output_tokens).toBe(8);
   });
 });

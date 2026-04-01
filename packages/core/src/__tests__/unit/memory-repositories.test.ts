@@ -133,6 +133,64 @@ describe('MemoryRepositories', () => {
     });
   });
 
+  describe('FileHistoryRepository', () => {
+    it('creates, lists, and snapshots file history entries', async () => {
+      const repos = createMemoryRepositories();
+      await repos.fileHistory.create({
+        history_id: 'fh-1',
+        snapshot_id: 'snap-1',
+        thread_id: 't-1',
+        company_id: 'c-1',
+        node_name: 'employee',
+        employee_id: 'emp-1',
+        task_run_id: 'tr-1',
+        tool_call_id: 'tc-1',
+        tool_name: 'write_file',
+        step_index: 1,
+        file_path: '/workspace/app.ts',
+        change_kind: 'update',
+        existed_before: 1,
+        backup_content: 'old content',
+        created_at: new Date(Date.UTC(2026, 3, 1, 0, 0, 0)).toISOString(),
+      });
+      await repos.fileHistory.create({
+        history_id: 'fh-2',
+        snapshot_id: 'snap-1',
+        thread_id: 't-1',
+        company_id: 'c-1',
+        node_name: 'employee',
+        employee_id: 'emp-1',
+        task_run_id: 'tr-1',
+        tool_call_id: 'tc-1',
+        tool_name: 'write_file',
+        step_index: 1,
+        file_path: '/workspace/README.md',
+        change_kind: 'create',
+        existed_before: 0,
+        backup_content: null,
+        created_at: new Date(Date.UTC(2026, 3, 1, 0, 0, 1)).toISOString(),
+      });
+
+      const listed = await repos.fileHistory.listByThread('t-1');
+      expect(listed).toHaveLength(2);
+      expect(listed[0]?.history_id).toBe('fh-2');
+
+      const snapRows = await repos.fileHistory.listBySnapshot('snap-1');
+      expect(snapRows).toHaveLength(2);
+
+      const restored = createMemoryRepositories(repos.snapshot());
+      await expect(restored.fileHistory.listByThread('t-1')).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            history_id: 'fh-1',
+            file_path: '/workspace/app.ts',
+            existed_before: 1,
+          }),
+        ]),
+      );
+    });
+  });
+
   describe('EmployeeRepository', () => {
     it('finds by role', async () => {
       const repos = createMemoryRepositories();

@@ -39,9 +39,12 @@ export type {
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
+  FileHistoryRepository,
+  FileHistoryRow,
   CompactSummaryRepository,
   CompactSummaryRow,
   NewMcpAudit,
+  NewFileHistory,
   NewCompactSummary,
   NewNodeSummary,
   MemoryEntryRow,
@@ -188,6 +191,8 @@ export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 export { UserMemoryService } from './services/user-memory-service.js';
 export { SessionCostTracker } from './runtime/session-cost-tracker.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
+export { FileHistoryService, FileHistoryToolExecutor } from './services/file-history-service.js';
+export type { FileSnapshotAdapter } from './services/file-history-service.js';
 export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 
 // --- Utilities ---

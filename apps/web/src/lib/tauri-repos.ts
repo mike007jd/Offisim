@@ -12,6 +12,8 @@ import type {
   EmployeeRepository,
   EmployeeRow,
   EventRepository,
+  FileHistoryRepository,
+  FileHistoryRow,
   GraphCheckpointRow,
   GraphThreadRow,
   HandoffEventRow,
@@ -29,6 +31,7 @@ import type {
   MemoryEntryRow,
   MemoryRepository,
   NewCompactSummary,
+  NewFileHistory,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
@@ -74,7 +77,7 @@ import type {
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
 } from '@offisim/core/dist/runtime/repositories.js';
-import * as schema from '@offisim/db-local';
+import * as schema from '@offisim/db-local/dist/schema.js';
 import type {
   AssetBindingRow,
   InstallTransactionRow,
@@ -890,6 +893,34 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const fileHistory: FileHistoryRepository = {
+    async create(entry: NewFileHistory) {
+      await db.insert(schema.fileHistory).values(entry);
+      return entry as FileHistoryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.fileHistory)
+        .where(eq(schema.fileHistory.thread_id, threadId))
+        .orderBy(desc(schema.fileHistory.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as FileHistoryRow[];
+    },
+    async listBySnapshot(snapshotId) {
+      return (await db
+        .select()
+        .from(schema.fileHistory)
+        .where(eq(schema.fileHistory.snapshot_id, snapshotId))
+        .orderBy(schema.fileHistory.created_at)) as FileHistoryRow[];
+    },
+    async deleteByThread(threadId) {
+      await db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId));
+    },
+  };
+
   // --- SOP templates (Drizzle-backed, migration 011) ---
 
   const sopTemplates: RuntimeRepositories['sopTemplates'] = {
@@ -1522,6 +1553,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     mcpAudit,
     nodeSummaries,
     compactSummaries,
+    fileHistory,
     employeeVersions,
     costRates,
     sopTemplates,

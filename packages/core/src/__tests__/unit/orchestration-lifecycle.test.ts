@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { OffisimGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
+import type { FileHistoryService } from '../../services/file-history-service.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
 import type { WorkspaceStalenessService } from '../../services/workspace-staleness-service.js';
 import { assertDefined } from '../helpers/fixtures.js';
@@ -12,13 +13,14 @@ import { assertDefined } from '../helpers/fixtures.js';
 
 function makeMinimalRuntimeCtx(
   threadId: string,
-  opts?: { eventBus?: InMemoryEventBus },
+  opts?: { eventBus?: InMemoryEventBus; fileHistoryService?: FileHistoryService | null },
 ): RuntimeContext {
   const eventBus = opts?.eventBus ?? new InMemoryEventBus();
   return {
     threadId,
     companyId: 'company-test',
     eventBus,
+    fileHistoryService: opts?.fileHistoryService ?? undefined,
     meetingInterruptBox: { pending: null },
   } as unknown as RuntimeContext;
 }
@@ -347,7 +349,10 @@ describe('OrchestrationService lifecycle', () => {
 
   it('resumePlan can rewind execution to an earlier step boundary', async () => {
     const { graph, inputs } = makeTrackedGraph(0);
-    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const fileHistoryService = {
+      restoreThreadToStep: vi.fn().mockResolvedValue(2),
+    } as unknown as FileHistoryService;
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default', { fileHistoryService });
     const checkpointSaver = {
       getTuple: vi.fn().mockResolvedValue({
         checkpoint: {
@@ -387,6 +392,7 @@ describe('OrchestrationService lifecycle', () => {
 
     await orch.resumePlan('thread-plan', { fromStepIndex: 1 });
 
+    expect(fileHistoryService.restoreThreadToStep).toHaveBeenCalledWith('thread-plan', 1);
     expect(inputs[0]).toMatchObject({
       currentStepIndex: 1,
       completedStepIndices: [0],

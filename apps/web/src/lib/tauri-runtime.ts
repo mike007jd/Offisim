@@ -20,6 +20,10 @@ import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permis
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
+import {
+  FileHistoryService,
+  FileHistoryToolExecutor,
+} from '@offisim/core/dist/services/file-history-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
@@ -36,6 +40,7 @@ import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
+import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
@@ -135,10 +140,18 @@ export async function createTauriRuntime(
         ? new BrowserMcpClientFactory()
         : new TauriMcpClientFactory(),
   });
+  const fileHistoryService = new FileHistoryService(
+    repos.fileHistory,
+    new TauriFileSnapshotAdapter(),
+  );
+  const fileHistoryToolExecutor = new FileHistoryToolExecutor(mcpToolExecutor, fileHistoryService, {
+    threadId,
+    companyId,
+  });
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
-    mcpToolExecutor,
+    fileHistoryToolExecutor,
     repos.mcpAudit,
     eventBus,
     companyId,
@@ -200,6 +213,7 @@ export async function createTauriRuntime(
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
+    fileHistoryService,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)

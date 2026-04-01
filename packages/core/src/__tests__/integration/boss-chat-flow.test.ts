@@ -100,7 +100,7 @@ describe('boss-chat full flow', () => {
   });
 
   it('handles direct reply without delegation', async () => {
-    const { graph, gateway, runtimeCtx } = createTestRuntime();
+    const { graph, gateway, runtimeCtx, events, repos } = createTestRuntime();
 
     // Boss decides to reply directly
     gateway.pushResponse({
@@ -109,6 +109,10 @@ describe('boss-chat full flow', () => {
         reason: 'simple greeting',
         reply: 'Hello! How can I help?',
       }),
+    });
+    gateway.pushStreamResponse({
+      content: 'Hello! How can I help?',
+      usage: { inputTokens: 18, outputTokens: 6 },
     });
 
     const result = await graph.invoke(
@@ -124,6 +128,15 @@ describe('boss-chat full flow', () => {
     expect(result.completed).toBe(true);
     // Direct reply should NOT go through manager/employee
     expect(result.routeDecision).toBe('direct_reply');
+
+    const bossChunks = events.filter(
+      (event) => event.type === 'llm.stream.chunk' && event.payload.nodeName === 'boss',
+    );
+    expect(bossChunks.length).toBeGreaterThan(0);
+
+    const llmCalls = await repos.llmCalls.findByThread(TEST_THREAD_ID);
+    const bossCalls = llmCalls.filter((call) => call.node_name === 'boss');
+    expect(bossCalls).toHaveLength(2);
   });
 
   it('persists task runs in repository via PM planner', async () => {
@@ -174,6 +187,47 @@ describe('boss-chat full flow', () => {
     const taskRuns = await repos.taskRuns.findByThread(TEST_THREAD_ID);
     expect(taskRuns.length).toBeGreaterThanOrEqual(1);
     expect(taskRuns[0]?.status).toBe('completed');
+  });
+
+  it('streams employee output for direct_delegate single-employee work', async () => {
+    const { graph, gateway, events, runtimeCtx, repos } = createTestRuntime();
+
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_delegate',
+        reason: 'simple task for one employee',
+        targetEmployeeId: 'e-dev-1',
+      }),
+    });
+    gateway.pushStreamResponse({
+      content: 'Streaming delegated employee answer.',
+      usage: { inputTokens: 16, outputTokens: 5 },
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'boss_chat',
+        messages: [new HumanMessage('Ask the developer to answer directly')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    expect(result.completed).toBe(true);
+    expect(result.routeDecision).toBe('direct_delegate');
+
+    const employeeChunks = events.filter(
+      (event) => event.type === 'llm.stream.chunk' && event.payload.nodeName === 'employee',
+    );
+    expect(employeeChunks.length).toBeGreaterThan(0);
+
+    const employeeCalls = (await repos.llmCalls.findByThread(TEST_THREAD_ID)).filter(
+      (call) => call.node_name === 'employee',
+    );
+    expect(employeeCalls).toHaveLength(1);
+    expect(employeeCalls[0]?.input_tokens).toBe(16);
+    expect(employeeCalls[0]?.output_tokens).toBe(5);
   });
 
   it('uses streaming LLM summary when multiple employees produce results', async () => {

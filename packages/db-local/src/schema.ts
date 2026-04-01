@@ -627,6 +627,38 @@ export const compactSummaries = sqliteTable(
   ],
 );
 
+export const fileHistory = sqliteTable(
+  'file_history',
+  {
+    history_id: text('history_id').primaryKey(),
+    snapshot_id: text('snapshot_id').notNull(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    node_name: text('node_name'),
+    employee_id: text('employee_id'),
+    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
+      onDelete: 'set null',
+    }),
+    tool_call_id: text('tool_call_id').notNull(),
+    tool_name: text('tool_name').notNull(),
+    step_index: integer('step_index'),
+    file_path: text('file_path').notNull(),
+    change_kind: text('change_kind').notNull(),
+    existed_before: integer('existed_before').notNull().default(0),
+    backup_content: text('backup_content'),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_file_history_thread_created').on(table.thread_id, table.created_at),
+    index('idx_file_history_snapshot').on(table.snapshot_id),
+    index('idx_file_history_thread_step').on(table.thread_id, table.step_index, table.created_at),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // 009 — Library documents
 // ---------------------------------------------------------------------------

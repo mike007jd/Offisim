@@ -6,6 +6,7 @@ import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
+import type { FileHistoryService } from '../services/file-history-service.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
@@ -46,6 +47,8 @@ export interface RuntimeContext {
   readonly sessionCostTracker?: SessionCostTracker;
   /** Live tool execution telemetry buffer. */
   readonly toolTelemetryService?: ToolTelemetryService;
+  /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
+  readonly fileHistoryService?: FileHistoryService;
 }
 
 export interface DisposableRuntime {
@@ -85,6 +88,7 @@ export function createRuntimeContext(deps: {
   systemCaller?: RecordedSystemLlmCaller;
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
+  fileHistoryService?: FileHistoryService;
 }): RuntimeContext {
   const { meetingInterruptBox, ...rest } = deps;
   return Object.freeze({
