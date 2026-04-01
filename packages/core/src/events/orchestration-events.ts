@@ -2,6 +2,7 @@
  * Orchestration event factories — meeting, graph node, and plan lifecycle events.
  */
 import type {
+  ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
   MeetingActionCreatedPayload,
@@ -12,6 +13,7 @@ import type {
   PlanStepCompletedPayload,
   PlanStepStartedPayload,
   RuntimeEvent,
+  WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
 
 export function meetingStateChanged(
@@ -152,5 +154,37 @@ export function planCompleted(
     threadId,
     timestamp: Date.now(),
     payload: { planId, totalSteps },
+  };
+}
+
+export function workspaceStalenessDetected(
+  companyId: string,
+  threadId: string,
+  payload: WorkspaceStalenessDetectedPayload,
+): RuntimeEvent<WorkspaceStalenessDetectedPayload> {
+  return {
+    type: 'workspace.staleness.detected',
+    entityId: threadId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+export function executionResumed(
+  companyId: string,
+  threadId: string,
+  payload: ExecutionResumedPayload,
+): RuntimeEvent<ExecutionResumedPayload> {
+  return {
+    type: 'execution.resumed',
+    entityId: threadId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
   };
 }

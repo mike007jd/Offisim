@@ -1,4 +1,5 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { ConversationSynopsisUpdatedPayload } from '@offisim/shared-types';
+import { conversationSynopsisUpdated } from '../events/event-factories.js';
 import type { LlmRequest, LlmResponse } from '../llm/gateway.js';
 import { compactToolResultMessages, pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -303,28 +304,13 @@ export class ConversationBudgetService {
     }
   }
 
-  private makeSynopsisEvent(
-    ctx: RuntimeContext,
-    synopsis: ThreadSynopsisRecord,
-  ): RuntimeEvent<{
-    summary: string;
-    version: number;
-    prunedMessageCount: number;
-    totalMessageCount: number;
-  }> {
-    return {
-      type: 'conversation.synopsis.updated',
-      entityId: ctx.threadId,
-      entityType: 'graph',
-      companyId: ctx.companyId,
-      threadId: ctx.threadId,
-      timestamp: Date.now(),
-      payload: {
-        summary: synopsis.summary,
-        version: synopsis.version,
-        prunedMessageCount: synopsis.prunedMessageCount,
-        totalMessageCount: synopsis.totalMessageCount,
-      },
+  private makeSynopsisEvent(ctx: RuntimeContext, synopsis: ThreadSynopsisRecord) {
+    const payload: ConversationSynopsisUpdatedPayload = {
+      summary: synopsis.summary,
+      version: synopsis.version,
+      prunedMessageCount: synopsis.prunedMessageCount,
+      totalMessageCount: synopsis.totalMessageCount,
     };
+    return conversationSynopsisUpdated(ctx.companyId, ctx.threadId, payload);
   }
 }

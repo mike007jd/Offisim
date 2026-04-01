@@ -2,6 +2,7 @@
  * LLM event factories — call lifecycle, usage tracking, and streaming chunk events.
  */
 import type {
+  ConversationSynopsisUpdatedPayload,
   LlmCallCompletedPayload,
   LlmCallStartedPayload,
   LlmStreamChunkPayload,
@@ -95,6 +96,22 @@ export function llmStreamChunk(
     threadId,
     timestamp: Date.now(),
     payload: { nodeName, content },
+  };
+}
+
+export function conversationSynopsisUpdated(
+  companyId: string,
+  threadId: string,
+  payload: ConversationSynopsisUpdatedPayload,
+): RuntimeEvent<ConversationSynopsisUpdatedPayload> {
+  return {
+    type: 'conversation.synopsis.updated',
+    entityId: threadId,
+    entityType: 'graph',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
   };
 }
 

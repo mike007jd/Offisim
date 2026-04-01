@@ -1,4 +1,6 @@
 import type {
+  ConversationSynopsisUpdatedPayload,
+  ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
   PlanCreatedPayload,
@@ -6,6 +8,7 @@ import type {
   SessionCostUpdatedPayload,
   TaskAssignmentDispatchedPayload,
   ToolExecutionTelemetryPayload,
+  WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
@@ -14,7 +17,7 @@ export type RuntimeActivityTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface RuntimeActivityEntry {
   id: string;
-  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost';
+  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost' | 'system';
   tone: RuntimeActivityTone;
   label: string;
   timestamp: number;
@@ -106,6 +109,25 @@ function exitedEntry(nodeName: string): RuntimeActivityEntry {
 function telemetryLabel(payload: ToolExecutionTelemetryPayload): string {
   const base = payload.serverName ? `${payload.serverName}/${payload.toolName}` : payload.toolName;
   return truncate(base.replaceAll('_', ' '), 42);
+}
+
+function formatStalenessReason(payload: WorkspaceStalenessDetectedPayload): string {
+  switch (payload.reason) {
+    case 'git_head_changed':
+      return 'Workspace head changed since the last checkpoint';
+    case 'git_worktree_changed':
+      return `Workspace changed locally${payload.currentStatusLines ? ` (${payload.currentStatusLines} file${payload.currentStatusLines === 1 ? '' : 's'})` : ''}`;
+    case 'missing_baseline':
+      return 'No workspace baseline is available yet';
+    case 'missing_workspace_root':
+      return 'Workspace root is unavailable for resume checks';
+    case 'not_git_repository':
+      return 'Workspace is not a Git repository';
+    case 'capture_failed':
+      return 'Workspace snapshot could not be captured';
+    default:
+      return 'Workspace state changed';
+  }
 }
 
 function pushEntry(
@@ -262,9 +284,13 @@ export function useRuntimeActivityFeed(opts?: {
         const prefix =
           payload.status === 'completed'
             ? 'Completed'
-            : payload.status === 'denied'
-              ? 'Denied'
-              : 'Failed';
+            : payload.errorType === 'TOOL_PERMISSION_REQUIRED'
+              ? 'Approval needed for'
+              : payload.errorType === 'TOOL_PERMISSION_DENIED'
+                ? 'Access blocked for'
+                : payload.status === 'denied'
+                  ? 'Denied'
+                  : 'Failed';
         const suffix =
           payload.status === 'completed' && payload.durationMs != null
             ? ` in ${formatDuration(payload.durationMs)}`
@@ -286,6 +312,73 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offSynopsis = eventBus.on(
+      'conversation.synopsis.updated',
+      (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
+        setHeadline('Compacting context for the next turn');
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `synopsis-${event.payload.version}`,
+              kind: 'system',
+              tone: 'info',
+              label: `Compacted ${event.payload.prunedMessageCount} messages into a fresh synopsis`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offResume = eventBus.on(
+      'execution.resumed',
+      (event: RuntimeEvent<ExecutionResumedPayload>) => {
+        setHeadline('Restoring from the latest checkpoint');
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `resume-${event.timestamp}`,
+              kind: 'system',
+              tone: 'info',
+              label:
+                event.payload.rewoundFromStepIndex != null
+                  ? `Rewound to step ${event.payload.rewoundFromStepIndex + 1} and resumed`
+                  : `Resumed at step ${event.payload.currentStepIndex + 1}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offStaleness = eventBus.on(
+      'workspace.staleness.detected',
+      (event: RuntimeEvent<WorkspaceStalenessDetectedPayload>) => {
+        setHeadline(
+          event.payload.status === 'block'
+            ? 'Resume blocked by workspace changes'
+            : 'Workspace changed since the last checkpoint',
+        );
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `workspace-${event.timestamp}`,
+              kind: 'system',
+              tone: event.payload.status === 'block' ? 'error' : 'warning',
+              label: formatStalenessReason(event.payload),
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offCost = eventBus.on(
       'cost.session.updated',
       (event: RuntimeEvent<SessionCostUpdatedPayload>) => {
@@ -299,6 +392,9 @@ export function useRuntimeActivityFeed(opts?: {
       offPlan();
       offDispatch();
       offTool();
+      offSynopsis();
+      offResume();
+      offStaleness();
       offCost();
     };
   }, [eventBus, maxEntries]);

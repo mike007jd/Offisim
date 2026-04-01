@@ -23,6 +23,7 @@ export interface RuntimeEvent<P = Readonly<Record<string, unknown>>> {
 
 /** Well-known event type prefixes */
 export type EventFamily =
+  | 'conversation.synopsis.updated'
   | 'employee.state.changed'
   | 'task.state.changed'
   | 'task.assignment.changed'
@@ -81,7 +82,9 @@ export type EventFamily =
   | 'knowledge.search.completed'
   | 'prefab.state.changed'
   | 'cost.session.updated'
-  | 'tool.execution.telemetry';
+  | 'tool.execution.telemetry'
+  | 'workspace.staleness.detected'
+  | 'execution.resumed';
 
 // --- Typed event payloads ---
 
@@ -170,6 +173,39 @@ export interface GraphNodeExitedPayload {
 export interface LlmStreamChunkPayload {
   readonly nodeName: string;
   readonly content: string;
+}
+
+export interface ConversationSynopsisUpdatedPayload {
+  readonly summary: string;
+  readonly version: number;
+  readonly prunedMessageCount: number;
+  readonly totalMessageCount: number;
+}
+
+export interface WorkspaceStalenessDetectedPayload {
+  readonly status: 'warn' | 'block' | 'unavailable';
+  readonly reason:
+    | 'baseline_matches'
+    | 'git_worktree_changed'
+    | 'git_head_changed'
+    | 'missing_workspace_root'
+    | 'missing_baseline'
+    | 'not_git_repository'
+    | 'capture_failed';
+  readonly baselineGitHead: string | null;
+  readonly currentGitHead: string | null;
+  readonly baselineDirty: boolean | null;
+  readonly currentDirty: boolean | null;
+  readonly currentStatusLines: number | null;
+}
+
+export interface ExecutionResumedPayload {
+  readonly threadId: string;
+  readonly currentStepIndex: number;
+  readonly completedStepCount: number;
+  readonly rewoundFromStepIndex: number | null;
+  readonly skippedCompletedSteps: boolean;
+  readonly updatedPlan: boolean;
 }
 
 // --- Phase 6: Install System ---

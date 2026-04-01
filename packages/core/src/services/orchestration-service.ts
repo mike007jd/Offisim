@@ -1,10 +1,17 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import { graphNodeExited } from '../events/event-factories.js';
+import {
+  executionResumed,
+  graphNodeExited,
+  workspaceStalenessDetected,
+} from '../events/event-factories.js';
 import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { NodeSummaryService } from './node-summary-service.js';
-import type { WorkspaceStalenessService } from './workspace-staleness-service.js';
+import type {
+  WorkspaceStalenessResult,
+  WorkspaceStalenessService,
+} from './workspace-staleness-service.js';
 
 /**
  * Thin orchestration wrapper around `graph.stream()`.
@@ -161,6 +168,17 @@ export class OrchestrationService {
       fromStepIndex: opts?.fromStepIndex,
       skipCompletedSteps: opts?.skipCompletedSteps,
     });
+
+    this.runtimeCtx.eventBus.emit(
+      executionResumed(this.runtimeCtx.companyId, threadId, {
+        threadId,
+        currentStepIndex: resumeState.currentStepIndex ?? 0,
+        completedStepCount: resumeState.completedStepIndices?.length ?? 0,
+        rewoundFromStepIndex: opts?.fromStepIndex ?? null,
+        skippedCompletedSteps: opts?.skipCompletedSteps ?? false,
+        updatedPlan: opts?.updatedPlan != null,
+      }),
+    );
 
     return this.executeState(resumeState, threadId);
   }
@@ -500,7 +518,7 @@ export class OrchestrationService {
 
   private async recordWorkspaceStaleness(
     threadId: string,
-    result: Awaited<ReturnType<WorkspaceStalenessService['checkThread']>>,
+    result: WorkspaceStalenessResult,
     severity: 'warn' | 'error',
   ): Promise<void> {
     await this.runtimeCtx.repos?.events?.insert({
@@ -512,5 +530,16 @@ export class OrchestrationService {
       payload_json: JSON.stringify(result),
       created_at: new Date().toISOString(),
     });
+    this.runtimeCtx.eventBus.emit(
+      workspaceStalenessDetected(this.runtimeCtx.companyId, threadId, {
+        status: result.status === 'clean' ? 'warn' : result.status,
+        reason: result.reason,
+        baselineGitHead: result.baseline?.gitHead ?? null,
+        currentGitHead: result.current?.gitHead ?? null,
+        baselineDirty: result.baseline?.dirty ?? null,
+        currentDirty: result.current?.dirty ?? null,
+        currentStatusLines: result.current?.statusLines ?? null,
+      }),
+    );
   }
 }

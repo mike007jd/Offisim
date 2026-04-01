@@ -152,4 +152,86 @@ describe('ActivityRail', () => {
       expect(screen.getByText('Completed read file in 1.2s')).toBeInTheDocument();
     });
   });
+
+  it('surfaces compacting, resume, staleness, and permission friction events', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'conversation.synopsis.updated',
+        entityId: 'thread-1',
+        entityType: 'graph',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          summary: 'Condensed summary',
+          version: 2,
+          prunedMessageCount: 18,
+          totalMessageCount: 42,
+        },
+      });
+      eventBus.emit({
+        type: 'execution.resumed',
+        entityId: 'thread-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          threadId: 'thread-1',
+          currentStepIndex: 2,
+          completedStepCount: 2,
+          rewoundFromStepIndex: 1,
+          skippedCompletedSteps: true,
+          updatedPlan: false,
+        },
+      });
+      eventBus.emit({
+        type: 'workspace.staleness.detected',
+        entityId: 'thread-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          status: 'warn',
+          reason: 'git_worktree_changed',
+          baselineGitHead: 'abc',
+          currentGitHead: 'abc',
+          baselineDirty: false,
+          currentDirty: true,
+          currentStatusLines: 3,
+        },
+      });
+      eventBus.emit({
+        type: 'tool.execution.telemetry',
+        entityId: 'tool-3',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          toolCallId: 'tool-3',
+          toolName: 'search',
+          toolType: 'mcp',
+          serverName: 'github',
+          threadId: 'thread-1',
+          startedAt: Date.now() - 500,
+          status: 'denied',
+          errorType: 'TOOL_PERMISSION_REQUIRED',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Compacted 18 messages into a fresh synopsis')).toBeInTheDocument();
+      expect(screen.getByText('Rewound to step 2 and resumed')).toBeInTheDocument();
+      expect(screen.getByText('Workspace changed locally (3 files)')).toBeInTheDocument();
+      expect(screen.getByText('Approval needed for github/search')).toBeInTheDocument();
+    });
+  });
 });

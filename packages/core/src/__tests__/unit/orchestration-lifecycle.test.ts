@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { OffisimGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
@@ -9,14 +10,15 @@ import { assertDefined } from '../helpers/fixtures.js';
 // Minimal stubs
 // ---------------------------------------------------------------------------
 
-function makeMinimalRuntimeCtx(threadId: string): RuntimeContext {
+function makeMinimalRuntimeCtx(
+  threadId: string,
+  opts?: { eventBus?: InMemoryEventBus },
+): RuntimeContext {
+  const eventBus = opts?.eventBus ?? new InMemoryEventBus();
   return {
     threadId,
     companyId: 'company-test',
-    eventBus: {
-      emit: () => {},
-      on: () => () => {},
-    },
+    eventBus,
     meetingInterruptBox: { pending: null },
   } as unknown as RuntimeContext;
 }
@@ -209,7 +211,10 @@ describe('OrchestrationService lifecycle', () => {
 
   it('blocks background_sync execution when workspace stale check returns block', async () => {
     const { graph } = makeTrackedGraph(0);
-    const runtimeCtx = makeMinimalRuntimeCtx('thread-sync');
+    const eventBus = new InMemoryEventBus();
+    const emitted: Array<{ type: string; payload: unknown }> = [];
+    eventBus.on('', (event) => emitted.push({ type: event.type, payload: event.payload }));
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-sync', { eventBus });
     const staleService = {
       checkThread: vi.fn().mockResolvedValue({
         status: 'block',
@@ -228,6 +233,17 @@ describe('OrchestrationService lifecycle', () => {
         threadId: 'thread-sync',
       }),
     ).rejects.toThrow('workspace changed');
+    expect(emitted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace.staleness.detected',
+          payload: expect.objectContaining({
+            status: 'block',
+            reason: 'git_head_changed',
+          }),
+        }),
+      ]),
+    );
   });
 
   it('saves a workspace baseline after successful execution', async () => {
@@ -255,7 +271,10 @@ describe('OrchestrationService lifecycle', () => {
 
   it('resumePlan restores the latest checkpoint state and re-enters through background_sync', async () => {
     const { graph, inputs } = makeTrackedGraph(0);
-    const runtimeCtx = makeMinimalRuntimeCtx('thread-default');
+    const eventBus = new InMemoryEventBus();
+    const emitted: Array<{ type: string; payload: unknown }> = [];
+    eventBus.on('', (event) => emitted.push({ type: event.type, payload: event.payload }));
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-default', { eventBus });
     const checkpointSaver = {
       getTuple: vi.fn().mockResolvedValue({
         checkpoint: {
@@ -311,6 +330,19 @@ describe('OrchestrationService lifecycle', () => {
       routeDecision: null,
       interruptReason: null,
     });
+    expect(emitted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'execution.resumed',
+          payload: expect.objectContaining({
+            threadId: 'thread-plan',
+            currentStepIndex: 0,
+            completedStepCount: 0,
+            rewoundFromStepIndex: null,
+          }),
+        }),
+      ]),
+    );
   });
 
   it('resumePlan can rewind execution to an earlier step boundary', async () => {

@@ -42,6 +42,8 @@ export {
   meetingActionCreated,
   graphNodeEntered,
   graphNodeExited,
+  workspaceStalenessDetected,
+  executionResumed,
   planCreated,
   planStepStarted,
   planStepCompleted,
@@ -49,6 +51,7 @@ export {
 } from './orchestration-events.js';
 
 export {
+  conversationSynopsisUpdated,
   llmCallStarted,
   llmCallCompleted,
   llmUsageRecorded,

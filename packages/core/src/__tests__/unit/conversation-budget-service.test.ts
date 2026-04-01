@@ -127,8 +127,17 @@ describe('ConversationBudgetService', () => {
         }),
       ]),
     );
-    expect(runtimeEvents.some((event) => event.type === 'conversation.synopsis.updated')).toBe(
-      true,
+    expect(runtimeEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'conversation.synopsis.updated',
+          payload: expect.objectContaining({
+            version: 1,
+            prunedMessageCount: persistedSynopsis?.prunedMessageCount,
+            totalMessageCount: persistedSynopsis?.totalMessageCount,
+          }),
+        }),
+      ]),
     );
   });
 
