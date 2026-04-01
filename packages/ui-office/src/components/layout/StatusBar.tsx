@@ -2,6 +2,7 @@ import { Activity, Cpu, Database, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
+import { useRuntimeActivityFeed } from '../../runtime/use-runtime-activity-feed';
 import { EnergyMeter } from './EnergyMeter.js';
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,7 @@ export function StatusBar({ modelName }: StatusBarProps) {
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
   const pipelineStage = usePipelineStage();
+  const { headline, activeTools } = useRuntimeActivityFeed({ maxEntries: 0 });
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';
 
   return (
@@ -55,6 +57,17 @@ export function StatusBar({ modelName }: StatusBarProps) {
         <div className="w-px h-3 bg-white/10" />
 
         <div className="flex items-center space-x-4">
+          {headline && (
+            <div className="flex items-center space-x-1.5 max-w-[18rem]">
+              <Activity className="w-3 h-3 text-cyan-400/60" />
+              <span className="truncate font-mono text-cyan-200/70">{headline}</span>
+            </div>
+          )}
+          {activeTools.length > 0 && (
+            <div className="flex items-center space-x-1.5">
+              <span className="font-mono text-emerald-300/70">{activeTools.length} tools live</span>
+            </div>
+          )}
           {modelName && (
             <div className="flex items-center space-x-1.5">
               <Cpu className="w-3 h-3 text-blue-400/50" />

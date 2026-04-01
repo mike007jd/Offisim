@@ -14,6 +14,7 @@ export * from './components/chat/ChatDrawer.js';
 export * from './components/chat/ChatInput.js';
 export * from './components/chat/ChatPanel.js';
 export * from './components/chat/MessageBubble.js';
+export * from './components/chat/ActivityRail.js';
 export * from './components/chat/StreamingBubble.js';
 export * from './components/dashboard/BossDashboard.js';
 export * from './components/dashboard/CompanyStatusCard.js';
@@ -113,6 +114,7 @@ export * from './lib/provider-config.js';
 export * from './runtime/offisim-runtime-context.js';
 export * from './runtime/notification-provider.js';
 export * from './runtime/use-agent-states.js';
+export * from './runtime/use-runtime-activity-feed.js';
 export * from './runtime/use-event-stream.js';
 export * from './runtime/use-streaming-content.js';
 

@@ -10,6 +10,7 @@ import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { MeetingPanel } from '../office/MeetingPanel';
+import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { PipelineProgress } from './PipelineProgress';
@@ -250,7 +251,17 @@ export function ChatPanel({
 
       {/* Message area */}
       {showEmpty ? (
-        isDirectChat ? (
+        isRunning ? (
+          <ScrollArea className="flex-1">
+            <div
+              ref={scrollRef}
+              className="flex flex-col gap-1"
+              style={{ padding: 'var(--sp-sm)' }}
+            >
+              <ActivityRail />
+            </div>
+          </ScrollArea>
+        ) : isDirectChat ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-xs text-slate-600">
               Start a conversation with {selectedEmployeeName ?? 'this employee'}
@@ -266,6 +277,7 @@ export function ChatPanel({
       ) : (
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
+            <ActivityRail />
             {messages.map((msg) => (
               <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}
