@@ -6,6 +6,8 @@ import type {
   RuntimeMemoryPolicy,
   RuntimePolicyConfig,
   RuntimeSummarizationPolicy,
+  RuntimeToolPermissionBehavior,
+  RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from '@offisim/shared-types';
 import { isProductionProvider } from '@offisim/shared-types';
@@ -38,6 +40,11 @@ const DEFAULT_MEMORY: RuntimeMemoryPolicy = {
 };
 const DEFAULT_TOOL_SEARCH: RuntimeToolSearchPolicy = {
   enabled: true,
+};
+const DEFAULT_TOOL_PERMISSIONS: RuntimeToolPermissionsPolicy = {
+  enabled: true,
+  defaultBehavior: 'allow',
+  rules: [],
 };
 const DEFAULT_MODEL_PROFILE_NAME = 'runtime-default';
 
@@ -163,6 +170,34 @@ function normalizeToolSearch(candidate: unknown): RuntimeToolSearchPolicy {
   };
 }
 
+function isRuntimeToolPermissionBehavior(value: unknown): value is RuntimeToolPermissionBehavior {
+  return value === 'allow' || value === 'deny' || value === 'ask';
+}
+
+function normalizeToolPermissions(candidate: unknown): RuntimeToolPermissionsPolicy {
+  const policy = isRecord(candidate) ? candidate : {};
+  return {
+    enabled:
+      typeof policy.enabled === 'boolean' ? policy.enabled : DEFAULT_TOOL_PERMISSIONS.enabled,
+    defaultBehavior: isRuntimeToolPermissionBehavior(policy.defaultBehavior)
+      ? policy.defaultBehavior
+      : DEFAULT_TOOL_PERMISSIONS.defaultBehavior,
+    rules: Array.isArray(policy.rules)
+      ? policy.rules.flatMap((rule) => {
+          if (!isRecord(rule)) return [];
+          if (
+            typeof rule.pattern !== 'string' ||
+            !rule.pattern.trim() ||
+            !isRuntimeToolPermissionBehavior(rule.behavior)
+          ) {
+            return [];
+          }
+          return [{ pattern: rule.pattern.trim(), behavior: rule.behavior }];
+        })
+      : DEFAULT_TOOL_PERMISSIONS.rules,
+  };
+}
+
 export function createDefaultRuntimePolicy(
   provider: LlmProvider,
   model: string,
@@ -175,6 +210,7 @@ export function createDefaultRuntimePolicy(
     summarization: { ...DEFAULT_SUMMARIZATION },
     memory: { ...DEFAULT_MEMORY },
     toolSearch: { ...DEFAULT_TOOL_SEARCH },
+    toolPermissions: { ...DEFAULT_TOOL_PERMISSIONS },
   };
 }
 
@@ -190,6 +226,7 @@ export function normalizeRuntimePolicy(
     summarization: normalizeSummarization(candidate.summarization),
     memory: normalizeMemory(candidate.memory),
     toolSearch: normalizeToolSearch(candidate.toolSearch),
+    toolPermissions: normalizeToolPermissions(candidate.toolPermissions),
   };
 }
 

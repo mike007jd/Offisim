@@ -103,6 +103,11 @@ export type {
 export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export type {
+  ToolPermissionAuthorizer,
+  ToolPermissionDecision,
+  ToolPermissionRequest,
+} from './permissions/tool-permission-engine.js';
+export type {
   OffisimGraphState,
   PendingAssignment,
   TaskPlan,
@@ -229,6 +234,8 @@ export { OffisimError, LlmError, GraphError, DataError } from './errors.js';
 
 // --- Runtime (browser-safe parts) ---
 export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
+export { TOOL_PERMISSION_DENIED, TOOL_PERMISSION_REQUIRED } from './runtime/tool-executor.js';
+export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 
 // --- OpenClaw Gateway (WebSocket — real-time event streaming) ---
 export { OpenClawClient } from './gateway/index.js';

@@ -28,6 +28,7 @@ import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/nod
 import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
+import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
@@ -178,6 +179,11 @@ export async function createBrowserRuntime(
     eventBus,
     companyId,
     threadId,
+    new ToolPermissionEngine({
+      employees: repos.employees,
+      mcpAudit: repos.mcpAudit,
+      runtimePolicy,
+    }),
   );
   const systemCaller = new RecordedSystemLlmCaller({
     llmGateway: gateway,

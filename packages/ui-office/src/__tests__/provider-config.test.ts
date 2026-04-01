@@ -52,6 +52,11 @@ describe('provider-config', () => {
         toolSearch: {
           enabled: false,
         },
+        toolPermissions: {
+          enabled: true,
+          defaultBehavior: 'deny',
+          rules: [{ pattern: 'mcp:fs-server:*', behavior: 'ask' }],
+        },
       },
     };
 
@@ -84,6 +89,11 @@ describe('provider-config', () => {
         },
         toolSearch: {
           enabled: false,
+        },
+        toolPermissions: {
+          enabled: true,
+          defaultBehavior: 'deny',
+          rules: [{ pattern: 'mcp:fs-server:*', behavior: 'ask' }],
         },
       },
     });
@@ -142,7 +152,38 @@ describe('provider-config', () => {
         toolSearch: {
           enabled: true,
         },
+        toolPermissions: {
+          enabled: true,
+          defaultBehavior: 'allow',
+          rules: [],
+        },
       },
+    });
+  });
+
+  it('normalizes runtime tool permissions for legacy and partial configs', () => {
+    localStorage.setItem(
+      'offisim-provider-config',
+      JSON.stringify({
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        runtimePolicy: {
+          toolPermissions: {
+            defaultBehavior: 'deny',
+            rules: [
+              { pattern: 'mcp:github:*', behavior: 'ask' },
+              { pattern: '', behavior: 'allow' },
+              { pattern: 'bad', behavior: 'nope' },
+            ],
+          },
+        },
+      }),
+    );
+
+    expect(loadProviderConfig()?.runtimePolicy?.toolPermissions).toEqual({
+      enabled: true,
+      defaultBehavior: 'deny',
+      rules: [{ pattern: 'mcp:github:*', behavior: 'ask' }],
     });
   });
 

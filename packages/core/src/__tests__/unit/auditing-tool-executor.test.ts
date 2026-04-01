@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventBus } from '../../events/event-bus.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { AuditingToolExecutor } from '../../mcp/auditing-tool-executor.js';
+import type { ToolPermissionAuthorizer } from '../../permissions/tool-permission-engine.js';
 import type { McpAuditRepository, McpAuditRow, NewMcpAudit } from '../../runtime/repositories.js';
 import type {
   ToolCallRequest,
@@ -46,12 +47,28 @@ describe('AuditingToolExecutor', () => {
   let auditRepo: ReturnType<typeof createMockAuditRepo>;
   let eventBus: EventBus;
   let executor: AuditingToolExecutor;
+  let permissionAuthorizer: ToolPermissionAuthorizer;
 
   beforeEach(() => {
     inner = createMockExecutor({ success: true, result: 'file content' });
     auditRepo = createMockAuditRepo();
     eventBus = new InMemoryEventBus();
-    executor = new AuditingToolExecutor(inner, auditRepo, eventBus, 'company-1', 'thread-1');
+    permissionAuthorizer = {
+      evaluate: vi.fn().mockResolvedValue({
+        behavior: 'allow',
+        source: 'default',
+        reason: 'default allow',
+        approvedBy: 'auto',
+      }),
+    };
+    executor = new AuditingToolExecutor(
+      inner,
+      auditRepo,
+      eventBus,
+      'company-1',
+      'thread-1',
+      permissionAuthorizer,
+    );
   });
 
   it('delegates execute to inner executor and returns its result', async () => {
@@ -69,6 +86,58 @@ describe('AuditingToolExecutor', () => {
     expect(audit.task_run_id).toBe('tr-1');
     expect(audit.error).toBeNull();
     expect(audit.approved_by).toBe('auto');
+  });
+
+  it('short-circuits inner execution when the permission authorizer denies the tool call', async () => {
+    permissionAuthorizer = {
+      evaluate: vi.fn().mockResolvedValue({
+        behavior: 'deny',
+        source: 'runtime',
+        reason: 'policy deny',
+        approvedBy: 'runtime:deny',
+      }),
+    };
+    executor = new AuditingToolExecutor(
+      inner,
+      auditRepo,
+      eventBus,
+      'company-1',
+      'thread-1',
+      permissionAuthorizer,
+    );
+
+    const result = await executor.execute(CALL);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('TOOL_PERMISSION_DENIED');
+    expect(inner.execute).not.toHaveBeenCalled();
+    expect(auditRepo.rows[0]?.approved_by).toBe('runtime:deny');
+  });
+
+  it('short-circuits inner execution when the permission authorizer asks for approval', async () => {
+    permissionAuthorizer = {
+      evaluate: vi.fn().mockResolvedValue({
+        behavior: 'ask',
+        source: 'employee',
+        reason: 'first use requires approval',
+        approvedBy: 'employee:ask_first_time',
+      }),
+    };
+    executor = new AuditingToolExecutor(
+      inner,
+      auditRepo,
+      eventBus,
+      'company-1',
+      'thread-1',
+      permissionAuthorizer,
+    );
+
+    const result = await executor.execute(CALL);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('TOOL_PERMISSION_REQUIRED');
+    expect(inner.execute).not.toHaveBeenCalled();
+    expect(auditRepo.rows[0]?.approved_by).toBe('employee:ask_first_time');
   });
 
   it('writes audit record on failure', async () => {

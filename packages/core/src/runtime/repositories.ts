@@ -402,6 +402,12 @@ export type NewMcpAudit = McpAuditRow;
 export interface McpAuditRepository {
   create(audit: NewMcpAudit): Promise<McpAuditRow>;
   listByThread(threadId: string): Promise<McpAuditRow[]>;
+  hasSuccessfulToolCall(
+    threadId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+  ): Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------

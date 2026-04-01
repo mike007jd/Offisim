@@ -799,6 +799,22 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .from(schema.mcpAuditLog)
         .where(eq(schema.mcpAuditLog.thread_id, threadId))) as McpAuditRow[];
     },
+    async hasSuccessfulToolCall(threadId, employeeId, serverName, toolName) {
+      const rows = await db
+        .select({ audit_id: schema.mcpAuditLog.audit_id })
+        .from(schema.mcpAuditLog)
+        .where(
+          and(
+            eq(schema.mcpAuditLog.thread_id, threadId),
+            eq(schema.mcpAuditLog.employee_id, employeeId),
+            eq(schema.mcpAuditLog.server_name, serverName),
+            eq(schema.mcpAuditLog.tool_name, toolName),
+            sql`${schema.mcpAuditLog.error} IS NULL`,
+          ),
+        )
+        .limit(1);
+      return rows.length > 0;
+    },
   };
 
   const nodeSummaries: NodeSummaryRepository = {

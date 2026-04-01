@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { AuditingToolExecutor } from '../../mcp/auditing-tool-executor.js';
+import type { ToolPermissionAuthorizer } from '../../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type {
   ToolCallRequest,
@@ -86,6 +87,38 @@ describe('ToolTelemetryService', () => {
       toolCallId: 'tc-2',
       status: 'error',
       errorType: 'permission denied',
+    });
+  });
+
+  it('captures permission-gated tool telemetry as denied', async () => {
+    const eventBus = new InMemoryEventBus();
+    const telemetry = new ToolTelemetryService(eventBus);
+    const permissionAuthorizer: ToolPermissionAuthorizer = {
+      evaluate: vi.fn().mockResolvedValue({
+        behavior: 'ask',
+        source: 'employee',
+        reason: 'needs approval',
+        approvedBy: 'employee:ask_first_time',
+      }),
+    };
+    const executor = new AuditingToolExecutor(
+      createExecutor({ success: true, result: 'ok' }),
+      createMemoryRepositories().mcpAudit,
+      eventBus,
+      'company-1',
+      'thread-1',
+      permissionAuthorizer,
+    );
+
+    const promise = executor.execute({ ...BASE_CALL, toolCallId: 'tc-3' });
+    await vi.advanceTimersByTimeAsync(100);
+    await promise;
+
+    const entries = telemetry.listByThread('thread-1');
+    expect(entries.at(-1)).toMatchObject({
+      toolCallId: 'tc-3',
+      status: 'denied',
+      errorType: expect.stringContaining('TOOL_PERMISSION_REQUIRED'),
     });
   });
 });

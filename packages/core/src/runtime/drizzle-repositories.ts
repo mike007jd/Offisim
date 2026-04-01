@@ -712,6 +712,23 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .where(eq(schema.mcpAuditLog.thread_id, threadId))
         .all() as McpAuditRow[];
     },
+    async hasSuccessfulToolCall(threadId, employeeId, serverName, toolName) {
+      const rows = db
+        .select({ audit_id: schema.mcpAuditLog.audit_id })
+        .from(schema.mcpAuditLog)
+        .where(
+          and(
+            eq(schema.mcpAuditLog.thread_id, threadId),
+            eq(schema.mcpAuditLog.employee_id, employeeId),
+            eq(schema.mcpAuditLog.server_name, serverName),
+            eq(schema.mcpAuditLog.tool_name, toolName),
+            sql`${schema.mcpAuditLog.error} IS NULL`,
+          ),
+        )
+        .limit(1)
+        .all();
+      return rows.length > 0;
+    },
   };
 
   const nodeSummaries: NodeSummaryRepository = {

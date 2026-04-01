@@ -100,7 +100,11 @@ export type {
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
-export { WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
+export {
+  WORKSTATION_ACCESS_DENIED,
+  TOOL_PERMISSION_DENIED,
+  TOOL_PERMISSION_REQUIRED,
+} from './runtime/tool-executor.js';
 export type {
   OffisimGraphState,
   PendingAssignment,
@@ -172,6 +176,12 @@ export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/ty
 export { UserPreferenceMiddleware } from './middleware/builtin/user-preference-middleware.js';
 export { SummarizationMiddleware } from './middleware/builtin/summarization-middleware.js';
 export { NodeContextMiddleware } from './middleware/builtin/node-context-middleware.js';
+export type {
+  ToolPermissionAuthorizer,
+  ToolPermissionDecision,
+  ToolPermissionRequest,
+} from './permissions/tool-permission-engine.js';
+export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 
 // --- User Memory ---
 export { UserMemoryService } from './services/user-memory-service.js';

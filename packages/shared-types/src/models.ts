@@ -48,6 +48,19 @@ export interface RuntimeToolSearchPolicy {
   readonly enabled: boolean;
 }
 
+export type RuntimeToolPermissionBehavior = 'allow' | 'deny' | 'ask';
+
+export interface RuntimeToolPermissionRule {
+  readonly pattern: string;
+  readonly behavior: RuntimeToolPermissionBehavior;
+}
+
+export interface RuntimeToolPermissionsPolicy {
+  readonly enabled: boolean;
+  readonly defaultBehavior: RuntimeToolPermissionBehavior;
+  readonly rules: ReadonlyArray<RuntimeToolPermissionRule>;
+}
+
 /** Unified runtime policy stored alongside the provider configuration. */
 export interface RuntimePolicyConfig {
   readonly executionMode: RuntimeExecutionMode;
@@ -55,6 +68,7 @@ export interface RuntimePolicyConfig {
   readonly summarization: RuntimeSummarizationPolicy;
   readonly memory: RuntimeMemoryPolicy;
   readonly toolSearch: RuntimeToolSearchPolicy;
+  readonly toolPermissions: RuntimeToolPermissionsPolicy;
 }
 
 /** Fully resolved model config ready for LLM call */

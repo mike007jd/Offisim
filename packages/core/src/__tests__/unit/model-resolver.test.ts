@@ -38,6 +38,11 @@ const WRAPPED_RUNTIME_POLICY: RuntimePolicyConfig = {
   toolSearch: {
     enabled: true,
   },
+  toolPermissions: {
+    enabled: true,
+    defaultBehavior: 'allow',
+    rules: [],
+  },
 };
 
 describe('ModelResolver', () => {

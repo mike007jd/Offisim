@@ -947,6 +947,22 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
     return this.rows.filter((r) => r.thread_id === threadId);
   }
 
+  async hasSuccessfulToolCall(
+    threadId: string,
+    employeeId: string,
+    serverName: string,
+    toolName: string,
+  ): Promise<boolean> {
+    return this.rows.some(
+      (row) =>
+        row.thread_id === threadId &&
+        row.employee_id === employeeId &&
+        row.server_name === serverName &&
+        row.tool_name === toolName &&
+        row.error === null,
+    );
+  }
+
   snapshot(): McpAuditRow[] {
     return cloneRows(this.rows);
   }

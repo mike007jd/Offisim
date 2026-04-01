@@ -109,6 +109,9 @@ export type {
   RuntimePolicyConfig,
   ResolvedModel,
   RuntimeSummarizationPolicy,
+  RuntimeToolPermissionBehavior,
+  RuntimeToolPermissionRule,
+  RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from './models.js';
 
