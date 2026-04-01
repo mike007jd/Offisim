@@ -1,11 +1,13 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { AGENT_QUESTION_REQUIRED } from '@offisim/shared-types';
 import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
+import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
@@ -17,6 +19,8 @@ interface BossDecision {
   projectName?: string;
   /** Employee ID for direct_delegate — Boss picks a specific employee for simple tasks. */
   targetEmployeeId?: string;
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
 }
 
 /** @internal — exported for testing */
@@ -30,7 +34,9 @@ Analyze the user's message and decide how to handle it. Respond with JSON only:
   "reply": "only if action is direct_reply",
   "isNewProject": true | false,
   "projectName": "short name — only if isNewProject is true",
-  "targetEmployeeId": "employee ID — only if action is direct_delegate"
+  "targetEmployeeId": "employee ID — only if action is direct_delegate",
+  "needsClarification": true | false,
+  "clarificationQuestion": "only when a critical detail is missing"
 }
 
 Rules:
@@ -41,6 +47,8 @@ Rules:
 - "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")
 - "isNewProject": set to true when the user describes a substantial project, multi-phase work, or long-term initiative (NOT a simple question or single task). Examples: "build a full e-commerce site", "launch a new product", "create a complete mobile app". Single tasks like "fix this bug" or "write a summary" should be false.
 - "projectName": a concise 2-5 word name for the project (only when isNewProject is true)
+- If a critical detail is missing and you cannot confidently route or scope the work, set "needsClarification": true and provide one concise "clarificationQuestion"
+- When "needsClarification" is true, still choose the most likely action you would take after the user answers
 - When in doubt between "direct_delegate" and "delegate", prefer "delegate" — it is safer to plan than to skip planning.`;
 
 const BOSS_DIRECT_REPLY_PROMPT = `You are the Boss AI speaking directly to the user.
@@ -73,6 +81,9 @@ function parseBossDecision(content: string): BossDecision | null {
       projectName: typeof parsed.projectName === 'string' ? parsed.projectName : undefined,
       targetEmployeeId:
         typeof parsed.targetEmployeeId === 'string' ? parsed.targetEmployeeId : undefined,
+      needsClarification: parsed.needsClarification === true,
+      clarificationQuestion:
+        typeof parsed.clarificationQuestion === 'string' ? parsed.clarificationQuestion : undefined,
     };
   }
   return null;
@@ -106,6 +117,8 @@ export async function bossNode(
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss'));
 
   const { modelResolver } = runtimeCtx;
+  const interactionService = runtimeCtx.interactionService;
+  const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
   const resolved = modelResolver.resolve(null, 'boss');
 
   // Build messages for LLM — use last N human messages for multi-turn context
@@ -148,6 +161,8 @@ export async function bossNode(
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
+  const needsClarification =
+    decision?.needsClarification === true && typeof decision.clarificationQuestion === 'string';
 
   // Validate direct_delegate: must have a valid targetEmployeeId, otherwise fall back to delegate
   if (route === 'direct_delegate') {
@@ -157,10 +172,46 @@ export async function bossNode(
     }
   }
 
+  if (needsClarification && interactionService && interactionMode === 'human_in_loop') {
+    const clarificationQuestion = decision?.clarificationQuestion ?? 'Could you clarify that?';
+    interactionService.request({
+      interactionId: generateId('ix'),
+      threadId: state.threadId,
+      companyId: runtimeCtx.companyId,
+      kind: 'agent_question',
+      severity: 'normal',
+      title: 'Need one clarification',
+      prompt: clarificationQuestion,
+      options: [
+        { id: 'answer_and_continue', label: 'Answer and continue', recommended: true },
+        { id: 'cancel', label: 'Cancel' },
+      ],
+      recommendation: {
+        optionId: 'answer_and_continue',
+        reason: 'One clear answer will let the boss choose the right path without guessing.',
+      },
+      allowFreeformResponse: true,
+      placeholder: 'Answer the question so Offisim can continue',
+      requestedByNode: 'boss',
+      context: {
+        type: 'agent_question',
+        questionKey: 'boss_clarification',
+      },
+      createdAt: Date.now(),
+    });
+    throw new Error(AGENT_QUESTION_REQUIRED);
+  }
+
+  if (needsClarification) {
+    route = 'direct_reply';
+  }
+
   const replyContent =
-    decision?.action === 'direct_reply' && decision.reply
-      ? decision.reply
-      : (decision?.reason ?? llmResponse.content);
+    needsClarification && decision?.clarificationQuestion
+      ? decision.clarificationQuestion
+      : decision?.action === 'direct_reply' && decision.reply
+        ? decision.reply
+        : (decision?.reason ?? llmResponse.content);
 
   let finalReplyContent = replyContent;
   if (route === 'direct_reply') {

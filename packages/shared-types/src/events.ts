@@ -1,4 +1,5 @@
 import type { BindingStatus, BindingType } from './install.js';
+import type { InteractionMode, InteractionRequest, InteractionResponse } from './interactions.js';
 import type {
   EmployeeState,
   InstallState,
@@ -84,7 +85,10 @@ export type EventFamily =
   | 'cost.session.updated'
   | 'tool.execution.telemetry'
   | 'workspace.staleness.detected'
-  | 'execution.resumed';
+  | 'execution.resumed'
+  | 'interaction.requested'
+  | 'interaction.resolved'
+  | 'interaction.mode.changed';
 
 // --- Typed event payloads ---
 
@@ -206,6 +210,20 @@ export interface ExecutionResumedPayload {
   readonly rewoundFromStepIndex: number | null;
   readonly skippedCompletedSteps: boolean;
   readonly updatedPlan: boolean;
+}
+
+export interface InteractionRequestedPayload {
+  readonly request: InteractionRequest;
+}
+
+export interface InteractionResolvedPayload {
+  readonly request: InteractionRequest;
+  readonly response: InteractionResponse;
+}
+
+export interface InteractionModeChangedPayload {
+  readonly previousMode: InteractionMode;
+  readonly nextMode: InteractionMode;
 }
 
 // --- Phase 6: Install System ---

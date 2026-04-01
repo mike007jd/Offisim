@@ -48,7 +48,7 @@ describe('initializeRuntimeBundle', () => {
 
     const runtime = await initializeRuntimeBundle(config, eventBus, true, TEST_COMPANY_ID);
 
-    expect(createTauriRuntime).toHaveBeenCalledWith(config, eventBus, TEST_COMPANY_ID);
+    expect(createTauriRuntime).toHaveBeenCalledWith(config, eventBus, TEST_COMPANY_ID, undefined);
     expect(createTauriRuntimeReposOnly).not.toHaveBeenCalled();
     expect(runtime).toBe(fullRuntime);
   });
@@ -60,7 +60,11 @@ describe('initializeRuntimeBundle', () => {
 
     const runtime = await initializeRuntimeBundle(null, eventBus, false, TEST_COMPANY_ID);
 
-    expect(createBrowserRuntimeReposOnly).toHaveBeenCalledWith(eventBus, TEST_COMPANY_ID);
+    expect(createBrowserRuntimeReposOnly).toHaveBeenCalledWith(
+      eventBus,
+      TEST_COMPANY_ID,
+      undefined,
+    );
     expect(createBrowserRuntime).not.toHaveBeenCalled();
     expect(runtime).toBe(reposOnlyRuntime);
   });

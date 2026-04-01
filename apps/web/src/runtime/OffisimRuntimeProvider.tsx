@@ -1,7 +1,23 @@
-import { EmployeeVersionService, InMemoryEventBus } from '@offisim/core/browser';
+import {
+  EmployeeVersionService,
+  InMemoryEventBus,
+  TOOL_PERMISSION_REQUIRED,
+} from '@offisim/core/browser';
 import type { McpServerConfig } from '@offisim/core/browser';
 import { disposeRuntime } from '@offisim/core/dist/runtime/runtime-context.js';
 import { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
+import {
+  AGENT_QUESTION_REQUIRED,
+  PLAN_REVIEW_REQUIRED,
+  type RuntimeEvent,
+} from '@offisim/shared-types';
+import type {
+  InteractionMode,
+  InteractionModeChangedPayload,
+  InteractionRequest,
+  InteractionRequestedPayload,
+  InteractionResolvedPayload,
+} from '@offisim/shared-types';
 import {
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
@@ -16,6 +32,7 @@ import type { RuntimeBundle } from '../lib/browser-runtime';
 import { loadBrowserRuntimeBootstrapState } from '../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { initializeRuntimeBundle } from './initialize-runtime';
+import { getInteractionFollowUp } from './interaction-follow-up';
 import { isRuntimeReadyForInteraction } from './runtime-readiness';
 
 export interface UnfinishedThread {
@@ -26,6 +43,27 @@ export interface UnfinishedThread {
 interface Props {
   companyId: string;
   children: React.ReactNode;
+}
+
+const INTERACTION_MODE_KEY = 'offisim.interaction-mode.default';
+
+function loadDefaultInteractionMode(): InteractionMode {
+  if (typeof window === 'undefined') return 'boss_proxy';
+  const raw = window.localStorage.getItem(INTERACTION_MODE_KEY);
+  return raw === 'human_in_loop' ? 'human_in_loop' : 'boss_proxy';
+}
+
+function persistDefaultInteractionMode(mode: InteractionMode): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(INTERACTION_MODE_KEY, mode);
+}
+
+function isInteractionRequiredError(message: string): boolean {
+  return (
+    message.includes(TOOL_PERMISSION_REQUIRED) ||
+    message.includes(PLAN_REVIEW_REQUIRED) ||
+    message.includes(AGENT_QUESTION_REQUIRED)
+  );
 }
 
 function parseExplicitUserMemory(text: string): string | null {
@@ -54,6 +92,10 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const [isInitializing, setIsInitializing] = useState(false);
   const [connectedMcpServers, setConnectedMcpServers] = useState<ReadonlySet<string>>(new Set());
   const [unfinishedThreads, setUnfinishedThreads] = useState<UnfinishedThread[]>([]);
+  const [interactionMode, setInteractionModeState] = useState<InteractionMode>(
+    loadDefaultInteractionMode,
+  );
+  const [pendingInteraction, setPendingInteraction] = useState<InteractionRequest | null>(null);
 
   const runtimeRef = useRef<RuntimeBundle | null>(null);
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
@@ -167,6 +209,35 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const eventBus = eventBusRef.current;
+
+    const offRequested = eventBus.on(
+      'interaction.requested',
+      (event: RuntimeEvent<InteractionRequestedPayload>) => {
+        setPendingInteraction(event.payload.request);
+      },
+    );
+    const offResolved = eventBus.on(
+      'interaction.resolved',
+      (_event: RuntimeEvent<InteractionResolvedPayload>) => {
+        setPendingInteraction(null);
+      },
+    );
+    const offMode = eventBus.on(
+      'interaction.mode.changed',
+      (event: RuntimeEvent<InteractionModeChangedPayload>) => {
+        setInteractionModeState(event.payload.nextMode);
+      },
+    );
+
+    return () => {
+      offRequested();
+      offResolved();
+      offMode();
+    };
+  }, []);
+
   // Full dispose on unmount — release gateway, MCP connections, EventBus subs.
   useEffect(() => {
     return () => {
@@ -187,10 +258,13 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
     const eventBus = eventBusRef.current;
-    const runtime = await initializeRuntimeBundle(config, eventBus, isTauri(), companyId);
+    const runtime = await initializeRuntimeBundle(config, eventBus, isTauri(), companyId, {
+      defaultInteractionMode: interactionMode,
+    });
+    runtime?.interactionService?.hydratePending(pendingInteraction);
     runtimeRef.current = runtime;
     return runtime;
-  }, [companyId]);
+  }, [companyId, interactionMode, pendingInteraction]);
 
   function getRuntime(): RuntimeBundle | null {
     return runtimeRef.current ?? null;
@@ -310,13 +384,17 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         return undefined;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
         lastFailedMessageRef.current = {
           text,
           targetEmployeeId: options?.targetEmployeeId,
           threadId: options?.threadId,
           entryMode: options?.entryMode,
         };
+        if (isInteractionRequiredError(msg) && runtime?.interactionService?.getPending()) {
+          setError(null);
+          return undefined;
+        }
+        setError(msg);
         return undefined;
       } finally {
         setIsRunning(false);
@@ -339,6 +417,54 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const clearError = useCallback(() => setError(null), []);
 
   const dismissUnfinishedThreads = useCallback(() => setUnfinishedThreads([]), []);
+
+  const setInteractionMode = useCallback((mode: InteractionMode) => {
+    setInteractionModeState(mode);
+    persistDefaultInteractionMode(mode);
+    runtimeRef.current?.interactionService?.setMode(mode);
+  }, []);
+
+  const respondToInteraction = useCallback(
+    async (selectedOptionId: string, freeformResponse?: string): Promise<string | undefined> => {
+      const runtime = runtimeRef.current;
+      const interactionService = runtime?.interactionService;
+      const pending = interactionService?.getPending() ?? pendingInteraction;
+      if (!pending || !interactionService) return undefined;
+
+      interactionService.resolve({
+        interactionId: pending.interactionId,
+        selectedOptionId,
+        freeformResponse,
+        respondedAt: Date.now(),
+      });
+
+      const followUp = getInteractionFollowUp(pending, { selectedOptionId });
+
+      if (followUp.mode === 'message') {
+        return followUp.message;
+      }
+
+      if (followUp.mode === 'retry_last_message' && lastFailedMessageRef.current) {
+        setError(null);
+        return retryLastMessage();
+      }
+
+      if (followUp.mode === 'resend_with_clarification' && lastFailedMessageRef.current) {
+        const answer = freeformResponse?.trim();
+        if (!answer) return undefined;
+
+        const last = lastFailedMessageRef.current;
+        setError(null);
+        return sendMessage(`${last.text}\n\nUser clarification: ${answer}`, {
+          targetEmployeeId: last.targetEmployeeId,
+          threadId: last.threadId,
+          entryMode: last.entryMode,
+        });
+      }
+      return undefined;
+    },
+    [pendingInteraction, retryLastMessage, sendMessage],
+  );
 
   const resumeThread = useCallback(async (threadId: string): Promise<void> => {
     const runtime = runtimeRef.current;
@@ -562,6 +688,10 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       dismissUnfinishedThreads,
       resumeThread,
       bootstrapState: bootstrapStateRef.current,
+      interactionMode,
+      pendingInteraction,
+      setInteractionMode,
+      respondToInteraction,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [
@@ -579,6 +709,10 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
+    interactionMode,
+    pendingInteraction,
+    setInteractionMode,
+    respondToInteraction,
   ]);
 
   return (

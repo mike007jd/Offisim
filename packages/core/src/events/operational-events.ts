@@ -10,6 +10,9 @@ import type {
   HrAssessmentCompletedPayload,
   HrAssessmentStartedPayload,
   HrRecommendationPayload,
+  InteractionModeChangedPayload,
+  InteractionRequestedPayload,
+  InteractionResolvedPayload,
   MemoryCreatedPayload,
   NotificationDismissedPayload,
   NotificationPayload,
@@ -18,6 +21,11 @@ import type {
   RuntimeEvent,
   SlotAssignedPayload,
   SlotRemovedPayload,
+} from '@offisim/shared-types';
+import type {
+  InteractionMode,
+  InteractionRequest,
+  InteractionResponse,
 } from '@offisim/shared-types';
 
 export function errorOccurred(
@@ -266,5 +274,55 @@ export function notificationDismissed(
     companyId,
     timestamp: Date.now(),
     payload: { notificationId },
+  };
+}
+
+export function interactionRequested(
+  companyId: string,
+  threadId: string,
+  request: InteractionRequest,
+): RuntimeEvent<InteractionRequestedPayload> {
+  return {
+    type: 'interaction.requested',
+    entityId: request.interactionId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { request },
+  };
+}
+
+export function interactionResolved(
+  companyId: string,
+  threadId: string,
+  request: InteractionRequest,
+  response: InteractionResponse,
+): RuntimeEvent<InteractionResolvedPayload> {
+  return {
+    type: 'interaction.resolved',
+    entityId: request.interactionId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { request, response },
+  };
+}
+
+export function interactionModeChanged(
+  companyId: string,
+  threadId: string,
+  previousMode: InteractionMode,
+  nextMode: InteractionMode,
+): RuntimeEvent<InteractionModeChangedPayload> {
+  return {
+    type: 'interaction.mode.changed',
+    entityId: threadId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { previousMode, nextMode },
   };
 }

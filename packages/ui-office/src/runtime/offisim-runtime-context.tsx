@@ -6,7 +6,7 @@ import type {
   RuntimeRepositories,
 } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { InteractionMode, InteractionRequest, RuntimeEvent } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,17 @@ export interface OffisimRuntimeValue {
   resumeThread: (threadId: string) => Promise<void>;
   /** Synchronous browser bootstrap data used before async runtime init finishes. */
   bootstrapState?: OffisimRuntimeBootstrapState | null;
+  /** Active interaction mode for the current thread. */
+  interactionMode?: InteractionMode;
+  /** Pending human-in-the-loop request, if any. */
+  pendingInteraction?: InteractionRequest | null;
+  /** Switch interaction mode for future requests. */
+  setInteractionMode?: (mode: InteractionMode) => void;
+  /** Resolve the currently pending interaction request. */
+  respondToInteraction?: (
+    selectedOptionId: string,
+    freeformResponse?: string,
+  ) => Promise<string | undefined>;
 }
 
 export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);

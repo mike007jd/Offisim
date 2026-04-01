@@ -1,6 +1,11 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import {
+  type InteractionRequest,
+  PLAN_REVIEW_REQUIRED,
+  type PlanCreatedPayload,
+  type RuntimeEvent,
+} from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   PM_SYSTEM_PROMPT,
@@ -13,6 +18,7 @@ import type { OffisimGraphState } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import { InteractionService } from '../../services/interaction-service.js';
 import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
@@ -58,11 +64,36 @@ function makeState(overrides?: Partial<OffisimGraphState>): OffisimGraphState {
   };
 }
 
+function makePlanReviewRequest(overrides?: Partial<InteractionRequest>): InteractionRequest {
+  return {
+    interactionId: overrides?.interactionId ?? 'ix-plan-1',
+    threadId: overrides?.threadId ?? TEST_THREAD_ID,
+    companyId: overrides?.companyId ?? TEST_COMPANY_ID,
+    kind: 'plan_review',
+    severity: overrides?.severity ?? 'normal',
+    title: overrides?.title ?? 'Review plan before execution',
+    prompt: overrides?.prompt ?? 'Review the generated plan before execution.',
+    options: overrides?.options ?? [
+      { id: 'start_execution', label: 'Start execution', recommended: true },
+      { id: 'revise_plan', label: 'Revise plan' },
+      { id: 'cancel', label: 'Cancel' },
+    ],
+    recommendation: overrides?.recommendation,
+    allowFreeformResponse: overrides?.allowFreeformResponse ?? true,
+    requestedByNode: overrides?.requestedByNode ?? 'pm_planner',
+    employeeId: overrides?.employeeId ?? null,
+    taskRunId: overrides?.taskRunId ?? null,
+    context: overrides?.context ?? { type: 'plan_review', planId: null },
+    createdAt: overrides?.createdAt ?? Date.now(),
+  };
+}
+
 describe('pmPlannerNode', () => {
   let gateway: MockLlmGateway;
   let config: RunnableConfig;
   let events: RuntimeEvent[];
   let repos: ReturnType<typeof createMemoryRepositories>;
+  let eventBus: InMemoryEventBus;
 
   beforeEach(() => {
     gateway = new MockLlmGateway();
@@ -70,7 +101,7 @@ describe('pmPlannerNode', () => {
     repos.seed.companies([TEST_COMPANY]);
     repos.seed.employees([makeManager(), makeEmployee()]);
 
-    const eventBus = new InMemoryEventBus();
+    eventBus = new InMemoryEventBus();
     events = [];
     eventBus.on('', (e) => events.push(e));
 
@@ -283,6 +314,179 @@ describe('pmPlannerNode', () => {
     );
 
     expect(plan?.steps[0]?.tasks[0]?.requiredSkills).toEqual(['playwright', 'browser automation']);
+  });
+
+  it('requests plan review in human-in-loop mode before creating task runs', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        summary: 'Build a website',
+        steps: [
+          {
+            stepIndex: 0,
+            description: 'Build feature',
+            tasks: [
+              {
+                taskType: 'code',
+                employeeId: 'e-dev-1',
+                description: 'Write code',
+                dependsOnStepOutput: false,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const interactionService = new InteractionService({
+      eventBus,
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      defaultMode: 'human_in_loop',
+    });
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: gateway,
+      modelResolver: createTestModelResolver(),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      interactionService,
+    });
+
+    await expect(pmPlannerNode(makeState(), { configurable: { runtimeCtx } })).rejects.toThrow(
+      PLAN_REVIEW_REQUIRED,
+    );
+
+    expect(interactionService.getPending()).toMatchObject({
+      kind: 'plan_review',
+      requestedByNode: 'pm_planner',
+    });
+    expect(await repos.taskRuns.findByThread(TEST_THREAD_ID)).toHaveLength(0);
+  });
+
+  it('continues execution after a start-execution plan review approval', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        summary: 'Approved website plan',
+        steps: [
+          {
+            stepIndex: 0,
+            description: 'Build the approved feature set',
+            tasks: [
+              {
+                taskType: 'code',
+                employeeId: 'e-dev-1',
+                description: 'Implement the approved website plan exactly',
+                dependsOnStepOutput: false,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const interactionService = new InteractionService({
+      eventBus,
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      defaultMode: 'human_in_loop',
+    });
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: gateway,
+      modelResolver: createTestModelResolver(),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      interactionService,
+    });
+
+    await expect(pmPlannerNode(makeState(), { configurable: { runtimeCtx } })).rejects.toThrow(
+      PLAN_REVIEW_REQUIRED,
+    );
+
+    expect(interactionService.getPending()).toMatchObject({
+      kind: 'plan_review',
+      prompt: expect.stringContaining('Approved website plan'),
+    });
+
+    interactionService.resolve({
+      interactionId: interactionService.getPending()?.interactionId ?? 'ix-plan-1',
+      selectedOptionId: 'start_execution',
+      respondedAt: Date.now(),
+    });
+
+    const result = await pmPlannerNode(makeState(), { configurable: { runtimeCtx } });
+
+    expect(result.taskPlan?.steps).toHaveLength(1);
+    expect(result.taskPlan?.summary).toBe('Approved website plan');
+    expect(result.taskPlan?.steps[0]?.description).toBe('Build the approved feature set');
+    expect(result.taskPlan?.steps[0]?.tasks[0]?.description).toBe(
+      'Implement the approved website plan exactly',
+    );
+    expect(await repos.taskRuns.findByThread(TEST_THREAD_ID)).toHaveLength(1);
+    expect(interactionService.getPending()).toBeNull();
+  });
+
+  it('applies plan revision notes before re-requesting review', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        summary: 'Split work into clearer phases',
+        steps: [
+          {
+            stepIndex: 0,
+            description: 'Design the approach',
+            tasks: [
+              {
+                taskType: 'analysis',
+                employeeId: 'e-dev-1',
+                description: 'Draft the implementation plan',
+                dependsOnStepOutput: false,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const interactionService = new InteractionService({
+      eventBus,
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      defaultMode: 'human_in_loop',
+    });
+    interactionService.request(makePlanReviewRequest());
+    interactionService.resolve({
+      interactionId: 'ix-plan-1',
+      selectedOptionId: 'revise_plan',
+      freeformResponse: 'Split frontend and backend into separate steps.',
+      respondedAt: Date.now(),
+    });
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: gateway,
+      modelResolver: createTestModelResolver(),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      interactionService,
+    });
+
+    await expect(pmPlannerNode(makeState(), { configurable: { runtimeCtx } })).rejects.toThrow(
+      PLAN_REVIEW_REQUIRED,
+    );
+
+    const lastRequest = gateway.getLastRequest();
+    expect(lastRequest?.messages.at(-1)?.content).toContain(
+      'Plan revision request: Split frontend and backend into separate steps.',
+    );
+    expect(interactionService.getPending()).toMatchObject({
+      kind: 'plan_review',
+      recommendation: { optionId: 'start_execution' },
+    });
   });
 
   it('PM prompt instructs the model to consider expertise and skills', () => {

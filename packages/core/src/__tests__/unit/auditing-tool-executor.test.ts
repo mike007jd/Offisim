@@ -9,6 +9,7 @@ import type {
   ToolCallResponse,
   ToolExecutor,
 } from '../../runtime/tool-executor.js';
+import { InteractionService } from '../../services/interaction-service.js';
 import { assertDefined } from '../helpers/fixtures.js';
 
 // Mock inner executor
@@ -138,6 +139,38 @@ describe('AuditingToolExecutor', () => {
     expect(result.error).toContain('TOOL_PERMISSION_REQUIRED');
     expect(inner.execute).not.toHaveBeenCalled();
     expect(auditRepo.rows[0]?.approved_by).toBe('employee:ask_first_time');
+  });
+
+  it('emits a pending interaction request when approval is required', async () => {
+    permissionAuthorizer = {
+      evaluate: vi.fn().mockResolvedValue({
+        behavior: 'ask',
+        source: 'employee',
+        reason: 'first use requires approval',
+        approvedBy: 'employee:ask_first_time',
+      }),
+    };
+    const interactionService = new InteractionService({
+      eventBus: eventBus as InMemoryEventBus,
+      companyId: 'company-1',
+      threadId: 'thread-1',
+    });
+    executor = new AuditingToolExecutor(
+      inner,
+      auditRepo,
+      eventBus,
+      'company-1',
+      'thread-1',
+      permissionAuthorizer,
+      interactionService,
+    );
+
+    await executor.execute(CALL);
+
+    expect(interactionService.getPending()).toMatchObject({
+      kind: 'permission_request',
+      context: { type: 'permission_request', toolName: 'read_file' },
+    });
   });
 
   it('writes audit record on failure', async () => {

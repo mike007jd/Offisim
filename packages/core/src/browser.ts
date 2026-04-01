@@ -10,7 +10,7 @@
  */
 
 // --- Types (all type-only, zero runtime cost) ---
-export type { RuntimeContext } from './runtime/runtime-context.js';
+export type { RuntimeContext, InteractionBox } from './runtime/runtime-context.js';
 export type {
   RuntimeRepositories,
   CompanyRow,
@@ -111,6 +111,11 @@ export type {
   ToolPermissionRequest,
 } from './permissions/tool-permission-engine.js';
 export type {
+  ToolPermissionGrantRequest,
+  ToolPermissionGrantMatch,
+  ToolPermissionGrantResolver,
+} from './services/interaction-service.js';
+export type {
   OffisimGraphState,
   PendingAssignment,
   TaskPlan,
@@ -179,6 +184,9 @@ export {
   memoryAccessed,
   employeeWorkstationChanged,
   employeeVersionCreated,
+  interactionRequested,
+  interactionResolved,
+  interactionModeChanged,
 } from './events/event-factories.js';
 
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
@@ -223,6 +231,7 @@ export { WorkstationAssignmentService } from './runtime/workstation-assignment-s
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export { NodeSummaryService } from './services/node-summary-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
+export { InteractionService } from './services/interaction-service.js';
 
 // --- Logger ---
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';

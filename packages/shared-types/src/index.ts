@@ -43,6 +43,9 @@ export type {
   ConversationSynopsisUpdatedPayload,
   WorkspaceStalenessDetectedPayload,
   ExecutionResumedPayload,
+  InteractionRequestedPayload,
+  InteractionResolvedPayload,
+  InteractionModeChangedPayload,
   InstallStatePayload,
   BindingStatePayload,
   PlanCreatedPayload,
@@ -94,6 +97,22 @@ export type {
   TaskSubtaskProgressPayload,
   ToolExecutionTelemetryPayload,
 } from './events.js';
+
+export type {
+  InteractionMode,
+  InteractionKind,
+  InteractionSeverity,
+  InteractionScope,
+  InteractionOption,
+  BossRecommendation,
+  PermissionInteractionContext,
+  PlanReviewInteractionContext,
+  AgentQuestionInteractionContext,
+  InteractionContext,
+  InteractionRequest,
+  InteractionResponse,
+} from './interactions.js';
+export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
 
 export type {
   BindingType,

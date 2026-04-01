@@ -12,6 +12,7 @@ import { ErrorBanner } from '../error/ErrorBanner';
 import { MeetingPanel } from '../office/MeetingPanel';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
+import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { PipelineProgress } from './PipelineProgress';
 import { StreamingBubble } from './StreamingBubble';
@@ -57,6 +58,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
     useOffisimRuntime();
+  const { pendingInteraction, respondToInteraction } = useOffisimRuntime();
   const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
@@ -71,6 +73,7 @@ export function ChatPanel({
 
   // Track which target the last error occurred on
   const errorTargetRef = useRef<string | null>(null);
+  const interactionTargetRef = useRef<string | null>(null);
 
   // Current target key
   const targetKey = selectedEmployeeId ?? null;
@@ -95,6 +98,14 @@ export function ChatPanel({
     }
   }, [isStreaming, streamContent]);
 
+  useEffect(() => {
+    if (pendingInteraction) {
+      interactionTargetRef.current = errorTargetRef.current ?? targetKey;
+      return;
+    }
+    interactionTargetRef.current = null;
+  }, [pendingInteraction, targetKey]);
+
   // Auto-scroll
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll
   useEffect(() => {
@@ -110,6 +121,28 @@ export function ChatPanel({
       next.set(target, [...existing, msg]);
       return next;
     });
+  }
+
+  async function handleInteractionRespond(
+    selectedOptionId: string,
+    freeformResponse?: string,
+  ): Promise<void> {
+    const pending = pendingInteraction;
+    if (!pending || !respondToInteraction) return;
+    const interactionTarget = interactionTargetRef.current ?? targetKey;
+
+    const trimmedResponse = freeformResponse?.trim();
+    if (pending.kind === 'agent_question' && selectedOptionId !== 'cancel' && trimmedResponse) {
+      addMessage(interactionTarget, { id: genMsgId(), role: 'user', content: trimmedResponse });
+    }
+
+    lastStreamRef.current = '';
+    const response = await respondToInteraction(selectedOptionId, trimmedResponse);
+    const finalContent = lastStreamRef.current || response;
+    if (finalContent) {
+      addMessage(interactionTarget, { id: genMsgId(), role: 'assistant', content: finalContent });
+    }
+    lastStreamRef.current = '';
   }
 
   async function handleSend(
@@ -196,7 +229,7 @@ export function ChatPanel({
     [onSelectEmployee],
   );
 
-  const showEmpty = messages.length === 0 && !isStreaming;
+  const showEmpty = messages.length === 0 && !isStreaming && !pendingInteraction;
   const isDirectChat = !!selectedEmployeeId;
 
   const inputPlaceholder = isDirectChat
@@ -278,6 +311,14 @@ export function ChatPanel({
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
             <ActivityRail />
+            {pendingInteraction?.severity !== 'high' &&
+              pendingInteraction &&
+              respondToInteraction && (
+                <InteractionPrompt
+                  request={pendingInteraction}
+                  onRespond={handleInteractionRespond}
+                />
+              )}
             {messages.map((msg) => (
               <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}
@@ -288,6 +329,9 @@ export function ChatPanel({
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       <MeetingPanel agents={agents} />
+      {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
+        <InteractionPrompt request={pendingInteraction} onRespond={handleInteractionRespond} />
+      )}
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
       <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />

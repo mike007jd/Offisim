@@ -1,4 +1,5 @@
 import type { InMemoryEventBus } from '@offisim/core/browser';
+import type { InteractionMode } from '@offisim/shared-types';
 import type { ProviderConfig } from '@offisim/ui-office';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
@@ -7,6 +8,7 @@ export async function initializeRuntimeBundle(
   eventBus: InMemoryEventBus,
   tauri: boolean,
   companyId: string,
+  opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle | null> {
   if (tauri) {
     if (!config) {
@@ -14,14 +16,14 @@ export async function initializeRuntimeBundle(
       return createTauriRuntimeReposOnly(eventBus);
     }
     const { createTauriRuntime } = await import('../lib/tauri-runtime');
-    return createTauriRuntime(config, eventBus, companyId);
+    return createTauriRuntime(config, eventBus, companyId, opts);
   }
 
   const { createBrowserRuntime, createBrowserRuntimeReposOnly } = await import(
     '../lib/browser-runtime'
   );
   if (!config) {
-    return createBrowserRuntimeReposOnly(eventBus, companyId);
+    return createBrowserRuntimeReposOnly(eventBus, companyId, opts);
   }
-  return createBrowserRuntime(config, eventBus, companyId);
+  return createBrowserRuntime(config, eventBus, companyId, opts);
 }

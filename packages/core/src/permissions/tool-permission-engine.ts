@@ -1,11 +1,12 @@
 import type { RuntimePolicyConfig, RuntimeToolPermissionBehavior } from '@offisim/shared-types';
 import type { ToolApprovalMode, ToolPermissionPolicy } from '../mcp/types.js';
 import type { EmployeeRepository, McpAuditRepository } from '../runtime/repositories.js';
+import type { ToolPermissionGrantResolver } from '../services/interaction-service.js';
 import { globToRegex } from '../utils/glob-match.js';
 
 export interface ToolPermissionDecision {
   readonly behavior: RuntimeToolPermissionBehavior;
-  readonly source: 'runtime' | 'employee' | 'default';
+  readonly source: 'runtime' | 'employee' | 'default' | 'interaction';
   readonly reason: string;
   readonly approvedBy: string;
   readonly matchedPattern?: string;
@@ -26,6 +27,7 @@ interface ToolPermissionEngineDeps {
   readonly employees: EmployeeRepository;
   readonly mcpAudit: McpAuditRepository;
   readonly runtimePolicy?: RuntimePolicyConfig;
+  readonly grants?: ToolPermissionGrantResolver;
 }
 
 interface JsonRecord {
@@ -36,6 +38,21 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
   constructor(private readonly deps: ToolPermissionEngineDeps) {}
 
   async evaluate(request: ToolPermissionRequest): Promise<ToolPermissionDecision> {
+    const granted = this.deps.grants?.consumeMatchingGrant({
+      threadId: request.threadId,
+      serverName: request.serverName,
+      toolName: request.toolName,
+      employeeId: request.employeeId,
+    });
+    if (granted) {
+      return {
+        behavior: 'allow',
+        source: 'interaction',
+        reason: `User granted ${granted.scope}-scoped approval for this tool.`,
+        approvedBy: `interaction:${granted.scope}`,
+      };
+    }
+
     const runtimeDecision = this.evaluateRuntimePolicy(request);
     if (runtimeDecision && runtimeDecision.behavior !== 'allow') {
       return runtimeDecision;

@@ -1,4 +1,4 @@
-import type { RuntimePolicyConfig } from '@offisim/shared-types';
+import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
@@ -7,6 +7,7 @@ import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { FileHistoryService } from '../services/file-history-service.js';
+import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
@@ -23,6 +24,10 @@ export interface MeetingInterruptBox {
   pending: MeetingInterrupt | null;
 }
 
+export interface InteractionBox {
+  pending: InteractionRequest | null;
+}
+
 export interface RuntimeContext {
   readonly repos: RuntimeRepositories;
   readonly eventBus: EventBus;
@@ -37,6 +42,8 @@ export interface RuntimeContext {
   readonly workstationToolResolver?: WorkstationToolResolver;
   /** Mutable box for boss meeting interrupts. Nodes read + clear this. */
   readonly meetingInterruptBox: MeetingInterruptBox;
+  /** Mutable box for user-visible decision requests. */
+  readonly interactionBox: InteractionBox;
   /** Optional middleware chain for LLM call pre/post processing. */
   readonly middlewareChain?: LlmMiddlewareChain;
   /** Config-driven model catalog. Registry owns gateway lifecycle for registered models. */
@@ -49,6 +56,8 @@ export interface RuntimeContext {
   readonly toolTelemetryService?: ToolTelemetryService;
   /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
   readonly fileHistoryService?: FileHistoryService;
+  /** Human-in-the-loop interaction controller. */
+  readonly interactionService?: InteractionService;
 }
 
 export interface DisposableRuntime {
@@ -83,16 +92,19 @@ export function createRuntimeContext(deps: {
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
   meetingInterruptBox?: MeetingInterruptBox;
+  interactionBox?: InteractionBox;
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
   systemCaller?: RecordedSystemLlmCaller;
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
   fileHistoryService?: FileHistoryService;
+  interactionService?: InteractionService;
 }): RuntimeContext {
-  const { meetingInterruptBox, ...rest } = deps;
+  const { meetingInterruptBox, interactionBox, ...rest } = deps;
   return Object.freeze({
     ...rest,
     meetingInterruptBox: meetingInterruptBox ?? { pending: null },
+    interactionBox: interactionBox ?? { pending: null },
   });
 }

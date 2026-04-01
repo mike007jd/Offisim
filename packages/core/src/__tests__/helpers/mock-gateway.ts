@@ -5,6 +5,7 @@ export class MockLlmGateway implements LlmGateway {
   private sequentialResponses: LlmResponse[] = [];
   private streamResponses: LlmResponse[] = [];
   private callCount = 0;
+  readonly requests: LlmRequest[] = [];
 
   whenSystemContains(keyword: string, response: Partial<LlmResponse>): void {
     this.keywordResponses.set(keyword, {
@@ -38,6 +39,7 @@ export class MockLlmGateway implements LlmGateway {
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
+    this.requests.push(request);
     // Sequential mode takes priority
     if (this.callCount < this.sequentialResponses.length) {
       const response = this.sequentialResponses[this.callCount];
@@ -78,6 +80,7 @@ export class MockLlmGateway implements LlmGateway {
     // Use stream-specific responses first, then fall back to chat()
     let response: LlmResponse;
     if (this.streamResponses.length > 0) {
+      this.requests.push(request);
       const shifted = this.streamResponses.shift();
       if (!shifted) {
         throw new Error('Expected a queued stream response');
@@ -95,5 +98,9 @@ export class MockLlmGateway implements LlmGateway {
       }
     }
     yield { usage: response.usage, done: true };
+  }
+
+  getLastRequest(): LlmRequest | undefined {
+    return this.requests.at(-1);
   }
 }

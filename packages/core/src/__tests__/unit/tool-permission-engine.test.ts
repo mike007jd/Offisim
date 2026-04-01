@@ -1,8 +1,10 @@
 import type { RuntimePolicyConfig } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
+import { InMemoryEventBus } from '../../events/event-bus.js';
 import { ToolPermissionEngine } from '../../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { EmployeeRow, NewMcpAudit } from '../../runtime/repositories.js';
+import { InteractionService } from '../../services/interaction-service.js';
 
 function makeEmployee(
   overrides: Partial<EmployeeRow> & Pick<EmployeeRow, 'employee_id' | 'company_id'>,
@@ -230,6 +232,74 @@ describe('ToolPermissionEngine', () => {
       source: 'employee',
       approvedBy: 'employee:auto',
       matchedPattern: 'read_*',
+    });
+  });
+
+  it('allows when a matching interaction grant is present', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.employees([
+      makeEmployee({
+        employee_id: 'emp-1',
+        company_id: 'company-1',
+        config_json: JSON.stringify({
+          toolPermissionPolicy: {
+            defaultMode: 'always_ask',
+            overrides: [],
+          },
+        }),
+      }),
+    ]);
+    const interactionService = new InteractionService({
+      eventBus: new InMemoryEventBus(),
+      companyId: 'company-1',
+      threadId: 'thread-1',
+    });
+    interactionService.request({
+      interactionId: 'ix-1',
+      threadId: 'thread-1',
+      companyId: 'company-1',
+      kind: 'permission_request',
+      severity: 'normal',
+      title: 'Approve tool access',
+      prompt: 'Allow read_file?',
+      options: [
+        { id: 'approve_thread', label: 'Approve thread', scope: 'thread' },
+        { id: 'reject', label: 'Reject' },
+      ],
+      allowFreeformResponse: true,
+      employeeId: 'emp-1',
+      taskRunId: 'tr-1',
+      context: {
+        type: 'permission_request',
+        serverName: 'fs-server',
+        toolName: 'read_file',
+        employeeId: 'emp-1',
+      },
+      createdAt: Date.now(),
+    });
+    interactionService.resolve({
+      interactionId: 'ix-1',
+      selectedOptionId: 'approve_thread',
+      respondedAt: Date.now(),
+    });
+
+    const engine = new ToolPermissionEngine({
+      employees: repos.employees,
+      mcpAudit: repos.mcpAudit,
+      grants: interactionService,
+    });
+
+    const decision = await engine.evaluate({
+      threadId: 'thread-1',
+      serverName: 'fs-server',
+      toolName: 'read_file',
+      employeeId: 'emp-1',
+    });
+
+    expect(decision).toMatchObject({
+      behavior: 'allow',
+      source: 'interaction',
+      approvedBy: 'interaction:thread',
     });
   });
 

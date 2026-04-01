@@ -85,4 +85,7 @@ export {
   hrRecommendation,
   notificationCreated,
   notificationDismissed,
+  interactionRequested,
+  interactionResolved,
+  interactionModeChanged,
 } from './operational-events.js';

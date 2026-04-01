@@ -3,6 +3,10 @@ import type {
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  InteractionKind,
+  InteractionModeChangedPayload,
+  InteractionRequestedPayload,
+  InteractionResolvedPayload,
   PlanCreatedPayload,
   RuntimeEvent,
   SessionCostUpdatedPayload,
@@ -104,6 +108,33 @@ function exitedEntry(nodeName: string): RuntimeActivityEntry {
     label: `${humanizeNode(nodeName)} finished`,
     timestamp: Date.now(),
   };
+}
+
+function interactionRequestedLabel(kind: InteractionKind): string {
+  switch (kind) {
+    case 'permission_request':
+      return 'Waiting for approval';
+    case 'plan_review':
+      return 'Waiting for plan review';
+    case 'agent_question':
+      return 'Waiting for clarification';
+    default:
+      return 'Waiting for user input';
+  }
+}
+
+function interactionResolvedLabel(kind: InteractionKind, selectedOptionId: string): string {
+  const action = selectedOptionId.replaceAll('_', ' ');
+  switch (kind) {
+    case 'permission_request':
+      return `Approval decision: ${action}`;
+    case 'plan_review':
+      return `Plan review: ${action}`;
+    case 'agent_question':
+      return `Clarification received: ${action}`;
+    default:
+      return `Decision received: ${action}`;
+  }
 }
 
 function telemetryLabel(payload: ToolExecutionTelemetryPayload): string {
@@ -233,6 +264,68 @@ export function useRuntimeActivityFeed(opts?: {
               kind: 'dispatch',
               tone: 'info',
               label: `${event.payload.employeeName} took step ${event.payload.stepIndex + 1}: ${truncate(event.payload.stepLabel, 34)}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offInteractionRequested = eventBus.on(
+      'interaction.requested',
+      (event: RuntimeEvent<InteractionRequestedPayload>) => {
+        const label = interactionRequestedLabel(event.payload.request.kind);
+        setHeadline(label);
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `interaction-${event.payload.request.interactionId}`,
+              kind: 'system',
+              tone: event.payload.request.severity === 'high' ? 'warning' : 'info',
+              label,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offInteractionResolved = eventBus.on(
+      'interaction.resolved',
+      (event: RuntimeEvent<InteractionResolvedPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `interaction-resolved-${event.payload.request.interactionId}`,
+              kind: 'system',
+              tone: 'success',
+              label: interactionResolvedLabel(
+                event.payload.request.kind,
+                event.payload.response.selectedOptionId,
+              ),
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offInteractionMode = eventBus.on(
+      'interaction.mode.changed',
+      (event: RuntimeEvent<InteractionModeChangedPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `interaction-mode-${event.timestamp}`,
+              kind: 'system',
+              tone: 'info',
+              label: `Interaction mode: ${event.payload.nextMode.replaceAll('_', ' ')}`,
               timestamp: event.timestamp,
             },
             maxEntries,
@@ -391,6 +484,9 @@ export function useRuntimeActivityFeed(opts?: {
       offExited();
       offPlan();
       offDispatch();
+      offInteractionRequested();
+      offInteractionResolved();
+      offInteractionMode();
       offTool();
       offSynopsis();
       offResume();

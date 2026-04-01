@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@offisim/shared-types';
+import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps, PropsWithChildren } from 'react';
@@ -21,7 +21,22 @@ import type { ComponentProps, PropsWithChildren } from 'react';
 // ── Mock all context / hook dependencies ──────────────────────────────────
 
 const mockSendMessage = vi.fn().mockResolvedValue(undefined);
+const mockRetryLastMessage = vi.fn().mockResolvedValue(undefined);
+const mockRespondToInteraction = vi.fn().mockResolvedValue(undefined);
 const mockEventBus = { on: vi.fn().mockReturnValue(() => {}) };
+const mockRuntime = {
+  sendMessage: mockSendMessage,
+  retryLastMessage: mockRetryLastMessage,
+  isRunning: false,
+  isReady: true,
+  error: null as string | null,
+  clearError: vi.fn(),
+  abortExecution: vi.fn(),
+  eventBus: mockEventBus,
+  repos: null,
+  pendingInteraction: null as InteractionRequest | null,
+  respondToInteraction: mockRespondToInteraction,
+};
 
 type ChildrenOnlyProps = PropsWithChildren;
 type EmptyStateProps = ComponentProps<'div'> & {
@@ -30,19 +45,13 @@ type EmptyStateProps = ComponentProps<'div'> & {
 type ChatInputProps = {
   onSend: (message: string) => void;
 };
+type InteractionPromptProps = {
+  request: InteractionRequest | null;
+  onRespond: (selectedOptionId: string, freeformResponse?: string) => Promise<string | undefined>;
+};
 
 vi.mock('../../runtime/offisim-runtime-context.js', () => ({
-  useOffisimRuntime: () => ({
-    sendMessage: mockSendMessage,
-    retryLastMessage: vi.fn().mockResolvedValue(undefined),
-    isRunning: false,
-    isReady: true,
-    error: null,
-    clearError: vi.fn(),
-    abortExecution: vi.fn(),
-    eventBus: mockEventBus,
-    repos: null,
-  }),
+  useOffisimRuntime: () => mockRuntime,
   useOffisimRuntimeStatus: () => ({ isRunning: false, version: 0 }),
   OffisimRuntimeContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
   OffisimRuntimeStatusContext: { Provider: ({ children }: ChildrenOnlyProps) => children },
@@ -98,6 +107,21 @@ vi.mock('../../components/error/ErrorBanner.js', () => ({
   ErrorBanner: () => null,
 }));
 
+vi.mock('../../components/chat/InteractionPrompt.js', () => ({
+  InteractionPrompt: ({ request, onRespond }: InteractionPromptProps) =>
+    request ? (
+      <div>
+        <div>{request.title}</div>
+        <button
+          type="button"
+          onClick={() => onRespond('answer_and_continue', 'Build a SaaS landing page')}
+        >
+          Answer and continue
+        </button>
+      </div>
+    ) : null,
+}));
+
 vi.mock('@offisim/ui-core', () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
   ScrollArea: ({ children }: ChildrenOnlyProps) => <div>{children}</div>,
@@ -137,12 +161,44 @@ const ACTIVE_PROJECT = makeProject({
   thread_id: 'thread-xyz-999',
 });
 
+function makeInteractionRequest(
+  overrides?: Partial<InteractionRequest> & { kind: InteractionRequest['kind'] },
+): InteractionRequest {
+  return {
+    interactionId: overrides?.interactionId ?? 'ix-1',
+    threadId: overrides?.threadId ?? 'thread-1',
+    companyId: overrides?.companyId ?? 'co-1',
+    kind: overrides?.kind ?? 'agent_question',
+    severity: overrides?.severity ?? 'normal',
+    title: overrides?.title ?? 'Need one clarification',
+    prompt: overrides?.prompt ?? 'Which direction should Offisim take?',
+    options: overrides?.options ?? [
+      { id: 'answer_and_continue', label: 'Answer and continue', recommended: true },
+      { id: 'cancel', label: 'Cancel' },
+    ],
+    recommendation: overrides?.recommendation,
+    allowFreeformResponse: overrides?.allowFreeformResponse ?? true,
+    placeholder: overrides?.placeholder ?? 'Answer here',
+    requestedByNode: overrides?.requestedByNode ?? 'boss',
+    employeeId: overrides?.employeeId ?? null,
+    taskRunId: overrides?.taskRunId ?? null,
+    context: overrides?.context ?? { type: 'agent_question', questionKey: 'boss_clarification' },
+    createdAt: overrides?.createdAt ?? Date.now(),
+  };
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 describe('ChatPanel — project scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSendMessage.mockResolvedValue(undefined);
+    mockRetryLastMessage.mockResolvedValue(undefined);
+    mockRespondToInteraction.mockResolvedValue(undefined);
+    mockRuntime.isRunning = false;
+    mockRuntime.isReady = true;
+    mockRuntime.error = null;
+    mockRuntime.pendingInteraction = null;
   });
 
   it('shows project name banner when activeProject is provided', () => {
@@ -206,5 +262,89 @@ describe('ChatPanel — project scoping', () => {
     expect(screen.queryByText('Alpha Initiative')).toBeNull();
     // But the direct-chat header with employee name should show
     expect(screen.getByText('Alice')).toBeInTheDocument();
+  });
+
+  it('shows a pending interaction card even when there are no chat messages yet', () => {
+    mockRuntime.pendingInteraction = makeInteractionRequest({
+      kind: 'plan_review',
+      title: 'Review plan before execution',
+      prompt: 'Review the generated plan before execution.',
+    });
+
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
+
+    expect(screen.getByText('Review plan before execution')).toBeInTheDocument();
+  });
+
+  it('appends agent-question answers and follow-up assistant replies to the chat', async () => {
+    const user = userEvent.setup();
+    mockRuntime.pendingInteraction = makeInteractionRequest({ kind: 'agent_question' });
+    mockRespondToInteraction.mockResolvedValue(
+      'Thanks. I will proceed with the SaaS landing page.',
+    );
+
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
+
+    await user.click(screen.getByRole('button', { name: 'Answer and continue' }));
+
+    expect(
+      await screen.findByText('Build a SaaS landing page', { exact: false }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Thanks. I will proceed with the SaaS landing page.', {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps interaction replies on the original direct-chat target after switching chats', async () => {
+    const user = userEvent.setup();
+    mockRuntime.pendingInteraction = makeInteractionRequest({ kind: 'agent_question' });
+    mockRespondToInteraction.mockResolvedValue('Proceeding with the original direct-chat request.');
+
+    const { rerender } = render(
+      <ChatPanel
+        onOpenSettings={vi.fn()}
+        activeProject={null}
+        selectedEmployeeId="emp-1"
+        selectedEmployeeName="Alice"
+      />,
+    );
+
+    await user.click(screen.getByTestId('chat-input-send'));
+
+    rerender(
+      <ChatPanel
+        onOpenSettings={vi.fn()}
+        activeProject={null}
+        selectedEmployeeId="emp-2"
+        selectedEmployeeName="Bob"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Answer and continue' }));
+
+    expect(screen.queryByText('Build a SaaS landing page', { exact: false })).toBeNull();
+    expect(
+      screen.queryByText('Proceeding with the original direct-chat request.', { exact: false }),
+    ).toBeNull();
+
+    rerender(
+      <ChatPanel
+        onOpenSettings={vi.fn()}
+        activeProject={null}
+        selectedEmployeeId="emp-1"
+        selectedEmployeeName="Alice"
+      />,
+    );
+
+    expect(
+      await screen.findByText('Build a SaaS landing page', { exact: false }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Proceeding with the original direct-chat request.', {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
   });
 });

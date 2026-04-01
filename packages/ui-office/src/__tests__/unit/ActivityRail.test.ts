@@ -234,4 +234,69 @@ describe('ActivityRail', () => {
       expect(screen.getByText('Approval needed for github/search')).toBeInTheDocument();
     });
   });
+
+  it('uses interaction-specific labels for requested and resolved decisions', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'interaction.requested',
+        entityId: 'ix-plan-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          request: {
+            interactionId: 'ix-plan-1',
+            threadId: 'thread-1',
+            companyId: 'co-1',
+            kind: 'plan_review',
+            severity: 'normal',
+            title: 'Review plan before execution',
+            prompt: 'Review the generated plan.',
+            options: [{ id: 'start_execution', label: 'Start execution' }],
+            allowFreeformResponse: true,
+            createdAt: Date.now(),
+          },
+        },
+      });
+      eventBus.emit({
+        type: 'interaction.resolved',
+        entityId: 'ix-question-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          request: {
+            interactionId: 'ix-question-1',
+            threadId: 'thread-1',
+            companyId: 'co-1',
+            kind: 'agent_question',
+            severity: 'normal',
+            title: 'Need one clarification',
+            prompt: 'What kind of website do you want?',
+            options: [{ id: 'answer_and_continue', label: 'Answer and continue' }],
+            allowFreeformResponse: true,
+            createdAt: Date.now(),
+          },
+          response: {
+            interactionId: 'ix-question-1',
+            selectedOptionId: 'answer_and_continue',
+            freeformResponse: 'A SaaS landing page',
+            respondedAt: Date.now(),
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Waiting for plan review').length).toBeGreaterThan(0);
+      expect(screen.getByText('Clarification received: answer and continue')).toBeInTheDocument();
+    });
+  });
 });

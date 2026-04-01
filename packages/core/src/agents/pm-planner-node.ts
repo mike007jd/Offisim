@@ -1,5 +1,5 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { SopDefinition, SopStep } from '@offisim/shared-types';
+import { PLAN_REVIEW_REQUIRED, type SopDefinition, type SopStep } from '@offisim/shared-types';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
@@ -69,6 +69,25 @@ export interface LlmPlanStep {
 interface LlmPlan {
   summary: string;
   steps: LlmPlanStep[];
+}
+
+function formatPlanReviewPrompt(plan: LlmPlan): string {
+  const stepPreview = plan.steps
+    .slice(0, 4)
+    .map((step) => `${step.stepIndex + 1}. ${step.description} (${step.tasks.length} tasks)`)
+    .join('\n');
+  const extraSteps =
+    plan.steps.length > 4
+      ? `\n+ ${plan.steps.length - 4} more step${plan.steps.length === 5 ? '' : 's'}`
+      : '';
+  return `Review the plan before execution.\nSummary: ${plan.summary}\n${stepPreview}${extraSteps}`;
+}
+
+function buildPlanReviewReason(plan: LlmPlan, revisionNote: string | null): string {
+  if (revisionNote) {
+    return 'The updated plan reflects your requested changes and is ready to run.';
+  }
+  return `The plan is structured into ${plan.steps.length} step${plan.steps.length === 1 ? '' : 's'} and looks ready to execute.`;
 }
 
 export function parsePmPlan(content: string): LlmPlan | null {
@@ -256,6 +275,18 @@ export async function pmPlannerNode(
 
   const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
   const directive = state.managerDirective;
+  const interactionService = runtimeCtx.interactionService;
+  const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
+  const planReviewDecision = interactionService?.consumePlanReviewDecision(threadId) ?? null;
+  const approvedToExecute = planReviewDecision?.selectedOptionId === 'start_execution';
+  const planRevisionNote =
+    planReviewDecision?.selectedOptionId === 'revise_plan'
+      ? planReviewDecision.freeformResponse?.trim() || 'Revise the plan before execution.'
+      : null;
+  const reviewedPlan =
+    approvedToExecute && planReviewDecision?.reviewedPayload
+      ? (planReviewDecision.reviewedPayload as LlmPlan)
+      : null;
 
   // If no directive or no recommended employees, return empty plan
   if (!directive || directive.recommendedEmployees.length === 0) {
@@ -288,10 +319,10 @@ export async function pmPlannerNode(
   const allEmployees = await repos.employees.findByCompany(companyId);
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
 
-  let plan: LlmPlan | null = null;
+  let plan: LlmPlan | null = reviewedPlan;
 
   // Explicit SOP selection takes priority over substring matching
-  if (directive.sopTemplateId) {
+  if (directive.sopTemplateId && !planRevisionNote) {
     const template = await repos.sopTemplates.findById(directive.sopTemplateId);
     if (template) {
       try {
@@ -311,7 +342,7 @@ export async function pmPlannerNode(
   }
 
   // Fall back to substring matching if no explicit SOP
-  if (!plan) {
+  if (!plan && !planRevisionNote) {
     plan = await tryBuildSopPlan(repos, eventBus, companyId, directive.intent, allEnabled);
   }
 
@@ -352,7 +383,10 @@ export async function pmPlannerNode(
           },
           {
             role: 'user',
-            content: `Intent: ${directive.intent}${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}`,
+            content:
+              `Intent: ${directive.intent}` +
+              `${directive.constraints ? `\nConstraints: ${directive.constraints}` : ''}` +
+              `${planRevisionNote ? `\nPlan revision request: ${planRevisionNote}` : ''}`,
           },
         ],
         model: resolved.model,
@@ -383,6 +417,37 @@ export async function pmPlannerNode(
         ],
       };
     }
+  }
+
+  if (interactionService && interactionMode === 'human_in_loop' && !approvedToExecute) {
+    interactionService.rememberPlanReviewPayload(threadId, plan);
+    interactionService.request({
+      interactionId: generateId('ix'),
+      threadId,
+      companyId,
+      kind: 'plan_review',
+      severity: 'normal',
+      title: 'Review plan before execution',
+      prompt: formatPlanReviewPrompt(plan),
+      options: [
+        { id: 'start_execution', label: 'Start execution', recommended: true },
+        { id: 'revise_plan', label: 'Revise plan' },
+        { id: 'cancel', label: 'Cancel' },
+      ],
+      recommendation: {
+        optionId: 'start_execution',
+        reason: buildPlanReviewReason(plan, planRevisionNote),
+      },
+      allowFreeformResponse: true,
+      placeholder: 'Tell Offisim what to change in the plan',
+      requestedByNode: 'pm_planner',
+      context: {
+        type: 'plan_review',
+        planId: null,
+      },
+      createdAt: Date.now(),
+    });
+    throw new Error(PLAN_REVIEW_REQUIRED);
   }
 
   const planId = generateId('plan');

@@ -13,6 +13,8 @@ export { DicebearAvatar } from './components/shared/DicebearAvatar.js';
 export * from './components/chat/ChatDrawer.js';
 export * from './components/chat/ChatInput.js';
 export * from './components/chat/ChatPanel.js';
+export * from './components/chat/InteractionDecisionCard.js';
+export * from './components/chat/InteractionPrompt.js';
 export * from './components/chat/MessageBubble.js';
 export * from './components/chat/ActivityRail.js';
 export * from './components/chat/StreamingBubble.js';

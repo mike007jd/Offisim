@@ -1,9 +1,25 @@
+import { Button } from '@offisim/ui-core';
 import { Activity, Cpu, Database, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useRuntimeActivityFeed } from '../../runtime/use-runtime-activity-feed';
 import { EnergyMeter } from './EnergyMeter.js';
+
+function pendingInteractionLabel(
+  pendingInteraction: NonNullable<ReturnType<typeof useOffisimRuntime>['pendingInteraction']>,
+): string {
+  switch (pendingInteraction.kind) {
+    case 'permission_request':
+      return pendingInteraction.severity === 'high' ? 'Approval required' : 'Awaiting approval';
+    case 'plan_review':
+      return 'Awaiting plan review';
+    case 'agent_question':
+      return 'Awaiting clarification';
+    default:
+      return pendingInteraction.severity === 'high' ? 'Decision required' : 'Awaiting input';
+  }
+}
 
 // ---------------------------------------------------------------------------
 
@@ -12,7 +28,7 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ modelName }: StatusBarProps) {
-  const { error } = useOffisimRuntime();
+  const { error, interactionMode, setInteractionMode, pendingInteraction } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
   const pipelineStage = usePipelineStage();
@@ -96,6 +112,34 @@ export function StatusBar({ modelName }: StatusBarProps) {
         />
         {metrics.elapsedMs != null && (
           <span className="font-mono">LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s</span>
+        )}
+        <div className="w-px h-3 bg-white/10" />
+        {setInteractionMode && (
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={interactionMode === 'boss_proxy' ? 'secondary' : 'ghost'}
+              className="h-6 px-2 text-[9px]"
+              onClick={() => setInteractionMode('boss_proxy')}
+            >
+              Proxy
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={interactionMode === 'human_in_loop' ? 'secondary' : 'ghost'}
+              className="h-6 px-2 text-[9px]"
+              onClick={() => setInteractionMode('human_in_loop')}
+            >
+              Human
+            </Button>
+          </div>
+        )}
+        {pendingInteraction && (
+          <span className="font-mono text-amber-200/80">
+            {pendingInteractionLabel(pendingInteraction)}
+          </span>
         )}
         <div className="w-px h-3 bg-white/10" />
         <div className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity">

@@ -32,12 +32,14 @@ import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permis
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
+import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
+import type { InteractionMode } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
@@ -113,6 +115,7 @@ export type RuntimeBundle = {
   userMemoryService?: UserMemoryService;
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
+  interactionService?: InteractionService;
   dispose?: () => void;
 };
 
@@ -126,6 +129,7 @@ export async function createBrowserRuntime(
   config: ProviderConfig,
   eventBus: InMemoryEventBus,
   companyId: string,
+  opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
   assertBrowserProviderAllowed(config.provider, IS_DEV);
 
@@ -172,6 +176,14 @@ export async function createBrowserRuntime(
     companyId,
     clientFactory: new BrowserMcpClientFactory(),
   });
+  const interactionBox = { pending: null };
+  const interactionService = new InteractionService({
+    eventBus,
+    companyId,
+    threadId,
+    defaultMode: opts?.defaultInteractionMode,
+    pendingStore: interactionBox,
+  });
 
   const toolExecutor = new AuditingToolExecutor(
     mcpToolExecutor,
@@ -183,7 +195,9 @@ export async function createBrowserRuntime(
       employees: repos.employees,
       mcpAudit: repos.mcpAudit,
       runtimePolicy,
+      grants: interactionService,
     }),
+    interactionService,
   );
   const systemCaller = new RecordedSystemLlmCaller({
     llmGateway: gateway,
@@ -232,10 +246,12 @@ export async function createBrowserRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    interactionBox,
     middlewareChain,
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
+    interactionService,
   });
 
   const installService = new InstallService({
@@ -267,6 +283,7 @@ export async function createBrowserRuntime(
     userMemoryService,
     sessionCostTracker,
     toolTelemetryService,
+    interactionService,
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
@@ -282,16 +299,39 @@ export async function createBrowserRuntime(
  */
 export async function createBrowserRuntimeReposOnly(
   eventBus: InMemoryEventBus,
-  _companyId?: string,
+  companyId = 'company-unknown',
+  opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
+  const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
+  const interactionBox = { pending: null };
+  const interactionService = new InteractionService({
+    eventBus,
+    companyId,
+    threadId,
+    defaultMode: opts?.defaultInteractionMode,
+    pendingStore: interactionBox,
+  });
 
   return {
     eventBus,
     graph: null as unknown as RuntimeBundle['graph'],
-    runtimeCtx: null as unknown as RuntimeBundle['runtimeCtx'],
+    runtimeCtx: createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: null as never,
+      modelResolver: null as never,
+      toolExecutor: {
+        execute: async () => ({ success: false, result: null }),
+        listAvailable: async () => [],
+      },
+      companyId,
+      threadId,
+      interactionBox,
+      interactionService,
+    }),
     orch: null,
     installService: null,
     mcpToolExecutor: null,
@@ -299,6 +339,7 @@ export async function createBrowserRuntimeReposOnly(
     userMemoryService: undefined,
     sessionCostTracker: undefined,
     toolTelemetryService: undefined,
+    interactionService,
     dispose: persistence.dispose,
   };
 }

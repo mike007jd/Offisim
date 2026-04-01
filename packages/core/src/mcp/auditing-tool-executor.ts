@@ -1,3 +1,4 @@
+import type { InteractionRequest } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult, toolExecutionTelemetry } from '../events/event-factories.js';
 import type { ToolPermissionAuthorizer } from '../permissions/tool-permission-engine.js';
@@ -12,6 +13,7 @@ const logger = new Logger('mcp');
 import type { ToolDef } from '../llm/gateway.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
+import type { InteractionService } from '../services/interaction-service.js';
 import { generateId } from '../utils/generate-id.js';
 
 /**
@@ -30,6 +32,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     private readonly companyId: string,
     private readonly threadId: string,
     private readonly permissionAuthorizer?: ToolPermissionAuthorizer,
+    private readonly interactionService?: InteractionService,
   ) {}
 
   async listAvailable(companyId: string): Promise<ToolDef[]> {
@@ -68,6 +71,11 @@ export class AuditingToolExecutor implements ToolExecutor {
           employeeId: call.employeeId,
         });
         if (decision.behavior !== 'allow') {
+          if (decision.behavior === 'ask' && this.interactionService) {
+            this.interactionService.request(
+              this.buildPermissionInteractionRequest(call, serverName, decision.reason),
+            );
+          }
           const response = this.buildPermissionResponse(decision.behavior, decision.reason);
           const completedAt = Date.now();
           const latencyMs = completedAt - startedAt;
@@ -146,6 +154,65 @@ export class AuditingToolExecutor implements ToolExecutor {
       result: null,
       error: `[${code}] ${reason}`,
     };
+  }
+
+  private buildPermissionInteractionRequest(
+    call: ToolCallRequest,
+    serverName: string,
+    reason: string,
+  ): InteractionRequest {
+    const severity = this.classifyPermissionSeverity(call.name);
+    return {
+      interactionId: generateId('ix'),
+      threadId: this.threadId,
+      companyId: this.companyId,
+      kind: 'permission_request',
+      severity,
+      title: severity === 'high' ? 'Approval needed for a sensitive tool' : 'Approve tool access',
+      prompt: `Allow ${serverName}/${call.name} for this run?`,
+      options: [
+        {
+          id: 'approve_once',
+          label: 'Approve once',
+          description: 'Allow this tool call and retry the last request.',
+          scope: 'once',
+          recommended: true,
+        },
+        {
+          id: 'approve_thread',
+          label: 'Approve for thread',
+          description: 'Allow repeated use of this tool in the current thread.',
+          scope: 'thread',
+        },
+        {
+          id: 'reject',
+          label: 'Reject',
+          description: 'Keep the tool blocked and let the boss adapt.',
+        },
+      ],
+      recommendation: {
+        optionId: 'approve_once',
+        reason,
+      },
+      allowFreeformResponse: true,
+      placeholder: 'Tell Offisim what to do instead',
+      requestedByNode: call.nodeName,
+      employeeId: call.employeeId ?? null,
+      taskRunId: call.taskRunId ?? null,
+      context: {
+        type: 'permission_request',
+        serverName,
+        toolName: call.name,
+        employeeId: call.employeeId ?? null,
+      },
+      createdAt: Date.now(),
+    };
+  }
+
+  private classifyPermissionSeverity(toolName: string): 'normal' | 'high' {
+    return /(write|edit|delete|remove|create|push|commit|bash|exec|run|apply)/i.test(toolName)
+      ? 'high'
+      : 'normal';
   }
 
   private async writeAudit(params: {

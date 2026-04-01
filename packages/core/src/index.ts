@@ -4,6 +4,7 @@
 export type {
   RuntimeContext,
   MeetingInterruptBox,
+  InteractionBox,
   DisposableRuntime,
 } from './runtime/runtime-context.js';
 export type {
@@ -186,6 +187,12 @@ export type {
   ToolPermissionRequest,
 } from './permissions/tool-permission-engine.js';
 export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
+export type {
+  ToolPermissionGrantRequest,
+  ToolPermissionGrantMatch,
+  ToolPermissionGrantResolver,
+} from './services/interaction-service.js';
+export { InteractionService } from './services/interaction-service.js';
 
 // --- User Memory ---
 export { UserMemoryService } from './services/user-memory-service.js';
@@ -249,6 +256,9 @@ export {
   hrRecommendation,
   notificationCreated,
   notificationDismissed,
+  interactionRequested,
+  interactionResolved,
+  interactionModeChanged,
 } from './events/event-factories.js';
 
 // --- Logger ---

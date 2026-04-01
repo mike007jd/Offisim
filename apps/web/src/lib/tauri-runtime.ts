@@ -24,11 +24,13 @@ import {
   FileHistoryService,
   FileHistoryToolExecutor,
 } from '@offisim/core/dist/services/file-history-service.js';
+import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
+import type { InteractionMode } from '@offisim/shared-types';
 import { isProductionProvider } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
@@ -92,6 +94,7 @@ export async function createTauriRuntime(
   config: ProviderConfig,
   eventBus: InMemoryEventBus,
   companyId: string,
+  opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
   if (!isProductionProvider(config.provider)) {
     throw new Error(
@@ -148,6 +151,14 @@ export async function createTauriRuntime(
     threadId,
     companyId,
   });
+  const interactionBox = { pending: null };
+  const interactionService = new InteractionService({
+    eventBus,
+    companyId,
+    threadId,
+    defaultMode: opts?.defaultInteractionMode,
+    pendingStore: interactionBox,
+  });
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
@@ -160,7 +171,9 @@ export async function createTauriRuntime(
       employees: repos.employees,
       mcpAudit: repos.mcpAudit,
       runtimePolicy,
+      grants: interactionService,
     }),
+    interactionService,
   );
   const systemCaller = new RecordedSystemLlmCaller({
     llmGateway: gateway,
@@ -209,11 +222,13 @@ export async function createTauriRuntime(
     threadId,
     runtimePolicy,
     memoryService,
+    interactionBox,
     middlewareChain,
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
     fileHistoryService,
+    interactionService,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)
@@ -252,6 +267,7 @@ export async function createTauriRuntime(
     userMemoryService,
     sessionCostTracker,
     toolTelemetryService,
+    interactionService,
   };
 }
 

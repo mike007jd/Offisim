@@ -1,5 +1,6 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { AGENT_QUESTION_REQUIRED } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { bossNode } from '../../agents/boss-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
@@ -8,6 +9,7 @@ import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
+import { InteractionService } from '../../services/interaction-service.js';
 import {
   TEST_COMPANY,
   TEST_COMPANY_ID,
@@ -214,5 +216,75 @@ describe('bossNode', () => {
     const result = await bossNode(state, config);
 
     expect(result.routeDecision).toBe('delegate_manager');
+  });
+
+  it('requests an agent question in human-in-loop mode when clarification is needed', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'delegate',
+        reason: 'Need a bit more detail before planning',
+        needsClarification: true,
+        clarificationQuestion: 'What kind of website do you want us to build?',
+      }),
+    });
+
+    const interactionService = new InteractionService({
+      eventBus,
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      defaultMode: 'human_in_loop',
+    });
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: gateway,
+      modelResolver: new ModelResolver(JSON.parse(TEST_COMPANY.default_model_policy_json)),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      interactionService,
+    });
+
+    await expect(
+      bossNode(
+        makeState({
+          messages: [new HumanMessage('Build me something for our startup')],
+        }),
+        { configurable: { runtimeCtx } },
+      ),
+    ).rejects.toThrow(AGENT_QUESTION_REQUIRED);
+
+    expect(interactionService.getPending()).toMatchObject({
+      kind: 'agent_question',
+      prompt: 'What kind of website do you want us to build?',
+      requestedByNode: 'boss',
+    });
+  });
+
+  it('asks the clarification question directly in boss-proxy mode', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'delegate',
+        reason: 'Need a bit more detail before planning',
+        needsClarification: true,
+        clarificationQuestion: 'What kind of website do you want us to build?',
+      }),
+    });
+    gateway.pushStreamResponse({
+      content: 'What kind of website do you want us to build?',
+      usage: { inputTokens: 16, outputTokens: 8 },
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('Build me something for our startup')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('direct_reply');
+    expect(result.messages?.[0]?.content).toContain(
+      'What kind of website do you want us to build?',
+    );
   });
 });
