@@ -3,10 +3,10 @@
  * See CLAUDE.md — AI Runtime Policy, rule 4.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { RecordedSystemLlmCaller } from '../../llm/recorded-system-caller.js';
-import type { LlmGateway, LlmResponse } from '../../llm/gateway.js';
-import type { LlmCallRepository } from '../../runtime/repositories.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { LlmGateway, LlmResponse } from '../../llm/gateway.js';
+import { RecordedSystemLlmCaller } from '../../llm/recorded-system-caller.js';
+import type { LlmCallRepository } from '../../runtime/repositories.js';
 
 function createMockGateway(): LlmGateway {
   const response: LlmResponse = {

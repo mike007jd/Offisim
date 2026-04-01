@@ -1,9 +1,4 @@
-import type {
-  ChannelAdapter,
-  ChannelConfig,
-  InboundMessage,
-  OutboundMessage,
-} from '../types.js';
+import type { ChannelAdapter, ChannelConfig, InboundMessage, OutboundMessage } from '../types.js';
 
 /**
  * Base implementation for channel adapters.

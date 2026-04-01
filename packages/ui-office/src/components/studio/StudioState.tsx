@@ -64,6 +64,11 @@ export interface StudioStore {
   toggleGridSnap: () => void;
   setInstances: (instances: PlacedInstance[]) => void;
   setZones: (zones: Zone[]) => void;
+  loadZonesFromDb: (zones: Zone[]) => void;
+  updateZonePosition: (zoneId: string, cx: number, cz: number) => void;
+  updateZoneSize: (zoneId: string, w: number, d: number) => void;
+  addZoneFromPreset: (preset: ZonePreset, position: [number, number, number]) => void;
+  removeZone: (zoneId: string) => void;
   /** Focus a zone for container editing. Camera should fly to this zone. */
   focusZone: (zoneId: string) => void;
   /** Return to overview mode (all zones visible). */
@@ -169,12 +174,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   placeInstance: (position) => {
     const { placingPrefab, ghostRotation, instances, zones } = get();
     if (!placingPrefab) return;
-    const match = resolveZoneForPosition(
-      position[0],
-      position[2],
-      placingPrefab.category,
-      zones,
-    );
+    const match = resolveZoneForPosition(position[0], position[2], placingPrefab.category, zones);
     const instance: PlacedInstance = {
       id: generateId(),
       prefabId: placingPrefab.prefabId,
@@ -256,72 +256,19 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   toggleGridSnap: () => set((s) => ({ gridSnap: !s.gridSnap })),
   setInstances: (instances) => set({ instances, dirty: false }),
   setZones: (zones) => set({ zones }),
-  focusZone: (zoneId) => set({ focusedZoneId: zoneId, selectedZoneId: zoneId, selectedInstanceId: null }),
-  unfocusZone: () => set({ focusedZoneId: null, selectedZoneId: null, selectedInstanceId: null, isEditingZone: false }),
-
-  enterEditZone: (zoneId) => set({
-    focusedZoneId: zoneId,
-    selectedZoneId: zoneId,
-    selectedInstanceId: null,
-    isEditingZone: true,
-    tool: 'select',
-    placingPrefab: null,
-    placingZonePreset: null,
-  }),
-  exitEditZone: () => set({
-    focusedZoneId: null,
-    selectedZoneId: null,
-    selectedInstanceId: null,
-    isEditingZone: false,
-  }),
-
-  selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
-
-  startZonePlacement: (preset) =>
-    set({ tool: 'place', placingZonePreset: preset, placingPrefab: null, ghostRotation: 0, selectedInstanceId: null, selectedZoneId: null }),
-
-  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null }),
-
-  placeZoneFromPreset: (position, allPrefabsMap) => {
-    const { placingZonePreset, instances, zones } = get();
-    if (!placingZonePreset) return;
-    const [x, , z] = position;
-    const zoneId = crypto.randomUUID();
-    const newZone: Zone = {
-      zoneId,
-      companyId: get().companyId ?? '',
-      kind: 'system',
-      archetype: placingZonePreset.archetype,
-      label: placingZonePreset.label,
-      accentColor: placingZonePreset.accentColor,
-      floorColor: placingZonePreset.floorColor,
-      cx: x,
-      cz: z,
-      w: placingZonePreset.w,
-      d: placingZonePreset.d,
-      targetRoles: placingZonePreset.targetRoles,
-      allowedCategories: placingZonePreset.allowedCategories,
-      activityTypes: placingZonePreset.activityTypes,
-      deskSlots: placingZonePreset.deskSlots,
-      sortOrder: zones.length,
-    };
-    const newInstances: PlacedInstance[] = placingZonePreset.prefabs
-      .filter((p) => allPrefabsMap.has(p.prefabId))
-      .map((p) => ({
-        id: generateId(),
-        prefabId: p.prefabId,
-        position: [x + p.offsetX, 0, z + p.offsetZ] as [number, number, number],
-        rotation: p.rotation ?? 0,
-        zoneId,
-      }));
-    set({ zones: [...zones, newZone], instances: [...instances, ...newInstances], dirty: true });
-  },
-
-  moveZone: (zoneId, newCx, newCz) => {
+  loadZonesFromDb: (zones) =>
+    set({
+      zones,
+      dirty: false,
+      focusedZoneId: null,
+      selectedZoneId: null,
+      selectedInstanceId: null,
+      isEditingZone: false,
+    }),
+  updateZonePosition: (zoneId, newCx, newCz) => {
     const { zones, instances } = get();
     const zone = zones.find((z) => z.zoneId === zoneId);
     if (!zone) return;
-    // Skip if position unchanged — avoids array allocations every snap frame (PERF-3)
     if (zone.cx === newCx && zone.cz === newCz) return;
     const dx = newCx - zone.cx;
     const dz = newCz - zone.cz;
@@ -329,14 +276,107 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       zones: zones.map((z) => (z.zoneId === zoneId ? { ...z, cx: newCx, cz: newCz } : z)),
       instances: instances.map((i) =>
         i.zoneId === zoneId
-          ? { ...i, position: [i.position[0] + dx, i.position[1], i.position[2] + dz] as [number, number, number] }
+          ? {
+              ...i,
+              position: [i.position[0] + dx, i.position[1], i.position[2] + dz] as [
+                number,
+                number,
+                number,
+              ],
+            }
           : i,
       ),
       dirty: true,
     });
   },
+  updateZoneSize: (zoneId, w, d) =>
+    set((s) => ({
+      zones: s.zones.map((z) => (z.zoneId === zoneId ? { ...z, w, d } : z)),
+      dirty: true,
+    })),
+  addZoneFromPreset: (preset, position) => {
+    const { instances, zones } = get();
+    const [x, , z] = position;
+    const zoneId = crypto.randomUUID();
+    const newZone: Zone = {
+      zoneId,
+      companyId: get().companyId ?? '',
+      kind: 'system',
+      archetype: preset.archetype,
+      label: preset.label,
+      accentColor: preset.accentColor,
+      floorColor: preset.floorColor,
+      cx: x,
+      cz: z,
+      w: preset.w,
+      d: preset.d,
+      targetRoles: preset.targetRoles,
+      allowedCategories: preset.allowedCategories,
+      activityTypes: preset.activityTypes,
+      deskSlots: preset.deskSlots,
+      sortOrder: zones.length,
+    };
+    const newInstances: PlacedInstance[] = preset.prefabs.map((prefab) => ({
+      id: generateId(),
+      prefabId: prefab.prefabId,
+      position: [x + prefab.offsetX, 0, z + prefab.offsetZ] as [number, number, number],
+      rotation: prefab.rotation ?? 0,
+      zoneId,
+    }));
+    set({ zones: [...zones, newZone], instances: [...instances, ...newInstances], dirty: true });
+  },
+  focusZone: (zoneId) =>
+    set({ focusedZoneId: zoneId, selectedZoneId: zoneId, selectedInstanceId: null }),
+  unfocusZone: () =>
+    set({
+      focusedZoneId: null,
+      selectedZoneId: null,
+      selectedInstanceId: null,
+      isEditingZone: false,
+    }),
 
-  deleteZone: (zoneId) => {
+  enterEditZone: (zoneId) =>
+    set({
+      focusedZoneId: zoneId,
+      selectedZoneId: zoneId,
+      selectedInstanceId: null,
+      isEditingZone: true,
+      tool: 'select',
+      placingPrefab: null,
+      placingZonePreset: null,
+    }),
+  exitEditZone: () =>
+    set({
+      focusedZoneId: null,
+      selectedZoneId: null,
+      selectedInstanceId: null,
+      isEditingZone: false,
+    }),
+
+  selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
+
+  startZonePlacement: (preset) =>
+    set({
+      tool: 'place',
+      placingZonePreset: preset,
+      placingPrefab: null,
+      ghostRotation: 0,
+      selectedInstanceId: null,
+      selectedZoneId: null,
+    }),
+
+  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null }),
+
+  placeZoneFromPreset: (position, allPrefabsMap) => {
+    const { placingZonePreset } = get();
+    if (!placingZonePreset) return;
+    void allPrefabsMap;
+    get().addZoneFromPreset(placingZonePreset, position);
+  },
+
+  moveZone: (zoneId, newCx, newCz) => get().updateZonePosition(zoneId, newCx, newCz),
+
+  removeZone: (zoneId) => {
     const { zones, instances } = get();
     const zone = zones.find((z) => z.zoneId === zoneId);
     if (!zone) return;
@@ -348,6 +388,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       dirty: true,
     });
   },
+  deleteZone: (zoneId) => get().removeZone(zoneId),
 
   swapZoneVariant: (zoneId, preset, allPrefabsMap) => {
     const { zones, instances } = get();

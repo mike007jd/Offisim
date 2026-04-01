@@ -1,4 +1,9 @@
-import type { ChannelAdapter, ChannelThreadMapping, InboundMessage, OutboundMessage } from './types.js';
+import type {
+  ChannelAdapter,
+  ChannelThreadMapping,
+  InboundMessage,
+  OutboundMessage,
+} from './types.js';
 
 /**
  * Central message bus that routes inbound IM messages to the Offisim runtime
@@ -11,7 +16,10 @@ export class ChannelMessageBus {
   private threadMappings = new Map<string, ChannelThreadMapping>();
   private cleanupFns: (() => void)[] = [];
   private messageHandler:
-    | ((msg: InboundMessage, mapping: ChannelThreadMapping | null) => Promise<OutboundMessage | null>)
+    | ((
+        msg: InboundMessage,
+        mapping: ChannelThreadMapping | null,
+      ) => Promise<OutboundMessage | null>)
     | null = null;
 
   /**
@@ -36,7 +44,10 @@ export class ChannelMessageBus {
    * Typically wired to OrchestrationService.execute().
    */
   setMessageHandler(
-    handler: (msg: InboundMessage, mapping: ChannelThreadMapping | null) => Promise<OutboundMessage | null>,
+    handler: (
+      msg: InboundMessage,
+      mapping: ChannelThreadMapping | null,
+    ) => Promise<OutboundMessage | null>,
   ): void {
     this.messageHandler = handler;
   }

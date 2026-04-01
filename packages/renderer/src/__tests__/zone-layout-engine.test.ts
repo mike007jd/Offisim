@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import type { Zone } from '@offisim/shared-types';
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
+import { describe, expect, it } from 'vitest';
 import {
   type ZoneBounds,
   computeFloorPlan,
@@ -8,7 +8,9 @@ import {
 } from '../layout/zone-layout-engine.js';
 
 /** Convert SYSTEM_ZONE_TEMPLATES to Zone[] for test input. */
-const TEST_ZONES: readonly Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, 'test-company'));
+const TEST_ZONES: readonly Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) =>
+  templateToZone(t, 'test-company'),
+);
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

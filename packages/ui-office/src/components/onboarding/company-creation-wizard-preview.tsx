@@ -661,13 +661,7 @@ export function Office2DPreview({
                   fill="var(--surface-light)"
                   opacity={0.96}
                 />
-                <text
-                  x="0"
-                  y="2.5"
-                  fill="var(--text-primary-val)"
-                  fontSize={7}
-                  textAnchor="middle"
-                >
+                <text x="0" y="2.5" fill="var(--text-primary-val)" fontSize={7} textAnchor="middle">
                   {tooltip}
                 </text>
               </g>

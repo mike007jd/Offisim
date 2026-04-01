@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 
 // ---------------------------------------------------------------------------
 // Types (mirror Rust types)
@@ -7,12 +7,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export type LaunchMode = 'desktop' | 'web' | 'web_lan';
 
-export type ProcessStatus =
-  | 'starting'
-  | 'running'
-  | 'stopping'
-  | 'stopped'
-  | 'failed';
+export type ProcessStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
 export interface ProcessInfo {
   name: string;
@@ -75,10 +70,7 @@ export async function getLogs(process: string): Promise<LogLine[]> {
 // Event listeners
 // ---------------------------------------------------------------------------
 
-export function onLog(
-  processName: string,
-  callback: (line: LogLine) => void,
-): Promise<UnlistenFn> {
+export function onLog(processName: string, callback: (line: LogLine) => void): Promise<UnlistenFn> {
   return listen<LogLine>(`log:${processName}`, (event) => {
     callback(event.payload);
   });

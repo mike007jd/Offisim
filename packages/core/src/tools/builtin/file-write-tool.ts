@@ -8,7 +8,8 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
   return {
     def: {
       name: 'write_file',
-      description: 'Write content to a file. Creates the file if it does not exist, overwrites if it does.',
+      description:
+        'Write content to a file. Creates the file if it does not exist, overwrites if it does.',
       parameters: {
         type: 'object',
         properties: {

@@ -14,23 +14,19 @@ import {
   createMemoryRepositories,
   installStateChanged,
 } from '@offisim/core/browser';
-import type {
-  EventBus,
-  InMemoryEventBus,
-  RuntimeRepositories,
-} from '@offisim/core/browser';
+import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
 import { createMemoryCheckpointSaver } from '@offisim/core/dist/graph/checkpoint-saver.js';
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 // These modules pull in @langchain/langgraph, openai SDK, etc.
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
+import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
-import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
-import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
-import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
+import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
+import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
@@ -190,9 +186,17 @@ export async function createBrowserRuntime(
         systemCaller,
       })
     : undefined;
-  const userPrefRepo =
-    repos.userPreferences ?? (repos.userPreferences = new MemoryUserPreferenceRepository());
-  const userMemoryService = new UserMemoryService(userPrefRepo, gateway, 'gpt-4o-mini', systemCaller);
+  let userPrefRepo = repos.userPreferences;
+  if (!userPrefRepo) {
+    userPrefRepo = new MemoryUserPreferenceRepository();
+    repos.userPreferences = userPrefRepo;
+  }
+  const userMemoryService = new UserMemoryService(
+    userPrefRepo,
+    gateway,
+    'gpt-4o-mini',
+    systemCaller,
+  );
   const middlewareChain = new LlmMiddlewareChain();
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
 

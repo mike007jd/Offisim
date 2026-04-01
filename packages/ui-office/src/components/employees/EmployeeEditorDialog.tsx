@@ -20,13 +20,16 @@ import {
   Textarea,
 } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
 import { ROLE_OPTIONS } from '../../lib/roles';
+import { useCompany } from '../company/CompanyContext.js';
 import { AvatarCustomizer } from './AvatarCustomizer';
+import { MemoryPanel } from './MemoryPanel';
 import { SkillBindingList } from './SkillBindingList';
 import { TestChatTab } from './TestChatTab';
+import { ToolPermissionEditor } from './ToolPermissionEditor';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
 // Generate workstation options from the default floor plan
@@ -122,6 +125,7 @@ export function EmployeeEditorDialog({
   sourceAssetId,
   sourcePackageId,
 }: EmployeeEditorDialogProps) {
+  const { activeCompanyId } = useCompany();
   const isEditMode = employeeId !== null;
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
@@ -133,6 +137,10 @@ export function EmployeeEditorDialog({
   const [selectedProvider, setSelectedProvider] = useState(() =>
     inferProvider(formData.modelPreference),
   );
+
+  useEffect(() => {
+    setSelectedProvider(inferProvider(formData.modelPreference));
+  }, [formData.modelPreference]);
 
   const handleProviderChange = (provider: string) => {
     setSelectedProvider(provider);
@@ -176,6 +184,11 @@ export function EmployeeEditorDialog({
               <TabsTrigger value="test" className="flex-1">
                 <MessageSquare className="h-3.5 w-3.5 mr-1" />
                 Test
+              </TabsTrigger>
+            )}
+            {isEditMode && (
+              <TabsTrigger value="memory" className="flex-1">
+                Memory
               </TabsTrigger>
             )}
             {isEditMode && (
@@ -300,6 +313,78 @@ export function EmployeeEditorDialog({
                   placeholder="e.g. detail-oriented, collaborative"
                   rows={3}
                 />
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-400 mb-2 block">Communication Frequency</p>
+                <div className="flex gap-2">
+                  {['low', 'medium', 'high'].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        updateField(
+                          'communicationFrequency',
+                          value as typeof formData.communicationFrequency,
+                        )
+                      }
+                      className={`rounded-md border px-3 py-1.5 text-xs transition ${
+                        formData.communicationFrequency === value
+                          ? 'border-blue-400 bg-blue-500/15 text-blue-200'
+                          : 'border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-400 mb-2 block">Risk Preference</p>
+                <div className="flex gap-2">
+                  {['conservative', 'balanced', 'aggressive'].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        updateField('riskPreference', value as typeof formData.riskPreference)
+                      }
+                      className={`rounded-md border px-3 py-1.5 text-xs transition ${
+                        formData.riskPreference === value
+                          ? 'border-blue-400 bg-blue-500/15 text-blue-200'
+                          : 'border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="editor-decision-style"
+                  className="text-sm text-slate-400 mb-1 block"
+                >
+                  Decision Style
+                </label>
+                <Select
+                  value={formData.decisionStyle}
+                  onValueChange={(value) =>
+                    updateField('decisionStyle', value as typeof formData.decisionStyle)
+                  }
+                >
+                  <SelectTrigger id="editor-decision-style">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="analytical">Analytical</SelectItem>
+                    <SelectItem value="intuitive">Intuitive</SelectItem>
+                    <SelectItem value="collaborative">Collaborative</SelectItem>
+                    <SelectItem value="directive">Directive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -444,11 +529,21 @@ export function EmployeeEditorDialog({
                 <div>
                   <p className="text-sm text-slate-400 mb-2 block">Skills</p>
                   <SkillBindingList
-                    employeeId={employeeId}
                     sourcePackageId={sourcePackageId ?? null}
+                    runtimeSkill={formData.runtimeSkill}
+                    enabled={formData.skillEnabled}
+                    onEnabledChange={(enabled) => updateField('skillEnabled', enabled)}
                   />
                 </div>
               )}
+
+              <div>
+                <p className="text-sm text-slate-400 mb-2 block">Tool Permissions</p>
+                <ToolPermissionEditor
+                  value={formData.toolPermissionPolicy}
+                  onChange={(value) => updateField('toolPermissionPolicy', value)}
+                />
+              </div>
             </div>
           </TabsContent>
 
@@ -456,6 +551,12 @@ export function EmployeeEditorDialog({
           {import.meta.env.DEV && isEditMode && employeeId && (
             <TabsContent value="test" className="flex-1 overflow-y-auto min-h-0">
               <TestChatTab formData={formData} employeeName={formData.name} />
+            </TabsContent>
+          )}
+
+          {isEditMode && employeeId && activeCompanyId && (
+            <TabsContent value="memory" className="flex-1 overflow-y-auto min-h-0">
+              <MemoryPanel employeeId={employeeId} companyId={activeCompanyId} />
             </TabsContent>
           )}
 

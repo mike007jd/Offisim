@@ -61,8 +61,8 @@ export class LlmMiddlewareChain {
     let current = response;
     // Reverse order for after hooks (onion model)
     for (let i = this.middlewares.length - 1; i >= 0; i--) {
-      const mw = this.middlewares[i]!;
-      if (!mw.after) continue;
+      const mw = this.middlewares[i];
+      if (!mw?.after) continue;
       try {
         current = await mw.after(ctx, current);
       } catch (err) {

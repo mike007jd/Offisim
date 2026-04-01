@@ -1,4 +1,4 @@
-import { ConversationBudgetService } from '../../services/conversation-budget-service.js';
+import type { ConversationBudgetService } from '../../services/conversation-budget-service.js';
 import type { LlmCallContext, LlmMiddleware } from '../types.js';
 
 /**

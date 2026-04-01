@@ -1,12 +1,12 @@
 import type {
   EmployeeVersionService,
   EventBus,
-  MemoryRepositoriesSnapshot,
   McpServerConfig,
+  MemoryRepositoriesSnapshot,
   RuntimeRepositories,
 } from '@offisim/core/browser';
-import type { RuntimeEvent } from '@offisim/shared-types';
 import type { InstallService } from '@offisim/install-core';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
 
 // ---------------------------------------------------------------------------

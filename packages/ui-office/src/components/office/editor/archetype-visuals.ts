@@ -30,7 +30,8 @@ export const ARCHETYPE_ICONS: Record<ZoneArchetype, { path: string; label: strin
 };
 
 // Lock icon for required zones
-export const LOCK_ICON_PATH = 'M5 11V7a5 5 0 0 1 10 0v4M3 11h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z';
+export const LOCK_ICON_PATH =
+  'M5 11V7a5 5 0 0 1 10 0v4M3 11h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z';
 
 /** SVG pattern definitions for zone floor textures per archetype. */
 export function getFloorPatternId(archetype: ZoneArchetype | null): string {

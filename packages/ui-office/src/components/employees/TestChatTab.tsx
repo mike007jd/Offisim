@@ -38,8 +38,7 @@ async function createTestGateway(): Promise<LlmGateway | null> {
   const config = loadProviderConfig();
   if (!config) return null;
 
-  const proxyBaseURL =
-    config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
+  const proxyBaseURL = config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
   const proxyHeaders = config.baseURL
     ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
     : config.defaultHeaders;

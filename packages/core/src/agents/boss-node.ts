@@ -110,9 +110,7 @@ export async function bossNode(
 
   // Build employee roster for direct_delegate capability
   const employees = await runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId);
-  const nonManagerEmployees = employees.filter(
-    (e) => e.role_slug !== 'manager' && e.enabled !== 0,
-  );
+  const nonManagerEmployees = employees.filter((e) => e.role_slug !== 'manager' && e.enabled !== 0);
   let rosterSection = '';
   if (nonManagerEmployees.length > 0) {
     const roster = nonManagerEmployees

@@ -50,7 +50,7 @@ export function CompanyCreationWizard({
       // handled explicitly on submit
     }
     prevStepRef.current = step;
-  }, [step, onComplete]);
+  }, [step]);
 
   useEffect(() => {
     const defaultTemplateId = templates[0]?.id;

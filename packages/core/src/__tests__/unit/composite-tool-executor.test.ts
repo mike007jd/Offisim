@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CompositeToolExecutor } from '../../tools/composite-tool-executor.js';
-import type { BuiltinTool } from '../../tools/builtin/types.js';
-import type { ToolCallRequest, ToolExecutor } from '../../runtime/tool-executor.js';
 import type { ToolDef } from '../../llm/gateway.js';
+import type { ToolCallRequest, ToolExecutor } from '../../runtime/tool-executor.js';
+import type { BuiltinTool } from '../../tools/builtin/types.js';
+import { CompositeToolExecutor } from '../../tools/composite-tool-executor.js';
 
 // ---- Helpers ----
 

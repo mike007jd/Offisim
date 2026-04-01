@@ -131,6 +131,11 @@ export {
   SYSTEM_ROLES,
   ROLE_LABELS,
 } from './roles.js';
+export type {
+  CommunicationFrequency,
+  RiskPreference,
+  DecisionStyle,
+} from './persona.js';
 
 export type {
   ProjectStatus,

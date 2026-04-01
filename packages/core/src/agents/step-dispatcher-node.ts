@@ -151,6 +151,7 @@ export async function stepDispatcherNode(
         employeeId: task.employeeId,
         inputJson: {
           description,
+          requiredSkills: task.requiredSkills,
           taskRunId: taskRunId ?? undefined,
           stepIndex: stepIdx,
         },

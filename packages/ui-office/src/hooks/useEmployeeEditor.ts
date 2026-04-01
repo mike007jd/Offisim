@@ -1,10 +1,16 @@
-import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
+import type {
+  EmployeeRow,
+  EmployeeUpdate,
+  ToolApprovalMode,
+  ToolPermissionPolicy,
+} from '@offisim/core/browser';
 import {
   employeeCreated,
   employeeDeleted,
   employeeUpdated,
   employeeWorkstationChanged,
 } from '@offisim/core/browser';
+import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import { useCallback, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
@@ -17,6 +23,27 @@ export interface AvatarAppearance {
   clothingAccent: number;
   bodyType: string;
   gender: 'neutral' | 'masculine' | 'feminine';
+}
+
+export interface RuntimeSkillCapability {
+  kind?: string;
+  key?: string;
+  label?: string;
+}
+
+export interface RuntimeSkillConfig {
+  skillName: string;
+  summary: string;
+  enabled?: boolean;
+  instructionMode?: string;
+  instructionExcerpt?: string;
+  instructions?: string;
+  capabilityIndex?: {
+    summary?: string;
+    requiredCapabilities?: string[];
+    capabilities?: RuntimeSkillCapability[];
+  };
+  allowedTools?: string[];
 }
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -40,6 +67,12 @@ export interface EmployeeFormData {
   modelPreference: string;
   temperature: number;
   maxTokens: number;
+  runtimeSkill: RuntimeSkillConfig | null;
+  skillEnabled: boolean;
+  toolPermissionPolicy: ToolPermissionPolicy | null;
+  communicationFrequency: CommunicationFrequency;
+  riskPreference: RiskPreference;
+  decisionStyle: DecisionStyle;
   appearance: AvatarAppearance;
 }
 
@@ -54,14 +87,65 @@ const DEFAULT_FORM: EmployeeFormData = {
   modelPreference: '',
   temperature: 0.7,
   maxTokens: 4096,
+  runtimeSkill: null,
+  skillEnabled: false,
+  toolPermissionPolicy: null,
+  communicationFrequency: 'medium',
+  riskPreference: 'balanced',
+  decisionStyle: 'collaborative',
   appearance: DEFAULT_APPEARANCE,
 };
 
-function parsePersonaJson(
+function isToolApprovalMode(value: unknown): value is ToolApprovalMode {
+  return value === 'auto' || value === 'ask_first_time' || value === 'always_ask';
+}
+
+function parseToolPermissionPolicy(value: unknown): ToolPermissionPolicy | null {
+  if (!value || typeof value !== 'object') return null;
+  const policy = value as {
+    defaultMode?: unknown;
+    overrides?: Array<{ pattern?: unknown; mode?: unknown }>;
+  };
+  if (!isToolApprovalMode(policy.defaultMode)) return null;
+  return {
+    defaultMode: policy.defaultMode,
+    overrides: (policy.overrides ?? []).flatMap((override) => {
+      if (
+        !override ||
+        typeof override.pattern !== 'string' ||
+        !override.pattern.trim() ||
+        !isToolApprovalMode(override.mode)
+      ) {
+        return [];
+      }
+      return [{ pattern: override.pattern, mode: override.mode }];
+    }),
+  };
+}
+
+export function parsePersonaJson(
   raw: string | null,
-): Pick<EmployeeFormData, 'expertise' | 'style' | 'customInstructions' | 'appearance'> {
-  if (!raw)
-    return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
+): Pick<
+  EmployeeFormData,
+  | 'expertise'
+  | 'style'
+  | 'customInstructions'
+  | 'appearance'
+  | 'communicationFrequency'
+  | 'riskPreference'
+  | 'decisionStyle'
+> {
+  if (!raw) {
+    return {
+      expertise: '',
+      style: '',
+      customInstructions: '',
+      appearance: DEFAULT_APPEARANCE,
+      communicationFrequency: 'medium',
+      riskPreference: 'balanced',
+      decisionStyle: 'collaborative',
+    };
+  }
   try {
     const parsed = JSON.parse(raw);
     return {
@@ -69,26 +153,120 @@ function parsePersonaJson(
       style: parsed.style ?? '',
       customInstructions: parsed.customInstructions ?? '',
       appearance: parsed.appearance ?? DEFAULT_APPEARANCE,
+      communicationFrequency: parsed.communicationFrequency ?? 'medium',
+      riskPreference: parsed.riskPreference ?? 'balanced',
+      decisionStyle: parsed.decisionStyle ?? 'collaborative',
     };
   } catch {
-    return { expertise: '', style: '', customInstructions: '', appearance: DEFAULT_APPEARANCE };
+    return {
+      expertise: '',
+      style: '',
+      customInstructions: '',
+      appearance: DEFAULT_APPEARANCE,
+      communicationFrequency: 'medium',
+      riskPreference: 'balanced',
+      decisionStyle: 'collaborative',
+    };
   }
 }
 
-function parseConfigJson(
+export function parseConfigJson(
   raw: string | null,
-): Pick<EmployeeFormData, 'modelPreference' | 'temperature' | 'maxTokens'> {
-  if (!raw) return { modelPreference: '', temperature: 0.7, maxTokens: 4096 };
+): Pick<
+  EmployeeFormData,
+  | 'modelPreference'
+  | 'temperature'
+  | 'maxTokens'
+  | 'runtimeSkill'
+  | 'skillEnabled'
+  | 'toolPermissionPolicy'
+> {
+  if (!raw) {
+    return {
+      modelPreference: '',
+      temperature: 0.7,
+      maxTokens: 4096,
+      runtimeSkill: null,
+      skillEnabled: false,
+      toolPermissionPolicy: null,
+    };
+  }
   try {
     const parsed = JSON.parse(raw);
+    const runtimeSkill =
+      parsed.runtimeSkill && typeof parsed.runtimeSkill === 'object'
+        ? (parsed.runtimeSkill as RuntimeSkillConfig)
+        : null;
     return {
       modelPreference: parsed.modelPreference ?? '',
       temperature: typeof parsed.temperature === 'number' ? parsed.temperature : 0.7,
       maxTokens: typeof parsed.maxTokens === 'number' ? parsed.maxTokens : 4096,
+      runtimeSkill,
+      skillEnabled: runtimeSkill !== null && runtimeSkill.enabled !== false,
+      toolPermissionPolicy: parseToolPermissionPolicy(parsed.toolPermissionPolicy),
     };
   } catch {
-    return { modelPreference: '', temperature: 0.7, maxTokens: 4096 };
+    return {
+      modelPreference: '',
+      temperature: 0.7,
+      maxTokens: 4096,
+      runtimeSkill: null,
+      skillEnabled: false,
+      toolPermissionPolicy: null,
+    };
   }
+}
+
+export function buildPersonaJson(
+  formData: Pick<
+    EmployeeFormData,
+    | 'expertise'
+    | 'style'
+    | 'customInstructions'
+    | 'appearance'
+    | 'communicationFrequency'
+    | 'riskPreference'
+    | 'decisionStyle'
+  >,
+): string {
+  return JSON.stringify({
+    expertise: formData.expertise,
+    style: formData.style,
+    customInstructions: formData.customInstructions,
+    appearance: formData.appearance,
+    communicationFrequency: formData.communicationFrequency,
+    riskPreference: formData.riskPreference,
+    decisionStyle: formData.decisionStyle,
+  });
+}
+
+export function buildConfigJson(
+  formData: Pick<
+    EmployeeFormData,
+    | 'modelPreference'
+    | 'temperature'
+    | 'maxTokens'
+    | 'runtimeSkill'
+    | 'skillEnabled'
+    | 'toolPermissionPolicy'
+  >,
+): string {
+  return JSON.stringify({
+    modelPreference: formData.modelPreference,
+    temperature: formData.temperature,
+    maxTokens: formData.maxTokens,
+    ...(formData.runtimeSkill
+      ? {
+          runtimeSkill: {
+            ...formData.runtimeSkill,
+            enabled: formData.skillEnabled,
+          },
+        }
+      : {}),
+    ...(formData.toolPermissionPolicy
+      ? { toolPermissionPolicy: formData.toolPermissionPolicy }
+      : {}),
+  });
 }
 
 function rowToFormData(row: EmployeeRow): EmployeeFormData {
@@ -191,17 +369,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     try {
       const companyId = activeCompanyId;
       if (!companyId) return;
-      const personaJson = JSON.stringify({
-        expertise: formData.expertise,
-        style: formData.style,
-        customInstructions: formData.customInstructions,
-        appearance: formData.appearance,
-      });
-      const configJson = JSON.stringify({
-        modelPreference: formData.modelPreference,
-        temperature: formData.temperature,
-        maxTokens: formData.maxTokens,
-      });
+      const personaJson = buildPersonaJson(formData);
+      const configJson = buildConfigJson(formData);
 
       if (employeeId) {
         // Update existing employee

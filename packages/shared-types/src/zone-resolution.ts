@@ -5,8 +5,8 @@
 // 3. Zone resize (batch re-resolve)
 // 4. Data load (migration / re-resolve stale assignments)
 
-import type { RoleSlug } from './roles.js';
 import type { SemanticCategory } from './prefab.js';
+import type { RoleSlug } from './roles.js';
 import type { Zone } from './zone.js';
 import { UNASSIGNED_ZONE_ID } from './zone.js';
 
@@ -20,10 +20,7 @@ export function isInsideZone(x: number, z: number, zone: Zone): boolean {
   const halfW = zone.w / 2;
   const halfD = zone.d / 2;
   return (
-    x >= zone.cx - halfW &&
-    x <= zone.cx + halfW &&
-    z >= zone.cz - halfD &&
-    z <= zone.cz + halfD
+    x >= zone.cx - halfW && x <= zone.cx + halfW && z >= zone.cz - halfD && z <= zone.cz + halfD
   );
 }
 
@@ -47,10 +44,7 @@ export function resolveZoneForPosition(
     if (!isInsideZone(x, z, zone)) continue;
 
     // Prefer zones whose allowed categories include this prefab's category
-    if (
-      zone.allowedCategories.length === 0 ||
-      zone.allowedCategories.includes(prefabCategory)
-    ) {
+    if (zone.allowedCategories.length === 0 || zone.allowedCategories.includes(prefabCategory)) {
       return { zoneId: zone.zoneId, reason: 'geometric' };
     }
 
@@ -70,10 +64,7 @@ export function resolveZoneForPosition(
  * Replaces both `resolveZone(role)` from zone-config.ts and
  * `resolveEmployeeDepartment(role)` from departments.ts.
  */
-export function resolveZoneForRole(
-  role: RoleSlug,
-  zones: readonly Zone[],
-): Zone | null {
+export function resolveZoneForRole(role: RoleSlug, zones: readonly Zone[]): Zone | null {
   for (const zone of zones) {
     if ((zone.targetRoles as readonly string[]).includes(role)) {
       return zone;

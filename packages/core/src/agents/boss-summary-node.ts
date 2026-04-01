@@ -9,7 +9,7 @@ import {
   planCompleted,
   planStepCompleted,
 } from '../events/event-factories.js';
-import type { OffisimGraphState, MeetingActionItem } from '../graph/state.js';
+import type { MeetingActionItem, OffisimGraphState } from '../graph/state.js';
 import { recordedLlmStream } from '../llm/recorded-call.js';
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';

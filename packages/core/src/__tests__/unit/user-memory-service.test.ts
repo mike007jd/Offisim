@@ -14,7 +14,12 @@ describe('UserMemoryService', () => {
   it('saves explicit preference with high confidence', async () => {
     const { service, repo } = setup();
 
-    const result = await service.saveExplicit('c-1', 'I prefer concise reports', 'preference', 't-1');
+    const result = await service.saveExplicit(
+      'c-1',
+      'I prefer concise reports',
+      'preference',
+      't-1',
+    );
 
     expect(result.content).toBe('I prefer concise reports');
     expect(result.source).toBe('explicit');
@@ -76,8 +81,18 @@ describe('UserMemoryService', () => {
     gateway.pushResponse({
       content: JSON.stringify({
         preferences: [
-          { content: 'User is a senior developer', category: 'context', importance: 0.7, confidence: 0.8 },
-          { content: 'Prefers TypeScript', category: 'preference', importance: 0.6, confidence: 0.85 },
+          {
+            content: 'User is a senior developer',
+            category: 'context',
+            importance: 0.7,
+            confidence: 0.8,
+          },
+          {
+            content: 'Prefers TypeScript',
+            category: 'preference',
+            importance: 0.6,
+            confidence: 0.85,
+          },
         ],
       }),
     });
@@ -102,9 +117,7 @@ describe('UserMemoryService', () => {
 
     gateway.pushResponse({
       content: JSON.stringify({
-        preferences: [
-          { content: 'prefers typescript', category: 'preference', importance: 0.6 },
-        ],
+        preferences: [{ content: 'prefers typescript', category: 'preference', importance: 0.6 }],
       }),
     });
 

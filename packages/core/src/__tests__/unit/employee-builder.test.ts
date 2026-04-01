@@ -49,11 +49,20 @@ describe('buildEmployeePrompt', () => {
 
   it('includes persona when valid JSON', () => {
     const emp = makeEmployee({
-      persona_json: JSON.stringify({ expertise: 'TypeScript', tone: 'concise' }),
+      persona_json: JSON.stringify({
+        expertise: 'TypeScript',
+        tone: 'concise',
+        communicationFrequency: 'high',
+        riskPreference: 'balanced',
+        decisionStyle: 'analytical',
+      }),
     });
     const prompt = buildEmployeePrompt(emp, COMPANY, 'task');
     expect(prompt).toContain('TypeScript');
     expect(prompt).toContain('concise');
+    expect(prompt).toContain('Communication frequency: high');
+    expect(prompt).toContain('Risk preference: balanced');
+    expect(prompt).toContain('Decision approach: analytical');
   });
 
   it('degrades gracefully on invalid persona JSON', () => {

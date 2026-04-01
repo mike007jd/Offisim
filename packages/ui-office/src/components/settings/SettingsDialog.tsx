@@ -1,4 +1,8 @@
-import type { ModelProfile, RuntimeExecutionMode, RuntimePolicyConfig } from '@offisim/shared-types';
+import type {
+  ModelProfile,
+  RuntimeExecutionMode,
+  RuntimePolicyConfig,
+} from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -31,12 +35,13 @@ import {
   normalizeRuntimePolicy,
   saveProviderConfig,
 } from '../../lib/provider-config';
+import { useTheme } from '../../theme';
 import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
 import {
+  PROVIDER_PRESETS,
   getAvailableProviderPresets,
   getDefaultProviderPresetKey,
-  PROVIDER_PRESETS,
 } from './provider-presets';
 
 interface SettingsDialogProps {
@@ -71,6 +76,7 @@ function parseConfidence(value: string, fallback: number): number {
 }
 
 export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
+  const { density, setDensity } = useTheme();
   const [preset, setPreset] = useState(DEFAULT_PRESET_KEY ?? '');
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
@@ -357,8 +363,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                   <p className="text-xs text-amber-300 font-medium mb-1">浏览器版功能受限</p>
                   <p className="text-[10px] text-slate-400">
-                    AI 运行时仅在桌面版（Offisim Desktop）中可用。浏览器版可用于公司管理和办公室编辑，
-                    但不支持 AI 对话功能。请下载桌面版以获得完整体验。
+                    AI 运行时仅在桌面版（Offisim
+                    Desktop）中可用。浏览器版可用于公司管理和办公室编辑， 但不支持 AI
+                    对话功能。请下载桌面版以获得完整体验。
                   </p>
                 </div>
               )}
@@ -384,49 +391,53 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </div>
               )}
 
-              {!IS_BROWSER_PROD && (isSubscription ? (
-                <>
-                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                    <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
-                    <p className="text-[10px] text-slate-400">
-                      使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。 无需 API
-                      Key，直接使用订阅额度。
-                    </p>
-                  </div>
+              {!IS_BROWSER_PROD &&
+                (isSubscription ? (
+                  <>
+                    <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                      <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
+                      <p className="text-[10px] text-slate-400">
+                        使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。 无需 API
+                        Key，直接使用订阅额度。
+                      </p>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="settings-acp-command"
+                        className="text-sm text-shell mb-1 block"
+                      >
+                        CLI 命令
+                      </label>
+                      <Input
+                        id="settings-acp-command"
+                        value={acpCommand}
+                        onChange={(e) => setAcpCommand(e.target.value)}
+                        placeholder="claude"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        ACP server 命令路径。默认 &quot;claude&quot;（Claude Code CLI）。
+                      </p>
+                    </div>
+                  </>
+                ) : (
                   <div>
-                    <label htmlFor="settings-acp-command" className="text-sm text-shell mb-1 block">
-                      CLI 命令
+                    <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
+                      API Key
                     </label>
                     <Input
-                      id="settings-acp-command"
-                      value={acpCommand}
-                      onChange={(e) => setAcpCommand(e.target.value)}
-                      placeholder="claude"
+                      id="settings-api-key"
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-...'}
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      ACP server 命令路径。默认 &quot;claude&quot;（Claude Code CLI）。
-                    </p>
+                    {isTauri() && hasStoredSecret && (
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Leave blank to keep the API key already stored securely on this device.
+                      </p>
+                    )}
                   </div>
-                </>
-              ) : (
-                <div>
-                  <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
-                    API Key
-                  </label>
-                  <Input
-                    id="settings-api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-...'}
-                  />
-                  {isTauri() && hasStoredSecret && (
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Leave blank to keep the API key already stored securely on this device.
-                    </p>
-                  )}
-                </div>
-              ))}
+                ))}
 
               {!IS_BROWSER_PROD && showBaseURL && (
                 <div>
@@ -469,8 +480,8 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
               {!IS_BROWSER_PROD && isThinkingProvider && (
                 <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
-                  此提供商的模型会返回 thinking 块，消耗 max_tokens 预算。建议员工的 Max
-                  Tokens 设置 ≥ 1024，否则 thinking 可能耗尽配额导致回复为空。
+                  此提供商的模型会返回 thinking 块，消耗 max_tokens 预算。建议员工的 Max Tokens 设置
+                  ≥ 1024，否则 thinking 可能耗尽配额导致回复为空。
                 </div>
               )}
 
@@ -488,6 +499,33 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
           <TabsContent value="runtime" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
+              <div className="rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
+                <p className="text-xs font-medium text-shell mb-3">Display Density</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'compact', label: 'Compact' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'spacious', label: 'Spacious' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setDensity(option.value as typeof density)}
+                      className={`rounded-md border px-3 py-2 text-xs transition ${
+                        density === option.value
+                          ? 'border-blue-400 bg-blue-500/15 text-blue-200'
+                          : 'border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  Controls spacing density across the shell and studio panels.
+                </p>
+              </div>
+
               <div>
                 <label htmlFor="settings-execution-mode" className="text-sm text-shell mb-1 block">
                   Execution Mode

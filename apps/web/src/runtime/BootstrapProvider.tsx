@@ -32,6 +32,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
   }, []);
 
   useEffect(() => {
+    void version;
     let disposed = false;
     setRuntime(null);
     setError(null);

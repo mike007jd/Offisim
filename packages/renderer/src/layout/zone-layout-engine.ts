@@ -13,12 +13,18 @@ type LayoutZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 
 
 function archetypeToLayoutType(archetype: ZoneArchetype | null): LayoutZoneType {
   switch (archetype) {
-    case 'workspace': return 'department';
-    case 'library': return 'library';
-    case 'rest': return 'rest_area';
-    case 'meeting': return 'meeting_room';
-    case 'server': return 'server_room';
-    default: return 'department';
+    case 'workspace':
+      return 'department';
+    case 'library':
+      return 'library';
+    case 'rest':
+      return 'rest_area';
+    case 'meeting':
+      return 'meeting_room';
+    case 'server':
+      return 'server_room';
+    default:
+      return 'department';
   }
 }
 

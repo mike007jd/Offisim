@@ -12,10 +12,7 @@ interface MeetingControlsAutoWiredProps {
  * Auto-wired MeetingControls that reads meeting state from EventBus
  * and dispatches meeting interrupt commands via EventBus.
  */
-export function MeetingControlsAutoWired({
-  meetingId,
-  status,
-}: MeetingControlsAutoWiredProps) {
+export function MeetingControlsAutoWired({ meetingId, status }: MeetingControlsAutoWiredProps) {
   const { eventBus } = useOffisimRuntime();
 
   const emit = useCallback(

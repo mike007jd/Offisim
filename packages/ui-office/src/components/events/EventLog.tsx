@@ -58,14 +58,14 @@ export function primeEventLogStore(eventBus: EventBus) {
   if (store.initialized) return store;
 
   store.initialized = true;
-  EVENT_PREFIXES.forEach((prefix) => {
+  for (const prefix of EVENT_PREFIXES) {
     eventBus.on(prefix, (event: RuntimeEvent) => {
       store.buffer.push(event);
       if (store.rafId === null) {
         store.rafId = requestAnimationFrame(() => flushEventHistory(store));
       }
     });
-  });
+  }
 
   return store;
 }

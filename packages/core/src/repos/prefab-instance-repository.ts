@@ -10,7 +10,13 @@ export interface PrefabInstanceRepository {
     fields: Partial<
       Pick<
         PrefabInstanceRow,
-        'position_x' | 'position_y' | 'rotation' | 'zone_id' | 'bindings_json' | 'config_json' | 'enabled'
+        | 'position_x'
+        | 'position_y'
+        | 'rotation'
+        | 'zone_id'
+        | 'bindings_json'
+        | 'config_json'
+        | 'enabled'
       >
     >,
   ): Promise<void>;

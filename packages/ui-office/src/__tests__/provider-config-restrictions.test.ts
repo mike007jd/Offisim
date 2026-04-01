@@ -1,9 +1,9 @@
+import { isProductionProvider } from '@offisim/shared-types';
 /**
  * Guard test: Production UI must not expose vendor-direct providers.
  * See CLAUDE.md — AI Runtime Policy.
  */
 import { describe, expect, it } from 'vitest';
-import { isProductionProvider } from '@offisim/shared-types';
 import {
   BROWSER_DEV_DEFAULT_PRESET_KEY,
   BROWSER_DEV_PRESETS,
@@ -17,18 +17,24 @@ import {
 describe('AI Runtime Policy — provider config restrictions', () => {
   it('getProductionPresets() only returns self-developed providers', () => {
     const production = getProductionPresets();
-    for (const [key, preset] of Object.entries(production)) {
+    for (const [, preset] of Object.entries(production)) {
       const provider = preset.defaults.provider;
-      expect(
-        provider ? isProductionProvider(provider) : true,
-      ).toBe(true);
+      expect(provider ? isProductionProvider(provider) : true).toBe(true);
       expect(preset.devOnly).toBeFalsy();
     }
     expect(Object.keys(production).length).toBeGreaterThan(0);
   });
 
   it('vendor-direct presets are marked devOnly', () => {
-    const vendorDirect = ['openai', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'kimi', 'lmstudio'];
+    const vendorDirect = [
+      'openai',
+      'anthropic',
+      'gemini',
+      'deepseek',
+      'openrouter',
+      'kimi',
+      'lmstudio',
+    ];
     for (const key of vendorDirect) {
       const preset = PROVIDER_PRESETS[key];
       if (preset) {
@@ -61,7 +67,7 @@ describe('AI Runtime Policy — provider config restrictions', () => {
   });
 
   it('createDesktopProviderGateway is not exported from desktop-provider-secrets', async () => {
-    const mod = await import('../lib/desktop-provider-secrets') as Record<string, unknown>;
+    const mod = (await import('../lib/desktop-provider-secrets')) as Record<string, unknown>;
     expect(mod.createDesktopProviderGateway).toBeUndefined();
   });
 });

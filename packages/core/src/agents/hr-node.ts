@@ -1,6 +1,6 @@
-import { ROLE_REGISTRY } from '@offisim/shared-types';
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { ROLE_REGISTRY } from '@offisim/shared-types';
 import {
   graphNodeEntered,
   hrAssessmentCompleted,

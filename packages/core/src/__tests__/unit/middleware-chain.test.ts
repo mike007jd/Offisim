@@ -86,10 +86,7 @@ describe('LlmMiddlewareChain', () => {
           ...ctx,
           request: {
             ...ctx.request,
-            messages: [
-              { role: 'system', content: 'injected' },
-              ...ctx.request.messages,
-            ],
+            messages: [{ role: 'system', content: 'injected' }, ...ctx.request.messages],
           },
         };
       },
@@ -107,7 +104,7 @@ describe('LlmMiddlewareChain', () => {
       name: 'transformer',
       priority: 10,
       async after(_ctx, res) {
-        return { ...res, content: res.content + ' [transformed]' };
+        return { ...res, content: `${res.content} [transformed]` };
       },
     });
 

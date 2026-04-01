@@ -19,6 +19,9 @@ export function buildSystemPrompt(form: EmployeeFormData): string {
   if (form.customInstructions) {
     lines.push(`Additional instructions: ${form.customInstructions}`);
   }
+  lines.push(`Communication frequency: ${form.communicationFrequency}`);
+  lines.push(`Risk preference: ${form.riskPreference}`);
+  lines.push(`Decision approach: ${form.decisionStyle}`);
 
   lines.push('');
   lines.push('Respond in character. Keep answers concise unless asked to elaborate.');

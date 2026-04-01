@@ -56,6 +56,7 @@ interface RuntimeSkillCapability {
 interface RuntimeSkillConfig {
   readonly skillName: string;
   readonly summary: string;
+  readonly enabled?: boolean;
   readonly instructionMode?: string;
   readonly instructionExcerpt?: string;
   readonly instructions?: string;
@@ -73,10 +74,36 @@ function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig 
     const parsed = JSON.parse(configJson) as {
       runtimeSkill?: RuntimeSkillConfig;
     };
-    return parsed.runtimeSkill ?? null;
+    if (!parsed.runtimeSkill || parsed.runtimeSkill.enabled === false) return null;
+    return parsed.runtimeSkill;
   } catch {
     return null;
   }
+}
+
+function normalizeSkillText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function taskHasSkillMismatch(
+  requiredSkills: string[],
+  runtimeSkill: RuntimeSkillConfig | null,
+): boolean {
+  if (requiredSkills.length === 0) return false;
+  if (!runtimeSkill) return true;
+  const haystack = [
+    runtimeSkill.skillName,
+    runtimeSkill.summary,
+    ...(runtimeSkill.capabilityIndex?.requiredCapabilities ?? []),
+    ...(runtimeSkill.capabilityIndex?.capabilities ?? []).map(
+      (cap) => cap.label ?? cap.key ?? cap.kind ?? '',
+    ),
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(normalizeSkillText)
+    .join(' ');
+
+  return !requiredSkills.some((skill) => haystack.includes(normalizeSkillText(skill)));
 }
 
 function formatSkillCatalogSection(skill: RuntimeSkillConfig): string {
@@ -135,7 +162,6 @@ function buildSkillActivationTool(): ToolDef {
   };
 }
 
-
 /**
  * Extract [N] citation references from an LLM response and map them
  * back to the citation entries that were injected into the prompt.
@@ -162,7 +188,6 @@ export function extractUsedCitations(
       snippet: c.snippet,
     }));
 }
-
 
 export async function employeeNode(
   state: OffisimGraphState,
@@ -246,9 +271,32 @@ export async function employeeNode(
   const resolved = modelResolver.resolve(null, employee.role_slug);
   const taskDescription =
     ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
+  const requiredSkills = Array.isArray(
+    (assignment.inputJson as Record<string, unknown>).requiredSkills,
+  )
+    ? ((assignment.inputJson as Record<string, unknown>).requiredSkills as unknown[]).filter(
+        (skill): skill is string => typeof skill === 'string' && skill.trim().length > 0,
+      )
+    : [];
   const runtimeSkill = parseRuntimeSkillConfig(employee.config_json);
   const memoryPolicy = runtimeCtx.runtimePolicy?.memory;
   const toolSearchEnabled = runtimeCtx.runtimePolicy?.toolSearch.enabled ?? true;
+
+  if (taskHasSkillMismatch(requiredSkills, runtimeSkill)) {
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: employee.employee_id,
+      eventType: 'skill_mismatch',
+      payload: {
+        taskRunId,
+        employeeId: employee.employee_id,
+        employeeSkill: runtimeSkill?.skillName ?? null,
+        requiredSkills,
+      },
+    });
+  }
+
   let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
   if (runtimeSkill) {
     systemPrompt += formatSkillCatalogSection(runtimeSkill);
@@ -873,4 +921,3 @@ export async function employeeNode(
     };
   }
 }
-

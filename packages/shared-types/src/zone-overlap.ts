@@ -38,15 +38,22 @@ export function computeOverlapMap<T extends ZoneRect & { id: string }>(
   const map = new Map<string, string[]>();
   for (let i = 0; i < zones.length; i++) {
     for (let j = i + 1; j < zones.length; j++) {
-      const a = zones[i]!;
-      const b = zones[j]!;
+      const a = zones[i];
+      const b = zones[j];
+      if (!a || !b) continue;
       if (zonesOverlap(a, b)) {
         let aList = map.get(a.id);
-        if (!aList) { aList = []; map.set(a.id, aList); }
+        if (!aList) {
+          aList = [];
+          map.set(a.id, aList);
+        }
         aList.push(b.id);
 
         let bList = map.get(b.id);
-        if (!bList) { bList = []; map.set(b.id, bList); }
+        if (!bList) {
+          bList = [];
+          map.set(b.id, bList);
+        }
         bList.push(a.id);
       }
     }

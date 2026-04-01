@@ -1,5 +1,5 @@
-import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
@@ -11,6 +11,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { buildEnrichedEmployeeList, readRuntimeSkill, safeParseJson } from './employee-roster.js';
 
 /** @internal — exported for testing */
 export const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
@@ -31,7 +32,8 @@ Respond with JSON only:
           "taskType": "research" | "writing" | "analysis" | "review" | "code" | "general",
           "employeeId": "<employee_id>",
           "description": "specific instruction for the employee",
-          "dependsOnStepOutput": false
+          "dependsOnStepOutput": false,
+          "requiredSkills": ["optional relevant skill keyword"]
         }
       ]
     }
@@ -43,6 +45,9 @@ Rules:
 - Tasks within a step execute in parallel
 - Set dependsOnStepOutput: true when a task needs results from the previous step
 - Assign tasks to the most appropriate employee
+- When assigning tasks, consider employee expertise and skills
+- If an employee's installed skill package is relevant, mention that alignment in the task description
+- Add requiredSkills when a task clearly benefits from a specific skill package or specialty
 - For simple requests: 1-4 steps
 - For complex projects: use phases to group related steps (e.g. "研究", "设计", "开发", "测试")
 - dependsOnSteps is reserved for future parallel step execution — set it accurately but steps still run in order`;
@@ -57,6 +62,7 @@ export interface LlmPlanStep {
     employeeId: string;
     description: string;
     dependsOnStepOutput: boolean;
+    requiredSkills?: string[];
   }>;
 }
 
@@ -94,6 +100,9 @@ export function parsePmPlan(content: string): LlmPlan | null {
           description: task.description,
           dependsOnStepOutput:
             typeof task.dependsOnStepOutput === 'boolean' ? task.dependsOnStepOutput : false,
+          requiredSkills: Array.isArray(task.requiredSkills)
+            ? task.requiredSkills.filter((skill): skill is string => typeof skill === 'string')
+            : undefined,
         });
       }
     }
@@ -146,11 +155,30 @@ export function matchSopTemplate(
 export function findEmployeeForRole(
   employees: EmployeeRow[],
   roleSlug: string,
+  preferSkill?: string,
 ): EmployeeRow | null {
-  const exact = employees.find((e) => e.role_slug === roleSlug && e.enabled === 1);
+  const enabled = employees.filter((e) => e.enabled === 1);
+  const exactMatches = enabled.filter((e) => e.role_slug === roleSlug);
+  const normalizedSkill = preferSkill?.trim().toLowerCase();
+
+  if (normalizedSkill) {
+    const skillMatch = exactMatches.find((employee) => {
+      const config = safeParseJson(employee.config_json);
+      const skill = readRuntimeSkill(config);
+      if (!skill) return false;
+      const haystack = [skill.skillName, skill.summary]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedSkill);
+    });
+    if (skillMatch) return skillMatch;
+  }
+
+  const exact = exactMatches[0];
   if (exact) return exact;
   // Fallback: any enabled employee
-  return employees.find((e) => e.enabled === 1) ?? null;
+  return enabled[0] ?? null;
 }
 
 /**
@@ -289,9 +317,7 @@ export async function pmPlannerNode(
 
   // --- Fallback to LLM planning if no SOP matched ---
   if (!plan) {
-    const employeeList = validEmployees
-      .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
-      .join('\n');
+    const employeeList = buildEnrichedEmployeeList(validEmployees);
 
     // --- Inject historical experience from company memory ---
     let experienceSection = '';
@@ -387,6 +413,7 @@ export async function pmPlannerNode(
         employeeId: llmTask.employeeId,
         description: llmTask.description,
         dependsOnStepOutput: llmTask.dependsOnStepOutput,
+        requiredSkills: llmTask.requiredSkills,
         taskRunId,
       });
     }

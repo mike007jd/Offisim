@@ -181,5 +181,13 @@ export function useOffice2DDrag({
     setHoveredZoneId(null);
   }, []);
 
-  return { dragState, isDragging, hoveredZoneId, startDrag, onPointerMove, onPointerUp, cancelDrag };
+  return {
+    dragState,
+    isDragging,
+    hoveredZoneId,
+    startDrag,
+    onPointerMove,
+    onPointerUp,
+    cancelDrag,
+  };
 }

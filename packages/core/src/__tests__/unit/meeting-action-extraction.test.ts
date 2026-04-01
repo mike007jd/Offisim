@@ -1,11 +1,11 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { bossSummaryNode } from '../../agents/boss-summary-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { meetingEndNode } from '../../graph/meeting-subgraph.js';
-import type { OffisimGraphState, MeetingActionItem } from '../../graph/state.js';
+import type { MeetingActionItem, OffisimGraphState } from '../../graph/state.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import type { EmployeeRow } from '../../runtime/repositories.js';

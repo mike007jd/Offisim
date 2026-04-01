@@ -3,9 +3,9 @@
 // Used by the Office Editor to let users place fully-furnished zones.
 // Prefab offsets are relative to zone center in world coordinates.
 
-import type { ActivityType, ZoneArchetype } from './zone.js';
 import type { SemanticCategory } from './prefab.js';
 import type { RoleSlug } from './roles.js';
+import type { ActivityType, ZoneArchetype } from './zone.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 

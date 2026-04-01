@@ -22,9 +22,7 @@ export function EnergyMeter({ usedTokens, costUsd }: EnergyMeterProps) {
           <span>{formatTokens(usedTokens)}</span>
         </span>
       )}
-      {costUsd > 0 && (
-        <span className="font-mono text-emerald-500/50">${costUsd.toFixed(4)}</span>
-      )}
+      {costUsd > 0 && <span className="font-mono text-emerald-500/50">${costUsd.toFixed(4)}</span>}
       <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-50">
         <div className="bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-300 whitespace-nowrap shadow-xl">
           Energy is the user-friendly representation of model token usage.

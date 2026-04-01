@@ -121,7 +121,8 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
 /** Presets whose provider is allowed in production — pre-computed, stable reference. */
 export const PRODUCTION_PRESETS: Record<string, ProviderPreset> = Object.fromEntries(
   Object.entries(PROVIDER_PRESETS).filter(
-    ([_, preset]) => preset.defaults.provider && isProductionProvider(preset.defaults.provider as LlmProvider),
+    ([_, preset]) =>
+      preset.defaults.provider && isProductionProvider(preset.defaults.provider as LlmProvider),
   ),
 );
 

@@ -120,6 +120,7 @@ export function ZoneLabel({
 export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
   return (
     <group>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: react-three-fiber meshes are not keyboard-focusable DOM nodes. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onFloorClick?.()}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial color="#020617" roughness={0.9} />
@@ -276,7 +277,12 @@ export function TaskFlowLine({
   const points = useMemo(() => [new THREE.Vector3(...from), new THREE.Vector3(...to)], [from, to]);
   const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
   const lineObject = useMemo(() => {
-    const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, linewidth: 2 });
+    const material = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0,
+      linewidth: 2,
+    });
     return new THREE.Line(geometry, material);
   }, [geometry, color]);
 
@@ -368,7 +374,9 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
 
   const { targetColor, targetIntensity } = useMemo(() => {
     const values = [...agents.values()];
-    const hasBlocked = values.some((agent) => agent.state === 'blocked' || agent.state === 'failed');
+    const hasBlocked = values.some(
+      (agent) => agent.state === 'blocked' || agent.state === 'failed',
+    );
     const hasActive = values.some((agent) => agent.state !== 'idle');
     const hasMeeting = values.some((agent) => agent.state === 'meeting');
     const color = hasBlocked

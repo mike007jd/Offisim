@@ -7,18 +7,20 @@
  */
 
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import { dehydrateZone, hydrateZone, ZoneService } from '@offisim/core/browser';
+import { hydrateZone } from '@offisim/core/browser';
 
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { saveZonesToDb } from '../../lib/zone-persistence.js';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
 import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
 import { StudioPlotSelector } from './StudioPlotSelector.js';
 import { StudioProperties } from './StudioProperties.js';
-import { STUDIO_TEMP_PREFIX, useStudioStore } from './StudioState.js';
+import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
@@ -183,6 +185,7 @@ function CompanyNameModal({
 // -- Component ----------------------------------------------------------------
 
 export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }: StudioPageProps) {
+  const { eventBus } = useOffisimRuntime();
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -227,10 +230,7 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
         repos.zones.findByCompany(companyId),
       ]).then(([instanceRows, zoneRows]) => {
         const store = useStudioStore.getState();
-
-        // Hydrate zones
-        const zones = zoneRows.map((r) => hydrateZone(r));
-        store.setZones(zones);
+        store.loadZonesFromDb(zoneRows.map((r) => hydrateZone(r)));
 
         // Load instances
         const instances = instanceRows.map((r) => ({
@@ -246,8 +246,7 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
     } else {
       // Create mode: populate with default zone templates so placement can resolve
       const store = useStudioStore.getState();
-      const defaultZones = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, ''));
-      store.setZones(defaultZones);
+      store.loadZonesFromDb(SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, '')));
       store.setInstances([]);
       setLoading(false);
     }
@@ -288,42 +287,15 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           created_at: now,
           updated_at: now,
         });
-
-        // Seed system zones for the new company
-        const zoneService = new ZoneService(repos.zones);
-        const seededZones = await zoneService.seedSystemZones(targetCompanyId);
-        useStudioStore.getState().setZones(seededZones);
-      } else if (targetCompanyId) {
-        // Edit mode: wipe existing prefab instances before re-writing
-        await repos.prefabInstances.deleteByCompany(targetCompanyId);
       }
 
       if (targetCompanyId) {
-        // Persist zones: wipe and re-insert from store (parallel)
-        await repos.zones.deleteByCompany(targetCompanyId);
-        await Promise.all(
-          useStudioStore.getState().zones.map((zone) => repos.zones.create(dehydrateZone(zone))),
-        );
-
-        // Persist prefab instances (parallel)
-        const now = new Date().toISOString();
-        await Promise.all(
-          state.instances.map((inst) =>
-            repos.prefabInstances.create({
-              instance_id: inst.id.startsWith(STUDIO_TEMP_PREFIX) ? crypto.randomUUID() : inst.id,
-              company_id: targetCompanyId,
-              prefab_id: inst.prefabId,
-              zone_id: inst.zoneId,
-              position_x: Number.parseFloat(inst.position[0].toFixed(4)),
-              position_y: Number.parseFloat(inst.position[2].toFixed(4)),
-              rotation: inst.rotation,
-              bindings_json: null,
-              config_json: null,
-              enabled: 1,
-              created_at: now,
-              updated_at: now,
-            }),
-          ),
+        await saveZonesToDb(
+          { prefabInstances: repos.prefabInstances, zones: repos.zones },
+          targetCompanyId,
+          state.zones,
+          state.instances,
+          eventBus,
         );
       }
 
@@ -341,7 +313,7 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
     } finally {
       setSaving(false);
     }
-  }, [repos, companyId, mode, onCompanyCreated]);
+  }, [repos, companyId, eventBus, mode, onCompanyCreated]);
 
   // -- Keyboard shortcuts (non-tool shortcuts) --------------------------------
   // Tool shortcuts (1-4, G) are handled by StudioToolbar.
@@ -389,7 +361,13 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
           else store.selectInstance(null);
           break;
         // Number keys 1-7: focus zones by sort order
-        case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7': {
           if (e.ctrlKey || e.metaKey || e.altKey) break;
           const idx = Number.parseInt(e.key) - 1;
           const sorted = [...store.zones].sort((a, b) => a.sortOrder - b.sortOrder);

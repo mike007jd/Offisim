@@ -35,7 +35,8 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax tool-calling smoke (live API)', () => {
     });
 
     expect(response.toolCalls.length).toBeGreaterThan(0);
-    const toolCall = response.toolCalls[0]!;
+    const toolCall = response.toolCalls[0];
+    if (!toolCall) throw new Error('Expected tool call');
     expect(toolCall.name).toBe('get_weather');
     expect(toolCall.arguments).toBeDefined();
     expect(toolCall.arguments.city).toBeDefined();
@@ -54,7 +55,8 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax tool-calling smoke (live API)', () => {
     });
 
     expect(step1.toolCalls.length).toBeGreaterThan(0);
-    const toolCall = step1.toolCalls[0]!;
+    const toolCall = step1.toolCalls[0];
+    if (!toolCall) throw new Error('Expected tool call in first response');
 
     // Step 2: send tool result back
     const step2 = await adapter.chat({
@@ -99,13 +101,16 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax tool-calling smoke (live API)', () => {
     expect(chunks.length).toBeGreaterThanOrEqual(1);
     const finalChunk = chunks.at(-1);
     expect(finalChunk).toBeDefined();
-    expect(finalChunk!.done).toBe(true);
+    if (!finalChunk) throw new Error('Expected final tool-calling chunk');
+    expect(finalChunk.done).toBe(true);
 
     // Final chunk should have accumulated tool calls
-    expect(finalChunk!.toolCalls).toBeDefined();
-    expect(finalChunk!.toolCalls!.length).toBeGreaterThan(0);
+    expect(finalChunk.toolCalls).toBeDefined();
+    if (!finalChunk.toolCalls) throw new Error('Expected tool calls on final chunk');
+    expect(finalChunk.toolCalls.length).toBeGreaterThan(0);
 
-    const toolCall = finalChunk!.toolCalls![0]!;
+    const toolCall = finalChunk.toolCalls[0];
+    if (!toolCall) throw new Error('Expected accumulated tool call');
     expect(toolCall.name).toBe('get_weather');
     expect(toolCall.arguments).toBeDefined();
     expect(String(toolCall.arguments.city).toLowerCase()).toContain('tokyo');

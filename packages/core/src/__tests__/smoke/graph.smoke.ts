@@ -1,5 +1,5 @@
-import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
+import type { LlmProvider, ModelPolicyConfig } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import { buildOffisimGraph } from '../../graph/main-graph.js';

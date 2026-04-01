@@ -62,7 +62,8 @@ export class UserPreferenceMiddleware implements LlmMiddleware {
       const systemIdx = messages.findIndex((m) => m.role === 'system');
 
       if (systemIdx >= 0) {
-        const existing = messages[systemIdx]!;
+        const existing = messages[systemIdx];
+        if (!existing) return ctx;
         messages[systemIdx] = {
           ...existing,
           content: existing.content + injectionText,

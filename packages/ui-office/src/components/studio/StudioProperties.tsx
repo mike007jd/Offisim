@@ -6,7 +6,7 @@
  * When a zone is selected: zone name, archetype, size, position, furniture count, variant, delete.
  */
 
-import { getBuiltinPrefab, getAllBuiltinPrefabs } from '@offisim/renderer';
+import { getAllBuiltinPrefabs, getBuiltinPrefab } from '@offisim/renderer';
 import type { PrefabDefinition } from '@offisim/shared-types';
 
 // Module-level constant — built-in prefabs never change at runtime
@@ -14,7 +14,11 @@ const ALL_PREFABS_MAP: Map<string, PrefabDefinition> = new Map(
   getAllBuiltinPrefabs().map((p) => [p.prefabId, p]),
 );
 import type { ZonePreset } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, getPresetsForArchetype, isRequiredArchetype } from '@offisim/shared-types';
+import {
+  UNASSIGNED_ZONE_ID,
+  getPresetsForArchetype,
+  isRequiredArchetype,
+} from '@offisim/shared-types';
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioStore } from './StudioState.js';
@@ -159,8 +163,12 @@ export function StudioProperties() {
       {showZone &&
         selectedZone &&
         (() => {
-          const zoneFurnitureCount = instances.filter((i) => i.zoneId === selectedZone.zoneId).length;
-          const presets = selectedZone.archetype ? getPresetsForArchetype(selectedZone.archetype) : [];
+          const zoneFurnitureCount = instances.filter(
+            (i) => i.zoneId === selectedZone.zoneId,
+          ).length;
+          const presets = selectedZone.archetype
+            ? getPresetsForArchetype(selectedZone.archetype)
+            : [];
           const required = isRequiredArchetype(selectedZone.archetype);
 
           return (
@@ -266,7 +274,9 @@ export function StudioProperties() {
                   <select
                     aria-label="Zone variant"
                     onChange={(e) => {
-                      const preset = presets.find((p) => p.id === e.target.value) as ZonePreset | undefined;
+                      const preset = presets.find((p) => p.id === e.target.value) as
+                        | ZonePreset
+                        | undefined;
                       if (preset) swapZoneVariant(selectedZone.zoneId, preset, allPrefabsMap);
                     }}
                     style={{
@@ -401,7 +411,13 @@ export function StudioProperties() {
               <div style={SECTION_STYLE}>
                 <div style={labelStyle()}>Zone</div>
                 <div style={ROW_STYLE}>
-                  <MapPin size={12} style={{ color: instanceZone?.accentColor ?? STUDIO_COLORS.textTertiary, flexShrink: 0 }} />
+                  <MapPin
+                    size={12}
+                    style={{
+                      color: instanceZone?.accentColor ?? STUDIO_COLORS.textTertiary,
+                      flexShrink: 0,
+                    }}
+                  />
                   {instanceZone ? (
                     <>
                       <span
@@ -417,7 +433,13 @@ export function StudioProperties() {
                       <span style={{ ...valueStyle() }}>{instanceZone.label}</span>
                     </>
                   ) : (
-                    <span style={{ fontSize: FONT.sm, color: STUDIO_COLORS.textTertiary, fontStyle: 'italic' }}>
+                    <span
+                      style={{
+                        fontSize: FONT.sm,
+                        color: STUDIO_COLORS.textTertiary,
+                        fontStyle: 'italic',
+                      }}
+                    >
                       {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
                     </span>
                   )}

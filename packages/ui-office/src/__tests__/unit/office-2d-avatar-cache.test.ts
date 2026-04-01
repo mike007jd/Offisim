@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach } from 'vitest';
-import { getAvatarUri, clearAvatarCache } from '../../components/scene/office-2d-avatar-cache';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { clearAvatarCache, getAvatarUri } from '../../components/scene/office-2d-avatar-cache';
 
 describe('office-2d-avatar-cache', () => {
   beforeEach(() => {

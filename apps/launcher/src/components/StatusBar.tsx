@@ -1,4 +1,4 @@
-import { Square, RotateCw } from 'lucide-react';
+import { RotateCw, Square } from 'lucide-react';
 import type { LauncherStatus, ProcessStatus } from '../lib/ipc';
 
 interface StatusBarProps {
@@ -54,9 +54,7 @@ export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps)
 
         {/* Exit code for failed processes */}
         {frontend?.status === 'failed' && frontend.exit_code !== null && (
-          <span className="text-[var(--error-val)]">
-            Exit: {frontend.exit_code}
-          </span>
+          <span className="text-[var(--error-val)]">Exit: {frontend.exit_code}</span>
         )}
       </div>
 
@@ -64,6 +62,7 @@ export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps)
       <div className="flex items-center gap-2">
         {hasActiveMode && (
           <button
+            type="button"
             onClick={onStop}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--error-val)]/30 bg-[var(--error-val)]/10 text-[var(--error-val)] hover:bg-[var(--error-val)]/20 transition-colors cursor-pointer"
           >
@@ -73,6 +72,7 @@ export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps)
         )}
         {platform && !platform.external && (
           <button
+            type="button"
             onClick={onRestartPlatform}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--border-val)] bg-[var(--surface-light)] text-[var(--text-secondary-val)] hover:bg-[var(--surface-lighter)] transition-colors cursor-pointer"
           >
@@ -115,8 +115,13 @@ function ProcessIndicator({
         className={`inline-block w-2 h-2 rounded-full ${info.status === 'starting' || info.status === 'stopping' ? 'animate-pulse' : ''}`}
         style={{ backgroundColor: color }}
       />
-      <span style={{ color }}>{label}: {statusLabel}</span>
-      <span className="text-[var(--text-muted-val)]">{pidStr}{externalStr}</span>
+      <span style={{ color }}>
+        {label}: {statusLabel}
+      </span>
+      <span className="text-[var(--text-muted-val)]">
+        {pidStr}
+        {externalStr}
+      </span>
     </span>
   );
 }

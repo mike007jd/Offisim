@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OffisimError, DataError, GraphError, LlmError } from '../../errors.js';
+import { DataError, GraphError, LlmError, OffisimError } from '../../errors.js';
 
 describe('OffisimError', () => {
   it('has code and recoverable properties', () => {

@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { LlmCallContext } from '../../middleware/types.js';
 import { UserPreferenceMiddleware } from '../../middleware/builtin/user-preference-middleware.js';
+import type { LlmCallContext } from '../../middleware/types.js';
 import { MemoryUserPreferenceRepository } from '../../repositories/memory-user-preference-repository.js';
 
-function makeCtx(
-  repo: MemoryUserPreferenceRepository,
-  companyId = 'c-1',
-): LlmCallContext {
+function makeCtx(repo: MemoryUserPreferenceRepository, companyId = 'c-1'): LlmCallContext {
   return {
     request: {
       messages: [
@@ -40,7 +37,8 @@ describe('UserPreferenceMiddleware', () => {
 
     const mw = new UserPreferenceMiddleware(repo);
     const ctx = makeCtx(repo);
-    const result = await mw.before!(ctx);
+    expect(mw.before).toBeDefined();
+    const result = await mw.before(ctx);
 
     const systemMsg = result.request.messages.find((m) => m.role === 'system');
     expect(systemMsg?.content).toContain('User prefers concise reports');
@@ -52,7 +50,8 @@ describe('UserPreferenceMiddleware', () => {
     const mw = new UserPreferenceMiddleware(repo);
     const ctx = makeCtx(repo);
 
-    const result = await mw.before!(ctx);
+    expect(mw.before).toBeDefined();
+    const result = await mw.before(ctx);
     expect(result).toBe(ctx); // Unchanged
   });
 
@@ -74,14 +73,16 @@ describe('UserPreferenceMiddleware', () => {
 
     const mw = new UserPreferenceMiddleware(repo);
     const ctx = makeCtx(repo);
-    const result = await mw.before!(ctx);
+    expect(mw.before).toBeDefined();
+    const result = await mw.before(ctx);
 
     const systemMsg = result.request.messages.find((m) => m.role === 'system');
     // Should contain preferences but not exceed 2000 chars injection
     expect(systemMsg?.content).toContain('[User preferences');
     // The injection part should be bounded
-    const injectionStart = systemMsg!.content.indexOf('[User preferences');
-    const injectionPart = systemMsg!.content.slice(injectionStart);
+    if (!systemMsg) throw new Error('Expected system message');
+    const injectionStart = systemMsg.content.indexOf('[User preferences');
+    const injectionPart = systemMsg.content.slice(injectionStart);
     expect(injectionPart.length).toBeLessThan(2200); // Some tolerance for the header
   });
 

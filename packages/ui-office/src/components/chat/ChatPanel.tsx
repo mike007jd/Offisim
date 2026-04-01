@@ -206,7 +206,10 @@ export function ChatPanel({
     <div className="flex flex-1 flex-col min-h-0">
       {/* Project context banner — shown when a project is scoped */}
       {activeProject && !isDirectChat && (
-        <div className="flex items-center gap-1.5 border-b border-white/5 px-3 h-7 bg-white/2">
+        <div
+          className="flex items-center gap-1.5 border-b border-white/5 h-7 bg-white/2"
+          style={{ paddingInline: 'var(--sp-md)' }}
+        >
           <Folder className="h-3 w-3 text-slate-600 flex-shrink-0" />
           <span className="text-[11px] text-slate-500 truncate">{activeProject.name}</span>
         </div>
@@ -214,7 +217,10 @@ export function ChatPanel({
 
       {/* Direct chat header — single compact line */}
       {isDirectChat && (
-        <div className="flex items-center gap-2 border-b border-white/5 px-3 h-8">
+        <div
+          className="flex items-center gap-2 border-b border-white/5 h-8"
+          style={{ paddingInline: 'var(--sp-md)' }}
+        >
           <button
             type="button"
             onClick={onClearSelection}
@@ -259,7 +265,7 @@ export function ChatPanel({
         )
       ) : (
         <ScrollArea className="flex-1">
-          <div ref={scrollRef} className="flex flex-col gap-1 p-2">
+          <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
             {messages.map((msg) => (
               <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}

@@ -1,6 +1,6 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { errorHandlerNode } from '../../agents/error-handler-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';

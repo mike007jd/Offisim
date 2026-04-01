@@ -8,14 +8,14 @@
  * For desktop/Tauri, stdio support can be added later via a Tauri shell command bridge.
  */
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import type {
   McpClientFactory,
   McpConnection,
   McpServerConfig,
   McpToolDef,
 } from '@offisim/core/browser';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
 /**
  * McpClientFactory implementation for browser environments.

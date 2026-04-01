@@ -1,8 +1,8 @@
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
-import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
+import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
 import { PolicyEditor } from './PolicyEditor';
 

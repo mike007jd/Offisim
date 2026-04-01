@@ -37,8 +37,7 @@ const MEMORY_TOOLS: readonly ToolDef[] = Object.freeze([
         },
         importance: {
           type: 'number',
-          description:
-            'Importance 0.0-1.0 (0.3=minor, 0.5=moderate, 0.7=important, 0.9=critical)',
+          description: 'Importance 0.0-1.0 (0.3=minor, 0.5=moderate, 0.7=important, 0.9=critical)',
         },
       },
       required: ['content', 'category', 'scope', 'importance'],

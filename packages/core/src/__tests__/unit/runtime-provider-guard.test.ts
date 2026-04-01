@@ -1,10 +1,10 @@
+import { isProductionProvider } from '@offisim/shared-types';
+import type { LlmProvider } from '@offisim/shared-types';
 /**
  * Guard test: Production runtime must reject vendor-direct providers.
  * See CLAUDE.md — AI Runtime Policy.
  */
 import { describe, expect, it } from 'vitest';
-import { isProductionProvider } from '@offisim/shared-types';
-import type { LlmProvider } from '@offisim/shared-types';
 
 describe('AI Runtime Policy — provider classification', () => {
   it('subscription is a production provider', () => {

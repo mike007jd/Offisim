@@ -5,7 +5,6 @@ import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 import type { ZoneRepository } from '../repos/zone-repository.js';
-import { ZoneService } from './zone-service.js';
 import type {
   EmployeeRepository,
   OfficeLayoutRepository,
@@ -13,6 +12,7 @@ import type {
 } from '../runtime/repositories.js';
 import type { CompanyTemplate } from '../templates/index.js';
 import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
+import { ZoneService } from './zone-service.js';
 
 function resolveRoleDepartment(roleSlug: string): string | null {
   return ROLE_TO_DEPARTMENT.get(roleSlug as RoleSlug) ?? null;
@@ -29,8 +29,8 @@ function computeGridPosition(
   cx: number,
   cz: number,
   index: number,
-  cols: number = 3,
-  spacing: number = 2.5,
+  cols = 3,
+  spacing = 2.5,
 ): { x: number; z: number } {
   const col = index % cols;
   const row = Math.floor(index / cols);
@@ -192,8 +192,7 @@ export class CompanyTemplateService {
         for (const uz of UTILITY_ZONES) {
           const center = getZoneCenter(uz.zoneId);
           const defaults = getDefaultPrefabs(uz.type);
-          for (let i = 0; i < defaults.length; i++) {
-            const d = defaults[i]!;
+          for (const [i, d] of defaults.entries()) {
             const pos = computeGridPosition(center.cx, center.cz, i);
             const inst: PrefabInstanceRow = {
               instance_id: crypto.randomUUID(),
@@ -386,8 +385,7 @@ export class CompanyTemplateService {
       for (const uz of UTILITY_ZONES) {
         const center = getZoneCenter(uz.zoneId);
         const defaults = getDefaultPrefabs(uz.type);
-        for (let i = 0; i < defaults.length; i++) {
-          const d = defaults[i]!;
+        for (const [i, d] of defaults.entries()) {
           const pos = computeGridPosition(center.cx, center.cz, i);
           const instance: PrefabInstanceRow = {
             instance_id: crypto.randomUUID(),

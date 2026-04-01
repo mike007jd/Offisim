@@ -103,7 +103,8 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
 // ---------------------------------------------------------------------------
 
 export function McpConfigPanel() {
-  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } = useOffisimRuntime();
+  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } =
+    useOffisimRuntime();
   const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
   const [connecting, setConnecting] = useState<string | null>(null);
 

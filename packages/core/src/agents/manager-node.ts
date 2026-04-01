@@ -6,6 +6,7 @@ import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { buildEnrichedEmployeeList } from './employee-roster.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -43,6 +44,9 @@ Rules:
   - "work": for all other tasks requiring employee work (coding, design, analysis, etc.)
 - For "hire" or "assess_team" intents, the "assignments" array can be empty
 - For "work" intent, assign tasks to the most appropriate employee based on their role
+- Consider employee expertise and installed skills when assigning tasks
+- Prefer employees whose expertise or skill package aligns with the request
+- Mention alignment reasoning in your response
 - Split complex requests into sub-tasks if needed
 - Each assignment must reference a valid employee ID`;
 
@@ -110,9 +114,7 @@ export async function managerNode(
     (e) => !GRAPH_ONLY_ROLES.has(e.role_slug) && e.enabled,
   );
 
-  const employeeList = nonManagerEmployees
-    .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
-    .join('\n');
+  const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
 
   // Get last user message (needed for both fast path and LLM path)
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');

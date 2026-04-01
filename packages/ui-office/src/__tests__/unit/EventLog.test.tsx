@@ -1,9 +1,12 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
 import type { RuntimeEvent as SharedRuntimeEvent } from '@offisim/shared-types';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventLog, primeEventLogStore } from '../../components/events/EventLog';
-import { OffisimRuntimeContext, type OffisimRuntimeValue } from '../../runtime/offisim-runtime-context';
+import {
+  OffisimRuntimeContext,
+  type OffisimRuntimeValue,
+} from '../../runtime/offisim-runtime-context';
 
 type TestEvent = {
   type: string;
@@ -77,7 +80,11 @@ function createRuntimeValue(
 
 function createWrapper(runtimeValue: OffisimRuntimeValue) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <OffisimRuntimeContext.Provider value={runtimeValue}>{children}</OffisimRuntimeContext.Provider>;
+    return (
+      <OffisimRuntimeContext.Provider value={runtimeValue}>
+        {children}
+      </OffisimRuntimeContext.Provider>
+    );
   };
 }
 

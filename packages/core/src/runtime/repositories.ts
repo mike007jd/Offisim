@@ -336,12 +336,7 @@ export interface MemoryRepository {
 // User Preferences (cross-session user-level memory)
 // ---------------------------------------------------------------------------
 
-export type UserPreferenceCategory =
-  | 'preference'
-  | 'context'
-  | 'knowledge'
-  | 'behavior'
-  | 'goal';
+export type UserPreferenceCategory = 'preference' | 'context' | 'knowledge' | 'behavior' | 'goal';
 
 export interface UserPreferenceRow {
   preference_id: string;

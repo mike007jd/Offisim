@@ -280,9 +280,7 @@ export function loadProviderConfig(): ProviderConfig | null {
     // Warn about legacy vendor-direct configs that are no longer valid for production
     if (isTauri() && !isProductionProvider(parsed.provider)) {
       console.warn(
-        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter ` +
-          'and is not allowed in production runtime on desktop. Please switch to a self-developed ' +
-          'transport (e.g. "subscription") in Settings. Ignoring saved config.',
+        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter and is not allowed in production runtime on desktop. Please switch to a self-developed transport (e.g. "subscription") in Settings. Ignoring saved config.`,
       );
       // Return null so the desktop falls back to repos-only mode
       // instead of crashing in createTauriRuntime().
@@ -291,8 +289,7 @@ export function loadProviderConfig(): ProviderConfig | null {
 
     if (!isTauri() && !import.meta.env.DEV && !isProductionProvider(parsed.provider)) {
       console.warn(
-        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter ` +
-          'and is not allowed in production runtime. Ignoring saved config.',
+        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter and is not allowed in production runtime. Ignoring saved config.`,
       );
       // Return null so the browser falls back to repos-only mode
       // instead of crashing in assertBrowserProviderAllowed().

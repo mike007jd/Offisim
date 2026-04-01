@@ -31,7 +31,9 @@ const CONN_ERROR_CODES = new Set([
 function hasKnownDbConnectionCode(err: unknown): boolean {
   if (!err || typeof err !== 'object' || !('code' in err)) return false;
   const code = (err as { code?: unknown }).code;
-  return typeof code === 'string' && (PG_CONNECTION_ERROR_CODES.has(code) || CONN_ERROR_CODES.has(code));
+  return (
+    typeof code === 'string' && (PG_CONNECTION_ERROR_CODES.has(code) || CONN_ERROR_CODES.has(code))
+  );
 }
 
 function hasNestedDbConnectionCode(err: unknown, depth = 0): boolean {

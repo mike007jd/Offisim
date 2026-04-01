@@ -20,20 +20,20 @@ import {
   loadProviderConfig,
   primeEventLogStore,
   useAgentStates,
-  useOffisimRuntime,
   useCompany,
   useCompanyEditor,
   useDeepLinkInstall,
   useInstallFlow,
+  useOffisimRuntime,
   useProjects,
   useReducedMotion,
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import {
+  type AppView,
   isOfficeSceneInteractive,
   shouldKeepOfficeMounted,
   shouldShowEmployeeCreatorOverlay,
-  type AppView,
 } from './lib/app-view-layout';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
@@ -62,7 +62,9 @@ const DashboardOverlay = React.lazy(() =>
   import('@offisim/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
 );
 const EmployeeCreatorOverlay = React.lazy(() =>
-  import('@offisim/ui-office/employee-creator').then((m) => ({ default: m.EmployeeCreatorOverlay })),
+  import('@offisim/ui-office/employee-creator').then((m) => ({
+    default: m.EmployeeCreatorOverlay,
+  })),
 );
 const OfficeEditorOverlay = React.lazy(() =>
   import('@offisim/ui-office/office-editor').then((m) => ({ default: m.OfficeEditorOverlay })),
@@ -103,7 +105,9 @@ export function App({ onCompanySwitch }: AppProps) {
   const [projectListOpen, setProjectListOpen] = useState(false);
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const [companyWizardMode, setCompanyWizardMode] = useState<'create-new' | null>(null);
-  const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(activeCompanyId);
+  const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(
+    activeCompanyId,
+  );
   const {
     reinitRuntime,
     repos,

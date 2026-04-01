@@ -5,10 +5,12 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1100+ tests)
-pnpm typecheck        # 全量类型检查 (28 packages)
+pnpm test             # 全量测试 (vitest, ~1460+ tests)
+pnpm typecheck        # 全量类型检查 (16 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
+pnpm format           # Biome format
+pnpm clean            # 清除 turbo 缓存 + node_modules
 pnpm check:provider-policy  # CI guard: 扫描生产代码中的 vendor-direct 用法
 ```
 
@@ -54,6 +56,11 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - 测试: vitest, `__tests__/` 目录, `.test.ts` 后缀
 - 不写不必要的注释和 docstring — 代码自解释
 
+## Environment
+
+- Node 20+, pnpm 10+
+- Desktop/Launcher 构建需要 Rust toolchain + Tauri CLI (`cargo install tauri-cli`)
+
 ## Gotchas
 
 - `@offisim/core` 有 browser subpath (`@offisim/core/browser`) — 浏览器代码必须用它,
@@ -61,7 +68,7 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - `apps/web/vite.config.ts` 的 ui-office alias 列表必须与
   `packages/ui-office/package.json` 的 `exports` 字段保持同步
 - `subscription` provider 依赖 `node:child_process`, 只能在桌面端运行,
-  浏览器中会被 `assertBrowserProviderAllowed()` 拦截
+  浏览器中会被 `shouldRejectSubscriptionInRenderer()` 拦截
 - Tauri 包 (`@tauri-apps/*`) 在浏览器 dev 中被 stub 为空模块
 - `gateway-factory.ts` 的 `subscription` case 用 `require()` 动态加载,
   避免 `node:child_process` 进入浏览器 bundle

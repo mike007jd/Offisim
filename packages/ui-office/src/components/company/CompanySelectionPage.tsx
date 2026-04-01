@@ -3,9 +3,9 @@ import type { CompanyRow } from '@offisim/core/browser';
 import type { PrefabInstanceRow, ZoneRow } from '@offisim/shared-types';
 import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useCompany } from './CompanyContext.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { useCompanyPreview } from '../../hooks/useCompanyPreview.js';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useCompany } from './CompanyContext.js';
 
 interface CompanySelectionPageProps {
   previewCompanyId: string | null;
@@ -38,7 +38,6 @@ function useCompanySummaries(
   companies: CompanyRow[],
 ): Record<string, CompanySummary> {
   const [summaries, setSummaries] = useState<Record<string, CompanySummary>>({});
-  const companyIds = useMemo(() => companies.map((c) => c.company_id).join(','), [companies]);
 
   useEffect(() => {
     if (!repos || companies.length === 0) {
@@ -53,7 +52,10 @@ function useCompanySummaries(
           repos.employees.findByCompany(company.company_id),
           repos.projects.findByCompany(company.company_id),
         ]);
-        return [company.company_id, { employeeCount: employees.length, projectCount: projects.length }] as const;
+        return [
+          company.company_id,
+          { employeeCount: employees.length, projectCount: projects.length },
+        ] as const;
       }),
     ).then((entries) => {
       if (cancelled) return;
@@ -63,8 +65,7 @@ function useCompanySummaries(
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- use stable companyIds string instead of companies array ref
-  }, [repos, companyIds]);
+  }, [companies, repos]);
 
   return summaries;
 }
@@ -116,7 +117,9 @@ function CompanyPortalPreview({
   }
 
   if (loading) {
-    return <div className="h-full rounded-[28px] border border-white/10 bg-white/[0.02] animate-pulse" />;
+    return (
+      <div className="h-full rounded-[28px] border border-white/10 bg-white/[0.02] animate-pulse" />
+    );
   }
 
   if (!bounds || zones.length === 0) {
@@ -132,19 +135,53 @@ function CompanyPortalPreview({
 
   return (
     <div className="h-full rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.1),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-4">
-      <svg viewBox={`0 0 ${viewBox.w} ${viewBox.h}`} className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+      <svg
+        viewBox={`0 0 ${viewBox.w} ${viewBox.h}`}
+        className="h-full w-full"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <title>{`${company.name} office preview`}</title>
         <defs>
           <pattern id="company-preview-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-            <path d="M 24 0 L 0 0 0 24" fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth="1" />
+            <path
+              d="M 24 0 L 0 0 0 24"
+              fill="none"
+              stroke="rgba(148,163,184,0.12)"
+              strokeWidth="1"
+            />
           </pattern>
         </defs>
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="rgba(2,6,23,0.72)" />
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="url(#company-preview-grid)" />
         {zones.map((zone) => {
-          const x0 = mapValue(zone.cx - zone.w / 2, bounds.minX, bounds.maxX, viewBox.pad, viewBox.w - viewBox.pad);
-          const x1 = mapValue(zone.cx + zone.w / 2, bounds.minX, bounds.maxX, viewBox.pad, viewBox.w - viewBox.pad);
-          const y0 = mapValue(zone.cz - zone.d / 2, bounds.minZ, bounds.maxZ, viewBox.pad, viewBox.h - viewBox.pad);
-          const y1 = mapValue(zone.cz + zone.d / 2, bounds.minZ, bounds.maxZ, viewBox.pad, viewBox.h - viewBox.pad);
+          const x0 = mapValue(
+            zone.cx - zone.w / 2,
+            bounds.minX,
+            bounds.maxX,
+            viewBox.pad,
+            viewBox.w - viewBox.pad,
+          );
+          const x1 = mapValue(
+            zone.cx + zone.w / 2,
+            bounds.minX,
+            bounds.maxX,
+            viewBox.pad,
+            viewBox.w - viewBox.pad,
+          );
+          const y0 = mapValue(
+            zone.cz - zone.d / 2,
+            bounds.minZ,
+            bounds.maxZ,
+            viewBox.pad,
+            viewBox.h - viewBox.pad,
+          );
+          const y1 = mapValue(
+            zone.cz + zone.d / 2,
+            bounds.minZ,
+            bounds.maxZ,
+            viewBox.pad,
+            viewBox.h - viewBox.pad,
+          );
           return (
             <g key={zone.zone_id}>
               <rect
@@ -174,9 +211,30 @@ function CompanyPortalPreview({
           );
         })}
         {prefabs.map((prefab) => {
-          const x = mapValue(prefab.position_x, bounds.minX, bounds.maxX, viewBox.pad, viewBox.w - viewBox.pad);
-          const y = mapValue(prefab.position_y, bounds.minZ, bounds.maxZ, viewBox.pad, viewBox.h - viewBox.pad);
-          return <circle key={prefab.instance_id} cx={x} cy={y} r="4.5" fill="rgba(255,255,255,0.9)" opacity="0.88" />;
+          const x = mapValue(
+            prefab.position_x,
+            bounds.minX,
+            bounds.maxX,
+            viewBox.pad,
+            viewBox.w - viewBox.pad,
+          );
+          const y = mapValue(
+            prefab.position_y,
+            bounds.minZ,
+            bounds.maxZ,
+            viewBox.pad,
+            viewBox.h - viewBox.pad,
+          );
+          return (
+            <circle
+              key={prefab.instance_id}
+              cx={x}
+              cy={y}
+              r="4.5"
+              fill="rgba(255,255,255,0.9)"
+              opacity="0.88"
+            />
+          );
         })}
       </svg>
     </div>
@@ -231,7 +289,10 @@ export function CompanySelectionPage({
             </div>
           ) : (
             visibleCompanies.map((company) => {
-              const summary = summaries[company.company_id] ?? { employeeCount: 0, projectCount: 0 };
+              const summary = summaries[company.company_id] ?? {
+                employeeCount: 0,
+                projectCount: 0,
+              };
               const isPreview = company.company_id === selectedCompany?.company_id;
               const isActive = company.company_id === activeCompanyId;
               return (
@@ -247,7 +308,9 @@ export function CompanySelectionPage({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-white">{company.name}</div>
+                      <div className="truncate text-base font-semibold text-white">
+                        {company.name}
+                      </div>
                       <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">
                         {company.template_label ?? 'Custom'}
                       </div>
@@ -280,7 +343,9 @@ export function CompanySelectionPage({
           <section className="min-w-0">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Preview</div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
+                  Preview
+                </div>
                 <div className="mt-2 text-2xl font-semibold text-white">
                   {selectedCompany?.name ?? 'Company Showcase'}
                 </div>
@@ -307,7 +372,9 @@ export function CompanySelectionPage({
           </section>
 
           <aside className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Company Brief</div>
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
+              Company Brief
+            </div>
             {selectedCompany ? (
               <>
                 <div className="mt-4 flex items-start gap-3">
@@ -315,7 +382,9 @@ export function CompanySelectionPage({
                     <Building2 className="h-5 w-5 text-blue-300" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-xl font-semibold text-white">{selectedCompany.name}</div>
+                    <div className="truncate text-xl font-semibold text-white">
+                      {selectedCompany.name}
+                    </div>
                     <div className="mt-1 text-sm text-slate-400">
                       {selectedCompany.template_label ?? 'Custom company'}
                     </div>
@@ -330,12 +399,18 @@ export function CompanySelectionPage({
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Updated</div>
-                  <div className="mt-2 text-sm text-slate-300">{formatUpdatedAt(selectedCompany.updated_at)}</div>
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                    Updated
+                  </div>
+                  <div className="mt-2 text-sm text-slate-300">
+                    {formatUpdatedAt(selectedCompany.updated_at)}
+                  </div>
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Layout Signal</div>
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                    Layout Signal
+                  </div>
                   <div className="mt-2 text-sm text-slate-300">
                     {data?.zones.length
                       ? `This company currently exposes ${data.zones.length} zones and ${data.prefabs.length} placed assets.`

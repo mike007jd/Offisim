@@ -5,7 +5,17 @@
  * Keyboard shortcuts: 1=Select, 2=Move, 3=Rotate, 4=Place, G=Grid snap.
  */
 
-import { ArrowLeft, BoxSelect, Grid3x3, MousePointer2, Move, Plus, RotateCcw, Save, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  BoxSelect,
+  Grid3x3,
+  MousePointer2,
+  Move,
+  Plus,
+  RotateCcw,
+  Save,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { type StudioTool, useStudioStore } from './StudioState.js';
 import { FONT, SP, STUDIO_COLORS, kbdStyle, panelStyle, toolButtonStyle } from './studio-tokens.js';

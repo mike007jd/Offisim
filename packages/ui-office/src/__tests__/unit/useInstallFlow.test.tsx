@@ -2,7 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { CompanyProvider } from '../../components/company/CompanyContext.js';
 import { useInstallFlow } from '../../hooks/useInstallFlow.js';
-import { OffisimRuntimeContext, type OffisimRuntimeValue } from '../../runtime/offisim-runtime-context.js';
+import {
+  OffisimRuntimeContext,
+  type OffisimRuntimeValue,
+} from '../../runtime/offisim-runtime-context.js';
 
 const registryMocks = vi.hoisted(() => {
   class RegistryApiError extends Error {

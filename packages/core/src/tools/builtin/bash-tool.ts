@@ -31,7 +31,7 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
 
       let output = result.stdout;
       if (result.stderr) {
-        output += (output ? '\n' : '') + `STDERR:\n${result.stderr}`;
+        output += `${output ? '\n' : ''}STDERR:\n${result.stderr}`;
       }
       if (result.timedOut) {
         output += '\n[TIMEOUT: command exceeded time limit]';
@@ -41,7 +41,7 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
       }
       // Truncate if needed
       if (output.length > maxOutput) {
-        output = output.slice(0, maxOutput) + '\n[OUTPUT TRUNCATED]';
+        output = `${output.slice(0, maxOutput)}\n[OUTPUT TRUNCATED]`;
       }
       return output || '(no output)';
     },

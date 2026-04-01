@@ -8,7 +8,7 @@ import type {
 } from '@offisim/shared-types';
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 
-import type { ZoneRepository, NewZone } from '../repos/zone-repository.js';
+import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
 
 // ── Hydration helpers ──────────────────────────────────────────────
 
@@ -56,12 +56,10 @@ export function dehydrateZone(zone: Zone): NewZone {
     cz: zone.cz,
     w: zone.w,
     d: zone.d,
-    target_roles_json:
-      zone.targetRoles.length > 0 ? JSON.stringify(zone.targetRoles) : null,
+    target_roles_json: zone.targetRoles.length > 0 ? JSON.stringify(zone.targetRoles) : null,
     allowed_categories_json:
       zone.allowedCategories.length > 0 ? JSON.stringify(zone.allowedCategories) : null,
-    activity_types_json:
-      zone.activityTypes.length > 0 ? JSON.stringify(zone.activityTypes) : null,
+    activity_types_json: zone.activityTypes.length > 0 ? JSON.stringify(zone.activityTypes) : null,
     desk_slots: zone.deskSlots,
     sort_order: zone.sortOrder,
   };

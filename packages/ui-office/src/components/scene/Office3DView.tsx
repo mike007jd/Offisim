@@ -1,17 +1,13 @@
 import { Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useMemo } from 'react';
-import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
+import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
-import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
-import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { SceneFrameLoopController } from './SceneFrameLoopController.js';
-import { useOffice3DViewState } from './useOffice3DViewState.js';
-import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 import { type PlacedEmployee, usePlacedEmployees } from './office3d-employees.js';
 import {
   AmbientStateLight,
@@ -33,6 +29,10 @@ import {
   type Zone3D,
   toZone3DLayout,
 } from './office3d-shared.js';
+import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
+import { shouldAnimateOfficeScene } from './scene-render-policy.js';
+import { useOffice3DViewState } from './useOffice3DViewState.js';
+import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
@@ -187,31 +187,11 @@ export default function Office3DView({
     handleDragCancel,
   };
 
-  return (
-    <Office3DViewInner
-      scene={scene}
-      ui={ui}
-      controls={controls}
-      actions={actions}
-    />
-  );
+  return <Office3DViewInner scene={scene} ui={ui} controls={controls} actions={actions} />;
 }
 
-function Office3DViewInner({
-  scene,
-  ui,
-  controls,
-  actions,
-}: Office3DViewInnerProps) {
-  const {
-    agents,
-    placed,
-    zones3D,
-    hasPrefabData,
-    prefabInstances,
-    zoneActivity,
-    ceremony,
-  } = scene;
+function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerProps) {
+  const { agents, placed, zones3D, hasPrefabData, prefabInstances, zoneActivity, ceremony } = scene;
   const {
     selectedEmployeeId,
     isDragging,
@@ -274,10 +254,7 @@ function Office3DViewInner({
           dragState={dragState}
         />
 
-        <Office3DFurnitureLayer
-          hasPrefabData={hasPrefabData}
-          prefabInstances={prefabInstances}
-        />
+        <Office3DFurnitureLayer hasPrefabData={hasPrefabData} prefabInstances={prefabInstances} />
 
         <Office3DEmployeeLayer
           placed={placed}

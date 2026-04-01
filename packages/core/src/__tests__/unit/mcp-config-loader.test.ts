@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { McpServerConfig } from '../../mcp/types.js';
 import {
-  McpConfigLoader,
   type McpConfigFile,
+  McpConfigLoader,
   type McpConfigLoaderOptions,
   type McpExecutorLike,
   type McpServerConfigEntry,
 } from '../../mcp/mcp-config-loader.js';
+import type { McpServerConfig } from '../../mcp/types.js';
 
 // ── Mock executor ──────────────────────────────────────────────────
 
@@ -32,10 +32,7 @@ class MockExecutor implements McpExecutorLike {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function makeEntry(
-  name: string,
-  overrides?: Partial<McpServerConfigEntry>,
-): McpServerConfigEntry {
+function makeEntry(name: string, overrides?: Partial<McpServerConfigEntry>): McpServerConfigEntry {
   return {
     name,
     transport: 'stdio' as const,
@@ -80,10 +77,7 @@ describe('McpConfigLoader', () => {
 
   describe('loadAndConnect', () => {
     it('connects enabled servers', async () => {
-      const servers = [
-        makeEntry('server-a'),
-        makeEntry('server-b'),
-      ];
+      const servers = [makeEntry('server-a'), makeEntry('server-b')];
       const opts = createMockOptions({
         readFile: async () => makeConfigJson(servers),
       });
@@ -133,11 +127,7 @@ describe('McpConfigLoader', () => {
         getConnectedServerNames: executor.getConnectedServerNames.bind(executor),
       };
 
-      const servers = [
-        makeEntry('good-before'),
-        makeEntry('fail-server'),
-        makeEntry('good-after'),
-      ];
+      const servers = [makeEntry('good-before'), makeEntry('fail-server'), makeEntry('good-after')];
       const opts = createMockOptions({
         readFile: async () => makeConfigJson(servers),
       });
@@ -154,7 +144,7 @@ describe('McpConfigLoader', () => {
   describe('checkForChanges', () => {
     it('returns false when mtime is unchanged', async () => {
       const servers = [makeEntry('server-a')];
-      let mtime = 1000;
+      const mtime = 1000;
       const opts = createMockOptions({
         readFile: async () => makeConfigJson(servers),
         getMtime: async () => mtime,
@@ -243,7 +233,9 @@ describe('McpConfigLoader', () => {
 
       // server-a is unchanged, should not be re-added
       expect(executor.addCalls).toHaveLength(1);
-      expect(executor.addCalls[0]!.name).toBe('server-b');
+      const addedServer = executor.addCalls[0];
+      if (!addedServer) throw new Error('Expected added server');
+      expect(addedServer.name).toBe('server-b');
     });
 
     it('removes deleted servers', async () => {
@@ -298,12 +290,18 @@ describe('McpConfigLoader', () => {
       // Should remove old and add new
       expect(executor.removeCalls).toContain('server-a');
       expect(executor.addCalls).toHaveLength(1);
-      expect(executor.addCalls[0]!.command).toBe('bun');
+      const updatedServer = executor.addCalls[0];
+      if (!updatedServer) throw new Error('Expected updated server');
+      expect(updatedServer.command).toBe('bun');
     });
 
     it('updates changed servers (url changed)', async () => {
-      const serversV1 = [makeEntry('sse-server', { transport: 'sse', url: 'http://localhost:3000' })];
-      const serversV2 = [makeEntry('sse-server', { transport: 'sse', url: 'http://localhost:4000' })];
+      const serversV1 = [
+        makeEntry('sse-server', { transport: 'sse', url: 'http://localhost:3000' }),
+      ];
+      const serversV2 = [
+        makeEntry('sse-server', { transport: 'sse', url: 'http://localhost:4000' }),
+      ];
 
       let mtime = 1000;
       let currentJson = makeConfigJson(serversV1);
@@ -326,7 +324,9 @@ describe('McpConfigLoader', () => {
 
       expect(executor.removeCalls).toContain('sse-server');
       expect(executor.addCalls).toHaveLength(1);
-      expect(executor.addCalls[0]!.url).toBe('http://localhost:4000');
+      const updatedServer = executor.addCalls[0];
+      if (!updatedServer) throw new Error('Expected updated SSE server');
+      expect(updatedServer.url).toBe('http://localhost:4000');
     });
 
     it('keeps unchanged servers', async () => {

@@ -17,13 +17,13 @@ import type {
   ProjectStatus,
   ZoneRow,
 } from '@offisim/shared-types';
-import type { NewZone } from '../repos/zone-repository.js';
 import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
+import type { NewZone } from '../repos/zone-repository.js';
 import type {
   AgentEventRepository,
   AgentEventRow,
@@ -1116,11 +1116,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       return row;
     },
     async findById(zoneId) {
-      const rows = db
-        .select()
-        .from(schema.zones)
-        .where(eq(schema.zones.zone_id, zoneId))
-        .all();
+      const rows = db.select().from(schema.zones).where(eq(schema.zones.zone_id, zoneId)).all();
       return (rows[0] as ZoneRow | undefined) ?? null;
     },
     async findByCompany(companyId) {

@@ -74,11 +74,14 @@ async function waitForRuntime(page) {
 async function injectProvider(page) {
   console.log('STEP inject:start');
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.evaluate(({ cfg, snapshot, companyId }) => {
-    localStorage.setItem('offisim-provider-config', JSON.stringify(cfg));
-    localStorage.setItem('offisim:browser-runtime-snapshot:v1', JSON.stringify(snapshot));
-    localStorage.setItem('offisim:active-company', companyId);
-  }, { cfg: providerConfig, snapshot: seededSnapshot, companyId: seededCompanyId });
+  await page.evaluate(
+    ({ cfg, snapshot, companyId }) => {
+      localStorage.setItem('offisim-provider-config', JSON.stringify(cfg));
+      localStorage.setItem('offisim:browser-runtime-snapshot:v1', JSON.stringify(snapshot));
+      localStorage.setItem('offisim:active-company', companyId);
+    },
+    { cfg: providerConfig, snapshot: seededSnapshot, companyId: seededCompanyId },
+  );
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForRuntime(page);
   console.log('STEP inject:ready');

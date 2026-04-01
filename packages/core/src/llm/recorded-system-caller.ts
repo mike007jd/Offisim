@@ -15,8 +15,8 @@
 import type { EventBus } from '../events/event-bus.js';
 import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
 import type { LlmCallRepository } from '../runtime/repositories.js';
-import { generateId } from '../utils/generate-id.js';
 import { Logger } from '../services/logger.js';
+import { generateId } from '../utils/generate-id.js';
 import type { LlmGateway, LlmRequest, LlmResponse } from './gateway.js';
 
 const logger = new Logger('system-llm');
@@ -52,11 +52,7 @@ export class RecordedSystemLlmCaller {
    * @param request - The LLM request to send.
    * @param provider - Provider name for audit (defaults to 'system').
    */
-  async chat(
-    nodeName: string,
-    request: LlmRequest,
-    provider = 'system',
-  ): Promise<LlmResponse> {
+  async chat(nodeName: string, request: LlmRequest, provider = 'system'): Promise<LlmResponse> {
     const llmCallId = generateId('lc');
     const startedAt = Date.now();
 

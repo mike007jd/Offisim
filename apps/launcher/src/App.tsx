@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
+import { LaunchPanel } from './components/LaunchPanel';
+import { LogViewer } from './components/LogViewer';
+import { StatusBar } from './components/StatusBar';
 import {
-  getStatus,
-  getLogs,
-  launchMode,
-  stopMode,
-  restartPlatform,
-  onLog,
-  onProcessExit,
-  type LauncherStatus,
-  type LogLine,
   type LaunchMode,
   type LauncherErrorPayload,
+  type LauncherStatus,
+  type LogLine,
+  getLogs,
+  getStatus,
+  launchMode,
+  onLog,
+  onProcessExit,
+  restartPlatform,
+  stopMode,
 } from './lib/ipc';
-import { LaunchPanel } from './components/LaunchPanel';
-import { StatusBar } from './components/StatusBar';
-import { LogViewer } from './components/LogViewer';
 
 const MAX_LOG_LINES = 5000;
 const PROCESS_NAMES = ['platform', 'frontend'] as const;
@@ -23,9 +23,16 @@ function statusEqual(a: LauncherStatus, b: LauncherStatus): boolean {
   if (a.active_mode !== b.active_mode || a.lan_address !== b.lan_address) return false;
   if (a.processes.length !== b.processes.length) return false;
   for (let i = 0; i < a.processes.length; i++) {
-    const ap = a.processes[i]!;
-    const bp = b.processes[i]!;
-    if (ap.name !== bp.name || ap.status !== bp.status || ap.pid !== bp.pid || ap.exit_code !== bp.exit_code) return false;
+    const ap = a.processes[i];
+    const bp = b.processes[i];
+    if (!ap || !bp) return false;
+    if (
+      ap.name !== bp.name ||
+      ap.status !== bp.status ||
+      ap.pid !== bp.pid ||
+      ap.exit_code !== bp.exit_code
+    )
+      return false;
   }
   return true;
 }
@@ -48,7 +55,7 @@ export function App() {
     const poll = async () => {
       try {
         const s = await getStatus();
-        setStatus((prev) => statusEqual(prev, s) ? prev : s);
+        setStatus((prev) => (statusEqual(prev, s) ? prev : s));
       } catch {
         // Tauri not ready yet
       }
@@ -84,19 +91,30 @@ export function App() {
           setLogs((prev) => {
             const current = prev[proc] ?? [];
             const next = [...current, line];
-            return { ...prev, [proc]: next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next };
+            return {
+              ...prev,
+              [proc]: next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next,
+            };
           });
         });
-        if (cancelled) { unlisten(); return; }
+        if (cancelled) {
+          unlisten();
+          return;
+        }
         unlisteners.push(unlisten);
       }
 
       // Listen for process exits
       const unlistenExit = await onProcessExit(() => {
         // Refresh status immediately on process exit
-        getStatus().then(setStatus).catch(() => {});
+        getStatus()
+          .then(setStatus)
+          .catch(() => {});
       });
-      if (cancelled) { unlistenExit(); return; }
+      if (cancelled) {
+        unlistenExit();
+        return;
+      }
       unlisteners.push(unlistenExit);
     };
 
@@ -169,11 +187,7 @@ export function App() {
 
       {/* Status Bar */}
       <div className="px-4 pb-3">
-        <StatusBar
-          status={status}
-          onStop={handleStop}
-          onRestartPlatform={handleRestartPlatform}
-        />
+        <StatusBar status={status} onStop={handleStop} onRestartPlatform={handleRestartPlatform} />
       </div>
 
       {/* Error Banner */}

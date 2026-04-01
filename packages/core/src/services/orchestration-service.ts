@@ -1,6 +1,6 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { graphNodeExited } from '../events/event-factories.js';
-import type { OffisimGraphState, MeetingInterrupt, MeetingInterruptType } from '../graph/state.js';
+import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 /**

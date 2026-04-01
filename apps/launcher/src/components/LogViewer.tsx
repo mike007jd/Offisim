@@ -15,12 +15,14 @@ export function LogViewer({ logs }: LogViewerProps) {
   const [autoScroll, setAutoScroll] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lines = logs[activeTab] ?? [];
+  const lineCount = lines.length;
 
   useEffect(() => {
+    if (lineCount < 0) return;
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [lines.length, autoScroll]);
+  }, [autoScroll, lineCount]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -37,6 +39,7 @@ export function LogViewer({ logs }: LogViewerProps) {
           return (
             <button
               key={key}
+              type="button"
               onClick={() => setActiveTab(key)}
               className={`
                 px-4 py-2 text-xs font-mono transition-colors cursor-pointer
@@ -49,9 +52,7 @@ export function LogViewer({ logs }: LogViewerProps) {
             >
               {label}
               {count > 0 && (
-                <span className="ml-1.5 text-[10px] text-[var(--text-muted-val)]">
-                  ({count})
-                </span>
+                <span className="ml-1.5 text-[10px] text-[var(--text-muted-val)]">({count})</span>
               )}
             </button>
           );
@@ -60,6 +61,7 @@ export function LogViewer({ logs }: LogViewerProps) {
         <div className="flex-1" />
         {!autoScroll && (
           <button
+            type="button"
             onClick={() => setAutoScroll(true)}
             className="px-3 py-2 text-[10px] text-[var(--accent-val)] hover:underline cursor-pointer"
           >

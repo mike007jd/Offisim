@@ -10,11 +10,11 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import {
-  ClientSideConnection,
-  ndJsonStream,
-  PROTOCOL_VERSION,
   type Client,
+  ClientSideConnection,
+  PROTOCOL_VERSION,
   type SessionNotification,
+  ndJsonStream,
 } from '@agentclientprotocol/sdk';
 import { LlmError, toErrorMessage } from '../errors.js';
 import type {
@@ -88,16 +88,19 @@ export class SubscriptionAdapter implements LlmGateway {
     const input = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
     const stream = ndJsonStream(output, input);
 
-    this.connection = new ClientSideConnection((): Client => ({
-      requestPermission: async (params) => {
-        const firstAllow = params.options.find((o) => o.optionId !== 'deny');
-        const optionId = firstAllow?.optionId ?? params.options[0]?.optionId ?? 'allow';
-        return { outcome: { outcome: 'selected', optionId } };
-      },
-      sessionUpdate: async (params) => {
-        this.activeChunkHandler?.(params);
-      },
-    }), stream);
+    this.connection = new ClientSideConnection(
+      (): Client => ({
+        requestPermission: async (params) => {
+          const firstAllow = params.options.find((o) => o.optionId !== 'deny');
+          const optionId = firstAllow?.optionId ?? params.options[0]?.optionId ?? 'allow';
+          return { outcome: { outcome: 'selected', optionId } };
+        },
+        sessionUpdate: async (params) => {
+          this.activeChunkHandler?.(params);
+        },
+      }),
+      stream,
+    );
 
     proc.on('exit', () => {
       this.sessionId = null;
@@ -132,12 +135,17 @@ export class SubscriptionAdapter implements LlmGateway {
   /** Acquire the prompt lock. Caller MUST call the returned release function. */
   private async acquireLock(): Promise<() => void> {
     if (this.disposed) throw new LlmError('Adapter disposed', 'subscription');
-    let release: () => void;
-    const gate = new Promise<void>((r) => { release = r; });
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
     const prev = this.promptLock;
     this.promptLock = gate;
     await prev;
-    return release!;
+    if (release === null) {
+      throw new LlmError('Failed to acquire prompt lock', 'subscription');
+    }
+    return release;
   }
 
   private requireConnection(): { connection: ClientSideConnection; sessionId: string } {
@@ -232,10 +240,11 @@ export class SubscriptionAdapter implements LlmGateway {
     const cancelHandler = this.installCancelHandler(request.signal, connection, sessionId);
 
     // Don't await — yield chunks as they arrive via sessionUpdate callback.
-    const rpcPromise = connection.prompt({
-      sessionId,
-      prompt: [{ type: 'text', text: promptText }],
-    })
+    const rpcPromise = connection
+      .prompt({
+        sessionId,
+        prompt: [{ type: 'text', text: promptText }],
+      })
       .then((result) => {
         const usage = result.usage;
         queue.push({
@@ -256,7 +265,8 @@ export class SubscriptionAdapter implements LlmGateway {
     try {
       while (true) {
         if (queue.length > 0) {
-          const chunk = queue.shift()!;
+          const chunk = queue.shift();
+          if (!chunk) continue;
           yield chunk;
           if (chunk.done) break;
         } else if (done) {

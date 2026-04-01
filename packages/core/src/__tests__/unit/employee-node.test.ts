@@ -1,6 +1,6 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { employeeNode } from '../../agents/employee-node.js';
 import { errorHandlerNode } from '../../agents/error-handler-node.js';
@@ -219,6 +219,47 @@ describe('employeeNode', () => {
     // Result should still include content from the last response (round 6 = index 5)
     expect(result.messages).toHaveLength(1);
     expect(result.currentEmployeeId).toBe('e-dev-1');
+  });
+
+  it('emits a skill mismatch agent event when the task requires a different installed skill', async () => {
+    repos.seed.employees([
+      makeEmployee({
+        employee_id: 'e-dev-1',
+        config_json: JSON.stringify({
+          runtimeSkill: {
+            skillName: 'React Specialist',
+            summary: 'Builds UI features',
+          },
+        }),
+      }),
+    ]);
+    gateway.pushResponse({ content: 'Task completed successfully.' });
+
+    await employeeNode(
+      makeState({
+        pendingAssignments: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-1',
+            inputJson: {
+              description: 'Run browser automation checks',
+              taskRunId: 'tr-test-1',
+              requiredSkills: ['playwright'],
+            },
+          },
+        ],
+      }),
+      config,
+    );
+
+    const agentEvents = await repos.agentEvents?.findByThread(TEST_THREAD_ID, {
+      eventType: 'skill_mismatch',
+    });
+
+    expect(agentEvents).toHaveLength(1);
+    const payload = JSON.parse(agentEvents?.[0]?.payload_json ?? '{}');
+    expect(payload.requiredSkills).toEqual(['playwright']);
+    expect(payload.employeeSkill).toBe('React Specialist');
   });
 });
 

@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { ThemeProvider, useTheme } from '../theme/index';
 
@@ -16,6 +16,7 @@ describe('ThemeProvider', () => {
     const { result } = renderHook(() => useTheme(), { wrapper });
     expect(result.current.theme).toBe('dark');
     expect(result.current.resolvedTheme).toBe('dark');
+    expect(result.current.density).toBe('normal');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
@@ -35,5 +36,17 @@ describe('ThemeProvider', () => {
     expect(result.current.resolvedTheme).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.classList.contains('light')).toBe(false);
+  });
+
+  it('persists display density on the root element', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper });
+
+    act(() => {
+      result.current.setDensity('compact');
+    });
+
+    expect(result.current.density).toBe('compact');
+    expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+    expect(localStorage.getItem('offisim.density')).toBe('compact');
   });
 });

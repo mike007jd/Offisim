@@ -22,11 +22,11 @@ describe('channel adapter guardrails', () => {
   });
 
   it('fails fast when trying to send through an unimplemented adapter', async () => {
-    await expect(
-      new SlackAdapter().reply('slack:C123', { text: 'hello' }),
-    ).rejects.toThrow(/not implemented yet/i);
-    await expect(
-      new FeishuAdapter().reply('feishu:oc_123', { text: 'hello' }),
-    ).rejects.toThrow(/not implemented yet/i);
+    await expect(new SlackAdapter().reply('slack:C123', { text: 'hello' })).rejects.toThrow(
+      /not implemented yet/i,
+    );
+    await expect(new FeishuAdapter().reply('feishu:oc_123', { text: 'hello' })).rejects.toThrow(
+      /not implemented yet/i,
+    );
   });
 });

@@ -1,6 +1,6 @@
-import type { CompanyTemplate } from '@offisim/core/browser';
 import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
+import type { CompanyTemplate } from '@offisim/core/browser';
 import type { RoleSlug, Zone } from '@offisim/shared-types';
 import {
   SYSTEM_ZONE_TEMPLATES,
@@ -8,14 +8,7 @@ import {
   resolveZoneForRole,
   templateToZone,
 } from '@offisim/shared-types';
-import {
-  Brain,
-  Briefcase,
-  FlaskConical,
-  PenTool,
-  Rocket,
-  Wrench,
-} from 'lucide-react';
+import { Brain, Briefcase, FlaskConical, PenTool, Rocket, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const previewZones: Zone[] = SYSTEM_ZONE_TEMPLATES.map((template) => templateToZone(template, ''));

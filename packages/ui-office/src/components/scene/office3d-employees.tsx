@@ -1,15 +1,15 @@
 import type { Zone } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import { useEffect, useMemo, useRef } from 'react';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import { useAgentAnimation } from '../../hooks/useAgentAnimation.js';
 import { useCharacterMovement } from '../../hooks/useCharacterMovement.js';
 import {
   registerMovementHandle,
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
+import { SEAT_OFFSETS } from '../../lib/seat-offsets.js';
 import { STATE_LABELS } from '../../lib/state-labels';
-import { SEAT_OFFSETS } from '../../lib/zone-config.js';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
@@ -63,8 +63,7 @@ export function usePlacedEmployees(
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
-      const zoneId =
-        agent.state === 'idle' ? restZoneId : resolveEmployeeZoneDynamic(agent, zones);
+      const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeZoneDynamic(agent, zones);
       const zoneBucket = zoneEmployees.get(zoneId);
       if (zoneBucket) {
         zoneBucket.push({ id, agent, globalIndex: globalIdx });
@@ -318,6 +317,7 @@ export function EmployeeMarker({
   }, [emp.position]);
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: react-three-fiber groups are not keyboard-focusable DOM nodes.
     <group
       ref={groupRef}
       position={emp.position}

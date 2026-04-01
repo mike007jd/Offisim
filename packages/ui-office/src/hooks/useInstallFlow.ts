@@ -51,7 +51,10 @@ export interface InstallFlowActions {
    * Start an upgrade flow. Provide the currently installed manifest so the
    * dialog can compute and show a diff before confirming.
    */
-  startUpgrade: (file: File, currentManifest: import('@offisim/asset-schema').PackageManifest) => void;
+  startUpgrade: (
+    file: File,
+    currentManifest: import('@offisim/asset-schema').PackageManifest,
+  ) => void;
   confirmInstall: () => void;
   submitBindings: () => void;
   setBindingValue: (key: string, value: string) => void;

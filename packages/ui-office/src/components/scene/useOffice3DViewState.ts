@@ -1,7 +1,7 @@
 import type { EventBus } from '@offisim/core/browser';
 import type { RuntimeEvent, Zone } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
-import { OrbitControls } from '@react-three/drei';
+import type { OrbitControls } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import { useSceneOrchestrator } from '../../hooks/useSceneOrchestrator.js';
@@ -48,7 +48,11 @@ interface UseOffice3DViewStateResult {
   blockedCount: number;
   handleSelectEmployee: (id: string) => void;
   handleDeselect: () => void;
-  handleEmployeeDragStart: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
+  handleEmployeeDragStart: (
+    empId: string,
+    agent: AgentState,
+    e: React.PointerEvent<Element>,
+  ) => void;
   handleDragMove: (worldX: number, worldZ: number, screenX: number, screenY: number) => void;
   handleDragEnd: (worldX: number, worldZ: number) => void;
   handleDragCancel: () => void;
@@ -135,7 +139,9 @@ export function useOffice3DViewState({
     [agents],
   );
   const blockedCount = useMemo(
-    () => [...agents.values()].filter((agent) => agent.state === 'blocked' || agent.state === 'failed').length,
+    () =>
+      [...agents.values()].filter((agent) => agent.state === 'blocked' || agent.state === 'failed')
+        .length,
     [agents],
   );
 
@@ -169,8 +175,7 @@ export function useOffice3DViewState({
       const meetingLayout = meetingZone ? layoutMap[meetingZone.zoneId] : undefined;
       const fallbackZone = currentZones.find((zone) => zone.archetype === 'workspace');
       const targetLayout =
-        layoutMap[assignedZoneId] ??
-        (fallbackZone ? layoutMap[fallbackZone.zoneId] : undefined);
+        layoutMap[assignedZoneId] ?? (fallbackZone ? layoutMap[fallbackZone.zoneId] : undefined);
       if (!meetingLayout || !targetLayout) {
         return;
       }
@@ -233,40 +238,46 @@ export function useOffice3DViewState({
     }
   }, [activeCompanyId, eventBus, onDeselectEmployee]);
 
-  const handleEmployeeDragStart = useCallback((empId: string, agent: AgentState, e: React.PointerEvent<Element>) => {
-    const nativeEvent = e as unknown as PointerEvent;
-    if (nativeEvent.button !== 0) {
-      return;
-    }
-    const zoneId = resolveEmployeeZoneDynamic(agent, zonesRef.current);
-    setDragState({
-      employeeId: empId,
-      sourceZoneId: zoneId,
-      active: false,
-      position: [0, 0, 0],
-      startScreenX: nativeEvent.clientX,
-      startScreenY: nativeEvent.clientY,
-    });
-  }, []);
-
-  const handleDragMove = useCallback((worldX: number, worldZ: number, screenX: number, screenY: number) => {
-    setDragState((prev) => {
-      if (!prev) {
-        return null;
+  const handleEmployeeDragStart = useCallback(
+    (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => {
+      const nativeEvent = e as unknown as PointerEvent;
+      if (nativeEvent.button !== 0) {
+        return;
       }
-      const dx = screenX - prev.startScreenX;
-      const dy = screenY - prev.startScreenY;
-      const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD_PX;
-      return {
-        ...prev,
-        active,
-        position: [worldX, 0, worldZ],
-      };
-    });
+      const zoneId = resolveEmployeeZoneDynamic(agent, zonesRef.current);
+      setDragState({
+        employeeId: empId,
+        sourceZoneId: zoneId,
+        active: false,
+        position: [0, 0, 0],
+        startScreenX: nativeEvent.clientX,
+        startScreenY: nativeEvent.clientY,
+      });
+    },
+    [],
+  );
 
-    const zone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
-    setHoveredZoneId(zone?.zoneId ?? null);
-  }, []);
+  const handleDragMove = useCallback(
+    (worldX: number, worldZ: number, screenX: number, screenY: number) => {
+      setDragState((prev) => {
+        if (!prev) {
+          return null;
+        }
+        const dx = screenX - prev.startScreenX;
+        const dy = screenY - prev.startScreenY;
+        const active = prev.active || Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD_PX;
+        return {
+          ...prev,
+          active,
+          position: [worldX, 0, worldZ],
+        };
+      });
+
+      const zone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
+      setHoveredZoneId(zone?.zoneId ?? null);
+    },
+    [],
+  );
 
   const handleDragEnd = useCallback(
     (worldX: number, worldZ: number) => {

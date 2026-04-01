@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { ConfigEnv, UserConfig } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import config from '../../../vite.config';
-import type { ConfigEnv, UserConfig } from 'vite';
 
 type ProxyHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 

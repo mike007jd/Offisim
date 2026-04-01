@@ -100,12 +100,15 @@ async function bootPage(browser, scenarioName, providerOverride = {}) {
   });
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-  await page.evaluate(({ providerConfig, seededSnapshot, companyId: activeCompanyId }) => {
-    localStorage.setItem('offisim-provider-config', JSON.stringify(providerConfig));
-    localStorage.setItem('offisim:browser-runtime-snapshot:v1', JSON.stringify(seededSnapshot));
-    localStorage.setItem('offisim:active-company', activeCompanyId);
-    localStorage.removeItem('offisim:browser-event-history:v1');
-  }, { providerConfig: provider, seededSnapshot: snapshot, companyId });
+  await page.evaluate(
+    ({ providerConfig, seededSnapshot, companyId: activeCompanyId }) => {
+      localStorage.setItem('offisim-provider-config', JSON.stringify(providerConfig));
+      localStorage.setItem('offisim:browser-runtime-snapshot:v1', JSON.stringify(seededSnapshot));
+      localStorage.setItem('offisim:active-company', activeCompanyId);
+      localStorage.removeItem('offisim:browser-event-history:v1');
+    },
+    { providerConfig: provider, seededSnapshot: snapshot, companyId },
+  );
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.__OFFISIM_DEBUG__ !== 'undefined', {
     timeout: 15000,
@@ -116,12 +119,6 @@ async function bootPage(browser, scenarioName, providerOverride = {}) {
 
 async function sendTeamMessage(page, message) {
   const input = page.getByPlaceholder('Message your team...');
-  await input.fill(message);
-  await input.locator('..').locator('button').click();
-}
-
-async function sendCurrentInput(page, message) {
-  const input = page.locator('textarea').last();
   await input.fill(message);
   await input.locator('..').locator('button').click();
 }
@@ -254,24 +251,27 @@ async function scenarioMeeting(browser) {
     await page.getByTitle('Resume meeting').waitFor({ state: 'visible', timeout: 15000 });
     await page.getByTitle('Resume meeting').click();
     await page.getByTitle('End meeting').click();
-    await page.waitForFunction(() => {
-      const snapRaw = localStorage.getItem('offisim:browser-runtime-snapshot:v1');
-      const eventsRaw = localStorage.getItem('offisim:browser-event-history:v1');
-      const snapshot = snapRaw ? JSON.parse(snapRaw) : null;
-      const events = eventsRaw ? JSON.parse(eventsRaw) : [];
-      const meetings = snapshot?.meetings ?? [];
-      const latestMeeting = meetings.at(-1);
-      const completedEvent = events.some(
-        (event) =>
-          String(event.type) === 'meeting.state.changed' &&
-          (event.payload?.next === 'completed' || event.payload?.next === 'cancelled'),
-      );
-      return (
-        completedEvent ||
-        latestMeeting?.status === 'completed' ||
-        latestMeeting?.status === 'cancelled'
-      );
-    }, { timeout: 30000 });
+    await page.waitForFunction(
+      () => {
+        const snapRaw = localStorage.getItem('offisim:browser-runtime-snapshot:v1');
+        const eventsRaw = localStorage.getItem('offisim:browser-event-history:v1');
+        const snapshot = snapRaw ? JSON.parse(snapRaw) : null;
+        const events = eventsRaw ? JSON.parse(eventsRaw) : [];
+        const meetings = snapshot?.meetings ?? [];
+        const latestMeeting = meetings.at(-1);
+        const completedEvent = events.some(
+          (event) =>
+            String(event.type) === 'meeting.state.changed' &&
+            (event.payload?.next === 'completed' || event.payload?.next === 'cancelled'),
+        );
+        return (
+          completedEvent ||
+          latestMeeting?.status === 'completed' ||
+          latestMeeting?.status === 'cancelled'
+        );
+      },
+      { timeout: 30000 },
+    );
     const state = await snapshot(page);
     return {
       meetings: state.snapshot?.meetings ?? [],
@@ -309,12 +309,18 @@ async function scenarioBadProvider(browser) {
   });
   try {
     await sendTeamMessage(page, 'Reply with BAD_PROVIDER_OK.');
-    await page.getByText(/Request failed|fetch failed|ECONNREFUSED|Error/i).first().waitFor({
-      state: 'visible',
-      timeout: 30000,
-    });
+    await page
+      .getByText(/Request failed|fetch failed|ECONNREFUSED|Error/i)
+      .first()
+      .waitFor({
+        state: 'visible',
+        timeout: 30000,
+      });
     return {
-      errorText: await page.locator('text=/Request failed|fetch failed|ECONNREFUSED|Error/i').first().textContent(),
+      errorText: await page
+        .locator('text=/Request failed|fetch failed|ECONNREFUSED|Error/i')
+        .first()
+        .textContent(),
       inputStillVisible: await page.getByPlaceholder('Message your team...').isVisible(),
     };
   } finally {
@@ -337,7 +343,9 @@ try {
 
   const results = {};
   const selectedNames = process.env.OFFISIM_SCENARIO
-    ? process.env.OFFISIM_SCENARIO.split(',').map((name) => name.trim()).filter(Boolean)
+    ? process.env.OFFISIM_SCENARIO.split(',')
+        .map((name) => name.trim())
+        .filter(Boolean)
     : Object.keys(scenarios);
 
   for (const name of selectedNames) {

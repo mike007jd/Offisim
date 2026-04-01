@@ -1,4 +1,4 @@
-import { isProductionProvider, type LlmProvider } from '@offisim/shared-types';
+import { type LlmProvider, isProductionProvider } from '@offisim/shared-types';
 
 export function assertBrowserProviderAllowed(provider: LlmProvider, isDev: boolean): void {
   if (provider === 'subscription') {
@@ -10,9 +10,7 @@ export function assertBrowserProviderAllowed(provider: LlmProvider, isDev: boole
 
   if (!isDev && !isProductionProvider(provider)) {
     throw new Error(
-      `Provider "${provider}" is not allowed in production runtime. ` +
-        'Only self-developed transport adapters are valid production providers. ' +
-        'In development mode, vendor adapters are available for testing.',
+      `Provider "${provider}" is not allowed in production runtime. Only self-developed transport adapters are valid production providers. In development mode, vendor adapters are available for testing.`,
     );
   }
 }

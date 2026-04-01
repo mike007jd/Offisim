@@ -1,8 +1,8 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { managerNode } from '../../agents/manager-node.js';
+import { MANAGER_SYSTEM_PROMPT, managerNode } from '../../agents/manager-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { OffisimGraphState } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -213,5 +213,48 @@ describe('managerNode', () => {
     expect(Array.isArray(directive.recommendedEmployees)).toBe(true);
     expect(directive.intent.length).toBeGreaterThan(0);
     expect(directive.recommendedEmployees.every((id: string) => typeof id === 'string')).toBe(true);
+  });
+
+  it('includes expertise and installed skill information in the manager prompt', async () => {
+    repos.seed.employees([
+      makeEmployee({
+        employee_id: 'e-dev-2',
+        name: 'Automation Bot',
+        persona_json: JSON.stringify({ expertise: 'Browser automation' }),
+        config_json: JSON.stringify({
+          runtimeSkill: {
+            skillName: 'Playwright Specialist',
+            summary: 'Verify and debug browser flows',
+          },
+        }),
+      }),
+    ]);
+
+    gateway.whenSystemContains('skill: Playwright Specialist (Verify and debug browser flows)', {
+      content: JSON.stringify({
+        intent: 'work',
+        assignments: [
+          {
+            taskType: 'code',
+            employeeId: 'e-dev-2',
+            description: 'Handle the browser automation task',
+          },
+        ],
+      }),
+    });
+
+    const result = await managerNode(
+      makeState({
+        messages: [new HumanMessage('Debug the browser flow')],
+      }),
+      config,
+    );
+
+    expect(result.managerDirective?.recommendedEmployees).toEqual(['e-dev-2']);
+  });
+
+  it('manager prompt instructs the model to consider expertise and skills', () => {
+    expect(MANAGER_SYSTEM_PROMPT).toContain('Consider employee expertise and installed skills');
+    expect(MANAGER_SYSTEM_PROMPT).toContain('alignment reasoning');
   });
 });

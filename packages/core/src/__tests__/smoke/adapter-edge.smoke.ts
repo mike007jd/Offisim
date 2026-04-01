@@ -1,4 +1,4 @@
-import { describe, beforeAll, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { LlmGateway, LlmStreamChunk } from '../../llm/gateway.js';
 import { HAS_MINIMAX, MINIMAX_MODEL, createMiniMaxGateway } from '../helpers/smoke-providers.js';
 
@@ -88,7 +88,8 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax edge-case smoke tests', () => {
       messages: [
         {
           role: 'user',
-          content: 'Write a very long essay about the history of mathematics. Be as detailed as possible.',
+          content:
+            'Write a very long essay about the history of mathematics. Be as detailed as possible.',
         },
       ],
       model,
@@ -104,7 +105,10 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax edge-case smoke tests', () => {
   it('produces minimal response when asked', async () => {
     const response = await adapter.chat({
       messages: [
-        { role: 'system', content: 'You must respond with only the exact text "OK" and nothing else.' },
+        {
+          role: 'system',
+          content: 'You must respond with only the exact text "OK" and nothing else.',
+        },
         { role: 'user', content: 'Acknowledge.' },
       ],
       model,
@@ -143,7 +147,8 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax edge-case smoke tests', () => {
     // Last chunk should be done
     const finalChunk = chunks.at(-1);
     expect(finalChunk).toBeDefined();
-    expect(finalChunk!.done).toBe(true);
+    if (!finalChunk) throw new Error('Expected final chunk');
+    expect(finalChunk.done).toBe(true);
 
     // Accumulated content should be non-empty and contain prime numbers
     expect(accumulatedContent.length).toBeGreaterThan(0);
@@ -152,8 +157,9 @@ describe.skipIf(!HAS_MINIMAX)('MiniMax edge-case smoke tests', () => {
     expect(accumulatedContent).toContain('5');
 
     // Final chunk should report usage
-    expect(finalChunk!.usage).toBeDefined();
-    expect(finalChunk!.usage!.inputTokens).toBeGreaterThan(0);
-    expect(finalChunk!.usage!.outputTokens).toBeGreaterThan(0);
+    expect(finalChunk.usage).toBeDefined();
+    if (!finalChunk.usage) throw new Error('Expected usage on final chunk');
+    expect(finalChunk.usage.inputTokens).toBeGreaterThan(0);
+    expect(finalChunk.usage.outputTokens).toBeGreaterThan(0);
   }, 60_000);
 });

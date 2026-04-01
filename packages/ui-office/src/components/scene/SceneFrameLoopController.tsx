@@ -15,13 +15,11 @@ interface SceneFrameLoopControllerProps {
  * Keeps demand-mode canvases responsive to camera interactions and
  * forces a single refresh whenever the animation mode changes.
  */
-export function SceneFrameLoopController({
-  animate,
-  controlsRef,
-}: SceneFrameLoopControllerProps) {
+export function SceneFrameLoopController({ animate, controlsRef }: SceneFrameLoopControllerProps) {
   const { invalidate } = useThree();
 
   useEffect(() => {
+    void animate;
     invalidate();
   }, [animate, invalidate]);
 

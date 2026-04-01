@@ -76,11 +76,7 @@ export class UserMemoryService {
    * Called after boss_summary to capture user context from the session.
    * Non-blocking — fires and forgets.
    */
-  extractFromConversation(
-    companyId: string,
-    conversationText: string,
-    threadId: string,
-  ): void {
+  extractFromConversation(companyId: string, conversationText: string, threadId: string): void {
     // Debounce: skip if already extracting
     if (this.pendingExtraction) return;
 

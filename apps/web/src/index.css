@@ -30,6 +30,33 @@
   --glass-border: rgba(255, 255, 255, 0.1);
   --scrollbar-thumb: rgba(148, 163, 184, 0.2);
   --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 12px;
+  --sp-lg: 16px;
+  --sp-xl: 20px;
+  --sp-xxl: 24px;
+  --sp-xxxl: 32px;
+}
+
+:root[data-density="compact"] {
+  --sp-xs: 2px;
+  --sp-sm: 4px;
+  --sp-md: 8px;
+  --sp-lg: 12px;
+  --sp-xl: 16px;
+  --sp-xxl: 20px;
+  --sp-xxxl: 24px;
+}
+
+:root[data-density="spacious"] {
+  --sp-xs: 6px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 20px;
+  --sp-xl: 28px;
+  --sp-xxl: 32px;
+  --sp-xxxl: 40px;
 }
 
 @theme inline {
@@ -76,6 +103,15 @@
   --font-pixel-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-pixel-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-pixel-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Density spacing tokens ── */
+  --spacing-sp-xs: var(--sp-xs);
+  --spacing-sp-sm: var(--sp-sm);
+  --spacing-sp-md: var(--sp-md);
+  --spacing-sp-lg: var(--sp-lg);
+  --spacing-sp-xl: var(--sp-xl);
+  --spacing-sp-xxl: var(--sp-xxl);
+  --spacing-sp-xxxl: var(--sp-xxxl);
 }
 
 /* ── Base styles ── */

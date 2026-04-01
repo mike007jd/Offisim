@@ -1,6 +1,6 @@
-import type { SopDefinition } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { SopDefinition } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   findEmployeeForRole,

@@ -159,9 +159,15 @@ describe('OrchestrationService lifecycle', () => {
     const orch = new OrchestrationService(graph, runtimeCtx);
     const executeSpy = vi.spyOn(orch, 'execute').mockResolvedValue({} as OffisimGraphState);
 
-    await (orch as OrchestrationService & {
-      resumeMeeting(meetingId: string, messages: [], threadId: string): Promise<OffisimGraphState>;
-    }).resumeMeeting('mtg-1', [], 'thread-project-1');
+    await (
+      orch as OrchestrationService & {
+        resumeMeeting(
+          meetingId: string,
+          messages: [],
+          threadId: string,
+        ): Promise<OffisimGraphState>;
+      }
+    ).resumeMeeting('mtg-1', [], 'thread-project-1');
 
     expect(executeSpy).toHaveBeenCalledWith({
       entryMode: 'meeting',
@@ -178,13 +184,15 @@ describe('OrchestrationService lifecycle', () => {
     const orch = new OrchestrationService(graph, runtimeCtx);
     const executeSpy = vi.spyOn(orch, 'execute').mockResolvedValue({} as OffisimGraphState);
 
-    await (orch as OrchestrationService & {
-      endPausedMeeting(
-        meetingId: string,
-        messages: [],
-        threadId: string,
-      ): Promise<OffisimGraphState>;
-    }).endPausedMeeting('mtg-1', [], 'thread-project-1');
+    await (
+      orch as OrchestrationService & {
+        endPausedMeeting(
+          meetingId: string,
+          messages: [],
+          threadId: string,
+        ): Promise<OffisimGraphState>;
+      }
+    ).endPausedMeeting('mtg-1', [], 'thread-project-1');
 
     expect(executeSpy).toHaveBeenCalledWith({
       entryMode: 'meeting',

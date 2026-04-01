@@ -12,6 +12,7 @@ export interface PlanTask {
   employeeId: string;
   description: string;
   dependsOnStepOutput: boolean;
+  requiredSkills?: string[];
   taskRunId?: string;
 }
 

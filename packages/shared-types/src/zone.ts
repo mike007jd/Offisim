@@ -2,27 +2,16 @@
 // Single source of truth for zone types across the entire Offisim codebase.
 // Replaces both ui-office/lib/zone-config.ts and renderer/tokens/departments.ts.
 
-import type { RoleSlug } from './roles.js';
 import type { SemanticCategory } from './prefab.js';
+import type { RoleSlug } from './roles.js';
 
 // ── Enums ──────────────────────────────────────────────────────────
 
 export type ZoneKind = 'system' | 'custom';
 
-export type ZoneArchetype =
-  | 'workspace'
-  | 'meeting'
-  | 'server'
-  | 'library'
-  | 'rest';
+export type ZoneArchetype = 'workspace' | 'meeting' | 'server' | 'library' | 'rest';
 
-export type ActivityType =
-  | 'work'
-  | 'collaborate'
-  | 'rest'
-  | 'compute'
-  | 'learn'
-  | 'meet';
+export type ActivityType = 'work' | 'collaborate' | 'rest' | 'compute' | 'learn' | 'meet';
 
 /** Sentinel zone_id for instances not yet assigned to a real zone. */
 export const UNASSIGNED_ZONE_ID = 'unassigned';

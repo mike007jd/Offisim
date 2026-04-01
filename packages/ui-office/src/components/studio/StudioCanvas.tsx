@@ -1,9 +1,9 @@
+import type { Zone } from '@offisim/shared-types';
+import { computeOverlapMap } from '@offisim/shared-types';
 import { Grid, Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import type { Zone } from '@offisim/shared-types';
-import { computeOverlapMap } from '@offisim/shared-types';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
@@ -100,9 +100,7 @@ function StudioScene({
   const focusedZone = focusedZoneId ? zones.find((z) => z.zoneId === focusedZoneId) : null;
   const camTargetCx = focusedZone?.cx ?? 0;
   const camTargetCz = focusedZone?.cz ?? 0;
-  const camTargetDist = focusedZone
-    ? Math.max(focusedZone.w, focusedZone.d) * 1.2
-    : maxDim * 0.8;
+  const camTargetDist = focusedZone ? Math.max(focusedZone.w, focusedZone.d) * 1.2 : maxDim * 0.8;
 
   useEffect(() => {
     const orbit = orbitRef.current;
@@ -137,8 +135,10 @@ function StudioScene({
     };
     requestAnimationFrame(animate);
 
-    return () => { cancelled = true; };
-  }, [focusedZoneId, camTargetCx, camTargetCz, camTargetDist, camera, invalidate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [camTargetCx, camTargetCz, camTargetDist, camera, invalidate]);
 
   return (
     <>
@@ -262,14 +262,11 @@ function ZoneFloor({
   const groupY = isDragging ? 0.05 : -0.005;
 
   /** Project the pointer ray onto the y=0 ground plane. */
-  const getGroundPoint = useCallback(
-    (e: { ray: THREE.Ray }) => {
-      const target = new THREE.Vector3();
-      e.ray.intersectPlane(_groundPlane, target);
-      return target;
-    },
-    [],
-  );
+  const getGroundPoint = useCallback((e: { ray: THREE.Ray }) => {
+    const target = new THREE.Vector3();
+    e.ray.intersectPlane(_groundPlane, target);
+    return target;
+  }, []);
 
   const onPointerDown = useCallback(
     (e: { stopPropagation: () => void; ray: THREE.Ray }) => {
@@ -340,20 +337,17 @@ function ZoneFloor({
     [zone.zoneId, getGroundPoint, invalidate],
   );
 
-  const onPointerUp = useCallback(
-    () => {
-      if (!dragRef.current) return;
-      dragRef.current = null;
-      setIsDragging(false);
+  const onPointerUp = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setIsDragging(false);
 
-      // Re-enable orbit controls
-      if (getControls) {
-        (getControls as unknown as { enabled: boolean }).enabled = true;
-      }
-      invalidate();
-    },
-    [getControls, invalidate],
-  );
+    // Re-enable orbit controls
+    if (getControls) {
+      (getControls as unknown as { enabled: boolean }).enabled = true;
+    }
+    invalidate();
+  }, [getControls, invalidate]);
 
   return (
     <group position={[zone.cx, groupY, zone.cz]}>
@@ -411,10 +405,18 @@ function ZoneFloor({
 
       {/* Zone label pill — clickable to focus/unfocus */}
       <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
-        <div
+        <button
+          type="button"
           className="studio-zone-label"
           onClick={(e) => {
             e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
+            if (isFocused) unfocusZone();
+            else focusZone(zone.zoneId);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
             if (isFocused) unfocusZone();
             else focusZone(zone.zoneId);
           }}
@@ -436,7 +438,7 @@ function ZoneFloor({
           }}
         >
           {isFocused ? `✦ ${zone.label}` : zone.label}
-        </div>
+        </button>
       </Html>
     </group>
   );

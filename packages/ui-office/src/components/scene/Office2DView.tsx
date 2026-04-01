@@ -1,3 +1,5 @@
+import type { RoleSlug } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 /**
  * SVG-based 2D office top-down view.
  * Replaces PixiJS for visual rendering — cleaner, matches 3D layout 1:1.
@@ -7,24 +9,29 @@
  * which is consumed by WorkstationAssignmentService via useScene.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { RoleSlug } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
-import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
+import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
 import { getPhaseColor } from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
 import { STATE_LABELS } from '../../lib/state-labels';
-import { STATUS_COLORS } from '../../lib/zone-config.js';
+import { STATUS_COLORS } from '../../lib/status-colors.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
 
-import { ROOM_H, ROOM_W, type ViewportTransform, positionToSVG, screenToSvg as screenToSvgPure, toSVG } from './office-2d-geometry';
-import { getAvatarUri } from './office-2d-avatar-cache';
-import { Office2DPrefab, PlantSVG } from './Office2DPrefab.js';
-import { useOffice2DDrag } from './useOffice2DDrag';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
+import { Office2DPrefab, PlantSVG } from './Office2DPrefab.js';
+import { getAvatarUri } from './office-2d-avatar-cache';
+import {
+  ROOM_H,
+  ROOM_W,
+  type ViewportTransform,
+  positionToSVG,
+  screenToSvg as screenToSvgPure,
+  toSVG,
+} from './office-2d-geometry';
+import { useOffice2DDrag } from './useOffice2DDrag';
 
 // ── Employee Node ─────────────────────────────────────────────────────
 
@@ -442,15 +449,7 @@ export default function Office2DView({
   const handleEmployeeDragStart = useCallback(
     (empId: string, agent: AgentState, seed: string, e: React.PointerEvent) => {
       const statusColor = STATUS_COLORS[agent.state] ?? '#64748b';
-      startDrag(
-        empId,
-        agent.name,
-        agent.role,
-        resolveEmployeeZone(agent),
-        seed,
-        statusColor,
-        e,
-      );
+      startDrag(empId, agent.name, agent.role, resolveEmployeeZone(agent), seed, statusColor, e);
     },
     [startDrag, resolveEmployeeZone],
   );
@@ -593,7 +592,15 @@ export default function Office2DView({
     });
 
     return positions;
-  }, [ceremonyActive, ceremony.phase, dispatchedIds, participantIds, agents, zones, resolveEmployeeZone]);
+  }, [
+    ceremonyActive,
+    ceremony.phase,
+    dispatchedIds,
+    participantIds,
+    agents,
+    zones,
+    resolveEmployeeZone,
+  ]);
 
   const cursor = isDragging ? 'grabbing' : isPanning ? 'grabbing' : 'grab';
 
@@ -680,9 +687,7 @@ export default function Office2DView({
                   stroke={z.accentColor}
                   strokeWidth={isDropTarget ? (isHovered && !isSourceZone ? 3 : 2) : 1.5}
                   strokeOpacity={isDropTarget ? (isHovered && !isSourceZone ? 0.8 : 0.5) : 0.3}
-                  strokeDasharray={
-                    isInfra ? '8 4' : isDropTarget && !isSourceZone ? '6 3' : 'none'
-                  }
+                  strokeDasharray={isInfra ? '8 4' : isDropTarget && !isSourceZone ? '6 3' : 'none'}
                   style={{
                     transition: 'fill-opacity 0.15s, stroke-width 0.15s, stroke-opacity 0.15s',
                   }}
@@ -740,8 +745,28 @@ export default function Office2DView({
                 return (
                   <Office2DPrefab
                     key={`fallback-${z.zoneId}`}
-                    prefabId={z.archetype === 'server' ? 'server-rack-2u' : z.archetype === 'meeting' ? 'meeting-table-4' : z.archetype === 'library' ? 'bookshelf-single' : z.archetype === 'rest' ? 'sofa-set' : 'workstation-standard'}
-                    category={z.archetype === 'server' ? 'compute' : z.archetype === 'meeting' ? 'meeting' : z.archetype === 'library' ? 'knowledge' : z.archetype === 'rest' ? 'rest' : 'workspace'}
+                    prefabId={
+                      z.archetype === 'server'
+                        ? 'server-rack-2u'
+                        : z.archetype === 'meeting'
+                          ? 'meeting-table-4'
+                          : z.archetype === 'library'
+                            ? 'bookshelf-single'
+                            : z.archetype === 'rest'
+                              ? 'sofa-set'
+                              : 'workstation-standard'
+                    }
+                    category={
+                      z.archetype === 'server'
+                        ? 'compute'
+                        : z.archetype === 'meeting'
+                          ? 'meeting'
+                          : z.archetype === 'library'
+                            ? 'knowledge'
+                            : z.archetype === 'rest'
+                              ? 'rest'
+                              : 'workspace'
+                    }
                     x={mx}
                     y={my}
                     rotation={0}

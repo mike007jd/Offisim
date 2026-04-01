@@ -4,7 +4,11 @@ const THREE_CLOCK_DEPRECATION =
   'Clock: This module has been deprecated. Please use THREE.Timer instead.';
 
 type ThreeConsoleLevel = 'log' | 'warn' | 'error';
-type ThreeConsoleHandler = (level: ThreeConsoleLevel, message: string, ...params: unknown[]) => void;
+type ThreeConsoleHandler = (
+  level: ThreeConsoleLevel,
+  message: string,
+  ...params: unknown[]
+) => void;
 
 function fallbackConsole(level: ThreeConsoleLevel, message: string, ...params: unknown[]) {
   if (level === 'warn') {
@@ -18,7 +22,10 @@ function fallbackConsole(level: ThreeConsoleLevel, message: string, ...params: u
   console.log(message, ...params);
 }
 
-export function shouldSuppressThreeConsoleMessage(level: ThreeConsoleLevel, message: string): boolean {
+export function shouldSuppressThreeConsoleMessage(
+  level: ThreeConsoleLevel,
+  message: string,
+): boolean {
   return import.meta.env.DEV && level === 'warn' && message.endsWith(THREE_CLOCK_DEPRECATION);
 }
 

@@ -105,16 +105,15 @@ export function useCompanyCreation({
       return null;
     }
 
-    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
+    const selectedTemplate =
+      templates.find((template) => template.id === selectedTemplateId) ?? null;
     if (!selectedTemplate) {
       setError('Selected template not found.');
       return null;
     }
 
     const resolvedCompanyId =
-      mode === 'create-new'
-        ? await createCompanyRecord(selectedTemplate)
-        : targetCompanyId;
+      mode === 'create-new' ? await createCompanyRecord(selectedTemplate) : targetCompanyId;
     if (!resolvedCompanyId) return null;
 
     if (mode === 'populate-existing') {

@@ -18,6 +18,9 @@ export function AppLayout({
   eventLog,
   statusBar,
 }: AppLayoutProps) {
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false,
+  );
   const [leftOpen, setLeftOpen] = useState(() => {
     try {
       return localStorage.getItem('offisim.panel.left') === 'true';
@@ -44,6 +47,16 @@ export function AppLayout({
     } catch {}
   }, [rightOpen]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const sync = (matches: boolean) => setIsNarrow(matches);
+    sync(mediaQuery.matches);
+    const handleChange = (event: MediaQueryListEvent) => sync(event.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   return (
     <div className="h-screen bg-surface text-slate-300 flex flex-col overflow-hidden relative">
       <div className="noise" />
@@ -51,13 +64,24 @@ export function AppLayout({
 
       <div className="absolute inset-0 z-0">{sceneCanvas}</div>
 
-      <div className="relative z-50 mx-4 mt-4">{header}</div>
+      <div
+        className="relative z-50"
+        style={{ marginInline: 'var(--sp-lg)', marginTop: 'var(--sp-lg)' }}
+      >
+        {header}
+      </div>
 
-      <div className="flex flex-1 overflow-hidden relative z-10 px-4 pointer-events-none">
+      <div
+        className="flex flex-1 overflow-hidden relative z-10 pointer-events-none"
+        style={{ paddingInline: 'var(--sp-lg)' }}
+      >
         {/* ══════ LEFT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
-          style={{ width: leftOpen ? '280px' : '44px' }}
+          className="border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          style={{
+            width: leftOpen ? '280px' : '44px',
+            marginBlock: 'var(--sp-lg)',
+          }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
@@ -98,8 +122,11 @@ export function AppLayout({
 
         {/* ══════ RIGHT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="my-4 border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
-          style={{ width: rightOpen ? '280px' : '44px' }}
+          className="border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          style={{
+            width: rightOpen ? '280px' : '44px',
+            marginBlock: 'var(--sp-lg)',
+          }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
@@ -144,8 +171,8 @@ export function AppLayout({
       <div
         className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
         style={{
-          left: leftOpen ? '300px' : '64px',
-          right: rightOpen ? '300px' : '64px',
+          left: isNarrow ? '16px' : leftOpen ? '300px' : '64px',
+          right: isNarrow ? '16px' : rightOpen ? '300px' : '64px',
         }}
       >
         {chatDrawer}

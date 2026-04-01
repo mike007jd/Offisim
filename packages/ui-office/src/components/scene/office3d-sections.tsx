@@ -1,10 +1,9 @@
 import { Html } from '@react-three/drei';
 import type { AgentState } from '../../runtime/use-agent-states';
-import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
+import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { EmployeeMarker, type PlacedEmployee } from './office3d-employees.js';
 import { TaskFlowLine, ZoneLabel } from './office3d-scene-primitives.js';
 import type { DragState3D, FlowLineData, Zone3D } from './office3d-shared.js';
-import { MeetingBubble3D } from './MeetingBubble3D.js';
 import {
   BookshelfMesh3D,
   MeetingTableMesh3D,
@@ -14,6 +13,7 @@ import {
   WorkstationMesh3D,
 } from './prefabs/index.js';
 import { Prefab3D } from './prefabs/index.js';
+import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 
 const FALLBACK_FURNITURE = [
   { Component: MeetingTableMesh3D, position: [-10, 0, -8] as [number, number, number] },

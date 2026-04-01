@@ -1,5 +1,4 @@
 import { render } from '@testing-library/react';
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { invalidateMock, useThreeMock } = vi.hoisted(() => ({
@@ -12,8 +11,8 @@ vi.mock('@react-three/fiber', () => ({
 }));
 
 import {
-  SceneFrameLoopController,
   type OrbitControlsHandleLike,
+  SceneFrameLoopController,
 } from '../../components/scene/SceneFrameLoopController';
 
 describe('SceneFrameLoopController', () => {
@@ -52,7 +51,10 @@ describe('SceneFrameLoopController', () => {
 
     onChange?.();
 
-    expect(controlsRef.current.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+    expect(controlsRef.current.addEventListener).toHaveBeenCalledWith(
+      'change',
+      expect.any(Function),
+    );
     expect(invalidateMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -14,15 +14,15 @@
 
 import type {
   GraphNodeEnteredPayload,
+  RoleSlug,
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
   Zone,
-  RoleSlug,
 } from '@offisim/shared-types';
-import { resolveZoneForRole, UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { truncate } from '../lib/format-time';
-import { SEAT_OFFSETS } from '../lib/zone-config';
+import { SEAT_OFFSETS } from '../lib/seat-offsets';
 import type { AgentState } from '../runtime/use-agent-states';
 import type { CharacterMovementHandle } from './useCharacterMovement';
 
@@ -70,11 +70,7 @@ function getWorkstationPos(
 
 function getRestPos(zones: readonly Zone[]): [number, number, number] {
   const restCenter = getZoneCenter(zones, 'rest');
-  return [
-    restCenter[0] + (Math.random() - 0.5) * 4,
-    0,
-    restCenter[2] + (Math.random() - 0.5) * 3,
-  ];
+  return [restCenter[0] + (Math.random() - 0.5) * 4, 0, restCenter[2] + (Math.random() - 0.5) * 3];
 }
 
 // ── Ceremony state (exposed to MeetingBubble3D) ─────────────────
@@ -245,8 +241,7 @@ export function useSceneOrchestrator({
     allIds.forEach((id, idx) => {
       const handle = getMovementHandles(companyIdRef.current).get(id);
       if (!handle) return;
-      const resolvedSeat =
-        mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
+      const resolvedSeat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
       const jittered: [number, number, number] = [
         resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
         0,

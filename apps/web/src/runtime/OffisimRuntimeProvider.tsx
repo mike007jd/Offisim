@@ -104,8 +104,9 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
 
     const unsubResume = eventBus.on('meeting.interrupt.resume', (event) => {
       const runtime = runtimeRef.current;
+      const orch = runtime?.orch;
       const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
-      if (!runtime?.orch || !meetingId) return;
+      if (!orch || !meetingId) return;
 
       void (async () => {
         const meeting = await runtime.repos?.meetings.findById(meetingId);
@@ -114,7 +115,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         setIsRunning(true);
         try {
           const { HumanMessage } = await import('@langchain/core/messages');
-          await runtime.orch.resumeMeeting(
+          await orch.resumeMeeting(
             meetingId,
             [new HumanMessage('Resume meeting')],
             meeting.thread_id ?? undefined,
@@ -129,8 +130,9 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
 
     const unsubEnd = eventBus.on('meeting.interrupt.end', (event) => {
       const runtime = runtimeRef.current;
+      const orch = runtime?.orch;
       const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
-      if (!runtime?.orch || !meetingId) return;
+      if (!orch || !meetingId) return;
 
       void (async () => {
         const meeting = await runtime.repos?.meetings.findById(meetingId);
@@ -140,7 +142,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           setIsRunning(true);
           try {
             const { HumanMessage } = await import('@langchain/core/messages');
-            await runtime.orch.endPausedMeeting(
+            await orch.endPausedMeeting(
               meetingId,
               [new HumanMessage('End meeting')],
               meeting.thread_id ?? undefined,
@@ -153,7 +155,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           return;
         }
 
-        runtime.orch.interruptMeeting('end');
+        orch.interruptMeeting('end');
       })();
     });
 

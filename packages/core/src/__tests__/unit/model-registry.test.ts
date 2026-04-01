@@ -192,8 +192,9 @@ describe('ModelRegistry', () => {
       const def = registry.getDefault();
 
       expect(def).toBeTruthy();
-      expect(def!.id).toBe('claude-opus');
-      expect(def!.provider).toBe('anthropic');
+      if (!def) throw new Error('Expected default model');
+      expect(def.id).toBe('claude-opus');
+      expect(def.provider).toBe('anthropic');
     });
 
     it('returns null when no default is set', () => {
@@ -221,8 +222,9 @@ describe('ModelRegistry', () => {
       const entry = registry.findById('ollama-local');
 
       expect(entry).toBeTruthy();
-      expect(entry!.model).toBe('llama3');
-      expect(entry!.baseURL).toBe('http://localhost:11434/v1');
+      if (!entry) throw new Error('Expected ollama-local entry');
+      expect(entry.model).toBe('llama3');
+      expect(entry.baseURL).toBe('http://localhost:11434/v1');
     });
 
     it('returns null for missing id', () => {
@@ -250,13 +252,14 @@ describe('ModelRegistry', () => {
       );
 
       const entry = registry.findById('env-model');
-      expect(entry!.apiKey).toBe('resolved-secret');
+      if (!entry) throw new Error('Expected env-model entry');
+      expect(entry.apiKey).toBe('resolved-secret');
 
-      delete process.env.TEST_MODEL_API_KEY;
+      Reflect.deleteProperty(process.env, 'TEST_MODEL_API_KEY');
     });
 
     it('returns empty string when env var is not found', () => {
-      delete process.env.NONEXISTENT_VAR;
+      Reflect.deleteProperty(process.env, 'NONEXISTENT_VAR');
 
       registry.loadConfig(
         makeConfig({
@@ -273,13 +276,15 @@ describe('ModelRegistry', () => {
       );
 
       const entry = registry.findById('missing-env');
-      expect(entry!.apiKey).toBe('');
+      if (!entry) throw new Error('Expected missing-env entry');
+      expect(entry.apiKey).toBe('');
     });
 
     it('passes literal strings through unchanged', () => {
       registry.loadConfig(makeConfig());
       const entry = registry.findById('gpt-4o');
-      expect(entry!.apiKey).toBe('sk-test-key');
+      if (!entry) throw new Error('Expected gpt-4o entry');
+      expect(entry.apiKey).toBe('sk-test-key');
     });
 
     it('does not treat ${...} as env var syntax', () => {

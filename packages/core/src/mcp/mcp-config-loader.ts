@@ -128,9 +128,7 @@ export class McpConfigLoader {
     const oldServers = new Map(
       (oldConfig?.servers ?? []).filter((s) => s.enabled).map((s) => [s.name, s]),
     );
-    const newServers = new Map(
-      newConfig.servers.filter((s) => s.enabled).map((s) => [s.name, s]),
-    );
+    const newServers = new Map(newConfig.servers.filter((s) => s.enabled).map((s) => [s.name, s]));
 
     // Remove servers no longer in config
     for (const name of oldServers.keys()) {

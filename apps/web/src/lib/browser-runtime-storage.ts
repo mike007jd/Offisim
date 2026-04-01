@@ -1,7 +1,7 @@
-import { createMemoryRepositories } from '@offisim/core/browser';
+import type { createMemoryRepositories } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
-import type { RuntimeEvent } from '@offisim/shared-types';
 import type { MemoryRepositoriesSnapshot } from '@offisim/core/browser';
+import type { RuntimeEvent } from '@offisim/shared-types';
 
 const STORAGE_KEY = 'offisim:browser-runtime-snapshot:v1';
 const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
@@ -85,7 +85,10 @@ export function loadBrowserRuntimeBootstrapState(
   };
 }
 
-export function createBrowserRuntimePersistence(repos: MemoryRepos, eventBus: InMemoryEventBus): {
+export function createBrowserRuntimePersistence(
+  repos: MemoryRepos,
+  eventBus: InMemoryEventBus,
+): {
   flush(): void;
   dispose(): void;
 } {

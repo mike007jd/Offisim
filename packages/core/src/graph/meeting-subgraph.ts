@@ -11,7 +11,7 @@ import { Logger } from '../services/logger.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
-import type { OffisimGraphState, MeetingActionItem } from './state.js';
+import type { MeetingActionItem, OffisimGraphState } from './state.js';
 
 const logger = new Logger('meeting');
 

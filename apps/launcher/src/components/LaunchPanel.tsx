@@ -1,4 +1,4 @@
-import { Monitor, Globe, Wifi } from 'lucide-react';
+import { Globe, Monitor, Wifi } from 'lucide-react';
 import type { LaunchMode } from '../lib/ipc';
 
 interface LaunchPanelProps {
@@ -41,6 +41,7 @@ export function LaunchPanel({ activeMode, launching, onLaunch }: LaunchPanelProp
         return (
           <button
             key={mode}
+            type="button"
             onClick={() => onLaunch(mode)}
             disabled={launching}
             className={`

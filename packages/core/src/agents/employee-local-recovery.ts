@@ -13,7 +13,11 @@ import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getConfigSignal } from '../utils/get-signal.js';
-import { type RecoveryDecision, diagnoseAndRecover, recordRecoveryOutcome } from './recovery-agent.js';
+import {
+  type RecoveryDecision,
+  diagnoseAndRecover,
+  recordRecoveryOutcome,
+} from './recovery-agent.js';
 
 /** Maximum local recovery retries before escalating to error_handler. */
 const MAX_RECOVERY_RETRIES = 2;

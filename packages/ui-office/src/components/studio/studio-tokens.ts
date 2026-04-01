@@ -1,9 +1,8 @@
 /**
  * Studio Design Tokens — centralized visual constants for all Studio components.
  *
- * Follows a 4px grid spacing system.
- * Dark theme with indigo accent, inspired by VS Code / Blender / Figma.
- * All Studio components MUST import from here instead of hardcoding values.
+ * Spacing reads from global density CSS variables when available, with static
+ * fallbacks for SSR and tests that don't mount the full app shell.
  */
 
 // ---------------------------------------------------------------------------
@@ -64,15 +63,52 @@ export const STUDIO_COLORS = {
 // Spacing (4px grid)
 // ---------------------------------------------------------------------------
 
+const SP_DEFAULTS = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 } as const;
+
+let spCache: Record<string, number> | null = null;
+
+function readSpCache(): Record<string, number> {
+  if (spCache) return spCache;
+  if (typeof document === 'undefined') return SP_DEFAULTS;
+  const style = window.getComputedStyle(document.documentElement);
+  const result: Record<string, number> = {};
+  for (const [key, fallback] of Object.entries(SP_DEFAULTS)) {
+    const raw = style.getPropertyValue(`--sp-${key}`).trim();
+    const parsed = Number.parseInt(raw, 10);
+    result[key] = Number.isFinite(parsed) ? parsed : fallback;
+  }
+  spCache = result;
+  return result;
+}
+
+/** Call after density changes to pick up new CSS variable values. */
+export function invalidateSpCache(): void {
+  spCache = null;
+}
+
 export const SP = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
-} as const;
+  get xs() {
+    return readSpCache().xs ?? SP_DEFAULTS.xs;
+  },
+  get sm() {
+    return readSpCache().sm ?? SP_DEFAULTS.sm;
+  },
+  get md() {
+    return readSpCache().md ?? SP_DEFAULTS.md;
+  },
+  get lg() {
+    return readSpCache().lg ?? SP_DEFAULTS.lg;
+  },
+  get xl() {
+    return readSpCache().xl ?? SP_DEFAULTS.xl;
+  },
+  get xxl() {
+    return readSpCache().xxl ?? SP_DEFAULTS.xxl;
+  },
+  get xxxl() {
+    return readSpCache().xxxl ?? SP_DEFAULTS.xxxl;
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Typography

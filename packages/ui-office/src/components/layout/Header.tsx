@@ -36,11 +36,17 @@ export function Header({
   needsConfig,
 }: HeaderProps) {
   return (
-    <header className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between px-4 rounded-xl border border-white/10 shadow-2xl">
-      <div className="flex items-center space-x-3">
+    <header
+      className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between rounded-xl border border-white/10 shadow-2xl"
+      style={{ paddingInline: 'var(--sp-lg)' }}
+    >
+      <div className="flex items-center" style={{ columnGap: 'var(--sp-lg)' }}>
         {/* 2D/3D View Toggle */}
         {viewMode && onViewModeChange && (
-          <div className="flex items-center bg-black/40 border border-white/10 rounded-lg p-0.5">
+          <div
+            className="flex items-center bg-black/40 border border-white/10 rounded-lg"
+            style={{ padding: 'var(--sp-xs)' }}
+          >
             <button
               type="button"
               onClick={() => onViewModeChange('3D')}
@@ -98,7 +104,7 @@ export function Header({
         {projectSlot}
       </div>
 
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center" style={{ columnGap: 'var(--sp-lg)' }}>
         <FileImportTrigger onFileSelect={onFileImport} />
         {notificationSlot}
         {onOpenEmployeeCreator && (
@@ -125,7 +131,13 @@ export function Header({
         )}
         <div className="h-6 w-px bg-white/10" />
         <div className="relative">
-          <Button variant="ghost" size="icon" onClick={onOpenSettings} title="Settings" className="hover:bg-white/5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenSettings}
+            title="Settings"
+            className="hover:bg-white/5"
+          >
             <Settings className="h-4 w-4 text-slate-400 hover:text-blue-400" />
           </Button>
           {needsConfig && (

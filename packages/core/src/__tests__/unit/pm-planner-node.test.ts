@@ -1,8 +1,13 @@
-import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { pmPlannerNode } from '../../agents/pm-planner-node.js';
+import {
+  PM_SYSTEM_PROMPT,
+  findEmployeeForRole,
+  parsePmPlan,
+  pmPlannerNode,
+} from '../../agents/pm-planner-node.js';
 import { InMemoryEventBus } from '../../events/event-bus.js';
 import type { OffisimGraphState } from '../../graph/state.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
@@ -226,5 +231,62 @@ describe('pmPlannerNode', () => {
     expect(result.taskPlan).toBeNull();
     expect(result.currentStepIndex).toBe(0);
     expect(result.stepResults).toEqual([]);
+  });
+
+  it('prefers employees whose installed skill matches the requested skill', () => {
+    const planner = makeEmployee({
+      employee_id: 'e-pm-1',
+      role_slug: 'developer',
+      config_json: JSON.stringify({
+        runtimeSkill: {
+          skillName: 'SOP Planner',
+          summary: 'Breaks work into SOP-backed plans',
+        },
+      }),
+    });
+    const generic = makeEmployee({
+      employee_id: 'e-pm-2',
+      role_slug: 'developer',
+      config_json: JSON.stringify({
+        runtimeSkill: {
+          skillName: 'Generalist',
+          summary: 'Can help with many tasks',
+        },
+      }),
+    });
+
+    const match = findEmployeeForRole([generic, planner], 'developer', 'planner');
+
+    expect(match?.employee_id).toBe('e-pm-1');
+  });
+
+  it('parses requiredSkills from the PM plan schema', () => {
+    const plan = parsePmPlan(
+      JSON.stringify({
+        summary: 'Use the browser automation specialist',
+        steps: [
+          {
+            stepIndex: 0,
+            description: 'Verify browser flow',
+            tasks: [
+              {
+                taskType: 'code',
+                employeeId: 'e-dev-1',
+                description: 'Run the browser verification flow',
+                dependsOnStepOutput: false,
+                requiredSkills: ['playwright', 'browser automation'],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(plan?.steps[0]?.tasks[0]?.requiredSkills).toEqual(['playwright', 'browser automation']);
+  });
+
+  it('PM prompt instructs the model to consider expertise and skills', () => {
+    expect(PM_SYSTEM_PROMPT).toContain('consider employee expertise and skills');
+    expect(PM_SYSTEM_PROMPT).toContain('requiredSkills');
   });
 });
