@@ -39,7 +39,7 @@ function formatMeetingActionItems(items: MeetingActionItem[]): string {
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
  *
- * This is the ONLY node that uses streaming (chatStream via recordedLlmStream).
+ * This is the primary summary node that uses streaming (chatStream via recordedLlmStream).
  * The tee pattern forwards chunks for UI real-time display while accumulating
  * the full content for graph state.
  */

@@ -170,4 +170,38 @@ describe('direct chat flow', () => {
     expect(directChatRuns[0]?.status).toBe('completed');
     expect(directChatRuns[0]?.employee_id).toBe('e-dev-1');
   });
+
+  it('streams employee output during direct chat before the final response lands', async () => {
+    const { graph, gateway, events, runtimeCtx, repos } = createTestRuntime();
+
+    gateway.pushStreamResponse({
+      content: 'Streaming direct employee answer.',
+      usage: { inputTokens: 18, outputTokens: 6 },
+    });
+
+    const result = await graph.invoke(
+      {
+        threadId: TEST_THREAD_ID,
+        companyId: runtimeCtx.companyId,
+        entryMode: 'direct_chat',
+        targetEmployeeId: 'e-dev-1',
+        messages: [new HumanMessage('Answer directly, but stream it')],
+      },
+      { configurable: { thread_id: TEST_THREAD_ID, runtimeCtx } },
+    );
+
+    expect(result.completed).toBe(true);
+
+    const employeeChunks = events.filter(
+      (e) => e.type === 'llm.stream.chunk' && e.payload.nodeName === 'employee',
+    );
+    expect(employeeChunks.length).toBeGreaterThan(0);
+
+    const employeeCalls = (await repos.llmCalls.findByThread(TEST_THREAD_ID)).filter(
+      (call) => call.node_name === 'employee',
+    );
+    expect(employeeCalls).toHaveLength(1);
+    expect(employeeCalls[0]?.input_tokens).toBe(18);
+    expect(employeeCalls[0]?.output_tokens).toBe(6);
+  });
 });

@@ -2,6 +2,7 @@ import type {
   GraphNodeEnteredPayload,
   LlmStreamChunkPayload,
   RuntimeEvent,
+  ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
@@ -30,10 +31,8 @@ export function useStreamingContent(): {
     }
   }, [isRunning]);
 
-  // Reset accumulator on each new node entry so only the last streaming
-  // node's content is shown (typically boss-summary). Without this,
-  // intermediate node outputs (boss, manager, employee) would get mixed in.
-  // Also track which node is currently streaming.
+  // Reset accumulator on each new node entry so only the current streaming
+  // node's content is shown. Also track which node is currently streaming.
   useEffect(() => {
     const unsub = eventBus.on(
       'graph.node.entered',
@@ -54,6 +53,19 @@ export function useStreamingContent(): {
         setContent(accRef.current);
       }
     });
+    return unsub;
+  }, [eventBus]);
+
+  useEffect(() => {
+    const unsub = eventBus.on(
+      'tool.execution.telemetry',
+      (event: RuntimeEvent<ToolExecutionTelemetryPayload>) => {
+        const payload = event.payload;
+        if (payload.status !== 'started' || payload.nodeName !== 'employee') return;
+        accRef.current = '';
+        setContent('');
+      },
+    );
     return unsub;
   }, [eventBus]);
 

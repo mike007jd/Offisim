@@ -9,13 +9,14 @@ import {
   employeeStateChanged,
   graphNodeEntered,
   handoffInitiated,
+  llmStreamChunk,
   taskAssignmentChanged,
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmMessage, ToolDef } from '../llm/gateway.js';
-import { recordedLlmCall } from '../llm/recorded-call.js';
+import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
+import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
@@ -199,6 +200,7 @@ export async function employeeNode(
   runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'));
 
   const { modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
+  const streamEmployeeReplies = state.entryMode === 'direct_chat';
 
   // Pop the first pending assignment
   const remaining = [...state.pendingAssignments];
@@ -390,22 +392,61 @@ export async function employeeNode(
   const allowedMcpToolNames = new Set(mcpTools.map((t) => t.name));
   const allTools = [...virtualTools, ...mcpTools];
 
+  const runEmployeeTurn = async (
+    messages: LlmMessage[],
+    meta: { taskRunId?: string },
+  ): Promise<LlmResponse> => {
+    const request = {
+      messages,
+      model: resolved.model,
+      temperature: resolved.temperature,
+      maxTokens: resolved.maxTokens,
+      tools: allTools.length > 0 ? allTools : undefined,
+      signal: getConfigSignal(config),
+    };
+
+    if (!streamEmployeeReplies) {
+      return recordedLlmCall(runtimeCtx, request, {
+        nodeName: 'employee',
+        provider: resolved.provider,
+        model: resolved.model,
+        taskRunId: meta.taskRunId,
+      });
+    }
+
+    const streamResult = await recordedLlmStream(
+      runtimeCtx,
+      request,
+      {
+        nodeName: 'employee',
+        provider: resolved.provider,
+        model: resolved.model,
+        taskRunId: meta.taskRunId,
+      },
+      (chunk) => {
+        if (chunk.content) {
+          runtimeCtx.eventBus.emit(
+            llmStreamChunk(runtimeCtx.companyId, state.threadId, 'employee', chunk.content),
+          );
+        }
+      },
+    );
+
+    return {
+      content: streamResult.fullContent,
+      toolCalls: streamResult.toolCalls,
+      usage: streamResult.usage,
+    };
+  };
+
   try {
     // Initial LLM call
-    let llmResponse = await recordedLlmCall(
-      runtimeCtx,
-      {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: taskDescription },
-        ],
-        model: resolved.model,
-        temperature: resolved.temperature,
-        maxTokens: resolved.maxTokens,
-        tools: allTools.length > 0 ? allTools : undefined,
-        signal: getConfigSignal(config),
-      },
-      { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
+    let llmResponse = await runEmployeeTurn(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: taskDescription },
+      ],
+      { taskRunId },
     );
 
     // Accumulate conversation history across tool-call rounds so later rounds
@@ -640,18 +681,7 @@ export async function employeeNode(
           : conversationHistory;
 
       // Follow-up LLM call with (potentially trimmed) accumulated history
-      llmResponse = await recordedLlmCall(
-        runtimeCtx,
-        {
-          messages: trimmedHistory,
-          model: resolved.model,
-          temperature: resolved.temperature,
-          maxTokens: resolved.maxTokens,
-          tools: allTools.length > 0 ? allTools : undefined,
-          signal: getConfigSignal(config),
-        },
-        { nodeName: 'employee', provider: resolved.provider, model: resolved.model, taskRunId },
-      );
+      llmResponse = await runEmployeeTurn(trimmedHistory, { taskRunId });
     }
 
     if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
