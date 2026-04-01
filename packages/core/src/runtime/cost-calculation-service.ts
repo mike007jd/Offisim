@@ -1,4 +1,9 @@
-import { matchCostRate } from '../utils/glob-match.js';
+import {
+  ModelCostRatePricingSource,
+  type PricingConfidence,
+  PricingSourceRegistry,
+  StaticPricingSource,
+} from './pricing-source-registry.js';
 import type {
   LlmCallRepository,
   LlmCallRow,
@@ -16,6 +21,9 @@ export interface CostAggregate {
   outputTokens: number;
   totalCost: number;
   callCount: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  pricingConfidence: PricingConfidence;
 }
 
 /**
@@ -27,9 +35,22 @@ export interface DashboardSummary {
   todayCost: number;
   totalCalls: number;
   todayCalls: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  costConfidence: PricingConfidence;
   byModel: CostAggregate[];
   byEmployee: CostAggregate[];
 }
+
+type MutableAggregate = {
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  callCount: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  pricingConfidence: PricingConfidence;
+};
 
 /**
  * Service for computing LLM usage costs.
@@ -39,11 +60,17 @@ export interface DashboardSummary {
  * to resolve company → thread → call relationships.
  */
 export class CostCalculationService {
+  private readonly pricing: PricingSourceRegistry;
+
   constructor(
     private costRateRepo: ModelCostRateRepository,
     private llmCallRepo: LlmCallRepository,
     private threadRepo: ThreadRepository,
-  ) {}
+  ) {
+    this.pricing = new PricingSourceRegistry([
+      new ModelCostRatePricingSource(this.costRateRepo, 'configured_rates', 'exact'),
+    ]);
+  }
 
   /**
    * Find the best matching cost rate for a provider + model.
@@ -65,20 +92,15 @@ export class CostCalculationService {
     outputCost: number;
     totalCost: number;
     rateFound: boolean;
+    source: string;
+    confidence: PricingConfidence;
   }> {
-    const rate = await this.findRate(call.provider, call.model);
-    if (!rate) {
-      return { inputCost: 0, outputCost: 0, totalCost: 0, rateFound: false };
-    }
-
-    const inputCost = (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok;
-    const outputCost = (call.output_tokens / 1_000_000) * rate.output_cost_per_mtok;
-    return {
-      inputCost,
-      outputCost,
-      totalCost: inputCost + outputCost,
-      rateFound: true,
-    };
+    return this.pricing.estimateUsage({
+      provider: call.provider,
+      model: call.model,
+      inputTokens: call.input_tokens,
+      outputTokens: call.output_tokens,
+    });
   }
 
   /**
@@ -94,15 +116,12 @@ export class CostCalculationService {
       groupBy?: 'model' | 'employee' | 'day';
     } = {},
   ): Promise<CostAggregate[]> {
-    // 1. Fetch all threads for the company
     const threads = await this.threadRepo.findByCompany(companyId);
     if (threads.length === 0) return [];
 
-    // 2. Batch-fetch all LLM calls across those threads (single query)
     const threadIds = threads.map((t) => t.thread_id);
     const allCalls = await this.llmCallRepo.findByThreadIds(threadIds);
 
-    // 3. Apply time filters
     let filtered = allCalls;
     const { from, to } = opts;
     if (from) {
@@ -114,47 +133,37 @@ export class CostCalculationService {
 
     if (filtered.length === 0) return [];
 
-    // 4. Pre-fetch all cost rates once to avoid N+1 queries
-    const allRates = await this.costRateRepo.findAll();
-
-    // 5. Group
+    const pricing = await this.createConfiguredRatesRegistry();
     const groupBy = opts.groupBy ?? 'model';
-    const groups = new Map<
-      string,
-      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
-    >();
+    const groups = new Map<string, MutableAggregate>();
 
     for (const call of filtered) {
       const key = this.resolveGroupKey(call, groupBy);
-      const existing = groups.get(key) ?? {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        callCount: 0,
-      };
-
-      const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
-      const totalCost = rate
-        ? (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok +
-          (call.output_tokens / 1_000_000) * rate.output_cost_per_mtok
-        : 0;
+      const existing = groups.get(key) ?? createEmptyAggregate();
+      const estimate = await pricing.estimateUsage({
+        provider: call.provider,
+        model: call.model,
+        inputTokens: call.input_tokens,
+        outputTokens: call.output_tokens,
+      });
 
       existing.inputTokens += call.input_tokens;
       existing.outputTokens += call.output_tokens;
-      existing.totalCost += totalCost;
+      existing.totalCost += estimate.totalCost;
       existing.callCount += 1;
+      if (estimate.rateFound) {
+        existing.pricedCallCount += 1;
+      } else {
+        existing.unpricedCallCount += 1;
+      }
+      existing.pricingConfidence = mergeConfidence(existing.pricingConfidence, estimate.confidence);
 
       groups.set(key, existing);
     }
 
-    // 6. Convert to array, sorted by totalCost descending
-    const result: CostAggregate[] = [];
-    for (const [groupKey, data] of groups) {
-      result.push({ groupKey, ...data });
-    }
-    result.sort((a, b) => b.totalCost - a.totalCost);
-
-    return result;
+    return [...groups.entries()]
+      .map(([groupKey, data]) => ({ groupKey, ...data }))
+      .sort((a, b) => b.totalCost - a.totalCost);
   }
 
   /**
@@ -166,123 +175,79 @@ export class CostCalculationService {
   async getDashboardSummary(companyId: string): Promise<DashboardSummary> {
     const threads = await this.threadRepo.findByCompany(companyId);
     if (threads.length === 0) {
-      return {
-        totalCost: 0,
-        todayCost: 0,
-        totalCalls: 0,
-        todayCalls: 0,
-        byModel: [],
-        byEmployee: [],
-      };
+      return emptyDashboardSummary();
     }
 
     const threadIds = threads.map((t) => t.thread_id);
     const allCalls = await this.llmCallRepo.findByThreadIds(threadIds);
     if (allCalls.length === 0) {
-      return {
-        totalCost: 0,
-        todayCost: 0,
-        totalCalls: 0,
-        todayCalls: 0,
-        byModel: [],
-        byEmployee: [],
-      };
+      return emptyDashboardSummary();
     }
 
-    const allRates = await this.costRateRepo.findAll();
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const pricing = await this.createConfiguredRatesRegistry();
+    const today = new Date().toISOString().slice(0, 10);
     const todayPrefix = `${today}T`;
 
     let totalCost = 0;
     let todayCost = 0;
     let totalCalls = 0;
     let todayCalls = 0;
-    const modelGroups = new Map<
-      string,
-      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
-    >();
-    const employeeGroups = new Map<
-      string,
-      { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
-    >();
+    let pricedCallCount = 0;
+    let unpricedCallCount = 0;
+    let costConfidence: PricingConfidence = 'exact';
+    const modelGroups = new Map<string, MutableAggregate>();
+    const employeeGroups = new Map<string, MutableAggregate>();
 
     for (const call of allCalls) {
-      const rate = CostCalculationService.matchRate(allRates, call.provider, call.model);
-      const cost = rate
-        ? (call.input_tokens / 1_000_000) * rate.input_cost_per_mtok +
-          (call.output_tokens / 1_000_000) * rate.output_cost_per_mtok
-        : 0;
+      const estimate = await pricing.estimateUsage({
+        provider: call.provider,
+        model: call.model,
+        inputTokens: call.input_tokens,
+        outputTokens: call.output_tokens,
+      });
 
-      totalCost += cost;
+      totalCost += estimate.totalCost;
       totalCalls += 1;
+      if (estimate.rateFound) {
+        pricedCallCount += 1;
+      } else {
+        unpricedCallCount += 1;
+      }
+      costConfidence = mergeConfidence(costConfidence, estimate.confidence);
 
       if (call.created_at >= todayPrefix) {
-        todayCost += cost;
+        todayCost += estimate.totalCost;
         todayCalls += 1;
       }
 
-      // By model
       const modelKey = `${call.provider}/${call.model}`;
-      const mg = modelGroups.get(modelKey) ?? {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        callCount: 0,
-      };
-      mg.inputTokens += call.input_tokens;
-      mg.outputTokens += call.output_tokens;
-      mg.totalCost += cost;
-      mg.callCount += 1;
-      modelGroups.set(modelKey, mg);
+      const modelAggregate = modelGroups.get(modelKey) ?? createEmptyAggregate();
+      applyEstimateToAggregate(modelAggregate, call, estimate);
+      modelGroups.set(modelKey, modelAggregate);
 
-      // By employee (node_name)
-      const eg = employeeGroups.get(call.node_name) ?? {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        callCount: 0,
-      };
-      eg.inputTokens += call.input_tokens;
-      eg.outputTokens += call.output_tokens;
-      eg.totalCost += cost;
-      eg.callCount += 1;
-      employeeGroups.set(call.node_name, eg);
+      const employeeAggregate = employeeGroups.get(call.node_name) ?? createEmptyAggregate();
+      applyEstimateToAggregate(employeeAggregate, call, estimate);
+      employeeGroups.set(call.node_name, employeeAggregate);
     }
-
-    const toAggArray = (
-      groups: Map<
-        string,
-        { inputTokens: number; outputTokens: number; totalCost: number; callCount: number }
-      >,
-    ): CostAggregate[] => {
-      const arr: CostAggregate[] = [];
-      for (const [groupKey, data] of groups) {
-        arr.push({ groupKey, ...data });
-      }
-      arr.sort((a, b) => b.totalCost - a.totalCost);
-      return arr;
-    };
 
     return {
       totalCost,
       todayCost,
       totalCalls,
       todayCalls,
-      byModel: toAggArray(modelGroups),
-      byEmployee: toAggArray(employeeGroups),
+      pricedCallCount,
+      unpricedCallCount,
+      costConfidence,
+      byModel: toAggregateArray(modelGroups),
+      byEmployee: toAggregateArray(employeeGroups),
     };
   }
 
-  /**
-   * Match a cost rate from a pre-fetched array using glob pattern matching.
-   * Static so it can be tested independently of repository wiring.
-   */
-  static matchRate(
-    rates: readonly ModelCostRateRow[],
-    provider: string,
-    model: string,
-  ): ModelCostRateRow | null {
-    return matchCostRate(rates, provider, model);
+  private async createConfiguredRatesRegistry(): Promise<PricingSourceRegistry> {
+    const allRates = await this.costRateRepo.findAll();
+    return new PricingSourceRegistry([
+      new StaticPricingSource(allRates, 'configured_rates', 'exact'),
+    ]);
   }
 
   private resolveGroupKey(call: LlmCallRow, groupBy: 'model' | 'employee' | 'day'): string {
@@ -292,9 +257,73 @@ export class CostCalculationService {
       case 'employee':
         return call.node_name;
       case 'day':
-        return call.created_at.slice(0, 10); // YYYY-MM-DD
+        return call.created_at.slice(0, 10);
       default:
         return 'unknown';
     }
   }
+}
+
+function createEmptyAggregate(): MutableAggregate {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    totalCost: 0,
+    callCount: 0,
+    pricedCallCount: 0,
+    unpricedCallCount: 0,
+    pricingConfidence: 'exact',
+  };
+}
+
+function applyEstimateToAggregate(
+  aggregate: MutableAggregate,
+  call: LlmCallRow,
+  estimate: {
+    totalCost: number;
+    rateFound: boolean;
+    confidence: PricingConfidence;
+  },
+): void {
+  aggregate.inputTokens += call.input_tokens;
+  aggregate.outputTokens += call.output_tokens;
+  aggregate.totalCost += estimate.totalCost;
+  aggregate.callCount += 1;
+  if (estimate.rateFound) {
+    aggregate.pricedCallCount += 1;
+  } else {
+    aggregate.unpricedCallCount += 1;
+  }
+  aggregate.pricingConfidence = mergeConfidence(aggregate.pricingConfidence, estimate.confidence);
+}
+
+function toAggregateArray(groups: Map<string, MutableAggregate>): CostAggregate[] {
+  return [...groups.entries()]
+    .map(([groupKey, data]) => ({ groupKey, ...data }))
+    .sort((a, b) => b.totalCost - a.totalCost);
+}
+
+function emptyDashboardSummary(): DashboardSummary {
+  return {
+    totalCost: 0,
+    todayCost: 0,
+    totalCalls: 0,
+    todayCalls: 0,
+    pricedCallCount: 0,
+    unpricedCallCount: 0,
+    costConfidence: 'unknown',
+    byModel: [],
+    byEmployee: [],
+  };
+}
+
+const CONFIDENCE_ORDER: Record<PricingConfidence, number> = {
+  exact: 0,
+  catalog: 1,
+  fallback: 2,
+  unknown: 3,
+};
+
+function mergeConfidence(current: PricingConfidence, next: PricingConfidence): PricingConfidence {
+  return CONFIDENCE_ORDER[next] > CONFIDENCE_ORDER[current] ? next : current;
 }

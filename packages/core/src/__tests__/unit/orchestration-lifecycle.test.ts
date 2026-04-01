@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { OffisimGraphState } from '../../graph/state.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { OrchestrationService } from '../../services/orchestration-service.js';
+import type { WorkspaceStalenessService } from '../../services/workspace-staleness-service.js';
 import { assertDefined } from '../helpers/fixtures.js';
 
 // ---------------------------------------------------------------------------
@@ -201,5 +202,51 @@ describe('OrchestrationService lifecycle', () => {
       meetingInterrupt: { type: 'end' },
       threadId: 'thread-project-1',
     });
+  });
+
+  it('blocks background_sync execution when workspace stale check returns block', async () => {
+    const { graph } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-sync');
+    const staleService = {
+      checkThread: vi.fn().mockResolvedValue({
+        status: 'block',
+        reason: 'git_head_changed',
+      }),
+      saveThreadBaseline: vi.fn(),
+    } as unknown as WorkspaceStalenessService;
+    const orch = new OrchestrationService(graph, runtimeCtx, {
+      workspaceStalenessService: staleService,
+    });
+
+    await expect(
+      orch.execute({
+        entryMode: 'background_sync',
+        messages: [],
+        threadId: 'thread-sync',
+      }),
+    ).rejects.toThrow('workspace changed');
+  });
+
+  it('saves a workspace baseline after successful execution', async () => {
+    const { graph } = makeTrackedGraph(0);
+    const runtimeCtx = makeMinimalRuntimeCtx('thread-sync');
+    const staleService = {
+      checkThread: vi.fn().mockResolvedValue({
+        status: 'clean',
+        reason: 'baseline_matches',
+      }),
+      saveThreadBaseline: vi.fn().mockResolvedValue(null),
+    } as unknown as WorkspaceStalenessService;
+    const orch = new OrchestrationService(graph, runtimeCtx, {
+      workspaceStalenessService: staleService,
+    });
+
+    await orch.execute({
+      entryMode: 'background_sync',
+      messages: [],
+      threadId: 'thread-sync',
+    });
+
+    expect(staleService.saveThreadBaseline).toHaveBeenCalledWith('thread-sync', 'company-test');
   });
 });

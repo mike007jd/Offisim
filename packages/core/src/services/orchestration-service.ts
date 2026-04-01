@@ -2,6 +2,8 @@ import type { BaseMessage } from '@langchain/core/messages';
 import { graphNodeExited } from '../events/event-factories.js';
 import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { NodeSummaryService } from './node-summary-service.js';
+import type { WorkspaceStalenessService } from './workspace-staleness-service.js';
 
 /**
  * Thin orchestration wrapper around `graph.stream()`.
@@ -33,6 +35,8 @@ export class OrchestrationService {
    */
   private readonly currentAborts = new Map<string, AbortController>();
 
+  private readonly workspaceStalenessService: WorkspaceStalenessService | null;
+
   constructor(
     private graph: {
       stream: (
@@ -41,7 +45,12 @@ export class OrchestrationService {
       ) => Promise<AsyncIterable<Record<string, unknown>>>;
     },
     private runtimeCtx: RuntimeContext,
-  ) {}
+    options?: {
+      workspaceStalenessService?: WorkspaceStalenessService | null;
+    },
+  ) {
+    this.workspaceStalenessService = options?.workspaceStalenessService ?? null;
+  }
 
   /**
    * Abort the currently-running execution on the given thread.
@@ -166,6 +175,8 @@ export class OrchestrationService {
     signal: AbortSignal;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId;
+    await this.checkWorkspaceStaleness(input.entryMode, threadId);
+
     const fullInput = {
       threadId,
       companyId: this.runtimeCtx.companyId,
@@ -191,29 +202,69 @@ export class OrchestrationService {
       ...config,
       streamMode: 'updates' as const,
     });
+    const repos = this.runtimeCtx.repos;
+    const nodeSummaryRepo = repos?.nodeSummaries;
+    const llmCallRepo = repos?.llmCalls;
+    const mcpAuditRepo = repos?.mcpAudit;
+    const nodeSummaryService = nodeSummaryRepo ? new NodeSummaryService(nodeSummaryRepo) : null;
+    let llmCallCount = llmCallRepo ? (await llmCallRepo.findByThread(threadId)).length : 0;
+    let mcpAuditCount = mcpAuditRepo ? (await mcpAuditRepo.listByThread(threadId)).length : 0;
+    const nodeEnteredAt = new Map<string, number>();
+    const unsubscribeNodeEntered = this.runtimeCtx.eventBus.on('graph.node.entered', (event) => {
+      if (event.threadId !== threadId) return;
+      if (typeof event.payload?.nodeName === 'string') {
+        nodeEnteredAt.set(event.payload.nodeName, event.timestamp);
+      }
+    });
 
     try {
       for await (const update of stream) {
         if (input.signal.aborted) break;
         for (const [nodeName, nodeOutput] of Object.entries(update)) {
           lastNodeName = nodeName;
+          const previousState = finalState as Partial<OffisimGraphState>;
+          const delta = nodeOutput as Partial<OffisimGraphState>;
+          const nextState = delta.messages
+            ? {
+                ...previousState,
+                ...delta,
+                messages: [...(previousState.messages ?? []), ...delta.messages],
+              }
+            : { ...previousState, ...delta };
+          finalState = nextState;
+
+          const llmCalls = llmCallRepo ? await llmCallRepo.findByThread(threadId) : [];
+          const newLlmCalls = llmCalls.slice(llmCallCount);
+          llmCallCount = llmCalls.length;
+
+          const mcpAudits = mcpAuditRepo ? await mcpAuditRepo.listByThread(threadId) : [];
+          const newMcpAudits = mcpAudits.slice(mcpAuditCount);
+          mcpAuditCount = mcpAudits.length;
+
+          const enteredAt = nodeEnteredAt.get(nodeName) ?? Date.now();
+          const durationMs = Math.max(0, Date.now() - enteredAt);
+
+          if (nodeSummaryService) {
+            await nodeSummaryService.recordNodeSummary({
+              threadId,
+              companyId: this.runtimeCtx.companyId,
+              nodeName,
+              preState: previousState,
+              postState: nextState,
+              nodeOutput: delta,
+              llmCalls: newLlmCalls,
+              mcpAudits: newMcpAudits,
+              durationMs,
+            });
+          }
+
           this.runtimeCtx.eventBus.emit(
             graphNodeExited(this.runtimeCtx.companyId, threadId, nodeName),
           );
-          // Merge node output, accumulating messages to match graph.invoke() behavior
-          const delta = nodeOutput as Partial<OffisimGraphState>;
-          if (delta.messages) {
-            finalState = {
-              ...finalState,
-              ...delta,
-              messages: [...(finalState.messages ?? []), ...delta.messages],
-            };
-          } else {
-            finalState = { ...finalState, ...delta };
-          }
         }
       }
     } catch (error) {
+      unsubscribeNodeEntered();
       if (error instanceof DOMException && error.name === 'AbortError') {
         return finalState as OffisimGraphState;
       }
@@ -226,6 +277,47 @@ export class OrchestrationService {
       throw wrapped;
     }
 
+    unsubscribeNodeEntered();
+
+    await this.workspaceStalenessService?.saveThreadBaseline(threadId, this.runtimeCtx.companyId);
+
     return finalState as OffisimGraphState;
+  }
+
+  private async checkWorkspaceStaleness(
+    entryMode: OffisimGraphState['entryMode'],
+    threadId: string,
+  ): Promise<void> {
+    if (entryMode !== 'background_sync' || !this.workspaceStalenessService) return;
+
+    const result = await this.workspaceStalenessService.checkThread(
+      threadId,
+      this.runtimeCtx.companyId,
+    );
+    if (result.status === 'block') {
+      await this.recordWorkspaceStaleness(threadId, result, 'error');
+      throw new Error(
+        `Cannot resume thread "${threadId}" because the workspace changed (${result.reason}).`,
+      );
+    }
+    if (result.status === 'warn') {
+      await this.recordWorkspaceStaleness(threadId, result, 'warn');
+    }
+  }
+
+  private async recordWorkspaceStaleness(
+    threadId: string,
+    result: Awaited<ReturnType<WorkspaceStalenessService['checkThread']>>,
+    severity: 'warn' | 'error',
+  ): Promise<void> {
+    await this.runtimeCtx.repos?.events?.insert({
+      event_id: `evt-${threadId}-workspace-${Date.now()}`,
+      company_id: this.runtimeCtx.companyId,
+      thread_id: threadId,
+      event_type: 'workspace.staleness.detected',
+      severity,
+      payload_json: JSON.stringify(result),
+      created_at: new Date().toISOString(),
+    });
   }
 }

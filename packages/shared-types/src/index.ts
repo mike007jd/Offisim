@@ -72,6 +72,8 @@ export type {
   SlotAssignedPayload,
   SlotRemovedPayload,
   CostAggregatedPayload,
+  SessionCostBreakdown,
+  SessionCostUpdatedPayload,
   UiTaskFocusedPayload,
   SceneEmployeeSelectedPayload,
   HrAssessmentStartedPayload,
@@ -87,6 +89,7 @@ export type {
   PrefabStateChangedPayload,
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
+  ToolExecutionTelemetryPayload,
 } from './events.js';
 
 export type {

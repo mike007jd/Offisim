@@ -24,11 +24,16 @@ import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
+import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/node-context-middleware.js';
+import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
+import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
+import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
@@ -105,6 +110,8 @@ export type RuntimeBundle = {
   mcpToolExecutor: McpToolExecutor | null;
   repos: RuntimeRepositories;
   userMemoryService?: UserMemoryService;
+  sessionCostTracker?: SessionCostTracker;
+  toolTelemetryService?: ToolTelemetryService;
   dispose?: () => void;
 };
 
@@ -198,7 +205,16 @@ export async function createBrowserRuntime(
     systemCaller,
   );
   const middlewareChain = new LlmMiddlewareChain();
+  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+  middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries));
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
+  const toolTelemetryService = new ToolTelemetryService(eventBus);
+  const sessionCostTracker = await SessionCostTracker.create({
+    eventBus,
+    repos,
+    companyId,
+    threadId,
+  });
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -212,6 +228,8 @@ export async function createBrowserRuntime(
     memoryService,
     middlewareChain,
     systemCaller,
+    sessionCostTracker,
+    toolTelemetryService,
   });
 
   const installService = new InstallService({
@@ -239,7 +257,13 @@ export async function createBrowserRuntime(
     mcpToolExecutor,
     repos,
     userMemoryService,
-    dispose: persistence.dispose,
+    sessionCostTracker,
+    toolTelemetryService,
+    dispose: () => {
+      sessionCostTracker.dispose();
+      toolTelemetryService.dispose();
+      persistence.dispose();
+    },
   };
 }
 
@@ -265,6 +289,8 @@ export async function createBrowserRuntimeReposOnly(
     mcpToolExecutor: null,
     repos,
     userMemoryService: undefined,
+    sessionCostTracker: undefined,
+    toolTelemetryService: undefined,
     dispose: persistence.dispose,
   };
 }

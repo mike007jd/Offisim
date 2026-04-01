@@ -109,8 +109,10 @@ export class RecordedSystemLlmCaller {
           null,
           provider,
           request.model,
+          nodeName,
           response.usage.inputTokens,
           response.usage.outputTokens,
+          latencyMs,
         ),
       );
 

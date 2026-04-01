@@ -39,10 +39,16 @@ export type {
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
+  CompactSummaryRepository,
+  CompactSummaryRow,
   NewMcpAudit,
+  NewCompactSummary,
+  NewNodeSummary,
   MemoryEntryRow,
   MemoryEntryCreate,
   MemoryRepository,
+  NodeSummaryRepository,
+  NodeSummaryRow,
   EmployeeVersionRow,
   EmployeeVersionChangeType,
   NewEmployeeVersion,
@@ -118,7 +124,9 @@ export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export {
   createMemoryRepositories,
+  MemoryCompactSummaryRepository,
   MemoryMcpAuditRepository,
+  MemoryNodeSummaryRepository,
   MemoryEmployeeVersionRepository,
   MemoryModelCostRateRepository,
   MemorySopTemplateRepository,
@@ -163,9 +171,12 @@ export { LlmMiddlewareChain } from './middleware/chain.js';
 export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
 export { UserPreferenceMiddleware } from './middleware/builtin/user-preference-middleware.js';
 export { SummarizationMiddleware } from './middleware/builtin/summarization-middleware.js';
+export { NodeContextMiddleware } from './middleware/builtin/node-context-middleware.js';
 
 // --- User Memory ---
 export { UserMemoryService } from './services/user-memory-service.js';
+export { SessionCostTracker } from './runtime/session-cost-tracker.js';
+export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 
 // --- Utilities ---
@@ -184,9 +195,11 @@ export {
   llmCallStarted,
   llmCallCompleted,
   llmUsageRecorded,
+  costSessionUpdated,
   graphNodeEntered,
   graphNodeExited,
   llmStreamChunk,
+  toolExecutionTelemetry,
   installStateChanged,
   bindingStateChanged,
   planCreated,
@@ -238,6 +251,7 @@ export { RackSlotService } from './services/rack-slot-service.js';
 export type { RackWithSlots } from './services/rack-slot-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export type { WorkstationToolResolverDeps } from './services/workstation-tool-resolver.js';
+export { NodeSummaryService } from './services/node-summary-service.js';
 export { LibraryService } from './services/library-service.js';
 export type { CitationEntry } from './services/library-service.js';
 export { NotificationBridge } from './services/notification-bridge.js';

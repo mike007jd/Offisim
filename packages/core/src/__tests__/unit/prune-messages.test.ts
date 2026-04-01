@@ -109,4 +109,59 @@ describe('pruneLlmMessages', () => {
     expect(result.filter((message) => message.role !== 'system')).toHaveLength(4);
     expect(result[1]?.content).toContain('Conversation synopsis');
   });
+
+  it('micro-compacts old oversized tool messages while preserving recent tool results', () => {
+    const oldTool: LlmMessage = {
+      role: 'tool',
+      content: 'A'.repeat(120),
+      toolCallId: 'tool-old',
+    };
+    const recentTool: LlmMessage = {
+      role: 'tool',
+      content: 'B'.repeat(120),
+      toolCallId: 'tool-recent',
+    };
+    const newestTool: LlmMessage = {
+      role: 'tool',
+      content: 'short',
+      toolCallId: 'tool-newest',
+    };
+    const messages: readonly LlmMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'assistant', content: 'calling tools' },
+      oldTool,
+      { role: 'user', content: 'continue' },
+      recentTool,
+      newestTool,
+    ];
+
+    const result = pruneLlmMessages(messages, {
+      maxNonSystemMessages: 10,
+      toolResultKeepRecent: 2,
+      toolResultMaxContentChars: 32,
+    });
+
+    const compactedOldTool = result[2];
+    expect(compactedOldTool?.role).toBe('tool');
+    expect(compactedOldTool?.content).toContain('[tool result compacted');
+    expect(compactedOldTool?.toolCallId).toBe('tool-old');
+    expect(result[4]).toBe(recentTool);
+    expect(result[5]).toBe(newestTool);
+  });
+
+  it('keeps the same reference when tool micro-compaction is not needed', () => {
+    const messages: readonly LlmMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'tool', content: 'small', toolCallId: 'tool-1' },
+      { role: 'user', content: 'continue' },
+    ];
+
+    const result = pruneLlmMessages(messages, {
+      maxNonSystemMessages: 10,
+      toolResultKeepRecent: 2,
+      toolResultMaxContentChars: 32,
+    });
+
+    expect(result).toBe(messages);
+  });
 });

@@ -200,4 +200,22 @@ describe('OrchestrationService streaming', () => {
       expect(event.threadId).toBe(runtimeCtx.threadId);
     }
   });
+
+  it('T6: persists node summaries as nodes complete', async () => {
+    const { orchestrationService, gateway, repos } = createTestRuntime();
+
+    gateway.pushResponse({
+      content: JSON.stringify({ action: 'direct_reply', reason: 'greeting', reply: 'Hello!' }),
+    });
+
+    await orchestrationService.execute({
+      entryMode: 'boss_chat',
+      messages: [new HumanMessage('Hello!')],
+    });
+
+    const summaries = await repos.nodeSummaries.listByThread(TEST_THREAD_ID);
+    expect(summaries.map((summary) => summary.node_name)).toEqual(
+      expect.arrayContaining(['boss', 'boss_summary']),
+    );
+  });
 });

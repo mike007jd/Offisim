@@ -41,10 +41,14 @@ describe('LLM event factories', () => {
       'tr-1',
       'anthropic',
       'claude-sonnet-4-20250514',
+      'employee',
       100,
       50,
+      900,
     );
     expect(event.type).toBe('llm.usage.recorded');
     expect(event.payload.taskRunId).toBe('tr-1');
+    expect(event.payload.nodeName).toBe('employee');
+    expect(event.payload.latencyMs).toBe(900);
   });
 });

@@ -586,7 +586,9 @@ export async function employeeNode(
             toolCallId: toolCall.id,
             name: toolCall.name,
             arguments: toolCall.arguments,
+            nodeName: 'employee',
             employeeId: employee.employee_id,
+            taskRunId: taskRunId ?? undefined,
           });
           return { callId: toolCall.id, name: toolCall.name, result };
         }),

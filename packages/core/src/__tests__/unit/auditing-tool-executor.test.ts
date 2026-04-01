@@ -28,6 +28,8 @@ function createMockAuditRepo(): McpAuditRepository & { rows: NewMcpAudit[] } {
       return audit as McpAuditRow;
     }),
     listByThread: vi.fn(async () => []),
+    countByThread: vi.fn(async () => 0),
+    deleteByThread: vi.fn(async () => {}),
   };
 }
 
@@ -36,6 +38,7 @@ const CALL: ToolCallRequest = {
   name: 'read_file',
   arguments: { path: '/tmp/test.txt' },
   employeeId: 'emp-1',
+  taskRunId: 'tr-1',
 };
 
 describe('AuditingToolExecutor', () => {
@@ -63,6 +66,7 @@ describe('AuditingToolExecutor', () => {
     const audit = assertDefined(auditRepo.rows[0]);
     expect(audit.tool_name).toBe('read_file');
     expect(audit.employee_id).toBe('emp-1');
+    expect(audit.task_run_id).toBe('tr-1');
     expect(audit.error).toBeNull();
     expect(audit.approved_by).toBe('auto');
   });

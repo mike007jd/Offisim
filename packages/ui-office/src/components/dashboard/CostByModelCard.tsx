@@ -19,6 +19,21 @@ function formatCost(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+function formatPricingNote(agg: CostAggregate): string | null {
+  const notes: string[] = [];
+  if (agg.unpricedCallCount > 0) {
+    notes.push(`${agg.unpricedCallCount} unpriced`);
+  }
+  if (agg.pricingConfidence === 'unknown') {
+    notes.push('unknown pricing');
+  } else if (agg.pricingConfidence === 'catalog') {
+    notes.push('catalog estimate');
+  } else if (agg.pricingConfidence === 'fallback') {
+    notes.push('fallback estimate');
+  }
+  return notes.length > 0 ? notes.join(' • ') : null;
+}
+
 interface CostByModelCardProps {
   byModel: CostAggregate[];
   loading: boolean;
@@ -43,6 +58,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
           <div className="flex flex-col gap-2">
             {byModel.map((agg) => {
               const widthPct = maxCost > 0 ? Math.max((agg.totalCost / maxCost) * 100, 2) : 0;
+              const pricingNote = formatPricingNote(agg);
               return (
                 <div key={agg.groupKey} className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between text-[10px]">
@@ -59,6 +75,9 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
                       style={{ width: `${widthPct}%` }}
                     />
                   </div>
+                  {pricingNote ? (
+                    <div className="text-[10px] font-pixel-mono text-shell/55">{pricingNote}</div>
+                  ) : null}
                 </div>
               );
             })}

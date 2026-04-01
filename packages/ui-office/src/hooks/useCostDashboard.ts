@@ -10,6 +10,9 @@ export interface CostSummary {
   todayCost: number;
   totalCalls: number;
   todayCalls: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  costConfidence: 'exact' | 'catalog' | 'fallback' | 'unknown';
 }
 
 const INITIAL_SUMMARY: CostSummary = {
@@ -17,6 +20,9 @@ const INITIAL_SUMMARY: CostSummary = {
   todayCost: 0,
   totalCalls: 0,
   todayCalls: 0,
+  pricedCallCount: 0,
+  unpricedCallCount: 0,
+  costConfidence: 'unknown',
 };
 
 /**
@@ -49,6 +55,9 @@ export function useCostDashboard() {
         todayCost: dashboard.todayCost,
         totalCalls: dashboard.totalCalls,
         todayCalls: dashboard.todayCalls,
+        pricedCallCount: dashboard.pricedCallCount,
+        unpricedCallCount: dashboard.unpricedCallCount,
+        costConfidence: dashboard.costConfidence,
       });
       setByModel(dashboard.byModel);
     } catch (err) {

@@ -53,6 +53,8 @@ export {
   llmCallCompleted,
   llmUsageRecorded,
   llmStreamChunk,
+  costSessionUpdated,
+  toolExecutionTelemetry,
 } from './llm-events.js';
 
 export {

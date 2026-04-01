@@ -7,8 +7,10 @@ import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { MemoryService } from '../services/memory-service.js';
+import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
 import type { RuntimeRepositories } from './repositories.js';
+import type { SessionCostTracker } from './session-cost-tracker.js';
 import type { ToolExecutor } from './tool-executor.js';
 
 /**
@@ -40,6 +42,10 @@ export interface RuntimeContext {
   readonly modelRegistry?: ModelRegistry;
   /** Recorded caller for system services — provides audit trail for background LLM calls. */
   readonly systemCaller?: RecordedSystemLlmCaller;
+  /** Live per-thread LLM cost accumulator. */
+  readonly sessionCostTracker?: SessionCostTracker;
+  /** Live tool execution telemetry buffer. */
+  readonly toolTelemetryService?: ToolTelemetryService;
 }
 
 export interface DisposableRuntime {
@@ -77,6 +83,8 @@ export function createRuntimeContext(deps: {
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: ModelRegistry;
   systemCaller?: RecordedSystemLlmCaller;
+  sessionCostTracker?: SessionCostTracker;
+  toolTelemetryService?: ToolTelemetryService;
 }): RuntimeContext {
   const { meetingInterruptBox, ...rest } = deps;
   return Object.freeze({

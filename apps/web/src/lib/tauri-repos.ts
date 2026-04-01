@@ -5,6 +5,8 @@
 import type {
   AssetBindingRepository,
   CheckpointRepository,
+  CompactSummaryRepository,
+  CompactSummaryRow,
   CompanyRepository,
   CompanyRow,
   EmployeeRepository,
@@ -26,6 +28,7 @@ import type {
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
+  NewCompactSummary,
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
@@ -33,6 +36,7 @@ import type {
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
+  NewNodeSummary,
   NewOfficeLayout,
   NewRack,
   NewRuntimeEvent,
@@ -40,6 +44,8 @@ import type {
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  NodeSummaryRepository,
+  NodeSummaryRow,
   OfficeLayoutRow,
   ProjectRepository,
   RackRow,
@@ -85,7 +91,7 @@ import type {
   ProjectStatus,
 } from '@offisim/shared-types';
 import type { BindingStatus, InstallState } from '@offisim/shared-types';
-import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, notInArray, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 
 function now(): string {
@@ -795,6 +801,79 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
+  const nodeSummaries: NodeSummaryRepository = {
+    async create(summary: NewNodeSummary) {
+      await db.insert(schema.nodeSummaries).values(summary);
+      return summary as NodeSummaryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId))
+        .orderBy(desc(schema.nodeSummaries.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as NodeSummaryRow[];
+    },
+    async countByThread(threadId) {
+      const rows = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId));
+      return Number(rows[0]?.count ?? 0);
+    },
+    async deleteByThread(threadId) {
+      await db.delete(schema.nodeSummaries).where(eq(schema.nodeSummaries.thread_id, threadId));
+    },
+    async trimByThread(threadId, keepLatest) {
+      if (keepLatest < 0) return;
+      const keepRows = await db
+        .select({ summary_id: schema.nodeSummaries.summary_id })
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId))
+        .orderBy(desc(schema.nodeSummaries.created_at))
+        .limit(keepLatest);
+      const keepIds = keepRows.map((row) => row.summary_id);
+      if (keepIds.length === 0) {
+        await db.delete(schema.nodeSummaries).where(eq(schema.nodeSummaries.thread_id, threadId));
+        return;
+      }
+      await db
+        .delete(schema.nodeSummaries)
+        .where(
+          and(
+            eq(schema.nodeSummaries.thread_id, threadId),
+            notInArray(schema.nodeSummaries.summary_id, keepIds),
+          ),
+        );
+    },
+  };
+
+  const compactSummaries: CompactSummaryRepository = {
+    async create(summary: NewCompactSummary) {
+      await db.insert(schema.compactSummaries).values(summary);
+      return summary as CompactSummaryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.compactSummaries)
+        .where(eq(schema.compactSummaries.thread_id, threadId))
+        .orderBy(desc(schema.compactSummaries.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as CompactSummaryRow[];
+    },
+    async deleteByThread(threadId) {
+      await db
+        .delete(schema.compactSummaries)
+        .where(eq(schema.compactSummaries.thread_id, threadId));
+    },
+  };
+
   // --- SOP templates (Drizzle-backed, migration 011) ---
 
   const sopTemplates: RuntimeRepositories['sopTemplates'] = {
@@ -1425,6 +1504,8 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     assetBindings,
     memories,
     mcpAudit,
+    nodeSummaries,
+    compactSummaries,
     employeeVersions,
     costRates,
     sopTemplates,

@@ -1,7 +1,8 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import type { LlmRequest, LlmResponse } from '../llm/gateway.js';
-import { pruneLlmMessages } from '../llm/prune-messages.js';
+import { compactToolResultMessages, pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 
 export interface ThreadSynopsisRecord {
   version: number;
@@ -16,6 +17,10 @@ export interface ConversationBudgetServiceOptions {
   tailNonSystemMessages?: number;
   synopsisTriggerMessages?: number;
   synopsisRefreshMinMessages?: number;
+  toolResultKeepRecent?: number;
+  toolResultMaxContentChars?: number;
+  synopsisFailureThreshold?: number;
+  postCompactKeepNodeSummaries?: number;
 }
 
 interface ResolvedConversationBudgetOptions {
@@ -25,41 +30,62 @@ interface ResolvedConversationBudgetOptions {
   synopsisTriggerMessages: number;
   synopsisRefreshMinMessages: number;
   synopsisTriggerTokens: number;
+  toolResultKeepRecent: number;
+  toolResultMaxContentChars: number;
+  synopsisFailureThreshold: number;
+  postCompactKeepNodeSummaries: number;
 }
 
 const DEFAULT_TAIL_NON_SYSTEM_MESSAGES = 50;
 const DEFAULT_SYNOPSIS_TRIGGER_MESSAGES = 80;
 const DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES = 6;
+const DEFAULT_TOOL_RESULT_KEEP_RECENT = 4;
+const DEFAULT_TOOL_RESULT_MAX_CONTENT_CHARS = 400;
+const DEFAULT_SYNOPSIS_FAILURE_THRESHOLD = 3;
+const DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES = 12;
 
 const SYNOPSIS_SYSTEM_PROMPT = `You condense long agent conversations for future continuation.
 Write a concise summary that preserves decisions, constraints, open questions, and important user preferences.
 Do not add speculation. Output plain text only.`;
 
 export class ConversationBudgetService {
+  private readonly synopsisFailureStreaks = new Map<string, number>();
+
   constructor(private readonly defaults: ConversationBudgetServiceOptions = {}) {}
 
   async prepareRequest(ctx: RuntimeContext, request: LlmRequest): Promise<LlmRequest> {
     const options = this.resolveOptions(ctx);
-    const systemMessages = request.messages.filter((message) => message.role === 'system');
-    const nonSystemMessages = request.messages.filter((message) => message.role !== 'system');
+    const compactedMessages = compactToolResultMessages(request.messages, options);
+    const nonSystemMessages = compactedMessages.filter((message) => message.role !== 'system');
+    const summaryCount = await ctx.repos.nodeSummaries.countByThread(ctx.threadId);
+    const effectiveTailNonSystemMessages =
+      summaryCount > 3
+        ? Math.max(options.tailNonSystemMessages - 10, 20)
+        : options.tailNonSystemMessages;
+    const effectiveMaxNonSystemMessages = Math.min(
+      options.maxNonSystemMessages,
+      effectiveTailNonSystemMessages,
+    );
 
     if (!options.enabled) {
       return {
         ...request,
-        messages: pruneLlmMessages([...systemMessages, ...nonSystemMessages], {
-          maxNonSystemMessages: options.tailNonSystemMessages,
+        messages: pruneLlmMessages(compactedMessages, {
+          maxNonSystemMessages: effectiveTailNonSystemMessages,
         }),
       };
     }
 
-    if (nonSystemMessages.length <= options.maxNonSystemMessages) {
-      return request;
+    if (nonSystemMessages.length <= effectiveMaxNonSystemMessages) {
+      return compactedMessages === request.messages
+        ? request
+        : { ...request, messages: compactedMessages };
     }
 
     const thread = await ctx.repos.threads.findById(ctx.threadId);
     const existingSynopsis = this.parseSynopsis(thread?.synopsis_json ?? null);
     const approximateTokens = this.estimateTokens(nonSystemMessages);
-    const overflowCount = Math.max(0, nonSystemMessages.length - options.tailNonSystemMessages);
+    const overflowCount = Math.max(0, nonSystemMessages.length - effectiveTailNonSystemMessages);
     const newOverflowSinceSynopsis = existingSynopsis
       ? Math.max(0, overflowCount - existingSynopsis.prunedMessageCount)
       : overflowCount;
@@ -81,8 +107,8 @@ export class ConversationBudgetService {
 
     return {
       ...request,
-      messages: pruneLlmMessages([...systemMessages, ...nonSystemMessages], {
-        maxNonSystemMessages: options.tailNonSystemMessages,
+      messages: pruneLlmMessages(compactedMessages, {
+        maxNonSystemMessages: effectiveTailNonSystemMessages,
         synopsisMessage,
       }),
     };
@@ -104,17 +130,25 @@ export class ConversationBudgetService {
       synopsisRefreshMinMessages:
         this.defaults.synopsisRefreshMinMessages ?? DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES,
       synopsisTriggerTokens: summarization?.triggerTokens ?? 60_000,
+      toolResultKeepRecent: this.defaults.toolResultKeepRecent ?? DEFAULT_TOOL_RESULT_KEEP_RECENT,
+      toolResultMaxContentChars:
+        this.defaults.toolResultMaxContentChars ?? DEFAULT_TOOL_RESULT_MAX_CONTENT_CHARS,
+      synopsisFailureThreshold:
+        this.defaults.synopsisFailureThreshold ?? DEFAULT_SYNOPSIS_FAILURE_THRESHOLD,
+      postCompactKeepNodeSummaries:
+        this.defaults.postCompactKeepNodeSummaries ?? DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES,
     };
   }
 
   private estimateTokens(messages: readonly LlmRequest['messages'][number][]): number {
-    return messages.reduce((total, message) => {
+    const rawEstimate = messages.reduce((total, message) => {
       const contentTokens = Math.ceil(message.content.length / 4);
       const toolTokens = message.toolCalls
         ? Math.ceil(JSON.stringify(message.toolCalls).length / 4)
         : 0;
       return total + contentTokens + toolTokens;
     }, 0);
+    return Math.ceil(rawEstimate * (4 / 3));
   }
 
   private async generateSynopsis(
@@ -123,39 +157,57 @@ export class ConversationBudgetService {
     existing: ThreadSynopsisRecord | null,
   ): Promise<ThreadSynopsisRecord | null> {
     const options = this.resolveOptions(ctx);
-    const overflowCount = Math.max(0, nonSystemMessages.length - options.tailNonSystemMessages);
+    const summaryCount = await ctx.repos.nodeSummaries.countByThread(ctx.threadId);
+    const effectiveTailNonSystemMessages =
+      summaryCount > 3
+        ? Math.max(options.tailNonSystemMessages - 10, 20)
+        : options.tailNonSystemMessages;
+    const overflowCount = Math.max(0, nonSystemMessages.length - effectiveTailNonSystemMessages);
     const sourceMessages =
       overflowCount > 0 ? nonSystemMessages.slice(0, overflowCount) : nonSystemMessages;
     const transcript = sourceMessages
       .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
       .join('\n');
 
+    let failureStreak = this.synopsisFailureStreaks.get(ctx.threadId) ?? 0;
     let summary: string | null = null;
-    try {
-      // Use the boss-role model for synopsis (cheap system-level call).
-      // Falls back to whatever the policy default is.
-      const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
-      const chatRequest: LlmRequest = {
-        model: synopsisModel,
-        temperature: 0.2,
-        maxTokens: 256,
-        messages: [
-          { role: 'system', content: SYNOPSIS_SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: existing
-              ? `Existing synopsis:\n${existing.summary}\n\nNew conversation to condense:\n${transcript}`
-              : `Conversation to condense:\n${transcript}`,
-          },
-        ],
-      };
-      const response = ctx.systemCaller
-        ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
-        : await ctx.llmGateway.chat(chatRequest);
-      summary = this.normalizeSummary(response);
-    } catch (error) {
+    let summarySource: 'llm' | 'heuristic' | 'circuit_breaker' = 'llm';
+    if (failureStreak >= options.synopsisFailureThreshold) {
+      summarySource = 'circuit_breaker';
       summary = this.buildHeuristicSummary(existing, sourceMessages);
-      void error;
+    } else {
+      try {
+        // Use the boss-role model for synopsis (cheap system-level call).
+        // Falls back to whatever the policy default is.
+        const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
+        const chatRequest: LlmRequest = {
+          model: synopsisModel,
+          temperature: 0.2,
+          maxTokens: 256,
+          messages: [
+            { role: 'system', content: SYNOPSIS_SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: existing
+                ? `Existing synopsis:\n${existing.summary}\n\nNew conversation to condense:\n${transcript}`
+                : `Conversation to condense:\n${transcript}`,
+            },
+          ],
+        };
+        const response = ctx.systemCaller
+          ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
+          : await ctx.llmGateway.chat(chatRequest);
+        summary = this.normalizeSummary(response);
+        failureStreak = 0;
+        this.synopsisFailureStreaks.delete(ctx.threadId);
+      } catch (error) {
+        failureStreak += 1;
+        this.synopsisFailureStreaks.set(ctx.threadId, failureStreak);
+        summarySource =
+          failureStreak >= options.synopsisFailureThreshold ? 'circuit_breaker' : 'heuristic';
+        summary = this.buildHeuristicSummary(existing, sourceMessages);
+        void error;
+      }
     }
     if (!summary) return existing;
 
@@ -168,6 +220,19 @@ export class ConversationBudgetService {
     };
 
     await ctx.repos.threads.updateSynopsis(ctx.threadId, JSON.stringify(synopsis));
+    await ctx.repos.compactSummaries.create({
+      compact_id: generateId('cs'),
+      thread_id: ctx.threadId,
+      company_id: ctx.companyId,
+      compact_kind: 'thread_synopsis',
+      summary_source: summarySource,
+      summary_text: synopsis.summary,
+      pre_compact_message_count: nonSystemMessages.length,
+      pre_compact_token_count: this.estimateTokens(nonSystemMessages),
+      messages_compacted: sourceMessages.length,
+      failure_streak: summarySource === 'llm' ? 0 : failureStreak,
+      created_at: synopsis.updatedAt,
+    });
     await ctx.repos.events.insert({
       event_id: `evt-${ctx.threadId}-${synopsis.version}`,
       company_id: ctx.companyId,
@@ -182,8 +247,16 @@ export class ConversationBudgetService {
       }),
       created_at: synopsis.updatedAt,
     });
+    await this.postCompactCleanup(ctx, options);
     ctx.eventBus.emit(this.makeSynopsisEvent(ctx, synopsis));
     return synopsis;
+  }
+
+  private async postCompactCleanup(
+    ctx: RuntimeContext,
+    options: ResolvedConversationBudgetOptions,
+  ): Promise<void> {
+    await ctx.repos.nodeSummaries.trimByThread(ctx.threadId, options.postCompactKeepNodeSummaries);
   }
 
   private normalizeSummary(response: LlmResponse): string | null {

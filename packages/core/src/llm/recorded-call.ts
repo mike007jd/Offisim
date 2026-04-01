@@ -96,8 +96,10 @@ export async function recordedLlmCall(
         meta.taskRunId ?? null,
         meta.provider,
         meta.model,
+        meta.nodeName,
         response.usage.inputTokens,
         response.usage.outputTokens,
+        latencyMs,
       ),
     );
 
@@ -217,8 +219,10 @@ export async function recordedLlmStream(
         meta.taskRunId ?? null,
         meta.provider,
         meta.model,
+        meta.nodeName,
         result.usage.inputTokens,
         result.usage.outputTokens,
+        latencyMs,
       ),
     );
 

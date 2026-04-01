@@ -1,8 +1,4 @@
-import type {
-  CommunicationFrequency,
-  DecisionStyle,
-  RiskPreference,
-} from '@offisim/shared-types';
+import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 

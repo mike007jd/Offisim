@@ -566,6 +566,68 @@ export const mcpAuditLog = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// 008 — Node summary ledger
+// ---------------------------------------------------------------------------
+
+export const nodeSummaries = sqliteTable(
+  'node_summaries',
+  {
+    summary_id: text('summary_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    node_name: text('node_name').notNull(),
+    employee_id: text('employee_id'),
+    step_index: integer('step_index'),
+    summary_text: text('summary_text').notNull(),
+    decisions_json: text('decisions_json').notNull(),
+    files_touched_json: text('files_touched_json').notNull(),
+    tools_used_json: text('tools_used_json').notNull(),
+    input_token_count: integer('input_token_count').notNull().default(0),
+    output_token_count: integer('output_token_count').notNull().default(0),
+    message_count: integer('message_count').notNull().default(0),
+    duration_ms: integer('duration_ms').notNull().default(0),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_node_summaries_thread_created').on(table.thread_id, table.created_at),
+    index('idx_node_summaries_thread_node').on(table.thread_id, table.node_name, table.created_at),
+  ],
+);
+
+export const compactSummaries = sqliteTable(
+  'compact_summaries',
+  {
+    compact_id: text('compact_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    compact_kind: text('compact_kind').notNull(),
+    summary_source: text('summary_source').notNull(),
+    summary_text: text('summary_text').notNull(),
+    pre_compact_message_count: integer('pre_compact_message_count').notNull().default(0),
+    pre_compact_token_count: integer('pre_compact_token_count').notNull().default(0),
+    messages_compacted: integer('messages_compacted').notNull().default(0),
+    failure_streak: integer('failure_streak').notNull().default(0),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_compact_summaries_thread_created').on(table.thread_id, table.created_at),
+    index('idx_compact_summaries_thread_kind').on(
+      table.thread_id,
+      table.compact_kind,
+      table.created_at,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // 009 — Library documents
 // ---------------------------------------------------------------------------
 

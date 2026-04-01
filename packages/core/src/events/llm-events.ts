@@ -7,6 +7,8 @@ import type {
   LlmStreamChunkPayload,
   LlmUsageRecordedPayload,
   RuntimeEvent,
+  SessionCostUpdatedPayload,
+  ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
 
 export function llmCallStarted(
@@ -53,8 +55,10 @@ export function llmUsageRecorded(
   taskRunId: string | null,
   provider: string,
   model: string,
+  nodeName: string,
   inputTokens: number,
   outputTokens: number,
+  latencyMs: number,
 ): RuntimeEvent<LlmUsageRecordedPayload> {
   return {
     type: 'llm.usage.recorded',
@@ -63,7 +67,17 @@ export function llmUsageRecorded(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { llmCallId, threadId, taskRunId, provider, model, inputTokens, outputTokens },
+    payload: {
+      llmCallId,
+      threadId,
+      taskRunId,
+      provider,
+      model,
+      nodeName,
+      inputTokens,
+      outputTokens,
+      latencyMs,
+    },
   };
 }
 
@@ -81,5 +95,37 @@ export function llmStreamChunk(
     threadId,
     timestamp: Date.now(),
     payload: { nodeName, content },
+  };
+}
+
+export function costSessionUpdated(
+  companyId: string,
+  threadId: string,
+  payload: SessionCostUpdatedPayload,
+): RuntimeEvent<SessionCostUpdatedPayload> {
+  return {
+    type: 'cost.session.updated',
+    entityId: payload.sessionId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+export function toolExecutionTelemetry(
+  companyId: string,
+  threadId: string,
+  payload: ToolExecutionTelemetryPayload,
+): RuntimeEvent<ToolExecutionTelemetryPayload> {
+  return {
+    type: 'tool.execution.telemetry',
+    entityId: payload.toolCallId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
   };
 }

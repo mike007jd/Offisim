@@ -12,6 +12,19 @@ interface CostOverviewCardProps {
   loading: boolean;
 }
 
+function formatConfidence(confidence: CostSummary['costConfidence']): string {
+  switch (confidence) {
+    case 'exact':
+      return 'Exact';
+    case 'catalog':
+      return 'Catalog estimate';
+    case 'fallback':
+      return 'Fallback estimate';
+    default:
+      return 'Unknown';
+  }
+}
+
 export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
   if (loading) {
     return (
@@ -41,6 +54,8 @@ export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
           <KpiCell label="Today" value={formatCost(summary.todayCost)} />
           <KpiCell label="Total Calls" value={String(summary.totalCalls)} />
           <KpiCell label="Today Calls" value={String(summary.todayCalls)} />
+          <KpiCell label="Pricing" value={formatConfidence(summary.costConfidence)} />
+          <KpiCell label="Unpriced Calls" value={String(summary.unpricedCallCount)} />
         </div>
       </CardContent>
     </Card>

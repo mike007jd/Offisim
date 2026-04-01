@@ -79,7 +79,9 @@ export type EventFamily =
   | 'knowledge.index.failed'
   | 'knowledge.search.started'
   | 'knowledge.search.completed'
-  | 'prefab.state.changed';
+  | 'prefab.state.changed'
+  | 'cost.session.updated'
+  | 'tool.execution.telemetry';
 
 // --- Typed event payloads ---
 
@@ -149,8 +151,10 @@ export interface LlmUsageRecordedPayload {
   readonly taskRunId: string | null;
   readonly provider: string;
   readonly model: string;
+  readonly nodeName: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly latencyMs: number;
 }
 
 // --- Phase 2.3: Graph Streaming Pipeline ---
@@ -419,6 +423,52 @@ export interface CostAggregatedPayload {
   readonly todayCost: number;
   readonly totalCalls: number;
   readonly todayCalls: number;
+}
+
+export interface SessionCostBreakdown {
+  readonly key: string;
+  readonly costUsd: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly latencyMs: number;
+  readonly callCount: number;
+  readonly pricedCallCount: number;
+  readonly unpricedCallCount: number;
+  readonly pricingConfidence: 'exact' | 'catalog' | 'fallback' | 'unknown';
+}
+
+export interface SessionCostUpdatedPayload {
+  readonly sessionId: string;
+  readonly threadId: string;
+  readonly totalCostUsd: number;
+  readonly totalInputTokens: number;
+  readonly totalOutputTokens: number;
+  readonly totalLatencyMs: number;
+  readonly totalCalls: number;
+  readonly pricedCallCount: number;
+  readonly unpricedCallCount: number;
+  readonly costConfidence: 'exact' | 'catalog' | 'fallback' | 'unknown';
+  readonly byModel: readonly SessionCostBreakdown[];
+  readonly byNode: readonly SessionCostBreakdown[];
+  readonly byEmployee: readonly SessionCostBreakdown[];
+  readonly lastLlmCallId: string;
+}
+
+export interface ToolExecutionTelemetryPayload {
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly toolType: 'builtin' | 'mcp' | 'workstation';
+  readonly threadId: string;
+  readonly nodeName?: string;
+  readonly employeeId?: string;
+  readonly taskRunId?: string | null;
+  readonly serverName?: string;
+  readonly startedAt: number;
+  readonly completedAt?: number;
+  readonly durationMs?: number;
+  readonly status: 'started' | 'completed' | 'error' | 'denied';
+  readonly errorType?: string;
+  readonly concurrentWith?: readonly string[];
 }
 
 // --- ANIM-015: Task Row ↔ World Echo ---

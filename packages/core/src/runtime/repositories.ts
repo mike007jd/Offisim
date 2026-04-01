@@ -405,6 +405,64 @@ export interface McpAuditRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Node summaries
+// ---------------------------------------------------------------------------
+
+export interface NodeSummaryRow {
+  summary_id: string;
+  thread_id: string;
+  company_id: string;
+  node_name: string;
+  employee_id: string | null;
+  step_index: number | null;
+  summary_text: string;
+  decisions_json: string;
+  files_touched_json: string;
+  tools_used_json: string;
+  input_token_count: number;
+  output_token_count: number;
+  message_count: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export type NewNodeSummary = NodeSummaryRow;
+
+export interface NodeSummaryRepository {
+  create(summary: NewNodeSummary): Promise<NodeSummaryRow>;
+  listByThread(threadId: string, opts?: { limit?: number }): Promise<NodeSummaryRow[]>;
+  countByThread(threadId: string): Promise<number>;
+  deleteByThread(threadId: string): Promise<void>;
+  trimByThread(threadId: string, keepLatest: number): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Compact summaries
+// ---------------------------------------------------------------------------
+
+export interface CompactSummaryRow {
+  compact_id: string;
+  thread_id: string;
+  company_id: string;
+  compact_kind: string;
+  summary_source: string;
+  summary_text: string;
+  pre_compact_message_count: number;
+  pre_compact_token_count: number;
+  messages_compacted: number;
+  failure_streak: number;
+  created_at: string;
+}
+
+export type NewCompactSummary = CompactSummaryRow;
+
+export interface CompactSummaryRepository {
+  create(summary: NewCompactSummary): Promise<CompactSummaryRow>;
+  listByThread(threadId: string, opts?: { limit?: number }): Promise<CompactSummaryRow[]>;
+  deleteByThread(threadId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Employee version history
 // ---------------------------------------------------------------------------
 
@@ -718,6 +776,8 @@ export interface RuntimeRepositories {
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
   mcpAudit: McpAuditRepository;
+  nodeSummaries: NodeSummaryRepository;
+  compactSummaries: CompactSummaryRepository;
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;
   sopTemplates: SopTemplateRepository;

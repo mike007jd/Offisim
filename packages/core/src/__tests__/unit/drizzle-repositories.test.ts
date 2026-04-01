@@ -112,6 +112,71 @@ describe('DrizzleRepositories', () => {
     expect(runs).toHaveLength(1);
   });
 
+  it('nodeSummaries: create, listByThread, countByThread, and trimByThread', async () => {
+    await repos.threads.create({
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    for (let index = 0; index < 3; index++) {
+      await repos.nodeSummaries.create({
+        summary_id: `ns-${index + 1}`,
+        thread_id: 't-1',
+        company_id: 'c-1',
+        node_name: 'boss',
+        employee_id: null,
+        step_index: null,
+        summary_text: `Boss routed to manager (${index}).`,
+        decisions_json: '["route:delegate_manager"]',
+        files_touched_json: '[]',
+        tools_used_json: '[]',
+        input_token_count: 5,
+        output_token_count: 4,
+        message_count: 1,
+        duration_ms: 15,
+        created_at: new Date(Date.UTC(2026, 3, 1, 0, index, 0)).toISOString(),
+      });
+    }
+
+    const rows = await repos.nodeSummaries.listByThread('t-1');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.summary_id).toBe('ns-3');
+    await repos.nodeSummaries.trimByThread('t-1', 2);
+    await expect(repos.nodeSummaries.countByThread('t-1')).resolves.toBe(2);
+  });
+
+  it('compactSummaries: create and listByThread', async () => {
+    await repos.threads.create({
+      thread_id: 't-1',
+      company_id: 'c-1',
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    await repos.compactSummaries.create({
+      compact_id: 'cs-1',
+      thread_id: 't-1',
+      company_id: 'c-1',
+      compact_kind: 'thread_synopsis',
+      summary_source: 'heuristic',
+      summary_text: 'Compact fallback summary.',
+      pre_compact_message_count: 20,
+      pre_compact_token_count: 4096,
+      messages_compacted: 14,
+      failure_streak: 2,
+      created_at: new Date().toISOString(),
+    });
+
+    const rows = await repos.compactSummaries.listByThread('t-1');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.compact_kind).toBe('thread_synopsis');
+    expect(rows[0]?.summary_source).toBe('heuristic');
+  });
+
   it('checkpoints: save and findLatest', async () => {
     await repos.threads.create({
       thread_id: 't-1',

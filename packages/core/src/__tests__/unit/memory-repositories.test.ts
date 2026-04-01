@@ -58,6 +58,81 @@ describe('MemoryRepositories', () => {
     });
   });
 
+  describe('NodeSummaryRepository', () => {
+    it('creates, lists, trims, counts, and snapshots node summaries', async () => {
+      const repos = createMemoryRepositories();
+      for (let index = 0; index < 3; index++) {
+        await repos.nodeSummaries.create({
+          summary_id: `ns-${index + 1}`,
+          thread_id: 't-1',
+          company_id: 'c-1',
+          node_name: 'boss',
+          employee_id: null,
+          step_index: null,
+          summary_text: `Boss routed to manager (${index}).`,
+          decisions_json: '["route:delegate_manager"]',
+          files_touched_json: '[]',
+          tools_used_json: '[]',
+          input_token_count: 12,
+          output_token_count: 6,
+          message_count: 1,
+          duration_ms: 25,
+          created_at: new Date(Date.UTC(2026, 3, 1, 0, index, 0)).toISOString(),
+        });
+      }
+
+      const listed = await repos.nodeSummaries.listByThread('t-1');
+      expect(listed).toHaveLength(3);
+      expect(listed[0]?.summary_text).toContain('Boss routed');
+      await repos.nodeSummaries.trimByThread('t-1', 2);
+      await expect(repos.nodeSummaries.countByThread('t-1')).resolves.toBe(2);
+
+      const snapshot = repos.snapshot();
+      const restored = createMemoryRepositories(snapshot);
+      await expect(restored.nodeSummaries.listByThread('t-1')).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            summary_id: 'ns-2',
+            node_name: 'boss',
+          }),
+        ]),
+      );
+    });
+  });
+
+  describe('CompactSummaryRepository', () => {
+    it('creates, lists, and snapshots compact summaries', async () => {
+      const repos = createMemoryRepositories();
+      await repos.compactSummaries.create({
+        compact_id: 'cs-1',
+        thread_id: 't-1',
+        company_id: 'c-1',
+        compact_kind: 'thread_synopsis',
+        summary_source: 'llm',
+        summary_text: 'Condensed thread summary.',
+        pre_compact_message_count: 18,
+        pre_compact_token_count: 2048,
+        messages_compacted: 12,
+        failure_streak: 0,
+        created_at: new Date().toISOString(),
+      });
+
+      const listed = await repos.compactSummaries.listByThread('t-1');
+      expect(listed).toHaveLength(1);
+      expect(listed[0]?.summary_text).toContain('Condensed');
+
+      const restored = createMemoryRepositories(repos.snapshot());
+      await expect(restored.compactSummaries.listByThread('t-1')).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            compact_id: 'cs-1',
+            summary_source: 'llm',
+          }),
+        ]),
+      );
+    });
+  });
+
   describe('EmployeeRepository', () => {
     it('finds by role', async () => {
       const repos = createMemoryRepositories();

@@ -17,7 +17,7 @@ import type {
   ProjectStatus,
   ZoneRow,
 } from '@offisim/shared-types';
-import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, notInArray, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
@@ -28,6 +28,8 @@ import type {
   AgentEventRepository,
   AgentEventRow,
   CheckpointRepository,
+  CompactSummaryRepository,
+  CompactSummaryRow,
   CompanyRepository,
   EmployeeRepository,
   EmployeeRow,
@@ -51,6 +53,7 @@ import type {
   ModelCostRateRepository,
   ModelCostRateRow,
   NewAgentEvent,
+  NewCompactSummary,
   NewEmployeeVersion,
   NewGraphCheckpoint,
   NewGraphThread,
@@ -60,6 +63,7 @@ import type {
   NewMcpAudit,
   NewMeetingSession,
   NewModelCostRate,
+  NewNodeSummary,
   NewOfficeLayout,
   NewRack,
   NewRecoveryKnowledge,
@@ -68,6 +72,8 @@ import type {
   NewSopTemplate,
   NewTaskRun,
   NewToolCall,
+  NodeSummaryRepository,
+  NodeSummaryRow,
   OfficeLayoutRow,
   ProjectAssignmentRepository,
   ProjectRepository,
@@ -705,6 +711,81 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .from(schema.mcpAuditLog)
         .where(eq(schema.mcpAuditLog.thread_id, threadId))
         .all() as McpAuditRow[];
+    },
+  };
+
+  const nodeSummaries: NodeSummaryRepository = {
+    async create(summary: NewNodeSummary) {
+      db.insert(schema.nodeSummaries).values(summary).run();
+      return summary as NodeSummaryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId))
+        .orderBy(desc(schema.nodeSummaries.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as NodeSummaryRow[];
+    },
+    async countByThread(threadId) {
+      const rows = db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId))
+        .all();
+      return Number(rows[0]?.count ?? 0);
+    },
+    async deleteByThread(threadId) {
+      db.delete(schema.nodeSummaries).where(eq(schema.nodeSummaries.thread_id, threadId)).run();
+    },
+    async trimByThread(threadId, keepLatest) {
+      if (keepLatest < 0) return;
+      const keepRows = db
+        .select({ summary_id: schema.nodeSummaries.summary_id })
+        .from(schema.nodeSummaries)
+        .where(eq(schema.nodeSummaries.thread_id, threadId))
+        .orderBy(desc(schema.nodeSummaries.created_at))
+        .limit(keepLatest)
+        .all();
+      const keepIds = keepRows.map((row) => row.summary_id);
+      if (keepIds.length === 0) {
+        db.delete(schema.nodeSummaries).where(eq(schema.nodeSummaries.thread_id, threadId)).run();
+        return;
+      }
+      db.delete(schema.nodeSummaries)
+        .where(
+          and(
+            eq(schema.nodeSummaries.thread_id, threadId),
+            notInArray(schema.nodeSummaries.summary_id, keepIds),
+          ),
+        )
+        .run();
+    },
+  };
+
+  const compactSummaries: CompactSummaryRepository = {
+    async create(summary: NewCompactSummary) {
+      db.insert(schema.compactSummaries).values(summary).run();
+      return summary as CompactSummaryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.compactSummaries)
+        .where(eq(schema.compactSummaries.thread_id, threadId))
+        .orderBy(desc(schema.compactSummaries.created_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as CompactSummaryRow[];
+    },
+    async deleteByThread(threadId) {
+      db.delete(schema.compactSummaries)
+        .where(eq(schema.compactSummaries.thread_id, threadId))
+        .run();
     },
   };
 
@@ -1471,6 +1552,8 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     llmCalls,
     memories,
     mcpAudit,
+    nodeSummaries,
+    compactSummaries,
     installTransactions,
     installedPackages,
     installedAssets,

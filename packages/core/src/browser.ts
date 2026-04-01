@@ -44,10 +44,16 @@ export type {
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
+  CompactSummaryRepository,
+  CompactSummaryRow,
   NewMcpAudit,
+  NewCompactSummary,
+  NewNodeSummary,
   MemoryEntryRow,
   MemoryEntryCreate,
   MemoryRepository,
+  NodeSummaryRepository,
+  NodeSummaryRow,
   EmployeeVersionRow,
   EmployeeVersionChangeType,
   NewEmployeeVersion,
@@ -136,9 +142,11 @@ export {
   llmCallStarted,
   llmCallCompleted,
   llmUsageRecorded,
+  costSessionUpdated,
   graphNodeEntered,
   graphNodeExited,
   llmStreamChunk,
+  toolExecutionTelemetry,
   installStateChanged,
   bindingStateChanged,
   planCreated,
@@ -168,7 +176,9 @@ export {
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
 export {
   createMemoryRepositories,
+  MemoryCompactSummaryRepository,
   MemoryMcpAuditRepository,
+  MemoryNodeSummaryRepository,
   MemoryEmployeeVersionRepository,
   MemoryModelCostRateRepository,
   MemorySopTemplateRepository,
@@ -193,6 +203,7 @@ export {
 // --- Services (browser-safe, no LLM/graph deps) ---
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
+export { SessionCostTracker } from './runtime/session-cost-tracker.js';
 export { SopService } from './services/sop-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
@@ -202,6 +213,8 @@ export { listTemplates, getTemplate } from './templates/index.js';
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
+export { NodeSummaryService } from './services/node-summary-service.js';
+export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 
 // --- Logger ---
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';

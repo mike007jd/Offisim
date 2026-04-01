@@ -12,10 +12,15 @@ import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
+import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/node-context-middleware.js';
+import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
+import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
+import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
@@ -164,7 +169,16 @@ export async function createTauriRuntime(
     systemCaller,
   );
   const middlewareChain = new LlmMiddlewareChain();
+  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+  middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries));
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
+  const toolTelemetryService = new ToolTelemetryService(eventBus);
+  const sessionCostTracker = await SessionCostTracker.create({
+    eventBus,
+    repos,
+    companyId,
+    threadId,
+  });
 
   const runtimeCtx = createRuntimeContext({
     repos,
@@ -178,6 +192,8 @@ export async function createTauriRuntime(
     memoryService,
     middlewareChain,
     systemCaller,
+    sessionCostTracker,
+    toolTelemetryService,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)
@@ -212,6 +228,8 @@ export async function createTauriRuntime(
     mcpToolExecutor,
     repos,
     userMemoryService,
+    sessionCostTracker,
+    toolTelemetryService,
   };
 }
 

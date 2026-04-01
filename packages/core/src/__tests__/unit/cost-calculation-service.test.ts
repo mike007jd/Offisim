@@ -123,6 +123,8 @@ describe('CostCalculationService', () => {
       expect(result.inputCost).toBeCloseTo(2.5); // 1M * 2.5/MTok
       expect(result.outputCost).toBeCloseTo(5.0); // 0.5M * 10/MTok
       expect(result.totalCost).toBeCloseTo(7.5);
+      expect(result.confidence).toBe('exact');
+      expect(result.source).toBe('configured_rates');
     });
 
     it('returns zero cost when rate not found', async () => {
@@ -136,6 +138,8 @@ describe('CostCalculationService', () => {
       expect(result.totalCost).toBe(0);
       expect(result.inputCost).toBe(0);
       expect(result.outputCost).toBe(0);
+      expect(result.confidence).toBe('unknown');
+      expect(result.source).toBe('unknown');
     });
 
     it('handles small token counts accurately', async () => {
