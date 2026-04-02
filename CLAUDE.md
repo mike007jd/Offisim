@@ -6,7 +6,7 @@
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
 pnpm test             # 全量测试 (vitest, ~1600+ tests)
-pnpm typecheck        # 全量类型检查 (27 packages)
+pnpm typecheck        # 全量类型检查 (16 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
@@ -81,6 +81,12 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   THREE.Group (没有 `.position.set()`), 需要 defensive cast + optional chaining
 - `ceremony-visuals.ts` 的 `getPhaseColor()` 是 ceremony phase 颜色的唯一真相,
   新增 phase 相关颜色映射时必须调用它, 不要硬编码 hex 值
+- `ceremony-visuals.ts` 同时持有 `MANAGER_PRESENCE_COLORS` 和 `DEFAULT_BUBBLE_TEXT`,
+  涉及 manager 标记或 bubble 默认文本时从这里取, 不要在组件里硬编码
+- `CeremonyState` 新增字段必须同步更新 `createIdleCeremonyState()` 和导出的
+  `IDLE_CEREMONY` 常量 (`useSceneOrchestrator.ts`), 否则 SceneCanvas 的 fallback 会缺字段
+- Scene ceremony state 通过 `CeremonyHost` (App.tsx) 隔离在独立组件中,
+  不要把 `useSceneOrchestrator` 直接放在 App 里, 否则高频 ceremony 变化会级联全树 re-render
 
 ## Product Boundary: AI Runtime Policy
 
