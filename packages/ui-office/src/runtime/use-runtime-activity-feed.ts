@@ -18,7 +18,7 @@ import type {
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeNodeName } from '../lib/agent-display';
-import { categorizeTool, type ToolCategory } from '../lib/tool-category';
+import { type ToolCategory, categorizeTool } from '../lib/tool-category';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
 export type RuntimeActivityTone = 'info' | 'success' | 'warning' | 'error';
@@ -29,6 +29,7 @@ export interface RuntimeActivityEntry {
   tone: RuntimeActivityTone;
   label: string;
   timestamp: number;
+  employeeId?: string | null;
   burstKey?: string;
   burstCount?: number;
 }
@@ -350,6 +351,7 @@ export function useRuntimeActivityFeed(opts?: {
               tone: 'info',
               label: `${event.payload.employeeName} took step ${event.payload.stepIndex + 1}: ${truncate(event.payload.stepLabel, 34)}`,
               timestamp: event.timestamp,
+              employeeId: event.payload.employeeId,
             },
             maxEntries,
           ),
@@ -371,6 +373,7 @@ export function useRuntimeActivityFeed(opts?: {
               tone: event.payload.request.severity === 'high' ? 'warning' : 'info',
               label,
               timestamp: event.timestamp,
+              employeeId: event.payload.request.employeeId,
             },
             maxEntries,
           ),
@@ -393,6 +396,7 @@ export function useRuntimeActivityFeed(opts?: {
                 event.payload.response.selectedOptionId,
               ),
               timestamp: event.timestamp,
+              employeeId: event.payload.request.employeeId,
             },
             maxEntries,
           ),
@@ -414,6 +418,7 @@ export function useRuntimeActivityFeed(opts?: {
               tone: 'info',
               label,
               timestamp: event.timestamp,
+              employeeId: event.payload.request.employeeId,
             },
             maxEntries,
           ),

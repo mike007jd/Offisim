@@ -12,10 +12,15 @@ import { useState } from 'react';
 
 interface InteractionDecisionCardProps {
   request: InteractionRequest;
+  employeeName?: string | null;
   onRespond: (selectedOptionId: string, freeformResponse?: string) => Promise<void> | void;
 }
 
-export function InteractionDecisionCard({ request, onRespond }: InteractionDecisionCardProps) {
+export function InteractionDecisionCard({
+  request,
+  employeeName,
+  onRespond,
+}: InteractionDecisionCardProps) {
   const [note, setNote] = useState('');
   const [pendingOption, setPendingOption] = useState<string | null>(null);
 
@@ -37,6 +42,7 @@ export function InteractionDecisionCard({ request, onRespond }: InteractionDecis
             {request.severity === 'high' ? 'High risk' : 'Decision'}
           </Badge>
         </div>
+        {employeeName && <span className="text-xs text-slate-400">From: {employeeName}</span>}
         <p className="whitespace-pre-wrap text-xs text-slate-300">{request.prompt}</p>
         {request.recommendation && (
           <div className="rounded-md border border-cyan-400/20 bg-cyan-500/5 px-3 py-2 text-xs text-cyan-100/85">

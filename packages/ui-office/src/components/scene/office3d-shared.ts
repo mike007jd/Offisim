@@ -46,6 +46,19 @@ export function getFlowLineColor(variant: FlowLineData['variant']): string {
   }
 }
 
+export function getFlowLineVariantLabel(variant: FlowLineData['variant']): string | null {
+  switch (variant) {
+    case 'approval':
+      return '等待审批';
+    case 'report':
+      return '汇报中';
+    case 'blocked':
+      return '已阻塞';
+    default:
+      return null;
+  }
+}
+
 const ACTIVE_REPORTING_STATES = new Set([
   'assigned',
   'thinking',

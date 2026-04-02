@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei';
+import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { EmployeeMarker, type PlacedEmployee } from './office3d-employees.js';
@@ -8,6 +9,7 @@ import {
   type FlowLineData,
   type Zone3D,
   getFlowLineColor,
+  getFlowLineVariantLabel,
 } from './office3d-shared.js';
 import {
   BookshelfMesh3D,
@@ -154,14 +156,39 @@ export function Office3DFlowLayer({
 }) {
   return (
     <>
-      {flowLines.map((line) => (
-        <TaskFlowLine
-          key={line.id}
-          points={line.points}
-          color={getFlowLineColor(line.variant)}
-          onComplete={() => setFlowLines((prev) => prev.filter((entry) => entry.id !== line.id))}
-        />
-      ))}
+      {flowLines.map((line) => {
+        const label = getFlowLineVariantLabel(line.variant);
+        const labelPoint = getFlowLineLabelPoint(line.points);
+        return (
+          <group key={line.id}>
+            <TaskFlowLine
+              points={line.points}
+              color={getFlowLineColor(line.variant)}
+              onComplete={() =>
+                setFlowLines((prev) => prev.filter((entry) => entry.id !== line.id))
+              }
+            />
+            {label && labelPoint && (
+              <Html position={labelPoint} center style={{ pointerEvents: 'none' }}>
+                <div
+                  style={{
+                    borderRadius: '9999px',
+                    background: 'rgba(2,6,23,0.72)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'rgba(255,255,255,0.85)',
+                    fontSize: '8px',
+                    fontFamily: 'monospace',
+                    padding: '2px 6px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {label}
+                </div>
+              </Html>
+            )}
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -169,10 +196,13 @@ export function Office3DFlowLayer({
 export function Office3DSceneHud({
   activeCount,
   blockedCount,
+  ceremonyPhase,
 }: {
   activeCount: number;
   blockedCount: number;
+  ceremonyPhase: import('../../hooks/useSceneOrchestrator').CeremonyPhase;
 }) {
+  const ceremonyLabel = CEREMONY_LABELS[ceremonyPhase];
   return (
     <Html position={[18, 14, 0]} center style={{ pointerEvents: 'none' }}>
       <div
@@ -187,9 +217,45 @@ export function Office3DSceneHud({
           whiteSpace: 'nowrap',
         }}
       >
+        {ceremonyLabel && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '4px',
+              color: ceremonyLabel.color,
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '9999px',
+                background: ceremonyLabel.color,
+                boxShadow: `0 0 8px ${ceremonyLabel.color}`,
+              }}
+            />
+            <span>{ceremonyLabel.label}</span>
+          </div>
+        )}
         <div>{activeCount} active</div>
         {blockedCount > 0 && <div style={{ color: '#fbbf24' }}>{blockedCount} blocked</div>}
       </div>
     </Html>
   );
+}
+
+function getFlowLineLabelPoint(
+  points: readonly [number, number, number][],
+): [number, number, number] | null {
+  if (points.length === 0) return null;
+  if (points.length === 1) return points[0] ?? null;
+
+  const middleIndex = Math.floor((points.length - 1) / 2);
+  const start = points[middleIndex];
+  const end = points[middleIndex + 1] ?? start;
+  if (!start || !end) return null;
+
+  return [(start[0] + end[0]) / 2, Math.max(start[1], end[1]) + 0.35, (start[2] + end[2]) / 2];
 }

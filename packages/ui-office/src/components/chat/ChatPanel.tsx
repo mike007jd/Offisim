@@ -78,6 +78,9 @@ export function ChatPanel({
 
   // Current target key
   const targetKey = selectedEmployeeId ?? null;
+  const interactionEmployeeName = pendingInteraction?.employeeId
+    ? (agents.get(pendingInteraction.employeeId)?.name ?? null)
+    : null;
 
   // Current messages for the active target
   const messages = messagesByTarget.get(targetKey) ?? [];
@@ -292,7 +295,10 @@ export function ChatPanel({
               className="flex flex-col gap-1"
               style={{ padding: 'var(--sp-sm)' }}
             >
-              <ActivityRail />
+              <ActivityRail
+                focusedEmployeeId={selectedEmployeeId}
+                focusedEmployeeName={selectedEmployeeName}
+              />
               <SystemMessageFeed />
             </div>
           </ScrollArea>
@@ -312,13 +318,17 @@ export function ChatPanel({
       ) : (
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
-            <ActivityRail />
+            <ActivityRail
+              focusedEmployeeId={selectedEmployeeId}
+              focusedEmployeeName={selectedEmployeeName}
+            />
             <SystemMessageFeed />
             {pendingInteraction?.severity !== 'high' &&
               pendingInteraction &&
               respondToInteraction && (
                 <InteractionPrompt
                   request={pendingInteraction}
+                  employeeName={interactionEmployeeName}
                   onRespond={handleInteractionRespond}
                 />
               )}
@@ -333,7 +343,11 @@ export function ChatPanel({
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       <MeetingPanel agents={agents} />
       {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
-        <InteractionPrompt request={pendingInteraction} onRespond={handleInteractionRespond} />
+        <InteractionPrompt
+          request={pendingInteraction}
+          employeeName={interactionEmployeeName}
+          onRespond={handleInteractionRespond}
+        />
       )}
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}

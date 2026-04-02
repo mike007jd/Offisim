@@ -270,7 +270,11 @@ function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerPr
 
         <Office3DFlowLayer flowLines={flowLines} setFlowLines={setFlowLines} />
 
-        <Office3DSceneHud activeCount={activeCount} blockedCount={blockedCount} />
+        <Office3DSceneHud
+          activeCount={activeCount}
+          blockedCount={blockedCount}
+          ceremonyPhase={ceremony.phase}
+        />
 
         {isDragging && dragState && <DragGhost3D position={dragState.position} />}
 

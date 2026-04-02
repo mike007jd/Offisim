@@ -42,4 +42,18 @@ describe('InteractionDecisionCard', () => {
 
     expect(onRespond).toHaveBeenCalledWith('approve_once', 'Read-only.');
   });
+
+  it('shows the originating employee name when provided', () => {
+    render(
+      <InteractionDecisionCard request={makeRequest()} employeeName="Ava" onRespond={vi.fn()} />,
+    );
+
+    expect(screen.getByText('From: Ava')).toBeInTheDocument();
+  });
+
+  it('does not render attribution when no employee name is provided', () => {
+    render(<InteractionDecisionCard request={makeRequest()} onRespond={vi.fn()} />);
+
+    expect(screen.queryByText(/^From:/)).toBeNull();
+  });
 });

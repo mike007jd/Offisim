@@ -311,8 +311,10 @@ export function EmployeeMarker({
   }, [markerCompanyId, emp.id, movementHandle]);
 
   useEffect(() => {
-    if (groupRef.current) {
-      groupRef.current.position.set(emp.position[0], 0, emp.position[2]);
+    // Cast needed: in jsdom tests groupRef.current is a DOM element, not THREE.Group
+    const group = groupRef.current as { position?: { set(x: number, y: number, z: number): void } } | null;
+    if (group?.position?.set) {
+      group.position.set(emp.position[0], 0, emp.position[2]);
     }
   }, [emp.position]);
 
@@ -350,10 +352,27 @@ export function EmployeeMarker({
         ) : (
           <>
             {isSelected && (
-              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-                <ringGeometry args={[0.6, 0.75, 32]} />
-                <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
-              </mesh>
+              <>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                  <ringGeometry args={[0.6, 0.75, 32]} />
+                  <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
+                </mesh>
+                <Html position={[0, 1.85, 0]} center style={{ pointerEvents: 'none' }}>
+                  <div
+                    style={{
+                      background: 'rgba(59,130,246,0.85)',
+                      color: '#ffffff',
+                      fontSize: '9px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'system-ui, sans-serif',
+                    }}
+                  >
+                    {emp.agent.name ?? emp.id}
+                  </div>
+                </Html>
+              </>
             )}
             <LowPolyCharacter
               outfitColor={outfit}

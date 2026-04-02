@@ -6,6 +6,7 @@ import {
   buildEmployeeToMeetingFlowLine,
   buildReportingFlowLines,
   getFlowLineColor,
+  getFlowLineVariantLabel,
 } from '../../components/scene/office3d-shared';
 
 const zones: readonly Zone[] = [
@@ -159,5 +160,12 @@ describe('office3d flow helpers', () => {
     expect(getFlowLineColor('approval')).toBe('#fbbf24');
     expect(getFlowLineColor('report')).toBe('#22d3ee');
     expect(getFlowLineColor('blocked')).toBe('#f87171');
+  });
+
+  it('maps non-normal flow variants to compact midpoint labels', () => {
+    expect(getFlowLineVariantLabel('normal')).toBeNull();
+    expect(getFlowLineVariantLabel('approval')).toBe('等待审批');
+    expect(getFlowLineVariantLabel('report')).toBe('汇报中');
+    expect(getFlowLineVariantLabel('blocked')).toBe('已阻塞');
   });
 });

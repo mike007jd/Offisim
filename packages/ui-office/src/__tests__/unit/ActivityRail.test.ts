@@ -459,4 +459,74 @@ describe('ActivityRail', () => {
       expect(screen.getAllByText('Restored pending plan review')).toHaveLength(2);
     });
   });
+
+  it('filters employee-scoped activity when a focused employee is selected', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(
+      createElement(ActivityRail, {
+        focusedEmployeeId: 'emp-1',
+        focusedEmployeeName: 'Alice',
+      }),
+      { wrapper },
+    );
+
+    act(() => {
+      eventBus.emit({
+        type: 'task.assignment.dispatched',
+        entityId: 'dispatch-1',
+        entityType: 'task_assignment',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          employeeId: 'emp-1',
+          employeeName: 'Alice',
+          stepIndex: 0,
+          totalSteps: 3,
+          stepLabel: 'Inspect auth routes',
+          taskRunId: 'task-1',
+        },
+      });
+      eventBus.emit({
+        type: 'task.assignment.dispatched',
+        entityId: 'dispatch-2',
+        entityType: 'task_assignment',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now() + 1,
+        payload: {
+          employeeId: 'emp-2',
+          employeeName: 'Bob',
+          stepIndex: 1,
+          totalSteps: 3,
+          stepLabel: 'Patch the dashboard',
+          taskRunId: 'task-2',
+        },
+      });
+      eventBus.emit({
+        type: 'plan.created',
+        entityId: 'plan-focus',
+        entityType: 'plan',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now() + 2,
+        payload: {
+          planId: 'plan-focus',
+          threadId: 'thread-1',
+          summary: 'Focus the selected employee',
+          steps: [{ stepIndex: 0, description: 'a', taskCount: 1, tasks: [] }],
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('聚焦: Alice')).toBeInTheDocument();
+      expect(screen.getByText('Alice took step 1: Inspect auth routes')).toBeInTheDocument();
+      expect(screen.getByText('PM created 1 step')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Bob took step 2: Patch the dashboard')).toBeNull();
+  });
 });

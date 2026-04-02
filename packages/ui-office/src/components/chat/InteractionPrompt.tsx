@@ -4,10 +4,11 @@ import { InteractionDecisionCard } from './InteractionDecisionCard';
 
 interface InteractionPromptProps {
   request: InteractionRequest | null;
+  employeeName?: string | null;
   onRespond: (selectedOptionId: string, freeformResponse?: string) => Promise<void> | void;
 }
 
-export function InteractionPrompt({ request, onRespond }: InteractionPromptProps) {
+export function InteractionPrompt({ request, employeeName, onRespond }: InteractionPromptProps) {
   if (!request) return null;
 
   if (request.severity === 'high') {
@@ -17,11 +18,17 @@ export function InteractionPrompt({ request, onRespond }: InteractionPromptProps
           <DialogHeader>
             <DialogTitle className="text-sm text-white">Decision required</DialogTitle>
           </DialogHeader>
-          <InteractionDecisionCard request={request} onRespond={onRespond} />
+          <InteractionDecisionCard
+            request={request}
+            employeeName={employeeName}
+            onRespond={onRespond}
+          />
         </DialogContent>
       </Dialog>
     );
   }
 
-  return <InteractionDecisionCard request={request} onRespond={onRespond} />;
+  return (
+    <InteractionDecisionCard request={request} employeeName={employeeName} onRespond={onRespond} />
+  );
 }

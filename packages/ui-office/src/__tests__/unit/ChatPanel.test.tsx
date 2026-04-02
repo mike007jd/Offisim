@@ -47,6 +47,7 @@ type ChatInputProps = {
 };
 type InteractionPromptProps = {
   request: InteractionRequest | null;
+  employeeName?: string | null;
   onRespond: (selectedOptionId: string, freeformResponse?: string) => Promise<string | undefined>;
 };
 
