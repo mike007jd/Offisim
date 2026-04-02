@@ -5,7 +5,7 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1580+ tests)
+pnpm test             # 全量测试 (vitest, ~1600+ tests)
 pnpm typecheck        # 全量类型检查 (27 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
@@ -77,6 +77,10 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   否则依赖它的包 (core, ui-office 等) 看不到新类型
 - `apps/web` 的 `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物,
   需要先 `pnpm --filter @offisim/db-local build` 或全量 `pnpm build`
+- Three.js 组件在 jsdom 测试中, `useRef<THREE.Group>` 的 `.current` 不是真正的
+  THREE.Group (没有 `.position.set()`), 需要 defensive cast + optional chaining
+- `ceremony-visuals.ts` 的 `getPhaseColor()` 是 ceremony phase 颜色的唯一真相,
+  新增 phase 相关颜色映射时必须调用它, 不要硬编码 hex 值
 
 ## Product Boundary: AI Runtime Policy
 
