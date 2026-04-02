@@ -6,6 +6,8 @@ import {
   type PipelineStep,
   STAGE_META,
 } from '../../hooks/usePipelineStage';
+import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
+import { useSceneCeremony } from '../../runtime/scene-ceremony-context';
 
 // ---------------------------------------------------------------------------
 // PipelineProgress — visual progress bar for the multi-agent pipeline.
@@ -128,6 +130,7 @@ function Connector({ state }: { state: 'done' | 'pending' }) {
 
 export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgressProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const ceremony = useSceneCeremony();
 
   // Animate entrance with a slight delay
   useEffect(() => {
@@ -138,6 +141,14 @@ export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgress
   }, [stage]);
 
   if (!stage) return null;
+
+  const activeCeremonyLabel =
+    ceremony &&
+    (ceremony.phase === 'dispatching' ||
+      ceremony.phase === 'working' ||
+      ceremony.phase === 'reporting')
+      ? (CEREMONY_LABELS[ceremony.phase]?.label ?? null)
+      : null;
 
   const activeIdx = PIPELINE_STEPS.indexOf(stage);
 
@@ -151,32 +162,39 @@ export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgress
         transition: 'opacity 300ms ease-out, transform 300ms ease-out',
       }}
     >
-      <div className="flex items-start gap-0 px-4 pt-2.5 pb-2">
-        {PIPELINE_STEPS.map((step, i) => {
-          const nodeState = getNodeState(step, stage);
-          const connectorDone = i < activeIdx;
-          return (
-            <div key={step} className="contents">
-              <StageNode step={step} state={nodeState} />
-              {i < PIPELINE_STEPS.length - 1 && (
-                <Connector state={connectorDone ? 'done' : 'pending'} />
-              )}
-            </div>
-          );
-        })}
+      <div className="px-4 pt-2.5 pb-2">
+        <div className="flex items-start gap-0">
+          {PIPELINE_STEPS.map((step, i) => {
+            const nodeState = getNodeState(step, stage);
+            const connectorDone = i < activeIdx;
+            return (
+              <div key={step} className="contents">
+                <StageNode step={step} state={nodeState} />
+                {i < PIPELINE_STEPS.length - 1 && (
+                  <Connector state={connectorDone ? 'done' : 'pending'} />
+                )}
+              </div>
+            );
+          })}
 
-        {/* Stop button — pinned to the right */}
-        {isRunning && onAbort && (
-          <div className="ml-2 flex items-center -mt-0.5">
-            <button
-              type="button"
-              onClick={onAbort}
-              title="Stop execution"
-              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-            >
-              <Square className="h-2.5 w-2.5 fill-current" />
-              <span>Stop</span>
-            </button>
+          {/* Stop button — pinned to the right */}
+          {isRunning && onAbort && (
+            <div className="ml-2 flex items-center -mt-0.5">
+              <button
+                type="button"
+                onClick={onAbort}
+                title="Stop execution"
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+              >
+                <Square className="h-2.5 w-2.5 fill-current" />
+                <span>Stop</span>
+              </button>
+            </div>
+          )}
+        </div>
+        {activeCeremonyLabel && (
+          <div className="mt-1 pl-[11.75rem] text-[10px] text-slate-500 tracking-wide">
+            {activeCeremonyLabel}
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import type { OrbitControls } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
-import { useSceneOrchestrator } from '../../hooks/useSceneOrchestrator.js';
+import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
 import {
   buildZoneRouteWaypoints,
   elevateWaypoints,
@@ -12,6 +12,7 @@ import {
 } from '../../lib/scene-nav.js';
 import type {
   SceneEmployeeEscalatedPayload,
+  SceneHandoffInitiatedPayload,
   SceneIntentBus,
   SceneInteractionWaitingPayload,
   SceneTaskDispatchedPayload,
@@ -25,6 +26,7 @@ import {
   type Zone3DLayout,
   buildDispatchFlowLine,
   buildEmployeeToMeetingFlowLine,
+  buildHandoffFlowLine,
   buildReportingFlowLines,
   hitTestZone3D,
   resolveEmployeeZoneDynamic,
@@ -37,8 +39,8 @@ interface UseOffice3DViewStateArgs {
   agents: Map<string, AgentState>;
   eventBus: EventBus;
   sceneIntentBus?: SceneIntentBus;
+  ceremony: CeremonyState;
   activeCompanyId: string | null;
-  sceneCompanyId: string;
   zones: readonly Zone[];
   zones3D: readonly Zone3D[];
   dropTargetZones3D: readonly Zone3D[];
@@ -48,7 +50,7 @@ interface UseOffice3DViewStateArgs {
 }
 
 interface UseOffice3DViewStateResult {
-  ceremony: ReturnType<typeof useSceneOrchestrator>;
+  ceremony: CeremonyState;
   selectedEmployeeId: string | null;
   dragState: DragState3D | null;
   hoveredZoneId: string | null;
@@ -77,8 +79,8 @@ export function useOffice3DViewState({
   agents,
   eventBus,
   sceneIntentBus,
+  ceremony,
   activeCompanyId,
-  sceneCompanyId,
   zones,
   zones3D,
   dropTargetZones3D,
@@ -102,14 +104,6 @@ export function useOffice3DViewState({
 
   const dropTargetZones3DRef = useRef(dropTargetZones3D);
   dropTargetZones3DRef.current = dropTargetZones3D;
-
-  const ceremony = useSceneOrchestrator({
-    companyId: sceneCompanyId,
-    eventBus,
-    sceneIntentBus,
-    agents,
-    zones,
-  });
 
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
@@ -232,7 +226,7 @@ export function useOffice3DViewState({
         });
 
     const handleApprovalFlowLine = (payload: SceneInteractionWaitingPayload) => {
-      if (payload.kind !== 'permission_request' || !payload.employeeId) {
+      if (!payload.employeeId) {
         return;
       }
       appendFlowLine(
@@ -348,11 +342,55 @@ export function useOffice3DViewState({
           appendReportingFlowLines();
         });
 
+    const appendHandoffFlowLine = (payload: SceneHandoffInitiatedPayload) => {
+      appendFlowLine(
+        buildHandoffFlowLine(
+          payload.fromEmployeeId,
+          payload.toEmployeeId,
+          agentsRef.current,
+          zonesRef.current,
+          zone3DLayoutMapRef.current,
+        ),
+      );
+    };
+
+    const unsubscribeHandoff = sceneIntentBus
+      ? sceneIntentBus.on('scene.handoff.initiated', (intent) => {
+          appendHandoffFlowLine(intent.payload as SceneHandoffInitiatedPayload);
+        })
+      : eventBus.on('handoff.initiated', (event: RuntimeEvent) => {
+          const payload = event.payload as
+            | {
+                fromEmployeeId?: string;
+                toEmployeeId?: string;
+                handoffId?: string;
+                reason?: string;
+                taskRunId?: string;
+              }
+            | undefined;
+          if (
+            !payload?.fromEmployeeId ||
+            !payload.toEmployeeId ||
+            !payload.handoffId ||
+            !payload.taskRunId
+          ) {
+            return;
+          }
+          appendHandoffFlowLine({
+            handoffId: payload.handoffId,
+            fromEmployeeId: payload.fromEmployeeId,
+            toEmployeeId: payload.toEmployeeId,
+            reason: payload.reason ?? '',
+            taskRunId: payload.taskRunId,
+          });
+        });
+
     return () => {
       unsubscribe();
       unsubscribeInteractionWaiting();
       unsubscribeEmployeeState();
       unsubscribeNodeEntered();
+      unsubscribeHandoff();
     };
   }, [eventBus, sceneIntentBus, activeCompanyId, appendFlowLine]);
 

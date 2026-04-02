@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildApprovalHoldTarget,
+  buildClarificationHoldTarget,
   buildDispatchRoute,
+  buildHandoffRoute,
+  buildManagerPresenceTarget,
   buildReturnToMeetingRoute,
   buildStalledWorkTarget,
   buildWorkActivityTarget,
@@ -82,6 +85,29 @@ describe('scene-behavior', () => {
     expect(buildApprovalHoldTarget([0, 0, 0], 0)).toEqual([-0.75, 0, -1.9]);
     expect(buildApprovalHoldTarget([0, 0, 0], 1)).toEqual([0, 0, -1.9]);
     expect(buildApprovalHoldTarget([0, 0, 0], 2)).toEqual([0.75, 0, -1.9]);
+  });
+
+  it('buildClarificationHoldTarget mirrors approval hold positions on the far side of the meeting area', () => {
+    expect(buildClarificationHoldTarget([0, 0, 0], 0)).toEqual([-0.75, 0, 2.1]);
+    expect(buildClarificationHoldTarget([0, 0, 0], 1)).toEqual([0, 0, 2.1]);
+    expect(buildClarificationHoldTarget([0, 0, 0], 2)).toEqual([0.75, 0, 2.1]);
+  });
+
+  it('buildHandoffRoute passes through a meeting-edge transfer point before reaching the target', () => {
+    const route = buildHandoffRoute([8, 0, 6], [16, 0, 8], [0, 0, 0]);
+
+    expect(route).toEqual([
+      [8, 0, 1.6],
+      [0, 0, 1.6],
+      [16, 0, 1.6],
+      [16, 0, 8],
+    ]);
+  });
+
+  it('buildManagerPresenceTarget returns distinct anchor points for analysis, planning, and reporting', () => {
+    expect(buildManagerPresenceTarget([0, 0, 0], 'analyzing')).toEqual([0, 0, -3.1]);
+    expect(buildManagerPresenceTarget([0, 0, 0], 'planning')).toEqual([1.4, 0, -2.4]);
+    expect(buildManagerPresenceTarget([0, 0, 0], 'reporting')).toEqual([0, 0, -3.1]);
   });
 
   it('buildStalledWorkTarget separates blocked and failed poses around the desk', () => {

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
+import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
 import { PerformanceHUD } from './PerformanceHUD';
 import { useScene } from './useScene';
 
@@ -45,6 +46,7 @@ interface SceneCanvasProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
+  ceremony?: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -54,6 +56,15 @@ export function SceneCanvas({
   active = true,
   reducedMotion = false,
   viewMode = '3D',
+  ceremony = {
+    phase: 'idle',
+    bubbleText: '',
+    participantIds: new Set(),
+    dispatchedIds: new Set(),
+    managerVisible: false,
+    managerPosition: null,
+    waitingRelationships: [],
+  },
   selectedEmployeeId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -90,6 +101,7 @@ export function SceneCanvas({
               }
             >
               <Office2DView
+                ceremony={ceremony}
                 selectedEmployeeId={selectedEmployeeId}
                 onSelectEmployee={onSelectEmployee}
                 onDeselectEmployee={onDeselectEmployee}
@@ -116,6 +128,7 @@ export function SceneCanvas({
             >
               <Office3DView
                 active={active && viewMode === '3D'}
+                ceremony={ceremony}
                 selectedEmployeeId={selectedEmployeeId}
                 onSelectEmployee={onSelectEmployee}
                 onDeselectEmployee={onDeselectEmployee}

@@ -12,6 +12,7 @@ interface RouteOptions {
 
 const MEETING_EXIT_DISTANCE = 1.6;
 const APPROVAL_HOLD_DISTANCE = 1.9;
+const CLARIFICATION_HOLD_DISTANCE = 2.1;
 const DUPLICATE_POINT_EPSILON = 0.35;
 
 function distance2D(a: Vec3, b: Vec3): number {
@@ -88,6 +89,46 @@ export function buildApprovalHoldTarget(meetingCenter: Vec3, slotIndex = 0): Vec
     0,
     Number((meetingCenter[2] - APPROVAL_HOLD_DISTANCE).toFixed(2)),
   ];
+}
+
+export function buildClarificationHoldTarget(meetingCenter: Vec3, slotIndex = 0): Vec3 {
+  const laneOffset = (slotIndex % 3) - 1;
+  return [
+    Number((meetingCenter[0] + laneOffset * 0.75).toFixed(2)),
+    0,
+    Number((meetingCenter[2] + CLARIFICATION_HOLD_DISTANCE).toFixed(2)),
+  ];
+}
+
+export function buildHandoffRoute(
+  fromPos: Vec3,
+  toPos: Vec3,
+  meetingCenter: Vec3,
+  options?: RouteOptions,
+): Vec3[] {
+  const fromAisle: Vec3 = [fromPos[0], 0, meetingCenter[2] + MEETING_EXIT_DISTANCE];
+  const transferPoint: Vec3 = [meetingCenter[0], 0, meetingCenter[2] + MEETING_EXIT_DISTANCE];
+  const toAisle: Vec3 = [toPos[0], 0, transferPoint[2]];
+  const zoneWaypoints = options?.zoneWaypoints ?? [];
+
+  if (zoneWaypoints.length > 0) {
+    return dedupePath([fromAisle, ...zoneWaypoints, transferPoint, toAisle, toPos]);
+  }
+
+  return dedupePath([fromAisle, transferPoint, toAisle, toPos]);
+}
+
+export function buildManagerPresenceTarget(
+  meetingCenter: Vec3,
+  phase: 'analyzing' | 'planning' | 'reporting',
+): Vec3 {
+  switch (phase) {
+    case 'planning':
+      return [meetingCenter[0] + 1.4, 0, meetingCenter[2] - 2.4];
+    case 'analyzing':
+    case 'reporting':
+      return [meetingCenter[0], 0, meetingCenter[2] - 3.1];
+  }
 }
 
 export function buildWorkActivityTarget(basePosition: Vec3, category: ToolCategory): Vec3 {

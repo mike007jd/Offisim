@@ -48,6 +48,8 @@ export function getFlowLineColor(variant: FlowLineData['variant']): string {
 
 export function getFlowLineVariantLabel(variant: FlowLineData['variant']): string | null {
   switch (variant) {
+    case 'handoff':
+      return '交接中';
     case 'approval':
       return '等待审批';
     case 'report':
@@ -167,6 +169,27 @@ export function buildReportingFlowLines(
     );
   }
   return lines;
+}
+
+export function buildHandoffFlowLine(
+  fromEmployeeId: string,
+  toEmployeeId: string,
+  agents: Map<string, { role: string; workstationId?: string | null }>,
+  zones: readonly Zone[],
+  layoutMap: Readonly<Record<string, Zone3DLayout>>,
+): FlowLineData | null {
+  const fromAgent = agents.get(fromEmployeeId);
+  const toAgent = agents.get(toEmployeeId);
+  if (!fromAgent || !toAgent) return null;
+
+  const fromLayout = layoutMap[resolveEmployeeZoneDynamic(fromAgent, zones)];
+  const toLayout = layoutMap[resolveEmployeeZoneDynamic(toAgent, zones)];
+  const meetingLayout = getMeetingLayout(zones, layoutMap);
+  if (!fromLayout || !toLayout || !meetingLayout) return null;
+
+  return createFlowLine(buildFlowEndpoint(fromLayout), buildFlowEndpoint(toLayout), 'handoff', [
+    buildFlowEndpoint(meetingLayout),
+  ]);
 }
 
 export function toZone3DLayout(zone: Zone): Zone3DLayout {

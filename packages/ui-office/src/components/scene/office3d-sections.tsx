@@ -1,6 +1,7 @@
 import { Html } from '@react-three/drei';
 import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
 import type { AgentState } from '../../runtime/use-agent-states';
+import { ManagerPresence3D } from './ManagerPresence3D.js';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { EmployeeMarker, type PlacedEmployee } from './office3d-employees.js';
 import { TaskFlowLine, ZoneLabel } from './office3d-scene-primitives.js';
@@ -145,6 +146,16 @@ export function Office3DMeetingLayer({
   ceremony: import('../../hooks/useSceneOrchestrator').CeremonyState;
 }) {
   return <MeetingBubble3D ceremony={ceremony} />;
+}
+
+export function Office3DManagerLayer({
+  ceremony,
+}: {
+  ceremony: import('../../hooks/useSceneOrchestrator').CeremonyState;
+}) {
+  return (
+    <ManagerPresence3D visible={ceremony.managerVisible} position={ceremony.managerPosition} />
+  );
 }
 
 export function Office3DFlowLayer({

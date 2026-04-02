@@ -15,6 +15,8 @@
 import type {
   EmployeeStatePayload,
   GraphNodeEnteredPayload,
+  HandoffCompletedPayload,
+  HandoffInitiatedPayload,
   InteractionRequest,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
@@ -27,10 +29,14 @@ import type {
 } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { addWaitingRelationship, removeWaitingRelationship } from '../lib/ceremony-visuals';
 import { truncate } from '../lib/format-time';
 import {
   buildApprovalHoldTarget,
+  buildClarificationHoldTarget,
   buildDispatchRoute,
+  buildHandoffRoute,
+  buildManagerPresenceTarget,
   buildReturnToMeetingRoute,
   buildStalledWorkTarget,
   buildWorkActivityTarget,
@@ -41,6 +47,8 @@ import { SEAT_OFFSETS } from '../lib/seat-offsets';
 import { categorizeTool } from '../lib/tool-category';
 import type {
   SceneEmployeeEscalatedPayload,
+  SceneHandoffCompletedPayload,
+  SceneHandoffInitiatedPayload,
   SceneIntentBus,
   SceneInteractionResolvedPayload,
   SceneInteractionWaitingPayload,
@@ -96,6 +104,18 @@ function getRestPos(zones: readonly Zone[]): [number, number, number] {
   return [restCenter[0] + (Math.random() - 0.5) * 4, 0, restCenter[2] + (Math.random() - 0.5) * 3];
 }
 
+function createIdleCeremonyState(): CeremonyState {
+  return {
+    phase: 'idle',
+    bubbleText: '',
+    participantIds: new Set(),
+    dispatchedIds: new Set(),
+    managerVisible: false,
+    managerPosition: null,
+    waitingRelationships: [],
+  };
+}
+
 // ── Ceremony state (exposed to MeetingBubble3D) ─────────────────
 
 export type CeremonyPhase =
@@ -108,6 +128,13 @@ export type CeremonyPhase =
   | 'reporting' // boss_summary, employees returning to MTG
   | 'dismissing'; // everyone walking back to rest
 
+export interface WaitingRelationship {
+  waiterId: string;
+  waiterName: string;
+  waitingFor: 'user' | string;
+  kind: InteractionRequest['kind'] | 'handoff';
+}
+
 export interface CeremonyState {
   phase: CeremonyPhase;
   /** Text to show in the meeting bubble. */
@@ -116,6 +143,9 @@ export interface CeremonyState {
   participantIds: Set<string>;
   /** Employees dispatched to workstations (won't return to MTG at end). */
   dispatchedIds: Set<string>;
+  managerVisible: boolean;
+  managerPosition: [number, number, number] | null;
+  waitingRelationships: WaitingRelationship[];
 }
 
 export function describeWorkingToolActivity(
@@ -289,12 +319,7 @@ export function useSceneOrchestrator({
   agents,
   zones,
 }: OrchestratorDeps): CeremonyState {
-  const [ceremony, setCeremony] = useState<CeremonyState>({
-    phase: 'idle',
-    bubbleText: '',
-    participantIds: new Set(),
-    dispatchedIds: new Set(),
-  });
+  const [ceremony, setCeremony] = useState<CeremonyState>(() => createIdleCeremonyState());
 
   // Track current ceremony version to detect interruptions
   const ceremonyVersionRef = useRef(0);
@@ -307,6 +332,7 @@ export function useSceneOrchestrator({
   const assignedWorkPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
   const assignedWorkZoneIdsRef = useRef<Map<string, string>>(new Map());
   const approvalHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
+  const clarificationHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
 
   // Timer tracking — clear all pending timeouts on unmount
   const timerRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -341,10 +367,14 @@ export function useSceneOrchestrator({
       bubbleText: 'Gathering team...',
       participantIds,
       dispatchedIds: new Set(),
+      managerVisible: false,
+      managerPosition: null,
+      waitingRelationships: [],
     });
     assignedWorkPositionsRef.current.clear();
     assignedWorkZoneIdsRef.current.clear();
     approvalHoldPositionsRef.current.clear();
+    clarificationHoldPositionsRef.current.clear();
 
     const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
     const mtgPositions = computeMtgPositions(mtgCenter);
@@ -377,8 +407,7 @@ export function useSceneOrchestrator({
       assignedWorkZoneIdsRef.current.set(employeeId, zoneId);
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
       const targetZoneCenter = getZoneCenterById(zonesRef.current, zoneId);
-      const meetingZoneId =
-        getMeetingZoneId(zonesRef.current);
+      const meetingZoneId = getMeetingZoneId(zonesRef.current);
       const route = buildDispatchRoute(mtgCenter, targetZoneCenter, targetPos, {
         zoneWaypoints: buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, zoneId),
       });
@@ -399,11 +428,18 @@ export function useSceneOrchestrator({
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
   const startEndCeremony = useCallback(
     (summaryText: string, version: number) => {
+      const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
       // Read current dispatched set before overwriting phase
       let capturedDispatchedIds: string[] = [];
       setCeremony((prev) => {
         capturedDispatchedIds = [...prev.dispatchedIds];
-        return { ...prev, phase: 'reporting', bubbleText: summaryText || 'Summarizing results...' };
+        return {
+          ...prev,
+          phase: 'reporting',
+          bubbleText: summaryText || 'Summarizing results...',
+          managerVisible: true,
+          managerPosition: buildManagerPresenceTarget(meetingCenter, 'reporting'),
+        };
       });
 
       // Only move employees that were actually dispatched to workstations
@@ -414,15 +450,11 @@ export function useSceneOrchestrator({
       if (dispatchedIds.length === 0) {
         safeTimeout(() => {
           if (ceremonyVersionRef.current !== version) return;
-          setCeremony({
-            phase: 'idle',
-            bubbleText: '',
-            participantIds: new Set(),
-            dispatchedIds: new Set(),
-          });
+          setCeremony(createIdleCeremonyState());
           assignedWorkPositionsRef.current.clear();
           assignedWorkZoneIdsRef.current.clear();
           approvalHoldPositionsRef.current.clear();
+          clarificationHoldPositionsRef.current.clear();
         }, 1500);
         return;
       }
@@ -441,8 +473,7 @@ export function useSceneOrchestrator({
           seat[2] + (Math.random() - 0.5) * 0.3,
         ];
         const basePosition = assignedWorkPositionsRef.current.get(id) ?? reportSeat;
-        const meetingZoneId =
-          getMeetingZoneId(zonesRef.current);
+        const meetingZoneId = getMeetingZoneId(zonesRef.current);
         const workZoneId = assignedWorkZoneIdsRef.current.get(id);
         const route = buildReturnToMeetingRoute(basePosition, mtgCenter, reportSeat, {
           zoneWaypoints: workZoneId
@@ -456,7 +487,13 @@ export function useSceneOrchestrator({
             // All gathered — show summary for 1.5s then dismiss
             safeTimeout(() => {
               if (ceremonyVersionRef.current !== version) return;
-              setCeremony((prev) => ({ ...prev, phase: 'dismissing', bubbleText: '' }));
+              setCeremony((prev) => ({
+                ...prev,
+                phase: 'dismissing',
+                bubbleText: '',
+                managerVisible: false,
+                managerPosition: null,
+              }));
               for (const empId of dispatchedIds) {
                 const h = getMovementHandles(companyIdRef.current).get(empId);
                 h?.moveTo(getRestPos(zonesRef.current), 4);
@@ -464,15 +501,11 @@ export function useSceneOrchestrator({
               // After 3s, ceremony is fully done
               safeTimeout(() => {
                 if (ceremonyVersionRef.current !== version) return;
-                setCeremony({
-                  phase: 'idle',
-                  bubbleText: '',
-                  participantIds: new Set(),
-                  dispatchedIds: new Set(),
-                });
+                setCeremony(createIdleCeremonyState());
                 assignedWorkPositionsRef.current.clear();
                 assignedWorkZoneIdsRef.current.clear();
                 approvalHoldPositionsRef.current.clear();
+                clarificationHoldPositionsRef.current.clear();
               }, 3000);
             }, 1500);
           }
@@ -505,14 +538,18 @@ export function useSceneOrchestrator({
           assignedWorkPositionsRef.current.clear();
           assignedWorkZoneIdsRef.current.clear();
           approvalHoldPositionsRef.current.clear();
+          clarificationHoldPositionsRef.current.clear();
           // Brief delay to visually separate the reset from the new gathering
           safeTimeout(() => {
             if (ceremonyVersionRef.current !== version) return; // another interrupt happened
+            const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
             gatherAll(version);
             setCeremony((prev) => ({
               ...prev,
               phase: 'analyzing',
               bubbleText: 'Analyzing request...',
+              managerVisible: true,
+              managerPosition: buildManagerPresenceTarget(meetingCenter, 'analyzing'),
             }));
           }, 300);
         }
@@ -523,10 +560,13 @@ export function useSceneOrchestrator({
           node === 'project_manager' ||
           node === 'product_manager'
         ) {
+          const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
           setCeremony((prev) => ({
             ...prev,
             phase: 'planning',
             bubbleText: 'Planning tasks...',
+            managerVisible: true,
+            managerPosition: buildManagerPresenceTarget(meetingCenter, 'planning'),
           }));
         }
 
@@ -574,7 +614,13 @@ export function useSceneOrchestrator({
                 handle?.moveTo(getRestPos(zonesRef.current), 4);
               }
             }
-            return { ...prev, phase: 'working', bubbleText: '' };
+            return {
+              ...prev,
+              phase: 'working',
+              bubbleText: '',
+              managerVisible: false,
+              managerPosition: null,
+            };
           });
         }, 1000);
       }
@@ -677,11 +723,24 @@ export function useSceneOrchestrator({
     const handleInteractionApproval = (payload: SceneInteractionWaitingPayload) => {
       const label = describeInteractionSceneRequest({ kind: payload.kind }, payload.restored);
       setCeremony((prev) => {
-        if (prev.bubbleText === label) return prev;
-        return { ...prev, bubbleText: label };
+        const employeeId = payload.employeeId;
+        const employeeName = employeeId
+          ? (agentsRef.current.get(employeeId)?.name ?? 'A teammate')
+          : 'A teammate';
+        const waitingRelationships = employeeId
+          ? addWaitingRelationship(prev.waitingRelationships, {
+              waiterId: employeeId,
+              waiterName: employeeName,
+              waitingFor: 'user',
+              kind: payload.kind,
+            })
+          : prev.waitingRelationships;
+        if (prev.bubbleText === label && waitingRelationships === prev.waitingRelationships)
+          return prev;
+        return { ...prev, bubbleText: label, waitingRelationships };
       });
 
-      if (payload.kind !== 'permission_request' || !payload.employeeId) {
+      if (!payload.employeeId) {
         return;
       }
 
@@ -693,14 +752,30 @@ export function useSceneOrchestrator({
       }
 
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
-      const meetingZoneId =
-        getMeetingZoneId(zonesRef.current);
+      const meetingZoneId = getMeetingZoneId(zonesRef.current);
       const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
-      const holdTarget = payload.restored
-        ? (approvalHoldPositionsRef.current.get(employeeId) ??
-          buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size))
-        : buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size);
-      approvalHoldPositionsRef.current.set(employeeId, holdTarget);
+      const holdTarget =
+        payload.kind === 'permission_request'
+          ? payload.restored
+            ? (approvalHoldPositionsRef.current.get(employeeId) ??
+              buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size))
+            : buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size)
+          : payload.restored
+            ? (clarificationHoldPositionsRef.current.get(employeeId) ??
+              buildClarificationHoldTarget(
+                meetingCenter,
+                clarificationHoldPositionsRef.current.size,
+              ))
+            : buildClarificationHoldTarget(
+                meetingCenter,
+                clarificationHoldPositionsRef.current.size,
+              );
+
+      if (payload.kind === 'permission_request') {
+        approvalHoldPositionsRef.current.set(employeeId, holdTarget);
+      } else {
+        clarificationHoldPositionsRef.current.set(employeeId, holdTarget);
+      }
       moveThroughPoints(
         handle,
         buildReturnToMeetingRoute(basePosition, meetingCenter, holdTarget, {
@@ -747,20 +822,25 @@ export function useSceneOrchestrator({
         response: { selectedOptionId: payload.selectedOptionId },
       });
       setCeremony((prev) => {
-        if (prev.bubbleText === label) return prev;
-        return { ...prev, bubbleText: label };
+        const waitingRelationships = payload.employeeId
+          ? removeWaitingRelationship(prev.waitingRelationships, payload.employeeId)
+          : prev.waitingRelationships;
+        if (prev.bubbleText === label && waitingRelationships === prev.waitingRelationships) {
+          return prev;
+        }
+        return { ...prev, bubbleText: label, waitingRelationships };
       });
 
-      if (payload.kind === 'permission_request' && payload.employeeId) {
+      if (payload.employeeId) {
         const employeeId = payload.employeeId;
         const basePosition = assignedWorkPositionsRef.current.get(employeeId);
         const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
         const handle = getMovementHandles(companyIdRef.current).get(employeeId);
         approvalHoldPositionsRef.current.delete(employeeId);
+        clarificationHoldPositionsRef.current.delete(employeeId);
         if (basePosition && handle) {
           const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
-          const meetingZoneId =
-            getMeetingZoneId(zonesRef.current);
+          const meetingZoneId = getMeetingZoneId(zonesRef.current);
           const targetZoneCenter = workZoneId
             ? getZoneCenterById(zonesRef.current, workZoneId)
             : basePosition;
@@ -798,7 +878,10 @@ export function useSceneOrchestrator({
 
     const handleEmployeeEscalated = (payload: SceneEmployeeEscalatedPayload) => {
       const { employeeId, next } = payload;
-      if (approvalHoldPositionsRef.current.has(employeeId)) {
+      if (
+        approvalHoldPositionsRef.current.has(employeeId) ||
+        clarificationHoldPositionsRef.current.has(employeeId)
+      ) {
         return;
       }
 
@@ -823,6 +906,74 @@ export function useSceneOrchestrator({
       }, 1400);
     };
 
+    const resolveEmployeeTargetPosition = (employeeId: string): [number, number, number] | null => {
+      const assigned = assignedWorkPositionsRef.current.get(employeeId);
+      if (assigned) return assigned;
+
+      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      const current = handle?.getPosition();
+      if (current) return current;
+
+      const agent = agentsRef.current.get(employeeId);
+      if (agent) {
+        const zoneId = resolveZoneForRole(agent.role as RoleSlug, zonesRef.current)?.zoneId;
+        if (zoneId) {
+          return getZoneCenterById(zonesRef.current, zoneId);
+        }
+      }
+
+      return null;
+    };
+
+    const handleHandoffInitiated = (payload: SceneHandoffInitiatedPayload) => {
+      const fromHandle = getMovementHandles(companyIdRef.current).get(payload.fromEmployeeId);
+      const fromPosition =
+        assignedWorkPositionsRef.current.get(payload.fromEmployeeId) ??
+        fromHandle?.getPosition() ??
+        null;
+      const toPosition = resolveEmployeeTargetPosition(payload.toEmployeeId);
+      const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
+      const fromName = agentsRef.current.get(payload.fromEmployeeId)?.name ?? 'Teammate';
+      const toName = agentsRef.current.get(payload.toEmployeeId)?.name ?? 'teammate';
+
+      setCeremony((prev) => ({
+        ...prev,
+        bubbleText: `${fromName} → handoff to ${toName}`,
+        waitingRelationships: addWaitingRelationship(prev.waitingRelationships, {
+          waiterId: payload.toEmployeeId,
+          waiterName: toName,
+          waitingFor: payload.fromEmployeeId,
+          kind: 'handoff',
+        }),
+      }));
+
+      if (fromHandle && fromPosition && toPosition) {
+        moveThroughPoints(
+          fromHandle,
+          buildHandoffRoute(fromPosition, toPosition, meetingCenter),
+          3.5,
+        );
+      }
+    };
+
+    const handleHandoffCompleted = (payload: SceneHandoffCompletedPayload) => {
+      setCeremony((prev) => ({
+        ...prev,
+        bubbleText: 'Handoff received',
+        waitingRelationships: removeWaitingRelationship(
+          prev.waitingRelationships,
+          payload.toEmployeeId,
+        ),
+      }));
+
+      safeTimeout(() => {
+        setCeremony((prev) => {
+          if (prev.bubbleText !== 'Handoff received') return prev;
+          return { ...prev, bubbleText: '' };
+        });
+      }, 1200);
+    };
+
     const unsubEmployeeState = sceneIntentBus
       ? sceneIntentBus.on('scene.employee.escalated', (intent) => {
           handleEmployeeEscalated(intent.payload as SceneEmployeeEscalatedPayload);
@@ -837,6 +988,32 @@ export function useSceneOrchestrator({
           });
         });
 
+    const unsubHandoffInitiated = sceneIntentBus
+      ? sceneIntentBus.on('scene.handoff.initiated', (intent) => {
+          handleHandoffInitiated(intent.payload as SceneHandoffInitiatedPayload);
+        })
+      : eventBus.on('handoff.initiated', (e: RuntimeEvent<HandoffInitiatedPayload>) => {
+          handleHandoffInitiated({
+            handoffId: e.payload.handoffId,
+            fromEmployeeId: e.payload.fromEmployeeId,
+            toEmployeeId: e.payload.toEmployeeId,
+            reason: e.payload.reason,
+            taskRunId: e.payload.taskRunId,
+          });
+        });
+
+    const unsubHandoffCompleted = sceneIntentBus
+      ? sceneIntentBus.on('scene.handoff.completed', (intent) => {
+          handleHandoffCompleted(intent.payload as SceneHandoffCompletedPayload);
+        })
+      : eventBus.on('handoff.completed', (e: RuntimeEvent<HandoffCompletedPayload>) => {
+          handleHandoffCompleted({
+            handoffId: e.payload.handoffId,
+            toEmployeeId: e.payload.toEmployeeId,
+            taskRunId: e.payload.taskRunId,
+          });
+        });
+
     return () => {
       unsubNode();
       unsubDispatch();
@@ -846,6 +1023,8 @@ export function useSceneOrchestrator({
       unsubInteractionWaiting();
       unsubInteractionResolved();
       unsubEmployeeState();
+      unsubHandoffInitiated();
+      unsubHandoffCompleted();
       // Clear all pending ceremony timeouts on effect teardown
       timerRefs.current.forEach(clearTimeout);
       timerRefs.current.clear();

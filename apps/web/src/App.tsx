@@ -4,6 +4,7 @@ import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   AgentPanel,
   AppLayout,
+  type CeremonyState,
   ChatDrawer,
   ChatPanel,
   CompanySelectionPage,
@@ -16,17 +17,20 @@ import {
   type ProviderConfig,
   ResumeBar,
   RightSidebar,
+  SceneCeremonyProvider,
   StatusBar,
   loadProviderConfig,
   primeEventLogStore,
   useAgentStates,
   useCompany,
   useCompanyEditor,
+  useCompanyZones,
   useDeepLinkInstall,
   useInstallFlow,
   useOffisimRuntime,
   useProjects,
   useReducedMotion,
+  useSceneOrchestrator,
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import {
@@ -42,6 +46,7 @@ interface SceneCanvasLazyProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
+  ceremony?: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string | null) => void;
   onDeselectEmployee?: () => void;
@@ -112,6 +117,7 @@ export function App({ onCompanySwitch }: AppProps) {
     reinitRuntime,
     repos,
     eventBus,
+    sceneIntentBus,
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
@@ -125,7 +131,15 @@ export function App({ onCompanySwitch }: AppProps) {
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
+  const { zones } = useCompanyZones();
   const { toasts, addToast, dismissToast } = useToasts();
+  const ceremony = useSceneOrchestrator({
+    companyId: activeCompanyId ?? 'default-scene-company',
+    eventBus,
+    sceneIntentBus,
+    agents,
+    zones,
+  });
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -369,91 +383,96 @@ export function App({ onCompanySwitch }: AppProps) {
                 />
               </div>
             )}
-            <AppLayout
-              header={
-                <Header
-                  providerName={providerConfig?.model}
-                  companyName={activeCompanyName}
-                  onOpenSettings={() => setSettingsOpen(true)}
-                  onOpenEmployeeCreator={() => setView('employee-creator')}
-                  onOpenStudio={() => {
-                    setStudioMode('edit');
-                    setView('studio');
-                  }}
-                  onOpenCompanySelect={() => setView('company-select')}
-                  onFileImport={installFlow.startFileImport}
-                  notificationSlot={<NotificationCenter />}
-                  projectSlot={
-                    <div className="relative">
-                      <ProjectSelector
-                        projects={projects}
-                        activeProjectId={activeProjectId}
-                        onSelect={setActiveProjectId}
-                      />
-                      {projectListOpen && (
-                        <div className="absolute top-full mt-1 left-0 z-50">
-                          <ProjectListPanel
-                            projects={projects}
-                            activeProjectId={activeProjectId}
-                            onSelect={setActiveProjectId}
-                            onClose={() => setProjectListOpen(false)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  }
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  needsConfig={!providerConfig}
-                />
-              }
-              agentPanel={
-                <AgentPanel
-                  agents={agents}
-                  onSelectEmployee={(id) => {
-                    setSelectedEmployeeId(id);
-                    setChatOpenToken((t) => t + 1);
-                  }}
-                  selectedEmployeeId={selectedEmployeeId}
-                  onOpenCreator={() => setView('employee-creator')}
-                />
-              }
-              sceneCanvas={
-                <Suspense fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}>
-                  <SceneCanvas
-                    active={isOfficeSceneInteractive(view)}
-                    reducedMotion={reducedMotion}
-                    viewMode={viewMode}
-                    selectedEmployeeId={selectedEmployeeId}
-                    onSelectEmployee={setSelectedEmployeeId}
-                    onDeselectEmployee={() => setSelectedEmployeeId(null)}
-                  />
-                </Suspense>
-              }
-              chatDrawer={
-                <ChatDrawer requestOpen={chatOpenToken}>
-                  <ChatPanel
+            <SceneCeremonyProvider value={ceremony}>
+              <AppLayout
+                header={
+                  <Header
+                    providerName={providerConfig?.model}
+                    companyName={activeCompanyName}
                     onOpenSettings={() => setSettingsOpen(true)}
-                    selectedEmployeeId={selectedEmployeeId}
-                    selectedEmployeeName={selectedEmployeeName}
-                    onClearSelection={() => setSelectedEmployeeId(null)}
-                    onSelectEmployee={setSelectedEmployeeId}
-                    onShowDashboard={() => setDashboardOpen(true)}
-                    onShowBudget={() => setDashboardOpen(true)}
-                    activeProject={activeProject}
-                    onUserMessage={setLastUserRequest}
+                    onOpenEmployeeCreator={() => setView('employee-creator')}
+                    onOpenStudio={() => {
+                      setStudioMode('edit');
+                      setView('studio');
+                    }}
+                    onOpenCompanySelect={() => setView('company-select')}
+                    onFileImport={installFlow.startFileImport}
+                    notificationSlot={<NotificationCenter />}
+                    projectSlot={
+                      <div className="relative">
+                        <ProjectSelector
+                          projects={projects}
+                          activeProjectId={activeProjectId}
+                          onSelect={setActiveProjectId}
+                        />
+                        {projectListOpen && (
+                          <div className="absolute top-full mt-1 left-0 z-50">
+                            <ProjectListPanel
+                              projects={projects}
+                              activeProjectId={activeProjectId}
+                              onSelect={setActiveProjectId}
+                              onClose={() => setProjectListOpen(false)}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    }
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                    needsConfig={!providerConfig}
                   />
-                </ChatDrawer>
-              }
-              eventLog={
-                <RightSidebar
-                  onOpenDashboard={() => setDashboardOpen(true)}
-                  onOpenKanban={() => setKanbanOpen(true)}
-                  focusOutputsToken={focusOutputsToken}
-                />
-              }
-              statusBar={<StatusBar modelName={providerConfig?.model} />}
-            />
+                }
+                agentPanel={
+                  <AgentPanel
+                    agents={agents}
+                    onSelectEmployee={(id) => {
+                      setSelectedEmployeeId(id);
+                      setChatOpenToken((t) => t + 1);
+                    }}
+                    selectedEmployeeId={selectedEmployeeId}
+                    onOpenCreator={() => setView('employee-creator')}
+                  />
+                }
+                sceneCanvas={
+                  <Suspense
+                    fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}
+                  >
+                    <SceneCanvas
+                      active={isOfficeSceneInteractive(view)}
+                      reducedMotion={reducedMotion}
+                      viewMode={viewMode}
+                      ceremony={ceremony}
+                      selectedEmployeeId={selectedEmployeeId}
+                      onSelectEmployee={setSelectedEmployeeId}
+                      onDeselectEmployee={() => setSelectedEmployeeId(null)}
+                    />
+                  </Suspense>
+                }
+                chatDrawer={
+                  <ChatDrawer requestOpen={chatOpenToken}>
+                    <ChatPanel
+                      onOpenSettings={() => setSettingsOpen(true)}
+                      selectedEmployeeId={selectedEmployeeId}
+                      selectedEmployeeName={selectedEmployeeName}
+                      onClearSelection={() => setSelectedEmployeeId(null)}
+                      onSelectEmployee={setSelectedEmployeeId}
+                      onShowDashboard={() => setDashboardOpen(true)}
+                      onShowBudget={() => setDashboardOpen(true)}
+                      activeProject={activeProject}
+                      onUserMessage={setLastUserRequest}
+                    />
+                  </ChatDrawer>
+                }
+                eventLog={
+                  <RightSidebar
+                    onOpenDashboard={() => setDashboardOpen(true)}
+                    onOpenKanban={() => setKanbanOpen(true)}
+                    focusOutputsToken={focusOutputsToken}
+                  />
+                }
+                statusBar={<StatusBar modelName={providerConfig?.model} />}
+              />
+            </SceneCeremonyProvider>
             {dashboardOpen && (
               <Suspense fallback={null}>
                 <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />

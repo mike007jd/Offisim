@@ -8,15 +8,32 @@
 
 import { Html } from '@react-three/drei';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
-import { getPhaseColor, getPhaseIcon } from '../../lib/ceremony-visuals';
+import {
+  describeWaitingRelationship,
+  getPhaseColor,
+  getPhaseIcon,
+} from '../../lib/ceremony-visuals';
 
 const BUBBLE_POSITION: [number, number, number] = [-10, 3, -8];
 
 export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
-  if (ceremony.phase === 'idle' || !ceremony.bubbleText) return null;
+  if (
+    ceremony.phase === 'idle' ||
+    (!ceremony.bubbleText && ceremony.waitingRelationships.length === 0)
+  ) {
+    return null;
+  }
 
   const phaseIcon = getPhaseIcon(ceremony.phase);
   const phaseColor = getPhaseColor(ceremony.phase);
+
+  const waitingNames = new Map(
+    ceremony.waitingRelationships.map((relationship) => [
+      relationship.waiterId,
+      relationship.waiterName,
+    ]),
+  );
+  const visibleRelationships = ceremony.waitingRelationships.slice(0, 3);
 
   return (
     <Html position={BUBBLE_POSITION} center style={{ pointerEvents: 'none' }}>
@@ -64,7 +81,7 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
               letterSpacing: '0.02em',
             }}
           >
-            {phaseIcon} {ceremony.bubbleText}
+            {phaseIcon} {ceremony.bubbleText || 'Coordination in progress'}
           </span>
         </div>
         {/* Participant count badge */}
@@ -79,6 +96,28 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
           >
             {ceremony.participantIds.size} participant{ceremony.participantIds.size > 1 ? 's' : ''}
             {ceremony.dispatchedIds.size > 0 && ` · ${ceremony.dispatchedIds.size} dispatched`}
+          </div>
+        )}
+        {visibleRelationships.length > 0 && (
+          <div
+            style={{
+              marginTop: '6px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              fontSize: '9px',
+              color: 'rgba(255,255,255,0.55)',
+              fontFamily: '"Geist Mono", "SF Mono", monospace',
+            }}
+          >
+            {visibleRelationships.map((relationship) => (
+              <div key={`${relationship.waiterId}:${relationship.kind}`}>
+                {describeWaitingRelationship(relationship, waitingNames)}
+              </div>
+            ))}
+            {ceremony.waitingRelationships.length > visibleRelationships.length && (
+              <div>+{ceremony.waitingRelationships.length - visibleRelationships.length} more</div>
+            )}
           </div>
         )}
       </div>

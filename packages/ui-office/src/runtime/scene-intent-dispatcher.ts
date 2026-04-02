@@ -2,6 +2,8 @@ import type { EventBus } from '@offisim/core/browser';
 import type {
   EmployeeStatePayload,
   GraphNodeEnteredPayload,
+  HandoffCompletedPayload,
+  HandoffInitiatedPayload,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
   InteractionRestoredPayload,
@@ -75,6 +77,32 @@ export class SceneIntentDispatcher {
           );
         },
       ),
+    );
+
+    this.unsubscribeFns.push(
+      this.eventBus.on('handoff.initiated', (event: RuntimeEvent<HandoffInitiatedPayload>) => {
+        this.sceneIntentBus.emit(
+          createSceneIntent('scene.handoff.initiated', {
+            handoffId: event.payload.handoffId,
+            fromEmployeeId: event.payload.fromEmployeeId,
+            toEmployeeId: event.payload.toEmployeeId,
+            reason: event.payload.reason,
+            taskRunId: event.payload.taskRunId,
+          }),
+        );
+      }),
+    );
+
+    this.unsubscribeFns.push(
+      this.eventBus.on('handoff.completed', (event: RuntimeEvent<HandoffCompletedPayload>) => {
+        this.sceneIntentBus.emit(
+          createSceneIntent('scene.handoff.completed', {
+            handoffId: event.payload.handoffId,
+            toEmployeeId: event.payload.toEmployeeId,
+            taskRunId: event.payload.taskRunId,
+          }),
+        );
+      }),
     );
 
     this.unsubscribeFns.push(

@@ -1,9 +1,15 @@
-import type { InteractionKind } from '@offisim/shared-types';
+import type {
+  HandoffCompletedPayload,
+  HandoffInitiatedPayload,
+  InteractionKind,
+} from '@offisim/shared-types';
 
 export type SceneIntentType =
   | 'scene.task.dispatched'
   | 'scene.interaction.waiting'
   | 'scene.interaction.resolved'
+  | 'scene.handoff.initiated'
+  | 'scene.handoff.completed'
   | 'scene.employee.escalated'
   | 'scene.reporting.started';
 
@@ -32,6 +38,15 @@ export interface SceneEmployeeEscalatedPayload {
   readonly next: 'blocked' | 'failed';
 }
 
+export interface SceneHandoffInitiatedPayload
+  extends Pick<
+    HandoffInitiatedPayload,
+    'handoffId' | 'fromEmployeeId' | 'toEmployeeId' | 'reason' | 'taskRunId'
+  > {}
+
+export interface SceneHandoffCompletedPayload
+  extends Pick<HandoffCompletedPayload, 'handoffId' | 'toEmployeeId' | 'taskRunId'> {}
+
 export interface SceneReportingStartedPayload {
   readonly sourceNode: string;
 }
@@ -40,6 +55,8 @@ export interface SceneIntentPayloadMap {
   'scene.task.dispatched': SceneTaskDispatchedPayload;
   'scene.interaction.waiting': SceneInteractionWaitingPayload;
   'scene.interaction.resolved': SceneInteractionResolvedPayload;
+  'scene.handoff.initiated': SceneHandoffInitiatedPayload;
+  'scene.handoff.completed': SceneHandoffCompletedPayload;
   'scene.employee.escalated': SceneEmployeeEscalatedPayload;
   'scene.reporting.started': SceneReportingStartedPayload;
 }

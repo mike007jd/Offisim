@@ -61,6 +61,8 @@ export interface CharacterMovementHandle {
   stop: () => void;
   /** Whether the character is currently moving. */
   isMoving: () => boolean;
+  /** Current world position of the character root. */
+  getPosition: () => [number, number, number] | null;
 }
 
 /**
@@ -92,6 +94,11 @@ export function useCharacterMovement(
   }, [limbRefs]);
 
   const isMoving = useCallback(() => targetRef.current !== null, []);
+  const getPosition = useCallback(() => {
+    const group = groupRef.current;
+    if (!group) return null;
+    return [group.position.x, group.position.y, group.position.z] as [number, number, number];
+  }, [groupRef]);
 
   useFrame((_, delta) => {
     const g = groupRef.current;
@@ -171,7 +178,10 @@ export function useCharacterMovement(
   });
 
   // Memoize handle to prevent re-registration churn in EmployeeMarker
-  return useMemo(() => ({ moveTo, stop, isMoving }), [moveTo, stop, isMoving]);
+  return useMemo(
+    () => ({ moveTo, stop, isMoving, getPosition }),
+    [moveTo, stop, isMoving, getPosition],
+  );
 }
 
 function resetLimbs(refs: CharacterLimbRefs) {

@@ -19,6 +19,7 @@ import {
   Office3DEmployeeLayer,
   Office3DFlowLayer,
   Office3DFurnitureLayer,
+  Office3DManagerLayer,
   Office3DMeetingLayer,
   Office3DSceneHud,
   Office3DZoneLayer,
@@ -38,6 +39,7 @@ type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
 interface Office3DViewProps {
   active?: boolean;
+  ceremony: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -91,6 +93,7 @@ interface Office3DViewInnerProps {
 
 export default function Office3DView({
   active = true,
+  ceremony,
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -98,7 +101,6 @@ export default function Office3DView({
   const agents = useAgentStates();
   const { eventBus, sceneIntentBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
-  const sceneCompanyId = activeCompanyId ?? 'default-scene-company';
   const { zones } = useCompanyZones();
 
   const zones3D: Zone3D[] = useMemo(
@@ -112,7 +114,6 @@ export default function Office3DView({
   const placed = usePlacedEmployees(agents, zones3D, zones);
 
   const {
-    ceremony,
     selectedEmployeeId,
     dragState,
     hoveredZoneId,
@@ -135,8 +136,8 @@ export default function Office3DView({
     agents,
     eventBus,
     sceneIntentBus,
+    ceremony,
     activeCompanyId,
-    sceneCompanyId,
     zones,
     zones3D,
     dropTargetZones3D,
@@ -267,6 +268,7 @@ function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerPr
         />
 
         <Office3DMeetingLayer ceremony={ceremony} />
+        <Office3DManagerLayer ceremony={ceremony} />
 
         <Office3DFlowLayer flowLines={flowLines} setFlowLines={setFlowLines} />
 

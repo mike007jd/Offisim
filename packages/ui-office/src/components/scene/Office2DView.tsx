@@ -10,8 +10,8 @@ import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
-import { type CeremonyState, useSceneOrchestrator } from '../../hooks/useSceneOrchestrator';
-import { getPhaseColor } from '../../lib/ceremony-visuals';
+import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
+import { describeWaitingRelationship, getPhaseColor } from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { STATUS_COLORS } from '../../lib/status-colors.js';
@@ -277,11 +277,28 @@ function DragGhost({
 // ── Meeting bubble (SVG) ──────────────────────────────────────────────
 
 function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
-  if (ceremony.phase === 'idle' || !ceremony.bubbleText) return null;
+  if (
+    ceremony.phase === 'idle' ||
+    (!ceremony.bubbleText && ceremony.waitingRelationships.length === 0)
+  ) {
+    return null;
+  }
 
   const mtg = toSVG(-10, -8, 14, 6);
   const bx = mtg.x + mtg.w / 2;
   const by = mtg.y - 30;
+  const waitingNames = new Map(
+    ceremony.waitingRelationships.map((relationship) => [
+      relationship.waiterId,
+      relationship.waiterName,
+    ]),
+  );
+  const visibleRelationships = ceremony.waitingRelationships.slice(0, 3);
+  const extraWaitingCount = Math.max(
+    0,
+    ceremony.waitingRelationships.length - visibleRelationships.length,
+  );
+  const bubbleHeight = visibleRelationships.length > 0 ? 54 + visibleRelationships.length * 12 : 32;
 
   return (
     <g>
@@ -289,7 +306,7 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
         x={bx - 140}
         y={by - 16}
         width="280"
-        height="32"
+        height={bubbleHeight}
         rx="16"
         fill="rgba(0,0,0,0.65)"
         stroke="rgba(255,255,255,0.10)"
@@ -306,7 +323,7 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
         fontWeight="600"
         fontFamily="monospace"
       >
-        {truncate(ceremony.bubbleText, 35)}
+        {truncate(ceremony.bubbleText || 'Coordination in progress', 35)}
       </text>
       {ceremony.participantIds.size > 0 && (
         <text
@@ -320,6 +337,29 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
           {ceremony.participantIds.size}p
         </text>
       )}
+      {visibleRelationships.map((relationship, index) => (
+        <text
+          key={`${relationship.waiterId}:${relationship.kind}`}
+          x={bx - 108}
+          y={by + 18 + index * 11}
+          fill="rgba(255,255,255,0.55)"
+          fontSize="9"
+          fontFamily="monospace"
+        >
+          {describeWaitingRelationship(relationship, waitingNames)}
+        </text>
+      ))}
+      {extraWaitingCount > 0 && (
+        <text
+          x={bx - 108}
+          y={by + 18 + visibleRelationships.length * 11}
+          fill="rgba(255,255,255,0.45)"
+          fontSize="9"
+          fontFamily="monospace"
+        >
+          +{extraWaitingCount} more
+        </text>
+      )}
     </g>
   );
 }
@@ -327,19 +367,21 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
 // ── Main 2D View ──────────────────────────────────────────────────────
 
 interface Office2DViewProps {
+  ceremony: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
 }
 
 export default function Office2DView({
+  ceremony,
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
 }: Office2DViewProps) {
   const agents = useAgentStates();
   const { activeCompanyId } = useCompany();
-  const { eventBus, sceneIntentBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntime();
   const companyId = activeCompanyId ?? '';
   const { zones } = useCompanyZones();
   const { instances: prefabInstances } = usePrefabInstances();
@@ -370,9 +412,6 @@ export default function Office2DView({
     },
     [zones, dropTargetZoneIds],
   );
-
-  // ── Scene choreography ──
-  const ceremony = useSceneOrchestrator({ companyId, eventBus, sceneIntentBus, agents, zones });
 
   // ── Viewport state ──
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -919,6 +958,35 @@ export default function Office2DView({
               name={dragState.employeeName}
             />
           )}
+
+          {ceremony.managerVisible &&
+            ceremony.managerPosition &&
+            (() => {
+              const marker = positionToSVG(
+                ceremony.managerPosition[0],
+                ceremony.managerPosition[2],
+              );
+              return (
+                <g className="manager-presence" transform={`translate(${marker.x}, ${marker.y})`}>
+                  <polygon
+                    points="0,-12 12,0 0,12 -12,0"
+                    fill="rgba(245,158,11,0.22)"
+                    stroke="rgba(251,191,36,0.72)"
+                    strokeWidth="1.2"
+                  />
+                  <text
+                    x={0}
+                    y={24}
+                    fill="rgba(255,248,235,0.85)"
+                    fontSize="8"
+                    fontFamily="monospace"
+                    textAnchor="middle"
+                  >
+                    Manager
+                  </text>
+                </g>
+              );
+            })()}
 
           {/* Meeting bubble */}
           <MeetingBubble2D ceremony={ceremony} />

@@ -1,6 +1,8 @@
 /** Shared ceremony phase → visual mapping. Used by MeetingBubble3D and MeetingBubble2D. */
 
+import type { InteractionKind } from '@offisim/shared-types';
 import type { CeremonyPhase } from '../hooks/useSceneOrchestrator';
+import type { WaitingRelationship } from '../hooks/useSceneOrchestrator';
 
 export function getPhaseIcon(phase: CeremonyPhase): string {
   switch (phase) {
@@ -42,4 +44,42 @@ export function getPhaseColor(phase: CeremonyPhase): string {
     default:
       return '#64748b';
   }
+}
+
+export function getInteractionKindLabel(kind: InteractionKind | 'handoff'): string {
+  switch (kind) {
+    case 'permission_request':
+      return '等待审批';
+    case 'plan_review':
+      return '等待审阅';
+    case 'agent_question':
+      return '等待澄清';
+    case 'handoff':
+      return '等待交接';
+  }
+}
+
+export function describeWaitingRelationship(
+  rel: WaitingRelationship,
+  employeeNames: ReadonlyMap<string, string>,
+): string {
+  if (rel.kind === 'handoff' && rel.waitingFor !== 'user') {
+    const fromName = employeeNames.get(rel.waitingFor) ?? 'teammate';
+    return `${rel.waiterName} → 等待 ${fromName}`;
+  }
+  return `${rel.waiterName} → ${getInteractionKindLabel(rel.kind)}`;
+}
+
+export function addWaitingRelationship(
+  prev: readonly WaitingRelationship[],
+  rel: WaitingRelationship,
+): WaitingRelationship[] {
+  return [...prev.filter((existing) => existing.waiterId !== rel.waiterId), rel];
+}
+
+export function removeWaitingRelationship(
+  prev: readonly WaitingRelationship[],
+  waiterId: string,
+): WaitingRelationship[] {
+  return prev.filter((existing) => existing.waiterId !== waiterId);
 }

@@ -53,6 +53,22 @@ describe('SceneIntentDispatcher', () => {
     });
 
     runtimeBus.emit({
+      type: 'handoff.initiated',
+      entityId: 'handoff-1',
+      entityType: 'runtime',
+      companyId: 'c-1',
+      threadId: 't-1',
+      timestamp: Date.now(),
+      payload: {
+        handoffId: 'handoff-1',
+        fromEmployeeId: 'emp-1',
+        toEmployeeId: 'emp-2',
+        reason: 'Need design review',
+        taskRunId: 'task-7',
+      },
+    });
+
+    runtimeBus.emit({
       type: 'employee.state.changed',
       entityId: 'emp-1',
       entityType: 'employee',
@@ -62,6 +78,20 @@ describe('SceneIntentDispatcher', () => {
         employeeId: 'emp-1',
         prev: 'executing',
         next: 'blocked',
+      },
+    });
+
+    runtimeBus.emit({
+      type: 'handoff.completed',
+      entityId: 'handoff-1',
+      entityType: 'runtime',
+      companyId: 'c-1',
+      threadId: 't-1',
+      timestamp: Date.now(),
+      payload: {
+        handoffId: 'handoff-1',
+        toEmployeeId: 'emp-2',
+        taskRunId: 'task-7',
       },
     });
 
@@ -81,7 +111,9 @@ describe('SceneIntentDispatcher', () => {
     expect(intents.map((intent) => intent.type)).toEqual([
       'scene.task.dispatched',
       'scene.interaction.waiting',
+      'scene.handoff.initiated',
       'scene.employee.escalated',
+      'scene.handoff.completed',
       'scene.reporting.started',
     ]);
     expect(intents[1]?.payload).toEqual({
@@ -90,8 +122,20 @@ describe('SceneIntentDispatcher', () => {
       restored: false,
     });
     expect(intents[2]?.payload).toEqual({
+      handoffId: 'handoff-1',
+      fromEmployeeId: 'emp-1',
+      toEmployeeId: 'emp-2',
+      reason: 'Need design review',
+      taskRunId: 'task-7',
+    });
+    expect(intents[3]?.payload).toEqual({
       employeeId: 'emp-1',
       next: 'blocked',
+    });
+    expect(intents[4]?.payload).toEqual({
+      handoffId: 'handoff-1',
+      toEmployeeId: 'emp-2',
+      taskRunId: 'task-7',
     });
   });
 });
