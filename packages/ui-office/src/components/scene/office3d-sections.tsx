@@ -3,7 +3,12 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { EmployeeMarker, type PlacedEmployee } from './office3d-employees.js';
 import { TaskFlowLine, ZoneLabel } from './office3d-scene-primitives.js';
-import type { DragState3D, FlowLineData, Zone3D } from './office3d-shared.js';
+import {
+  type DragState3D,
+  type FlowLineData,
+  type Zone3D,
+  getFlowLineColor,
+} from './office3d-shared.js';
 import {
   BookshelfMesh3D,
   MeetingTableMesh3D,
@@ -154,7 +159,7 @@ export function Office3DFlowLayer({
           key={line.id}
           from={line.from}
           to={line.to}
-          color={line.variant === 'handoff' ? '#f97316' : '#60a5fa'}
+          color={getFlowLineColor(line.variant)}
           onComplete={() => setFlowLines((prev) => prev.filter((entry) => entry.id !== line.id))}
         />
       ))}

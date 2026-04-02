@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { describeWorkingToolActivity } from '../../hooks/useSceneOrchestrator';
+import {
+  describeEmployeeEscalation,
+  describeInteractionSceneRequest,
+  describeInteractionSceneResolution,
+  describeWorkingToolActivity,
+} from '../../hooks/useSceneOrchestrator';
 
 describe('describeWorkingToolActivity', () => {
   it('maps started tool categories to working-stage bubble text', () => {
@@ -52,5 +57,34 @@ describe('describeWorkingToolActivity', () => {
         status: 'error',
       }),
     ).toBe('Tool step failed');
+  });
+
+  it('describes pending and restored interaction states in scene language', () => {
+    expect(describeInteractionSceneRequest({ kind: 'permission_request' })).toBe(
+      'Waiting for approval...',
+    );
+    expect(describeInteractionSceneRequest({ kind: 'plan_review' }, true)).toBe(
+      'Plan review restored',
+    );
+    expect(describeInteractionSceneRequest({ kind: 'agent_question' })).toBe(
+      'Waiting for clarification...',
+    );
+  });
+
+  it('describes interaction outcomes and employee escalation clearly', () => {
+    expect(
+      describeInteractionSceneResolution({
+        request: { kind: 'permission_request' },
+        response: { selectedOptionId: 'approve_once' },
+      }),
+    ).toBe('Approval received');
+    expect(
+      describeInteractionSceneResolution({
+        request: { kind: 'plan_review' },
+        response: { selectedOptionId: 'revise_plan' },
+      }),
+    ).toBe('Revising the plan...');
+    expect(describeEmployeeEscalation('Ava', 'blocked')).toBe('Ava is blocked');
+    expect(describeEmployeeEscalation('Ava', 'failed')).toBe('Ava hit a failure');
   });
 });

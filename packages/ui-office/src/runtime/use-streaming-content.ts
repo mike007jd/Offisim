@@ -7,6 +7,8 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
+const VISIBLE_STREAMING_NODES = new Set(['boss', 'boss_summary', 'employee', 'hr']);
+
 export function useStreamingContent(): {
   content: string;
   isStreaming: boolean;
@@ -18,16 +20,21 @@ export function useStreamingContent(): {
   const [isStreaming, setIsStreaming] = useState(false);
   const [nodeName, setNodeName] = useState<string | null>(null);
   const accRef = useRef('');
+  const currentNodeRef = useRef<string | null>(null);
 
-  // Reset when a new run starts
+  // Reset when a new run starts. A live run does not automatically imply
+  // user-visible streaming; we wait until a visible reply node begins.
   useEffect(() => {
     if (isRunning) {
       accRef.current = '';
       setContent('');
-      setIsStreaming(true);
+      setIsStreaming(false);
       setNodeName(null);
+      currentNodeRef.current = null;
     } else {
       setIsStreaming(false);
+      setNodeName(null);
+      currentNodeRef.current = null;
     }
   }, [isRunning]);
 
@@ -37,9 +44,17 @@ export function useStreamingContent(): {
     const unsub = eventBus.on(
       'graph.node.entered',
       (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
+        const nextNode = event.payload?.nodeName ?? null;
         accRef.current = '';
         setContent('');
-        setNodeName(event.payload?.nodeName ?? null);
+        currentNodeRef.current = nextNode;
+        if (nextNode && VISIBLE_STREAMING_NODES.has(nextNode)) {
+          setNodeName(nextNode);
+          setIsStreaming(true);
+          return;
+        }
+        setNodeName(null);
+        setIsStreaming(false);
       },
     );
     return unsub;
@@ -47,7 +62,18 @@ export function useStreamingContent(): {
 
   useEffect(() => {
     const unsub = eventBus.on('llm.stream.chunk', (event: RuntimeEvent<LlmStreamChunkPayload>) => {
+      const chunkNode = event.payload?.nodeName ?? null;
       const chunk = event.payload?.content;
+      if (!chunkNode || !VISIBLE_STREAMING_NODES.has(chunkNode)) {
+        return;
+      }
+      if (currentNodeRef.current !== chunkNode) {
+        currentNodeRef.current = chunkNode;
+        accRef.current = '';
+        setContent('');
+        setNodeName(chunkNode);
+        setIsStreaming(true);
+      }
       if (typeof chunk === 'string' && chunk.length > 0) {
         accRef.current += chunk;
         setContent(accRef.current);
@@ -61,7 +87,13 @@ export function useStreamingContent(): {
       'tool.execution.telemetry',
       (event: RuntimeEvent<ToolExecutionTelemetryPayload>) => {
         const payload = event.payload;
-        if (payload.status !== 'started' || payload.nodeName !== 'employee') return;
+        if (
+          payload.status !== 'started' ||
+          payload.nodeName !== 'employee' ||
+          currentNodeRef.current !== 'employee'
+        ) {
+          return;
+        }
         accRef.current = '';
         setContent('');
       },

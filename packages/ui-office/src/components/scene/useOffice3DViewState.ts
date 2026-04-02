@@ -1,5 +1,12 @@
 import type { EventBus } from '@offisim/core/browser';
-import type { RuntimeEvent, Zone } from '@offisim/shared-types';
+import type {
+  EmployeeStatePayload,
+  GraphNodeEnteredPayload,
+  InteractionRequestedPayload,
+  InteractionRestoredPayload,
+  RuntimeEvent,
+  Zone,
+} from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import type { OrbitControls } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +19,9 @@ import {
   type FlowLineData,
   type Zone3D,
   type Zone3DLayout,
+  buildEmployeeToMeetingFlowLine,
+  buildReportingFlowLines,
+  createFlowLine,
   hitTestZone3D,
   resolveEmployeeZoneDynamic,
 } from './office3d-shared.js';
@@ -148,6 +158,17 @@ export function useOffice3DViewState({
   const agentsRef = useRef(agents);
   agentsRef.current = agents;
 
+  const appendFlowLine = useCallback((line: FlowLineData | null) => {
+    if (!line) {
+      return;
+    }
+    setFlowLines((prev) => {
+      const now = Date.now();
+      const cleaned = prev.filter((existing) => now - existing.createdAt < 5000);
+      return [...cleaned, line].slice(-24);
+    });
+  }, []);
+
   useEffect(() => {
     setFlowLines([]);
     if (!activeCompanyId) {
@@ -180,24 +201,86 @@ export function useOffice3DViewState({
         return;
       }
 
-      const line: FlowLineData = {
-        id: `flow-${Date.now()}-${Math.random()}`,
-        from: [meetingLayout.position[0], 0.5, meetingLayout.position[2]],
-        to: [targetLayout.position[0], 0.5, targetLayout.position[2]],
-        variant: 'normal',
-        createdAt: Date.now(),
-      };
-      setFlowLines((prev) => {
-        const now = Date.now();
-        const cleaned = prev.filter((existing) => now - existing.createdAt < 5000);
-        return [...cleaned, line].slice(-20);
-      });
+      appendFlowLine(
+        createFlowLine(
+          [meetingLayout.position[0], 0.5, meetingLayout.position[2]],
+          [targetLayout.position[0], 0.5, targetLayout.position[2]],
+          'normal',
+        ),
+      );
     });
+
+    const handleApprovalFlowLine = (
+      event: RuntimeEvent<InteractionRequestedPayload | InteractionRestoredPayload>,
+    ) => {
+      const { request } = event.payload;
+      if (request.kind !== 'permission_request' || !request.employeeId) {
+        return;
+      }
+      appendFlowLine(
+        buildEmployeeToMeetingFlowLine(
+          request.employeeId,
+          agentsRef.current,
+          zonesRef.current,
+          zone3DLayoutMapRef.current,
+          'approval',
+        ),
+      );
+    };
+
+    const unsubscribeInteractionRequested = eventBus.on(
+      'interaction.requested',
+      handleApprovalFlowLine,
+    );
+    const unsubscribeInteractionRestored = eventBus.on(
+      'interaction.restored',
+      handleApprovalFlowLine,
+    );
+
+    const unsubscribeEmployeeState = eventBus.on(
+      'employee.state.changed',
+      (event: RuntimeEvent<EmployeeStatePayload>) => {
+        const { employeeId, next } = event.payload;
+        if (next !== 'blocked' && next !== 'failed') {
+          return;
+        }
+
+        appendFlowLine(
+          buildEmployeeToMeetingFlowLine(
+            employeeId,
+            agentsRef.current,
+            zonesRef.current,
+            zone3DLayoutMapRef.current,
+            'blocked',
+          ),
+        );
+      },
+    );
+
+    const unsubscribeNodeEntered = eventBus.on(
+      'graph.node.entered',
+      (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
+        if (event.payload.nodeName !== 'boss_summary') {
+          return;
+        }
+        for (const line of buildReportingFlowLines(
+          agentsRef.current,
+          zonesRef.current,
+          zone3DLayoutMapRef.current,
+        )) {
+          appendFlowLine(line);
+        }
+      },
+    );
 
     return () => {
       unsubscribe();
+      unsubscribeInteractionRequested();
+      unsubscribeInteractionRestored();
+      unsubscribeEmployeeState();
+      unsubscribeNodeEntered();
     };
-  }, [eventBus, activeCompanyId]);
+  }, [eventBus, activeCompanyId, appendFlowLine]);
 
   const handleSelectEmployee = useCallback(
     (id: string) => {

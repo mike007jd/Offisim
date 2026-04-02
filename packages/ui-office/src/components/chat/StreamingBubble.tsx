@@ -26,7 +26,9 @@ export function StreamingBubble() {
   if (!isStreaming && !content) return null;
 
   const label = nodeName ? (NODE_DISPLAY_NAMES[nodeName] ?? nodeName) : null;
-  const badgeColor = nodeName ? (NODE_BADGE_COLORS[nodeName] ?? DEFAULT_BADGE_COLOR) : DEFAULT_BADGE_COLOR;
+  const badgeColor = nodeName
+    ? (NODE_BADGE_COLORS[nodeName] ?? DEFAULT_BADGE_COLOR)
+    : DEFAULT_BADGE_COLOR;
   const placeholder = nodeName
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
