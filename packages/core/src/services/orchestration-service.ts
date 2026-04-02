@@ -5,7 +5,12 @@ import {
   graphNodeExited,
   workspaceStalenessDetected,
 } from '../events/event-factories.js';
-import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
+import { parseCompactBaseline } from '../graph/state.js';
+import type {
+  MeetingInterrupt,
+  MeetingInterruptType,
+  OffisimGraphState,
+} from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { NodeSummaryService } from './node-summary-service.js';
 import type {
@@ -162,12 +167,19 @@ export class OrchestrationService {
       throw new Error(`No checkpoint state found for thread "${threadId}".`);
     }
 
-    const resumeState = this.buildResumeState(restored, {
-      threadId,
-      updatedPlan: opts?.updatedPlan,
-      fromStepIndex: opts?.fromStepIndex,
-      skipCompletedSteps: opts?.skipCompletedSteps,
-    });
+    const thread = this.runtimeCtx.repos?.threads
+      ? await this.runtimeCtx.repos.threads.findById(threadId)
+      : null;
+    const activeCompactBaseline = parseCompactBaseline(thread?.compact_baseline_json ?? null);
+    const resumeState = this.buildResumeState(
+      activeCompactBaseline ? { ...restored, compactBaseline: activeCompactBaseline } : restored,
+      {
+        threadId,
+        updatedPlan: opts?.updatedPlan,
+        fromStepIndex: opts?.fromStepIndex,
+        skipCompletedSteps: opts?.skipCompletedSteps,
+      },
+    );
 
     if (typeof opts?.fromStepIndex === 'number') {
       await this.runtimeCtx.fileHistoryService?.restoreThreadToStep(threadId, opts.fromStepIndex);

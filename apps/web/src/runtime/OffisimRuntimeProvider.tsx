@@ -101,6 +101,10 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const initPromiseRef = useRef<Promise<RuntimeBundle | null> | null>(null);
   const detectionDoneRef = useRef(false);
   const bootstrapStateRef = useRef(loadBrowserRuntimeBootstrapState());
+  const interactionModeRef = useRef(interactionMode);
+  interactionModeRef.current = interactionMode;
+  const pendingInteractionRef = useRef(pendingInteraction);
+  pendingInteractionRef.current = pendingInteraction;
 
   // ---------------------------------------------------------------------------
   // Stable EventBus — created once, shared across runtime reinitializations.
@@ -259,12 +263,19 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     const config = loadProviderConfig();
     const eventBus = eventBusRef.current;
     const runtime = await initializeRuntimeBundle(config, eventBus, isTauri(), companyId, {
-      defaultInteractionMode: interactionMode,
+      defaultInteractionMode: interactionModeRef.current,
     });
-    runtime?.interactionService?.hydratePending(pendingInteraction);
+    if (runtime?.interactionService) {
+      const pending = pendingInteractionRef.current;
+      if (pending) {
+        runtime.interactionService.hydratePending(pending);
+      }
+      setInteractionModeState(runtime.interactionService.getMode());
+      setPendingInteraction(runtime.interactionService.getPending());
+    }
     runtimeRef.current = runtime;
     return runtime;
-  }, [companyId, interactionMode, pendingInteraction]);
+  }, [companyId]);
 
   function getRuntime(): RuntimeBundle | null {
     return runtimeRef.current ?? null;
@@ -431,7 +442,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       const pending = interactionService?.getPending() ?? pendingInteraction;
       if (!pending || !interactionService) return undefined;
 
-      interactionService.resolve({
+      await interactionService.resolve({
         interactionId: pending.interactionId,
         selectedOptionId,
         freeformResponse,

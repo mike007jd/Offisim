@@ -7,6 +7,7 @@ import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import {
+  type CompactBaselineRecord,
   ConversationBudgetService,
   type ThreadSynopsisRecord,
 } from '../../services/conversation-budget-service.js';
@@ -439,6 +440,80 @@ describe('ConversationBudgetService', () => {
     expect(thread?.synopsis_json).toContain('Padded token estimation');
   });
 
+  it('uses an active compact baseline to replace the historical message prefix', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.companies([TEST_COMPANY]);
+    const compactBaseline: CompactBaselineRecord = {
+      compactId: 'fcb-1',
+      compactVersion: 1,
+      compactedAt: new Date().toISOString(),
+      summaryText: 'Baseline summary for the earlier rollout discussion.',
+      compactedNonSystemMessageCount: 4,
+      keptTailNonSystemMessageCount: 2,
+    };
+    await repos.threads.create({
+      thread_id: TEST_THREAD_ID,
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+      compact_baseline_json: JSON.stringify(compactBaseline),
+    });
+
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus: new InMemoryEventBus(),
+      llmGateway: new MockLlmGateway(),
+      modelResolver: new ModelResolver(DEFAULT_MODEL_POLICY),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      runtimePolicy: {
+        executionMode: 'desktop-trusted',
+        modelPolicy: DEFAULT_MODEL_POLICY,
+        summarization: {
+          enabled: true,
+          triggerTokens: 999_999,
+          keepRecentMessages: 20,
+        },
+        memory: {
+          enabled: true,
+          injectionEnabled: true,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.7,
+        },
+        toolSearch: { enabled: true },
+      },
+    });
+
+    const prepared = await new ConversationBudgetService({
+      maxNonSystemMessages: 20,
+      tailNonSystemMessages: 20,
+    }).prepareRequest(runtimeCtx, {
+      model: 'test',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        { role: 'user', content: 'legacy-1' },
+        { role: 'assistant', content: 'legacy-2' },
+        { role: 'user', content: 'legacy-3' },
+        { role: 'assistant', content: 'legacy-4' },
+        { role: 'user', content: 'tail-1' },
+        { role: 'assistant', content: 'tail-2' },
+        { role: 'user', content: 'tail-3' },
+      ],
+    });
+
+    expect(
+      prepared.messages.some((message) => message.content.includes('## Compact baseline')),
+    ).toBe(true);
+    expect(prepared.messages.some((message) => message.content === 'legacy-1')).toBe(false);
+    expect(prepared.messages.filter((message) => message.role !== 'system')).toEqual([
+      { role: 'user', content: 'tail-1' },
+      { role: 'assistant', content: 'tail-2' },
+      { role: 'user', content: 'tail-3' },
+    ]);
+  });
+
   it('keeps fewer tail messages when node summaries already exist', async () => {
     const repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
@@ -599,6 +674,266 @@ describe('ConversationBudgetService', () => {
         }),
       ]),
     );
+  });
+
+  it('upgrades a fresh synopsis into a durable compact baseline when the full-compact threshold is hit', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.companies([TEST_COMPANY]);
+    await repos.threads.create({
+      thread_id: TEST_THREAD_ID,
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    const gateway = new MockLlmGateway();
+    gateway.pushResponse({
+      content: 'The compact baseline captures the earlier rollout constraints and decisions.',
+    });
+
+    const eventBus = new InMemoryEventBus();
+    const runtimeEvents: RuntimeEvent[] = [];
+    eventBus.on('', (event) => runtimeEvents.push(event));
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus,
+      llmGateway: gateway,
+      modelResolver: new ModelResolver(DEFAULT_MODEL_POLICY),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      runtimePolicy: {
+        executionMode: 'desktop-trusted',
+        modelPolicy: DEFAULT_MODEL_POLICY,
+        summarization: {
+          enabled: true,
+          triggerTokens: 40,
+          keepRecentMessages: 4,
+        },
+        memory: {
+          enabled: true,
+          injectionEnabled: true,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.7,
+        },
+        toolSearch: { enabled: true },
+      },
+    });
+
+    const prepared = await new ConversationBudgetService({
+      maxNonSystemMessages: 4,
+      tailNonSystemMessages: 4,
+      synopsisTriggerMessages: 4,
+      fullCompactTriggerTokens: 40,
+      fullCompactTriggerMessages: 6,
+    }).prepareRequest(runtimeCtx, {
+      model: 'test',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        ...Array.from({ length: 8 }, (_, index) => ({
+          role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+          content: `Compact me ${index} with enough text to trigger durable baseline creation.`,
+        })),
+      ],
+    });
+
+    expect(
+      prepared.messages.some((message) => message.content.includes('## Compact baseline')),
+    ).toBe(true);
+    expect(
+      prepared.messages.some((message) => message.content.includes('## Conversation synopsis')),
+    ).toBe(false);
+
+    const thread = await repos.threads.findById(TEST_THREAD_ID);
+    const baseline = JSON.parse(
+      thread?.compact_baseline_json ?? 'null',
+    ) as CompactBaselineRecord | null;
+    expect(baseline?.summaryText).toContain('earlier rollout constraints');
+    expect(baseline?.compactedNonSystemMessageCount).toBe(4);
+    expect(baseline?.keptTailNonSystemMessageCount).toBe(4);
+    await expect(repos.compactSummaries.listByThread(TEST_THREAD_ID)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          compact_kind: 'full_thread',
+          summary_text: expect.stringContaining('earlier rollout constraints'),
+        }),
+      ]),
+    );
+    expect(runtimeEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'conversation.compact.completed',
+          payload: expect.objectContaining({
+            compactId: baseline?.compactId,
+            compactVersion: 1,
+            compactedNonSystemMessageCount: 4,
+            keptTailNonSystemMessageCount: 4,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('does not activate a durable compact baseline when synopsis falls back to heuristic text', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.companies([TEST_COMPANY]);
+    await repos.threads.create({
+      thread_id: TEST_THREAD_ID,
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+    });
+
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus: new InMemoryEventBus(),
+      llmGateway: new ThrowingLlmGateway(),
+      modelResolver: new ModelResolver(DEFAULT_MODEL_POLICY),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      runtimePolicy: {
+        executionMode: 'desktop-trusted',
+        modelPolicy: DEFAULT_MODEL_POLICY,
+        summarization: {
+          enabled: true,
+          triggerTokens: 40,
+          keepRecentMessages: 4,
+        },
+        memory: {
+          enabled: true,
+          injectionEnabled: true,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.7,
+        },
+        toolSearch: { enabled: true },
+      },
+    });
+
+    const prepared = await new ConversationBudgetService({
+      maxNonSystemMessages: 4,
+      tailNonSystemMessages: 4,
+      synopsisTriggerMessages: 4,
+      synopsisRefreshMinMessages: 1,
+      fullCompactTriggerTokens: 40,
+      fullCompactTriggerMessages: 6,
+      fullCompactFailureThreshold: 2,
+    }).prepareRequest(runtimeCtx, {
+      model: 'test',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        ...Array.from({ length: 8 }, (_, index) => ({
+          role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+          content: `Compact me ${index} but force the summarizer to fail so baseline activation must be skipped.`,
+        })),
+      ],
+    });
+
+    expect(
+      prepared.messages.some((message) => message.content.includes('## Compact baseline')),
+    ).toBe(false);
+
+    const thread = await repos.threads.findById(TEST_THREAD_ID);
+    expect(thread?.compact_baseline_json).toBeNull();
+    await expect(repos.compactSummaries.listByThread(TEST_THREAD_ID)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          compact_kind: 'thread_synopsis',
+          summary_source: 'heuristic',
+        }),
+        expect.objectContaining({
+          compact_kind: 'full_thread_skip',
+          summary_source: 'llm_error',
+          failure_streak: 1,
+        }),
+      ]),
+    );
+  });
+
+  it('refreshes an active compact baseline when the post-baseline tail grows too large', async () => {
+    const repos = createMemoryRepositories();
+    repos.seed.companies([TEST_COMPANY]);
+    await repos.threads.create({
+      thread_id: TEST_THREAD_ID,
+      company_id: TEST_COMPANY_ID,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'running',
+      compact_baseline_json: JSON.stringify({
+        compactId: 'fcb-1',
+        compactVersion: 1,
+        compactedAt: new Date(Date.UTC(2026, 3, 2, 0, 0, 0)).toISOString(),
+        summaryText: 'Initial compact baseline summary.',
+        compactedNonSystemMessageCount: 4,
+        keptTailNonSystemMessageCount: 4,
+      } satisfies CompactBaselineRecord),
+    });
+
+    const gateway = new MockLlmGateway();
+    gateway.pushResponse({
+      content: 'Refreshed compact baseline with the latest rollout state and constraints.',
+    });
+    const runtimeCtx = createRuntimeContext({
+      repos,
+      eventBus: new InMemoryEventBus(),
+      llmGateway: gateway,
+      modelResolver: new ModelResolver(DEFAULT_MODEL_POLICY),
+      toolExecutor: new MockToolExecutor(),
+      companyId: TEST_COMPANY_ID,
+      threadId: TEST_THREAD_ID,
+      runtimePolicy: {
+        executionMode: 'desktop-trusted',
+        modelPolicy: DEFAULT_MODEL_POLICY,
+        summarization: {
+          enabled: true,
+          triggerTokens: 40,
+          keepRecentMessages: 4,
+        },
+        memory: {
+          enabled: true,
+          injectionEnabled: true,
+          maxFacts: 10,
+          factConfidenceThreshold: 0.7,
+        },
+        toolSearch: { enabled: true },
+      },
+    });
+
+    const prepared = await new ConversationBudgetService({
+      maxNonSystemMessages: 4,
+      tailNonSystemMessages: 4,
+      synopsisTriggerMessages: 4,
+      fullCompactTriggerTokens: 40,
+      fullCompactTriggerMessages: 6,
+    }).prepareRequest(runtimeCtx, {
+      model: 'test',
+      messages: [
+        { role: 'system', content: 'You are helpful.' },
+        { role: 'user', content: 'legacy-1' },
+        { role: 'assistant', content: 'legacy-2' },
+        { role: 'user', content: 'legacy-3' },
+        { role: 'assistant', content: 'legacy-4' },
+        ...Array.from({ length: 8 }, (_, index) => ({
+          role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+          content: `Fresh tail ${index} with enough text to trigger compact baseline refresh.`,
+        })),
+      ],
+    });
+
+    expect(
+      prepared.messages.some((message) => message.content.includes('## Compact baseline')),
+    ).toBe(true);
+    expect(prepared.messages.filter((message) => message.role !== 'system')).toHaveLength(4);
+
+    const thread = await repos.threads.findById(TEST_THREAD_ID);
+    const refreshedBaseline = JSON.parse(
+      thread?.compact_baseline_json ?? 'null',
+    ) as CompactBaselineRecord | null;
+    expect(refreshedBaseline?.compactVersion).toBe(2);
+    expect(refreshedBaseline?.summaryText).toContain('latest rollout state');
+    expect(refreshedBaseline?.compactedNonSystemMessageCount).toBe(8);
   });
 
   it('opens a synopsis circuit breaker after repeated failures and skips the fourth LLM attempt', async () => {

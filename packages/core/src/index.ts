@@ -257,6 +257,7 @@ export {
   notificationCreated,
   notificationDismissed,
   interactionRequested,
+  interactionRestored,
   interactionResolved,
   interactionModeChanged,
 } from './events/event-factories.js';

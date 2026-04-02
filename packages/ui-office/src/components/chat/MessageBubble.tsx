@@ -1,5 +1,6 @@
 import { cn } from '@offisim/ui-core';
 import type { ReactNode } from 'react';
+import { getBadgeColorForDisplayName } from '../../lib/agent-display';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant';
@@ -7,26 +8,11 @@ interface MessageBubbleProps {
 }
 
 // ── Agent identity extraction ──────────────────────────────────────
-// Messages from the graph arrive in `[AgentName]: content` format.
-// We parse this prefix to show a badge above the message bubble.
 
 interface ParsedAgent {
   name: string;
   body: string;
 }
-
-/** Known system agent names → badge color class */
-const AGENT_BADGE_COLORS: Record<string, string> = {
-  Boss: 'bg-amber-500/25 text-amber-300',
-  PM: 'bg-purple-500/25 text-purple-300',
-  Manager: 'bg-emerald-500/25 text-emerald-300',
-  HR: 'bg-rose-500/25 text-rose-300',
-  'Error Handler': 'bg-red-500/25 text-red-300',
-  Meeting: 'bg-cyan-500/25 text-cyan-300',
-};
-
-/** Default badge color for employees (not in the system-agent map). */
-const DEFAULT_BADGE_COLOR = 'bg-blue-500/25 text-blue-300';
 
 function parseAgentIdentity(content: string): ParsedAgent | null {
   // Match `[Name]: rest`, `[Name]:rest`, or `[Name] rest` at the start of content.
@@ -41,7 +27,7 @@ function parseAgentIdentity(content: string): ParsedAgent | null {
 }
 
 function badgeColorFor(agentName: string): string {
-  return AGENT_BADGE_COLORS[agentName] ?? DEFAULT_BADGE_COLOR;
+  return getBadgeColorForDisplayName(agentName);
 }
 
 // ── Citation rendering ─────────────────────────────────────────────

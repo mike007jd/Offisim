@@ -174,7 +174,7 @@ export async function bossNode(
 
   if (needsClarification && interactionService && interactionMode === 'human_in_loop') {
     const clarificationQuestion = decision?.clarificationQuestion ?? 'Could you clarify that?';
-    interactionService.request({
+    await interactionService.request({
       interactionId: generateId('ix'),
       threadId: state.threadId,
       companyId: runtimeCtx.companyId,

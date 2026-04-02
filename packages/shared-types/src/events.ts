@@ -25,6 +25,7 @@ export interface RuntimeEvent<P = Readonly<Record<string, unknown>>> {
 /** Well-known event type prefixes */
 export type EventFamily =
   | 'conversation.synopsis.updated'
+  | 'conversation.compact.completed'
   | 'employee.state.changed'
   | 'task.state.changed'
   | 'task.assignment.changed'
@@ -87,6 +88,7 @@ export type EventFamily =
   | 'workspace.staleness.detected'
   | 'execution.resumed'
   | 'interaction.requested'
+  | 'interaction.restored'
   | 'interaction.resolved'
   | 'interaction.mode.changed';
 
@@ -186,6 +188,15 @@ export interface ConversationSynopsisUpdatedPayload {
   readonly totalMessageCount: number;
 }
 
+export interface ConversationCompactCompletedPayload {
+  readonly compactId: string;
+  readonly compactVersion: number;
+  readonly compactedNonSystemMessageCount: number;
+  readonly keptTailNonSystemMessageCount: number;
+  readonly preCompactMessageCount: number;
+  readonly preCompactTokenCount: number;
+}
+
 export interface WorkspaceStalenessDetectedPayload {
   readonly status: 'warn' | 'block' | 'unavailable';
   readonly reason:
@@ -219,6 +230,10 @@ export interface InteractionRequestedPayload {
 export interface InteractionResolvedPayload {
   readonly request: InteractionRequest;
   readonly response: InteractionResponse;
+}
+
+export interface InteractionRestoredPayload {
+  readonly request: InteractionRequest;
 }
 
 export interface InteractionModeChangedPayload {

@@ -231,7 +231,9 @@ export const graphThreads = sqliteTable(
     root_task_id: text('root_task_id'),
     status: text('status').notNull(),
     project_id: text('project_id'),
+    interaction_mode: text('interaction_mode').notNull().default('boss_proxy'),
     synopsis_json: text('synopsis_json'),
+    compact_baseline_json: text('compact_baseline_json'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
@@ -624,6 +626,56 @@ export const compactSummaries = sqliteTable(
       table.compact_kind,
       table.created_at,
     ),
+  ],
+);
+
+export const activeThreadInteractions = sqliteTable(
+  'active_thread_interactions',
+  {
+    thread_id: text('thread_id')
+      .primaryKey()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    interaction_id: text('interaction_id').notNull().unique(),
+    kind: text('kind').notNull(),
+    interaction_mode: text('interaction_mode').notNull(),
+    request_json: text('request_json').notNull(),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_active_interactions_company').on(table.company_id, table.updated_at),
+    index('idx_active_interactions_kind').on(table.kind, table.updated_at),
+  ],
+);
+
+export const interactionHistory = sqliteTable(
+  'interaction_history',
+  {
+    history_id: text('history_id').primaryKey(),
+    interaction_id: text('interaction_id').notNull(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    interaction_mode: text('interaction_mode').notNull(),
+    status: text('status').notNull(),
+    selected_option_id: text('selected_option_id'),
+    freeform_response: text('freeform_response'),
+    request_json: text('request_json').notNull(),
+    response_json: text('response_json'),
+    created_at: text('created_at').notNull(),
+    resolved_at: text('resolved_at').notNull(),
+  },
+  (table) => [
+    index('idx_interaction_history_thread').on(table.thread_id, table.resolved_at),
+    index('idx_interaction_history_company').on(table.company_id, table.resolved_at),
+    index('idx_interaction_history_kind').on(table.kind, table.resolved_at),
   ],
 );
 

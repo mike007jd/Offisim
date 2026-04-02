@@ -183,7 +183,11 @@ export async function createBrowserRuntime(
     threadId,
     defaultMode: opts?.defaultInteractionMode,
     pendingStore: interactionBox,
+    threadRepo: repos.threads,
+    activeRepo: repos.activeInteractions,
+    historyRepo: repos.interactionHistory,
   });
+  await interactionService.restore();
 
   const toolExecutor = new AuditingToolExecutor(
     mcpToolExecutor,
@@ -313,7 +317,11 @@ export async function createBrowserRuntimeReposOnly(
     threadId,
     defaultMode: opts?.defaultInteractionMode,
     pendingStore: interactionBox,
+    threadRepo: repos.threads,
+    activeRepo: repos.activeInteractions,
+    historyRepo: repos.interactionHistory,
   });
+  await interactionService.restore();
 
   return {
     eventBus,

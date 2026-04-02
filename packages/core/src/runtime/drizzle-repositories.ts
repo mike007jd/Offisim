@@ -25,6 +25,7 @@ import type { InstalledAssetRepository } from '../repos/installed-asset-reposito
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type { NewZone } from '../repos/zone-repository.js';
 import type {
+  ActiveInteractionRepository,
   AgentEventRepository,
   AgentEventRow,
   CheckpointRepository,
@@ -42,6 +43,9 @@ import type {
   GraphThreadRow,
   HandoffEventRow,
   HandoffRepository,
+  InteractionActiveRow,
+  InteractionHistoryRepository,
+  InteractionHistoryRow,
   LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
@@ -61,6 +65,8 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewInteractionActive,
+  NewInteractionHistory,
   NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
@@ -145,7 +151,9 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     async create(t: NewGraphThread) {
       const row = {
         ...t,
+        interaction_mode: t.interaction_mode ?? 'boss_proxy',
         synopsis_json: t.synopsis_json ?? null,
+        compact_baseline_json: t.compact_baseline_json ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -199,9 +207,21 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .where(eq(schema.graphThreads.thread_id, id))
         .run();
     },
+    async updateInteractionMode(id, interactionMode) {
+      db.update(schema.graphThreads)
+        .set({ interaction_mode: interactionMode, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
     async updateSynopsis(id, synopsisJson) {
       db.update(schema.graphThreads)
         .set({ synopsis_json: synopsisJson, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+    async updateCompactBaseline(id, compactBaselineJson) {
+      db.update(schema.graphThreads)
+        .set({ compact_baseline_json: compactBaselineJson, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id))
         .run();
     },
@@ -806,6 +826,58 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       db.delete(schema.compactSummaries)
         .where(eq(schema.compactSummaries.thread_id, threadId))
         .run();
+    },
+  };
+
+  const activeInteractions: ActiveInteractionRepository = {
+    async upsert(row: NewInteractionActive) {
+      db.insert(schema.activeThreadInteractions)
+        .values(row)
+        .onConflictDoUpdate({
+          target: schema.activeThreadInteractions.thread_id,
+          set: {
+            company_id: row.company_id,
+            interaction_id: row.interaction_id,
+            kind: row.kind,
+            interaction_mode: row.interaction_mode,
+            request_json: row.request_json,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+          },
+        })
+        .run();
+      return row as InteractionActiveRow;
+    },
+    async findByThread(threadId) {
+      const rows = db
+        .select()
+        .from(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.thread_id, threadId))
+        .all();
+      return (rows[0] as InteractionActiveRow | undefined) ?? null;
+    },
+    async deleteByThread(threadId) {
+      db.delete(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.thread_id, threadId))
+        .run();
+    },
+  };
+
+  const interactionHistory: InteractionHistoryRepository = {
+    async create(row: NewInteractionHistory) {
+      db.insert(schema.interactionHistory).values(row).run();
+      return row as InteractionHistoryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.interactionHistory)
+        .where(eq(schema.interactionHistory.thread_id, threadId))
+        .orderBy(desc(schema.interactionHistory.resolved_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return query.all() as InteractionHistoryRow[];
     },
   };
 
@@ -1603,6 +1675,8 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     mcpAudit,
     nodeSummaries,
     compactSummaries,
+    activeInteractions,
+    interactionHistory,
     fileHistory,
     installTransactions,
     installedPackages,

@@ -254,7 +254,7 @@ describe('ToolPermissionEngine', () => {
       companyId: 'company-1',
       threadId: 'thread-1',
     });
-    interactionService.request({
+    await interactionService.request({
       interactionId: 'ix-1',
       threadId: 'thread-1',
       companyId: 'company-1',
@@ -277,7 +277,7 @@ describe('ToolPermissionEngine', () => {
       },
       createdAt: Date.now(),
     });
-    interactionService.resolve({
+    await interactionService.resolve({
       interactionId: 'ix-1',
       selectedOptionId: 'approve_thread',
       respondedAt: Date.now(),

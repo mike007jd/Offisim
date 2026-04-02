@@ -17,11 +17,13 @@ import type {
   RoleSlug,
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
+  ToolExecutionTelemetryPayload,
   Zone,
 } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { truncate } from '../lib/format-time';
+import { categorizeTool } from '../lib/tool-category';
 import { SEAT_OFFSETS } from '../lib/seat-offsets';
 import type { AgentState } from '../runtime/use-agent-states';
 import type { CharacterMovementHandle } from './useCharacterMovement';
@@ -93,6 +95,49 @@ export interface CeremonyState {
   participantIds: Set<string>;
   /** Employees dispatched to workstations (won't return to MTG at end). */
   dispatchedIds: Set<string>;
+}
+
+export function describeWorkingToolActivity(
+  payload: Pick<ToolExecutionTelemetryPayload, 'toolName' | 'serverName' | 'status' | 'errorType'>,
+): string | null {
+  const category = categorizeTool(payload);
+  if (payload.status === 'started') {
+    switch (category) {
+      case 'search':
+        return 'Searching code...';
+      case 'read':
+        return 'Reading files...';
+      case 'edit':
+        return 'Editing workspace...';
+      case 'shell':
+        return 'Running shell task...';
+      default:
+        return 'Using tools...';
+    }
+  }
+  if (payload.status === 'completed') {
+    switch (category) {
+      case 'search':
+        return 'Search complete';
+      case 'read':
+        return 'Files reviewed';
+      case 'edit':
+        return 'Edits applied';
+      case 'shell':
+        return 'Shell task complete';
+      default:
+        return 'Tool step complete';
+    }
+  }
+  if (payload.status === 'denied') {
+    return payload.errorType === 'TOOL_PERMISSION_REQUIRED'
+      ? 'Waiting on approval...'
+      : 'Tool access blocked';
+  }
+  if (payload.status === 'error') {
+    return 'Tool step failed';
+  }
+  return null;
 }
 
 // ── Handle registry (company-scoped) ────────────────────────────
@@ -495,11 +540,33 @@ export function useSceneOrchestrator({
       }
     });
 
+    const unsubTool = eventBus.on(
+      'tool.execution.telemetry',
+      (e: RuntimeEvent<ToolExecutionTelemetryPayload>) => {
+        const label = describeWorkingToolActivity(e.payload);
+        if (!label) return;
+        setCeremony((prev) => {
+          if (prev.phase !== 'working') return prev;
+          return { ...prev, bubbleText: label };
+        });
+
+        if (e.payload.status !== 'started') {
+          safeTimeout(() => {
+            setCeremony((prev) => {
+              if (prev.phase !== 'working' || prev.bubbleText !== label) return prev;
+              return { ...prev, bubbleText: '' };
+            });
+          }, 900);
+        }
+      },
+    );
+
     return () => {
       unsubNode();
       unsubDispatch();
       unsubChunk();
       unsubPlan();
+      unsubTool();
       // Clear all pending ceremony timeouts on effect teardown
       timerRefs.current.forEach(clearTimeout);
       timerRefs.current.clear();

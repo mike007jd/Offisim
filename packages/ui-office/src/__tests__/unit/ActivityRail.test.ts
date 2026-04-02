@@ -117,7 +117,7 @@ describe('ActivityRail', () => {
     await waitFor(() => {
       expect(screen.getByText('PM created 1 step')).toBeInTheDocument();
       expect(screen.getByText('Started bash')).toBeInTheDocument();
-      expect(screen.getByText('bash')).toBeInTheDocument();
+      expect(screen.getByText('Shell tasks')).toBeInTheDocument();
     });
   });
 
@@ -153,7 +153,109 @@ describe('ActivityRail', () => {
     });
   });
 
-  it('surfaces compacting, resume, staleness, and permission friction events', async () => {
+  it('collapses active search and shell bursts into phase-based labels', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'tool.execution.telemetry',
+        entityId: 'tool-search-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          toolCallId: 'tool-search-1',
+          toolName: 'search_code',
+          toolType: 'mcp',
+          serverName: 'github',
+          threadId: 'thread-1',
+          nodeName: 'employee',
+          startedAt: Date.now() - 2400,
+          status: 'started',
+        },
+      });
+      eventBus.emit({
+        type: 'tool.execution.telemetry',
+        entityId: 'tool-search-2',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          toolCallId: 'tool-search-2',
+          toolName: 'glob_files',
+          toolType: 'builtin',
+          threadId: 'thread-1',
+          nodeName: 'employee',
+          startedAt: Date.now() - 1200,
+          status: 'started',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Searching the codebase')).toBeInTheDocument();
+      expect(screen.getByText('Searching codebase (2)')).toBeInTheDocument();
+      expect(screen.getByText('Searching codebase with 2 tools')).toBeInTheDocument();
+    });
+  });
+
+  it('merges consecutive completed file reads into a single burst entry', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'tool.execution.telemetry',
+        entityId: 'tool-read-1',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: 1_000,
+        payload: {
+          toolCallId: 'tool-read-1',
+          toolName: 'read_file',
+          toolType: 'builtin',
+          threadId: 'thread-1',
+          startedAt: 100,
+          completedAt: 1_000,
+          durationMs: 900,
+          status: 'completed',
+        },
+      });
+      eventBus.emit({
+        type: 'tool.execution.telemetry',
+        entityId: 'tool-read-2',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: 2_000,
+        payload: {
+          toolCallId: 'tool-read-2',
+          toolName: 'fetch_file',
+          toolType: 'mcp',
+          serverName: 'github',
+          threadId: 'thread-1',
+          startedAt: 500,
+          completedAt: 2_000,
+          durationMs: 1_500,
+          status: 'completed',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Read files with 2 tools')).toBeInTheDocument();
+    });
+  });
+
+  it('surfaces compact baseline, resume, staleness, and permission friction events', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);
 
@@ -172,6 +274,22 @@ describe('ActivityRail', () => {
           version: 2,
           prunedMessageCount: 18,
           totalMessageCount: 42,
+        },
+      });
+      eventBus.emit({
+        type: 'conversation.compact.completed',
+        entityId: 'fcb-1',
+        entityType: 'graph',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          compactId: 'fcb-1',
+          compactVersion: 1,
+          compactedNonSystemMessageCount: 18,
+          keptTailNonSystemMessageCount: 6,
+          preCompactMessageCount: 24,
+          preCompactTokenCount: 1200,
         },
       });
       eventBus.emit({
@@ -228,7 +346,9 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Compacted 18 messages into a fresh synopsis')).toBeInTheDocument();
+      expect(
+        screen.getByText('Compacted 18 messages and kept a 6-message live tail'),
+      ).toBeInTheDocument();
       expect(screen.getByText('Rewound to step 2 and resumed')).toBeInTheDocument();
       expect(screen.getByText('Workspace changed locally (3 files)')).toBeInTheDocument();
       expect(screen.getByText('Approval needed for github/search')).toBeInTheDocument();
@@ -297,6 +417,46 @@ describe('ActivityRail', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Waiting for plan review').length).toBeGreaterThan(0);
       expect(screen.getByText('Clarification received: answer and continue')).toBeInTheDocument();
+    });
+  });
+
+  it('shows restored pending interactions after runtime recovery', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'interaction.restored',
+        entityId: 'ix-plan-restore',
+        entityType: 'runtime',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          request: {
+            interactionId: 'ix-plan-restore',
+            threadId: 'thread-1',
+            companyId: 'co-1',
+            kind: 'plan_review',
+            severity: 'normal',
+            title: 'Review plan',
+            prompt: 'Review before execution',
+            options: [{ id: 'start_execution', label: 'Start execution' }],
+            allowFreeformResponse: true,
+            requestedByNode: 'pm_planner',
+            employeeId: null,
+            taskRunId: null,
+            context: { type: 'plan_review', planId: null },
+            createdAt: Date.now(),
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Restored pending plan review')).toHaveLength(2);
     });
   });
 });

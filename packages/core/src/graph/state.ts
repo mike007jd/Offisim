@@ -64,6 +64,15 @@ export interface StepResult {
   outputs: StepTaskOutput[];
 }
 
+export interface CompactBaselineState {
+  compactId: string;
+  compactVersion: number;
+  compactedAt: string;
+  summaryText: string;
+  compactedNonSystemMessageCount: number;
+  keptTailNonSystemMessageCount: number;
+}
+
 export interface MeetingActionItem {
   taskRunId: string;
   description: string;
@@ -107,6 +116,11 @@ export const OffisimGraphAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
     default: () => [],
+  }),
+
+  compactBaseline: Annotation<CompactBaselineState | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
   }),
 
   // Routing
@@ -219,3 +233,30 @@ export const OffisimGraphAnnotation = Annotation.Root({
 });
 
 export type OffisimGraphState = typeof OffisimGraphAnnotation.State;
+
+export function parseCompactBaseline(raw: string | null): CompactBaselineState | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CompactBaselineState>;
+    if (
+      typeof parsed.compactId !== 'string' ||
+      typeof parsed.compactVersion !== 'number' ||
+      typeof parsed.compactedAt !== 'string' ||
+      typeof parsed.summaryText !== 'string' ||
+      typeof parsed.compactedNonSystemMessageCount !== 'number' ||
+      typeof parsed.keptTailNonSystemMessageCount !== 'number'
+    ) {
+      return null;
+    }
+    return {
+      compactId: parsed.compactId,
+      compactVersion: parsed.compactVersion,
+      compactedAt: parsed.compactedAt,
+      summaryText: parsed.summaryText,
+      compactedNonSystemMessageCount: parsed.compactedNonSystemMessageCount,
+      keptTailNonSystemMessageCount: parsed.keptTailNonSystemMessageCount,
+    };
+  } catch {
+    return null;
+  }
+}

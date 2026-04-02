@@ -1,4 +1,5 @@
 import type {
+  ConversationCompactCompletedPayload,
   ConversationSynopsisUpdatedPayload,
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
@@ -7,6 +8,7 @@ import type {
   InteractionModeChangedPayload,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
+  InteractionRestoredPayload,
   PlanCreatedPayload,
   RuntimeEvent,
   SessionCostUpdatedPayload,
@@ -15,6 +17,8 @@ import type {
   WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { humanizeNodeName } from '../lib/agent-display';
+import { categorizeTool, type ToolCategory } from '../lib/tool-category';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
 export type RuntimeActivityTone = 'info' | 'success' | 'warning' | 'error';
@@ -25,6 +29,8 @@ export interface RuntimeActivityEntry {
   tone: RuntimeActivityTone;
   label: string;
   timestamp: number;
+  burstKey?: string;
+  burstCount?: number;
 }
 
 export interface RuntimeActivityTool {
@@ -44,35 +50,77 @@ function formatDuration(durationMs?: number): string {
   return `${Math.round(durationMs / 1000)}s`;
 }
 
-function humanizeNode(nodeName: string): string {
-  switch (nodeName) {
-    case 'boss':
-      return 'Boss';
-    case 'boss_summary':
-      return 'Boss';
-    case 'manager':
-      return 'Manager';
-    case 'pm_planner':
-      return 'PM';
-    case 'pm_replan':
-      return 'PM';
-    case 'pm_heartbeat':
-      return 'PM';
-    case 'employee':
-      return 'Employee';
-    case 'employee_direct_setup':
-      return 'Employee';
-    case 'step_dispatcher':
-      return 'Dispatcher';
-    case 'step_advance':
-      return 'Dispatcher';
-    case 'hr':
-      return 'HR';
-    case 'error_handler':
-      return 'Recovery';
+function activeToolHeadline(category: ToolCategory): string {
+  switch (category) {
+    case 'search':
+      return 'Searching the codebase';
+    case 'read':
+      return 'Reading relevant files';
+    case 'edit':
+      return 'Editing the workspace';
+    case 'shell':
+      return 'Running shell tasks';
     default:
-      return nodeName.replaceAll('_', ' ');
+      return 'Running tools';
   }
+}
+
+function activeToolGroupLabel(category: ToolCategory, count: number): string {
+  const suffix = count > 1 ? ` (${count})` : '';
+  switch (category) {
+    case 'search':
+      return `Searching codebase${suffix}`;
+    case 'read':
+      return `Reading files${suffix}`;
+    case 'edit':
+      return `Editing workspace${suffix}`;
+    case 'shell':
+      return `Shell tasks${suffix}`;
+    default:
+      return `Live tools${suffix}`;
+  }
+}
+
+function toolBurstLabel(
+  category: ToolCategory,
+  status: ToolExecutionTelemetryPayload['status'],
+  count: number,
+): string {
+  if (status === 'started') {
+    switch (category) {
+      case 'search':
+        return count > 1 ? `Searching codebase with ${count} tools` : 'Started code search';
+      case 'read':
+        return count > 1 ? `Reading files with ${count} tools` : 'Started reading files';
+      case 'edit':
+        return count > 1 ? `Editing workspace with ${count} tools` : 'Started editing workspace';
+      case 'shell':
+        return count > 1 ? `Running ${count} shell tasks` : 'Started shell task';
+      default:
+        return count > 1 ? `Started ${count} tools` : 'Started tool';
+    }
+  }
+
+  if (status === 'completed') {
+    switch (category) {
+      case 'search':
+        return count > 1 ? `Searched codebase with ${count} tools` : 'Completed code search';
+      case 'read':
+        return count > 1 ? `Read files with ${count} tools` : 'Completed file read';
+      case 'edit':
+        return count > 1 ? `Applied ${count} workspace edits` : 'Completed workspace edit';
+      case 'shell':
+        return count > 1 ? `Completed ${count} shell tasks` : 'Completed shell task';
+      default:
+        return count > 1 ? `Completed ${count} tool calls` : 'Completed tool call';
+    }
+  }
+
+  if (status === 'denied') {
+    return count > 1 ? `Blocked ${count} tool requests` : 'Blocked tool request';
+  }
+
+  return count > 1 ? `Failed ${count} tool calls` : 'Failed tool call';
 }
 
 function enteredHeadline(nodeName: string): string {
@@ -96,7 +144,7 @@ function enteredHeadline(nodeName: string): string {
     case 'error_handler':
       return 'Recovery flow is handling a fault';
     default:
-      return `${humanizeNode(nodeName)} is working`;
+      return `${humanizeNodeName(nodeName)} is working`;
   }
 }
 
@@ -105,7 +153,7 @@ function exitedEntry(nodeName: string): RuntimeActivityEntry {
     id: `node-${nodeName}-${Date.now()}`,
     kind: 'node',
     tone: 'success',
-    label: `${humanizeNode(nodeName)} finished`,
+    label: `${humanizeNodeName(nodeName)} finished`,
     timestamp: Date.now(),
   };
 }
@@ -134,6 +182,19 @@ function interactionResolvedLabel(kind: InteractionKind, selectedOptionId: strin
       return `Clarification received: ${action}`;
     default:
       return `Decision received: ${action}`;
+  }
+}
+
+function interactionRestoredLabel(kind: InteractionKind): string {
+  switch (kind) {
+    case 'permission_request':
+      return 'Restored pending approval';
+    case 'plan_review':
+      return 'Restored pending plan review';
+    case 'agent_question':
+      return 'Restored pending clarification';
+    default:
+      return 'Restored pending interaction';
   }
 }
 
@@ -166,6 +227,30 @@ function pushEntry(
   next: RuntimeActivityEntry,
   limit: number,
 ): RuntimeActivityEntry[] {
+  const latest = prev[0];
+  if (
+    latest &&
+    next.kind === 'tool' &&
+    latest.kind === 'tool' &&
+    next.burstKey &&
+    latest.burstKey === next.burstKey &&
+    next.tone === latest.tone &&
+    Math.abs(next.timestamp - latest.timestamp) <= 3_500
+  ) {
+    const mergedCount = (latest.burstCount ?? 1) + (next.burstCount ?? 1);
+    return [
+      {
+        ...next,
+        burstCount: mergedCount,
+        label: toolBurstLabel(
+          next.burstKey.split(':')[1] as ToolCategory,
+          next.burstKey.split(':')[0] as ToolExecutionTelemetryPayload['status'],
+          mergedCount,
+        ),
+      },
+      ...prev.slice(1),
+    ].slice(0, limit);
+  }
   return [next, ...prev].slice(0, limit);
 }
 
@@ -181,19 +266,19 @@ export function useRuntimeActivityFeed(opts?: {
   const { eventBus } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const maxEntries = opts?.maxEntries ?? 6;
-  const [headline, setHeadline] = useState<string | null>(null);
   const [entries, setEntries] = useState<RuntimeActivityEntry[]>([]);
   const [activeToolsState, setActiveToolsState] = useState<
     Map<string, ToolExecutionTelemetryPayload>
   >(() => new Map());
   const [totalCostUsd, setTotalCostUsd] = useState<number | null>(null);
   const [tick, setTick] = useState(() => Date.now());
+  const [baseHeadline, setBaseHeadline] = useState<string | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isRunning) {
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
-      setHeadline('Warming up the runtime');
+      setBaseHeadline('Warming up the runtime');
       setEntries([]);
       setActiveToolsState(new Map());
       setTotalCostUsd(null);
@@ -202,7 +287,7 @@ export function useRuntimeActivityFeed(opts?: {
 
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
     clearTimerRef.current = setTimeout(() => {
-      setHeadline(null);
+      setBaseHeadline(null);
       setActiveToolsState(new Map());
     }, 2400);
 
@@ -221,7 +306,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offEntered = eventBus.on(
       'graph.node.entered',
       (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
-        setHeadline(enteredHeadline(event.payload.nodeName));
+        setBaseHeadline(enteredHeadline(event.payload.nodeName));
       },
     );
 
@@ -237,7 +322,7 @@ export function useRuntimeActivityFeed(opts?: {
       const label = event.payload.summary
         ? `Plan ready: ${truncate(event.payload.summary, 44)}`
         : `Plan ready with ${stepCount} steps`;
-      setHeadline(label);
+      setBaseHeadline(label);
       setEntries((prev) =>
         pushEntry(
           prev,
@@ -276,7 +361,7 @@ export function useRuntimeActivityFeed(opts?: {
       'interaction.requested',
       (event: RuntimeEvent<InteractionRequestedPayload>) => {
         const label = interactionRequestedLabel(event.payload.request.kind);
-        setHeadline(label);
+        setBaseHeadline(label);
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -315,6 +400,27 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offInteractionRestored = eventBus.on(
+      'interaction.restored',
+      (event: RuntimeEvent<InteractionRestoredPayload>) => {
+        const label = interactionRestoredLabel(event.payload.request.kind);
+        setBaseHeadline(label);
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `interaction-restored-${event.payload.request.interactionId}`,
+              kind: 'system',
+              tone: 'info',
+              label,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offInteractionMode = eventBus.on(
       'interaction.mode.changed',
       (event: RuntimeEvent<InteractionModeChangedPayload>) => {
@@ -340,12 +446,12 @@ export function useRuntimeActivityFeed(opts?: {
         const payload = event.payload;
         const label = telemetryLabel(payload);
         if (payload.status === 'started') {
+          const category = categorizeTool(payload);
           setActiveToolsState((prev) => {
             const next = new Map(prev);
             next.set(payload.toolCallId, payload);
             return next;
           });
-          setHeadline(`Running ${label}`);
           setEntries((prev) =>
             pushEntry(
               prev,
@@ -355,6 +461,8 @@ export function useRuntimeActivityFeed(opts?: {
                 tone: 'info',
                 label: `Started ${label}`,
                 timestamp: payload.startedAt,
+                burstKey: `started:${category}`,
+                burstCount: 1,
               },
               maxEntries,
             ),
@@ -374,6 +482,7 @@ export function useRuntimeActivityFeed(opts?: {
             : payload.status === 'denied'
               ? 'warning'
               : 'error';
+        const category = categorizeTool(payload);
         const prefix =
           payload.status === 'completed'
             ? 'Completed'
@@ -396,8 +505,13 @@ export function useRuntimeActivityFeed(opts?: {
               id: `tool-${payload.toolCallId}-${payload.status}`,
               kind: 'tool',
               tone,
-              label: `${prefix} ${label}${suffix}`,
+              label:
+                payload.status === 'completed'
+                  ? `Completed ${label}${suffix}`
+                  : `${prefix} ${label}`,
               timestamp: payload.completedAt ?? event.timestamp,
+              burstKey: `${payload.status}:${category}`,
+              burstCount: 1,
             },
             maxEntries,
           ),
@@ -408,7 +522,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offSynopsis = eventBus.on(
       'conversation.synopsis.updated',
       (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
-        setHeadline('Compacting context for the next turn');
+        setBaseHeadline('Compacting context for the next turn');
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -425,10 +539,30 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offCompact = eventBus.on(
+      'conversation.compact.completed',
+      (event: RuntimeEvent<ConversationCompactCompletedPayload>) => {
+        setBaseHeadline('Established a new compact baseline');
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `compact-${event.payload.compactId}`,
+              kind: 'system',
+              tone: 'success',
+              label: `Compacted ${event.payload.compactedNonSystemMessageCount} messages and kept a ${event.payload.keptTailNonSystemMessageCount}-message live tail`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offResume = eventBus.on(
       'execution.resumed',
       (event: RuntimeEvent<ExecutionResumedPayload>) => {
-        setHeadline('Restoring from the latest checkpoint');
+        setBaseHeadline('Restoring from the latest checkpoint');
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -451,7 +585,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offStaleness = eventBus.on(
       'workspace.staleness.detected',
       (event: RuntimeEvent<WorkspaceStalenessDetectedPayload>) => {
-        setHeadline(
+        setBaseHeadline(
           event.payload.status === 'block'
             ? 'Resume blocked by workspace changes'
             : 'Workspace changed since the last checkpoint',
@@ -486,9 +620,11 @@ export function useRuntimeActivityFeed(opts?: {
       offDispatch();
       offInteractionRequested();
       offInteractionResolved();
+      offInteractionRestored();
       offInteractionMode();
       offTool();
       offSynopsis();
+      offCompact();
       offResume();
       offStaleness();
       offCost();
@@ -496,15 +632,46 @@ export function useRuntimeActivityFeed(opts?: {
   }, [eventBus, maxEntries]);
 
   const activeTools = useMemo<RuntimeActivityTool[]>(() => {
-    return [...activeToolsState.values()]
-      .sort((a, b) => a.startedAt - b.startedAt)
-      .map((tool) => ({
-        toolCallId: tool.toolCallId,
-        label: telemetryLabel(tool),
-        elapsedSeconds: Math.max(0, Math.floor((tick - tool.startedAt) / 1000)),
-        nodeName: tool.nodeName ?? null,
+    const grouped = new Map<
+      ToolCategory,
+      { count: number; startedAt: number; nodeName: string | null }
+    >();
+    for (const tool of activeToolsState.values()) {
+      const category = categorizeTool(tool);
+      const current = grouped.get(category);
+      if (!current) {
+        grouped.set(category, {
+          count: 1,
+          startedAt: tool.startedAt,
+          nodeName: tool.nodeName ?? null,
+        });
+        continue;
+      }
+      grouped.set(category, {
+        count: current.count + 1,
+        startedAt: Math.min(current.startedAt, tool.startedAt),
+        nodeName: current.nodeName ?? tool.nodeName ?? null,
+      });
+    }
+    return [...grouped.entries()]
+      .sort((a, b) => a[1].startedAt - b[1].startedAt)
+      .map(([category, group]) => ({
+        toolCallId: `group:${category}`,
+        label: activeToolGroupLabel(category, group.count),
+        elapsedSeconds: Math.max(0, Math.floor((tick - group.startedAt) / 1000)),
+        nodeName: group.nodeName,
       }));
   }, [activeToolsState, tick]);
+
+  const headline = useMemo(() => {
+    const firstActive = activeToolsState.values().next().value as
+      | ToolExecutionTelemetryPayload
+      | undefined;
+    if (firstActive) {
+      return activeToolHeadline(categorizeTool(firstActive));
+    }
+    return baseHeadline;
+  }, [activeToolsState, baseHeadline]);
 
   return {
     headline,

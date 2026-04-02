@@ -16,6 +16,7 @@ import type { MemoryInstallRepositoriesSnapshot } from './memory-install-repos.j
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import type {
+  ActiveInteractionRepository,
   AgentEventRepository,
   AgentEventRow,
   CheckpointRepository,
@@ -34,6 +35,9 @@ import type {
   GraphThreadRow,
   HandoffEventRow,
   HandoffRepository,
+  InteractionActiveRow,
+  InteractionHistoryRepository,
+  InteractionHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
   LlmCallRepository,
@@ -50,6 +54,8 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewInteractionActive,
+  NewInteractionHistory,
   NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
@@ -115,6 +121,8 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   mcpAudit: McpAuditRow[];
   nodeSummaries: NodeSummaryRow[];
   compactSummaries: CompactSummaryRow[];
+  activeInteractions: InteractionActiveRow[];
+  interactionHistory: InteractionHistoryRow[];
   fileHistory: FileHistoryRow[];
   employeeVersions: EmployeeVersionRow[];
   costRates: ModelCostRateRow[];
@@ -165,6 +173,13 @@ export function createMemoryRepositories(
   const eventsStore: NewRuntimeEvent[] = cloneRows(snapshot?.events ?? []);
   const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
 
+  function withThreadDefaults(row: GraphThreadRow): GraphThreadRow {
+    return {
+      ...row,
+      interaction_mode: row.interaction_mode ?? 'boss_proxy',
+    };
+  }
+
   const companies: CompanyRepository = {
     async findById(id) {
       return companiesMap.get(id) ?? null;
@@ -189,7 +204,9 @@ export function createMemoryRepositories(
       const row: GraphThreadRow = {
         ...t,
         project_id: t.project_id ?? null,
+        interaction_mode: t.interaction_mode ?? 'boss_proxy',
         synopsis_json: t.synopsis_json ?? null,
+        compact_baseline_json: t.compact_baseline_json ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -197,10 +214,13 @@ export function createMemoryRepositories(
       return row;
     },
     async findById(id) {
-      return threadsMap.get(id) ?? null;
+      const row = threadsMap.get(id);
+      return row ? withThreadDefaults(row) : null;
     },
     async findByCompany(companyId, opts) {
-      let results = [...threadsMap.values()].filter((t) => t.company_id === companyId);
+      let results = [...threadsMap.values()]
+        .map(withThreadDefaults)
+        .filter((t) => t.company_id === companyId);
       if (opts?.status) results = results.filter((t) => t.status === opts.status);
       results.sort((a, b) => b.created_at.localeCompare(a.created_at));
       if (opts?.limit) results = results.slice(0, opts.limit);
@@ -208,6 +228,7 @@ export function createMemoryRepositories(
     },
     async findByCompanyAndStatus(companyId, status) {
       return [...threadsMap.values()]
+        .map(withThreadDefaults)
         .filter((t) => t.company_id === companyId && t.status === status)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
@@ -217,10 +238,26 @@ export function createMemoryRepositories(
         threadsMap.set(id, { ...row, status, updated_at: now() });
       }
     },
+    async updateInteractionMode(id, interactionMode) {
+      const row = threadsMap.get(id);
+      if (row) {
+        threadsMap.set(id, { ...row, interaction_mode: interactionMode, updated_at: now() });
+      }
+    },
     async updateSynopsis(id, synopsisJson) {
       const row = threadsMap.get(id);
       if (row) {
         threadsMap.set(id, { ...row, synopsis_json: synopsisJson, updated_at: now() });
+      }
+    },
+    async updateCompactBaseline(id, compactBaselineJson) {
+      const row = threadsMap.get(id);
+      if (row) {
+        threadsMap.set(id, {
+          ...row,
+          compact_baseline_json: compactBaselineJson,
+          updated_at: now(),
+        });
       }
     },
   };
@@ -434,6 +471,8 @@ export function createMemoryRepositories(
   const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
   const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
+  const activeInteractions = new MemoryActiveInteractionRepository(snapshot?.activeInteractions);
+  const interactionHistory = new MemoryInteractionHistoryRepository(snapshot?.interactionHistory);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const employeeVersions = new MemoryEmployeeVersionRepository(snapshot?.employeeVersions);
   const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
@@ -466,6 +505,8 @@ export function createMemoryRepositories(
     mcpAudit,
     nodeSummaries,
     compactSummaries,
+    activeInteractions,
+    interactionHistory,
     fileHistory,
     employeeVersions,
     costRates,
@@ -500,6 +541,8 @@ export function createMemoryRepositories(
         mcpAudit: mcpAudit.snapshot(),
         nodeSummaries: nodeSummaries.snapshot(),
         compactSummaries: compactSummaries.snapshot(),
+        activeInteractions: activeInteractions.snapshot(),
+        interactionHistory: interactionHistory.snapshot(),
         fileHistory: fileHistory.snapshot(),
         employeeVersions: employeeVersions.snapshot(),
         costRates: costRates.snapshot(),
@@ -524,6 +567,64 @@ export function createMemoryRepositories(
   };
 
   return repositories;
+}
+
+export class MemoryActiveInteractionRepository implements ActiveInteractionRepository {
+  private readonly rows = new Map<string, InteractionActiveRow>();
+
+  constructor(initialRows?: Iterable<InteractionActiveRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.rows.set(row.thread_id, { ...row });
+    }
+  }
+
+  async upsert(row: NewInteractionActive): Promise<InteractionActiveRow> {
+    const persisted = { ...row };
+    this.rows.set(persisted.thread_id, persisted);
+    return persisted;
+  }
+
+  async findByThread(threadId: string): Promise<InteractionActiveRow | null> {
+    return this.rows.get(threadId) ?? null;
+  }
+
+  async deleteByThread(threadId: string): Promise<void> {
+    this.rows.delete(threadId);
+  }
+
+  snapshot(): InteractionActiveRow[] {
+    return cloneRows(this.rows.values());
+  }
+}
+
+export class MemoryInteractionHistoryRepository implements InteractionHistoryRepository {
+  private readonly rows: InteractionHistoryRow[] = [];
+
+  constructor(initialRows?: Iterable<InteractionHistoryRow>) {
+    if (!initialRows) return;
+    this.rows.push(...cloneRows(initialRows));
+  }
+
+  async create(row: NewInteractionHistory): Promise<InteractionHistoryRow> {
+    const persisted = { ...row };
+    this.rows.push(persisted);
+    return persisted;
+  }
+
+  async listByThread(
+    threadId: string,
+    opts?: { limit?: number },
+  ): Promise<InteractionHistoryRow[]> {
+    const rows = this.rows
+      .filter((row) => row.thread_id === threadId)
+      .sort((a, b) => b.resolved_at.localeCompare(a.resolved_at));
+    return typeof opts?.limit === 'number' ? rows.slice(0, opts.limit) : rows;
+  }
+
+  snapshot(): InteractionHistoryRow[] {
+    return cloneRows(this.rows);
+  }
 }
 
 export class MemoryEmployeeVersionRepository implements EmployeeVersionRepository {

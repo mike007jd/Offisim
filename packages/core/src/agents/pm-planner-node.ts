@@ -421,7 +421,7 @@ export async function pmPlannerNode(
 
   if (interactionService && interactionMode === 'human_in_loop' && !approvedToExecute) {
     interactionService.rememberPlanReviewPayload(threadId, plan);
-    interactionService.request({
+    await interactionService.request({
       interactionId: generateId('ix'),
       threadId,
       companyId,

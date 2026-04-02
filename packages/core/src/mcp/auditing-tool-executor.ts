@@ -72,7 +72,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         });
         if (decision.behavior !== 'allow') {
           if (decision.behavior === 'ask' && this.interactionService) {
-            this.interactionService.request(
+            await this.interactionService.request(
               this.buildPermissionInteractionRequest(call, serverName, decision.reason),
             );
           }

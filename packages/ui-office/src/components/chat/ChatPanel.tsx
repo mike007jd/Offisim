@@ -16,6 +16,7 @@ import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { PipelineProgress } from './PipelineProgress';
 import { StreamingBubble } from './StreamingBubble';
+import { SystemMessageFeed } from './SystemMessageFeed';
 
 interface ChatMessage {
   id: string;
@@ -292,6 +293,7 @@ export function ChatPanel({
               style={{ padding: 'var(--sp-sm)' }}
             >
               <ActivityRail />
+              <SystemMessageFeed />
             </div>
           </ScrollArea>
         ) : isDirectChat ? (
@@ -311,6 +313,7 @@ export function ChatPanel({
         <ScrollArea className="flex-1">
           <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
             <ActivityRail />
+            <SystemMessageFeed />
             {pendingInteraction?.severity !== 'high' &&
               pendingInteraction &&
               respondToInteraction && (

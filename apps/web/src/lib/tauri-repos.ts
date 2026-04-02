@@ -3,6 +3,7 @@
 // If you change repository logic in core, update this file too.
 
 import type {
+  ActiveInteractionRepository,
   AssetBindingRepository,
   CheckpointRepository,
   CompactSummaryRepository,
@@ -21,6 +22,9 @@ import type {
   InstallTransactionRepository,
   InstalledAssetRepository,
   InstalledPackageRepository,
+  InteractionActiveRow,
+  InteractionHistoryRepository,
+  InteractionHistoryRow,
   LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
@@ -35,6 +39,8 @@ import type {
   NewGraphCheckpoint,
   NewGraphThread,
   NewHandoffEvent,
+  NewInteractionActive,
+  NewInteractionHistory,
   NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
@@ -156,7 +162,9 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     async create(t: NewGraphThread) {
       const row = {
         ...t,
+        interaction_mode: t.interaction_mode ?? 'boss_proxy',
         synopsis_json: t.synopsis_json ?? null,
+        compact_baseline_json: t.compact_baseline_json ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -196,10 +204,22 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .set({ status, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
     },
+    async updateInteractionMode(id, interactionMode) {
+      await db
+        .update(schema.graphThreads)
+        .set({ interaction_mode: interactionMode, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id));
+    },
     async updateSynopsis(id, synopsisJson) {
       await db
         .update(schema.graphThreads)
         .set({ synopsis_json: synopsisJson, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id));
+    },
+    async updateCompactBaseline(id, compactBaselineJson) {
+      await db
+        .update(schema.graphThreads)
+        .set({ compact_baseline_json: compactBaselineJson, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
     },
     async findByCompanyAndStatus(companyId, status) {
@@ -229,7 +249,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(eq(schema.taskRuns.task_run_id, id));
       return (rows[0] as TaskRunRow | undefined) ?? null;
     },
-    async findByThread(threadId) {
+    async findByThread(threadId: string) {
       return (await db
         .select()
         .from(schema.taskRuns)
@@ -843,7 +863,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .where(eq(schema.nodeSummaries.thread_id, threadId));
       return Number(rows[0]?.count ?? 0);
     },
-    async deleteByThread(threadId) {
+    async deleteByThread(threadId: string) {
       await db.delete(schema.nodeSummaries).where(eq(schema.nodeSummaries.thread_id, threadId));
     },
     async trimByThread(threadId, keepLatest) {
@@ -875,7 +895,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db.insert(schema.compactSummaries).values(summary);
       return summary as CompactSummaryRow;
     },
-    async listByThread(threadId, opts) {
+    async listByThread(threadId: string, opts?: { limit?: number }) {
       let query = db
         .select()
         .from(schema.compactSummaries)
@@ -890,6 +910,57 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db
         .delete(schema.compactSummaries)
         .where(eq(schema.compactSummaries.thread_id, threadId));
+    },
+  };
+
+  const activeInteractions: ActiveInteractionRepository = {
+    async upsert(row: NewInteractionActive) {
+      await db
+        .insert(schema.activeThreadInteractions)
+        .values(row)
+        .onConflictDoUpdate({
+          target: schema.activeThreadInteractions.thread_id,
+          set: {
+            company_id: row.company_id,
+            interaction_id: row.interaction_id,
+            kind: row.kind,
+            interaction_mode: row.interaction_mode,
+            request_json: row.request_json,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+          },
+        });
+      return row as InteractionActiveRow;
+    },
+    async findByThread(threadId) {
+      const rows = await db
+        .select()
+        .from(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.thread_id, threadId));
+      return (rows[0] as InteractionActiveRow | undefined) ?? null;
+    },
+    async deleteByThread(threadId) {
+      await db
+        .delete(schema.activeThreadInteractions)
+        .where(eq(schema.activeThreadInteractions.thread_id, threadId));
+    },
+  };
+
+  const interactionHistory: InteractionHistoryRepository = {
+    async create(row: NewInteractionHistory) {
+      await db.insert(schema.interactionHistory).values(row);
+      return row as InteractionHistoryRow;
+    },
+    async listByThread(threadId, opts) {
+      let query = db
+        .select()
+        .from(schema.interactionHistory)
+        .where(eq(schema.interactionHistory.thread_id, threadId))
+        .orderBy(desc(schema.interactionHistory.resolved_at));
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+      return (await query) as InteractionHistoryRow[];
     },
   };
 
@@ -1553,6 +1624,8 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     mcpAudit,
     nodeSummaries,
     compactSummaries,
+    activeInteractions,
+    interactionHistory,
     fileHistory,
     employeeVersions,
     costRates,

@@ -1,4 +1,5 @@
 import type { NewEmployee } from '@offisim/install-core';
+import type { InteractionKind, InteractionMode } from '@offisim/shared-types';
 import type {
   NewProject,
   NewProjectAssignment,
@@ -24,7 +25,9 @@ export interface GraphThreadRow {
   root_task_id: string | null;
   status: string;
   project_id: string | null;
+  interaction_mode: InteractionMode;
   synopsis_json: string | null;
+  compact_baseline_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,10 +147,17 @@ export type NewLlmCall = Omit<LlmCallRow, never>;
 /** New-row types (omit auto-generated fields) */
 export type NewGraphThread = Omit<
   GraphThreadRow,
-  'created_at' | 'updated_at' | 'project_id' | 'synopsis_json'
+  | 'created_at'
+  | 'updated_at'
+  | 'project_id'
+  | 'interaction_mode'
+  | 'synopsis_json'
+  | 'compact_baseline_json'
 > & {
   project_id?: string | null;
+  interaction_mode?: InteractionMode;
   synopsis_json?: string | null;
+  compact_baseline_json?: string | null;
 };
 export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
 export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
@@ -177,7 +187,9 @@ export interface ThreadRepository {
   ): Promise<GraphThreadRow[]>;
   findByCompanyAndStatus(companyId: string, status: string): Promise<GraphThreadRow[]>;
   updateStatus(threadId: string, status: string): Promise<void>;
+  updateInteractionMode(threadId: string, interactionMode: InteractionMode): Promise<void>;
   updateSynopsis(threadId: string, synopsisJson: string | null): Promise<void>;
+  updateCompactBaseline(threadId: string, compactBaselineJson: string | null): Promise<void>;
 }
 
 export interface TaskRunRepository {
@@ -466,6 +478,54 @@ export interface CompactSummaryRepository {
   create(summary: NewCompactSummary): Promise<CompactSummaryRow>;
   listByThread(threadId: string, opts?: { limit?: number }): Promise<CompactSummaryRow[]>;
   deleteByThread(threadId: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Durable interactions
+// ---------------------------------------------------------------------------
+
+export type InteractionHistoryStatus = 'resolved' | 'cancelled' | 'superseded';
+
+export interface InteractionActiveRow {
+  thread_id: string;
+  company_id: string;
+  interaction_id: string;
+  kind: InteractionKind;
+  interaction_mode: InteractionMode;
+  request_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewInteractionActive = InteractionActiveRow;
+
+export interface ActiveInteractionRepository {
+  upsert(row: NewInteractionActive): Promise<InteractionActiveRow>;
+  findByThread(threadId: string): Promise<InteractionActiveRow | null>;
+  deleteByThread(threadId: string): Promise<void>;
+}
+
+export interface InteractionHistoryRow {
+  history_id: string;
+  interaction_id: string;
+  thread_id: string;
+  company_id: string;
+  kind: InteractionKind;
+  interaction_mode: InteractionMode;
+  status: InteractionHistoryStatus;
+  selected_option_id: string | null;
+  freeform_response: string | null;
+  request_json: string;
+  response_json: string | null;
+  created_at: string;
+  resolved_at: string;
+}
+
+export type NewInteractionHistory = InteractionHistoryRow;
+
+export interface InteractionHistoryRepository {
+  create(row: NewInteractionHistory): Promise<InteractionHistoryRow>;
+  listByThread(threadId: string, opts?: { limit?: number }): Promise<InteractionHistoryRow[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -817,6 +877,8 @@ export interface RuntimeRepositories {
   mcpAudit: McpAuditRepository;
   nodeSummaries: NodeSummaryRepository;
   compactSummaries: CompactSummaryRepository;
+  activeInteractions: ActiveInteractionRepository;
+  interactionHistory: InteractionHistoryRepository;
   fileHistory: FileHistoryRepository;
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;

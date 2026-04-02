@@ -158,7 +158,11 @@ export async function createTauriRuntime(
     threadId,
     defaultMode: opts?.defaultInteractionMode,
     pendingStore: interactionBox,
+    threadRepo: repos.threads,
+    activeRepo: repos.activeInteractions,
+    historyRepo: repos.interactionHistory,
   });
+  await interactionService.restore();
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(

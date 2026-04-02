@@ -51,6 +51,7 @@ export {
 } from './orchestration-events.js';
 
 export {
+  conversationCompactCompleted,
   conversationSynopsisUpdated,
   llmCallStarted,
   llmCallCompleted,
@@ -86,6 +87,7 @@ export {
   notificationCreated,
   notificationDismissed,
   interactionRequested,
+  interactionRestored,
   interactionResolved,
   interactionModeChanged,
 } from './operational-events.js';

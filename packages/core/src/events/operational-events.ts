@@ -13,6 +13,7 @@ import type {
   InteractionModeChangedPayload,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
+  InteractionRestoredPayload,
   MemoryCreatedPayload,
   NotificationDismissedPayload,
   NotificationPayload,
@@ -307,6 +308,22 @@ export function interactionResolved(
     threadId,
     timestamp: Date.now(),
     payload: { request, response },
+  };
+}
+
+export function interactionRestored(
+  companyId: string,
+  threadId: string,
+  request: InteractionRequest,
+): RuntimeEvent<InteractionRestoredPayload> {
+  return {
+    type: 'interaction.restored',
+    entityId: request.interactionId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { request },
   };
 }
 

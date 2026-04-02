@@ -412,7 +412,7 @@ describe('pmPlannerNode', () => {
       prompt: expect.stringContaining('Approved website plan'),
     });
 
-    interactionService.resolve({
+    await interactionService.resolve({
       interactionId: interactionService.getPending()?.interactionId ?? 'ix-plan-1',
       selectedOptionId: 'start_execution',
       respondedAt: Date.now(),
@@ -457,8 +457,8 @@ describe('pmPlannerNode', () => {
       threadId: TEST_THREAD_ID,
       defaultMode: 'human_in_loop',
     });
-    interactionService.request(makePlanReviewRequest());
-    interactionService.resolve({
+    await interactionService.request(makePlanReviewRequest());
+    await interactionService.resolve({
       interactionId: 'ix-plan-1',
       selectedOptionId: 'revise_plan',
       freeformResponse: 'Split frontend and backend into separate steps.',

@@ -9,7 +9,15 @@ import {
   interactionModeChanged,
   interactionRequested,
   interactionResolved,
+  interactionRestored,
 } from '../events/event-factories.js';
+import type {
+  ActiveInteractionRepository,
+  InteractionHistoryRepository,
+  InteractionHistoryStatus,
+  ThreadRepository,
+} from '../runtime/repositories.js';
+import { generateId } from '../utils/generate-id.js';
 
 export interface ToolPermissionGrantRequest {
   readonly threadId: string;
@@ -53,6 +61,10 @@ export class InteractionService implements ToolPermissionGrantResolver {
       readonly threadId: string;
       readonly defaultMode?: InteractionMode;
       readonly pendingStore?: InteractionPendingStore;
+      readonly threadRepo?: Pick<ThreadRepository, 'findById' | 'updateInteractionMode'>;
+      readonly activeRepo?: ActiveInteractionRepository;
+      readonly historyRepo?: InteractionHistoryRepository;
+      readonly loadMode?: () => Promise<InteractionMode | null>;
     },
   ) {
     this.threadMode = deps.defaultMode ?? 'boss_proxy';
@@ -62,10 +74,33 @@ export class InteractionService implements ToolPermissionGrantResolver {
     return this.threadMode;
   }
 
+  async restore(): Promise<void> {
+    const [restoredMode, activeRow] = await Promise.all([
+      this.deps.loadMode?.() ??
+        this.deps.threadRepo?.findById(this.deps.threadId).then((t) => t?.interaction_mode ?? null),
+      this.deps.activeRepo?.findByThread(this.deps.threadId) ?? null,
+    ]);
+    if (restoredMode) {
+      this.threadMode = restoredMode;
+    }
+    if (!activeRow) return;
+
+    try {
+      const request = JSON.parse(activeRow.request_json) as InteractionRequest;
+      this.hydratePending(request);
+      this.deps.eventBus.emit(
+        interactionRestored(this.deps.companyId, this.deps.threadId, request),
+      );
+    } catch {
+      await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
+    }
+  }
+
   setMode(mode: InteractionMode): void {
     const previousMode = this.threadMode;
     if (previousMode === mode) return;
     this.threadMode = mode;
+    void this.deps.threadRepo?.updateInteractionMode(this.deps.threadId, mode);
     this.deps.eventBus.emit(
       interactionModeChanged(this.deps.companyId, this.deps.threadId, previousMode, mode),
     );
@@ -80,19 +115,45 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.syncPendingStore();
   }
 
-  request(request: InteractionRequest): InteractionRequest {
+  async clearPendingBefore(timestamp: number): Promise<InteractionRequest | null> {
+    const pending = this.pending;
+    if (!pending || pending.createdAt >= timestamp) return null;
+    this.pending = null;
+    this.syncPendingStore();
+    await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
+    await this.persistHistory(pending, null, 'cancelled');
+    return pending;
+  }
+
+  async request(request: InteractionRequest): Promise<InteractionRequest> {
+    const replaced = this.pending;
+    if (replaced) {
+      await this.persistHistory(replaced, null, 'superseded');
+    }
     this.pending = request;
     this.syncPendingStore();
+    await this.deps.activeRepo?.upsert({
+      thread_id: this.deps.threadId,
+      company_id: this.deps.companyId,
+      interaction_id: request.interactionId,
+      kind: request.kind,
+      interaction_mode: this.threadMode,
+      request_json: JSON.stringify(request),
+      created_at: new Date(request.createdAt).toISOString(),
+      updated_at: new Date().toISOString(),
+    });
     this.deps.eventBus.emit(interactionRequested(this.deps.companyId, this.deps.threadId, request));
     return request;
   }
 
-  resolve(response: InteractionResponse): InteractionRequest | null {
+  async resolve(response: InteractionResponse): Promise<InteractionRequest | null> {
     const pending = this.pending;
     if (!pending || pending.interactionId !== response.interactionId) return null;
 
     this.pending = null;
     this.syncPendingStore();
+    await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
+    await this.persistHistory(pending, response, 'resolved');
     this.applyGrants(pending, response);
     this.applyPlanReviewDecision(pending, response);
     this.deps.eventBus.emit(
@@ -196,5 +257,27 @@ export class InteractionService implements ToolPermissionGrantResolver {
     if (this.deps.pendingStore) {
       this.deps.pendingStore.pending = this.pending;
     }
+  }
+
+  private async persistHistory(
+    request: InteractionRequest,
+    response: InteractionResponse | null,
+    status: InteractionHistoryStatus,
+  ): Promise<void> {
+    await this.deps.historyRepo?.create({
+      history_id: generateId('ixh'),
+      interaction_id: request.interactionId,
+      thread_id: request.threadId,
+      company_id: request.companyId,
+      kind: request.kind,
+      interaction_mode: this.threadMode,
+      status,
+      selected_option_id: response?.selectedOptionId ?? null,
+      freeform_response: response?.freeformResponse ?? null,
+      request_json: JSON.stringify(request),
+      response_json: response ? JSON.stringify(response) : null,
+      created_at: new Date(request.createdAt).toISOString(),
+      resolved_at: new Date(response?.respondedAt ?? Date.now()).toISOString(),
+    });
   }
 }
