@@ -11,7 +11,12 @@ import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
-import { describeWaitingRelationship, getPhaseColor } from '../../lib/ceremony-visuals';
+import {
+  DEFAULT_BUBBLE_TEXT,
+  MANAGER_PRESENCE_COLORS,
+  getPhaseColor,
+  prepareWaitingDisplay,
+} from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { STATUS_COLORS } from '../../lib/status-colors.js';
@@ -287,17 +292,7 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
   const mtg = toSVG(-10, -8, 14, 6);
   const bx = mtg.x + mtg.w / 2;
   const by = mtg.y - 30;
-  const waitingNames = new Map(
-    ceremony.waitingRelationships.map((relationship) => [
-      relationship.waiterId,
-      relationship.waiterName,
-    ]),
-  );
-  const visibleRelationships = ceremony.waitingRelationships.slice(0, 3);
-  const extraWaitingCount = Math.max(
-    0,
-    ceremony.waitingRelationships.length - visibleRelationships.length,
-  );
+  const { visible: visibleRelationships, extraCount, labels } = prepareWaitingDisplay(ceremony.waitingRelationships);
   const bubbleHeight = visibleRelationships.length > 0 ? 54 + visibleRelationships.length * 12 : 32;
 
   return (
@@ -323,7 +318,7 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
         fontWeight="600"
         fontFamily="monospace"
       >
-        {truncate(ceremony.bubbleText || 'Coordination in progress', 35)}
+        {truncate(ceremony.bubbleText || DEFAULT_BUBBLE_TEXT, 35)}
       </text>
       {ceremony.participantIds.size > 0 && (
         <text
@@ -337,19 +332,19 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
           {ceremony.participantIds.size}p
         </text>
       )}
-      {visibleRelationships.map((relationship, index) => (
+      {visibleRelationships.map((relationship, i) => (
         <text
           key={`${relationship.waiterId}:${relationship.kind}`}
           x={bx - 108}
-          y={by + 18 + index * 11}
+          y={by + 18 + i * 11}
           fill="rgba(255,255,255,0.55)"
           fontSize="9"
           fontFamily="monospace"
         >
-          {describeWaitingRelationship(relationship, waitingNames)}
+          {labels[i]}
         </text>
       ))}
-      {extraWaitingCount > 0 && (
+      {extraCount > 0 && (
         <text
           x={bx - 108}
           y={by + 18 + visibleRelationships.length * 11}
@@ -357,7 +352,7 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
           fontSize="9"
           fontFamily="monospace"
         >
-          +{extraWaitingCount} more
+          +{extraCount} more
         </text>
       )}
     </g>
@@ -970,14 +965,14 @@ export default function Office2DView({
                 <g className="manager-presence" transform={`translate(${marker.x}, ${marker.y})`}>
                   <polygon
                     points="0,-12 12,0 0,12 -12,0"
-                    fill="rgba(245,158,11,0.22)"
-                    stroke="rgba(251,191,36,0.72)"
+                    fill={MANAGER_PRESENCE_COLORS.svgFill}
+                    stroke={MANAGER_PRESENCE_COLORS.svgStroke}
                     strokeWidth="1.2"
                   />
                   <text
                     x={0}
                     y={24}
-                    fill="rgba(255,248,235,0.85)"
+                    fill={MANAGER_PRESENCE_COLORS.svgText}
                     fontSize="8"
                     fontFamily="monospace"
                     textAnchor="middle"

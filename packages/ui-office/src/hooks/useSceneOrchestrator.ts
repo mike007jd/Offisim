@@ -104,7 +104,7 @@ function getRestPos(zones: readonly Zone[]): [number, number, number] {
   return [restCenter[0] + (Math.random() - 0.5) * 4, 0, restCenter[2] + (Math.random() - 0.5) * 3];
 }
 
-function createIdleCeremonyState(): CeremonyState {
+export function createIdleCeremonyState(): CeremonyState {
   return {
     phase: 'idle',
     bubbleText: '',
@@ -115,6 +115,8 @@ function createIdleCeremonyState(): CeremonyState {
     waitingRelationships: [],
   };
 }
+
+export const IDLE_CEREMONY: CeremonyState = createIdleCeremonyState();
 
 // ── Ceremony state (exposed to MeetingBubble3D) ─────────────────
 
@@ -755,28 +757,14 @@ export function useSceneOrchestrator({
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
       const meetingZoneId = getMeetingZoneId(zonesRef.current);
       const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
-      const holdTarget =
-        payload.kind === 'permission_request'
-          ? payload.restored
-            ? (approvalHoldPositionsRef.current.get(employeeId) ??
-              buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size))
-            : buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size)
-          : payload.restored
-            ? (clarificationHoldPositionsRef.current.get(employeeId) ??
-              buildClarificationHoldTarget(
-                meetingCenter,
-                clarificationHoldPositionsRef.current.size,
-              ))
-            : buildClarificationHoldTarget(
-                meetingCenter,
-                clarificationHoldPositionsRef.current.size,
-              );
-
-      if (payload.kind === 'permission_request') {
-        approvalHoldPositionsRef.current.set(employeeId, holdTarget);
-      } else {
-        clarificationHoldPositionsRef.current.set(employeeId, holdTarget);
-      }
+      const isApproval = payload.kind === 'permission_request';
+      const positionsRef = isApproval ? approvalHoldPositionsRef : clarificationHoldPositionsRef;
+      const buildHold = isApproval ? buildApprovalHoldTarget : buildClarificationHoldTarget;
+      const holdTarget = payload.restored
+        ? (positionsRef.current.get(employeeId) ??
+          buildHold(meetingCenter, positionsRef.current.size))
+        : buildHold(meetingCenter, positionsRef.current.size);
+      positionsRef.current.set(employeeId, holdTarget);
       moveThroughPoints(
         handle,
         buildReturnToMeetingRoute(basePosition, meetingCenter, holdTarget, {
@@ -937,24 +925,29 @@ export function useSceneOrchestrator({
       const fromName = agentsRef.current.get(payload.fromEmployeeId)?.name ?? 'Teammate';
       const toName = agentsRef.current.get(payload.toEmployeeId)?.name ?? 'teammate';
 
-      setCeremony((prev) => ({
-        ...prev,
-        bubbleText: `${fromName} → handoff to ${toName}`,
-        waitingRelationships: addWaitingRelationship(prev.waitingRelationships, {
+      const bubbleText = `${fromName} → handoff to ${toName}`;
+      setCeremony((prev) => {
+        const waitingRelationships = addWaitingRelationship(prev.waitingRelationships, {
           waiterId: payload.toEmployeeId,
           waiterName: toName,
           waitingFor: payload.fromEmployeeId,
           waitingForName: fromName,
           kind: 'handoff',
-        }),
-      }));
+        });
+        if (prev.bubbleText === bubbleText && waitingRelationships === prev.waitingRelationships) {
+          return prev;
+        }
+        return { ...prev, bubbleText, waitingRelationships };
+      });
 
       if (fromHandle && fromPosition && toPosition) {
+        const version = ceremonyVersionRef.current;
         moveThroughPoints(
           fromHandle,
           buildHandoffRoute(fromPosition, toPosition, meetingCenter),
           3.5,
           () => {
+            if (ceremonyVersionRef.current !== version) return;
             const returnPosition =
               assignedWorkPositionsRef.current.get(payload.fromEmployeeId) ??
               resolveEmployeeTargetPosition(payload.fromEmployeeId);
@@ -967,14 +960,14 @@ export function useSceneOrchestrator({
     };
 
     const handleHandoffCompleted = (payload: SceneHandoffCompletedPayload) => {
-      setCeremony((prev) => ({
-        ...prev,
-        bubbleText: 'Handoff received',
-        waitingRelationships: removeWaitingRelationship(
+      setCeremony((prev) => {
+        const waitingRelationships = removeWaitingRelationship(
           prev.waitingRelationships,
           payload.toEmployeeId,
-        ),
-      }));
+        );
+        if (waitingRelationships === prev.waitingRelationships) return prev;
+        return { ...prev, bubbleText: 'Handoff received', waitingRelationships };
+      });
 
       safeTimeout(() => {
         setCeremony((prev) => {

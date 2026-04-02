@@ -9,9 +9,10 @@
 import { Html } from '@react-three/drei';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import {
-  describeWaitingRelationship,
+  DEFAULT_BUBBLE_TEXT,
   getPhaseColor,
   getPhaseIcon,
+  prepareWaitingDisplay,
 } from '../../lib/ceremony-visuals';
 
 const BUBBLE_POSITION: [number, number, number] = [-10, 3, -8];
@@ -26,14 +27,7 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
 
   const phaseIcon = getPhaseIcon(ceremony.phase);
   const phaseColor = getPhaseColor(ceremony.phase);
-
-  const waitingNames = new Map(
-    ceremony.waitingRelationships.map((relationship) => [
-      relationship.waiterId,
-      relationship.waiterName,
-    ]),
-  );
-  const visibleRelationships = ceremony.waitingRelationships.slice(0, 3);
+  const { visible: visibleRelationships, extraCount, labels } = prepareWaitingDisplay(ceremony.waitingRelationships);
 
   return (
     <Html position={BUBBLE_POSITION} center style={{ pointerEvents: 'none' }}>
@@ -81,7 +75,7 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
               letterSpacing: '0.02em',
             }}
           >
-            {phaseIcon} {ceremony.bubbleText || 'Coordination in progress'}
+            {phaseIcon} {ceremony.bubbleText || DEFAULT_BUBBLE_TEXT}
           </span>
         </div>
         {/* Participant count badge */}
@@ -110,14 +104,12 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
               fontFamily: '"Geist Mono", "SF Mono", monospace',
             }}
           >
-            {visibleRelationships.map((relationship) => (
+            {visibleRelationships.map((relationship, i) => (
               <div key={`${relationship.waiterId}:${relationship.kind}`}>
-                {describeWaitingRelationship(relationship, waitingNames)}
+                {labels[i]}
               </div>
             ))}
-            {ceremony.waitingRelationships.length > visibleRelationships.length && (
-              <div>+{ceremony.waitingRelationships.length - visibleRelationships.length} more</div>
-            )}
+            {extraCount > 0 && <div>+{extraCount} more</div>}
           </div>
         )}
       </div>

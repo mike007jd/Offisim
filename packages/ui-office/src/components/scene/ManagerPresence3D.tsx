@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei';
+import { MANAGER_PRESENCE_COLORS } from '../../lib/ceremony-visuals';
 
 interface ManagerPresence3DProps {
   visible: boolean;
@@ -17,10 +18,10 @@ export function ManagerPresence3D({ visible, position }: ManagerPresence3DProps)
           gap: '6px',
           padding: '4px 10px',
           borderRadius: '9999px',
-          background: 'rgba(245, 158, 11, 0.18)',
-          border: '1px solid rgba(245, 158, 11, 0.42)',
-          color: 'rgba(255, 248, 235, 0.92)',
-          boxShadow: '0 0 16px rgba(245, 158, 11, 0.18)',
+          background: MANAGER_PRESENCE_COLORS.bg,
+          border: `1px solid ${MANAGER_PRESENCE_COLORS.border}`,
+          color: MANAGER_PRESENCE_COLORS.text,
+          boxShadow: `0 0 16px ${MANAGER_PRESENCE_COLORS.glow}`,
           fontSize: '9px',
           fontFamily: '"Geist Mono", "SF Mono", monospace',
           whiteSpace: 'nowrap',
@@ -31,8 +32,8 @@ export function ManagerPresence3D({ visible, position }: ManagerPresence3DProps)
             width: '8px',
             height: '8px',
             transform: 'rotate(45deg)',
-            background: 'rgba(251, 191, 36, 0.95)',
-            boxShadow: '0 0 10px rgba(251, 191, 36, 0.55)',
+            background: MANAGER_PRESENCE_COLORS.diamond,
+            boxShadow: `0 0 10px ${MANAGER_PRESENCE_COLORS.diamondGlow}`,
             borderRadius: '2px',
             display: 'inline-block',
           }}

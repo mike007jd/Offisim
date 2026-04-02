@@ -1,20 +1,11 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
+import { IDLE_CEREMONY } from '../../hooks/useSceneOrchestrator.js';
+import { useSceneCeremony } from '../../runtime/scene-ceremony-context.js';
 import { PerformanceHUD } from './PerformanceHUD';
 import { useScene } from './useScene';
 
 const Office3DView = lazy(() => import('./Office3DView'));
 const Office2DView = lazy(() => import('./Office2DView'));
-
-const IDLE_CEREMONY: CeremonyState = {
-  phase: 'idle',
-  bubbleText: '',
-  participantIds: new Set(),
-  dispatchedIds: new Set(),
-  managerVisible: false,
-  managerPosition: null,
-  waitingRelationships: [],
-};
 
 // ── Error boundary for Three.js / SVG scene crashes ─────────────
 
@@ -56,7 +47,6 @@ interface SceneCanvasProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
-  ceremony?: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -66,11 +56,11 @@ export function SceneCanvas({
   active = true,
   reducedMotion = false,
   viewMode = '3D',
-  ceremony = IDLE_CEREMONY,
   selectedEmployeeId = null,
   onSelectEmployee,
   onDeselectEmployee,
 }: SceneCanvasProps) {
+  const ceremony = useSceneCeremony() ?? IDLE_CEREMONY;
   useScene(reducedMotion);
   const [hasMounted2D, setHasMounted2D] = useState(viewMode === '2D');
   const [hasMounted3D, setHasMounted3D] = useState(viewMode === '3D');

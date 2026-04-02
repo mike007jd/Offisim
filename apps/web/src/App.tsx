@@ -4,7 +4,6 @@ import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   AgentPanel,
   AppLayout,
-  type CeremonyState,
   ChatDrawer,
   ChatPanel,
   CompanySelectionPage,
@@ -46,10 +45,24 @@ interface SceneCanvasLazyProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
-  ceremony?: CeremonyState;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string | null) => void;
   onDeselectEmployee?: () => void;
+}
+
+function CeremonyHost({ children }: { children: React.ReactNode }) {
+  const { eventBus, sceneIntentBus } = useOffisimRuntime();
+  const { activeCompanyId } = useCompany();
+  const agents = useAgentStates();
+  const { zones } = useCompanyZones();
+  const ceremony = useSceneOrchestrator({
+    companyId: activeCompanyId ?? 'default-scene-company',
+    eventBus,
+    sceneIntentBus,
+    agents,
+    zones,
+  });
+  return <SceneCeremonyProvider value={ceremony}>{children}</SceneCeremonyProvider>;
 }
 
 /** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
@@ -117,7 +130,6 @@ export function App({ onCompanySwitch }: AppProps) {
     reinitRuntime,
     repos,
     eventBus,
-    sceneIntentBus,
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
@@ -131,15 +143,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
-  const { zones } = useCompanyZones();
   const { toasts, addToast, dismissToast } = useToasts();
-  const ceremony = useSceneOrchestrator({
-    companyId: activeCompanyId ?? 'default-scene-company',
-    eventBus,
-    sceneIntentBus,
-    agents,
-    zones,
-  });
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -383,7 +387,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 />
               </div>
             )}
-            <SceneCeremonyProvider value={ceremony}>
+            <CeremonyHost>
               <AppLayout
                 header={
                   <Header
@@ -441,7 +445,6 @@ export function App({ onCompanySwitch }: AppProps) {
                       active={isOfficeSceneInteractive(view)}
                       reducedMotion={reducedMotion}
                       viewMode={viewMode}
-                      ceremony={ceremony}
                       selectedEmployeeId={selectedEmployeeId}
                       onSelectEmployee={setSelectedEmployeeId}
                       onDeselectEmployee={() => setSelectedEmployeeId(null)}
@@ -472,7 +475,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 }
                 statusBar={<StatusBar modelName={providerConfig?.model} />}
               />
-            </SceneCeremonyProvider>
+            </CeremonyHost>
             {dashboardOpen && (
               <Suspense fallback={null}>
                 <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
