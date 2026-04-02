@@ -29,6 +29,23 @@ describe('scene-behavior', () => {
     ]);
   });
 
+  it('buildDispatchRoute can route through nav graph waypoints before reaching the target zone', () => {
+    const route = buildDispatchRoute([0, 0, 0], [20, 0, 0], [21, 0, 1], {
+      zoneWaypoints: [
+        [10, 0, 0],
+        [16, 0, 0],
+      ],
+    });
+
+    expect(route).toEqual([
+      [0, 0, 1.6],
+      [10, 0, 0],
+      [16, 0, 0],
+      [20, 0, 0],
+      [21, 0, 1],
+    ]);
+  });
+
   it('buildWorkActivityTarget nudges search/read/edit/shell into distinct work poses', () => {
     expect(buildWorkActivityTarget([10, 0, 10], 'search')).toEqual([9.35, 0, 10.45]);
     expect(buildWorkActivityTarget([10, 0, 10], 'read')).toEqual([10, 0, 10.5]);
@@ -42,6 +59,22 @@ describe('scene-behavior', () => {
     expect(route).toEqual([
       [9, 0, 1.6],
       [1, 0, 1.6],
+    ]);
+  });
+
+  it('buildReturnToMeetingRoute can route back through nav graph waypoints', () => {
+    const route = buildReturnToMeetingRoute([20, 0, 0], [0, 0, 0], [1, 0, 1.8], {
+      zoneWaypoints: [
+        [16, 0, 0],
+        [10, 0, 0],
+      ],
+    });
+
+    expect(route).toEqual([
+      [20, 0, 1.6],
+      [16, 0, 0],
+      [10, 0, 0],
+      [1, 0, 1.8],
     ]);
   });
 

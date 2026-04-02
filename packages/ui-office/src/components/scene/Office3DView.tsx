@@ -96,7 +96,7 @@ export default function Office3DView({
   onDeselectEmployee,
 }: Office3DViewProps) {
   const agents = useAgentStates();
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus, sceneIntentBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const sceneCompanyId = activeCompanyId ?? 'default-scene-company';
   const { zones } = useCompanyZones();
@@ -134,6 +134,7 @@ export default function Office3DView({
   } = useOffice3DViewState({
     agents,
     eventBus,
+    sceneIntentBus,
     activeCompanyId,
     sceneCompanyId,
     zones,

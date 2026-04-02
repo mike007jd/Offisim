@@ -6,6 +6,10 @@ interface MovementLike {
   moveTo: (dest: Vec3, speed?: number, onArrive?: () => void) => void;
 }
 
+interface RouteOptions {
+  zoneWaypoints?: readonly Vec3[];
+}
+
 const MEETING_EXIT_DISTANCE = 1.6;
 const APPROVAL_HOLD_DISTANCE = 1.9;
 const DUPLICATE_POINT_EPSILON = 0.35;
@@ -32,6 +36,7 @@ export function buildDispatchRoute(
   meetingCenter: Vec3,
   targetZoneCenter: Vec3,
   targetSeat: Vec3,
+  options?: RouteOptions,
 ): Vec3[] {
   const meetingExit: Vec3 = [
     meetingCenter[0],
@@ -39,9 +44,15 @@ export function buildDispatchRoute(
     meetingCenter[2] +
       (targetZoneCenter[2] >= meetingCenter[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
   ];
-  const aisleTurn: Vec3 = [targetZoneCenter[0], 0, meetingExit[2]];
   const targetZone: Vec3 = [targetZoneCenter[0], 0, targetZoneCenter[2]];
   const seat: Vec3 = [targetSeat[0], 0, targetSeat[2]];
+  const zoneWaypoints = options?.zoneWaypoints ?? [];
+
+  if (zoneWaypoints.length > 0) {
+    return dedupePath([meetingExit, ...zoneWaypoints, targetZone, seat]);
+  }
+
+  const aisleTurn: Vec3 = [targetZoneCenter[0], 0, meetingExit[2]];
 
   return dedupePath([meetingExit, aisleTurn, targetZone, seat]);
 }
@@ -50,6 +61,7 @@ export function buildReturnToMeetingRoute(
   workPosition: Vec3,
   meetingCenter: Vec3,
   targetSeat: Vec3,
+  options?: RouteOptions,
 ): Vec3[] {
   const meetingApproach: Vec3 = [
     workPosition[0],
@@ -57,8 +69,14 @@ export function buildReturnToMeetingRoute(
     meetingCenter[2] +
       (workPosition[2] >= meetingCenter[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
   ];
-  const aisleTurn: Vec3 = [targetSeat[0], 0, meetingApproach[2]];
   const seat: Vec3 = [targetSeat[0], 0, targetSeat[2]];
+  const zoneWaypoints = options?.zoneWaypoints ?? [];
+
+  if (zoneWaypoints.length > 0) {
+    return dedupePath([meetingApproach, ...zoneWaypoints, seat]);
+  }
+
+  const aisleTurn: Vec3 = [targetSeat[0], 0, meetingApproach[2]];
 
   return dedupePath([meetingApproach, aisleTurn, seat]);
 }

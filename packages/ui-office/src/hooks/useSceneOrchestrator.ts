@@ -36,8 +36,16 @@ import {
   buildWorkActivityTarget,
   moveThroughPoints,
 } from '../lib/scene-behavior';
+import { buildZoneRouteWaypoints, getMeetingZoneId } from '../lib/scene-nav';
 import { SEAT_OFFSETS } from '../lib/seat-offsets';
 import { categorizeTool } from '../lib/tool-category';
+import type {
+  SceneEmployeeEscalatedPayload,
+  SceneIntentBus,
+  SceneInteractionResolvedPayload,
+  SceneInteractionWaitingPayload,
+  SceneTaskDispatchedPayload,
+} from '../runtime/scene-intents';
 import type { AgentState } from '../runtime/use-agent-states';
 import type { CharacterMovementHandle } from './useCharacterMovement';
 
@@ -167,9 +175,10 @@ export function describeInteractionSceneRequest(
   }
 }
 
-export function describeInteractionSceneResolution(
-  payload: Pick<InteractionResolvedPayload, 'request' | 'response'>,
-): string {
+export function describeInteractionSceneResolution(payload: {
+  request: Pick<InteractionRequest, 'kind'>;
+  response: Pick<InteractionResolvedPayload['response'], 'selectedOptionId'>;
+}): string {
   const { request, response } = payload;
   if (request.kind === 'permission_request') {
     return response.selectedOptionId.startsWith('approve')
@@ -268,6 +277,7 @@ interface OrchestratorDeps {
       handler: (e: RuntimeEvent<TPayload>) => void,
     ) => () => void;
   };
+  sceneIntentBus?: SceneIntentBus;
   agents: Map<string, AgentState>;
   zones: readonly Zone[];
 }
@@ -275,6 +285,7 @@ interface OrchestratorDeps {
 export function useSceneOrchestrator({
   companyId,
   eventBus,
+  sceneIntentBus,
   agents,
   zones,
 }: OrchestratorDeps): CeremonyState {
@@ -294,6 +305,7 @@ export function useSceneOrchestrator({
   const zonesRef = useRef(zones);
   zonesRef.current = zones;
   const assignedWorkPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
+  const assignedWorkZoneIdsRef = useRef<Map<string, string>>(new Map());
   const approvalHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
 
   // Timer tracking — clear all pending timeouts on unmount
@@ -331,6 +343,7 @@ export function useSceneOrchestrator({
       dispatchedIds: new Set(),
     });
     assignedWorkPositionsRef.current.clear();
+    assignedWorkZoneIdsRef.current.clear();
     approvalHoldPositionsRef.current.clear();
 
     const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
@@ -361,9 +374,14 @@ export function useSceneOrchestrator({
       const slot = getNextSlot(zoneId);
       const targetPos = getWorkstationPos(zonesRef.current, zoneId, slot);
       assignedWorkPositionsRef.current.set(employeeId, targetPos);
+      assignedWorkZoneIdsRef.current.set(employeeId, zoneId);
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
       const targetZoneCenter = getZoneCenterById(zonesRef.current, zoneId);
-      const route = buildDispatchRoute(mtgCenter, targetZoneCenter, targetPos);
+      const meetingZoneId =
+        getMeetingZoneId(zonesRef.current);
+      const route = buildDispatchRoute(mtgCenter, targetZoneCenter, targetPos, {
+        zoneWaypoints: buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, zoneId),
+      });
 
       safeTimeout(() => {
         if (ceremonyVersionRef.current !== version) return; // interrupted
@@ -403,6 +421,7 @@ export function useSceneOrchestrator({
             dispatchedIds: new Set(),
           });
           assignedWorkPositionsRef.current.clear();
+          assignedWorkZoneIdsRef.current.clear();
           approvalHoldPositionsRef.current.clear();
         }, 1500);
         return;
@@ -422,7 +441,14 @@ export function useSceneOrchestrator({
           seat[2] + (Math.random() - 0.5) * 0.3,
         ];
         const basePosition = assignedWorkPositionsRef.current.get(id) ?? reportSeat;
-        const route = buildReturnToMeetingRoute(basePosition, mtgCenter, reportSeat);
+        const meetingZoneId =
+          getMeetingZoneId(zonesRef.current);
+        const workZoneId = assignedWorkZoneIdsRef.current.get(id);
+        const route = buildReturnToMeetingRoute(basePosition, mtgCenter, reportSeat, {
+          zoneWaypoints: workZoneId
+            ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
+            : [],
+        });
 
         moveThroughPoints(handle, route, 5, () => {
           arrivedCount++;
@@ -445,6 +471,7 @@ export function useSceneOrchestrator({
                   dispatchedIds: new Set(),
                 });
                 assignedWorkPositionsRef.current.clear();
+                assignedWorkZoneIdsRef.current.clear();
                 approvalHoldPositionsRef.current.clear();
               }, 3000);
             }, 1500);
@@ -476,6 +503,7 @@ export function useSceneOrchestrator({
           }
           hasActivePlan = false;
           assignedWorkPositionsRef.current.clear();
+          assignedWorkZoneIdsRef.current.clear();
           approvalHoldPositionsRef.current.clear();
           // Brief delay to visually separate the reset from the new gathering
           safeTimeout(() => {
@@ -521,39 +549,47 @@ export function useSceneOrchestrator({
     );
 
     // Listen for individual task dispatches
-    const unsubDispatch = eventBus.on(
-      'task.assignment.dispatched',
-      (e: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
-        const { employeeId, employeeName, stepLabel, stepIndex, totalSteps } = e.payload;
-        const agent = agentsRef.current.get(employeeId);
-        const role = agent?.role ?? 'developer';
+    const handleDispatched = (payload: SceneTaskDispatchedPayload) => {
+      const { employeeId, employeeName, stepLabel, stepIndex, totalSteps } = payload;
+      const agent = agentsRef.current.get(employeeId);
+      const role = agent?.role ?? 'developer';
 
-        setCeremony((prev) => ({
-          ...prev,
-          bubbleText: `→ ${employeeName}: ${truncate(stepLabel, 30)}`,
-        }));
+      setCeremony((prev) => ({
+        ...prev,
+        bubbleText: `→ ${employeeName}: ${truncate(stepLabel, 30)}`,
+      }));
 
-        dispatchEmployee(employeeId, role, ceremonyVersionRef.current);
+      dispatchEmployee(employeeId, role, ceremonyVersionRef.current);
 
-        // If this is the last step, switch to working phase
-        if (stepIndex === totalSteps - 1) {
-          safeTimeout(() => {
-            setCeremony((prev) => {
-              if (prev.phase !== 'dispatching') return prev;
-              // Dismiss undispatched employees to rest
-              const allIds = new Set(agentsRef.current.keys());
-              for (const id of allIds) {
-                if (!prev.dispatchedIds.has(id)) {
-                  const handle = getMovementHandles(companyIdRef.current).get(id);
-                  handle?.moveTo(getRestPos(zonesRef.current), 4);
-                }
+      // If this is the last step, switch to working phase
+      if (stepIndex === totalSteps - 1) {
+        safeTimeout(() => {
+          setCeremony((prev) => {
+            if (prev.phase !== 'dispatching') return prev;
+            // Dismiss undispatched employees to rest
+            const allIds = new Set(agentsRef.current.keys());
+            for (const id of allIds) {
+              if (!prev.dispatchedIds.has(id)) {
+                const handle = getMovementHandles(companyIdRef.current).get(id);
+                handle?.moveTo(getRestPos(zonesRef.current), 4);
               }
-              return { ...prev, phase: 'working', bubbleText: '' };
-            });
-          }, 1000);
-        }
-      },
-    );
+            }
+            return { ...prev, phase: 'working', bubbleText: '' };
+          });
+        }, 1000);
+      }
+    };
+
+    const unsubDispatch = sceneIntentBus
+      ? sceneIntentBus.on('scene.task.dispatched', (intent) => {
+          handleDispatched(intent.payload as SceneTaskDispatchedPayload);
+        })
+      : eventBus.on(
+          'task.assignment.dispatched',
+          (e: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
+            handleDispatched(e.payload);
+          },
+        );
 
     // Accumulate LLM stream chunks per node for real-time bubble text.
     // boss/boss_summary chunks form the end-ceremony summary.
@@ -638,22 +674,18 @@ export function useSceneOrchestrator({
       },
     );
 
-    const handleInteractionApproval = (
-      e: RuntimeEvent<InteractionRequestedPayload | InteractionRestoredPayload>,
-      restored: boolean,
-    ) => {
-      const { request } = e.payload;
-      const label = describeInteractionSceneRequest(request, restored);
+    const handleInteractionApproval = (payload: SceneInteractionWaitingPayload) => {
+      const label = describeInteractionSceneRequest({ kind: payload.kind }, payload.restored);
       setCeremony((prev) => {
         if (prev.bubbleText === label) return prev;
         return { ...prev, bubbleText: label };
       });
 
-      if (request.kind !== 'permission_request' || !request.employeeId) {
+      if (payload.kind !== 'permission_request' || !payload.employeeId) {
         return;
       }
 
-      const employeeId = request.employeeId;
+      const employeeId = payload.employeeId;
       const basePosition = assignedWorkPositionsRef.current.get(employeeId);
       const handle = getMovementHandles(companyIdRef.current).get(employeeId);
       if (!basePosition || !handle) {
@@ -661,89 +693,149 @@ export function useSceneOrchestrator({
       }
 
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
-      const holdTarget = restored
+      const meetingZoneId =
+        getMeetingZoneId(zonesRef.current);
+      const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
+      const holdTarget = payload.restored
         ? (approvalHoldPositionsRef.current.get(employeeId) ??
           buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size))
         : buildApprovalHoldTarget(meetingCenter, approvalHoldPositionsRef.current.size);
       approvalHoldPositionsRef.current.set(employeeId, holdTarget);
       moveThroughPoints(
         handle,
-        buildReturnToMeetingRoute(basePosition, meetingCenter, holdTarget),
+        buildReturnToMeetingRoute(basePosition, meetingCenter, holdTarget, {
+          zoneWaypoints: workZoneId
+            ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
+            : [],
+        }),
         4,
       );
     };
 
-    const unsubInteractionRequested = eventBus.on(
-      'interaction.requested',
-      (e: RuntimeEvent<InteractionRequestedPayload>) => handleInteractionApproval(e, false),
-    );
+    const unsubInteractionWaiting = sceneIntentBus
+      ? sceneIntentBus.on('scene.interaction.waiting', (intent) =>
+          handleInteractionApproval(intent.payload as SceneInteractionWaitingPayload),
+        )
+      : (() => {
+          const offRequested = eventBus.on(
+            'interaction.requested',
+            (e: RuntimeEvent<InteractionRequestedPayload>) =>
+              handleInteractionApproval({
+                kind: e.payload.request.kind,
+                employeeId: e.payload.request.employeeId ?? null,
+                restored: false,
+              }),
+          );
+          const offRestored = eventBus.on(
+            'interaction.restored',
+            (e: RuntimeEvent<InteractionRestoredPayload>) =>
+              handleInteractionApproval({
+                kind: e.payload.request.kind,
+                employeeId: e.payload.request.employeeId ?? null,
+                restored: true,
+              }),
+          );
+          return () => {
+            offRequested();
+            offRestored();
+          };
+        })();
 
-    const unsubInteractionRestored = eventBus.on(
-      'interaction.restored',
-      (e: RuntimeEvent<InteractionRestoredPayload>) => handleInteractionApproval(e, true),
-    );
+    const handleResolvedInteraction = (payload: SceneInteractionResolvedPayload) => {
+      const label = describeInteractionSceneResolution({
+        request: { kind: payload.kind },
+        response: { selectedOptionId: payload.selectedOptionId },
+      });
+      setCeremony((prev) => {
+        if (prev.bubbleText === label) return prev;
+        return { ...prev, bubbleText: label };
+      });
 
-    const unsubInteractionResolved = eventBus.on(
-      'interaction.resolved',
-      (e: RuntimeEvent<InteractionResolvedPayload>) => {
-        const label = describeInteractionSceneResolution(e.payload);
-        const request = e.payload.request;
-        setCeremony((prev) => {
-          if (prev.bubbleText === label) return prev;
-          return { ...prev, bubbleText: label };
-        });
-
-        if (request.kind === 'permission_request' && request.employeeId) {
-          const employeeId = request.employeeId;
-          const basePosition = assignedWorkPositionsRef.current.get(employeeId);
-          const handle = getMovementHandles(companyIdRef.current).get(employeeId);
-          approvalHoldPositionsRef.current.delete(employeeId);
-          if (basePosition && handle) {
-            handle.moveTo(basePosition, 3.2);
-          }
-        }
-
-        safeTimeout(() => {
-          setCeremony((prev) => {
-            if (prev.bubbleText !== label) return prev;
-            return { ...prev, bubbleText: '' };
-          });
-        }, 1200);
-      },
-    );
-
-    const unsubEmployeeState = eventBus.on(
-      'employee.state.changed',
-      (e: RuntimeEvent<EmployeeStatePayload>) => {
-        const { employeeId, next } = e.payload;
-        if (next !== 'blocked' && next !== 'failed') {
-          return;
-        }
-        if (approvalHoldPositionsRef.current.has(employeeId)) {
-          return;
-        }
-
+      if (payload.kind === 'permission_request' && payload.employeeId) {
+        const employeeId = payload.employeeId;
         const basePosition = assignedWorkPositionsRef.current.get(employeeId);
+        const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
         const handle = getMovementHandles(companyIdRef.current).get(employeeId);
-        const employeeName = agentsRef.current.get(employeeId)?.name ?? 'A teammate';
-        const label = describeEmployeeEscalation(employeeName, next);
-        setCeremony((prev) => {
-          if (prev.bubbleText === label) return prev;
-          return { ...prev, bubbleText: label };
-        });
-
+        approvalHoldPositionsRef.current.delete(employeeId);
         if (basePosition && handle) {
-          handle.moveTo(buildStalledWorkTarget(basePosition, next), 2.2);
+          const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
+          const meetingZoneId =
+            getMeetingZoneId(zonesRef.current);
+          const targetZoneCenter = workZoneId
+            ? getZoneCenterById(zonesRef.current, workZoneId)
+            : basePosition;
+          moveThroughPoints(
+            handle,
+            buildDispatchRoute(meetingCenter, targetZoneCenter, basePosition, {
+              zoneWaypoints: workZoneId
+                ? buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, workZoneId)
+                : [],
+            }),
+            3.2,
+          );
         }
+      }
 
-        safeTimeout(() => {
-          setCeremony((prev) => {
-            if (prev.bubbleText !== label) return prev;
-            return { ...prev, bubbleText: '' };
+      safeTimeout(() => {
+        setCeremony((prev) => {
+          if (prev.bubbleText !== label) return prev;
+          return { ...prev, bubbleText: '' };
+        });
+      }, 1200);
+    };
+
+    const unsubInteractionResolved = sceneIntentBus
+      ? sceneIntentBus.on('scene.interaction.resolved', (intent) => {
+          handleResolvedInteraction(intent.payload as SceneInteractionResolvedPayload);
+        })
+      : eventBus.on('interaction.resolved', (e: RuntimeEvent<InteractionResolvedPayload>) =>
+          handleResolvedInteraction({
+            kind: e.payload.request.kind,
+            employeeId: e.payload.request.employeeId ?? null,
+            selectedOptionId: e.payload.response.selectedOptionId,
+          }),
+        );
+
+    const handleEmployeeEscalated = (payload: SceneEmployeeEscalatedPayload) => {
+      const { employeeId, next } = payload;
+      if (approvalHoldPositionsRef.current.has(employeeId)) {
+        return;
+      }
+
+      const basePosition = assignedWorkPositionsRef.current.get(employeeId);
+      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      const employeeName = agentsRef.current.get(employeeId)?.name ?? 'A teammate';
+      const label = describeEmployeeEscalation(employeeName, next);
+      setCeremony((prev) => {
+        if (prev.bubbleText === label) return prev;
+        return { ...prev, bubbleText: label };
+      });
+
+      if (basePosition && handle) {
+        handle.moveTo(buildStalledWorkTarget(basePosition, next), 2.2);
+      }
+
+      safeTimeout(() => {
+        setCeremony((prev) => {
+          if (prev.bubbleText !== label) return prev;
+          return { ...prev, bubbleText: '' };
+        });
+      }, 1400);
+    };
+
+    const unsubEmployeeState = sceneIntentBus
+      ? sceneIntentBus.on('scene.employee.escalated', (intent) => {
+          handleEmployeeEscalated(intent.payload as SceneEmployeeEscalatedPayload);
+        })
+      : eventBus.on('employee.state.changed', (e: RuntimeEvent<EmployeeStatePayload>) => {
+          if (e.payload.next !== 'blocked' && e.payload.next !== 'failed') {
+            return;
+          }
+          handleEmployeeEscalated({
+            employeeId: e.payload.employeeId,
+            next: e.payload.next,
           });
-        }, 1400);
-      },
-    );
+        });
 
     return () => {
       unsubNode();
@@ -751,15 +843,14 @@ export function useSceneOrchestrator({
       unsubChunk();
       unsubPlan();
       unsubTool();
-      unsubInteractionRequested();
-      unsubInteractionRestored();
+      unsubInteractionWaiting();
       unsubInteractionResolved();
       unsubEmployeeState();
       // Clear all pending ceremony timeouts on effect teardown
       timerRefs.current.forEach(clearTimeout);
       timerRefs.current.clear();
     };
-  }, [eventBus, gatherAll, dispatchEmployee, startEndCeremony, safeTimeout]);
+  }, [eventBus, sceneIntentBus, gatherAll, dispatchEmployee, startEndCeremony, safeTimeout]);
 
   return ceremony;
 }

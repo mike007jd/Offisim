@@ -19,10 +19,12 @@ import type {
   InteractionResolvedPayload,
 } from '@offisim/shared-types';
 import {
+  InMemorySceneIntentBus,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
+  SceneIntentDispatcher,
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
@@ -119,6 +121,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   //      — old subscriptions automatically receive events from the new runtime
   // ---------------------------------------------------------------------------
   const eventBusRef = useRef(new InMemoryEventBus());
+  const sceneIntentBusRef = useRef(new InMemorySceneIntentBus());
   const notificationBridgeRef = useRef<NotificationBridge | null>(null);
 
   // Activate NotificationBridge once — subscribes to runtime events on the
@@ -132,6 +135,15 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       notificationBridgeRef.current = null;
     };
   }, [companyId]);
+
+  useEffect(() => {
+    const dispatcher = new SceneIntentDispatcher(eventBusRef.current, sceneIntentBusRef.current);
+    dispatcher.activate();
+    return () => {
+      dispatcher.deactivate();
+      sceneIntentBusRef.current.removeAll();
+    };
+  }, []);
 
   // Bridge meeting control UI events onto the orchestration service.
   // Running meetings consume pause/end/inject via interruptMeeting();
@@ -646,6 +658,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     // This is the same instance passed to createBrowserRuntime / createTauriRuntime,
     // so hooks subscribed to it will receive events from any runtime incarnation.
     const eventBus = eventBusRef.current;
+    const sceneIntentBus = sceneIntentBusRef.current;
 
     // Expose debug bridge in dev mode (E2E smoke tests).
     // Always set — even before runtime is ready — so tests can access the
@@ -655,6 +668,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       const existingGetSceneState = window.__OFFISIM_DEBUG__?.getSceneState;
       window.__OFFISIM_DEBUG__ = {
         eventBus,
+        sceneIntentBus,
         installService: runtime?.installService ?? null,
         getSceneState:
           existingGetSceneState ??
@@ -677,6 +691,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
 
     return {
       eventBus,
+      sceneIntentBus,
       isReady: !isInitializing && isRuntimeReadyForInteraction(runtime),
       // isRunning lives in OffisimRuntimeStatusContext — use useOffisimRuntimeStatus().
       // Kept here as a getter for backward compat (does NOT trigger re-render).

@@ -1,6 +1,7 @@
 import { InMemoryEventBus } from '@offisim/core/browser';
 import {
   CompanyProvider,
+  InMemorySceneIntentBus,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
   type OffisimRuntimeValue,
@@ -20,6 +21,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
   const [version, setVersion] = useState(0);
   const bootstrapStateRef = useRef(loadBrowserRuntimeBootstrapState());
   const eventBusRef = useRef(new InMemoryEventBus());
+  const sceneIntentBusRef = useRef(new InMemorySceneIntentBus());
 
   const initRuntime = useCallback(async () => {
     const eventBus = eventBusRef.current;
@@ -64,6 +66,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
   const value = useMemo<OffisimRuntimeValue>(
     () => ({
       eventBus: eventBusRef.current,
+      sceneIntentBus: sceneIntentBusRef.current,
       isReady: runtime?.repos != null,
       isRunning: false,
       error,

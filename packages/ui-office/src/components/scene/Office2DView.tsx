@@ -339,7 +339,7 @@ export default function Office2DView({
 }: Office2DViewProps) {
   const agents = useAgentStates();
   const { activeCompanyId } = useCompany();
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus, sceneIntentBus } = useOffisimRuntime();
   const companyId = activeCompanyId ?? '';
   const { zones } = useCompanyZones();
   const { instances: prefabInstances } = usePrefabInstances();
@@ -372,7 +372,7 @@ export default function Office2DView({
   );
 
   // ── Scene choreography ──
-  const ceremony = useSceneOrchestrator({ companyId, eventBus, agents, zones });
+  const ceremony = useSceneOrchestrator({ companyId, eventBus, sceneIntentBus, agents, zones });
 
   // ── Viewport state ──
   const viewportRef = useRef<HTMLDivElement>(null);

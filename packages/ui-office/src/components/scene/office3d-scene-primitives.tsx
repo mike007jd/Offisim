@@ -260,13 +260,11 @@ export function DragController({
 }
 
 export function TaskFlowLine({
-  from,
-  to,
+  points,
   color,
   onComplete,
 }: {
-  from: FlowLineData['from'];
-  to: FlowLineData['to'];
+  points: FlowLineData['points'];
   color: string;
   onComplete: () => void;
 }) {
@@ -274,8 +272,8 @@ export function TaskFlowLine({
   const startRef = useRef(performance.now() / 1000);
   const doneRef = useRef(false);
 
-  const points = useMemo(() => [new THREE.Vector3(...from), new THREE.Vector3(...to)], [from, to]);
-  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
+  const vectors = useMemo(() => points.map((point) => new THREE.Vector3(...point)), [points]);
+  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(vectors), [vectors]);
   const lineObject = useMemo(() => {
     const material = new THREE.LineBasicMaterial({
       color,

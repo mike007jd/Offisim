@@ -1,17 +1,21 @@
 import type { EventBus } from '@offisim/core/browser';
-import type {
-  EmployeeStatePayload,
-  GraphNodeEnteredPayload,
-  InteractionRequestedPayload,
-  InteractionRestoredPayload,
-  RuntimeEvent,
-  Zone,
-} from '@offisim/shared-types';
+import type { RuntimeEvent, Zone } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import type { OrbitControls } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import { useSceneOrchestrator } from '../../hooks/useSceneOrchestrator.js';
+import {
+  buildZoneRouteWaypoints,
+  elevateWaypoints,
+  getMeetingZoneId,
+} from '../../lib/scene-nav.js';
+import type {
+  SceneEmployeeEscalatedPayload,
+  SceneIntentBus,
+  SceneInteractionWaitingPayload,
+  SceneTaskDispatchedPayload,
+} from '../../runtime/scene-intents.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import {
   DRAG_THRESHOLD_PX,
@@ -19,9 +23,9 @@ import {
   type FlowLineData,
   type Zone3D,
   type Zone3DLayout,
+  buildDispatchFlowLine,
   buildEmployeeToMeetingFlowLine,
   buildReportingFlowLines,
-  createFlowLine,
   hitTestZone3D,
   resolveEmployeeZoneDynamic,
 } from './office3d-shared.js';
@@ -32,6 +36,7 @@ export type Office3DPrefabInstance = ReturnType<typeof usePrefabInstances>['inst
 interface UseOffice3DViewStateArgs {
   agents: Map<string, AgentState>;
   eventBus: EventBus;
+  sceneIntentBus?: SceneIntentBus;
   activeCompanyId: string | null;
   sceneCompanyId: string;
   zones: readonly Zone[];
@@ -71,6 +76,7 @@ interface UseOffice3DViewStateResult {
 export function useOffice3DViewState({
   agents,
   eventBus,
+  sceneIntentBus,
   activeCompanyId,
   sceneCompanyId,
   zones,
@@ -97,7 +103,13 @@ export function useOffice3DViewState({
   const dropTargetZones3DRef = useRef(dropTargetZones3D);
   dropTargetZones3DRef.current = dropTargetZones3D;
 
-  const ceremony = useSceneOrchestrator({ companyId: sceneCompanyId, eventBus, agents, zones });
+  const ceremony = useSceneOrchestrator({
+    companyId: sceneCompanyId,
+    eventBus,
+    sceneIntentBus,
+    agents,
+    zones,
+  });
 
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
   const selectedEmployeeId = onSelectEmployee ? externalSelectedId : localSelectedId;
@@ -175,19 +187,14 @@ export function useOffice3DViewState({
       return;
     }
 
-    const unsubscribe = eventBus.on('task.state.changed', (event: RuntimeEvent) => {
-      const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
-      if (payload?.taskState !== 'active') {
-        return;
-      }
-
+    const appendDispatchFlowLine = (payload: { employeeId?: string | null }) => {
       const layoutMap = zone3DLayoutMapRef.current;
       const currentZones = zonesRef.current;
       const defaultWorkspaceZoneId =
         currentZones.find((zone) => zone.archetype === 'workspace')?.zoneId ?? UNASSIGNED_ZONE_ID;
-      const assignedZoneId = payload.assignedTo
+      const assignedZoneId = payload.employeeId
         ? resolveEmployeeZoneDynamic(
-            agentsRef.current.get(payload.assignedTo) ?? { role: 'employee' },
+            agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
             currentZones,
           )
         : defaultWorkspaceZoneId;
@@ -202,85 +209,152 @@ export function useOffice3DViewState({
       }
 
       appendFlowLine(
-        createFlowLine(
-          [meetingLayout.position[0], 0.5, meetingLayout.position[2]],
-          [targetLayout.position[0], 0.5, targetLayout.position[2]],
-          'normal',
+        buildDispatchFlowLine(
+          meetingLayout,
+          targetLayout,
+          elevateWaypoints(
+            buildZoneRouteWaypoints(currentZones, meetingZone?.zoneId ?? 'meeting', assignedZoneId),
+          ),
         ),
       );
-    });
+    };
 
-    const handleApprovalFlowLine = (
-      event: RuntimeEvent<InteractionRequestedPayload | InteractionRestoredPayload>,
-    ) => {
-      const { request } = event.payload;
-      if (request.kind !== 'permission_request' || !request.employeeId) {
+    const unsubscribe = sceneIntentBus
+      ? sceneIntentBus.on('scene.task.dispatched', (intent) => {
+          appendDispatchFlowLine(intent.payload as SceneTaskDispatchedPayload);
+        })
+      : eventBus.on('task.state.changed', (event: RuntimeEvent) => {
+          const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
+          if (payload?.taskState !== 'active') {
+            return;
+          }
+          appendDispatchFlowLine({ employeeId: payload.assignedTo ?? null });
+        });
+
+    const handleApprovalFlowLine = (payload: SceneInteractionWaitingPayload) => {
+      if (payload.kind !== 'permission_request' || !payload.employeeId) {
         return;
       }
       appendFlowLine(
         buildEmployeeToMeetingFlowLine(
-          request.employeeId,
+          payload.employeeId,
           agentsRef.current,
           zonesRef.current,
           zone3DLayoutMapRef.current,
           'approval',
+          elevateWaypoints(
+            buildZoneRouteWaypoints(
+              zonesRef.current,
+              resolveEmployeeZoneDynamic(
+                agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
+                zonesRef.current,
+              ),
+              getMeetingZoneId(zonesRef.current),
+            ),
+          ),
         ),
       );
     };
 
-    const unsubscribeInteractionRequested = eventBus.on(
-      'interaction.requested',
-      handleApprovalFlowLine,
-    );
-    const unsubscribeInteractionRestored = eventBus.on(
-      'interaction.restored',
-      handleApprovalFlowLine,
-    );
+    const unsubscribeInteractionWaiting = sceneIntentBus
+      ? sceneIntentBus.on('scene.interaction.waiting', (intent) =>
+          handleApprovalFlowLine(intent.payload as SceneInteractionWaitingPayload),
+        )
+      : (() => {
+          const offRequested = eventBus.on('interaction.requested', (event: RuntimeEvent) => {
+            const payload = event.payload as { request?: { kind?: string; employeeId?: string } };
+            if (!payload.request?.kind) {
+              return;
+            }
+            handleApprovalFlowLine({
+              kind: payload.request.kind as SceneInteractionWaitingPayload['kind'],
+              employeeId: payload.request.employeeId ?? null,
+              restored: false,
+            });
+          });
+          const offRestored = eventBus.on('interaction.restored', (event: RuntimeEvent) => {
+            const payload = event.payload as { request?: { kind?: string; employeeId?: string } };
+            if (!payload.request?.kind) {
+              return;
+            }
+            handleApprovalFlowLine({
+              kind: payload.request.kind as SceneInteractionWaitingPayload['kind'],
+              employeeId: payload.request.employeeId ?? null,
+              restored: true,
+            });
+          });
+          return () => {
+            offRequested();
+            offRestored();
+          };
+        })();
 
-    const unsubscribeEmployeeState = eventBus.on(
-      'employee.state.changed',
-      (event: RuntimeEvent<EmployeeStatePayload>) => {
-        const { employeeId, next } = event.payload;
-        if (next !== 'blocked' && next !== 'failed') {
-          return;
-        }
-
-        appendFlowLine(
-          buildEmployeeToMeetingFlowLine(
-            employeeId,
-            agentsRef.current,
-            zonesRef.current,
-            zone3DLayoutMapRef.current,
-            'blocked',
-          ),
-        );
-      },
-    );
-
-    const unsubscribeNodeEntered = eventBus.on(
-      'graph.node.entered',
-      (event: RuntimeEvent<GraphNodeEnteredPayload>) => {
-        if (event.payload.nodeName !== 'boss_summary') {
-          return;
-        }
-        for (const line of buildReportingFlowLines(
+    const appendBlockedFlowLine = (payload: SceneEmployeeEscalatedPayload) => {
+      appendFlowLine(
+        buildEmployeeToMeetingFlowLine(
+          payload.employeeId,
           agentsRef.current,
           zonesRef.current,
           zone3DLayoutMapRef.current,
-        )) {
-          appendFlowLine(line);
-        }
-      },
-    );
+          'blocked',
+          elevateWaypoints(
+            buildZoneRouteWaypoints(
+              zonesRef.current,
+              resolveEmployeeZoneDynamic(
+                agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
+                zonesRef.current,
+              ),
+              getMeetingZoneId(zonesRef.current),
+            ),
+          ),
+        ),
+      );
+    };
+
+    const unsubscribeEmployeeState = sceneIntentBus
+      ? sceneIntentBus.on('scene.employee.escalated', (intent) => {
+          appendBlockedFlowLine(intent.payload as SceneEmployeeEscalatedPayload);
+        })
+      : eventBus.on('employee.state.changed', (event: RuntimeEvent) => {
+          const payload = event.payload as { employeeId?: string; next?: string } | undefined;
+          if (!payload?.employeeId || (payload.next !== 'blocked' && payload.next !== 'failed')) {
+            return;
+          }
+          appendBlockedFlowLine({
+            employeeId: payload.employeeId,
+            next: payload.next,
+          });
+        });
+
+    const appendReportingFlowLines = () => {
+      for (const line of buildReportingFlowLines(
+        agentsRef.current,
+        zonesRef.current,
+        zone3DLayoutMapRef.current,
+      )) {
+        appendFlowLine(line);
+      }
+    };
+
+    const unsubscribeNodeEntered = sceneIntentBus
+      ? sceneIntentBus.on('scene.reporting.started', (_intent) => {
+          appendReportingFlowLines();
+        })
+      : eventBus.on('graph.node.entered', (event: RuntimeEvent) => {
+          const payload = event.payload as { nodeName?: string } | undefined;
+          if (payload?.nodeName !== 'boss_summary') {
+            return;
+          }
+          appendReportingFlowLines();
+        });
 
     return () => {
       unsubscribe();
-      unsubscribeInteractionRequested();
-      unsubscribeInteractionRestored();
+      unsubscribeInteractionWaiting();
       unsubscribeEmployeeState();
       unsubscribeNodeEntered();
     };
-  }, [eventBus, activeCompanyId, appendFlowLine]);
+  }, [eventBus, sceneIntentBus, activeCompanyId, appendFlowLine]);
 
   const handleSelectEmployee = useCallback(
     (id: string) => {

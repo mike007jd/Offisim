@@ -1,5 +1,10 @@
 import type { RoleSlug, Zone } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
+import {
+  buildZoneRouteWaypoints,
+  elevateWaypoints,
+  getMeetingZoneId,
+} from '../../lib/scene-nav.js';
 
 export interface Zone3DLayout {
   position: [number, number, number];
@@ -21,6 +26,7 @@ export interface FlowLineData {
   id: string;
   from: [number, number, number];
   to: [number, number, number];
+  points: [number, number, number][];
   variant: 'normal' | 'handoff' | 'approval' | 'report' | 'blocked';
   createdAt: number;
 }
@@ -59,24 +65,37 @@ function getMeetingLayout(
   zones: readonly Zone[],
   layoutMap: Readonly<Record<string, Zone3DLayout>>,
 ): Zone3DLayout | null {
-  const meetingZone = zones.find((zone) => zone.archetype === 'meeting');
-  if (!meetingZone) return null;
-  return layoutMap[meetingZone.zoneId] ?? null;
+  return layoutMap[getMeetingZoneId(zones)] ?? null;
 }
 
 export function createFlowLine(
   from: [number, number, number],
   to: [number, number, number],
   variant: FlowLineData['variant'],
+  waypoints: [number, number, number][] = [],
 ): FlowLineData {
   const now = Date.now();
   return {
     id: `flow-${now}-${Math.random()}`,
     from,
     to,
+    points: [from, ...waypoints, to],
     variant,
     createdAt: now,
   };
+}
+
+export function buildDispatchFlowLine(
+  fromLayout: Zone3DLayout,
+  toLayout: Zone3DLayout,
+  waypoints: [number, number, number][] = [],
+): FlowLineData {
+  return createFlowLine(
+    buildFlowEndpoint(fromLayout),
+    buildFlowEndpoint(toLayout),
+    'normal',
+    waypoints,
+  );
 }
 
 export function buildEmployeeToMeetingFlowLine(
@@ -85,17 +104,23 @@ export function buildEmployeeToMeetingFlowLine(
   zones: readonly Zone[],
   layoutMap: Readonly<Record<string, Zone3DLayout>>,
   variant: Extract<FlowLineData['variant'], 'approval' | 'blocked' | 'report'>,
+  waypoints: [number, number, number][] = [],
 ): FlowLineData | null {
-  const meetingZone = zones.find((zone) => zone.archetype === 'meeting');
+  const meetingZoneId = getMeetingZoneId(zones);
   const meetingLayout = getMeetingLayout(zones, layoutMap);
   const agent = agents.get(employeeId);
-  if (!meetingLayout || !meetingZone || !agent) return null;
+  if (!meetingLayout || !agent) return null;
 
   const zoneId = resolveEmployeeZoneDynamic(agent, zones);
   const fromLayout = layoutMap[zoneId];
-  if (!fromLayout || zoneId === meetingZone.zoneId) return null;
+  if (!fromLayout || zoneId === meetingZoneId) return null;
 
-  return createFlowLine(buildFlowEndpoint(fromLayout), buildFlowEndpoint(meetingLayout), variant);
+  return createFlowLine(
+    buildFlowEndpoint(fromLayout),
+    buildFlowEndpoint(meetingLayout),
+    variant,
+    waypoints,
+  );
 }
 
 export function buildReportingFlowLines(
@@ -103,7 +128,8 @@ export function buildReportingFlowLines(
   zones: readonly Zone[],
   layoutMap: Readonly<Record<string, Zone3DLayout>>,
 ): FlowLineData[] {
-  const meetingLayout = getMeetingLayout(zones, layoutMap);
+  const meetingZoneId = getMeetingZoneId(zones);
+  const meetingLayout = layoutMap[meetingZoneId];
   if (!meetingLayout) return [];
 
   const lines: FlowLineData[] = [];
@@ -119,7 +145,12 @@ export function buildReportingFlowLines(
     const fromLayout = layoutMap[zoneId];
     if (!fromLayout) continue;
     lines.push(
-      createFlowLine(buildFlowEndpoint(fromLayout), buildFlowEndpoint(meetingLayout), 'report'),
+      createFlowLine(
+        buildFlowEndpoint(fromLayout),
+        buildFlowEndpoint(meetingLayout),
+        'report',
+        elevateWaypoints(buildZoneRouteWaypoints(zones, zoneId, meetingZoneId)),
+      ),
     );
   }
   return lines;

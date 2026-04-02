@@ -8,6 +8,7 @@ import type {
 import type { InstallService } from '@offisim/install-core';
 import type { InteractionMode, InteractionRequest, RuntimeEvent } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
+import type { SceneIntentBus } from './scene-intents.js';
 
 // ---------------------------------------------------------------------------
 // Stable context — values that change infrequently (repos, eventBus, etc.)
@@ -20,6 +21,7 @@ export interface OffisimRuntimeBootstrapState {
 
 export interface OffisimRuntimeValue {
   eventBus: EventBus;
+  sceneIntentBus?: SceneIntentBus;
   isReady: boolean;
   /** @deprecated Use `useOffisimRuntimeStatus().isRunning` for re-render optimization. */
   isRunning: boolean;

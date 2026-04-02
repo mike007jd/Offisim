@@ -5,8 +5,8 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1460+ tests)
-pnpm typecheck        # 全量类型检查 (16 packages)
+pnpm test             # 全量测试 (vitest, ~1580+ tests)
+pnpm typecheck        # 全量类型检查 (27 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
@@ -73,6 +73,10 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - `gateway-factory.ts` 的 `subscription` case 用 `require()` 动态加载,
   避免 `node:child_process` 进入浏览器 bundle
 - Platform API 的错误处理: DB 连接错误返回 503, 非 500
+- 修改 `shared-types` 的类型后必须先 `pnpm --filter @offisim/shared-types build`,
+  否则依赖它的包 (core, ui-office 等) 看不到新类型
+- `apps/web` 的 `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物,
+  需要先 `pnpm --filter @offisim/db-local build` 或全量 `pnpm build`
 
 ## Product Boundary: AI Runtime Policy
 

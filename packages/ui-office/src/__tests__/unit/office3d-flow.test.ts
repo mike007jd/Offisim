@@ -2,6 +2,7 @@ import type { Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   type Zone3DLayout,
+  buildDispatchFlowLine,
   buildEmployeeToMeetingFlowLine,
   buildReportingFlowLines,
   getFlowLineColor,
@@ -27,6 +28,24 @@ const zones: readonly Zone[] = [
     sortOrder: 1,
   },
   {
+    zoneId: 'library',
+    companyId: 'c-1',
+    kind: 'system',
+    archetype: 'library',
+    label: 'Library',
+    accentColor: '#38bdf8',
+    floorColor: 0,
+    cx: 6,
+    cz: 4,
+    w: 6,
+    d: 6,
+    targetRoles: [],
+    allowedCategories: [],
+    activityTypes: ['learn'],
+    deskSlots: 0,
+    sortOrder: 2,
+  },
+  {
     zoneId: 'dev',
     companyId: 'c-1',
     kind: 'system',
@@ -42,7 +61,7 @@ const zones: readonly Zone[] = [
     allowedCategories: [],
     activityTypes: ['work'],
     deskSlots: 4,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   {
     zoneId: 'rest',
@@ -60,12 +79,13 @@ const zones: readonly Zone[] = [
     allowedCategories: [],
     activityTypes: ['rest'],
     deskSlots: 0,
-    sortOrder: 3,
+    sortOrder: 4,
   },
 ];
 
 const layoutMap: Readonly<Record<string, Zone3DLayout>> = {
   meeting: { position: [0, 0, 0], size: [6, 6] },
+  library: { position: [6, 0, 4], size: [6, 6] },
   dev: { position: [12, 0, 8], size: [8, 8] },
   rest: { position: [20, 0, 4], size: [8, 8] },
 };
@@ -78,7 +98,32 @@ describe('office3d flow helpers', () => {
       expect.objectContaining({
         from: [12, 0.5, 8],
         to: [0, 0.5, 0],
+        points: [
+          [12, 0.5, 8],
+          [0, 0.5, 0],
+        ],
         variant: 'approval',
+      }),
+    );
+  });
+
+  it('can build a dispatch flow line that follows intermediate waypoint centers', () => {
+    expect(
+      buildDispatchFlowLine(layoutMap.meeting, layoutMap.dev, [
+        [6, 0.5, 0],
+        [10, 0.5, 4],
+      ]),
+    ).toEqual(
+      expect.objectContaining({
+        from: [0, 0.5, 0],
+        to: [12, 0.5, 8],
+        points: [
+          [0, 0.5, 0],
+          [6, 0.5, 0],
+          [10, 0.5, 4],
+          [12, 0.5, 8],
+        ],
+        variant: 'normal',
       }),
     );
   });
@@ -100,6 +145,11 @@ describe('office3d flow helpers', () => {
     ]);
     expect(lines.map((line) => line.to)).toEqual([
       [0, 0.5, 0],
+      [0, 0.5, 0],
+    ]);
+    expect(lines[0]?.points).toEqual([
+      [12, 0.5, 8],
+      [6, 0.5, 4],
       [0, 0.5, 0],
     ]);
   });

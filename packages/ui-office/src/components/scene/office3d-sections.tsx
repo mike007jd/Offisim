@@ -157,8 +157,7 @@ export function Office3DFlowLayer({
       {flowLines.map((line) => (
         <TaskFlowLine
           key={line.id}
-          from={line.from}
-          to={line.to}
+          points={line.points}
           color={getFlowLineColor(line.variant)}
           onComplete={() => setFlowLines((prev) => prev.filter((entry) => entry.id !== line.id))}
         />
