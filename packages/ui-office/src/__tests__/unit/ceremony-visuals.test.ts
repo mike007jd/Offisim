@@ -22,17 +22,16 @@ describe('ceremony-visuals', () => {
       waitingFor: 'user',
       kind: 'plan_review',
     };
-    const handoffRel: WaitingRelationship = {
+    const handoffRel = {
       waiterId: 'emp-2',
       waiterName: 'Ben',
       waitingFor: 'emp-1',
       kind: 'handoff',
-    };
+      waitingForName: 'Ava',
+    } as WaitingRelationship & { waitingForName: string };
 
     expect(describeWaitingRelationship(reviewRel, new Map())).toBe('Ava → 等待审阅');
-    expect(describeWaitingRelationship(handoffRel, new Map([['emp-1', 'Ava']]))).toBe(
-      'Ben → 等待 Ava',
-    );
+    expect(describeWaitingRelationship(handoffRel, new Map())).toBe('Ben → 等待 Ava');
   });
 
   it('adds and removes waiting relationships without duplicating waiter entries', () => {

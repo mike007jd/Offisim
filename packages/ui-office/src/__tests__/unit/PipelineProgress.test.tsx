@@ -25,4 +25,20 @@ describe('PipelineProgress', () => {
 
     expect(screen.getByText('员工执行中')).toBeInTheDocument();
   });
+
+  it('renders the ceremony subtitle without hard-coded left padding', () => {
+    useSceneCeremonyMock.mockReturnValue({
+      phase: 'dispatching',
+      bubbleText: '',
+      participantIds: new Set(),
+      dispatchedIds: new Set(),
+      managerVisible: false,
+      managerPosition: null,
+      waitingRelationships: [],
+    });
+
+    render(<PipelineProgress stage="dispatching" isRunning />);
+
+    expect(screen.getByText('分派任务中').parentElement).not.toHaveClass('pl-[11.75rem]');
+  });
 });

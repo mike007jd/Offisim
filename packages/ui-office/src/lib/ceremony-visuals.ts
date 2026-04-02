@@ -64,7 +64,7 @@ export function describeWaitingRelationship(
   employeeNames: ReadonlyMap<string, string>,
 ): string {
   if (rel.kind === 'handoff' && rel.waitingFor !== 'user') {
-    const fromName = employeeNames.get(rel.waitingFor) ?? 'teammate';
+    const fromName = rel.waitingForName ?? employeeNames.get(rel.waitingFor) ?? 'teammate';
     return `${rel.waiterName} → 等待 ${fromName}`;
   }
   return `${rel.waiterName} → ${getInteractionKindLabel(rel.kind)}`;

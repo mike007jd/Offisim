@@ -97,6 +97,7 @@ describe('scene-behavior', () => {
     const route = buildHandoffRoute([8, 0, 6], [16, 0, 8], [0, 0, 0]);
 
     expect(route).toEqual([
+      [8, 0, 6],
       [8, 0, 1.6],
       [0, 0, 1.6],
       [16, 0, 1.6],

@@ -6,6 +6,16 @@ import { useScene } from './useScene';
 const Office3DView = lazy(() => import('./Office3DView'));
 const Office2DView = lazy(() => import('./Office2DView'));
 
+const IDLE_CEREMONY: CeremonyState = {
+  phase: 'idle',
+  bubbleText: '',
+  participantIds: new Set(),
+  dispatchedIds: new Set(),
+  managerVisible: false,
+  managerPosition: null,
+  waitingRelationships: [],
+};
+
 // ── Error boundary for Three.js / SVG scene crashes ─────────────
 
 class SceneErrorBoundary extends React.Component<
@@ -56,15 +66,7 @@ export function SceneCanvas({
   active = true,
   reducedMotion = false,
   viewMode = '3D',
-  ceremony = {
-    phase: 'idle',
-    bubbleText: '',
-    participantIds: new Set(),
-    dispatchedIds: new Set(),
-    managerVisible: false,
-    managerPosition: null,
-    waitingRelationships: [],
-  },
+  ceremony = IDLE_CEREMONY,
   selectedEmployeeId = null,
   onSelectEmployee,
   onDeselectEmployee,

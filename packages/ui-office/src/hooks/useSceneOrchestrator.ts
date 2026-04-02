@@ -132,6 +132,7 @@ export interface WaitingRelationship {
   waiterId: string;
   waiterName: string;
   waitingFor: 'user' | string;
+  waitingForName?: string | null;
   kind: InteractionRequest['kind'] | 'handoff';
 }
 
@@ -943,6 +944,7 @@ export function useSceneOrchestrator({
           waiterId: payload.toEmployeeId,
           waiterName: toName,
           waitingFor: payload.fromEmployeeId,
+          waitingForName: fromName,
           kind: 'handoff',
         }),
       }));
@@ -952,6 +954,14 @@ export function useSceneOrchestrator({
           fromHandle,
           buildHandoffRoute(fromPosition, toPosition, meetingCenter),
           3.5,
+          () => {
+            const returnPosition =
+              assignedWorkPositionsRef.current.get(payload.fromEmployeeId) ??
+              resolveEmployeeTargetPosition(payload.fromEmployeeId);
+            if (returnPosition) {
+              fromHandle.moveTo(returnPosition, 3.2);
+            }
+          },
         );
       }
     };

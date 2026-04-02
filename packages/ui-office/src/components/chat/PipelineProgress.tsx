@@ -193,7 +193,7 @@ export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgress
           )}
         </div>
         {activeCeremonyLabel && (
-          <div className="mt-1 pl-[11.75rem] text-[10px] text-slate-500 tracking-wide">
+          <div className="mt-1 text-[10px] text-slate-500 tracking-wide text-center">
             {activeCeremonyLabel}
           </div>
         )}

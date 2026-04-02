@@ -112,10 +112,10 @@ export function buildHandoffRoute(
   const zoneWaypoints = options?.zoneWaypoints ?? [];
 
   if (zoneWaypoints.length > 0) {
-    return dedupePath([fromAisle, ...zoneWaypoints, transferPoint, toAisle, toPos]);
+    return dedupePath([fromPos, fromAisle, ...zoneWaypoints, transferPoint, toAisle, toPos]);
   }
 
-  return dedupePath([fromAisle, transferPoint, toAisle, toPos]);
+  return dedupePath([fromPos, fromAisle, transferPoint, toAisle, toPos]);
 }
 
 export function buildManagerPresenceTarget(
