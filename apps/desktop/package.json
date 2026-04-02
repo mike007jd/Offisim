@@ -1,6 +1,6 @@
 {
   "name": "@offisim/desktop",
-  "version": "0.0.1",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,5 +11,6 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
-  }
+  },
+  "license": "MIT"
 }

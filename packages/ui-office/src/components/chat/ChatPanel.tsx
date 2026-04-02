@@ -39,6 +39,7 @@ interface ChatPanelProps {
   activeProject?: ProjectRow | null;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
+  compact?: boolean;
 }
 
 let nextMsgId = 0;
@@ -56,6 +57,7 @@ export function ChatPanel({
   onShowBudget,
   activeProject,
   onUserMessage,
+  compact = false,
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
     useOffisimRuntime();
@@ -235,6 +237,12 @@ export function ChatPanel({
 
   const showEmpty = messages.length === 0 && !isStreaming && !pendingInteraction;
   const isDirectChat = !!selectedEmployeeId;
+  const latestMessage = messages.at(-1);
+  const inputDisabledReason = !isReady
+    ? '请先在 Settings 中配置 API Key，随后即可开始对话。'
+    : isRunning
+      ? '任务执行中，等待当前回合完成。'
+      : undefined;
 
   const inputPlaceholder = isDirectChat
     ? `Message ${selectedEmployeeName ?? 'employee'}...`
@@ -242,6 +250,21 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
+      {!isReady && (
+        <div className="mx-3 mt-3 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
+          <div className="flex items-center justify-between gap-3">
+            <span>配置 API Key 以开始真实协作。当前仍可浏览场景、模板和编辑器。</span>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="shrink-0 rounded-md border border-amber-300/20 bg-black/20 px-2 py-1 text-[10px] text-amber-50 transition-colors hover:bg-black/35"
+            >
+              Open Settings
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Project context banner — shown when a project is scoped */}
       {activeProject && !isDirectChat && (
         <div
@@ -286,62 +309,85 @@ export function ChatPanel({
         />
       )}
 
-      {/* Message area */}
-      {showEmpty ? (
-        isRunning ? (
-          <ScrollArea className="flex-1">
-            <div
-              ref={scrollRef}
-              className="flex flex-col gap-1"
-              style={{ padding: 'var(--sp-sm)' }}
-            >
-              <ActivityRail
-                focusedEmployeeId={selectedEmployeeId}
-                focusedEmployeeName={selectedEmployeeName}
-              />
-              <SystemMessageFeed />
-            </div>
-          </ScrollArea>
-        ) : isDirectChat ? (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-xs text-slate-600">
+      {compact ? (
+        <div className="flex flex-1 flex-col justify-end gap-2 px-3 py-2">
+          {latestMessage ? (
+            <MessageBubble role={latestMessage.role} content={latestMessage.content} />
+          ) : isDirectChat ? (
+            <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-500">
               Start a conversation with {selectedEmployeeName ?? 'this employee'}
-            </p>
-          </div>
-        ) : (
-          <EmptyState
-            isConfigured={isReady}
-            onOpenSettings={onOpenSettings}
-            onSendPrompt={handleSend}
-          />
-        )
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-500">
+              输入任务，观察 AI 团队协作。
+            </div>
+          )}
+          {isStreaming && <StreamingBubble />}
+        </div>
       ) : (
-        <ScrollArea className="flex-1">
-          <div ref={scrollRef} className="flex flex-col gap-1" style={{ padding: 'var(--sp-sm)' }}>
-            <ActivityRail
-              focusedEmployeeId={selectedEmployeeId}
-              focusedEmployeeName={selectedEmployeeName}
-            />
-            <SystemMessageFeed />
-            {pendingInteraction?.severity !== 'high' &&
-              pendingInteraction &&
-              respondToInteraction && (
-                <InteractionPrompt
-                  request={pendingInteraction}
-                  employeeName={interactionEmployeeName}
-                  onRespond={handleInteractionRespond}
+        <>
+          {/* Message area */}
+          {showEmpty ? (
+            isRunning ? (
+              <ScrollArea className="flex-1">
+                <div
+                  ref={scrollRef}
+                  className="flex flex-col gap-1"
+                  style={{ padding: 'var(--sp-sm)' }}
+                >
+                  <ActivityRail
+                    focusedEmployeeId={selectedEmployeeId}
+                    focusedEmployeeName={selectedEmployeeName}
+                  />
+                  <SystemMessageFeed />
+                </div>
+              </ScrollArea>
+            ) : isDirectChat ? (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-xs text-slate-600">
+                  Start a conversation with {selectedEmployeeName ?? 'this employee'}
+                </p>
+              </div>
+            ) : (
+              <EmptyState
+                isConfigured={isReady}
+                onOpenSettings={onOpenSettings}
+                onSendPrompt={handleSend}
+              />
+            )
+          ) : (
+            <ScrollArea className="flex-1">
+              <div
+                ref={scrollRef}
+                className="flex flex-col gap-1"
+                style={{ padding: 'var(--sp-sm)' }}
+              >
+                <ActivityRail
+                  focusedEmployeeId={selectedEmployeeId}
+                  focusedEmployeeName={selectedEmployeeName}
                 />
-              )}
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
-            ))}
-            {isStreaming && <StreamingBubble />}
-          </div>
-        </ScrollArea>
+                <SystemMessageFeed />
+                {pendingInteraction?.severity !== 'high' &&
+                  pendingInteraction &&
+                  respondToInteraction && (
+                    <InteractionPrompt
+                      request={pendingInteraction}
+                      employeeName={interactionEmployeeName}
+                      onRespond={handleInteractionRespond}
+                    />
+                  )}
+                {messages.map((msg) => (
+                  <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+                ))}
+                {isStreaming && <StreamingBubble />}
+              </div>
+            </ScrollArea>
+          )}
+        </>
       )}
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
-      <MeetingPanel agents={agents} />
+      {!compact && <MeetingPanel agents={agents} />}
       {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
         <InteractionPrompt
           request={pendingInteraction}
@@ -351,12 +397,15 @@ export function ChatPanel({
       )}
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
-      <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+      {!compact && (
+        <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+      )}
 
       {/* Input */}
       <ChatInput
         onSend={handleSend}
         disabled={isRunning || !isReady}
+        disabledReason={inputDisabledReason}
         placeholder={inputPlaceholder}
         agents={agents}
         onSlashCommand={handleSlashCommand}

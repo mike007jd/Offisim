@@ -156,6 +156,14 @@ export async function stepDispatcherNode(
           stepIndex: stepIdx,
         },
       });
+      await runtimeCtx.hookRegistry.emit('task.assigned', {
+        threadId,
+        companyId,
+        stepIndex: stepIdx,
+        taskRunId: taskRunId ?? null,
+        employeeId: task.employeeId,
+        description,
+      });
     }
 
     // Emit planStepStarted for each dispatched step

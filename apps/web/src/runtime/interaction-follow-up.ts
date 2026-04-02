@@ -19,7 +19,9 @@ export function getInteractionFollowUp(
           }
         : { mode: 'none' };
     case 'plan_review':
-      return response.selectedOptionId !== 'cancel' ? { mode: 'retry_last_message' } : { mode: 'none' };
+      return response.selectedOptionId !== 'cancel'
+        ? { mode: 'retry_last_message' }
+        : { mode: 'none' };
     case 'agent_question':
       return response.selectedOptionId !== 'cancel'
         ? { mode: 'resend_with_clarification' }

@@ -11,6 +11,8 @@
 
 // --- Types (all type-only, zero runtime cost) ---
 export type { RuntimeContext, InteractionBox } from './runtime/runtime-context.js';
+export type { HookEvent, HookDefinition } from './runtime/hook-registry.js';
+export type { ScratchpadEntry } from './runtime/scratchpad.js';
 export type {
   RuntimeRepositories,
   CompanyRow,
@@ -52,6 +54,12 @@ export type {
   NewFileHistory,
   NewCompactSummary,
   NewNodeSummary,
+  AgentEventRepository,
+  AgentEventRow,
+  NewAgentEvent,
+  RecoveryKnowledgeRepository,
+  RecoveryKnowledgeRow,
+  NewRecoveryKnowledge,
   NewInteractionActive,
   NewInteractionHistory,
   MemoryEntryRow,
@@ -255,6 +263,8 @@ export { OffisimError, LlmError, GraphError, DataError } from './errors.js';
 export { MockToolExecutor, WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 export { TOOL_PERMISSION_DENIED, TOOL_PERMISSION_REQUIRED } from './runtime/tool-executor.js';
 export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
+export { HookRegistry } from './runtime/hook-registry.js';
+export { Scratchpad } from './runtime/scratchpad.js';
 
 // --- OpenClaw Gateway (WebSocket — real-time event streaming) ---
 export { OpenClawClient } from './gateway/index.js';

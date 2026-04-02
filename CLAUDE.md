@@ -22,6 +22,11 @@ cd apps/web && pnpm dev                 # 启动 web SPA (port 5176)
 cd apps/platform && pnpm dev            # 启动 platform API (port 4100)
 ```
 
+Docker:
+```bash
+docker compose -f docker/docker-compose.yml up --build  # 一键启动 web + platform + postgres
+```
+
 ## Monorepo Structure
 
 ```
@@ -87,6 +92,17 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   `IDLE_CEREMONY` 常量 (`useSceneOrchestrator.ts`), 否则 SceneCanvas 的 fallback 会缺字段
 - Scene ceremony state 通过 `CeremonyHost` (App.tsx) 隔离在独立组件中,
   不要把 `useSceneOrchestrator` 直接放在 App 里, 否则高频 ceremony 变化会级联全树 re-render
+- Linux/CI 环境下构建和测试必须跳过 Tauri 包:
+  `pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' build`
+  GitHub Actions 中 quality job 用此命令, desktop job 单独跑在 macOS
+- `HookRegistry` 和 `EventBus` 是两个独立的 pub/sub 通道:
+  EventBus = 内部 UI 通知（同步, prefix-matching, 驱动 React hooks 和场景）;
+  HookRegistry = 外部扩展钩子（异步, 有 timeout, 面向未来的插件/instrumentation）。
+  两者监听同一领域事件但服务不同消费者, 不要合并
+- `Scratchpad` 是 per-runtime 的临时跨节点笔记本, `disposeRuntime()` 时自动 clear。
+  不要把它当持久存储用, 持久化用 `MemoryService`
+- SceneCanvas 3D 崩溃后自动回退 2D, `crashCountRef` 记录崩溃次数,
+  ≥2 次后锁定 2D 不再允许手动切回, 防止 crash loop
 
 ## Product Boundary: AI Runtime Policy
 

@@ -29,7 +29,9 @@ import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/s
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
+import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
 import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
@@ -177,6 +179,8 @@ export async function createBrowserRuntime(
     clientFactory: new BrowserMcpClientFactory(),
   });
   const interactionBox = { pending: null };
+  const hookRegistry = new HookRegistry();
+  const scratchpad = new Scratchpad();
   const interactionService = new InteractionService({
     eventBus,
     companyId,
@@ -186,6 +190,7 @@ export async function createBrowserRuntime(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    hookRegistry,
   });
   await interactionService.restore();
 
@@ -251,6 +256,8 @@ export async function createBrowserRuntime(
     runtimePolicy,
     memoryService,
     interactionBox,
+    hookRegistry,
+    scratchpad,
     middlewareChain,
     systemCaller,
     sessionCostTracker,
@@ -311,6 +318,8 @@ export async function createBrowserRuntimeReposOnly(
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const interactionBox = { pending: null };
+  const hookRegistry = new HookRegistry();
+  const scratchpad = new Scratchpad();
   const interactionService = new InteractionService({
     eventBus,
     companyId,
@@ -320,6 +329,7 @@ export async function createBrowserRuntimeReposOnly(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    hookRegistry,
   });
   await interactionService.restore();
 
@@ -338,6 +348,8 @@ export async function createBrowserRuntimeReposOnly(
       companyId,
       threadId,
       interactionBox,
+      hookRegistry,
+      scratchpad,
       interactionService,
     }),
     orch: null,

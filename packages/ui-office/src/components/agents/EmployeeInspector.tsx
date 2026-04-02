@@ -72,7 +72,10 @@ export function EmployeeInspector({
       {/* Floating card */}
       <div className="rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-md">
         {/* Header row */}
-        <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+        <div
+          className="flex items-center justify-between border-b border-white/8"
+          style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
+        >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Employee Profile
           </span>
@@ -87,7 +90,14 @@ export function EmployeeInspector({
         </div>
 
         {/* Identity section */}
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <div
+          className="flex items-center gap-3"
+          style={{
+            paddingInline: 'var(--sp-lg)',
+            paddingTop: 'var(--sp-lg)',
+            paddingBottom: 'var(--sp-md)',
+          }}
+        >
           <div className="relative flex-shrink-0">
             <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-slate-800">
               <DicebearAvatar seed={agent.name} size={48} className="h-full w-full object-cover" />
@@ -106,7 +116,10 @@ export function EmployeeInspector({
         </div>
 
         {/* Details */}
-        <div className="flex flex-col gap-1 px-4 pb-3">
+        <div
+          className="flex flex-col gap-1"
+          style={{ paddingInline: 'var(--sp-lg)', paddingBottom: 'var(--sp-md)' }}
+        >
           {agent.taskRunId && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Task ID</span>
@@ -127,7 +140,10 @@ export function EmployeeInspector({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 border-t border-white/8 px-4 py-3">
+        <div
+          className="flex gap-2 border-t border-white/8"
+          style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
+        >
           <Button
             variant="outline"
             size="sm"

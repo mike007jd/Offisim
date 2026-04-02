@@ -11,6 +11,7 @@ import {
   interactionResolved,
   interactionRestored,
 } from '../events/event-factories.js';
+import type { HookRegistry } from '../runtime/hook-registry.js';
 import type {
   ActiveInteractionRepository,
   InteractionHistoryRepository,
@@ -65,6 +66,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
       readonly activeRepo?: ActiveInteractionRepository;
       readonly historyRepo?: InteractionHistoryRepository;
       readonly loadMode?: () => Promise<InteractionMode | null>;
+      readonly hookRegistry?: HookRegistry;
     },
   ) {
     this.threadMode = deps.defaultMode ?? 'boss_proxy';
@@ -142,6 +144,14 @@ export class InteractionService implements ToolPermissionGrantResolver {
       created_at: new Date(request.createdAt).toISOString(),
       updated_at: new Date().toISOString(),
     });
+    await this.deps.hookRegistry?.emit('interaction.created', {
+      interactionId: request.interactionId,
+      threadId: request.threadId,
+      companyId: request.companyId,
+      kind: request.kind,
+      severity: request.severity,
+      requestedByNode: request.requestedByNode,
+    });
     this.deps.eventBus.emit(interactionRequested(this.deps.companyId, this.deps.threadId, request));
     return request;
   }
@@ -156,6 +166,13 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.persistHistory(pending, response, 'resolved');
     this.applyGrants(pending, response);
     this.applyPlanReviewDecision(pending, response);
+    await this.deps.hookRegistry?.emit('interaction.resolved', {
+      interactionId: pending.interactionId,
+      threadId: pending.threadId,
+      companyId: pending.companyId,
+      kind: pending.kind,
+      selectedOptionId: response.selectedOptionId,
+    });
     this.deps.eventBus.emit(
       interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
     );

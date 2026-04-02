@@ -312,7 +312,9 @@ export function EmployeeMarker({
 
   useEffect(() => {
     // Cast needed: in jsdom tests groupRef.current is a DOM element, not THREE.Group
-    const group = groupRef.current as { position?: { set(x: number, y: number, z: number): void } } | null;
+    const group = groupRef.current as {
+      position?: { set(x: number, y: number, z: number): void };
+    } | null;
     if (group?.position?.set) {
       group.position.set(emp.position[0], 0, emp.position[2]);
     }

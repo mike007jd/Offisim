@@ -10,7 +10,7 @@ const Office2DView = lazy(() => import('./Office2DView'));
 // ── Error boundary for Three.js / SVG scene crashes ─────────────
 
 class SceneErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+  { children: React.ReactNode; fallback?: React.ReactNode; onError?: (error: Error) => void },
   { hasError: boolean; error: string }
 > {
   state = { hasError: false, error: '' };
@@ -19,8 +19,15 @@ class SceneErrorBoundary extends React.Component<
     return { hasError: true, error: error.message };
   }
 
+  componentDidCatch(error: Error) {
+    this.props.onError?.(error);
+  }
+
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
       return (
         <div className="flex items-center justify-center h-full bg-black/50 text-white">
           <div className="text-center p-4">
@@ -50,6 +57,7 @@ interface SceneCanvasProps {
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
+  onFallbackTo2D?: (error: Error) => void;
 }
 
 export function SceneCanvas({
@@ -59,27 +67,38 @@ export function SceneCanvas({
   selectedEmployeeId = null,
   onSelectEmployee,
   onDeselectEmployee,
+  onFallbackTo2D,
 }: SceneCanvasProps) {
   const ceremony = useSceneCeremony() ?? IDLE_CEREMONY;
   useScene(reducedMotion);
   const [hasMounted2D, setHasMounted2D] = useState(viewMode === '2D');
   const [hasMounted3D, setHasMounted3D] = useState(viewMode === '3D');
+  const [force2D, setForce2D] = useState(false);
+  const crashCountRef = React.useRef(0);
+  const effectiveViewMode = force2D ? '2D' : viewMode;
 
   useEffect(() => {
-    if (viewMode === '2D') {
+    if (effectiveViewMode === '2D') {
       setHasMounted2D(true);
       return;
     }
     setHasMounted3D(true);
+  }, [effectiveViewMode]);
+
+  useEffect(() => {
+    // Allow manual switch back to 3D unless it crashed repeatedly
+    if (viewMode === '3D' && crashCountRef.current < 2) {
+      setForce2D(false);
+    }
   }, [viewMode]);
 
   return (
     <div className="h-full w-full overflow-hidden bg-surface relative">
       <SceneErrorBoundary>
         <div
-          aria-hidden={viewMode !== '2D'}
+          aria-hidden={effectiveViewMode !== '2D'}
           className={`absolute inset-0 transition-opacity duration-200 ${
-            viewMode === '2D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            effectiveViewMode === '2D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
           {hasMounted2D && (
@@ -102,32 +121,41 @@ export function SceneCanvas({
           )}
         </div>
 
-        <div
-          aria-hidden={viewMode !== '3D'}
-          className={`absolute inset-0 transition-opacity duration-200 ${
-            viewMode === '3D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
+        <SceneErrorBoundary
+          fallback={null}
+          onError={(error) => {
+            crashCountRef.current += 1;
+            setForce2D(true);
+            onFallbackTo2D?.(error);
+          }}
         >
-          {hasMounted3D && (
-            <Suspense
-              fallback={
-                <div className="h-full w-full flex items-center justify-center">
-                  <div className="text-[10px] font-mono text-slate-600 animate-pulse">
-                    LOADING 3D ENGINE...
+          <div
+            aria-hidden={effectiveViewMode !== '3D'}
+            className={`absolute inset-0 transition-opacity duration-200 ${
+              effectiveViewMode === '3D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {hasMounted3D && (
+              <Suspense
+                fallback={
+                  <div className="h-full w-full flex items-center justify-center">
+                    <div className="text-[10px] font-mono text-slate-600 animate-pulse">
+                      LOADING 3D ENGINE...
+                    </div>
                   </div>
-                </div>
-              }
-            >
-              <Office3DView
-                active={active && viewMode === '3D'}
-                ceremony={ceremony}
-                selectedEmployeeId={selectedEmployeeId}
-                onSelectEmployee={onSelectEmployee}
-                onDeselectEmployee={onDeselectEmployee}
-              />
-            </Suspense>
-          )}
-        </div>
+                }
+              >
+                <Office3DView
+                  active={active && effectiveViewMode === '3D'}
+                  ceremony={ceremony}
+                  selectedEmployeeId={selectedEmployeeId}
+                  onSelectEmployee={onSelectEmployee}
+                  onDeselectEmployee={onDeselectEmployee}
+                />
+              </Suspense>
+            )}
+          </div>
+        </SceneErrorBoundary>
       </SceneErrorBoundary>
 
       <PerformanceHUD />

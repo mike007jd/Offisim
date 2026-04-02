@@ -96,13 +96,13 @@ describe('ChatDrawer', () => {
     firePointer(handle, 'pointermove', { clientY: 1200 });
     firePointer(handle, 'pointerup', { clientY: 1200 });
 
-    expect(container.firstElementChild).toHaveStyle({ height: '160px' });
+    expect(container.firstElementChild).toHaveStyle({ height: '120px' });
 
     firePointer(handle, 'pointerdown', { clientY: 500 });
     firePointer(handle, 'pointermove', { clientY: -300 });
     firePointer(handle, 'pointerup', { clientY: -300 });
 
-    expect(container.firstElementChild).toHaveStyle({ height: '450px' });
+    expect(container.firstElementChild).toHaveStyle({ height: '600px' });
   });
 
   it('defaults to collapsed on narrow screens', () => {

@@ -21,5 +21,16 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "version": "1.0.0-rc.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mike007jd/Offisim.git"
+  },
+  "homepage": "https://github.com/mike007jd/Offisim#readme",
+  "bugs": {
+    "url": "https://github.com/mike007jd/Offisim/issues"
+  },
+  "author": "Offisim Contributors"
 }

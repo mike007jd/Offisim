@@ -1,8 +1,24 @@
 # Offisim
 
+![License](https://img.shields.io/badge/license-MIT-0f172a)
+![Release](https://img.shields.io/badge/version-1.0.0--rc.1-2563eb)
+![CI](https://img.shields.io/badge/CI-GitHub_Actions-16a34a)
+
 Offisim is a **local-first, open-source AI company runtime** plus a **platform/registry backend** for installable assets.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
+
+Run an AI company on your own machine: multi-agent orchestration, spatial office UI, installable assets, and a local-first runtime that keeps execution close to the user.
+
+## Release Quick Start
+
+Recommended Docker flow:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+Release assets such as screenshots and GIFs can live under `docs/assets/screenshots/` as they are produced.
 
 ## Quick Start
 
@@ -20,8 +36,17 @@ Common local entrypoints:
 - Recommended desktop flow: `pnpm --filter @offisim/desktop dev`
 - Browser runtime only: `pnpm --filter @offisim/web dev`
 - Platform API: `pnpm --filter @offisim/platform dev`
+- Docker stack: `docker compose -f docker/docker-compose.yml up --build`
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
+Deployment-specific guidance lives in `Docs/00_start_here/DEPLOYMENT.md`.
+
+For platform-backed local or deployed usage, the most important environment variables are:
+
+- `DATABASE_URL`
+- `CORS_ORIGINS`
+- `BETTER_AUTH_SECRET`
+- provider API keys such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENROUTER_API_KEY`
 
 ## Naming Note
 
@@ -127,3 +152,11 @@ If a task is about...
 - Do not place secrets in assets.
 - Do not add install hooks or postinstall scripts in 1.0.
 - Do not treat the product as a literal game, but do preserve game-grade presentation quality where it improves clarity and trust.
+
+## Contributing
+
+See [`.github/CONTRIBUTING.md`](./.github/CONTRIBUTING.md).
+
+## License
+
+MIT. See [`LICENSE`](./LICENSE).

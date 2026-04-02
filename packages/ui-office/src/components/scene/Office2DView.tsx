@@ -292,7 +292,11 @@ function MeetingBubble2D({ ceremony }: { ceremony: CeremonyState }) {
   const mtg = toSVG(-10, -8, 14, 6);
   const bx = mtg.x + mtg.w / 2;
   const by = mtg.y - 30;
-  const { visible: visibleRelationships, extraCount, labels } = prepareWaitingDisplay(ceremony.waitingRelationships);
+  const {
+    visible: visibleRelationships,
+    extraCount,
+    labels,
+  } = prepareWaitingDisplay(ceremony.waitingRelationships);
   const bubbleHeight = visibleRelationships.length > 0 ? 54 + visibleRelationships.length * 12 : 32;
 
   return (

@@ -6,10 +6,10 @@ import {
   conversationCompactCompleted,
   conversationSynopsisUpdated,
 } from '../events/event-factories.js';
-import type { LlmRequest, LlmResponse } from '../llm/gateway.js';
-import { compactToolResultMessages, pruneLlmMessages } from '../llm/prune-messages.js';
 import type { CompactBaselineState } from '../graph/state.js';
 import { parseCompactBaseline } from '../graph/state.js';
+import type { LlmRequest, LlmResponse } from '../llm/gateway.js';
+import { compactToolResultMessages, pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
 
@@ -202,7 +202,8 @@ export class ConversationBudgetService {
       } else {
         const fallbackSynopsis =
           synopsis ??
-          (await this.generateSynopsis(ctx, nonSystemMessages, existingSynopsis, options))?.synopsis ??
+          (await this.generateSynopsis(ctx, nonSystemMessages, existingSynopsis, options))
+            ?.synopsis ??
           null;
         const nextFailureStreak = circuitOpen ? failureStreak : failureStreak + 1;
         this.fullCompactFailureStreaks.set(ctx.threadId, nextFailureStreak);

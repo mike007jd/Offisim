@@ -345,6 +345,14 @@ export async function employeeNode(
     }
   }
 
+  const scratchpadEntries = runtimeCtx.scratchpad.list();
+  if (scratchpadEntries.length > 0) {
+    systemPrompt += `\n\n## Shared scratchpad\n${scratchpadEntries
+      .slice(0, 5)
+      .map((entry) => `- [${entry.author}] ${entry.summary}`)
+      .join('\n')}`;
+  }
+
   // --- Build virtual + MCP tools ---
   const virtualTools: ToolDef[] = [];
 
@@ -520,6 +528,13 @@ export async function employeeNode(
         // 3. Mark current task as completed
         if (taskRunId) {
           await repos.taskRuns.updateStatus(taskRunId, 'completed');
+          await runtimeCtx.hookRegistry.emit('task.completed', {
+            threadId,
+            companyId,
+            employeeId: employee.employee_id,
+            taskRunId,
+            completionType: 'handoff',
+          });
         }
 
         // 4. Emit events
@@ -776,6 +791,20 @@ export async function employeeNode(
         citationCount: usedCitations.length,
       },
     });
+    if (taskRunId) {
+      await runtimeCtx.hookRegistry.emit('task.completed', {
+        threadId,
+        companyId,
+        employeeId: employee.employee_id,
+        taskRunId,
+        completionType: 'response',
+      });
+    }
+    runtimeCtx.scratchpad.write(
+      `employee.last-output.${employee.employee_id}`,
+      `${employee.name}: ${llmResponse.content.slice(0, 240)}`,
+      'employee',
+    );
 
     return {
       currentEmployeeId: employee.employee_id,
@@ -829,6 +858,13 @@ export async function employeeNode(
         eventBus.emit(
           taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
         );
+        await runtimeCtx.hookRegistry.emit('task.completed', {
+          threadId,
+          companyId,
+          employeeId: employee.employee_id,
+          taskRunId,
+          completionType: 'recovery',
+        });
       }
       eventBus.emit(
         taskSubtaskProgress(

@@ -75,6 +75,7 @@ export interface ChatInputProps {
   onSlashCommand?: (cmd: string) => void;
   /** Callback when user selects an employee via @mention */
   onMentionSelect?: (employeeId: string) => void;
+  disabledReason?: string;
 }
 
 export function ChatInput({
@@ -84,6 +85,7 @@ export function ChatInput({
   agents,
   onSlashCommand,
   onMentionSelect,
+  disabledReason,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -433,12 +435,18 @@ export function ChatInput({
 
       {/* Hint line */}
       <div className="flex items-center gap-3 mt-1 px-1">
-        <span className="text-[10px] text-slate-600">
-          <kbd className="text-slate-500">/</kbd> commands
-        </span>
-        <span className="text-[10px] text-slate-600">
-          <kbd className="text-slate-500">@</kbd> mention
-        </span>
+        {disabled && disabledReason ? (
+          <span className="text-[10px] text-amber-300/80">{disabledReason}</span>
+        ) : (
+          <>
+            <span className="text-[10px] text-slate-600">
+              <kbd className="text-slate-500">/</kbd> commands
+            </span>
+            <span className="text-[10px] text-slate-600">
+              <kbd className="text-slate-500">@</kbd> mention
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

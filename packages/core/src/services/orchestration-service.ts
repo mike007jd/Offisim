@@ -6,11 +6,7 @@ import {
   workspaceStalenessDetected,
 } from '../events/event-factories.js';
 import { parseCompactBaseline } from '../graph/state.js';
-import type {
-  MeetingInterrupt,
-  MeetingInterruptType,
-  OffisimGraphState,
-} from '../graph/state.js';
+import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { NodeSummaryService } from './node-summary-service.js';
 import type {

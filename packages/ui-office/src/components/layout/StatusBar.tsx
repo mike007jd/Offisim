@@ -36,7 +36,10 @@ export function StatusBar({ modelName }: StatusBarProps) {
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';
 
   return (
-    <footer className="h-9 bg-black/60 backdrop-blur-xl text-slate-500 text-[9px] px-6 flex items-center justify-between relative overflow-hidden border-t border-white/5">
+    <footer
+      className="bg-black/60 backdrop-blur-xl text-slate-500 text-[9px] flex items-center justify-between relative overflow-hidden border-t border-white/5"
+      style={{ minHeight: '36px', paddingInline: 'var(--sp-lg)' }}
+    >
       <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
 
       <div className="flex items-center space-x-5 relative z-10">
@@ -144,7 +147,7 @@ export function StatusBar({ modelName }: StatusBarProps) {
         <div className="w-px h-3 bg-white/10" />
         <div className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity">
           <Activity className="w-3 h-3" />
-          <span className="font-mono">v1.0.4</span>
+          <span className="font-mono">v1.0.0-rc.1</span>
         </div>
       </div>
     </footer>

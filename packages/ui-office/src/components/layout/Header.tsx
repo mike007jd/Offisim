@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Building2, ChevronDown, PenTool, Settings, UserPlus } from 'lucide-react';
+import { Building2, ChevronDown, PenTool, Settings, UserPlus, WandSparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   companyName?: string;
   onOpenSettings: () => void;
   onOpenEmployeeCreator?: () => void;
+  onOpenLayoutEditor?: () => void;
   onOpenStudio?: () => void;
   onOpenCompanySelect?: () => void;
   onFileImport: (file: File) => void;
@@ -26,6 +27,7 @@ export function Header({
   companyName,
   onOpenSettings,
   onOpenEmployeeCreator,
+  onOpenLayoutEditor,
   onOpenStudio,
   onOpenCompanySelect,
   onFileImport,
@@ -99,6 +101,15 @@ export function Header({
             </span>
           </div>
         )}
+        {needsConfig && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="h-7 rounded-lg border border-amber-400/20 bg-amber-400/8 px-2.5 text-[11px] text-amber-100 transition-colors hover:bg-amber-400/12"
+          >
+            配置 API Key 以开始
+          </button>
+        )}
 
         {/* Project selector slot */}
         {projectSlot}
@@ -118,12 +129,23 @@ export function Header({
             <UserPlus className="h-4 w-4 text-slate-400 hover:text-blue-400" />
           </Button>
         )}
+        {onOpenLayoutEditor && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenLayoutEditor}
+            title="Layout Editor"
+            className="hover:bg-white/5"
+          >
+            <WandSparkles className="h-4 w-4 text-slate-400 hover:text-cyan-400" />
+          </Button>
+        )}
         {onOpenStudio && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onOpenStudio}
-            title="Studio Editor"
+            title="Decoration Studio"
             className="hover:bg-white/5"
           >
             <PenTool className="h-4 w-4 text-slate-400 hover:text-emerald-400" />

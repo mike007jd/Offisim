@@ -30,6 +30,40 @@ import { OffisimGraphAnnotation, type OffisimGraphState } from './state.js';
 /** Max replans before escalating to user */
 const MAX_REPLAN_COUNT = 3;
 
+function withNodeHooks<TResult>(
+  nodeName: string,
+  handler: (state: OffisimGraphState, config: RunnableConfig) => Promise<TResult> | TResult,
+) {
+  return async (state: OffisimGraphState, config: RunnableConfig): Promise<TResult> => {
+    const runtimeCtx = getRuntime(config, nodeName, { optional: true });
+    await runtimeCtx?.hookRegistry.emit('graph.node.before', {
+      nodeName,
+      threadId: state.threadId,
+      companyId: state.companyId,
+      entryMode: state.entryMode,
+    });
+    try {
+      const result = await handler(state, config);
+      await runtimeCtx?.hookRegistry.emit('graph.node.after', {
+        nodeName,
+        threadId: state.threadId,
+        companyId: state.companyId,
+        entryMode: state.entryMode,
+      });
+      return result;
+    } catch (error) {
+      await runtimeCtx?.hookRegistry.emit('graph.node.after', {
+        nodeName,
+        threadId: state.threadId,
+        companyId: state.companyId,
+        entryMode: state.entryMode,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+}
+
 /**
  * Detect if employee outputs signal a need to replan.
  *
@@ -206,6 +240,12 @@ async function stepAdvanceNode(
           state.threadId,
         ),
       );
+      await runtimeCtx.hookRegistry.emit('task.completed', {
+        threadId: state.threadId,
+        companyId: runtimeCtx.companyId,
+        stepIndex: stepIdx,
+        outputCount: outputs.length,
+      });
     }
   }
 
@@ -283,31 +323,86 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
   const checkpointer = options?.checkpointer ?? createMemoryCheckpointSaver();
 
   const graph = new StateGraph(OffisimGraphAnnotation)
-    .addNode('boss', (state, config) => bossNode(state, config))
-    .addNode('manager', (state, config) => managerNode(state, config))
-    .addNode('pm_planner', (state, config) => pmPlannerNode(state, config))
-    .addNode('step_dispatcher', (state, config) => stepDispatcherNode(state, config))
+    .addNode(
+      'boss',
+      withNodeHooks('boss', (state, config) => bossNode(state, config)),
+    )
+    .addNode(
+      'manager',
+      withNodeHooks('manager', (state, config) => managerNode(state, config)),
+    )
+    .addNode(
+      'pm_planner',
+      withNodeHooks('pm_planner', (state, config) => pmPlannerNode(state, config)),
+    )
+    .addNode(
+      'step_dispatcher',
+      withNodeHooks('step_dispatcher', (state, config) => stepDispatcherNode(state, config)),
+    )
     .addNode(
       'employee',
-      (state: OffisimGraphState, config: RunnableConfig) => employeeNode(state, config),
+      withNodeHooks('employee', (state: OffisimGraphState, config: RunnableConfig) =>
+        employeeNode(state, config),
+      ),
       {
         // employee node may return Command (handoff) targeting itself
         ends: ['employee'],
       } as Record<string, unknown>,
     )
-    .addNode('step_advance', (state, config) => stepAdvanceNode(state, config))
-    .addNode('employee_direct_setup', (state, config) => employeeDirectSetupNode(state, config))
-    .addNode('error_handler', (state, config) => errorHandlerNode(state, config))
-    .addNode('hr', (state, config) => hrNode(state, config))
-    .addNode('pm_heartbeat', (state, config) => pmHeartbeatNode(state, config))
-    .addNode('pm_replan', (state, config) => pmReplanNode(state, config))
-    .addNode('boss_summary', (state, config) => bossSummaryNode(state, config))
-    .addNode('meeting_start', (state, config) => meetingStartNode(state, config))
-    .addNode('participant_turn', (state, config) => participantTurnNode(state, config))
-    .addNode('meeting_end', (state, config) => meetingEndNode(state, config))
-    .addNode('meeting_paused', (state, config) => meetingPausedNode(state, config))
-    .addNode('meeting_resume', (state, config) => meetingResumeNode(state, config))
-    .addNode('meeting_inject', (state, config) => meetingInjectNode(state, config))
+    .addNode(
+      'step_advance',
+      withNodeHooks('step_advance', (state, config) => stepAdvanceNode(state, config)),
+    )
+    .addNode(
+      'employee_direct_setup',
+      withNodeHooks('employee_direct_setup', (state, config) =>
+        employeeDirectSetupNode(state, config),
+      ),
+    )
+    .addNode(
+      'error_handler',
+      withNodeHooks('error_handler', (state, config) => errorHandlerNode(state, config)),
+    )
+    .addNode(
+      'hr',
+      withNodeHooks('hr', (state, config) => hrNode(state, config)),
+    )
+    .addNode(
+      'pm_heartbeat',
+      withNodeHooks('pm_heartbeat', (state, config) => pmHeartbeatNode(state, config)),
+    )
+    .addNode(
+      'pm_replan',
+      withNodeHooks('pm_replan', (state, config) => pmReplanNode(state, config)),
+    )
+    .addNode(
+      'boss_summary',
+      withNodeHooks('boss_summary', (state, config) => bossSummaryNode(state, config)),
+    )
+    .addNode(
+      'meeting_start',
+      withNodeHooks('meeting_start', (state, config) => meetingStartNode(state, config)),
+    )
+    .addNode(
+      'participant_turn',
+      withNodeHooks('participant_turn', (state, config) => participantTurnNode(state, config)),
+    )
+    .addNode(
+      'meeting_end',
+      withNodeHooks('meeting_end', (state, config) => meetingEndNode(state, config)),
+    )
+    .addNode(
+      'meeting_paused',
+      withNodeHooks('meeting_paused', (state, config) => meetingPausedNode(state, config)),
+    )
+    .addNode(
+      'meeting_resume',
+      withNodeHooks('meeting_resume', (state, config) => meetingResumeNode(state, config)),
+    )
+    .addNode(
+      'meeting_inject',
+      withNodeHooks('meeting_inject', (state, config) => meetingInjectNode(state, config)),
+    )
     .addConditionalEdges('__start__', routeFromStart, [
       'boss',
       'employee_direct_setup',

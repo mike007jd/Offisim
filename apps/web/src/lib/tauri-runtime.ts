@@ -17,7 +17,9 @@ import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/s
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
+import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
+import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
 import {
@@ -152,6 +154,8 @@ export async function createTauriRuntime(
     companyId,
   });
   const interactionBox = { pending: null };
+  const hookRegistry = new HookRegistry();
+  const scratchpad = new Scratchpad();
   const interactionService = new InteractionService({
     eventBus,
     companyId,
@@ -161,6 +165,7 @@ export async function createTauriRuntime(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    hookRegistry,
   });
   await interactionService.restore();
 
@@ -227,6 +232,8 @@ export async function createTauriRuntime(
     runtimePolicy,
     memoryService,
     interactionBox,
+    hookRegistry,
+    scratchpad,
     middlewareChain,
     systemCaller,
     sessionCostTracker,

@@ -24,7 +24,13 @@ export function ActivityRail({
 }: ActivityRailProps) {
   const { headline, entries, activeTools, totalCostUsd, hasActivity } = useRuntimeActivityFeed();
 
-  if (!hasActivity) return null;
+  if (!hasActivity) {
+    return (
+      <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
+        等待任务开始...
+      </div>
+    );
+  }
 
   const costLabel = formatCost(totalCostUsd);
   const visibleEntries = focusedEmployeeId

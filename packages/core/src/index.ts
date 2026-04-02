@@ -7,6 +7,8 @@ export type {
   InteractionBox,
   DisposableRuntime,
 } from './runtime/runtime-context.js';
+export type { HookEvent, HookDefinition } from './runtime/hook-registry.js';
+export type { ScratchpadEntry } from './runtime/scratchpad.js';
 export type {
   RuntimeRepositories,
   CompanyRow,
@@ -48,6 +50,12 @@ export type {
   NewFileHistory,
   NewCompactSummary,
   NewNodeSummary,
+  AgentEventRepository,
+  AgentEventRow,
+  NewAgentEvent,
+  RecoveryKnowledgeRepository,
+  RecoveryKnowledgeRow,
+  NewRecoveryKnowledge,
   MemoryEntryRow,
   MemoryEntryCreate,
   MemoryRepository,
@@ -130,6 +138,8 @@ export type { SerializedExecutionState } from './services/orchestration-service.
 // --- Factories ---
 export { buildOffisimGraph } from './graph/main-graph.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
+export { HookRegistry } from './runtime/hook-registry.js';
+export { Scratchpad } from './runtime/scratchpad.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
 export {
   createMemoryRepositories,

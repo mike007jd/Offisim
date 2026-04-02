@@ -27,7 +27,11 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
 
   const phaseIcon = getPhaseIcon(ceremony.phase);
   const phaseColor = getPhaseColor(ceremony.phase);
-  const { visible: visibleRelationships, extraCount, labels } = prepareWaitingDisplay(ceremony.waitingRelationships);
+  const {
+    visible: visibleRelationships,
+    extraCount,
+    labels,
+  } = prepareWaitingDisplay(ceremony.waitingRelationships);
 
   return (
     <Html position={BUBBLE_POSITION} center style={{ pointerEvents: 'none' }}>
@@ -105,9 +109,7 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
             }}
           >
             {visibleRelationships.map((relationship, i) => (
-              <div key={`${relationship.waiterId}:${relationship.kind}`}>
-                {labels[i]}
-              </div>
+              <div key={`${relationship.waiterId}:${relationship.kind}`}>{labels[i]}</div>
             ))}
             {extraCount > 0 && <div>+{extraCount} more</div>}
           </div>

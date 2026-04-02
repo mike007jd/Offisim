@@ -1,3 +1,4 @@
+import type { Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   DRAG_THRESHOLD,
@@ -8,6 +9,27 @@ import {
   screenToSvg,
   toSVG,
 } from '../../components/scene/office-2d-geometry';
+
+function makeZone(zoneId: string): Zone {
+  return {
+    zoneId,
+    companyId: 'co-test',
+    kind: 'custom',
+    archetype: null,
+    label: zoneId,
+    accentColor: '#ffffff',
+    floorColor: 0xffffff,
+    cx: 0,
+    cz: 0,
+    w: 1,
+    d: 1,
+    targetRoles: [],
+    allowedCategories: [],
+    activityTypes: [],
+    deskSlots: 0,
+    sortOrder: 0,
+  };
+}
 
 describe('office-2d-geometry', () => {
   describe('constants', () => {
@@ -35,8 +57,8 @@ describe('office-2d-geometry', () => {
 
   describe('hitTestZone', () => {
     const bounds = [
-      { zone: { zoneId: 'z1' } as any, x: 100, y: 100, w: 200, h: 150 },
-      { zone: { zoneId: 'z2' } as any, x: 400, y: 400, w: 100, h: 100 },
+      { zone: makeZone('z1'), x: 100, y: 100, w: 200, h: 150 },
+      { zone: makeZone('z2'), x: 400, y: 400, w: 100, h: 100 },
     ];
 
     it('returns the zone when point is inside', () => {

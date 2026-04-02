@@ -179,8 +179,8 @@ export function ProjectListPanel({
         {projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-6 text-slate-700">
             <FolderOpen className="h-6 w-6 mb-2 opacity-40" />
-            <p className="text-xs italic">No projects yet</p>
-            <p className="text-[11px] mt-1 text-slate-800">Ask the Boss to create a project</p>
+            <p className="text-xs italic">还没有项目，向 Boss 发送第一个任务</p>
+            <p className="text-[11px] mt-1 text-slate-800">Offisim 会在需要时自动创建项目线程</p>
           </div>
         )}
       </div>

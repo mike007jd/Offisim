@@ -10,6 +10,7 @@ export * from './components/agents/AgentCard.js';
 export * from './components/agents/AgentPanel.js';
 export * from './components/agents/EmployeeInspector.js';
 export { DicebearAvatar } from './components/shared/DicebearAvatar.js';
+export * from './components/shared/KeyboardShortcutsDialog.js';
 export * from './components/chat/ChatDrawer.js';
 export * from './components/chat/ChatInput.js';
 export * from './components/chat/ChatPanel.js';

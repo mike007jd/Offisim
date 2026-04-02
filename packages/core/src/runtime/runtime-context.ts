@@ -11,7 +11,9 @@ import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
+import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
+import { Scratchpad } from './scratchpad.js';
 import type { SessionCostTracker } from './session-cost-tracker.js';
 import type { ToolExecutor } from './tool-executor.js';
 
@@ -58,6 +60,10 @@ export interface RuntimeContext {
   readonly fileHistoryService?: FileHistoryService;
   /** Human-in-the-loop interaction controller. */
   readonly interactionService?: InteractionService;
+  /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
+  readonly hookRegistry: HookRegistry;
+  /** Shared in-memory scratchpad for cross-node planning notes. */
+  readonly scratchpad: Scratchpad;
 }
 
 export interface DisposableRuntime {
@@ -66,6 +72,7 @@ export interface DisposableRuntime {
   readonly toolExecutor?: { dispose?: () => void | Promise<void> };
   readonly notificationBridge?: { deactivate: () => void };
   readonly modelRegistry?: { disposeAll: () => void };
+  readonly scratchpad?: { clear: () => void };
 }
 
 export function disposeRuntime(d: DisposableRuntime): void {
@@ -78,6 +85,7 @@ export function disposeRuntime(d: DisposableRuntime): void {
     void d.toolExecutor.dispose();
   }
   d.eventBus?.removeAll();
+  d.scratchpad?.clear();
 }
 
 export function createRuntimeContext(deps: {
@@ -100,11 +108,15 @@ export function createRuntimeContext(deps: {
   toolTelemetryService?: ToolTelemetryService;
   fileHistoryService?: FileHistoryService;
   interactionService?: InteractionService;
+  hookRegistry?: HookRegistry;
+  scratchpad?: Scratchpad;
 }): RuntimeContext {
-  const { meetingInterruptBox, interactionBox, ...rest } = deps;
+  const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, ...rest } = deps;
   return Object.freeze({
     ...rest,
     meetingInterruptBox: meetingInterruptBox ?? { pending: null },
     interactionBox: interactionBox ?? { pending: null },
+    hookRegistry: hookRegistry ?? new HookRegistry(),
+    scratchpad: scratchpad ?? new Scratchpad(),
   });
 }

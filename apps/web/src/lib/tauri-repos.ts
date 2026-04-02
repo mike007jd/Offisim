@@ -4,6 +4,8 @@
 
 import type {
   ActiveInteractionRepository,
+  AgentEventRepository,
+  AgentEventRow,
   AssetBindingRepository,
   CheckpointRepository,
   CompactSummaryRepository,
@@ -12,6 +14,8 @@ import type {
   CompanyRow,
   EmployeeRepository,
   EmployeeRow,
+  EmployeeVersionRepository,
+  EmployeeVersionRow,
   EventRepository,
   FileHistoryRepository,
   FileHistoryRow,
@@ -34,7 +38,11 @@ import type {
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
+  ModelCostRateRepository,
+  ModelCostRateRow,
+  NewAgentEvent,
   NewCompactSummary,
+  NewEmployeeVersion,
   NewFileHistory,
   NewGraphCheckpoint,
   NewGraphThread,
@@ -45,9 +53,11 @@ import type {
   NewLlmCall,
   NewMcpAudit,
   NewMeetingSession,
+  NewModelCostRate,
   NewNodeSummary,
   NewOfficeLayout,
   NewRack,
+  NewRecoveryKnowledge,
   NewRuntimeEvent,
   NewSlot,
   NewSopTemplate,
@@ -58,6 +68,8 @@ import type {
   OfficeLayoutRow,
   ProjectRepository,
   RackRow,
+  RecoveryKnowledgeRepository,
+  RecoveryKnowledgeRow,
   RuntimeEventRow,
   RuntimeRepositories,
   SlotRow,
@@ -69,21 +81,7 @@ import type {
   ToolCallRow,
   WorkstationRackRow,
 } from '@offisim/core/browser';
-import type {
-  AgentEventRepository,
-  AgentEventRow,
-  EmployeeVersionRepository,
-  EmployeeVersionRow,
-  ModelCostRateRepository,
-  ModelCostRateRow,
-  NewAgentEvent,
-  NewEmployeeVersion,
-  NewModelCostRate,
-  NewRecoveryKnowledge,
-  RecoveryKnowledgeRepository,
-  RecoveryKnowledgeRow,
-} from '@offisim/core/dist/runtime/repositories.js';
-import * as schema from '@offisim/db-local/dist/schema.js';
+import * as schema from '@offisim/db-local';
 import type {
   AssetBindingRow,
   InstallTransactionRow,

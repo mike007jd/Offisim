@@ -1,6 +1,6 @@
 {
   "name": "@offisim/core",
-  "version": "0.0.1",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -50,5 +50,6 @@
     "drizzle-orm": "^0.39.3",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
-  }
+  },
+  "license": "MIT"
 }

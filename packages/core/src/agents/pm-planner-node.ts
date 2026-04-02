@@ -451,6 +451,13 @@ export async function pmPlannerNode(
   }
 
   const planId = generateId('plan');
+  runtimeCtx.scratchpad.write(
+    `pm.plan.${threadId}`,
+    `Plan summary: ${plan.summary}. Steps: ${plan.steps
+      .map((step) => `${step.stepIndex + 1}. ${step.description}`)
+      .join(' | ')}`,
+    'pm_planner',
+  );
 
   // Build TaskPlan and create taskRun records
   const planSteps: PlanStep[] = [];

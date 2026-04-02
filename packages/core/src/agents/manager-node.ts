@@ -141,6 +141,11 @@ export async function managerNode(
       eventType: 'decision',
       payload: { intent: 'work', assignmentCount: 1, fastPath: true },
     });
+    runtimeCtx.scratchpad.write(
+      `manager.assignment.${state.threadId}`,
+      `Fast-path delegation to ${soleEmployee.name} (${soleEmployee.role_slug}) for: ${userContent}`,
+      'manager',
+    );
     return {
       managerDirective: {
         intent: userContent,
@@ -206,6 +211,13 @@ export async function managerNode(
     eventType: 'decision',
     payload: { intent: decision.intent, assignmentCount: decision.assignments.length, constraints },
   });
+  runtimeCtx.scratchpad.write(
+    `manager.assignment.${state.threadId}`,
+    `Intent: ${decision.intent}. Recommended employees: ${
+      decision.assignments.map((assignment) => assignment.employeeId).join(', ') || 'none'
+    }.`,
+    'manager',
+  );
 
   return {
     managerDirective: {

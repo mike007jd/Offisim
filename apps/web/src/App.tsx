@@ -7,9 +7,11 @@ import {
   ChatDrawer,
   ChatPanel,
   CompanySelectionPage,
+  EmployeeEditorDialog,
   EmployeeInspector,
   ErrorBoundary,
   Header,
+  KeyboardShortcutsDialog,
   NotificationCenter,
   ProjectListPanel,
   ProjectSelector,
@@ -25,6 +27,7 @@ import {
   useCompanyEditor,
   useCompanyZones,
   useDeepLinkInstall,
+  useEmployeeEditor,
   useInstallFlow,
   useOffisimRuntime,
   useProjects,
@@ -40,6 +43,25 @@ import {
 } from './lib/app-view-layout';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
+const ONBOARDING_DONE_KEY = 'offisim.onboarding.done';
+
+const ONBOARDING_STEPS = [
+  {
+    title: '点击任意员工开始对话',
+    body: '左侧员工栏会打开个人信息和直接对话入口。',
+    position: 'left-8 top-24 max-w-xs',
+  },
+  {
+    title: '输入任务，观察 AI 团队协作',
+    body: '聊天抽屉会展示协作过程、系统消息和最终输出。',
+    position: 'left-1/2 bottom-24 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
+  },
+  {
+    title: '切换 3D / 2D 视图查看不同视角',
+    body: '布局编辑和装饰编辑入口也都集中在顶部栏。',
+    position: 'left-1/2 top-20 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
+  },
+] as const;
 
 interface SceneCanvasLazyProps {
   active?: boolean;
@@ -48,6 +70,7 @@ interface SceneCanvasLazyProps {
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string | null) => void;
   onDeselectEmployee?: () => void;
+  onFallbackTo2D?: () => void;
 }
 
 function CeremonyHost({ children }: { children: React.ReactNode }) {
@@ -126,6 +149,8 @@ export function App({ onCompanySwitch }: AppProps) {
   const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(
     activeCompanyId,
   );
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const {
     reinitRuntime,
     repos,
@@ -141,6 +166,7 @@ export function App({ onCompanySwitch }: AppProps) {
   });
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
+  const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
@@ -182,22 +208,93 @@ export function App({ onCompanySwitch }: AppProps) {
     primeEventLogStore(eventBus);
   }, [eventBus]);
 
-  // Keyboard shortcut: Cmd+D / Ctrl+D toggles Boss Dashboard overlay
-  // Keyboard shortcut: Cmd+J / Ctrl+J toggles Kanban Board overlay
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         setDashboardOpen((prev) => !prev);
+        return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
         e.preventDefault();
         setKanbanOpen((prev) => !prev);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '1') {
+        e.preventDefault();
+        setViewMode((prev) => (prev === '3D' ? '2D' : '3D'));
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+        if (!selectedEmployeeId) return;
+        e.preventDefault();
+        void employeeEditor.openForEdit(selectedEmployeeId);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === '/' || e.key === '?')) {
+        e.preventDefault();
+        setShortcutHelpOpen(true);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (shortcutHelpOpen) {
+          setShortcutHelpOpen(false);
+          return;
+        }
+        if (settingsOpen) {
+          setSettingsOpen(false);
+          return;
+        }
+        if (dashboardOpen) {
+          setDashboardOpen(false);
+          return;
+        }
+        if (kanbanOpen) {
+          setKanbanOpen(false);
+          return;
+        }
+        if (projectListOpen) {
+          setProjectListOpen(false);
+          return;
+        }
+        if (employeeEditor.isOpen) {
+          employeeEditor.close();
+          return;
+        }
+        if (selectedEmployeeId) {
+          setSelectedEmployeeId(null);
+          return;
+        }
+        if (view === 'employee-creator' || view === 'office-editor' || view === 'studio') {
+          setView('office');
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [
+    dashboardOpen,
+    employeeEditor,
+    kanbanOpen,
+    projectListOpen,
+    selectedEmployeeId,
+    settingsOpen,
+    shortcutHelpOpen,
+    view,
+  ]);
+
+  useEffect(() => {
+    if (!activeCompanyId || view !== 'office') return;
+    try {
+      if (localStorage.getItem(ONBOARDING_DONE_KEY) === 'true') {
+        setOnboardingStep(null);
+        return;
+      }
+    } catch {
+      // Ignore storage errors and still show onboarding once per session.
+    }
+    setOnboardingStep((current) => current ?? 0);
+  }, [activeCompanyId, view]);
 
   // Subscribe to deliverable.created — show a prominent "Output ready" toast with a View action
   useEffect(() => {
@@ -227,6 +324,8 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = selectedEmployeeId
     ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
+  const currentOnboardingIndex = onboardingStep ?? 0;
+  const currentOnboardingStep = onboardingStep !== null ? ONBOARDING_STEPS[onboardingStep] : null;
 
   const handleCreatorDeploy = useCallback(
     async ({ name, role, seed }: { name: string; role: string; seed: string }) => {
@@ -327,6 +426,15 @@ export function App({ onCompanySwitch }: AppProps) {
     setView('office');
   }
 
+  function finishOnboarding() {
+    setOnboardingStep(null);
+    try {
+      localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
   return (
     <ErrorBoundary>
       <>
@@ -395,13 +503,21 @@ export function App({ onCompanySwitch }: AppProps) {
                     companyName={activeCompanyName}
                     onOpenSettings={() => setSettingsOpen(true)}
                     onOpenEmployeeCreator={() => setView('employee-creator')}
+                    onOpenLayoutEditor={() => setView('office-editor')}
                     onOpenStudio={() => {
                       setStudioMode('edit');
                       setView('studio');
                     }}
                     onOpenCompanySelect={() => setView('company-select')}
                     onFileImport={installFlow.startFileImport}
-                    notificationSlot={<NotificationCenter />}
+                    notificationSlot={
+                      <NotificationCenter
+                        onFocusEmployee={(employeeId) => {
+                          setSelectedEmployeeId(employeeId);
+                          setChatOpenToken((t) => t + 1);
+                        }}
+                      />
+                    }
                     projectSlot={
                       <div className="relative">
                         <ProjectSelector
@@ -448,22 +564,29 @@ export function App({ onCompanySwitch }: AppProps) {
                       selectedEmployeeId={selectedEmployeeId}
                       onSelectEmployee={setSelectedEmployeeId}
                       onDeselectEmployee={() => setSelectedEmployeeId(null)}
+                      onFallbackTo2D={() => {
+                        setViewMode('2D');
+                        addToast('3D 渲染出错，已切换到 2D 视图', 'error');
+                      }}
                     />
                   </Suspense>
                 }
                 chatDrawer={
                   <ChatDrawer requestOpen={chatOpenToken}>
-                    <ChatPanel
-                      onOpenSettings={() => setSettingsOpen(true)}
-                      selectedEmployeeId={selectedEmployeeId}
-                      selectedEmployeeName={selectedEmployeeName}
-                      onClearSelection={() => setSelectedEmployeeId(null)}
-                      onSelectEmployee={setSelectedEmployeeId}
-                      onShowDashboard={() => setDashboardOpen(true)}
-                      onShowBudget={() => setDashboardOpen(true)}
-                      activeProject={activeProject}
-                      onUserMessage={setLastUserRequest}
-                    />
+                    {({ compact }) => (
+                      <ChatPanel
+                        compact={compact}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        selectedEmployeeId={selectedEmployeeId}
+                        selectedEmployeeName={selectedEmployeeName}
+                        onClearSelection={() => setSelectedEmployeeId(null)}
+                        onSelectEmployee={setSelectedEmployeeId}
+                        onShowDashboard={() => setDashboardOpen(true)}
+                        onShowBudget={() => setDashboardOpen(true)}
+                        activeProject={activeProject}
+                        onUserMessage={setLastUserRequest}
+                      />
+                    )}
                   </ChatDrawer>
                 }
                 eventLog={
@@ -495,14 +618,56 @@ export function App({ onCompanySwitch }: AppProps) {
               agents={agents}
               onClose={() => setSelectedEmployeeId(null)}
               onOpenEditor={(id) => {
-                companyEditor.open();
-                console.info('[EmployeeInspector] Open editor for', id);
+                void employeeEditor.openForEdit(id);
               }}
               onStartChat={(id) => {
                 setSelectedEmployeeId(id);
                 setChatOpenToken((t) => t + 1);
               }}
             />
+            {currentOnboardingStep && (
+              <div className="pointer-events-none fixed inset-0 z-[75]">
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+                <div
+                  className={`pointer-events-auto absolute ${currentOnboardingStep.position} rounded-2xl border border-white/10 bg-slate-950/90 p-4 shadow-2xl`}
+                >
+                  <p className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
+                    First Run Guide
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold text-white">
+                    {currentOnboardingStep.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-300">{currentOnboardingStep.body}</p>
+                  <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      {currentOnboardingIndex + 1} / {ONBOARDING_STEPS.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-md border border-white/10 px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/5"
+                        onClick={finishOnboarding}
+                      >
+                        跳过
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                        onClick={() => {
+                          if (currentOnboardingIndex >= ONBOARDING_STEPS.length - 1) {
+                            finishOnboarding();
+                            return;
+                          }
+                          setOnboardingStep(currentOnboardingIndex + 1);
+                        }}
+                      >
+                        {currentOnboardingIndex >= ONBOARDING_STEPS.length - 1 ? '完成' : '下一步'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -518,9 +683,11 @@ export function App({ onCompanySwitch }: AppProps) {
         <Suspense fallback={null}>
           <InstallDialog {...installFlow} />
         </Suspense>
+        <EmployeeEditorDialog {...employeeEditor} />
         <Suspense fallback={null}>
           <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
         </Suspense>
+        <KeyboardShortcutsDialog open={shortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
         {view === 'office' && (
           <Suspense fallback={null}>
             <CompanyCreationWizard

@@ -1,6 +1,6 @@
 {
   "name": "@offisim/doc-engine",
-  "version": "0.0.1",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -25,5 +25,6 @@
   "devDependencies": {
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
-  }
+  },
+  "license": "MIT"
 }

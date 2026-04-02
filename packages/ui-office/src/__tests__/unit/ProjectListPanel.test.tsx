@@ -95,7 +95,7 @@ describe('ProjectListPanel', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.getByText('No projects yet')).toBeInTheDocument();
+    expect(screen.getByText('还没有项目，向 Boss 发送第一个任务')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
