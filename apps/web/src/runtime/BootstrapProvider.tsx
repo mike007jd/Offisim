@@ -80,6 +80,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       installService: null,
       repos: runtime?.repos ?? null,
       employeeVersionService: null,
+      toolTelemetryService: null,
       connectMcpServer: async () => 0,
       disconnectMcpServer: async () => {},
       connectedMcpServers: new Set(),

@@ -83,7 +83,7 @@ export function RightSidebar({
           <EventLog />
         </TabsContent>
         <TabsContent value="server-room" className="mt-0 p-3">
-          <ServerRoom />
+          <ServerRoom activeThreadId={activeThreadId ?? null} />
         </TabsContent>
         <TabsContent value="library" className="mt-0">
           <Library />

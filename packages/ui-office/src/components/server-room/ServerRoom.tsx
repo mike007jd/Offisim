@@ -1,9 +1,11 @@
-import { Badge } from '@offisim/ui-core';
-import { Circle, Plus, Server, Trash2, Unplug, Wifi } from 'lucide-react';
+import { Badge, ScrollArea } from '@offisim/ui-core';
+import { Activity, AlertCircle, CheckCircle, Circle, Clock, Plus, Server, Trash2, Unplug, Wifi } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { RackWithSlots } from '@offisim/core/browser';
+import type { ToolExecutionTelemetryPayload } from '@offisim/shared-types';
 import { useRackSlot } from '../../hooks/useRackSlot.js';
+import { useToolTelemetry } from '../../hooks/useToolTelemetry.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 
 // ─── Status helpers ─────────────────────────────────────────────────────────
@@ -223,7 +225,23 @@ function EmptyRacks() {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ServerRoom() {
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+const STATUS_ICON: Record<ToolExecutionTelemetryPayload['status'], { Icon: typeof CheckCircle; color: string }> = {
+  started: { Icon: Clock, color: 'text-slate-400' },
+  completed: { Icon: CheckCircle, color: 'text-emerald-400' },
+  error: { Icon: AlertCircle, color: 'text-red-400' },
+  denied: { Icon: AlertCircle, color: 'text-amber-400' },
+};
+
+interface ServerRoomProps {
+  activeThreadId: string | null;
+}
+
+export function ServerRoom({ activeThreadId }: ServerRoomProps) {
   const { eventBus } = useOffisimRuntime();
   const {
     racks,
@@ -331,6 +349,64 @@ export function ServerRoom() {
           </button>
         </div>
       </div>
+
+      <ToolActivitySection activeThreadId={activeThreadId} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tool Activity — collapsible section showing recent tool executions
+// ---------------------------------------------------------------------------
+
+function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null }) {
+  const { entries, stats } = useToolTelemetry(activeThreadId);
+  const [expanded, setExpanded] = useState(true);
+
+  if (!activeThreadId) return null;
+
+  return (
+    <div className="border-t border-white/5 pt-2 mt-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1.5 w-full text-left mb-1.5"
+      >
+        <Activity className="w-3 h-3 text-cyan-400" />
+        <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
+          Tool Activity
+        </span>
+        {stats.total > 0 && (
+          <span className="text-[9px] text-slate-500 ml-auto">
+            {stats.total} calls &middot; {Math.round(stats.successRate * 100)}% ok &middot; avg{' '}
+            {formatMs(stats.avgDurationMs)}
+          </span>
+        )}
+      </button>
+
+      {expanded && (
+        entries.length === 0 ? (
+          <p className="text-[10px] text-slate-600 italic px-1">No tool calls yet</p>
+        ) : (
+          <ScrollArea className="max-h-40">
+            {entries.slice(-20).map((e) => {
+              const { Icon, color } = STATUS_ICON[e.status];
+              return (
+                <div
+                  key={`${e.toolCallId}-${e.startedAt}`}
+                  className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] hover:bg-white/5 transition-colors"
+                >
+                  <Icon className={`w-2.5 h-2.5 shrink-0 ${color}`} />
+                  <span className="flex-1 min-w-0 truncate text-slate-300">{e.toolName}</span>
+                  {e.durationMs != null && (
+                    <span className="text-slate-600 shrink-0">{formatMs(e.durationMs)}</span>
+                  )}
+                </div>
+              );
+            })}
+          </ScrollArea>
+        )
+      )}
     </div>
   );
 }

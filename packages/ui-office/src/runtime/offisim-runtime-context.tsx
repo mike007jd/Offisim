@@ -4,6 +4,7 @@ import type {
   McpServerConfig,
   MemoryRepositoriesSnapshot,
   RuntimeRepositories,
+  ToolTelemetryService,
 } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
 import type { InteractionMode, InteractionRequest, RuntimeEvent } from '@offisim/shared-types';
@@ -47,6 +48,8 @@ export interface OffisimRuntimeValue {
    * to avoid duplicating stateless service instances across hooks.
    */
   employeeVersionService: EmployeeVersionService | null;
+  /** Tool execution telemetry service — null when runtime not ready. */
+  toolTelemetryService: ToolTelemetryService | null;
   /** Connect an MCP server. Returns tool count on success; throws on failure. */
   connectMcpServer: (config: McpServerConfig) => Promise<number>;
   /** Disconnect an MCP server by name. */
