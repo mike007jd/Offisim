@@ -23,11 +23,22 @@ function pendingInteractionLabel(
 
 // ---------------------------------------------------------------------------
 
+import type { ProjectStatus } from '@offisim/shared-types';
+
+const PROJECT_STATUS_STYLE: Record<ProjectStatus, { label: string; color: string }> = {
+  planning: { label: 'Planning', color: 'text-blue-400' },
+  active: { label: 'Active', color: 'text-emerald-400' },
+  paused: { label: 'Paused', color: 'text-amber-400' },
+  completed: { label: 'Done', color: 'text-slate-500' },
+  archived: { label: 'Archived', color: 'text-slate-600' },
+};
+
 interface StatusBarProps {
   modelName?: string;
+  activeProjectStatus?: ProjectStatus | null;
 }
 
-export function StatusBar({ modelName }: StatusBarProps) {
+export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
   const { error, interactionMode, setInteractionMode, pendingInteraction } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
@@ -72,6 +83,15 @@ export function StatusBar({ modelName }: StatusBarProps) {
             </>
           )}
         </div>
+
+        {activeProjectStatus && (
+          <>
+            <div className="w-px h-3 bg-white/10" />
+            <span className={`uppercase tracking-[0.15em] font-semibold ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}>
+              {PROJECT_STATUS_STYLE[activeProjectStatus].label}
+            </span>
+          </>
+        )}
 
         <div className="w-px h-3 bg-white/10" />
 

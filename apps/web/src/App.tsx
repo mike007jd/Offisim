@@ -611,7 +611,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     activeThreadId={activeProject?.thread_id ?? null}
                   />
                 }
-                statusBar={<StatusBar modelName={providerConfig?.model} />}
+                statusBar={<StatusBar modelName={providerConfig?.model} activeProjectStatus={activeProject?.status ?? null} />}
                 onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>

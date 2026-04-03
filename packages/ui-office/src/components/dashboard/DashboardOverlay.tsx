@@ -19,6 +19,7 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import { CompanyStatusCard } from './CompanyStatusCard';
 import { ExecutionSummaryCard } from './ExecutionSummaryCard';
 import { FileChangesCard } from './FileChangesCard';
+import { InsightsCard } from './InsightsCard';
 import { CostByModelCard } from './CostByModelCard';
 import { CostOverviewCard } from './CostOverviewCard';
 import { RecentActivityCard } from './RecentActivityCard';
@@ -366,6 +367,7 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
             <OutputsCard />
             <ExecutionSummaryCard activeThreadId={activeThreadId ?? null} />
             <FileChangesCard activeThreadId={activeThreadId ?? null} />
+            <InsightsCard />
           </div>
         </div>
       </div>
