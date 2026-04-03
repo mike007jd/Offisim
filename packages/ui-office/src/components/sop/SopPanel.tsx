@@ -1,8 +1,9 @@
 import { Button } from '@offisim/ui-core';
-import { ChevronDown, ChevronRight, ClipboardList, Play, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardList, Play, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useSops } from '../../hooks/useSops';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { SopEditorDialog } from './SopEditorDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -177,8 +178,9 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
 // ---------------------------------------------------------------------------
 
 export function SopPanel() {
-  const { sops, loading, deleteSop } = useSops();
+  const { sops, loading, deleteSop, refreshSops } = useSops();
   const { sendMessage } = useOffisimRuntime();
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const handleRun = useCallback(
     (name: string) => {
@@ -197,23 +199,45 @@ export function SopPanel() {
 
   if (sops.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 py-5 px-3 text-center">
-        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-          <ClipboardList className="w-4 h-4 text-slate-500" />
+      <>
+        <div className="flex flex-col items-center gap-2 py-5 px-3 text-center">
+          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+            <ClipboardList className="w-4 h-4 text-slate-500" />
+          </div>
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            Create your first SOP or complete a task to generate one automatically.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] gap-1"
+            onClick={() => setEditorOpen(true)}
+          >
+            <Plus className="w-3 h-3" /> Create SOP
+          </Button>
         </div>
-        <p className="text-[10px] text-slate-500 leading-relaxed">
-          No SOPs saved yet. Complete a task and click{' '}
-          <strong className="text-slate-400">SOP</strong> in Outputs to create one.
-        </p>
-      </div>
+        <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={refreshSops} />
+      </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1.5 px-2 pb-2">
-      {sops.map((sop) => (
-        <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} />
-      ))}
-    </div>
+    <>
+      <div className="flex flex-col gap-1.5 px-2 pb-2">
+        <div className="flex items-center justify-end mb-0.5">
+          <button
+            type="button"
+            onClick={() => setEditorOpen(true)}
+            className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+          >
+            <Plus className="w-3 h-3" /> New
+          </button>
+        </div>
+        {sops.map((sop) => (
+          <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} />
+        ))}
+      </div>
+      <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={refreshSops} />
+    </>
   );
 }
