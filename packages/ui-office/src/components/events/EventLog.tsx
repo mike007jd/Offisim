@@ -4,7 +4,7 @@ import { ScrollArea } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { EventFilters } from './EventFilters';
-import type { EventFilterState } from './EventFilters';
+import type { EventFilterState, EventFilterType } from './EventFilters';
 import { EventItem } from './EventItem';
 
 const EVENT_PREFIXES = [
@@ -17,6 +17,16 @@ const EVENT_PREFIXES = [
   'llm.',
   'interaction.',
   'error.',
+  'mcp.',
+  'knowledge.',
+  'meeting.',
+  'cost.',
+  'hr.',
+  'direct.chat.',
+  'rack.',
+  'slot.',
+  'binding.',
+  'memory.',
 ] as const;
 const MAX_EVENTS = 200;
 
@@ -81,7 +91,7 @@ export function hydrateEventLogStore(eventBus: EventBus, events: RuntimeEvent[])
 }
 
 /** Map a filter type label to the topic prefix(es) it covers */
-const TYPE_PREFIX_MAP: Record<string, string[]> = {
+const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
   All: [],
   Node: ['graph.node.'],
   Plan: ['plan.'],
@@ -92,6 +102,12 @@ const TYPE_PREFIX_MAP: Record<string, string[]> = {
   LLM: ['llm.'],
   Interaction: ['interaction.'],
   Error: ['error.'],
+  MCP: ['mcp.'],
+  Knowledge: ['knowledge.'],
+  Meeting: ['meeting.', 'direct.chat.'],
+  HR: ['hr.'],
+  Memory: ['memory.'],
+  Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
 };
 
 /** Determine a display level from event topic only — no payload serialization */
@@ -158,7 +174,7 @@ export function EventLog() {
    *  Returns enriched tuples so level and employeeId are computed only once per event. */
   const filteredEvents = useMemo((): EnrichedEvent[] => {
     const { types, levels, search } = filters;
-    const selectedType = types[0] ?? 'All';
+    const selectedType = (types[0] ?? 'All') as EventFilterType;
     const prefixes = TYPE_PREFIX_MAP[selectedType] ?? [];
     const searchLower = search.toLowerCase();
 

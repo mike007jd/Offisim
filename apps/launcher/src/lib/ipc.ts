@@ -8,6 +8,7 @@ import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 export type LaunchMode = 'desktop' | 'web' | 'web_lan';
 
 export type ProcessStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
+export type DependencyStatus = 'healthy' | 'unreachable';
 
 export interface ProcessInfo {
   name: string;
@@ -19,10 +20,18 @@ export interface ProcessInfo {
   external: boolean;
 }
 
+export interface DatabaseInfo {
+  status: DependencyStatus;
+  address: string;
+  message: string;
+  can_start_with_docker: boolean;
+}
+
 export interface LauncherStatus {
   active_mode: LaunchMode | null;
   processes: ProcessInfo[];
   lan_address: string | null;
+  database: DatabaseInfo;
 }
 
 export interface LogLine {
@@ -56,6 +65,10 @@ export async function stopAll(): Promise<void> {
 
 export async function restartPlatform(): Promise<void> {
   return invoke('restart_platform');
+}
+
+export async function startPostgresDocker(): Promise<void> {
+  return invoke('start_postgres_docker');
 }
 
 export async function getStatus(): Promise<LauncherStatus> {

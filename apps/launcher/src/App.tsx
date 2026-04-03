@@ -13,6 +13,7 @@ import {
   onLog,
   onProcessExit,
   restartPlatform,
+  startPostgresDocker,
   stopMode,
 } from './lib/ipc';
 
@@ -20,7 +21,14 @@ const MAX_LOG_LINES = 5000;
 const PROCESS_NAMES = ['platform', 'frontend'] as const;
 
 function statusEqual(a: LauncherStatus, b: LauncherStatus): boolean {
-  if (a.active_mode !== b.active_mode || a.lan_address !== b.lan_address) return false;
+  if (
+    a.active_mode !== b.active_mode ||
+    a.lan_address !== b.lan_address ||
+    a.database.status !== b.database.status ||
+    a.database.message !== b.database.message ||
+    a.database.can_start_with_docker !== b.database.can_start_with_docker
+  )
+    return false;
   if (a.processes.length !== b.processes.length) return false;
   for (let i = 0; i < a.processes.length; i++) {
     const ap = a.processes[i];
@@ -42,12 +50,19 @@ export function App() {
     active_mode: null,
     processes: [],
     lan_address: null,
+    database: {
+      status: 'unreachable',
+      address: '127.0.0.1:5432',
+      message: 'Checking database status...',
+      can_start_with_docker: true,
+    },
   });
   const [logs, setLogs] = useState<Record<string, LogLine[]>>({
     platform: [],
     frontend: [],
   });
   const [launching, setLaunching] = useState(false);
+  const [startingPostgres, setStartingPostgres] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Poll status every 2s — skip update if nothing changed
@@ -167,6 +182,21 @@ export function App() {
     }
   }, []);
 
+  const handleStartPostgresDocker = useCallback(async () => {
+    setError(null);
+    setStartingPostgres(true);
+    try {
+      await startPostgresDocker();
+      const s = await getStatus();
+      setStatus(s);
+    } catch (e: unknown) {
+      const payload = e as LauncherErrorPayload;
+      setError(payload?.message ?? String(e));
+    } finally {
+      setStartingPostgres(false);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col h-screen bg-[var(--surface)] text-[var(--text-primary-val)]">
       {/* Header */}
@@ -187,13 +217,26 @@ export function App() {
 
       {/* Status Bar */}
       <div className="px-4 pb-3">
-        <StatusBar status={status} onStop={handleStop} onRestartPlatform={handleRestartPlatform} />
+        <StatusBar
+          status={status}
+          onStop={handleStop}
+          onRestartPlatform={handleRestartPlatform}
+          onStartPostgresDocker={handleStartPostgresDocker}
+          startingPostgres={startingPostgres}
+        />
       </div>
 
       {/* Error Banner */}
       {error && (
         <div className="mx-4 mb-3 px-3 py-2 rounded bg-[var(--error-val)]/15 border border-[var(--error-val)]/30 text-[var(--error-val)] text-xs font-mono">
           {error}
+        </div>
+      )}
+
+      {status.database.status === 'unreachable' && (
+        <div className="mx-4 mb-3 px-3 py-2 rounded bg-[var(--warning-val)]/10 border border-[var(--warning-val)]/30 text-[var(--warning-val)] text-xs">
+          {status.database.message}. Platform-backed features stay unavailable until Postgres is
+          running.
         </div>
       )}
 

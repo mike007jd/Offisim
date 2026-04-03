@@ -23,6 +23,18 @@ pub enum LauncherError {
     #[error("No active mode to stop")]
     NoActiveMode,
 
+    #[error("Docker CLI is not installed or not on PATH")]
+    DockerCliMissing,
+
+    #[error("Docker daemon is not running")]
+    DockerDaemonNotRunning,
+
+    #[error("docker-compose file not found at {0}")]
+    DockerComposeFileMissing(String),
+
+    #[error("Failed to start Postgres with Docker: {0}")]
+    DockerComposeFailed(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -47,6 +59,10 @@ impl From<&LauncherError> for LauncherErrorPayload {
             LauncherError::PlatformHealthTimeout(_) => "PLATFORM_HEALTH_TIMEOUT",
             LauncherError::PlatformNotOffisim(_) => "PLATFORM_NOT_OFFISIM",
             LauncherError::NoActiveMode => "NO_ACTIVE_MODE",
+            LauncherError::DockerCliMissing => "DOCKER_CLI_MISSING",
+            LauncherError::DockerDaemonNotRunning => "DOCKER_DAEMON_NOT_RUNNING",
+            LauncherError::DockerComposeFileMissing(_) => "DOCKER_COMPOSE_FILE_MISSING",
+            LauncherError::DockerComposeFailed(_) => "DOCKER_COMPOSE_FAILED",
             LauncherError::Io(_) => "IO_ERROR",
             LauncherError::Http(_) => "HTTP_ERROR",
         };

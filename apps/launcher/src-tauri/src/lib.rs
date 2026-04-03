@@ -44,6 +44,13 @@ async fn restart_platform(
 }
 
 #[tauri::command(async)]
+async fn start_postgres_docker(
+    state: tauri::State<'_, LauncherState>,
+) -> Result<(), error::LauncherError> {
+    state.start_postgres_with_docker().await
+}
+
+#[tauri::command(async)]
 async fn get_status(
     state: tauri::State<'_, LauncherState>,
 ) -> Result<LauncherStatus, error::LauncherError> {
@@ -79,6 +86,7 @@ pub fn run() {
             stop_mode,
             stop_all,
             restart_platform,
+            start_postgres_docker,
             get_status,
             get_logs,
         ])
@@ -101,9 +109,10 @@ fn resolve_repo_root() -> String {
     // In dev: CARGO_MANIFEST_DIR = <repo>/apps/launcher/src-tauri
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         if let Some(repo) = std::path::Path::new(&manifest_dir)
-            .parent()  // apps/launcher
-            .and_then(|p| p.parent())  // apps
-            .and_then(|p| p.parent())  // repo root
+            .parent() // apps/launcher
+            .and_then(|p| p.parent()) // apps
+            .and_then(|p| p.parent())
+        // repo root
         {
             return repo.to_string_lossy().to_string();
         }

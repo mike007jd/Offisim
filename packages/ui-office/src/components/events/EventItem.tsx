@@ -1,5 +1,16 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { AlertCircle, CheckCircle, Play } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  BookOpen,
+  CheckCircle,
+  Lightbulb,
+  Play,
+  Plug,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time.js';
 
 type EventCategory = 'entered' | 'error' | 'completed' | 'other';
@@ -46,15 +57,29 @@ interface EventItemProps {
   event: RuntimeEvent;
 }
 
+/** Pick a domain-specific icon + color for known event prefixes. */
+function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
+  if (type.startsWith('hr.')) return { Icon: UserCheck, color: 'text-rose-400' };
+  if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-blue-400' };
+  if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-emerald-400' };
+  if (type.startsWith('memory.')) return { Icon: Lightbulb, color: 'text-amber-400' };
+  if (type.startsWith('handoff.')) return { Icon: ArrowRightLeft, color: 'text-orange-400' };
+  if (type.startsWith('meeting.') || type.startsWith('direct.chat.'))
+    return { Icon: Users, color: 'text-cyan-400' };
+  return null;
+}
+
 export function EventItem({ event }: EventItemProps) {
   const { category, action } = categorize(event);
-  const Icon = category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle;
-  const iconColor =
+  const domain = domainIcon(event.type);
+  const Icon = domain?.Icon ?? (category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle);
+  const iconColor = domain?.color ?? (
     category === 'error'
       ? 'text-lobster-red'
       : category === 'entered'
         ? 'text-sea-blue'
-        : 'text-kelp-green';
+        : 'text-kelp-green'
+  );
   const label = getDisplayLabel(event);
 
   return (

@@ -5,13 +5,18 @@ import type {
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  HandoffInitiatedPayload,
+  HrRecommendationPayload,
   InteractionKind,
   InteractionModeChangedPayload,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
   InteractionRestoredPayload,
+  KnowledgeIndexCompletedPayload,
   LlmCallCompletedPayload,
   LlmCallStartedPayload,
+  McpToolCalledPayload,
+  MemoryCreatedPayload,
   PlanCreatedPayload,
   PlanStepCompletedPayload,
   RuntimeEvent,
@@ -673,6 +678,105 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offHrRecommendation = eventBus.on(
+      'hr.recommendation',
+      (event: RuntimeEvent<HrRecommendationPayload>) => {
+        const roles = event.payload.suggestedRoles;
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `hr-rec-${event.timestamp}`,
+              kind: 'system',
+              tone: 'info',
+              label: roles.length > 0
+                ? `HR suggests: ${roles.join(', ')}`
+                : 'HR assessment complete',
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offHandoff = eventBus.on(
+      'handoff.initiated',
+      (event: RuntimeEvent<HandoffInitiatedPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `handoff-${event.payload.handoffId}`,
+              kind: 'system',
+              tone: 'info',
+              label: truncate(`Handoff: ${event.payload.reason}`, 60),
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offMemoryCreated = eventBus.on(
+      'memory.created',
+      (event: RuntimeEvent<MemoryCreatedPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `memory-${event.payload.memoryId}`,
+              kind: 'system',
+              tone: 'success',
+              label: `New ${event.payload.scope} insight saved`,
+              timestamp: event.timestamp,
+              employeeId: event.payload.employeeId,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offMcpTool = eventBus.on(
+      'mcp.tool.called',
+      (event: RuntimeEvent<McpToolCalledPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `mcp-${event.timestamp}-${event.payload.toolName}`,
+              kind: 'system',
+              tone: 'info',
+              label: `MCP: ${event.payload.toolName}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offKnowledgeIndex = eventBus.on(
+      'knowledge.index.completed',
+      (event: RuntimeEvent<KnowledgeIndexCompletedPayload>) => {
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `knowledge-idx-${event.timestamp}`,
+              kind: 'system',
+              tone: 'success',
+              label: `Indexed ${event.payload.indexedCount} document${event.payload.indexedCount === 1 ? '' : 's'}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offSynopsis = eventBus.on(
       'conversation.synopsis.updated',
       (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
@@ -782,6 +886,11 @@ export function useRuntimeActivityFeed(opts?: {
       offError();
       offDeliverable();
       offPlanStep();
+      offHrRecommendation();
+      offHandoff();
+      offMemoryCreated();
+      offMcpTool();
+      offKnowledgeIndex();
       offSynopsis();
       offCompact();
       offResume();

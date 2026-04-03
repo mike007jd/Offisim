@@ -17,6 +17,12 @@ export const ALL_EVENT_TYPES = [
   'LLM',
   'Interaction',
   'Error',
+  'MCP',
+  'Knowledge',
+  'Meeting',
+  'HR',
+  'Memory',
+  'Infrastructure',
 ] as const;
 export type EventFilterType = (typeof ALL_EVENT_TYPES)[number];
 

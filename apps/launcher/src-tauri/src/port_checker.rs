@@ -4,11 +4,7 @@ use std::process::Command;
 /// Find listener PIDs for a TCP port using `lsof`.
 fn listener_pids(port: u16) -> std::io::Result<Vec<u32>> {
     let output = Command::new("lsof")
-        .args([
-            "-tiTCP",
-            &port.to_string(),
-            "-sTCP:LISTEN",
-        ])
+        .args(["-tiTCP", &port.to_string(), "-sTCP:LISTEN"])
         .output()?;
 
     if !output.status.success() && output.stdout.is_empty() {

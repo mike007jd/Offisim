@@ -1,10 +1,12 @@
-import { RotateCw, Square } from 'lucide-react';
+import { Database, RotateCw, Square } from 'lucide-react';
 import type { LauncherStatus, ProcessStatus } from '../lib/ipc';
 
 interface StatusBarProps {
   status: LauncherStatus;
   onStop: () => void;
   onRestartPlatform: () => void;
+  onStartPostgresDocker: () => void;
+  startingPostgres: boolean;
 }
 
 const STATUS_COLORS: Record<ProcessStatus, string> = {
@@ -23,7 +25,13 @@ const STATUS_LABELS: Record<ProcessStatus, string> = {
   failed: 'Failed',
 };
 
-export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps) {
+export function StatusBar({
+  status,
+  onStop,
+  onRestartPlatform,
+  onStartPostgresDocker,
+  startingPostgres,
+}: StatusBarProps) {
   const platform = status.processes.find((p) => p.name === 'platform');
   const frontend = status.processes.find((p) => p.name === 'frontend');
   const hasActiveMode = status.active_mode !== null;
@@ -32,6 +40,7 @@ export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps)
     <div className="flex items-center gap-4 text-xs font-mono">
       {/* Process indicators */}
       <div className="flex items-center gap-4 flex-1">
+        <DatabaseIndicator database={status.database} />
         <ProcessIndicator label="Platform" info={platform} />
         <ProcessIndicator label="Frontend" info={frontend} />
 
@@ -80,8 +89,33 @@ export function StatusBar({ status, onStop, onRestartPlatform }: StatusBarProps)
             Restart Platform
           </button>
         )}
+        {status.database.can_start_with_docker && (
+          <button
+            type="button"
+            onClick={onStartPostgresDocker}
+            disabled={startingPostgres}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--warning-val)]/30 bg-[var(--warning-val)]/10 text-[var(--warning-val)] hover:bg-[var(--warning-val)]/20 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Database size={12} />
+            {startingPostgres ? 'Starting Postgres...' : 'Start Postgres (Docker)'}
+          </button>
+        )}
       </div>
     </div>
+  );
+}
+
+function DatabaseIndicator({ database }: { database: LauncherStatus['database'] }) {
+  const color =
+    database.status === 'healthy' ? 'var(--success-val)' : 'var(--warning-val)';
+  const label = database.status === 'healthy' ? 'Ready' : 'Unavailable';
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+      <span style={{ color }}>Database: {label}</span>
+      <span className="text-[var(--text-muted-val)]">{database.address}</span>
+    </span>
   );
 }
 
