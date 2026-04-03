@@ -253,7 +253,7 @@ export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
 
 // --- Utilities ---
 export { extractJsonFromLlm } from './utils/extract-json.js';
-export { generateId } from './utils/generate-id.js';
+export { generateId, projectThreadId } from './utils/generate-id.js';
 export { globToRegex, matchCostRate } from './utils/glob-match.js';
 
 // --- Errors ---

@@ -1,12 +1,13 @@
 import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@offisim/shared-types';
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { ChevronDown, GitBranch } from 'lucide-react';
+import { ChevronDown, GitBranch, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ProjectSelectorProps {
   projects: ProjectRow[];
   activeProjectId: string | null;
   onSelect: (projectId: string | null) => void;
+  onCreateProject?: (name: string) => Promise<ProjectRow>;
 }
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
@@ -29,8 +30,16 @@ function StatusDot({ status }: { status: ProjectStatus }) {
   return <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[status]}`} />;
 }
 
-export function ProjectSelector({ projects, activeProjectId, onSelect }: ProjectSelectorProps) {
+export function ProjectSelector({
+  projects,
+  activeProjectId,
+  onSelect,
+  onCreateProject,
+}: ProjectSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -99,6 +108,64 @@ export function ProjectSelector({ projects, activeProjectId, onSelect }: Project
               <span className="ml-auto text-[10px] text-slate-600">active</span>
             )}
           </button>
+
+          {/* Create new project */}
+          {onCreateProject && (
+            <>
+              <div className="h-px bg-white/5 my-1" />
+              {creating ? (
+                <form
+                  className="px-3 py-1.5 flex items-center gap-1.5"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const trimmed = newName.trim();
+                    if (!trimmed || submitting) return;
+                    setSubmitting(true);
+                    try {
+                      const project = await onCreateProject(trimmed);
+                      onSelect(project.project_id);
+                      setNewName('');
+                      setCreating(false);
+                      setOpen(false);
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Project name..."
+                    className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setCreating(false);
+                        setNewName('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newName.trim() || submitting}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white disabled:opacity-30"
+                  >
+                    Create
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCreating(true)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-blue-400"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>New Project</span>
+                </button>
+              )}
+            </>
+          )}
 
           {/* Active/planning/paused projects */}
           {activeProjects.length > 0 && (

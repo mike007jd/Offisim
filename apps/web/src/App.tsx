@@ -160,7 +160,7 @@ export function App({ onCompanySwitch }: AppProps) {
     resumeThread,
   } = useOffisimRuntime();
   const activeCompanyName = companies.find((c) => c.company_id === activeCompanyId)?.name;
-  const { projects, activeProject, activeProjectId, setActiveProjectId } = useProjects({
+  const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } = useProjects({
     repos,
     companyId: activeCompanyId ?? '',
   });
@@ -547,6 +547,7 @@ export function App({ onCompanySwitch }: AppProps) {
                         projects={projects}
                         activeProjectId={activeProjectId}
                         onSelect={setActiveProjectId}
+                        onCreateProject={createProject}
                       />
                     }
                     viewMode={viewMode}
