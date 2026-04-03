@@ -1,3 +1,4 @@
+import { REQUIRED_ARCHETYPES } from '@offisim/shared-types';
 import type { PrefabInstanceRow } from '@offisim/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
@@ -57,6 +58,7 @@ function makeService(opts: { withPrefabRepo?: boolean; transact?: TransactFn } =
     eventBus,
     prefabRepo,
     opts.transact,
+    repos.zones,
   );
 
   return { service, repos, sopTemplateRepo, officeLayoutRepo, eventBus, prefabRepo };
@@ -113,6 +115,7 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     const instances = await prefabRepo.findByCompany(COMPANY_ID);
     expect(instances.length).toBeGreaterThan(0);
     expect(instances.length).toBe(result.prefabInstanceIds.length);
+    expect(instances.every((instance) => instance.zone_id.startsWith(`${COMPANY_ID}::`))).toBe(true);
   });
 
   it('returns empty prefabInstanceIds when prefabRepo is not provided', async () => {
@@ -169,6 +172,96 @@ describe('CompanyTemplateService.materializeTemplate', () => {
       expect(result.employeeIds).toHaveLength(5);
       expect(result.layoutId).toBeTruthy();
     });
+  });
+
+  it('assigns Content Studio content roles to real workspace zones', async () => {
+    const { service, prefabRepo, repos } = makeService({ withPrefabRepo: true });
+    await service.materializeTemplate('content-studio', COMPANY_ID);
+
+    if (!prefabRepo) throw new Error('Expected prefab repo');
+    const prefabs = await prefabRepo.findByCompany(COMPANY_ID);
+    const zones = await repos.zones.findByCompany(COMPANY_ID);
+    const zoneIds = new Set(zones.map((zone) => zone.zone_id));
+
+    expect(zoneIds.has(`${COMPANY_ID}::zone-content`)).toBe(false);
+    expect(zoneIds.has(`${COMPANY_ID}::zone-dev`)).toBe(true);
+    expect(zoneIds.has(`${COMPANY_ID}::zone-product`)).toBe(true);
+
+    const workstations = prefabs.filter((prefab) => prefab.prefab_id === 'workstation-standard');
+    const zoneCounts = new Map<string, number>();
+    for (const prefab of workstations) {
+      zoneCounts.set(prefab.zone_id, (zoneCounts.get(prefab.zone_id) ?? 0) + 1);
+    }
+
+    expect(zoneCounts.get(`${COMPANY_ID}::zone-dev`)).toBe(2);
+    expect(zoneCounts.get(`${COMPANY_ID}::zone-product`)).toBe(3);
+    expect(zoneCounts.has(`${COMPANY_ID}::zone-content`)).toBe(false);
+  });
+
+  it('creates only prefab zone ids that exist in the seeded company zones for every template', async () => {
+    const templateIds = ['rd-company', 'content-studio', 'product-team', 'agency-lite', 'ai-startup'];
+
+    for (const templateId of templateIds) {
+      const companyId = `${COMPANY_ID}-${templateId}`;
+      const { service, prefabRepo, repos } = makeService({ withPrefabRepo: true });
+      await service.materializeTemplate(templateId, companyId);
+
+      if (!prefabRepo) throw new Error('Expected prefab repo');
+      const prefabs = await prefabRepo.findByCompany(companyId);
+      const zones = await repos.zones.findByCompany(companyId);
+      const zoneIds = new Set(zones.map((zone) => zone.zone_id));
+
+      expect(zones.length).toBeGreaterThan(0);
+      expect(prefabs.length).toBeGreaterThan(0);
+      expect(prefabs.every((prefab) => zoneIds.has(prefab.zone_id))).toBe(true);
+      expect(prefabs.every((prefab) => prefab.zone_id.startsWith(`${companyId}::`))).toBe(true);
+    }
+  });
+
+  it('creates ai-startup GPU cluster default prefabs with the expected composition', async () => {
+    const companyId = `${COMPANY_ID}-ai-default-prefabs`;
+    const { service, prefabRepo } = makeService({ withPrefabRepo: true });
+    await service.materializeTemplate('ai-startup', companyId);
+
+    if (!prefabRepo) throw new Error('Expected prefab repo');
+    const prefabs = await prefabRepo.findByCompany(companyId);
+    const gpuClusterPrefabs = prefabs.filter((prefab) => prefab.zone_id === `${companyId}::zone-server`);
+
+    expect(gpuClusterPrefabs).toHaveLength(5);
+
+    const counts = new Map<string, number>();
+    for (const prefab of gpuClusterPrefabs) {
+      counts.set(prefab.prefab_id, (counts.get(prefab.prefab_id) ?? 0) + 1);
+    }
+
+    expect(counts.get('server-rack-2u')).toBe(3);
+    expect(counts.get('network-switch')).toBe(1);
+    expect(counts.get('cable-tray')).toBe(1);
+  });
+
+  it('gives every custom-zoned template required archetypes and workspace coverage', () => {
+    const { service } = makeService();
+    const templates = service.listTemplates().filter((template) => template.zones);
+
+    for (const template of templates) {
+      const zones = template.zones ?? [];
+      const workspaceRoleToZone = new Map<string, string>();
+
+      for (const requiredArchetype of REQUIRED_ARCHETYPES) {
+        expect(zones.some((zone) => zone.archetype === requiredArchetype)).toBe(true);
+      }
+
+      for (const zone of zones.filter((candidate) => candidate.archetype === 'workspace')) {
+        for (const role of zone.targetRoles) {
+          expect(workspaceRoleToZone.has(role)).toBe(false);
+          workspaceRoleToZone.set(role, zone.slug);
+        }
+      }
+
+      for (const employee of template.employees) {
+        expect(workspaceRoleToZone.has(employee.role_slug)).toBe(true);
+      }
+    }
   });
 });
 

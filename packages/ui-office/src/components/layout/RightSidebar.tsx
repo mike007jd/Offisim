@@ -15,12 +15,15 @@ interface RightSidebarProps {
   focusOutputsToken?: number;
   /** When truthy, open Kanban board as an overlay. */
   onOpenKanban?: () => void;
+  /** Filter outputs to this thread only. Null shows all. */
+  activeThreadId?: string | null;
 }
 
 export function RightSidebar({
   onOpenDashboard,
   focusOutputsToken,
   onOpenKanban,
+  activeThreadId,
 }: RightSidebarProps) {
   const agents = useAgentStates();
   const [activeTab, setActiveTab] = useState('events');
@@ -74,7 +77,7 @@ export function RightSidebar({
           </details>
         </TabsContent>
         <TabsContent value="outputs" className="mt-0">
-          <PitchHall />
+          <PitchHall activeThreadId={activeThreadId} />
         </TabsContent>
         <TabsContent value="events" className="mt-0">
           <EventLog />

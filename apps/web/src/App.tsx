@@ -13,13 +13,13 @@ import {
   Header,
   KeyboardShortcutsDialog,
   NotificationCenter,
-  ProjectListPanel,
   ProjectSelector,
   type ProviderConfig,
   ResumeBar,
   RightSidebar,
   SceneCeremonyProvider,
   StatusBar,
+  getRejectedProviderName,
   loadProviderConfig,
   primeEventLogStore,
   useAgentStates,
@@ -47,18 +47,18 @@ const ONBOARDING_DONE_KEY = 'offisim.onboarding.done';
 
 const ONBOARDING_STEPS = [
   {
-    title: '点击任意员工开始对话',
-    body: '左侧员工栏会打开个人信息和直接对话入口。',
+    title: 'Click any employee to start a conversation',
+    body: 'The left panel shows employee details and direct chat.',
     position: 'left-8 top-24 max-w-xs',
   },
   {
-    title: '输入任务，观察 AI 团队协作',
-    body: '聊天抽屉会展示协作过程、系统消息和最终输出。',
+    title: 'Enter a task and watch AI teamwork',
+    body: 'The chat drawer shows collaboration progress, system messages, and outputs.',
     position: 'left-1/2 bottom-24 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
   },
   {
-    title: '切换 3D / 2D 视图查看不同视角',
-    body: '布局编辑和装饰编辑入口也都集中在顶部栏。',
+    title: 'Switch between 3D and 2D views',
+    body: 'Layout and decoration editors are accessible from the top bar.',
     position: 'left-1/2 top-20 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
   },
 ] as const;
@@ -143,7 +143,6 @@ export function App({ onCompanySwitch }: AppProps) {
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
-  const [projectListOpen, setProjectListOpen] = useState(false);
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const [companyWizardMode, setCompanyWizardMode] = useState<'create-new' | null>(null);
   const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(
@@ -170,6 +169,18 @@ export function App({ onCompanySwitch }: AppProps) {
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
+
+  // Warn once on mount if saved provider config was rejected by production policy
+  useEffect(() => {
+    const rejected = getRejectedProviderName();
+    if (rejected) {
+      addToast(
+        `Provider "${rejected}" is not allowed in production. AI features are disabled. Switch to Subscription in Settings.`,
+        'error',
+        { durationMs: 10_000 },
+      );
+    }
+  }, [addToast]);
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -253,10 +264,6 @@ export function App({ onCompanySwitch }: AppProps) {
           setKanbanOpen(false);
           return;
         }
-        if (projectListOpen) {
-          setProjectListOpen(false);
-          return;
-        }
         if (employeeEditor.isOpen) {
           employeeEditor.close();
           return;
@@ -276,7 +283,6 @@ export function App({ onCompanySwitch }: AppProps) {
     dashboardOpen,
     employeeEditor,
     kanbanOpen,
-    projectListOpen,
     selectedEmployeeId,
     settingsOpen,
     shortcutHelpOpen,
@@ -509,6 +515,7 @@ export function App({ onCompanySwitch }: AppProps) {
                       setView('studio');
                     }}
                     onOpenCompanySelect={() => setView('company-select')}
+                    onOpenCompanyEditor={companyEditor.open}
                     onFileImport={installFlow.startFileImport}
                     notificationSlot={
                       <NotificationCenter
@@ -519,23 +526,11 @@ export function App({ onCompanySwitch }: AppProps) {
                       />
                     }
                     projectSlot={
-                      <div className="relative">
-                        <ProjectSelector
-                          projects={projects}
-                          activeProjectId={activeProjectId}
-                          onSelect={setActiveProjectId}
-                        />
-                        {projectListOpen && (
-                          <div className="absolute top-full mt-1 left-0 z-50">
-                            <ProjectListPanel
-                              projects={projects}
-                              activeProjectId={activeProjectId}
-                              onSelect={setActiveProjectId}
-                              onClose={() => setProjectListOpen(false)}
-                            />
-                          </div>
-                        )}
-                      </div>
+                      <ProjectSelector
+                        projects={projects}
+                        activeProjectId={activeProjectId}
+                        onSelect={setActiveProjectId}
+                      />
                     }
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
@@ -545,10 +540,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 agentPanel={
                   <AgentPanel
                     agents={agents}
-                    onSelectEmployee={(id) => {
-                      setSelectedEmployeeId(id);
-                      setChatOpenToken((t) => t + 1);
-                    }}
+                    onSelectEmployee={setSelectedEmployeeId}
                     selectedEmployeeId={selectedEmployeeId}
                     onOpenCreator={() => setView('employee-creator')}
                   />
@@ -566,7 +558,7 @@ export function App({ onCompanySwitch }: AppProps) {
                       onDeselectEmployee={() => setSelectedEmployeeId(null)}
                       onFallbackTo2D={() => {
                         setViewMode('2D');
-                        addToast('3D 渲染出错，已切换到 2D 视图', 'error');
+                        addToast('3D rendering failed — switched to 2D view', 'error');
                       }}
                     />
                   </Suspense>
@@ -580,9 +572,13 @@ export function App({ onCompanySwitch }: AppProps) {
                         selectedEmployeeId={selectedEmployeeId}
                         selectedEmployeeName={selectedEmployeeName}
                         onClearSelection={() => setSelectedEmployeeId(null)}
-                        onSelectEmployee={setSelectedEmployeeId}
-                        onShowDashboard={() => setDashboardOpen(true)}
-                        onShowBudget={() => setDashboardOpen(true)}
+                        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+                        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+                        onOpenEditor={() => setView('office-editor')}
+                        onOpenStudio={() => {
+                          setStudioMode('edit');
+                          setView('studio');
+                        }}
                         activeProject={activeProject}
                         onUserMessage={setLastUserRequest}
                       />
@@ -594,6 +590,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     onOpenDashboard={() => setDashboardOpen(true)}
                     onOpenKanban={() => setKanbanOpen(true)}
                     focusOutputsToken={focusOutputsToken}
+                    activeThreadId={activeProject?.thread_id ?? null}
                   />
                 }
                 statusBar={<StatusBar modelName={providerConfig?.model} />}
@@ -648,7 +645,7 @@ export function App({ onCompanySwitch }: AppProps) {
                         className="rounded-md border border-white/10 px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/5"
                         onClick={finishOnboarding}
                       >
-                        跳过
+                        Skip
                       </button>
                       <button
                         type="button"
@@ -661,7 +658,7 @@ export function App({ onCompanySwitch }: AppProps) {
                           setOnboardingStep(currentOnboardingIndex + 1);
                         }}
                       >
-                        {currentOnboardingIndex >= ONBOARDING_STEPS.length - 1 ? '完成' : '下一步'}
+                        {currentOnboardingIndex >= ONBOARDING_STEPS.length - 1 ? 'Done' : 'Next'}
                       </button>
                     </div>
                   </div>

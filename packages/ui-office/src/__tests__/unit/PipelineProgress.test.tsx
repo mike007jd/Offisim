@@ -23,7 +23,7 @@ describe('PipelineProgress', () => {
 
     render(<PipelineProgress stage="executing" isRunning />);
 
-    expect(screen.getByText('员工执行中')).toBeInTheDocument();
+    expect(screen.getByText('Employees working')).toBeInTheDocument();
   });
 
   it('renders the ceremony subtitle without hard-coded left padding', () => {
@@ -39,6 +39,6 @@ describe('PipelineProgress', () => {
 
     render(<PipelineProgress stage="dispatching" isRunning />);
 
-    expect(screen.getByText('分派任务中').parentElement).not.toHaveClass('pl-[11.75rem]');
+    expect(screen.getByText('Dispatching tasks').parentElement).not.toHaveClass('pl-[11.75rem]');
   });
 });

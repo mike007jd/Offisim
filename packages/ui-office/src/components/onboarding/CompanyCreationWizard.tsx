@@ -8,6 +8,7 @@ import {
   ROLE_DOT,
   ROLE_LABELS,
   TEMPLATE_META,
+  getTemplateZoneSummary,
   getAvatar,
 } from './company-creation-wizard-data.js';
 import { Office2DPreview } from './company-creation-wizard-preview.js';
@@ -120,6 +121,7 @@ export function CompanyCreationWizard({
 
   const selected = templates.find((template) => template.id === selectedTemplateId);
   const meta = selected ? TEMPLATE_META[selected.id] : null;
+  const zoneSummary = selected && !isCreateYourOwn ? getTemplateZoneSummary(selected) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface">
@@ -183,32 +185,40 @@ export function CompanyCreationWizard({
                 </div>
 
                 {!isCreateYourOwn && (
-                  <div className="flex">
-                    <button
-                      type="button"
-                      onClick={() => setInfoTab('team')}
-                      className={`pb-2 pr-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                        infoTab === 'team'
-                          ? 'border-b-2 border-blue-400 text-white'
-                          : 'text-slate-600 hover:text-slate-400'
-                      }`}
-                    >
-                      Team · {selected.employees.length}
-                    </button>
-                    {selected.sops.length > 0 && (
+                  <>
+                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Zones · {zoneSummary.length}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-300">{zoneSummary.join(' • ')}</p>
+                    </div>
+                    <div className="mt-3 flex">
                       <button
                         type="button"
-                        onClick={() => setInfoTab('workflows')}
-                        className={`px-4 pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                          infoTab === 'workflows'
+                        onClick={() => setInfoTab('team')}
+                        className={`pb-2 pr-4 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                          infoTab === 'team'
                             ? 'border-b-2 border-blue-400 text-white'
                             : 'text-slate-600 hover:text-slate-400'
                         }`}
                       >
-                        Workflows · {selected.sops.length}
+                        Team · {selected.employees.length}
                       </button>
-                    )}
-                  </div>
+                      {selected.sops.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setInfoTab('workflows')}
+                          className={`px-4 pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                            infoTab === 'workflows'
+                              ? 'border-b-2 border-blue-400 text-white'
+                              : 'text-slate-600 hover:text-slate-400'
+                          }`}
+                        >
+                          Workflows · {selected.sops.length}
+                        </button>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -261,7 +271,7 @@ export function CompanyCreationWizard({
                   </div>
                 ) : (
                   <Office2DPreview
-                    employees={selected.employees}
+                    template={selected}
                     highlightZones={meta.highlightZones}
                     accentHex={meta.accentHex}
                   />

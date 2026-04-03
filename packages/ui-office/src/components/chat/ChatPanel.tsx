@@ -4,6 +4,13 @@ import { ArrowLeft, Folder } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
+import {
+  type ChatCommand,
+  type ClientCommandContext,
+  type PanelCommandContext,
+  buildHelpText,
+  extractMentionHints,
+} from '../../lib/chat-commands.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
@@ -20,7 +27,7 @@ import { SystemMessageFeed } from './SystemMessageFeed';
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
@@ -29,12 +36,14 @@ interface ChatPanelProps {
   selectedEmployeeId?: string | null;
   selectedEmployeeName?: string | null;
   onClearSelection?: () => void;
-  /** Switch active direct-chat target (used by @mention selection). */
-  onSelectEmployee?: (employeeId: string) => void;
-  /** Open dashboard overlay (for /status command) */
-  onShowDashboard?: () => void;
-  /** Open cost view (for /budget command) */
-  onShowBudget?: () => void;
+  /** Toggle dashboard overlay */
+  onToggleDashboard?: () => void;
+  /** Toggle kanban overlay */
+  onToggleKanban?: () => void;
+  /** Open office layout editor */
+  onOpenEditor?: () => void;
+  /** Open decoration studio */
+  onOpenStudio?: () => void;
   /** Active project — when set, all messages use the project's threadId. */
   activeProject?: ProjectRow | null;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
@@ -52,9 +61,10 @@ export function ChatPanel({
   selectedEmployeeId,
   selectedEmployeeName,
   onClearSelection,
-  onSelectEmployee,
-  onShowDashboard,
-  onShowBudget,
+  onToggleDashboard,
+  onToggleKanban,
+  onOpenEditor,
+  onOpenStudio,
   activeProject,
   onUserMessage,
   compact = false,
@@ -163,11 +173,16 @@ export function ChatPanel({
       onUserMessage?.(text);
     }
 
+    // Extract @mention hints — if exactly one mention and no explicit target, use as hint
+    const mentionHints = agents ? extractMentionHints(text, agents) : [];
+    const targetHint =
+      mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
+
     addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
 
     const response = await sendMessage(text, {
       entryMode: options?.entryMode,
-      targetEmployeeId: selectedEmployeeId ?? undefined,
+      targetEmployeeId: selectedEmployeeId ?? targetHint,
       threadId: activeProject?.thread_id ?? undefined,
     });
 
@@ -211,37 +226,50 @@ export function ChatPanel({
     onOpenSettings();
   }
 
-  // ── Slash command handler (client-side only) ────────────────────
-  const handleSlashCommand = useCallback(
-    (cmd: string) => {
-      switch (cmd) {
-        case '/status':
-          onShowDashboard?.();
-          break;
-        case '/budget':
-          onShowBudget?.();
-          break;
+  // ── Unified command executor (replaces old handleSlashCommand) ──
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleSend is render-scoped; context builders use stable refs
+  const executeCommand = useCallback(
+    (command: ChatCommand, args: string) => {
+      if (command.type === 'runtime') {
+        const prompt = command.buildPrompt(args);
+        handleSend(prompt, { entryMode: command.entryMode });
+        return;
+      }
+      if (command.type === 'client') {
+        const ctx: ClientCommandContext = {
+          showDashboard: () => onToggleDashboard?.(),
+          clearMessages: () => {
+            setMessagesByTarget(new Map());
+          },
+          showHelp: () => {
+            const helpText = buildHelpText();
+            addMessage(targetKey, { id: genMsgId(), role: 'system', content: helpText });
+          },
+        };
+        command.execute(args, ctx);
+        return;
+      }
+      if (command.type === 'panel') {
+        const ctx: PanelCommandContext = {
+          toggleDashboard: () => onToggleDashboard?.(),
+          toggleKanban: () => onToggleKanban?.(),
+          openSettings: () => onOpenSettings(),
+          openEditor: () => onOpenEditor?.(),
+          openStudio: () => onOpenStudio?.(),
+        };
+        command.execute(args, ctx);
       }
     },
-    [onShowDashboard, onShowBudget],
-  );
-
-  // ── Mention select handler ─────────────────────────────────────
-  const handleMentionSelect = useCallback(
-    (employeeId: string) => {
-      if (employeeId === 'team') return; // @team stays in team chat
-      onSelectEmployee?.(employeeId); // Switch to direct chat with that employee
-    },
-    [onSelectEmployee],
+    [targetKey, onToggleDashboard, onToggleKanban, onOpenSettings, onOpenEditor, onOpenStudio],
   );
 
   const showEmpty = messages.length === 0 && !isStreaming && !pendingInteraction;
   const isDirectChat = !!selectedEmployeeId;
   const latestMessage = messages.at(-1);
   const inputDisabledReason = !isReady
-    ? '请先在 Settings 中配置 API Key，随后即可开始对话。'
+    ? 'Configure an API Key in Settings to start chatting.'
     : isRunning
-      ? '任务执行中，等待当前回合完成。'
+      ? 'Task in progress — waiting for current round to finish.'
       : undefined;
 
   const inputPlaceholder = isDirectChat
@@ -253,7 +281,10 @@ export function ChatPanel({
       {!isReady && (
         <div className="mx-3 mt-3 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
           <div className="flex items-center justify-between gap-3">
-            <span>配置 API Key 以开始真实协作。当前仍可浏览场景、模板和编辑器。</span>
+            <span>
+              Configure an API Key to enable AI collaboration. You can still browse scenes,
+              templates, and editors.
+            </span>
             <button
               type="button"
               onClick={onOpenSettings}
@@ -319,7 +350,7 @@ export function ChatPanel({
             </div>
           ) : (
             <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-500">
-              输入任务，观察 AI 团队协作。
+              Enter a task and watch your AI team collaborate.
             </div>
           )}
           {isStreaming && <StreamingBubble />}
@@ -404,12 +435,11 @@ export function ChatPanel({
       {/* Input */}
       <ChatInput
         onSend={handleSend}
+        onCommand={executeCommand}
         disabled={isRunning || !isReady}
         disabledReason={inputDisabledReason}
         placeholder={inputPlaceholder}
         agents={agents}
-        onSlashCommand={handleSlashCommand}
-        onMentionSelect={handleMentionSelect}
       />
     </div>
   );

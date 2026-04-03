@@ -1,15 +1,12 @@
 import { type RuntimeRepositories, dehydrateZone } from '@offisim/core/browser';
 import type { PrefabStateChangedPayload, RuntimeEvent, Zone } from '@offisim/shared-types';
+import { normalizeZoneId } from '@offisim/shared-types';
 import type { PlacedInstance } from '../components/studio/StudioState.js';
 
 const STUDIO_TEMP_PREFIX = 'sp-';
 
 interface ZonePersistenceEventBus {
   emit: (event: RuntimeEvent<PrefabStateChangedPayload>) => void;
-}
-
-function normalizeZoneId(companyId: string, zoneId: string): string {
-  return zoneId.includes('::') ? zoneId : `${companyId}::${zoneId}`;
 }
 
 export async function saveZonesToDb(

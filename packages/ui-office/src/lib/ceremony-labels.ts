@@ -3,11 +3,11 @@ import { getPhaseColor } from './ceremony-visuals';
 
 export const CEREMONY_LABELS: Record<CeremonyPhase, { label: string; color: string } | null> = {
   idle: null,
-  gathering: { label: '团队集合中', color: getPhaseColor('gathering') },
-  analyzing: { label: 'Boss 分析需求', color: getPhaseColor('analyzing') },
-  planning: { label: 'PM 制定计划', color: getPhaseColor('planning') },
-  dispatching: { label: '分派任务中', color: getPhaseColor('dispatching') },
-  working: { label: '员工执行中', color: getPhaseColor('working') },
-  reporting: { label: '汇报总结中', color: getPhaseColor('reporting') },
-  dismissing: { label: '散会中', color: getPhaseColor('dismissing') },
+  gathering: { label: 'Team gathering', color: getPhaseColor('gathering') },
+  analyzing: { label: 'Boss analyzing', color: getPhaseColor('analyzing') },
+  planning: { label: 'PM planning', color: getPhaseColor('planning') },
+  dispatching: { label: 'Dispatching tasks', color: getPhaseColor('dispatching') },
+  working: { label: 'Employees working', color: getPhaseColor('working') },
+  reporting: { label: 'Reporting', color: getPhaseColor('reporting') },
+  dismissing: { label: 'Wrapping up', color: getPhaseColor('dismissing') },
 };

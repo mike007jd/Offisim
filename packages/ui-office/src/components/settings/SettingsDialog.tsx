@@ -2,6 +2,7 @@ import type {
   ModelProfile,
   RuntimeExecutionMode,
   RuntimePolicyConfig,
+  RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
 import {
   Button,
@@ -100,6 +101,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     String(DEFAULT_POLICY.memory.factConfidenceThreshold),
   );
   const [toolSearchEnabled, setToolSearchEnabled] = useState(true);
+  const [toolPermissions, setToolPermissions] = useState<RuntimeToolPermissionsPolicy>(
+    DEFAULT_POLICY.toolPermissions,
+  );
   const [runtimeModelDefault, setRuntimeModelDefault] = useState<ModelProfile>(
     DEFAULT_POLICY.modelPolicy.default,
   );
@@ -137,6 +141,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
         setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
         setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setToolPermissions(runtimePolicy.toolPermissions);
         setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
         setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
         const match = Object.entries(PROVIDER_PRESETS).find(
@@ -148,16 +153,16 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
           if (IS_BROWSER_PROD) {
             setPreset('');
             setSaveError(
-              `浏览器版不支持 AI provider 配置。当前已保存的 provider "${matchPreset.label}" 不会在浏览器版启用。`,
+              `Browser mode does not support AI provider configuration. The saved provider "${matchPreset.label}" will not be active in the browser.`,
             );
           } else if (!IS_DEV && matchPreset.devOnly) {
             setPreset('subscription');
             setSaveError(
-              `已保存的 provider "${matchPreset.label}" 不再是有效的生产配置，已自动切换为订阅制。请重新保存。`,
+              `The saved provider "${matchPreset.label}" is no longer a valid production config and has been switched to Subscription. Please save again.`,
             );
           } else if (IS_DEV && !IS_DESKTOP && matchKey === 'subscription') {
             setPreset(DEFAULT_PRESET_KEY ?? '');
-            setSaveError('订阅制 (Subscription) 仅支持桌面版。已自动切换为 MiniMax，请重新保存。');
+            setSaveError('Subscription mode is only available on desktop. Switched to MiniMax — please save again.');
           } else {
             setPreset(matchKey);
           }
@@ -184,6 +189,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
         setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
         setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setToolPermissions(runtimePolicy.toolPermissions);
         setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
         setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
       }
@@ -226,7 +232,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     setSaveError('');
     try {
       if (IS_BROWSER_PROD) {
-        setSaveError('浏览器版不支持保存 AI provider 配置。请使用桌面版。');
+        setSaveError('Browser mode does not support saving AI provider configuration. Please use the desktop app.');
         return;
       }
       setIsSaving(true);
@@ -293,6 +299,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         toolSearch: {
           enabled: toolSearchEnabled,
         },
+        toolPermissions,
       };
 
       const config: ProviderConfig = {
@@ -361,11 +368,11 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             <div className="flex flex-col gap-4 pt-2">
               {IS_BROWSER_PROD && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                  <p className="text-xs text-amber-300 font-medium mb-1">浏览器版功能受限</p>
+                  <p className="text-xs text-amber-300 font-medium mb-1">Browser Limitations</p>
                   <p className="text-[10px] text-slate-400">
-                    AI 运行时仅在桌面版（Offisim
-                    Desktop）中可用。浏览器版可用于公司管理和办公室编辑， 但不支持 AI
-                    对话功能。请下载桌面版以获得完整体验。
+                    The AI runtime is only available in Offisim Desktop. The browser version
+                    supports company management and office editing, but does not support AI
+                    conversations. Download the desktop app for the full experience.
                   </p>
                 </div>
               )}
@@ -395,10 +402,10 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 (isSubscription ? (
                   <>
                     <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                      <p className="text-xs text-blue-300 font-medium mb-1">订阅制模式</p>
+                      <p className="text-xs text-blue-300 font-medium mb-1">Subscription Mode</p>
                       <p className="text-[10px] text-slate-400">
-                        使用你本地已安装的 AI 订阅（如 Claude Pro/Max）来运行 agents。 无需 API
-                        Key，直接使用订阅额度。
+                        Use your locally installed AI subscription (e.g. Claude Pro/Max) to run
+                        agents. No API Key needed — runs on your subscription quota.
                       </p>
                     </div>
                     <div>
@@ -406,7 +413,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                         htmlFor="settings-acp-command"
                         className="text-sm text-shell mb-1 block"
                       >
-                        CLI 命令
+                        CLI Command
                       </label>
                       <Input
                         id="settings-acp-command"
@@ -415,7 +422,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                         placeholder="claude"
                       />
                       <p className="text-[10px] text-slate-500 mt-1">
-                        ACP server 命令路径。默认 &quot;claude&quot;（Claude Code CLI）。
+                        ACP server command path. Default is &quot;claude&quot; (Claude Code CLI).
                       </p>
                     </div>
                   </>
@@ -480,8 +487,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
               {!IS_BROWSER_PROD && isThinkingProvider && (
                 <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
-                  此提供商的模型会返回 thinking 块，消耗 max_tokens 预算。建议员工的 Max Tokens 设置
-                  ≥ 1024，否则 thinking 可能耗尽配额导致回复为空。
+                  This provider returns thinking blocks that consume the max_tokens budget. Set
+                  employee Max Tokens to ≥ 1024, or thinking may exhaust the quota and produce
+                  empty replies.
                 </div>
               )}
 

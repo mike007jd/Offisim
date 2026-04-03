@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { getBadgeColorForDisplayName } from '../../lib/agent-display';
 
 interface MessageBubbleProps {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
@@ -58,6 +58,17 @@ function renderWithCitations(text: string): ReactNode {
 // ── Component ──────────────────────────────────────────────────────
 
 export function MessageBubble({ role, content }: MessageBubbleProps) {
+  // System messages: full-width, monospace, no avatar
+  if (role === 'system') {
+    return (
+      <div data-role="system" className="px-1 py-1">
+        <div className="font-mono text-[11px] text-slate-500 whitespace-pre-wrap leading-relaxed">
+          {content}
+        </div>
+      </div>
+    );
+  }
+
   const isUser = role === 'user';
   const agent = !isUser ? parseAgentIdentity(content) : null;
   const displayContent = agent ? agent.body : content;

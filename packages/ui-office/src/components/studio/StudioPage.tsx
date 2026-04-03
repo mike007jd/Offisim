@@ -223,33 +223,56 @@ export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }:
   // -- Load existing data (edit mode) -----------------------------------------
 
   useEffect(() => {
-    if (mode === 'edit' && companyId && repos) {
-      setLoading(true);
-      Promise.all([
-        repos.prefabInstances.findByCompany(companyId),
-        repos.zones.findByCompany(companyId),
-      ]).then(([instanceRows, zoneRows]) => {
-        const store = useStudioStore.getState();
-        store.loadZonesFromDb(zoneRows.map((r) => hydrateZone(r)));
+    let cancelled = false;
 
-        // Load instances
-        const instances = instanceRows.map((r) => ({
-          id: r.instance_id,
-          prefabId: r.prefab_id,
-          position: [r.position_x, 0, r.position_y] as [number, number, number],
-          rotation: r.rotation,
-          zoneId: r.zone_id,
-        }));
-        store.setInstances(instances);
-        setLoading(false);
-      });
-    } else {
-      // Create mode: populate with default zone templates so placement can resolve
+    async function loadStudioState() {
       const store = useStudioStore.getState();
+
+      if (!repos) {
+        store.loadZonesFromDb(SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, '')));
+        store.setInstances([]);
+        setLoading(false);
+        return;
+      }
+
+      if (companyId) {
+        setLoading(true);
+        const [instanceRows, zoneRows] = await Promise.all([
+          repos.prefabInstances.findByCompany(companyId),
+          repos.zones.findByCompany(companyId),
+        ]);
+
+        if (cancelled) return;
+
+        store.loadZonesFromDb(
+          zoneRows.length > 0
+            ? zoneRows.map((row) => hydrateZone(row))
+            : SYSTEM_ZONE_TEMPLATES.map((template) => templateToZone(template, companyId)),
+        );
+        store.setInstances(
+          instanceRows.map((row) => ({
+            id: row.instance_id,
+            prefabId: row.prefab_id,
+            position: [row.position_x, 0, row.position_y] as [number, number, number],
+            rotation: row.rotation,
+            zoneId: row.zone_id,
+          })),
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Truly blank create mode: populate default templates so placement can resolve.
       store.loadZonesFromDb(SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, '')));
       store.setInstances([]);
       setLoading(false);
     }
+
+    void loadStudioState();
+
+    return () => {
+      cancelled = true;
+    };
   }, [mode, companyId, repos]);
 
   // -- Save flow --------------------------------------------------------------

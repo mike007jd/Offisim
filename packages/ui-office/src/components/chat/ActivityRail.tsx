@@ -27,7 +27,7 @@ export function ActivityRail({
   if (!hasActivity) {
     return (
       <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
-        等待任务开始...
+        Waiting for task to start...
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function ActivityRail({
         )}
         {focusedEmployeeId && (
           <span className="inline-flex items-center gap-1 rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-blue-100">
-            <span className="font-medium">聚焦: {focusedEmployeeName ?? focusedEmployeeId}</span>
+            <span className="font-medium">Focus: {focusedEmployeeName ?? focusedEmployeeId}</span>
           </span>
         )}
       </div>

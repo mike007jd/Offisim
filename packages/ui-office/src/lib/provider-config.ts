@@ -307,6 +307,12 @@ function toPersistedConfig(config: ProviderConfig): ProviderConfig {
   return persisted;
 }
 
+function isProviderRejectedInProduction(provider: LlmProvider): boolean {
+  if (isTauri() && !isProductionProvider(provider)) return true;
+  if (!isTauri() && !import.meta.env.DEV && !isProductionProvider(provider)) return true;
+  return false;
+}
+
 export function loadProviderConfig(): ProviderConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -314,27 +320,14 @@ export function loadProviderConfig(): ProviderConfig | null {
     const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return null;
 
-    // Warn about legacy vendor-direct configs that are no longer valid for production
-    if (isTauri() && !isProductionProvider(parsed.provider)) {
-      console.warn(
-        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter and is not allowed in production runtime on desktop. Please switch to a self-developed transport (e.g. "subscription") in Settings. Ignoring saved config.`,
-      );
-      // Return null so the desktop falls back to repos-only mode
-      // instead of crashing in createTauriRuntime().
-      return null;
-    }
-
-    if (!isTauri() && !import.meta.env.DEV && !isProductionProvider(parsed.provider)) {
+    if (isProviderRejectedInProduction(parsed.provider)) {
       console.warn(
         `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter and is not allowed in production runtime. Ignoring saved config.`,
       );
-      // Return null so the browser falls back to repos-only mode
-      // instead of crashing in assertBrowserProviderAllowed().
       return null;
     }
 
     if (isTauri() && isProductionProvider(parsed.provider)) {
-      // Self-developed providers use secure transport — strip any stored apiKey
       const { apiKey: _apiKey, ...desktopConfig } = parsed;
       return desktopConfig;
     }
@@ -350,6 +343,22 @@ export function saveProviderConfig(config: ProviderConfig): void {
 
 export function clearProviderConfig(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Returns the name of the saved provider if it was rejected by production policy,
+ * or null if there is no saved config / the config is valid.
+ */
+export function getRejectedProviderName(): string | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = normalizeProviderConfig(JSON.parse(raw));
+    if (!parsed) return null;
+    return isProviderRejectedInProduction(parsed.provider) ? parsed.provider : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Build the self-developed transport config from ProviderConfig (shared by all runtimes). */

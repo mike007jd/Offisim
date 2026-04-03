@@ -46,7 +46,7 @@
     },
     "./kanban": {
       "types": "./dist/components/kanban/index.d.ts",
-      "default": "./src/components/kanban/index.ts"
+      "default": "./dist/components/kanban/index.js"
     }
   },
   "scripts": {

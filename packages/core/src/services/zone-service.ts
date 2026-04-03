@@ -2,6 +2,7 @@ import type {
   ActivityType,
   RoleSlug,
   SemanticCategory,
+  SystemZoneTemplate,
   Zone,
   ZoneArchetype,
   ZoneRow,
@@ -79,10 +80,14 @@ export class ZoneService {
    * Seed the 7 system zones for a newly created company.
    * Uses SYSTEM_ZONE_TEMPLATES as the single source of truth.
    */
-  async seedSystemZones(companyId: string): Promise<Zone[]> {
+  async seedSystemZones(
+    companyId: string,
+    overrideTemplates?: readonly SystemZoneTemplate[],
+  ): Promise<Zone[]> {
     const zones: Zone[] = [];
+    const templates = overrideTemplates ?? SYSTEM_ZONE_TEMPLATES;
 
-    for (const t of SYSTEM_ZONE_TEMPLATES) {
+    for (const t of templates) {
       const zone = templateToZone(t, companyId);
       const newZone: NewZone = {
         ...dehydrateZone(zone),

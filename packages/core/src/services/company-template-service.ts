@@ -1,5 +1,17 @@
-import type { PrefabInstanceRow, RoleSlug } from '@offisim/shared-types';
-import { ROLE_TO_DEPARTMENT, SYSTEM_ZONE_TEMPLATES } from '@offisim/shared-types';
+import type {
+  PrefabInstanceRow,
+  RoleSlug,
+  Zone,
+  ZoneArchetype,
+} from '@offisim/shared-types';
+import {
+  REQUIRED_ARCHETYPES,
+  SYSTEM_ZONE_TEMPLATES,
+  extractZoneSlug,
+  normalizeZoneId,
+  resolveZoneForRole,
+  templateToZone,
+} from '@offisim/shared-types';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
@@ -10,17 +22,29 @@ import type {
   OfficeLayoutRepository,
   SopTemplateRepository,
 } from '../runtime/repositories.js';
-import type { CompanyTemplate } from '../templates/index.js';
+import type { CompanyTemplate, TemplateZoneBlueprint } from '../templates/index.js';
 import { getTemplate, listTemplates as listAllTemplates } from '../templates/index.js';
 import { ZoneService } from './zone-service.js';
 
-function resolveRoleDepartment(roleSlug: string): string | null {
-  return ROLE_TO_DEPARTMENT.get(roleSlug as RoleSlug) ?? null;
+function getZoneTemplates(template: CompanyTemplate): readonly TemplateZoneBlueprint[] {
+  return template.zones ?? (SYSTEM_ZONE_TEMPLATES as readonly TemplateZoneBlueprint[]);
 }
 
-/** Get zone center coordinates from SYSTEM_ZONE_TEMPLATES by slug. */
-function getZoneCenter(slug: string): { cx: number; cz: number } {
-  const t = SYSTEM_ZONE_TEMPLATES.find((z) => z.slug === slug);
+function buildAvailableZones(
+  companyId: string,
+  template: CompanyTemplate,
+  zoneTemplates = getZoneTemplates(template),
+): Zone[] {
+  return zoneTemplates.map((zoneTemplate) => templateToZone(zoneTemplate, companyId));
+}
+
+/** Get zone center coordinates from the current template zone definitions by slug. */
+function getZoneCenter(
+  zoneTemplates: readonly TemplateZoneBlueprint[],
+  zoneId: string,
+): { cx: number; cz: number } {
+  const slug = extractZoneSlug(zoneId);
+  const t = zoneTemplates.find((zone) => zone.slug === slug);
   return t ? { cx: t.cx, cz: t.cz } : { cx: 0, cz: 0 };
 }
 
@@ -43,10 +67,11 @@ function computeGridPosition(
 
 interface DefaultPrefab {
   readonly prefabId: string;
+  readonly rotation?: 0 | 90 | 180 | 270;
 }
 
-function getDefaultPrefabs(zoneType: string): DefaultPrefab[] {
-  switch (zoneType) {
+function getDefaultPrefabs(archetype: ZoneArchetype | null): DefaultPrefab[] {
+  switch (archetype) {
     case 'library':
       return [
         { prefabId: 'bookshelf-double' },
@@ -55,16 +80,16 @@ function getDefaultPrefabs(zoneType: string): DefaultPrefab[] {
         { prefabId: 'chair-standalone' },
         { prefabId: 'plant-large' },
       ];
-    case 'rest_area':
+    case 'rest':
       return [
         { prefabId: 'sofa-set' },
         { prefabId: 'coffee-table' },
         { prefabId: 'vending-machine' },
         { prefabId: 'plant-small' },
       ];
-    case 'meeting_room':
+    case 'meeting':
       return [{ prefabId: 'meeting-table-4' }, { prefabId: 'whiteboard' }];
-    case 'server_room':
+    case 'server':
       return [
         { prefabId: 'server-rack-2u' },
         { prefabId: 'cable-tray' },
@@ -75,14 +100,189 @@ function getDefaultPrefabs(zoneType: string): DefaultPrefab[] {
   }
 }
 
-// ── Utility zone definitions ───────────────────────────────────────
+function createPrefabInstance(params: {
+  companyId: string;
+  prefabId: string;
+  zoneId: string;
+  x: number;
+  z: number;
+  now: string;
+  rotation?: 0 | 90 | 180 | 270;
+}): PrefabInstanceRow {
+  return {
+    instance_id: crypto.randomUUID(),
+    company_id: params.companyId,
+    prefab_id: params.prefabId,
+    zone_id: normalizeZoneId(params.companyId, params.zoneId),
+    position_x: params.x,
+    position_y: params.z,
+    rotation: params.rotation ?? 0,
+    bindings_json: null,
+    config_json: null,
+    enabled: 1,
+    created_at: params.now,
+    updated_at: params.now,
+  };
+}
 
-const UTILITY_ZONES = [
-  { zoneId: 'zone-library', type: 'library' },
-  { zoneId: 'zone-rest', type: 'rest_area' },
-  { zoneId: 'zone-meeting', type: 'meeting_room' },
-  { zoneId: 'zone-server', type: 'server_room' },
-] as const;
+function buildZoneCounts(
+  createdEmployees: Array<{ role_slug: string }>,
+  availableZones: readonly Zone[],
+): Map<string, number> {
+  const zoneCounts = new Map<string, number>();
+
+  for (const employee of createdEmployees) {
+    const matchedZone = resolveZoneForRole(employee.role_slug as RoleSlug, availableZones);
+    if (matchedZone?.archetype === 'workspace') {
+      zoneCounts.set(matchedZone.zoneId, (zoneCounts.get(matchedZone.zoneId) ?? 0) + 1);
+    }
+  }
+
+  return zoneCounts;
+}
+
+function buildDefaultPrefabInstances(
+  companyId: string,
+  zoneTemplates: readonly TemplateZoneBlueprint[],
+  now: string,
+): PrefabInstanceRow[] {
+  const prefabInstances: PrefabInstanceRow[] = [];
+
+  for (const zoneTemplate of zoneTemplates) {
+    const center = getZoneCenter(zoneTemplates, zoneTemplate.slug);
+
+    if (zoneTemplate.defaultPrefabs && zoneTemplate.defaultPrefabs.length > 0) {
+      for (const prefab of zoneTemplate.defaultPrefabs) {
+        prefabInstances.push(
+          createPrefabInstance({
+            companyId,
+            prefabId: prefab.prefabId,
+            zoneId: zoneTemplate.slug,
+            x: center.cx + prefab.offsetX,
+            z: center.cz + prefab.offsetZ,
+            rotation: prefab.rotation ?? 0,
+            now,
+          }),
+        );
+      }
+      continue;
+    }
+
+    if (zoneTemplate.archetype === 'workspace') {
+      continue;
+    }
+
+    const defaults = getDefaultPrefabs(zoneTemplate.archetype);
+    for (const [index, prefab] of defaults.entries()) {
+      const position = computeGridPosition(center.cx, center.cz, index);
+      prefabInstances.push(
+        createPrefabInstance({
+          companyId,
+          prefabId: prefab.prefabId,
+          zoneId: zoneTemplate.slug,
+          x: position.x,
+          z: position.z,
+          rotation: prefab.rotation ?? 0,
+          now,
+        }),
+      );
+    }
+  }
+
+  return prefabInstances;
+}
+
+function buildWorkspacePrefabInstances(
+  companyId: string,
+  createdEmployees: Array<{ role_slug: string }>,
+  zoneTemplates: readonly TemplateZoneBlueprint[],
+  availableZones: readonly Zone[],
+  now: string,
+): PrefabInstanceRow[] {
+  const prefabInstances: PrefabInstanceRow[] = [];
+  const zoneCounts = buildZoneCounts(createdEmployees, availableZones);
+
+  for (const [zoneId, count] of zoneCounts) {
+    const center = getZoneCenter(zoneTemplates, zoneId);
+    for (let index = 0; index < count; index++) {
+      const position = computeGridPosition(center.cx, center.cz, index);
+      prefabInstances.push(
+        createPrefabInstance({
+          companyId,
+          prefabId: 'workstation-standard',
+          zoneId,
+          x: position.x,
+          z: position.z,
+          now,
+        }),
+      );
+    }
+  }
+
+  return prefabInstances;
+}
+
+function buildPrefabInstances(
+  companyId: string,
+  createdEmployees: Array<{ role_slug: string }>,
+  zoneTemplates: readonly TemplateZoneBlueprint[],
+  availableZones: readonly Zone[],
+  now: string,
+): PrefabInstanceRow[] {
+  return [
+    ...buildWorkspacePrefabInstances(companyId, createdEmployees, zoneTemplates, availableZones, now),
+    ...buildDefaultPrefabInstances(companyId, zoneTemplates, now),
+  ];
+}
+
+function validateTemplateZones(template: CompanyTemplate): void {
+  if (!template.zones) {
+    return;
+  }
+
+  const slugSet = new Set<string>();
+  const workspaceRoleToZone = new Map<RoleSlug, string>();
+  const availableZones = buildAvailableZones('', template, template.zones);
+
+  for (const zoneTemplate of template.zones) {
+    if (slugSet.has(zoneTemplate.slug)) {
+      throw new Error(`Template "${template.id}" defines duplicate zone slug "${zoneTemplate.slug}"`);
+    }
+    slugSet.add(zoneTemplate.slug);
+
+    if (zoneTemplate.archetype !== 'workspace') {
+      continue;
+    }
+
+    for (const role of zoneTemplate.targetRoles) {
+      const previous = workspaceRoleToZone.get(role);
+      if (previous) {
+        throw new Error(
+          `Template "${template.id}" maps role "${role}" to multiple workspace zones: "${previous}" and "${zoneTemplate.slug}"`,
+        );
+      }
+      workspaceRoleToZone.set(role, zoneTemplate.slug);
+    }
+  }
+
+  for (const requiredArchetype of REQUIRED_ARCHETYPES) {
+    const hasRequiredZone = template.zones.some((zone) => zone.archetype === requiredArchetype);
+    if (!hasRequiredZone) {
+      throw new Error(
+        `Template "${template.id}" must include a "${requiredArchetype}" zone archetype`,
+      );
+    }
+  }
+
+  for (const employee of template.employees) {
+    const matchedZone = resolveZoneForRole(employee.role_slug as RoleSlug, availableZones);
+    if (!matchedZone || matchedZone.archetype !== 'workspace') {
+      throw new Error(
+        `Template "${template.id}" has employee role "${employee.role_slug}" without a matching workspace zone`,
+      );
+    }
+  }
+}
 
 // ── Service ────────────────────────────────────────────────────────
 
@@ -128,8 +328,11 @@ export class CompanyTemplateService {
     if (!template) {
       throw new Error(`Template not found: ${templateId}`);
     }
+    validateTemplateZones(template);
 
     const now = new Date().toISOString();
+    const zoneTemplates = getZoneTemplates(template);
+    const availableZones = buildAvailableZones(companyId, template, zoneTemplates);
 
     if (this.transact) {
       // ── Drizzle path: all writes in one transaction ──────────────────────
@@ -157,62 +360,10 @@ export class CompanyTemplateService {
       const prefabInstanceIds: string[] = [];
 
       // Pre-build all prefab instances
-      const prefabInstances: PrefabInstanceRow[] = [];
-      if (this.prefabRepo) {
-        const zoneCounts = new Map<string, number>();
-        for (const emp of createdEmployees) {
-          const dept = resolveRoleDepartment(emp.role_slug);
-          if (dept) {
-            const zoneId = `zone-${dept}`;
-            zoneCounts.set(zoneId, (zoneCounts.get(zoneId) ?? 0) + 1);
-          }
-        }
-        for (const [zoneId, count] of zoneCounts) {
-          const center = getZoneCenter(zoneId);
-          for (let i = 0; i < count; i++) {
-            const pos = computeGridPosition(center.cx, center.cz, i);
-            const inst: PrefabInstanceRow = {
-              instance_id: crypto.randomUUID(),
-              company_id: companyId,
-              prefab_id: 'workstation-standard',
-              zone_id: zoneId,
-              position_x: pos.x,
-              position_y: pos.z,
-              rotation: 0,
-              bindings_json: null,
-              config_json: null,
-              enabled: 1,
-              created_at: now,
-              updated_at: now,
-            };
-            prefabInstances.push(inst);
-            prefabInstanceIds.push(inst.instance_id);
-          }
-        }
-        for (const uz of UTILITY_ZONES) {
-          const center = getZoneCenter(uz.zoneId);
-          const defaults = getDefaultPrefabs(uz.type);
-          for (const [i, d] of defaults.entries()) {
-            const pos = computeGridPosition(center.cx, center.cz, i);
-            const inst: PrefabInstanceRow = {
-              instance_id: crypto.randomUUID(),
-              company_id: companyId,
-              prefab_id: d.prefabId,
-              zone_id: uz.zoneId,
-              position_x: pos.x,
-              position_y: pos.z,
-              rotation: 0,
-              bindings_json: null,
-              config_json: null,
-              enabled: 1,
-              created_at: now,
-              updated_at: now,
-            };
-            prefabInstances.push(inst);
-            prefabInstanceIds.push(inst.instance_id);
-          }
-        }
-      }
+      const prefabInstances = this.prefabRepo
+        ? buildPrefabInstances(companyId, createdEmployees, zoneTemplates, availableZones, now)
+        : [];
+      prefabInstanceIds.push(...prefabInstances.map((instance) => instance.instance_id));
 
       // Capture actual employee IDs from the Drizzle repo (it generates its own UUID).
       const capturedEmployeeIds: string[] = [];
@@ -262,7 +413,7 @@ export class CompanyTemplateService {
 
         // Zones — seed system zones from SYSTEM_ZONE_TEMPLATES
         if (this.zoneService) {
-          void this.zoneService.seedSystemZones(companyId);
+          void this.zoneService.seedSystemZones(companyId, zoneTemplates);
         }
 
         // Prefabs
@@ -340,70 +491,24 @@ export class CompanyTemplateService {
 
     // ── Seed system zones ──────────────────────────────────────────
     if (this.zoneService) {
-      await this.zoneService.seedSystemZones(companyId);
+      await this.zoneService.seedSystemZones(companyId, zoneTemplates);
     }
 
     // ── Create default prefab instances (if repo provided) ─────────
     const prefabInstanceIds: string[] = [];
 
     if (this.prefabRepo) {
-      // Determine zone → employee count map from created employees
-      const zoneCounts = new Map<string, number>();
-      for (const emp of createdEmployees) {
-        const dept = resolveRoleDepartment(emp.role_slug);
-        if (dept) {
-          const zoneId = `zone-${dept}`;
-          zoneCounts.set(zoneId, (zoneCounts.get(zoneId) ?? 0) + 1);
-        }
-      }
+      const prefabInstances = buildPrefabInstances(
+        companyId,
+        createdEmployees,
+        zoneTemplates,
+        availableZones,
+        now,
+      );
 
-      // Create workspace prefabs for department zones (one workstation per employee)
-      for (const [zoneId, count] of zoneCounts) {
-        const center = getZoneCenter(zoneId);
-        for (let i = 0; i < count; i++) {
-          const pos = computeGridPosition(center.cx, center.cz, i);
-          const instance: PrefabInstanceRow = {
-            instance_id: crypto.randomUUID(),
-            company_id: companyId,
-            prefab_id: 'workstation-standard',
-            zone_id: zoneId,
-            position_x: pos.x,
-            position_y: pos.z,
-            rotation: 0,
-            bindings_json: null,
-            config_json: null,
-            enabled: 1,
-            created_at: now,
-            updated_at: now,
-          };
-          await this.prefabRepo.create(instance);
-          prefabInstanceIds.push(instance.instance_id);
-        }
-      }
-
-      // Create utility zone default prefabs
-      for (const uz of UTILITY_ZONES) {
-        const center = getZoneCenter(uz.zoneId);
-        const defaults = getDefaultPrefabs(uz.type);
-        for (const [i, d] of defaults.entries()) {
-          const pos = computeGridPosition(center.cx, center.cz, i);
-          const instance: PrefabInstanceRow = {
-            instance_id: crypto.randomUUID(),
-            company_id: companyId,
-            prefab_id: d.prefabId,
-            zone_id: uz.zoneId,
-            position_x: pos.x,
-            position_y: pos.z,
-            rotation: 0,
-            bindings_json: null,
-            config_json: null,
-            enabled: 1,
-            created_at: now,
-            updated_at: now,
-          };
-          await this.prefabRepo.create(instance);
-          prefabInstanceIds.push(instance.instance_id);
-        }
+      for (const instance of prefabInstances) {
+        await this.prefabRepo.create(instance);
+        prefabInstanceIds.push(instance.instance_id);
       }
     }
 

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@offisim/ui-core';
 import { FileOutput } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
@@ -205,8 +205,15 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
 // PitchHall
 // ---------------------------------------------------------------------------
 
-export function PitchHall() {
-  const deliverables = useDeliverables();
+export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }) {
+  const allDeliverables = useDeliverables();
+  const deliverables = useMemo(
+    () =>
+      activeThreadId
+        ? allDeliverables.filter((d) => d.threadId === activeThreadId)
+        : allDeliverables,
+    [allDeliverables, activeThreadId],
+  );
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);

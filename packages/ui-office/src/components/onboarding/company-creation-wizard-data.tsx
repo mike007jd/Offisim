@@ -1,20 +1,19 @@
 import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
 import type { CompanyTemplate } from '@offisim/core/browser';
-import type { RoleSlug, Zone } from '@offisim/shared-types';
-import {
-  SYSTEM_ZONE_TEMPLATES,
-  UNASSIGNED_ZONE_ID,
-  resolveZoneForRole,
-  templateToZone,
-} from '@offisim/shared-types';
+import type { Zone } from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import { Brain, Briefcase, FlaskConical, PenTool, Rocket, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-const previewZones: Zone[] = SYSTEM_ZONE_TEMPLATES.map((template) => templateToZone(template, ''));
+export function getTemplatePreviewZones(template?: CompanyTemplate | null): Zone[] {
+  const zoneTemplates = template?.zones ?? SYSTEM_ZONE_TEMPLATES;
+  return zoneTemplates.map((zoneTemplate) => templateToZone(zoneTemplate, ''));
+}
 
-export function resolvePreviewZone(role: string): string {
-  return resolveZoneForRole(role as RoleSlug, previewZones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+export function getTemplateZoneSummary(template: CompanyTemplate): string[] {
+  const zoneTemplates = template.zones ?? SYSTEM_ZONE_TEMPLATES;
+  return zoneTemplates.map((zoneTemplate) => zoneTemplate.label);
 }
 
 export interface TemplateMeta {
@@ -44,7 +43,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 4,
     capabilities: ['Full-stack development', 'Code review & testing', 'Technical documentation'],
     gradient: 'from-blue-500/20 via-blue-600/10 to-transparent',
-    highlightZones: ['dev', 'srv'],
+    highlightZones: ['zone-dev', 'zone-server'],
   },
   'content-studio': {
     icon: <PenTool className="h-4 w-4" />,
@@ -57,7 +56,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 2,
     capabilities: ['Article & blog writing', 'Design & illustration', 'Editorial workflow'],
     gradient: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
-    highlightZones: ['art', 'lib'],
+    highlightZones: ['zone-dev', 'zone-library'],
   },
   'product-team': {
     icon: <Rocket className="h-4 w-4" />,
@@ -70,7 +69,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 3,
     capabilities: ['User research', 'Product strategy', 'Design prototyping'],
     gradient: 'from-violet-500/20 via-violet-600/10 to-transparent',
-    highlightZones: ['prod', 'mtg'],
+    highlightZones: ['zone-product', 'zone-meeting'],
   },
   'agency-lite': {
     icon: <Briefcase className="h-4 w-4" />,
@@ -83,7 +82,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 2,
     capabilities: ['Fast turnaround', 'Multi-client support', 'Flexible roles'],
     gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
-    highlightZones: ['dev', 'prod'],
+    highlightZones: ['zone-dev', 'zone-product'],
   },
   'ai-startup': {
     icon: <Brain className="h-4 w-4" />,
@@ -96,7 +95,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     complexity: 5,
     capabilities: ['ML research', 'Data analysis', 'Rapid prototyping'],
     gradient: 'from-cyan-500/20 via-cyan-600/10 to-transparent',
-    highlightZones: ['dev', 'srv', 'lib'],
+    highlightZones: ['zone-dev', 'zone-server'],
   },
   'create-your-own': {
     icon: <Wrench className="h-4 w-4" />,
@@ -123,6 +122,7 @@ export const ROLE_LABELS: Record<string, string> = {
   analyst: 'Data Analyst',
   designer: 'UI/UX Designer',
   ui_designer: 'UI Designer',
+  ux_designer: 'UX Designer',
   artist: 'Visual Artist',
   researcher: 'Research Scientist',
   devops: 'DevOps Engineer',
@@ -146,6 +146,7 @@ export const ROLE_DOT: Record<string, string> = {
   manager: '#a78bfa',
   designer: '#f59e0b',
   ui_designer: '#fbbf24',
+  ux_designer: '#f97316',
   artist: '#f97316',
   analyst: '#10b981',
   qa: '#34d399',
@@ -339,13 +340,13 @@ export const EMPLOYEE_BIOS: Record<string, EmployeeBio> = {
 };
 
 export const ZONE_TOOLTIPS: Record<string, string> = {
-  mtg: 'Where your team aligns on priorities',
-  srv: 'AI model inference & MCP integrations',
-  lib: 'Knowledge base and document storage',
-  rest: 'Where creative ideas happen',
-  dev: 'Where code gets written',
-  prod: 'Strategy and planning hub',
-  art: 'Visual creation workspace',
+  'zone-meeting': 'Where your team aligns on priorities',
+  'zone-server': 'AI model inference and infrastructure',
+  'zone-library': 'Knowledge base and reference material',
+  'zone-rest': 'Where creative ideas happen',
+  'zone-dev': 'Primary maker workspace for focused execution',
+  'zone-product': 'Strategy, coordination, and planning hub',
+  'zone-art': 'Visual and interaction design workspace',
 };
 
 export const CREATE_YOUR_OWN_TEMPLATE: CompanyTemplate = {

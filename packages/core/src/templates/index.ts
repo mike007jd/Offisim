@@ -1,4 +1,4 @@
-import type { SopDefinition } from '@offisim/shared-types';
+import type { SopDefinition, SystemZoneTemplate, ZonePresetPrefab } from '@offisim/shared-types';
 
 import { agencyLiteTemplate } from './agency-lite.js';
 import { aiStartupTemplate } from './ai-startup.js';
@@ -13,6 +13,10 @@ export interface CompanyTemplateEmployee {
   config_json: string;
 }
 
+export interface TemplateZoneBlueprint extends SystemZoneTemplate {
+  defaultPrefabs?: readonly ZonePresetPrefab[];
+}
+
 export interface CompanyTemplate {
   id: string;
   name: string;
@@ -21,6 +25,7 @@ export interface CompanyTemplate {
   employees: CompanyTemplateEmployee[];
   sops: SopDefinition[];
   layoutPreset: string;
+  zones?: readonly TemplateZoneBlueprint[];
 }
 
 const TEMPLATES: CompanyTemplate[] = [

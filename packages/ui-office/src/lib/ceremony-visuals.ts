@@ -49,13 +49,13 @@ export function getPhaseColor(phase: CeremonyPhase): string {
 export function getInteractionKindLabel(kind: InteractionKind | 'handoff'): string {
   switch (kind) {
     case 'permission_request':
-      return '等待审批';
+      return 'Awaiting approval';
     case 'plan_review':
-      return '等待审阅';
+      return 'Awaiting review';
     case 'agent_question':
-      return '等待澄清';
+      return 'Awaiting clarification';
     case 'handoff':
-      return '等待交接';
+      return 'Awaiting handoff';
   }
 }
 
@@ -65,7 +65,7 @@ export function describeWaitingRelationship(
 ): string {
   if (rel.kind === 'handoff' && rel.waitingFor !== 'user') {
     const fromName = rel.waitingForName ?? employeeNames.get(rel.waitingFor) ?? 'teammate';
-    return `${rel.waiterName} → 等待 ${fromName}`;
+    return `${rel.waiterName} → waiting for ${fromName}`;
   }
   return `${rel.waiterName} → ${getInteractionKindLabel(rel.kind)}`;
 }

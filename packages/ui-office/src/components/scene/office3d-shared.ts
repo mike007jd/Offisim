@@ -49,13 +49,13 @@ export function getFlowLineColor(variant: FlowLineData['variant']): string {
 export function getFlowLineVariantLabel(variant: FlowLineData['variant']): string | null {
   switch (variant) {
     case 'handoff':
-      return '交接中';
+      return 'Handing off';
     case 'approval':
-      return '等待审批';
+      return 'Pending approval';
     case 'report':
-      return '汇报中';
+      return 'Reporting';
     case 'blocked':
-      return '已阻塞';
+      return 'Blocked';
     default:
       return null;
   }

@@ -1,3 +1,4 @@
+import { createZoneBlueprint } from '@offisim/shared-types';
 import type { CompanyTemplate } from './index.js';
 
 /**
@@ -277,4 +278,11 @@ export const contentStudioTemplate: CompanyTemplate = {
     },
   ],
   layoutPreset: 'content-lab',
+  zones: [
+    createZoneBlueprint({ slug: 'zone-dev', archetype: 'workspace', label: 'WRITING ROOM', accentColor: '#10b981', floorColor: 0x234b42, cx: -10, cz: 10, w: 12, d: 8, targetRoles: ['writer', 'researcher'], deskSlots: 4, sortOrder: 0 }),
+    createZoneBlueprint({ slug: 'zone-product', archetype: 'workspace', label: 'EDITORIAL', accentColor: '#a855f7', floorColor: 0x37244f, cx: 4, cz: 10, w: 8, d: 6, targetRoles: ['manager', 'project_manager', 'seo_specialist'], deskSlots: 3, sortOrder: 1 }),
+    createZoneBlueprint({ slug: 'zone-library', archetype: 'library', label: 'RESEARCH LIBRARY', cx: -8, cz: -1, w: 14, d: 8, sortOrder: 2 }),
+    createZoneBlueprint({ slug: 'zone-rest', archetype: 'rest', label: 'REST AREA', cx: 8, cz: -1, w: 8, d: 6, sortOrder: 3 }),
+    createZoneBlueprint({ slug: 'zone-meeting', archetype: 'meeting', label: 'MEETING', cx: 0, cz: -10, w: 7, d: 6, sortOrder: 4 }),
+  ],
 };

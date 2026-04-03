@@ -68,9 +68,6 @@ export function useMeeting(): UseMeetingReturn {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
-  // Unique ID counter for transcript entries (no uuid dep needed).
-  const entryCountRef = useRef(0);
-
   const stopTimer = useCallback(() => {
     if (timerRef.current !== null) {
       clearInterval(timerRef.current);
@@ -157,32 +154,9 @@ export function useMeeting(): UseMeetingReturn {
       },
     );
 
-    // meeting.transcript.entry (optional supplementary event — no-op if unused)
-    const unsubTranscript = eventBus.on('meeting.transcript.', (event: RuntimeEvent) => {
-      const payload = event.payload as {
-        participantId?: string;
-        content?: string;
-      };
-      if (!payload?.participantId || !payload?.content) return;
-
-      entryCountRef.current += 1;
-      const entry: MeetingTranscriptEntry = {
-        id: `te-${entryCountRef.current}`,
-        participantId: payload.participantId,
-        content: payload.content,
-        timestamp: event.timestamp,
-      };
-
-      setState((prev) => ({
-        ...prev,
-        transcript: [...prev.transcript.slice(-99), entry],
-      }));
-    });
-
     return () => {
       unsubState();
       unsubAction();
-      unsubTranscript();
       stopTimer();
     };
   }, [eventBus, startTimer, stopTimer]);

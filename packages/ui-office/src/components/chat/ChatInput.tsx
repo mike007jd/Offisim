@@ -1,27 +1,12 @@
 import { ArrowUp } from 'lucide-react';
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  COMMAND_CATEGORIES,
+  type ChatCommand,
+  filterCommands,
+  parseCommand,
+} from '../../lib/chat-commands.js';
 import type { AgentState } from '../../runtime/use-agent-states';
-
-// ── Slash commands ──────────────────────────────────────────────────
-
-export interface SlashCommand {
-  cmd: string;
-  label: string;
-  desc: string;
-  /** If true, command is handled client-side (no chat message). */
-  clientOnly?: boolean;
-}
-
-export const SLASH_COMMANDS: SlashCommand[] = [
-  { cmd: '/hire', label: 'Hire employee', desc: 'Start HR hiring flow' },
-  { cmd: '/assess', label: 'Assess team', desc: 'Get HR team analysis' },
-  { cmd: '/meeting', label: 'Start meeting', desc: 'brainstorm / kickoff / standup / review' },
-  { cmd: '/sop', label: 'Run SOP', desc: 'Execute saved workflow' },
-  { cmd: '/status', label: 'Company status', desc: 'Overview of current state', clientOnly: true },
-  { cmd: '/budget', label: 'Cost summary', desc: 'LLM spend breakdown', clientOnly: true },
-  { cmd: '/library', label: 'Library', desc: 'Mention a library document' },
-  { cmd: '/assign', label: 'Assign task', desc: 'Directly assign a task to employee' },
-];
 
 // ── Mention option ──────────────────────────────────────────────────
 
@@ -68,23 +53,19 @@ export interface ChatInputProps {
     message: string,
     options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
   ) => void;
+  onCommand: (command: ChatCommand, args: string) => void;
   disabled?: boolean;
   placeholder?: string;
   agents?: Map<string, AgentState>;
-  /** Client-side handler for slash commands like /status, /budget */
-  onSlashCommand?: (cmd: string) => void;
-  /** Callback when user selects an employee via @mention */
-  onMentionSelect?: (employeeId: string) => void;
   disabledReason?: string;
 }
 
 export function ChatInput({
   onSend,
+  onCommand,
   disabled,
   placeholder = 'Message your team...',
   agents,
-  onSlashCommand,
-  onMentionSelect,
   disabledReason,
 }: ChatInputProps) {
   const [text, setText] = useState('');
@@ -114,9 +95,8 @@ export function ChatInput({
   }, [agents]);
 
   // ── Filtered lists ──────────────────────────────────────────────
-  const filteredSlash = useMemo(() => {
-    const q = slashFilter.toLowerCase();
-    return SLASH_COMMANDS.filter((c) => c.cmd.includes(q) || c.label.toLowerCase().includes(q));
+  const filteredSlash: ChatCommand[] = useMemo(() => {
+    return filterCommands(slashFilter);
   }, [slashFilter]);
 
   const filteredMentions = useMemo(() => {
@@ -162,7 +142,7 @@ export function ChatInput({
     // Slash menu: triggers when input starts with /
     if (val.startsWith('/')) {
       const afterSlash = val.slice(1).split(' ')[0] ?? '';
-      setSlashFilter(`/${afterSlash}`);
+      setSlashFilter(afterSlash);
       setShowSlashMenu(true);
       setSlashIndex(0);
       // Close mention menu if slash is active
@@ -201,59 +181,21 @@ export function ChatInput({
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
 
-    // Check for client-only slash commands
-    const slashMatch = trimmed.match(/^\/(\S+)/);
-    if (slashMatch) {
-      const cmdName = `/${slashMatch[1]}`;
-      const cmd = SLASH_COMMANDS.find((c) => c.cmd === cmdName);
-      if (cmd?.clientOnly && onSlashCommand) {
-        onSlashCommand(cmdName);
-        setText('');
-        return;
-      }
-      // Transform slash commands into natural language for the backend
-      const args = trimmed.slice(cmdName.length).trim();
-      const transformed = transformSlashToMessage(cmdName, args);
-      if (transformed) {
-        onSend(transformed, cmdName === '/meeting' ? { entryMode: 'meeting' } : undefined);
-        setText('');
-        return;
-      }
+    const parsed = parseCommand(trimmed);
+    if (parsed) {
+      onCommand(parsed.command, parsed.args);
+      setText('');
+      return;
     }
 
+    // Not a command (or unrecognized /something) — send as regular message
     onSend(trimmed);
     setText('');
   }
 
-  // ── Slash → natural language ────────────────────────────────────
-  function transformSlashToMessage(cmd: string, args: string): string | null {
-    switch (cmd) {
-      case '/hire':
-        return args ? `I want to hire a ${args}` : 'I want to hire a new employee';
-      case '/assess':
-        return 'Please assess our current team';
-      case '/meeting':
-        return args ? `Start a ${args} meeting` : 'Start a team meeting';
-      case '/sop':
-        return args ? `Run the SOP: ${args}` : 'Show available SOPs';
-      case '/library':
-        return args ? `Reference this library document: ${args}` : 'Show library documents';
-      case '/assign':
-        return args ? `Assign task: ${args}` : 'I want to assign a task';
-      default:
-        return null;
-    }
-  }
-
   // ── Select slash command ────────────────────────────────────────
-  function selectSlashCommand(cmd: SlashCommand) {
-    if (cmd.clientOnly && onSlashCommand) {
-      onSlashCommand(cmd.cmd);
-      setText('');
-      setShowSlashMenu(false);
-      return;
-    }
-    setText(`${cmd.cmd} `);
+  function selectSlashCommand(cmd: ChatCommand) {
+    setText(`/${cmd.name} `);
     setShowSlashMenu(false);
     textareaRef.current?.focus();
   }
@@ -265,12 +207,6 @@ export function ChatInput({
     const afterCursor = text.slice(mentionStartPos + 1 + mentionFilter.length);
     setText(`${before}@${option.name} ${afterCursor}`);
     setShowMentionMenu(false);
-
-    // If selecting a specific employee (not team), trigger callback
-    if (option.id !== 'team' && onMentionSelect) {
-      onMentionSelect(option.id);
-    }
-
     textareaRef.current?.focus();
   }
 
@@ -358,16 +294,26 @@ export function ChatInput({
           <div className="max-h-[240px] overflow-y-auto py-1">
             {filteredSlash.map((cmd, i) => (
               <button
-                key={cmd.cmd}
+                key={cmd.name}
                 type="button"
-                className={`w-full flex items-center gap-3 px-3 h-8 text-left transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-3 h-8 text-left transition-colors ${
                   i === slashIndex ? 'bg-blue-500/20 text-white' : 'text-slate-300 hover:bg-white/5'
                 }`}
                 onMouseEnter={() => setSlashIndex(i)}
                 onClick={() => selectSlashCommand(cmd)}
               >
-                <span className="text-xs font-mono text-blue-400 w-20 shrink-0">{cmd.cmd}</span>
-                <span className="text-xs text-slate-400 truncate">{cmd.desc}</span>
+                <span className="text-xs font-mono text-blue-400 shrink-0">/{cmd.name}</span>
+                <span
+                  className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
+                >
+                  {cmd.category}
+                </span>
+                <span className="text-xs text-slate-400 truncate">{cmd.description}</span>
+                {cmd.argumentHint && (
+                  <span className="text-[10px] text-slate-600 truncate ml-auto shrink-0">
+                    {cmd.argumentHint}
+                  </span>
+                )}
               </button>
             ))}
           </div>

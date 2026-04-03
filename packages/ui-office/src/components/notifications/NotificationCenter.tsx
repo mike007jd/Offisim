@@ -62,7 +62,7 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
           <ScrollArea className="max-h-80">
             {notifications.length === 0 ? (
               <div className="px-3 py-6 text-center">
-                <p className="text-xs text-shell/40 font-pixel-body">一切安好，没有待处理通知</p>
+                <p className="text-xs text-shell/40 font-pixel-body">All clear — no pending notifications.</p>
               </div>
             ) : (
               notifications.map((n) => (

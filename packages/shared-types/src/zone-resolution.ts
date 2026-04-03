@@ -10,6 +10,21 @@ import type { RoleSlug } from './roles.js';
 import type { Zone } from './zone.js';
 import { UNASSIGNED_ZONE_ID } from './zone.js';
 
+// ── Zone ID helpers ───────────────────────────────────────────────
+
+/** Ensure a zone ID has the `companyId::slug` format used in the DB. */
+export function normalizeZoneId(companyId: string, zoneId: string): string {
+  return zoneId.includes('::') ? zoneId : `${companyId}::${zoneId}`;
+}
+
+/** Extract the bare slug from a potentially-prefixed zone ID. */
+export function extractZoneSlug(zoneId: string): string {
+  const parts = zoneId.split('::');
+  return parts[parts.length - 1] ?? zoneId;
+}
+
+// ── Zone matching ─────────────────────────────────────────────────
+
 export interface ZoneMatch {
   readonly zoneId: string;
   readonly reason: 'geometric' | 'sentinel';

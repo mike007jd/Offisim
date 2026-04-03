@@ -174,7 +174,9 @@ export interface CompanyRepository {
   create(company: CompanyRow): Promise<CompanyRow>;
   update(
     companyId: string,
-    fields: Partial<Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label'>>,
+    fields: Partial<
+      Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'default_model_policy_json'>
+    >,
   ): Promise<void>;
 }
 

@@ -19,7 +19,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
   // Production presets — self-developed transport adapters
   // ---------------------------------------------------------------------------
   subscription: {
-    label: '订阅制 (Subscription)',
+    label: 'Subscription',
     defaults: {
       provider: 'subscription',
       model: 'default',

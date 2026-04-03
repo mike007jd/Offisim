@@ -15,27 +15,27 @@ describe('ResumeBar', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows count "1 个项目未完成" for a single project', () => {
+  it('shows count "1 unfinished project" for a single project', () => {
     render(<ResumeBar projects={[PROJECTS[0]]} onResume={vi.fn()} onDismiss={vi.fn()} />);
-    expect(screen.getByText('1 个项目未完成')).toBeInTheDocument();
+    expect(screen.getByText('1 unfinished project')).toBeInTheDocument();
   });
 
-  it('shows count "2 个项目未完成" for multiple projects', () => {
+  it('shows count "2 unfinished projects" for multiple projects', () => {
     render(<ResumeBar projects={PROJECTS} onResume={vi.fn()} onDismiss={vi.fn()} />);
-    expect(screen.getByText('2 个项目未完成')).toBeInTheDocument();
+    expect(screen.getByText('2 unfinished projects')).toBeInTheDocument();
   });
 
   it('renders a resume button per project with project name', () => {
     render(<ResumeBar projects={PROJECTS} onResume={vi.fn()} onDismiss={vi.fn()} />);
-    expect(screen.getByText('恢复 Alpha Project')).toBeInTheDocument();
-    expect(screen.getByText('恢复 Beta Project')).toBeInTheDocument();
+    expect(screen.getByText('Resume Alpha Project')).toBeInTheDocument();
+    expect(screen.getByText('Resume Beta Project')).toBeInTheDocument();
   });
 
   it('calls onResume with correct threadId when resume button is clicked', async () => {
     const onResume = vi.fn();
     const user = userEvent.setup();
     render(<ResumeBar projects={PROJECTS} onResume={onResume} onDismiss={vi.fn()} />);
-    await user.click(screen.getByText('恢复 Alpha Project'));
+    await user.click(screen.getByText('Resume Alpha Project'));
     expect(onResume).toHaveBeenCalledWith('thread-1');
     expect(onResume).toHaveBeenCalledTimes(1);
   });
@@ -44,7 +44,7 @@ describe('ResumeBar', () => {
     const onResume = vi.fn();
     const user = userEvent.setup();
     render(<ResumeBar projects={PROJECTS} onResume={onResume} onDismiss={vi.fn()} />);
-    await user.click(screen.getByText('恢复 Beta Project'));
+    await user.click(screen.getByText('Resume Beta Project'));
     expect(onResume).toHaveBeenCalledWith('thread-2');
   });
 
@@ -52,12 +52,12 @@ describe('ResumeBar', () => {
     const onDismiss = vi.fn();
     const user = userEvent.setup();
     render(<ResumeBar projects={PROJECTS} onResume={vi.fn()} onDismiss={onDismiss} />);
-    await user.click(screen.getByLabelText('忽略未完成项目提示'));
+    await user.click(screen.getByLabelText('Dismiss unfinished project notice'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('shows correct Chinese dismiss text', () => {
+  it('shows dismiss button text', () => {
     render(<ResumeBar projects={[PROJECTS[0]]} onResume={vi.fn()} onDismiss={vi.fn()} />);
-    expect(screen.getByText('忽略')).toBeInTheDocument();
+    expect(screen.getByText('Dismiss')).toBeInTheDocument();
   });
 });

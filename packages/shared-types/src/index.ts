@@ -186,7 +186,12 @@ export type {
 } from './zone.js';
 export { UNASSIGNED_ZONE_ID } from './zone.js';
 
-export { SYSTEM_ZONE_TEMPLATES, findSystemTemplate, templateToZone } from './zone-templates.js';
+export {
+  SYSTEM_ZONE_TEMPLATES,
+  createZoneBlueprint,
+  findSystemTemplate,
+  templateToZone,
+} from './zone-templates.js';
 
 export type { ZonePresetPrefab, ZonePreset } from './zone-presets.js';
 export {
@@ -203,6 +208,8 @@ export { zonesOverlap, findOverlaps, computeOverlapMap } from './zone-overlap.js
 
 export type { ZoneMatch } from './zone-resolution.js';
 export {
+  normalizeZoneId,
+  extractZoneSlug,
   isInsideZone,
   resolveZoneForPosition,
   resolveZoneForRole,

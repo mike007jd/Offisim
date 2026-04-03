@@ -66,7 +66,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
         />
         {formData.maxTokens < 1024 && (
           <p className="mt-1 text-[10px] text-amber-400">
-            部分模型（如 MiniMax）的 thinking 会消耗 token 预算，建议 ≥ 1024
+            Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
           </p>
         )}
       </div>

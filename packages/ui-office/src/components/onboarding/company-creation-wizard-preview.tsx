@@ -1,10 +1,12 @@
 import type { CompanyTemplate } from '@offisim/core/browser';
+import type { RoleSlug } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import { useMemo, useState } from 'react';
 import {
   ROLE_DOT,
   ZONE_TOOLTIPS,
   getAvatar,
-  resolvePreviewZone,
+  getTemplatePreviewZones,
 } from './company-creation-wizard-data.js';
 
 function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
@@ -363,155 +365,48 @@ function PreviewEmployeeAvatar({
   );
 }
 
-function computeTemplateZones(employees: CompanyTemplate['employees']) {
-  const departmentCounts = new Map<string, number>();
-  for (const employee of employees) {
-    const department = resolvePreviewZone(employee.role_slug);
-    departmentCounts.set(department, (departmentCounts.get(department) ?? 0) + 1);
-  }
-  const activeDepartments = [...departmentCounts.keys()];
-  const totalEmployees = employees.length;
-
-  const hasServer = totalEmployees >= 5;
-  const hasMeeting = totalEmployees >= 3;
-  const hasLibrary = totalEmployees >= 4;
-  const hasRest = totalEmployees >= 3;
-
-  const zones: Array<{
-    id: string;
-    label: string;
-    accent: string;
-    type: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    deptId?: string;
-    empCount?: number;
-  }> = [];
-
-  const PAD = 10;
+function computeTemplateZones(template: CompanyTemplate) {
   const W = 640;
   const H = 440;
+  const PAD = 16;
+  const layoutZones = getTemplatePreviewZones(template);
+  if (layoutZones.length === 0) return [];
 
-  const infraZones: typeof zones = [];
-  if (hasMeeting) {
-    infraZones.push({
-      id: 'mtg',
-      label: 'MEETING ROOM',
-      accent: '#94a3b8',
-      type: 'infra',
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-    });
-  }
-  if (hasServer) {
-    infraZones.push({
-      id: 'srv',
-      label: 'SERVER ROOM',
-      accent: '#06b6d4',
-      type: 'infra',
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-    });
+  const employeeCounts = new Map<string, number>();
+  for (const employee of template.employees) {
+    const matched = resolveZoneForRole(employee.role_slug as RoleSlug, layoutZones);
+    const zoneId = matched?.zoneId ?? UNASSIGNED_ZONE_ID;
+    employeeCounts.set(zoneId, (employeeCounts.get(zoneId) ?? 0) + 1);
   }
 
-  const infraW =
-    infraZones.length > 0 ? (W - PAD * 2 - (infraZones.length - 1) * PAD) / infraZones.length : 0;
-  const infraH = 100;
-  infraZones.forEach((zone, index) => {
-    zone.x = PAD + index * (infraW + PAD);
-    zone.y = PAD;
-    zone.w = infraW;
-    zone.h = infraH;
-  });
-  zones.push(...infraZones);
+  const minX = Math.min(...layoutZones.map((zone) => zone.cx - zone.w / 2));
+  const maxX = Math.max(...layoutZones.map((zone) => zone.cx + zone.w / 2));
+  const minZ = Math.min(...layoutZones.map((zone) => zone.cz - zone.d / 2));
+  const maxZ = Math.max(...layoutZones.map((zone) => zone.cz + zone.d / 2));
+  const scale = Math.min((W - PAD * 2) / (maxX - minX || 1), (H - PAD * 2) / (maxZ - minZ || 1));
 
-  const supportZones: typeof zones = [];
-  if (hasLibrary) {
-    supportZones.push({
-      id: 'lib',
-      label: 'LIBRARY',
-      accent: '#10b981',
-      type: 'support',
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-    });
-  }
-  if (hasRest) {
-    supportZones.push({
-      id: 'rest',
-      label: 'REST AREA',
-      accent: '#f59e0b',
-      type: 'support',
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-    });
-  }
-
-  const row2Y = infraZones.length > 0 ? PAD + infraH + PAD : PAD;
-  const supportW =
-    supportZones.length > 0
-      ? (W - PAD * 2 - (supportZones.length - 1) * PAD) / supportZones.length
-      : 0;
-  const supportH = 120;
-  supportZones.forEach((zone, index) => {
-    zone.x = PAD + index * (supportW + PAD);
-    zone.y = row2Y;
-    zone.w = supportW;
-    zone.h = supportH;
-  });
-  zones.push(...supportZones);
-
-  const row3Y = row2Y + (supportZones.length > 0 ? supportH + PAD : 0);
-  const deptW =
-    activeDepartments.length > 0
-      ? (W - PAD * 2 - (activeDepartments.length - 1) * PAD) / activeDepartments.length
-      : 0;
-  const deptH = H - row3Y - PAD;
-
-  const departmentMeta: Record<string, { label: string; accent: string }> = {
-    dev: { label: 'DEVELOPMENT', accent: '#3b82f6' },
-    prod: { label: 'PRODUCT', accent: '#a855f7' },
-    art: { label: 'ART & DESIGN', accent: '#f97316' },
-  };
-
-  activeDepartments.forEach((departmentId, index) => {
-    const department = departmentMeta[departmentId] ?? {
-      label: departmentId.toUpperCase(),
-      accent: '#64748b',
-    };
-    zones.push({
-      id: departmentId,
-      label: department.label,
-      accent: department.accent,
-      type: 'dept',
-      x: PAD + index * (deptW + PAD),
-      y: row3Y,
-      w: deptW,
-      h: deptH,
-      deptId: departmentId,
-      empCount: departmentCounts.get(departmentId) ?? 0,
-    });
-  });
-
-  return zones;
+  return layoutZones
+    .map((zone, index) => ({
+      id: zone.zoneId,
+      label: zone.label,
+      accent: zone.accentColor,
+      archetype: zone.archetype,
+      x: PAD + (zone.cx - zone.w / 2 - minX) * scale,
+      y: PAD + (zone.cz - zone.d / 2 - minZ) * scale,
+      w: zone.w * scale,
+      h: zone.d * scale,
+      empCount: employeeCounts.get(zone.zoneId) ?? 0,
+      sortOrder: zone.sortOrder ?? index,
+    }))
+    .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
 export function Office2DPreview({
-  employees,
+  template,
   highlightZones,
   accentHex,
 }: {
-  employees: CompanyTemplate['employees'];
+  template: CompanyTemplate;
   /** Zone IDs to emphasize for the selected template. */
   highlightZones?: string[];
   /** Template accent color for highlight glow. */
@@ -522,17 +417,19 @@ export function Office2DPreview({
   const [hoveredZone, setHoveredZone] = useState<string | null>(null);
   const highlightSet = useMemo(() => new Set(highlightZones ?? []), [highlightZones]);
 
-  const zones = useMemo(() => computeTemplateZones(employees), [employees]);
+  const zones = useMemo(() => computeTemplateZones(template), [template]);
   const employeesByZone = useMemo(() => {
-    const map = new Map<string, typeof employees>();
-    for (const employee of employees) {
-      const zoneId = resolvePreviewZone(employee.role_slug);
+    const previewZones = getTemplatePreviewZones(template);
+    const map = new Map<string, typeof template.employees>();
+    for (const employee of template.employees) {
+      const matched = resolveZoneForRole(employee.role_slug as RoleSlug, previewZones);
+      const zoneId = matched?.zoneId ?? UNASSIGNED_ZONE_ID;
       const list = map.get(zoneId) ?? [];
       list.push(employee);
       map.set(zoneId, list);
     }
     return map;
-  }, [employees]);
+  }, [template]);
 
   return (
     <svg
@@ -576,7 +473,7 @@ export function Office2DPreview({
               stroke={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
               strokeWidth={isHighlighted ? 2 : isHovered ? 1 : 0.6}
               strokeOpacity={isHighlighted ? 0.7 : isDimmed ? 0.1 : isHovered ? 0.5 : 0.2}
-              strokeDasharray={zone.type === 'infra' ? '3 1.5' : 'none'}
+              strokeDasharray={zone.archetype === 'meeting' || zone.archetype === 'server' ? '3 1.5' : 'none'}
               style={{
                 transition: 'fill-opacity 0.3s, stroke-width 0.3s, stroke-opacity 0.3s',
               }}
@@ -612,19 +509,19 @@ export function Office2DPreview({
             ) : null}
 
             <g transform={`translate(${mx}, ${my}) scale(${sc})`}>
-              {zone.id === 'dev' || zone.id === 'prod' || zone.id === 'art' ? (
+              {zone.archetype === 'workspace' ? (
                 <PreviewDeskCluster x={0} y={0} />
-              ) : zone.id === 'mtg' ? (
+              ) : zone.archetype === 'meeting' ? (
                 <PreviewMeetingTable x={0} y={0} />
-              ) : zone.id === 'srv' ? (
+              ) : zone.archetype === 'server' ? (
                 <PreviewServerRack x={0} y={0} />
-              ) : zone.id === 'lib' ? (
+              ) : zone.archetype === 'library' ? (
                 <>
                   <PreviewBookshelf x={-7} y={0} />
                   <PreviewBookshelf x={7} y={0} />
                   <PreviewReadingTable x={0} y={12} />
                 </>
-              ) : zone.id === 'rest' ? (
+              ) : zone.archetype === 'rest' ? (
                 <>
                   <PreviewSofa x={-8} y={0} />
                   <PreviewSofa x={8} y={0} color="#0ea5e9" />

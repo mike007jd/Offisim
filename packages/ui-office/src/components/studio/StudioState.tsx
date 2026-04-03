@@ -19,10 +19,10 @@ export interface PlotSize {
 }
 
 export const PLOT_SIZES: PlotSize[] = [
-  { name: '\u5c0f\u578b\u5de5\u4f5c\u5ba4', width: 20, depth: 15 },
-  { name: '\u6807\u51c6\u529e\u516c\u5ba4', width: 40, depth: 30 },
-  { name: '\u5927\u578b\u529e\u516c\u697c', width: 60, depth: 45 },
-  { name: '\u56ed\u533a', width: 80, depth: 60 },
+  { name: 'Small Studio', width: 20, depth: 15 },
+  { name: 'Standard Office', width: 40, depth: 30 },
+  { name: 'Large Office', width: 60, depth: 45 },
+  { name: 'Campus', width: 80, depth: 60 },
 ];
 
 export interface StudioStore {
@@ -107,7 +107,7 @@ export interface StudioStore {
 export const STUDIO_TEMP_PREFIX = 'sp-';
 
 const DEFAULT_PLOT_SIZE: PlotSize = {
-  name: '标准办公室',
+  name: 'Standard Office',
   width: 40,
   depth: 30,
 };

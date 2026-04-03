@@ -148,7 +148,13 @@ export function useCompanyEditor(): UseCompanyEditorReturn {
         await db.officeLayouts.setActive(companyId, newLayout.layout_id);
       }
 
+      // Persist company name + description
       const snapshot = company ?? DEFAULT_COMPANY;
+      await db.companies.update(companyId, {
+        name: snapshot.name,
+        default_model_policy_json: JSON.stringify({ description: snapshot.description }),
+      });
+
       setOriginalCompany(snapshot);
       setOriginalPolicy(policy);
     } finally {

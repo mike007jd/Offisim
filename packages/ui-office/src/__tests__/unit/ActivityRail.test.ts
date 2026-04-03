@@ -522,7 +522,7 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('聚焦: Alice')).toBeInTheDocument();
+      expect(screen.getByText('Focus: Alice')).toBeInTheDocument();
       expect(screen.getByText('Alice took step 1: Inspect auth routes')).toBeInTheDocument();
       expect(screen.getByText('PM created 1 step')).toBeInTheDocument();
     });

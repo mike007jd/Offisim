@@ -6,12 +6,12 @@ interface KeyboardShortcutsDialogProps {
 }
 
 const SHORTCUTS = [
-  { keys: 'Cmd/Ctrl + D', description: '切换 Dashboard' },
-  { keys: 'Cmd/Ctrl + J', description: '切换 Kanban' },
-  { keys: 'Cmd/Ctrl + 1', description: '切换 3D / 2D 视图' },
-  { keys: 'Cmd/Ctrl + E', description: '编辑当前选中的员工' },
-  { keys: 'Cmd/Ctrl + /', description: '打开快捷键帮助' },
-  { keys: 'Escape', description: '关闭当前 overlay 或选中面板' },
+  { keys: 'Cmd/Ctrl + D', description: 'Toggle Dashboard' },
+  { keys: 'Cmd/Ctrl + J', description: 'Toggle Kanban' },
+  { keys: 'Cmd/Ctrl + 1', description: 'Toggle 3D / 2D view' },
+  { keys: 'Cmd/Ctrl + E', description: 'Edit selected employee' },
+  { keys: 'Cmd/Ctrl + /', description: 'Open keyboard shortcuts' },
+  { keys: 'Escape', description: 'Close current overlay or selection' },
 ];
 
 export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcutsDialogProps) {

@@ -300,7 +300,11 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       setIsInitializing(true);
       initPromiseRef.current = initRuntime()
         .then((runtime) => {
-          // Trigger re-render so useMemo picks up the runtime
+          // Bump version so effects that depend on runtime being ready
+          // (MCP auto-connect, unfinished-thread detection) re-fire.
+          // Safe: init guard checks runtimeRef.current, which is now set,
+          // so this version bump won't cause a re-init loop.
+          setVersion((v) => v + 1);
           setIsInitializing(false);
           return runtime;
         })
@@ -330,6 +334,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     }
     runtimeRef.current = null;
     initPromiseRef.current = null;
+    detectionDoneRef.current = false;
     setVersion((v) => v + 1);
   }, []);
 
@@ -601,7 +606,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   }, [version]);
 
   // Startup detection — find threads that were left in 'running' status
-  // (e.g. app crashed or was closed mid-execution). Runs once per mount.
+  // (e.g. app crashed or was closed mid-execution). Runs once per init cycle.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version ensures re-run after async runtime init completes
   useEffect(() => {
     if (detectionDoneRef.current) return;
     const runtime = runtimeRef.current;
@@ -630,7 +636,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         // Silent fail — startup detection must never block the UI
       }
     })();
-  }, [companyId]);
+  }, [companyId, version]);
 
   // ---------------------------------------------------------------------------
   // Volatile status — changes on every task execution (isRunning toggle).

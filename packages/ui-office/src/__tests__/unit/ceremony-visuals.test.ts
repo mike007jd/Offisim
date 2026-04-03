@@ -9,10 +9,10 @@ import {
 
 describe('ceremony-visuals', () => {
   it('maps interaction kinds and handoff to readable labels', () => {
-    expect(getInteractionKindLabel('permission_request')).toBe('等待审批');
-    expect(getInteractionKindLabel('plan_review')).toBe('等待审阅');
-    expect(getInteractionKindLabel('agent_question')).toBe('等待澄清');
-    expect(getInteractionKindLabel('handoff')).toBe('等待交接');
+    expect(getInteractionKindLabel('permission_request')).toBe('Awaiting approval');
+    expect(getInteractionKindLabel('plan_review')).toBe('Awaiting review');
+    expect(getInteractionKindLabel('agent_question')).toBe('Awaiting clarification');
+    expect(getInteractionKindLabel('handoff')).toBe('Awaiting handoff');
   });
 
   it('formats waiting relationships for bubble display', () => {
@@ -30,8 +30,8 @@ describe('ceremony-visuals', () => {
       waitingForName: 'Ava',
     } as WaitingRelationship & { waitingForName: string };
 
-    expect(describeWaitingRelationship(reviewRel, new Map())).toBe('Ava → 等待审阅');
-    expect(describeWaitingRelationship(handoffRel, new Map())).toBe('Ben → 等待 Ava');
+    expect(describeWaitingRelationship(reviewRel, new Map())).toBe('Ava → Awaiting review');
+    expect(describeWaitingRelationship(handoffRel, new Map())).toBe('Ben → waiting for Ava');
   });
 
   it('adds and removes waiting relationships without duplicating waiter entries', () => {

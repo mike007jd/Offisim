@@ -5,7 +5,7 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1600+ tests)
+pnpm test             # 全量测试 (vitest, ~1630+ tests)
 pnpm typecheck        # 全量类型检查 (16 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
@@ -103,6 +103,33 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   不要把它当持久存储用, 持久化用 `MemoryService`
 - SceneCanvas 3D 崩溃后自动回退 2D, `crashCountRef` 记录崩溃次数,
   ≥2 次后锁定 2D 不再允许手动切回, 防止 crash loop
+- Zone ID 在 DB 中格式为 `companyId::slug` (如 `abc::zone-dev`),
+  但 `templateToZone()` 返回裸 slug (如 `zone-dev`)。
+  写入 prefab/zone 记录时必须用 `normalizeZoneId()` (shared-types) 补前缀,
+  从 DB ID 提取 slug 用 `extractZoneSlug()` — 不要手写 `.split('::')`
+- 员工→zone 分配必须用 `resolveZoneForRole()` (zone-resolution.ts) 按 `targetRoles` 匹配,
+  不要用 `ROLE_TO_DEPARTMENT` + `zone-${dept}` 构造 zone slug —
+  `company-template-service` 已移除此模式, 因为 `content` 部门没有对应的 `zone-content`
+- 公司模板可通过 `CompanyTemplate.zones?: TemplateZoneBlueprint[]` 自定义 zone 布局,
+  无 zones 字段时 fallback 到 `SYSTEM_ZONE_TEMPLATES` (7 zone)。
+  定义新 zone 时用 `createZoneBlueprint()` 工厂函数, archetype 默认值自动填充,
+  只需声明 slug/archetype/label/坐标/尺寸 + workspace 的 targetRoles/deskSlots
+- 每个模板的 zones 必须满足: 包含 `rest` + `meeting` archetype (REQUIRED_ARCHETYPES),
+  同一 role 不能出现在多个 workspace zone 的 targetRoles 中,
+  所有员工的 role_slug 都能匹配到某个 workspace zone
+- `OffisimRuntimeProvider` 的 runtime init 是异步的, `runtimeRef` 是 ref 不触发 re-render。
+  依赖 runtime 就绪的 useEffect 必须把 `version` 放在 deps 里 —
+  init 完成后会 `setVersion(v+1)` 通知这些 effect。
+  不要用 `isInitializing` 作为信号, 它不在这些 effect 的 deps 中
+- `SettingsDialog` 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
+  否则已有的 tool permission 配置会被静默覆盖为默认值
+- Chat 命令系统集中在 `chat-commands.ts` (ui-office/lib),
+  三种类型: `runtime` (发给 AI), `client` (本地 JS), `panel` (打开 UI)。
+  新增命令只需在 `CHAT_COMMANDS` 数组添加条目, ChatInput 和 ChatPanel 自动发现。
+  @mention 只做 inline 文本插入, 不切 direct chat — 进入 direct chat 的唯一方式是 Inspector Chat 按钮
+- UI 全英文。新增面向用户的字符串必须用英文, 不要混入中文
+- `companies.default_model_policy_json` 实际存储公司描述 (`{ description: "..." }`),
+  字段名有误导性但已被多处读写依赖, 不要重命名
 
 ## Product Boundary: AI Runtime Policy
 

@@ -133,6 +133,72 @@ export const SYSTEM_ZONE_TEMPLATES: readonly SystemZoneTemplate[] = [
   },
 ] as const;
 
+// ── Archetype defaults (for template zone factory) ──────────────────
+
+type ArchetypeDefaults = Pick<
+  SystemZoneTemplate,
+  'allowedCategories' | 'activityTypes' | 'deskSlots' | 'accentColor' | 'floorColor'
+>;
+
+const ARCHETYPE_DEFAULTS: Readonly<Record<string, ArchetypeDefaults>> = {
+  workspace: {
+    allowedCategories: ['workspace', 'infrastructure', 'decorative'],
+    activityTypes: ['work'],
+    deskSlots: 4,
+    accentColor: '#3b82f6',
+    floorColor: 0x2a3a5c,
+  },
+  library: {
+    allowedCategories: ['knowledge', 'workspace', 'decorative'],
+    activityTypes: ['learn'],
+    deskSlots: 0,
+    accentColor: '#10b981',
+    floorColor: 0x2a5c3a,
+  },
+  rest: {
+    allowedCategories: ['decorative'],
+    activityTypes: ['rest'],
+    deskSlots: 0,
+    accentColor: '#f59e0b',
+    floorColor: 0x4a4a3a,
+  },
+  meeting: {
+    allowedCategories: ['collaboration', 'decorative'],
+    activityTypes: ['meet', 'collaborate'],
+    deskSlots: 0,
+    accentColor: '#94a3b8',
+    floorColor: 0x3a4a5c,
+  },
+  server: {
+    allowedCategories: ['compute', 'infrastructure'],
+    activityTypes: ['compute'],
+    deskSlots: 0,
+    accentColor: '#06b6d4',
+    floorColor: 0x1e2433,
+  },
+};
+
+/**
+ * Create a zone template with archetype defaults applied.
+ * Only `slug`, `archetype`, `label`, `cx`, `cz`, `w`, `d`, `sortOrder` are required;
+ * everything else falls back to the archetype's standard values.
+ */
+export function createZoneBlueprint(
+  overrides: Pick<SystemZoneTemplate, 'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'> &
+    Partial<Omit<SystemZoneTemplate, 'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'>>,
+): SystemZoneTemplate {
+  const defaults = ARCHETYPE_DEFAULTS[overrides.archetype];
+  return {
+    targetRoles: [],
+    allowedCategories: defaults?.allowedCategories ?? ['workspace', 'infrastructure', 'decorative'],
+    activityTypes: defaults?.activityTypes ?? ['work'],
+    deskSlots: defaults?.deskSlots ?? 0,
+    accentColor: defaults?.accentColor ?? '#64748b',
+    floorColor: defaults?.floorColor ?? 0x334155,
+    ...overrides,
+  };
+}
+
 /** Find a system zone template by slug. */
 export function findSystemTemplate(slug: string): SystemZoneTemplate | undefined {
   return SYSTEM_ZONE_TEMPLATES.find((t) => t.slug === slug);

@@ -12,16 +12,20 @@ const mockedUseCompanyCreation = vi.mocked(useCompanyCreation);
 const TEMPLATE: CompanyTemplate = {
   id: 'rd-company',
   name: 'R&D Company',
+  description: 'Dev + PM + Design team',
+  icon: '🏢',
   employees: [
-    { name: 'Kai Nakamura', role_slug: 'developer', system_prompt: 'Builds full-stack features.' },
-    { name: 'Ryan Torres', role_slug: 'product_manager', system_prompt: 'Turns goals into plans.' },
     {
-      name: 'Jamie Reeves',
-      role_slug: 'ux_designer',
-      system_prompt: 'Designs polished interfaces.',
+      name: 'Kai Nakamura',
+      role_slug: 'developer',
+      persona_json: '{}',
+      config_json: '{}',
     },
+    { name: 'Ryan Torres', role_slug: 'product_manager', persona_json: '{}', config_json: '{}' },
+    { name: 'Jamie Reeves', role_slug: 'ux_designer', persona_json: '{}', config_json: '{}' },
   ],
   sops: [],
+  layoutPreset: 'rd-office',
 };
 
 describe('CompanyCreationWizard', () => {

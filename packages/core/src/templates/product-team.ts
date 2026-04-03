@@ -1,3 +1,4 @@
+import { createZoneBlueprint } from '@offisim/shared-types';
 import type { CompanyTemplate } from './index.js';
 
 /**
@@ -208,4 +209,11 @@ export const productTeamTemplate: CompanyTemplate = {
     },
   ],
   layoutPreset: 'product-hub',
+  zones: [
+    createZoneBlueprint({ slug: 'zone-product', archetype: 'workspace', label: 'PRODUCT HUB', accentColor: '#8b5cf6', floorColor: 0x3a2a5c, cx: 0, cz: 10, w: 12, d: 8, targetRoles: ['product_manager', 'backend', 'fullstack', 'qa'], deskSlots: 4, sortOrder: 0 }),
+    createZoneBlueprint({ slug: 'zone-library', archetype: 'library', label: 'LIBRARY', cx: -10, cz: 0, w: 8, d: 6, sortOrder: 1 }),
+    createZoneBlueprint({ slug: 'zone-rest', archetype: 'rest', label: 'REST AREA', cx: 10, cz: 0, w: 8, d: 6, sortOrder: 2 }),
+    createZoneBlueprint({ slug: 'zone-meeting', archetype: 'meeting', label: 'MEETING ROOM', cx: -10, cz: -10, w: 10, d: 8, sortOrder: 3 }),
+    createZoneBlueprint({ slug: 'zone-server', archetype: 'server', label: 'SERVER CLOSET', cx: 10, cz: -10, w: 6, d: 5, sortOrder: 4 }),
+  ],
 };

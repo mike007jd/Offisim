@@ -1,6 +1,5 @@
 import { computeFloorPlan } from '@offisim/renderer';
-import type { Zone } from '@offisim/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
+import { extractZoneSlug } from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -20,8 +19,9 @@ import {
   Textarea,
 } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
+import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
 import { ROLE_OPTIONS } from '../../lib/roles';
 import { useCompany } from '../company/CompanyContext.js';
@@ -31,14 +31,6 @@ import { SkillBindingList } from './SkillBindingList';
 import { TestChatTab } from './TestChatTab';
 import { ToolPermissionEditor } from './ToolPermissionEditor';
 import { VersionHistoryTab } from './VersionHistoryTab';
-
-// Generate workstation options from the default floor plan
-const _defaultZones: Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, ''));
-const _defaultPlan = computeFloorPlan(_defaultZones, new Map());
-const WORKSTATION_OPTIONS = Array.from(_defaultPlan.allWorkstations.entries()).map(([id], i) => ({
-  value: id,
-  label: `Workstation ${i + 1}`,
-}));
 
 // ---------------------------------------------------------------------------
 // Provider config
@@ -126,6 +118,7 @@ export function EmployeeEditorDialog({
   sourcePackageId,
 }: EmployeeEditorDialogProps) {
   const { activeCompanyId } = useCompany();
+  const { zones: companyZones } = useCompanyZones();
   const isEditMode = employeeId !== null;
   const title = isEditMode ? `Edit Employee: ${formData.name || 'Unnamed'}` : 'New Employee';
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
@@ -152,9 +145,40 @@ export function EmployeeEditorDialog({
   const currentProviderModels =
     PROVIDER_OPTIONS.find((p) => p.value === selectedProvider)?.models ?? [];
 
+  const workstationOptions = useMemo(() => {
+    if (companyZones.length === 0) {
+      return [];
+    }
+
+    const plan = computeFloorPlan(companyZones, new Map());
+    const zoneLabels = new Map<string, string>();
+    for (const zone of companyZones) {
+      zoneLabels.set(zone.zoneId, zone.label);
+      const slug = extractZoneSlug(zone.zoneId);
+      if (slug) {
+        zoneLabels.set(slug, zone.label);
+      }
+    }
+
+    const labelCounts = new Map<string, number>();
+    const options: Array<{ value: string; label: string }> = [];
+
+    for (const [workstationId, desk] of plan.allWorkstations.entries()) {
+      const zoneLabel = zoneLabels.get(desk.zoneId) ?? 'Workspace';
+      const nextIndex = (labelCounts.get(zoneLabel) ?? 0) + 1;
+      labelCounts.set(zoneLabel, nextIndex);
+      options.push({
+        value: workstationId,
+        label: `${zoneLabel} · Desk ${nextIndex}`,
+      });
+    }
+
+    return options;
+  }, [companyZones]);
+
   // Workstation tools badge
   const workstationLabel = formData.workstation_id
-    ? (WORKSTATION_OPTIONS.find((w) => w.value === formData.workstation_id)?.label ?? 'Assigned')
+    ? (workstationOptions.find((w) => w.value === formData.workstation_id)?.label ?? 'Assigned')
     : null;
 
   return (
@@ -263,7 +287,7 @@ export function EmployeeEditorDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Unassigned</SelectItem>
-                    {WORKSTATION_OPTIONS.map((opt) => (
+                    {workstationOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
@@ -519,7 +543,7 @@ export function EmployeeEditorDialog({
                 />
                 {formData.maxTokens < 1024 && (
                   <p className="mt-1 text-[10px] text-amber-400">
-                    部分模型（如 MiniMax）的 thinking 会消耗 token 预算，建议 ≥ 1024
+                    Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
                   </p>
                 )}
               </div>

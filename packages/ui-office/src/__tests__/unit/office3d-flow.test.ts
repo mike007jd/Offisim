@@ -164,8 +164,8 @@ describe('office3d flow helpers', () => {
 
   it('maps non-normal flow variants to compact midpoint labels', () => {
     expect(getFlowLineVariantLabel('normal')).toBeNull();
-    expect(getFlowLineVariantLabel('approval')).toBe('等待审批');
-    expect(getFlowLineVariantLabel('report')).toBe('汇报中');
-    expect(getFlowLineVariantLabel('blocked')).toBe('已阻塞');
+    expect(getFlowLineVariantLabel('approval')).toBe('Pending approval');
+    expect(getFlowLineVariantLabel('report')).toBe('Reporting');
+    expect(getFlowLineVariantLabel('blocked')).toBe('Blocked');
   });
 });

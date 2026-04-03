@@ -28,7 +28,7 @@ describe('CEREMONY_LABELS', () => {
   it('renders the active ceremony phase in the scene HUD', () => {
     render(<Office3DSceneHud activeCount={3} blockedCount={1} ceremonyPhase="working" />);
 
-    expect(screen.getByText('员工执行中')).toBeInTheDocument();
+    expect(screen.getByText('Employees working')).toBeInTheDocument();
     expect(screen.getByText('3 active')).toBeInTheDocument();
     expect(screen.getByText('1 blocked')).toBeInTheDocument();
   });
@@ -36,7 +36,7 @@ describe('CEREMONY_LABELS', () => {
   it('hides ceremony phase details while idle', () => {
     render(<Office3DSceneHud activeCount={0} blockedCount={0} ceremonyPhase="idle" />);
 
-    expect(screen.queryByText('员工执行中')).toBeNull();
+    expect(screen.queryByText('Employees working')).toBeNull();
     expect(screen.getByText('0 active')).toBeInTheDocument();
   });
 });

@@ -16,13 +16,13 @@ export default defineConfig({
   retries: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5176',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'pnpm dev',
-    port: 5173,
+    port: 5176,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
