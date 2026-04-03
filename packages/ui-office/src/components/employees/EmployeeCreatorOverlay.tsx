@@ -1,3 +1,4 @@
+import type { RoleSlug } from '@offisim/shared-types';
 import {
   Input,
   Select,
@@ -16,7 +17,7 @@ import { DicebearAvatar } from '../shared/DicebearAvatar';
 export interface EmployeeCreatorOverlayProps {
   open: boolean;
   onClose: () => void;
-  onDeploy: (employee: { name: string; role: string; seed: string }) => void;
+  onDeploy: (employee: { name: string; role: RoleSlug; seed: string }) => void;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ type PreviewMode = '2d' | '3d';
 
 export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCreatorOverlayProps) {
   const [name, setName] = useState('');
-  const [role, setRole] = useState<string>('developer');
+  const [role, setRole] = useState<RoleSlug>('developer');
   const [seed, setSeed] = useState('');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('2d');
   const [creativity, setCreativity] = useState(5);
@@ -75,6 +76,17 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       setActiveStep(0);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, open]);
 
   const effectiveSeed = seed || 'default';
 
@@ -255,7 +267,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                   >
                     ROLE ASSIGNMENT
                   </label>
-                  <Select value={role} onValueChange={setRole}>
+                  <Select value={role} onValueChange={(value) => setRole(value as RoleSlug)}>
                     <SelectTrigger className="bg-white/[0.04] border-white/10 rounded-lg text-white h-11">
                       <SelectValue />
                     </SelectTrigger>

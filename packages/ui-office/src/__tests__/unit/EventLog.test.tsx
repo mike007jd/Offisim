@@ -197,4 +197,61 @@ describe('EventLog', () => {
 
     expect(screen.getByText('Bootstrap Agent')).toBeInTheDocument();
   });
+
+  it('captures llm, error, and interaction events in the shared store', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = createWrapper(createRuntimeValue(eventBus));
+
+    render(<EventLog />, { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'llm.call.started',
+        timestamp: Date.now(),
+        companyId: 'company-1',
+        entityId: 'llm-1',
+        payload: {
+          llmCallId: 'llm-1',
+          nodeName: 'boss',
+          model: 'gpt-5-mini',
+        },
+      });
+      eventBus.emit({
+        type: 'error.occurred',
+        timestamp: Date.now(),
+        companyId: 'company-1',
+        entityId: 'boss',
+        payload: {
+          errorCode: 'RATE_LIMIT',
+          message: 'Provider unavailable',
+          nodeName: 'boss',
+        },
+      });
+      eventBus.emit({
+        type: 'interaction.requested',
+        timestamp: Date.now(),
+        companyId: 'company-1',
+        entityId: 'interaction-1',
+        payload: {
+          request: {
+            interactionId: 'interaction-1',
+            kind: 'permission_request',
+            severity: 'medium',
+            scope: 'tool_call',
+            employeeId: 'emp-1',
+            title: 'Need approval',
+            prompt: 'Allow tool?',
+            options: [],
+            createdAt: new Date().toISOString(),
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('boss')).toBeInTheDocument();
+      expect(screen.getByText('Provider unavailable')).toBeInTheDocument();
+      expect(screen.getByText('interaction')).toBeInTheDocument();
+    });
+  });
 });

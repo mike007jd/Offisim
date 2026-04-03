@@ -126,13 +126,13 @@ function createPrefabInstance(params: {
 }
 
 function buildZoneCounts(
-  createdEmployees: Array<{ role_slug: string }>,
+  createdEmployees: Array<{ role_slug: RoleSlug }>,
   availableZones: readonly Zone[],
 ): Map<string, number> {
   const zoneCounts = new Map<string, number>();
 
   for (const employee of createdEmployees) {
-    const matchedZone = resolveZoneForRole(employee.role_slug as RoleSlug, availableZones);
+    const matchedZone = resolveZoneForRole(employee.role_slug, availableZones);
     if (matchedZone?.archetype === 'workspace') {
       zoneCounts.set(matchedZone.zoneId, (zoneCounts.get(matchedZone.zoneId) ?? 0) + 1);
     }
@@ -194,7 +194,7 @@ function buildDefaultPrefabInstances(
 
 function buildWorkspacePrefabInstances(
   companyId: string,
-  createdEmployees: Array<{ role_slug: string }>,
+  createdEmployees: Array<{ role_slug: RoleSlug }>,
   zoneTemplates: readonly TemplateZoneBlueprint[],
   availableZones: readonly Zone[],
   now: string,
@@ -224,7 +224,7 @@ function buildWorkspacePrefabInstances(
 
 function buildPrefabInstances(
   companyId: string,
-  createdEmployees: Array<{ role_slug: string }>,
+  createdEmployees: Array<{ role_slug: RoleSlug }>,
   zoneTemplates: readonly TemplateZoneBlueprint[],
   availableZones: readonly Zone[],
   now: string,
@@ -275,7 +275,7 @@ function validateTemplateZones(template: CompanyTemplate): void {
   }
 
   for (const employee of template.employees) {
-    const matchedZone = resolveZoneForRole(employee.role_slug as RoleSlug, availableZones);
+    const matchedZone = resolveZoneForRole(employee.role_slug, availableZones);
     if (!matchedZone || matchedZone.archetype !== 'workspace') {
       throw new Error(
         `Template "${template.id}" has employee role "${employee.role_slug}" without a matching workspace zone`,
@@ -339,11 +339,11 @@ export class CompanyTemplateService {
       // Pre-generate all IDs so we don't need to await inside the sync callback.
       // Events are collected and fired after the transaction commits.
 
-      type EmployeeEvent = { employeeId: string; name: string; roleSlug: string };
+      type EmployeeEvent = { employeeId: string; name: string; roleSlug: RoleSlug };
       const pendingEvents: EmployeeEvent[] = [];
 
       const employeeIds: string[] = [];
-      const createdEmployees: Array<{ role_slug: string }> = [];
+      const createdEmployees: Array<{ role_slug: RoleSlug }> = [];
 
       // Pre-generate employee IDs using the same UUID strategy as the Drizzle repo.
       // Note: Drizzle's employees.create() generates its own ID internally.
@@ -352,7 +352,11 @@ export class CompanyTemplateService {
         const empId = crypto.randomUUID();
         employeeIds.push(empId);
         createdEmployees.push({ role_slug: emp.role_slug });
-        pendingEvents.push({ employeeId: empId, name: emp.name, roleSlug: emp.role_slug });
+        pendingEvents.push({
+          employeeId: empId,
+          name: emp.name,
+          roleSlug: emp.role_slug,
+        });
       }
 
       const sopTemplateIds: string[] = template.sops.map(() => `sop_${crypto.randomUUID()}`);
@@ -444,7 +448,7 @@ export class CompanyTemplateService {
 
     // ── Create employees ───────────────────────────────────────────
     const employeeIds: string[] = [];
-    const createdEmployees: Array<{ role_slug: string }> = [];
+    const createdEmployees: Array<{ role_slug: RoleSlug }> = [];
 
     for (const emp of template.employees) {
       const result = await this.employeeRepo.create({
@@ -460,7 +464,9 @@ export class CompanyTemplateService {
       createdEmployees.push({ role_slug: emp.role_slug });
 
       // Emit employee.created so SceneManager and UI hooks pick up the new employee
-      this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug));
+      this.eventBus.emit(
+        employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug),
+      );
     }
 
     // ── Create SOP templates ───────────────────────────────────────

@@ -1,5 +1,6 @@
 import type { BindingStatus, BindingType } from './install.js';
 import type { InteractionMode, InteractionRequest, InteractionResponse } from './interactions.js';
+import type { RoleSlug } from './roles.js';
 import type {
   EmployeeState,
   InstallState,
@@ -331,13 +332,13 @@ export interface McpToolResultPayload {
 export interface EmployeeCreatedPayload {
   readonly employeeId: string;
   readonly name: string;
-  readonly roleSlug: string;
+  readonly roleSlug: RoleSlug;
 }
 
 export interface EmployeeUpdatedPayload {
   readonly employeeId: string;
   readonly name: string;
-  readonly roleSlug: string;
+  readonly roleSlug: RoleSlug;
 }
 
 export interface EmployeeDeletedPayload {
@@ -367,6 +368,7 @@ export interface DeliverableCreatedPayload {
   readonly contributingEmployees: ReadonlyArray<{
     readonly employeeId: string;
     readonly employeeName: string;
+    readonly roleSlug: RoleSlug;
   }>;
   readonly createdAt: number;
 }
@@ -570,7 +572,7 @@ export interface HrAssessmentCompletedPayload {
 
 export interface HrRecommendationPayload {
   readonly recommendation: string;
-  readonly suggestedRoles: readonly string[];
+  readonly suggestedRoles: readonly RoleSlug[];
   readonly threadId: string;
 }
 

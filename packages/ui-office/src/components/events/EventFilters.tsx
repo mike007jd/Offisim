@@ -14,6 +14,9 @@ export const ALL_EVENT_TYPES = [
   'Deliverable',
   'Employee',
   'Install',
+  'LLM',
+  'Interaction',
+  'Error',
 ] as const;
 export type EventFilterType = (typeof ALL_EVENT_TYPES)[number];
 

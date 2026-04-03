@@ -1,7 +1,9 @@
+import type { RoleSlug } from './roles.js';
+
 export interface SopStep {
   readonly step_id: string;
   readonly label: string;
-  readonly role_slug: string;
+  readonly role_slug: RoleSlug;
   readonly instruction: string;
   readonly dependencies: readonly string[];
   readonly output_key: string;

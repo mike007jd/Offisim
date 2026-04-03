@@ -7,10 +7,15 @@ import {
   computeRestAreaSeats,
 } from '../layout/zone-layout-engine.js';
 
+const TEST_COMPANY = 'test-company';
+
 /** Convert SYSTEM_ZONE_TEMPLATES to Zone[] for test input. */
 const TEST_ZONES: readonly Zone[] = SYSTEM_ZONE_TEMPLATES.map((t) =>
-  templateToZone(t, 'test-company'),
+  templateToZone(t, TEST_COMPANY),
 );
+
+/** Build prefixed zone ID matching DB format. */
+const zid = (slug: string) => `${TEST_COMPANY}::${slug}`;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -63,26 +68,26 @@ describe('zone-layout-engine', () => {
 
     it('small team (2 dev, 1 product, 1 art) — should fit in reasonable dimensions', () => {
       const counts = new Map([
-        ['zone-dev', 2],
-        ['zone-product', 1],
-        ['zone-art', 1],
+        [zid('zone-dev'), 2],
+        [zid('zone-product'), 1],
+        [zid('zone-art'), 1],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // Dev zone gets max(deskSlots=4, ceil(2 * 1.2)=3) = 4 slots
-      const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
+      const devZone = plan.zones.find((z) => z.zoneId === zid('zone-dev'));
       expect(devZone).toBeDefined();
       if (!devZone) throw new Error('Expected dev zone');
       expect(devZone.workstations.length).toBe(4);
 
       // Product: max(deskSlots=4, ceil(1 * 1.2)=2) = 4
-      const prodZone = plan.zones.find((z) => z.zoneId === 'zone-product');
+      const prodZone = plan.zones.find((z) => z.zoneId === zid('zone-product'));
       expect(prodZone).toBeDefined();
       if (!prodZone) throw new Error('Expected product zone');
       expect(prodZone.workstations.length).toBe(4);
 
       // Art: max(deskSlots=4, ceil(1 * 1.2)=2) = 4
-      const artZone = plan.zones.find((z) => z.zoneId === 'zone-art');
+      const artZone = plan.zones.find((z) => z.zoneId === zid('zone-art'));
       expect(artZone).toBeDefined();
       if (!artZone) throw new Error('Expected art zone');
       expect(artZone.workstations.length).toBe(4);
@@ -95,26 +100,26 @@ describe('zone-layout-engine', () => {
 
     it('large team (8 dev, 4 product, 4 art) — should scale up', () => {
       const counts = new Map([
-        ['zone-dev', 8],
-        ['zone-product', 4],
-        ['zone-art', 4],
+        [zid('zone-dev'), 8],
+        [zid('zone-product'), 4],
+        [zid('zone-art'), 4],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 
       // Dev: ceil(8 * 1.2) = 10 slots
-      const devZone = plan.zones.find((z) => z.zoneId === 'zone-dev');
+      const devZone = plan.zones.find((z) => z.zoneId === zid('zone-dev'));
       expect(devZone).toBeDefined();
       if (!devZone) throw new Error('Expected dev zone');
       expect(devZone.workstations.length).toBe(10);
 
       // Product: ceil(4 * 1.2) = 5
-      const prodZone = plan.zones.find((z) => z.zoneId === 'zone-product');
+      const prodZone = plan.zones.find((z) => z.zoneId === zid('zone-product'));
       expect(prodZone).toBeDefined();
       if (!prodZone) throw new Error('Expected product zone');
       expect(prodZone.workstations.length).toBe(5);
 
       // Art: ceil(4 * 1.2) = 5
-      const artZone = plan.zones.find((z) => z.zoneId === 'zone-art');
+      const artZone = plan.zones.find((z) => z.zoneId === zid('zone-art'));
       expect(artZone).toBeDefined();
       if (!artZone) throw new Error('Expected art zone');
       expect(artZone.workstations.length).toBe(5);
@@ -126,9 +131,9 @@ describe('zone-layout-engine', () => {
 
     it('no overlapping zones — all zone bounds should not intersect', () => {
       const counts = new Map([
-        ['zone-dev', 6],
-        ['zone-product', 3],
-        ['zone-art', 3],
+        [zid('zone-dev'), 6],
+        [zid('zone-product'), 3],
+        [zid('zone-art'), 3],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 
@@ -142,9 +147,9 @@ describe('zone-layout-engine', () => {
 
     it('no overlapping workstations — all desk positions should be unique and within zone bounds', () => {
       const counts = new Map([
-        ['zone-dev', 5],
-        ['zone-product', 3],
-        ['zone-art', 2],
+        [zid('zone-dev'), 5],
+        [zid('zone-product'), 3],
+        [zid('zone-art'), 2],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 
@@ -167,9 +172,9 @@ describe('zone-layout-engine', () => {
 
     it('all workstations in allWorkstations map — count matches sum of zone workstations', () => {
       const counts = new Map([
-        ['zone-dev', 4],
-        ['zone-product', 2],
-        ['zone-art', 2],
+        [zid('zone-dev'), 4],
+        [zid('zone-product'), 2],
+        [zid('zone-art'), 2],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 
@@ -193,9 +198,9 @@ describe('zone-layout-engine', () => {
 
     it('meeting room and server room should share row 3 proportionally', () => {
       const counts = new Map([
-        ['zone-dev', 4],
-        ['zone-product', 2],
-        ['zone-art', 2],
+        [zid('zone-dev'), 4],
+        [zid('zone-product'), 2],
+        [zid('zone-art'), 2],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
       const mtg = plan.zones.find((z) => z.type === 'meeting_room');
@@ -218,9 +223,9 @@ describe('zone-layout-engine', () => {
     it('row 2 height should scale with row 1 height for large offices', () => {
       // Large team creates tall row 1, row 2 should be at least 50% of that
       const counts = new Map([
-        ['zone-dev', 20],
-        ['zone-product', 10],
-        ['zone-art', 10],
+        [zid('zone-dev'), 20],
+        [zid('zone-product'), 10],
+        [zid('zone-art'), 10],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
       const library = plan.zones.find((z) => z.type === 'library');
@@ -243,9 +248,9 @@ describe('zone-layout-engine', () => {
     it('dynamic zonePadding should scale with floor width for large offices', () => {
       // Large team → wide floor → larger padding
       const largeCounts = new Map([
-        ['zone-dev', 20],
-        ['zone-product', 10],
-        ['zone-art', 10],
+        [zid('zone-dev'), 20],
+        [zid('zone-product'), 10],
+        [zid('zone-art'), 10],
       ]);
       const largePlan = computeFloorPlan(TEST_ZONES, largeCounts);
 
@@ -263,9 +268,9 @@ describe('zone-layout-engine', () => {
 
     it('user-provided zonePadding should override dynamic calculation', () => {
       const counts = new Map([
-        ['zone-dev', 20],
-        ['zone-product', 10],
-        ['zone-art', 10],
+        [zid('zone-dev'), 20],
+        [zid('zone-product'), 10],
+        [zid('zone-art'), 10],
       ]);
       const customPadding = 10;
       const plan = computeFloorPlan(TEST_ZONES, counts, { zonePadding: customPadding });
@@ -283,9 +288,9 @@ describe('zone-layout-engine', () => {
     it('department zones should never be shorter than row 2 utility zones', () => {
       // Test with small departments that would naturally be short
       const counts = new Map([
-        ['zone-dev', 1],
-        ['zone-product', 1],
-        ['zone-art', 1],
+        [zid('zone-dev'), 1],
+        [zid('zone-product'), 1],
+        [zid('zone-art'), 1],
       ]);
       const plan = computeFloorPlan(TEST_ZONES, counts);
 

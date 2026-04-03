@@ -23,6 +23,7 @@ import type {
   SlotAssignedPayload,
   SlotRemovedPayload,
 } from '@offisim/shared-types';
+import type { RoleSlug } from '@offisim/shared-types';
 import type {
   InteractionMode,
   InteractionRequest,
@@ -216,7 +217,7 @@ export function hrAssessmentCompleted(
 export function hrRecommendation(
   companyId: string,
   recommendation: string,
-  suggestedRoles: string[],
+  suggestedRoles: readonly RoleSlug[],
   threadId: string,
 ): RuntimeEvent<HrRecommendationPayload> {
   return {

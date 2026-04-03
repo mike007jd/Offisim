@@ -1,4 +1,12 @@
-/** Shared zone configuration — single source of truth for 2D, 3D, and editor views. */
+/**
+ * @deprecated This file is no longer imported by any production code.
+ * Zone resolution has moved to `@offisim/shared-types/zone-resolution` (resolveZoneForRole)
+ * and zone definitions to `@offisim/shared-types/zone-templates` (SYSTEM_ZONE_TEMPLATES).
+ * The bare-slug IDs here ('dev', 'mtg', etc.) do NOT match the DB format ('companyId::slug').
+ * Kept temporarily for reference; safe to delete once confirmed unused in all branches.
+ */
+
+import type { RoleSlug } from '@offisim/shared-types';
 
 /** Human-readable space type label shown in the Office Editor UI. */
 export type ZoneSpaceType =
@@ -127,8 +135,8 @@ export const ZONES: readonly ZoneDef[] = [
   },
 ];
 
-/** Resolve employee role slug to zone ID. Defaults to 'dev'. */
-export function resolveZone(role: string): string {
+/** @deprecated Use `resolveZoneForRole()` from `@offisim/shared-types` instead. */
+export function resolveZone(role: RoleSlug): string {
   for (const z of ZONES) {
     if (z.roleSlugs.includes(role)) return z.id;
   }
@@ -148,14 +156,11 @@ export const DROP_TARGET_ZONES: readonly ZoneDef[] = ZONES.filter((z) => z.deskS
  * Matches AgentState from use-agent-states — kept minimal to avoid circular imports.
  */
 export interface AgentZoneInfo {
-  role: string;
+  role: RoleSlug;
   workstationId?: string | null;
 }
 
-/**
- * Resolve which zone an employee belongs to.
- * Priority: persisted workstationId (from DB, updated by drag-to-assign) → role-based fallback.
- */
+/** @deprecated Use `resolveEmployeeZone()` from `@offisim/shared-types/zone-resolution` instead. */
 export function resolveEmployeeZone(agent: AgentZoneInfo): string {
   if (agent.workstationId && VALID_ZONE_IDS.has(agent.workstationId)) {
     return agent.workstationId;

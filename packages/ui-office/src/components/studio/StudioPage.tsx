@@ -26,13 +26,21 @@ import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 // -- Props --------------------------------------------------------------------
 
-export interface StudioPageProps {
-  mode: 'create' | 'edit';
-  companyId?: string; // required for edit mode
-  repos: RuntimeRepositories | null;
-  onBack: () => void;
-  onCompanyCreated?: (companyId: string) => void;
-}
+export type StudioPageProps =
+  | {
+      mode: 'create';
+      companyId?: undefined;
+      repos: RuntimeRepositories | null;
+      onBack: () => void;
+      onCompanyCreated?: (companyId: string) => void;
+    }
+  | {
+      mode: 'edit';
+      companyId: string;
+      repos: RuntimeRepositories | null;
+      onBack: () => void;
+      onCompanyCreated?: (companyId: string) => void;
+    };
 
 // -- Styles -------------------------------------------------------------------
 
@@ -184,7 +192,9 @@ function CompanyNameModal({
 
 // -- Component ----------------------------------------------------------------
 
-export function StudioPage({ mode, companyId, repos, onBack, onCompanyCreated }: StudioPageProps) {
+export function StudioPage(props: StudioPageProps) {
+  const { mode, repos, onBack, onCompanyCreated } = props;
+  const companyId = props.mode === 'edit' ? props.companyId : undefined;
   const { eventBus } = useOffisimRuntime();
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);

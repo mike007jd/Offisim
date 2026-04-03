@@ -132,7 +132,7 @@ describe('wizardReducer — reset', () => {
 describe('isStepValid', () => {
   it('role step: valid when role_slug is non-empty', () => {
     expect(isStepValid(0, { ...DEFAULT_WIZARD_FORM, role_slug: 'developer' })).toBe(true);
-    expect(isStepValid(0, { ...DEFAULT_WIZARD_FORM, role_slug: '' })).toBe(false);
+    expect(isStepValid(0, { ...DEFAULT_WIZARD_FORM, role_slug: '' as never })).toBe(false);
   });
 
   it('name step: valid when name is non-empty', () => {

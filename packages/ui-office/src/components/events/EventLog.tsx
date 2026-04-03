@@ -14,6 +14,9 @@ const EVENT_PREFIXES = [
   'deliverable.',
   'employee.',
   'install.',
+  'llm.',
+  'interaction.',
+  'error.',
 ] as const;
 const MAX_EVENTS = 200;
 
@@ -86,6 +89,9 @@ const TYPE_PREFIX_MAP: Record<string, string[]> = {
   Deliverable: ['deliverable.'],
   Employee: ['employee.'],
   Install: ['install.'],
+  LLM: ['llm.'],
+  Interaction: ['interaction.'],
+  Error: ['error.'],
 };
 
 /** Determine a display level from event topic only — no payload serialization */

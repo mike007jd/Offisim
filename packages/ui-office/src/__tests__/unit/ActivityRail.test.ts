@@ -153,6 +153,66 @@ describe('ActivityRail', () => {
     });
   });
 
+  it('surfaces llm lifecycle and runtime errors in the activity rail', async () => {
+    const eventBus = new TestEventBus();
+    const wrapper = makeWrapper(eventBus);
+
+    render(createElement(ActivityRail), { wrapper });
+
+    act(() => {
+      eventBus.emit({
+        type: 'llm.call.started',
+        entityId: 'llm-1',
+        entityType: 'llm',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          llmCallId: 'llm-1',
+          nodeName: 'boss',
+          provider: 'openai',
+          model: 'gpt-5-mini',
+          threadId: 'thread-1',
+        },
+      });
+      eventBus.emit({
+        type: 'llm.call.completed',
+        entityId: 'llm-1',
+        entityType: 'llm',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          llmCallId: 'llm-1',
+          nodeName: 'boss',
+          latencyMs: 1800,
+          inputTokens: 42,
+          outputTokens: 13,
+        },
+      });
+      eventBus.emit({
+        type: 'error.occurred',
+        entityId: 'boss',
+        entityType: 'employee',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          errorCode: 'RATE_LIMIT',
+          message: 'Rate limit exceeded',
+          recoverable: true,
+          nodeName: 'boss',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Boss started gpt-5-mini')).toBeInTheDocument();
+      expect(screen.getByText('Boss completed gpt-5-mini in 1.8s')).toBeInTheDocument();
+      expect(screen.getByText('Rate limit exceeded')).toBeInTheDocument();
+    });
+  });
+
   it('collapses active search and shell bursts into phase-based labels', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);

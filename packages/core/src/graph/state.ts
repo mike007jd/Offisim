@@ -1,5 +1,6 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
+import type { RoleSlug } from '@offisim/shared-types';
 
 export interface PendingAssignment {
   taskType: string;
@@ -53,6 +54,7 @@ export interface CitationRef {
 export interface StepTaskOutput {
   employeeId: string;
   employeeName: string;
+  roleSlug: RoleSlug;
   content: string;
   taskRunId: string;
   /** Library document citations used in this response (empty array if none). */

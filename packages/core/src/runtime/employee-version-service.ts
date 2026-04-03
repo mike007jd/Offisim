@@ -1,3 +1,4 @@
+import type { RoleSlug } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { employeeVersionCreated } from '../events/event-factories.js';
 import type {
@@ -102,7 +103,7 @@ export class EmployeeVersionService {
 
     await this.employeeRepo.update(employeeId, {
       name: parsed.name as string,
-      role_slug: parsed.role_slug as string,
+      role_slug: parsed.role_slug as RoleSlug,
       enabled: parsed.enabled as number,
       persona_json: (parsed.persona_json as string) ?? null,
       config_json: (parsed.config_json as string) ?? null,

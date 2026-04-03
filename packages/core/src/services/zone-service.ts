@@ -89,10 +89,7 @@ export class ZoneService {
 
     for (const t of templates) {
       const zone = templateToZone(t, companyId);
-      const newZone: NewZone = {
-        ...dehydrateZone(zone),
-        zone_id: `${companyId}::${t.slug}`,
-      };
+      const newZone: NewZone = dehydrateZone(zone);
       const row = await this.repo.create(newZone);
       zones.push(hydrateZone(row));
     }

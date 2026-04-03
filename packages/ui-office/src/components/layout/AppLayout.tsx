@@ -8,6 +8,13 @@ interface AppLayoutProps {
   chatDrawer: ReactNode;
   eventLog: ReactNode;
   statusBar: ReactNode;
+  onLayoutMetricsChange?: (metrics: {
+    isNarrow: boolean;
+    leftOpen: boolean;
+    rightOpen: boolean;
+    leftPanelWidth: number;
+    rightPanelWidth: number;
+  }) => void;
 }
 
 export function AppLayout({
@@ -17,6 +24,7 @@ export function AppLayout({
   chatDrawer,
   eventLog,
   statusBar,
+  onLayoutMetricsChange,
 }: AppLayoutProps) {
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false,
@@ -56,6 +64,16 @@ export function AppLayout({
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  useEffect(() => {
+    onLayoutMetricsChange?.({
+      isNarrow,
+      leftOpen,
+      rightOpen,
+      leftPanelWidth: leftOpen ? 280 : 44,
+      rightPanelWidth: rightOpen ? 280 : 44,
+    });
+  }, [isNarrow, leftOpen, onLayoutMetricsChange, rightOpen]);
 
   return (
     <div className="h-screen bg-surface text-slate-300 flex flex-col overflow-hidden relative">

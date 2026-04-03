@@ -1,5 +1,5 @@
 import type { NewEmployee } from '@offisim/install-core';
-import type { InteractionKind, InteractionMode } from '@offisim/shared-types';
+import type { InteractionKind, InteractionMode, RoleSlug } from '@offisim/shared-types';
 import type {
   NewProject,
   NewProjectAssignment,
@@ -51,7 +51,7 @@ export interface EmployeeRow {
   source_asset_id: string | null;
   source_package_id: string | null;
   name: string;
-  role_slug: string;
+  role_slug: RoleSlug;
   workstation_id: string | null;
   persona_json: string | null;
   config_json: string | null;
@@ -218,7 +218,7 @@ export interface EmployeeRepository {
   create(employee: NewEmployee): Promise<{ employee_id: string }>;
   findById(employeeId: string): Promise<EmployeeRow | null>;
   findByCompany(companyId: string): Promise<EmployeeRow[]>;
-  findByRole(companyId: string, roleSlug: string): Promise<EmployeeRow[]>;
+  findByRole(companyId: string, roleSlug: RoleSlug): Promise<EmployeeRow[]>;
   /** Update employee fields. */
   update(employeeId: string, patch: EmployeeUpdate): Promise<void>;
   /** Delete an employee by ID. Used during install rollback. */

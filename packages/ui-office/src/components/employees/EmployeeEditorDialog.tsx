@@ -1,4 +1,5 @@
 import { computeFloorPlan } from '@offisim/renderer';
+import type { RoleSlug } from '@offisim/shared-types';
 import { extractZoneSlug } from '@offisim/shared-types';
 import {
   Button,
@@ -108,6 +109,7 @@ export function EmployeeEditorDialog({
   isDirty,
   isSaving,
   isConfirmingDelete,
+  deleteError,
   updateField,
   save,
   requestDelete,
@@ -243,7 +245,7 @@ export function EmployeeEditorDialog({
                 </label>
                 <Select
                   value={formData.role_slug}
-                  onValueChange={(v) => updateField('role_slug', v)}
+                  onValueChange={(v) => updateField('role_slug', v as RoleSlug)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -621,6 +623,7 @@ export function EmployeeEditorDialog({
                 </Button>
               </div>
             )}
+            {deleteError && <p className="mt-2 text-xs text-destructive">{deleteError}</p>}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={close}>

@@ -14,6 +14,7 @@ import type {
   EmployeeVersionCreatedPayload,
   EmployeeWorkstationChangedPayload,
   MemoryAccessedPayload,
+  RoleSlug,
   RuntimeEvent,
 } from '@offisim/shared-types';
 
@@ -40,7 +41,7 @@ export function employeeCreated(
   companyId: string,
   employeeId: string,
   name: string,
-  roleSlug: string,
+  roleSlug: RoleSlug,
 ): RuntimeEvent<EmployeeCreatedPayload> {
   return {
     type: 'employee.created',
@@ -56,7 +57,7 @@ export function employeeUpdated(
   companyId: string,
   employeeId: string,
   name: string,
-  roleSlug: string,
+  roleSlug: RoleSlug,
 ): RuntimeEvent<EmployeeUpdatedPayload> {
   return {
     type: 'employee.updated',

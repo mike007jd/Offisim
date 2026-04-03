@@ -4,6 +4,7 @@ import type {
   ToolApprovalMode,
   ToolPermissionPolicy,
 } from '@offisim/core/browser';
+import type { RoleSlug } from '@offisim/shared-types';
 import {
   employeeCreated,
   employeeDeleted,
@@ -58,7 +59,7 @@ export const DEFAULT_APPEARANCE: AvatarAppearance = {
 
 export interface EmployeeFormData {
   name: string;
-  role_slug: string;
+  role_slug: RoleSlug;
   enabled: boolean;
   workstation_id: string | null;
   expertise: string;
@@ -289,6 +290,7 @@ export interface UseEmployeeEditorReturn {
   isDirty: boolean;
   isSaving: boolean;
   isConfirmingDelete: boolean;
+  deleteError: string | null;
   /** Non-null when the employee was installed from a marketplace asset. */
   sourceAssetId: string | null;
   sourcePackageId: string | null;
@@ -313,6 +315,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const [originalData, setOriginalData] = useState<EmployeeFormData>(DEFAULT_FORM);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sourceAssetId, setSourceAssetId] = useState<string | null>(null);
   const [sourcePackageId, setSourcePackageId] = useState<string | null>(null);
 
@@ -347,6 +350,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       setIsDirty(false);
       setSourceAssetId(row.source_asset_id ?? null);
       setSourcePackageId(row.source_package_id ?? null);
+      setDeleteError(null);
       setIsOpen(true);
     },
     [repos],
@@ -359,6 +363,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     setIsDirty(false);
     setSourceAssetId(null);
     setSourcePackageId(null);
+    setDeleteError(null);
     setIsOpen(true);
   }, []);
 
@@ -438,19 +443,25 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const requestDelete = useCallback(() => {
+    setDeleteError(null);
     setIsConfirmingDelete(true);
   }, []);
 
   const cancelDelete = useCallback(() => {
+    setDeleteError(null);
     setIsConfirmingDelete(false);
   }, []);
 
   const confirmDelete = useCallback(async () => {
     if (!repos || !employeeId) return;
     setIsSaving(true);
+    setDeleteError(null);
     try {
       const companyId = activeCompanyId;
-      if (!companyId) return;
+      if (!companyId) {
+        setDeleteError('No active company selected.');
+        return;
+      }
       await repos.employees.delete(employeeId);
       eventBus.emit(employeeDeleted(companyId, employeeId));
       setIsOpen(false);
@@ -459,6 +470,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       setOriginalData(DEFAULT_FORM);
       setIsDirty(false);
       setIsConfirmingDelete(false);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete employee.');
     } finally {
       setIsSaving(false);
     }
@@ -470,6 +483,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     setFormData(DEFAULT_FORM);
     setOriginalData(DEFAULT_FORM);
     setIsDirty(false);
+    setDeleteError(null);
   }, []);
 
   return {
@@ -478,6 +492,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     formData,
     isDirty,
     isSaving,
+    deleteError,
     setFormData: handleSetFormData,
     updateField,
     openForEdit,

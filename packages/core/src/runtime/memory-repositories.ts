@@ -6,6 +6,7 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
+  RoleSlug,
   ZoneRow,
 } from '@offisim/shared-types';
 import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
@@ -325,7 +326,7 @@ export function createMemoryRepositories(
         source_asset_id: emp.source_asset_id,
         source_package_id: emp.source_package_id,
         name: emp.name,
-        role_slug: emp.role_slug,
+        role_slug: emp.role_slug as RoleSlug,
         workstation_id: null,
         persona_json: emp.persona_json ?? null,
         config_json: emp.config_json ?? null,

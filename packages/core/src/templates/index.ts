@@ -1,4 +1,9 @@
-import type { SopDefinition, SystemZoneTemplate, ZonePresetPrefab } from '@offisim/shared-types';
+import type {
+  RoleSlug,
+  SopDefinition,
+  SystemZoneTemplate,
+  ZonePresetPrefab,
+} from '@offisim/shared-types';
 
 import { agencyLiteTemplate } from './agency-lite.js';
 import { aiStartupTemplate } from './ai-startup.js';
@@ -8,7 +13,7 @@ import { rdCompanyTemplate } from './rd-company.js';
 
 export interface CompanyTemplateEmployee {
   name: string;
-  role_slug: string;
+  role_slug: RoleSlug;
   persona_json: string;
   config_json: string;
 }

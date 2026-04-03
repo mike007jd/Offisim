@@ -21,6 +21,7 @@ function categorize(event: RuntimeEvent): { category: EventCategory; action: str
 /** Extract a human-readable label from event payload, falling back to a topic-derived label. */
 function getDisplayLabel(event: RuntimeEvent): string {
   const p = event.payload as Record<string, unknown>;
+  if (typeof p.message === 'string') return p.message;
   if (typeof p.nodeName === 'string') return p.nodeName;
   if (typeof p.employeeName === 'string') return p.employeeName;
   if (typeof p.name === 'string') return p.name;

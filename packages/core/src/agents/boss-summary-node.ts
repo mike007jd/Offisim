@@ -143,6 +143,7 @@ export async function bossSummaryNode(
     const contributingEmployees = state.currentStepOutputs.map((o) => ({
       employeeId: o.employeeId,
       employeeName: o.employeeName,
+      roleSlug: o.roleSlug,
     }));
     const title = state.taskPlan?.summary ?? finalContent.slice(0, 80);
     runtimeCtx.eventBus.emit(

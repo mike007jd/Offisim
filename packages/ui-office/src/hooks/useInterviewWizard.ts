@@ -1,4 +1,5 @@
 import { employeeCreated } from '@offisim/core/browser';
+import type { RoleSlug } from '@offisim/shared-types';
 import { useCallback, useReducer, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
@@ -47,7 +48,7 @@ export type WizardAction =
 
 export const DEFAULT_WIZARD_FORM: EmployeeFormData = {
   name: '',
-  role_slug: 'developer',
+  role_slug: 'developer' as RoleSlug,
   enabled: true,
   workstation_id: null,
   expertise: '',

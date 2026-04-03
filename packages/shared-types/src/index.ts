@@ -169,6 +169,7 @@ export type {
 
 export type {
   ProjectStatus,
+  ProjectAssignmentRole,
   ProjectRow,
   NewProject,
   ProjectAssignmentRow,

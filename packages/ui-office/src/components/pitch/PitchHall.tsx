@@ -1,5 +1,5 @@
 import { type ExportFormat, type ExportableDocument, exportDocument } from '@offisim/doc-engine';
-import type { DeliverableCreatedPayload, RuntimeEvent, SopDefinition } from '@offisim/shared-types';
+import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent, SopDefinition } from '@offisim/shared-types';
 import {
   Badge,
   Button,
@@ -257,7 +257,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
           ? employees.map((emp, i) => ({
               step_id: `step_${i + 1}`,
               label: `${emp.employeeName} contribution`,
-              role_slug: emp.employeeName.toLowerCase().replace(/\s+/g, '-'),
+              role_slug: emp.roleSlug,
               instruction: `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
               dependencies: i === 0 ? [] : [`step_${i}`],
               output_key: `output_step_${i + 1}`,
@@ -266,7 +266,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
               {
                 step_id: 'step_1',
                 label: 'Execute task',
-                role_slug: 'employee',
+                role_slug: 'developer' as RoleSlug,
                 instruction: `Produce output similar to: "${item.title}".`,
                 dependencies: [],
                 output_key: 'output_step_1',

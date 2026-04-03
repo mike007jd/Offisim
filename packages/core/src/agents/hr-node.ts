@@ -1,6 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { ROLE_REGISTRY } from '@offisim/shared-types';
+import type { RoleSlug } from '@offisim/shared-types';
 import {
   graphNodeEntered,
   hrAssessmentCompleted,
@@ -17,7 +18,7 @@ import { getConfigSignal } from '../utils/get-signal.js';
 
 interface HrAssessmentResult {
   assessment: string;
-  suggestedRoles?: string[];
+  suggestedRoles?: RoleSlug[];
 }
 
 /** Build the HR system prompt with the canonical role slug list from ROLE_REGISTRY. */
@@ -48,7 +49,7 @@ function parseHrAssessment(content: string): HrAssessmentResult | null {
   return {
     assessment: parsed.assessment,
     suggestedRoles: Array.isArray(parsed.suggestedRoles)
-      ? (parsed.suggestedRoles.filter((r) => typeof r === 'string') as string[])
+      ? (parsed.suggestedRoles.filter((r) => typeof r === 'string') as RoleSlug[])
       : undefined,
   };
 }

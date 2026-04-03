@@ -16,6 +16,7 @@ export interface EmployeeInspectorProps {
   onClose: () => void;
   onOpenEditor?: (id: string) => void;
   onStartChat?: (id: string) => void;
+  leftOffset?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -28,6 +29,7 @@ export function EmployeeInspector({
   onClose,
   onOpenEditor,
   onStartChat,
+  leftOffset = 280,
 }: EmployeeInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -66,7 +68,8 @@ export function EmployeeInspector({
   return (
     <div
       ref={panelRef}
-      className="fixed left-[280px] top-16 z-50 w-72 max-w-xs"
+      className="fixed top-16 z-50 w-72 max-w-xs"
+      style={{ left: `${leftOffset}px` }}
       data-testid="employee-inspector"
     >
       {/* Floating card */}

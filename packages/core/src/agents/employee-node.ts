@@ -584,6 +584,7 @@ export async function employeeNode(
               {
                 employeeId: employee.employee_id,
                 employeeName: employee.name,
+                roleSlug: employee.role_slug,
                 content: args.completedWork,
                 taskRunId: taskRunId ?? '',
               },
@@ -816,6 +817,7 @@ export async function employeeNode(
         {
           employeeId: employee.employee_id,
           employeeName: employee.name,
+          roleSlug: employee.role_slug,
           content: llmResponse.content,
           taskRunId: taskRunId ?? '',
           citations: usedCitations.length > 0 ? usedCitations : undefined,
@@ -912,6 +914,7 @@ export async function employeeNode(
           {
             employeeId: employee.employee_id,
             employeeName: employee.name,
+            roleSlug: employee.role_slug,
             content: recovered.content,
             taskRunId: taskRunId ?? '',
           },

@@ -3,6 +3,7 @@
 // Merges coordinates/accent from ui-office zone-config + floorColors from renderer departments.
 // All consumers should derive from SYSTEM_ZONE_TEMPLATES instead of maintaining their own mapping.
 
+import { normalizeZoneId } from './zone-resolution.js';
 import type { SystemZoneTemplate, Zone } from './zone.js';
 
 export const SYSTEM_ZONE_TEMPLATES: readonly SystemZoneTemplate[] = [
@@ -207,7 +208,7 @@ export function findSystemTemplate(slug: string): SystemZoneTemplate | undefined
 /** Convert a SystemZoneTemplate to a Zone object. */
 export function templateToZone(t: SystemZoneTemplate, companyId: string): Zone {
   return {
-    zoneId: t.slug,
+    zoneId: companyId ? normalizeZoneId(companyId, t.slug) : t.slug,
     companyId,
     kind: 'system',
     archetype: t.archetype,

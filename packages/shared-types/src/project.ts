@@ -1,4 +1,5 @@
 export type ProjectStatus = 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+export type ProjectAssignmentRole = 'member' | 'lead';
 
 export const ACTIVE_PROJECT_STATUSES: readonly ProjectStatus[] = [
   'planning',
@@ -27,7 +28,7 @@ export interface ProjectAssignmentRow {
   assignment_id: string;
   project_id: string;
   employee_id: string;
-  role: string;
+  role: ProjectAssignmentRole;
   assigned_at: string;
 }
 

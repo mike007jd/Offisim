@@ -94,12 +94,12 @@ export function resolveZoneForRole(role: RoleSlug, zones: readonly Zone[]): Zone
  * Replaces the duplicated logic in Office2DView and Office3DView.
  */
 export function resolveEmployeeZone(
-  agent: { role: string; workstationId?: string | null },
+  agent: { role: RoleSlug; workstationId?: string | null },
   zones: readonly Zone[],
 ): string {
   if (agent.workstationId) {
     const validIds = new Set(zones.filter((z) => z.deskSlots > 0).map((z) => z.zoneId));
     if (validIds.has(agent.workstationId)) return agent.workstationId;
   }
-  return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+  return resolveZoneForRole(agent.role, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
 }

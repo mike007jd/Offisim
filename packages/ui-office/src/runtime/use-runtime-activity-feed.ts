@@ -1,6 +1,7 @@
 import type {
   ConversationCompactCompletedPayload,
   ConversationSynopsisUpdatedPayload,
+  DeliverableCreatedPayload,
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
@@ -9,12 +10,16 @@ import type {
   InteractionRequestedPayload,
   InteractionResolvedPayload,
   InteractionRestoredPayload,
+  LlmCallCompletedPayload,
+  LlmCallStartedPayload,
   PlanCreatedPayload,
+  PlanStepCompletedPayload,
   RuntimeEvent,
   SessionCostUpdatedPayload,
   TaskAssignmentDispatchedPayload,
   ToolExecutionTelemetryPayload,
   WorkspaceStalenessDetectedPayload,
+  ErrorOccurredPayload,
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeNodeName } from '../lib/agent-display';
@@ -25,7 +30,7 @@ export type RuntimeActivityTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface RuntimeActivityEntry {
   id: string;
-  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost' | 'system';
+  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost' | 'system' | 'llm';
   tone: RuntimeActivityTone;
   label: string;
   timestamp: number;
@@ -64,6 +69,15 @@ function activeToolHeadline(category: ToolCategory): string {
     default:
       return 'Running tools';
   }
+}
+
+function formatLlmDuration(durationMs: number): string {
+  if (durationMs < 1000) return '<1s';
+  return `${(durationMs / 1000).toFixed(durationMs < 10_000 ? 1 : 0)}s`;
+}
+
+function llmStartedHeadline(nodeName: string, model: string): string {
+  return `${humanizeNodeName(nodeName)} is calling ${model}`;
 }
 
 function activeToolGroupLabel(category: ToolCategory, count: number): string {
@@ -271,6 +285,10 @@ export function useRuntimeActivityFeed(opts?: {
   const [activeToolsState, setActiveToolsState] = useState<
     Map<string, ToolExecutionTelemetryPayload>
   >(() => new Map());
+  const [activeLlmCalls, setActiveLlmCalls] = useState<Map<string, LlmCallStartedPayload>>(
+    () => new Map(),
+  );
+  const activeLlmCallsRef = useRef<Map<string, LlmCallStartedPayload>>(new Map());
   const [totalCostUsd, setTotalCostUsd] = useState<number | null>(null);
   const [tick, setTick] = useState(() => Date.now());
   const [baseHeadline, setBaseHeadline] = useState<string | null>(null);
@@ -282,6 +300,8 @@ export function useRuntimeActivityFeed(opts?: {
       setBaseHeadline('Warming up the runtime');
       setEntries([]);
       setActiveToolsState(new Map());
+      activeLlmCallsRef.current = new Map();
+      setActiveLlmCalls(new Map());
       setTotalCostUsd(null);
       return;
     }
@@ -290,6 +310,8 @@ export function useRuntimeActivityFeed(opts?: {
     clearTimerRef.current = setTimeout(() => {
       setBaseHeadline(null);
       setActiveToolsState(new Map());
+      activeLlmCallsRef.current = new Map();
+      setActiveLlmCalls(new Map());
     }, 2400);
 
     return () => {
@@ -524,6 +546,133 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offLlmStarted = eventBus.on(
+      'llm.call.started',
+      (event: RuntimeEvent<LlmCallStartedPayload>) => {
+        const payload = event.payload;
+        const nextActiveLlmCalls = new Map(activeLlmCallsRef.current);
+        nextActiveLlmCalls.set(payload.llmCallId, payload);
+        activeLlmCallsRef.current = nextActiveLlmCalls;
+        setActiveLlmCalls((prev) => {
+          const next = new Map(prev);
+          next.set(payload.llmCallId, payload);
+          return next;
+        });
+        setBaseHeadline(llmStartedHeadline(payload.nodeName, payload.model));
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `llm-${payload.llmCallId}-started`,
+              kind: 'llm',
+              tone: 'info',
+              label: `${humanizeNodeName(payload.nodeName)} started ${payload.model}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offLlmCompleted = eventBus.on(
+      'llm.call.completed',
+      (event: RuntimeEvent<LlmCallCompletedPayload>) => {
+        const payload = event.payload;
+        const modelLabel = activeLlmCallsRef.current.get(payload.llmCallId)?.model ?? null;
+        const nextActiveLlmCalls = new Map(activeLlmCallsRef.current);
+        nextActiveLlmCalls.delete(payload.llmCallId);
+        activeLlmCallsRef.current = nextActiveLlmCalls;
+        setActiveLlmCalls((prev) => {
+          const next = new Map(prev);
+          next.delete(payload.llmCallId);
+          return next;
+        });
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `llm-${payload.llmCallId}-completed`,
+              kind: 'llm',
+              tone: 'success',
+              label: `${humanizeNodeName(payload.nodeName)} completed ${modelLabel ?? 'call'} in ${formatLlmDuration(payload.latencyMs)}`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offError = eventBus.on(
+      'error.occurred',
+      (event: RuntimeEvent<ErrorOccurredPayload>) => {
+        const payload = event.payload;
+        const nodeName = payload.nodeName ?? 'unknown';
+        const errorCode = payload.errorCode ?? 'error';
+        const message = payload.message ?? `Error in ${humanizeNodeName(nodeName)}`;
+        setBaseHeadline(`Error in ${humanizeNodeName(nodeName)}`);
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `error-${event.timestamp}-${errorCode}`,
+              kind: 'system',
+              tone: 'error',
+              label: message,
+              timestamp: event.timestamp,
+              employeeId: payload.employeeId,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offDeliverable = eventBus.on(
+      'deliverable.created',
+      (event: RuntimeEvent<DeliverableCreatedPayload>) => {
+        const payload = event.payload;
+        const empCount = payload.contributingEmployees.length;
+        const title = truncate(payload.title, 50);
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `deliverable-${payload.deliverableId}`,
+              kind: 'system',
+              tone: 'success',
+              label: empCount > 0
+                ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'})`
+                : `Deliverable ready: "${title}"`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
+    const offPlanStep = eventBus.on(
+      'plan.step.completed',
+      (event: RuntimeEvent<PlanStepCompletedPayload>) => {
+        const payload = event.payload;
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `plan-step-${payload.planId}-${payload.stepIndex}`,
+              kind: 'plan',
+              tone: 'success',
+              label: `Step ${payload.stepIndex + 1} completed (${payload.outputCount} output${payload.outputCount === 1 ? '' : 's'})`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offSynopsis = eventBus.on(
       'conversation.synopsis.updated',
       (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
@@ -628,6 +777,11 @@ export function useRuntimeActivityFeed(opts?: {
       offInteractionRestored();
       offInteractionMode();
       offTool();
+      offLlmStarted();
+      offLlmCompleted();
+      offError();
+      offDeliverable();
+      offPlanStep();
       offSynopsis();
       offCompact();
       offResume();
@@ -675,8 +829,12 @@ export function useRuntimeActivityFeed(opts?: {
     if (firstActive) {
       return activeToolHeadline(categorizeTool(firstActive));
     }
+    const firstLlm = activeLlmCalls.values().next().value as LlmCallStartedPayload | undefined;
+    if (firstLlm) {
+      return llmStartedHeadline(firstLlm.nodeName, firstLlm.model);
+    }
     return baseHeadline;
-  }, [activeToolsState, baseHeadline]);
+  }, [activeLlmCalls, activeToolsState, baseHeadline]);
 
   return {
     headline,

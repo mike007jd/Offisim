@@ -1,4 +1,4 @@
-import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
@@ -7,7 +7,7 @@ export interface Deliverable {
   threadId: string;
   title: string;
   content: string;
-  contributingEmployees: ReadonlyArray<{ employeeId: string; employeeName: string }>;
+  contributingEmployees: ReadonlyArray<{ employeeId: string; employeeName: string; roleSlug: RoleSlug }>;
   createdAt: number;
 }
 

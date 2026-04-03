@@ -71,7 +71,7 @@ export function RoleStep({ formData, updateField }: RoleStepProps) {
           <button
             key={role.value}
             type="button"
-            onClick={() => updateField('role_slug', role.value)}
+            onClick={() => updateField('role_slug', role.value as RoleSlug)}
             className={cn(
               'flex flex-col items-center gap-2 p-4 border-2 text-left transition-colors cursor-pointer',
               isSelected

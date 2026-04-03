@@ -1,5 +1,5 @@
 import { employeeCreated } from '@offisim/core/browser';
-import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   AgentPanel,
@@ -140,6 +140,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const [kanbanOpen, setKanbanOpen] = useState(false);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(44);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
@@ -333,8 +334,15 @@ export function App({ onCompanySwitch }: AppProps) {
   const currentOnboardingIndex = onboardingStep ?? 0;
   const currentOnboardingStep = onboardingStep !== null ? ONBOARDING_STEPS[onboardingStep] : null;
 
+  const handleLayoutMetricsChange = useCallback(
+    ({ leftPanelWidth: w }: { leftPanelWidth: number }) => {
+      setLeftPanelWidth(w);
+    },
+    [],
+  );
+
   const handleCreatorDeploy = useCallback(
-    async ({ name, role, seed }: { name: string; role: string; seed: string }) => {
+    async ({ name, role, seed }: { name: string; role: RoleSlug; seed: string }) => {
       if (!repos?.employees || !activeCompanyId) {
         addToast('Runtime not ready — please wait a moment', 'error');
         return;
@@ -479,13 +487,22 @@ export function App({ onCompanySwitch }: AppProps) {
 
         {view === 'studio' && (
           <Suspense fallback={null}>
-            <StudioPage
-              mode={studioMode}
-              companyId={activeCompanyId ?? undefined}
-              repos={repos}
-              onBack={() => setView('office')}
-              onCompanyCreated={handleStudioCompanyCreated}
-            />
+            {studioMode === 'create' ? (
+              <StudioPage
+                mode="create"
+                repos={repos}
+                onBack={() => setView('office')}
+                onCompanyCreated={handleStudioCompanyCreated}
+              />
+            ) : activeCompanyId ? (
+              <StudioPage
+                mode="edit"
+                companyId={activeCompanyId}
+                repos={repos}
+                onBack={() => setView('office')}
+                onCompanyCreated={handleStudioCompanyCreated}
+              />
+            ) : null}
           </Suspense>
         )}
 
@@ -594,6 +611,7 @@ export function App({ onCompanySwitch }: AppProps) {
                   />
                 }
                 statusBar={<StatusBar modelName={providerConfig?.model} />}
+                onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>
             {dashboardOpen && (
@@ -613,6 +631,7 @@ export function App({ onCompanySwitch }: AppProps) {
             <EmployeeInspector
               employeeId={selectedEmployeeId}
               agents={agents}
+              leftOffset={leftPanelWidth}
               onClose={() => setSelectedEmployeeId(null)}
               onOpenEditor={(id) => {
                 void employeeEditor.openForEdit(id);
