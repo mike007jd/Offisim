@@ -617,7 +617,11 @@ export function App({ onCompanySwitch }: AppProps) {
             </CeremonyHost>
             {dashboardOpen && (
               <Suspense fallback={null}>
-                <DashboardOverlay open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+                <DashboardOverlay
+                  open={dashboardOpen}
+                  onClose={() => setDashboardOpen(false)}
+                  activeThreadId={activeProject?.thread_id ?? null}
+                />
               </Suspense>
             )}
             {kanbanOpen && (

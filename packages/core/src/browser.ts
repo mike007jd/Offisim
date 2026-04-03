@@ -47,6 +47,7 @@ export type {
   McpAuditRepository,
   McpAuditRow,
   FileHistoryRepository,
+  FileHistoryChangeKind,
   FileHistoryRow,
   CompactSummaryRepository,
   CompactSummaryRow,

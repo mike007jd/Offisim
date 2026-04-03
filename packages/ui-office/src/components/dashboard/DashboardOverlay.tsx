@@ -17,6 +17,8 @@ import { useTaskQueue } from '../../hooks/useTaskQueue';
 import { formatTimestamp, truncate } from '../../lib/format-time';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { CompanyStatusCard } from './CompanyStatusCard';
+import { ExecutionSummaryCard } from './ExecutionSummaryCard';
+import { FileChangesCard } from './FileChangesCard';
 import { CostByModelCard } from './CostByModelCard';
 import { CostOverviewCard } from './CostOverviewCard';
 import { RecentActivityCard } from './RecentActivityCard';
@@ -30,6 +32,7 @@ import { TeamHealthCard } from './TeamHealthCard';
 interface DashboardOverlayProps {
   open: boolean;
   onClose: () => void;
+  activeThreadId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +269,7 @@ function OutputsCard() {
  *
  * Uses CSS transitions for enter/exit animation (no Framer Motion).
  */
-export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
+export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOverlayProps) {
   const agents = useAgentStates();
   const cost = useCostDashboard();
   const queue = useTaskQueue();
@@ -361,6 +364,8 @@ export function DashboardOverlay({ open, onClose }: DashboardOverlayProps) {
               <RecentActivityCard />
             </div>
             <OutputsCard />
+            <ExecutionSummaryCard activeThreadId={activeThreadId ?? null} />
+            <FileChangesCard activeThreadId={activeThreadId ?? null} />
           </div>
         </div>
       </div>
