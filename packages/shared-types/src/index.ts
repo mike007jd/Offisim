@@ -94,6 +94,7 @@ export type {
   KnowledgeIndexFailedPayload,
   KnowledgeSearchStartedPayload,
   KnowledgeSearchCompletedPayload,
+  GitAutoCommittedPayload,
   PrefabStateChangedPayload,
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,

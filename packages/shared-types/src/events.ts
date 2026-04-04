@@ -620,6 +620,14 @@ export interface KnowledgeSearchCompletedPayload {
   readonly durationMs: number;
 }
 
+// ── Git Auto-Commit Events ────────────────────────────────────
+
+export interface GitAutoCommittedPayload {
+  readonly stepIndex: number;
+  readonly fileCount: number;
+  readonly commitMessage: string;
+}
+
 // ── Prefab Events ──────────────────────────────────────────────
 export interface PrefabStateChangedPayload {
   readonly instanceId: string;

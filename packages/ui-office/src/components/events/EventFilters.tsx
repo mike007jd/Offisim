@@ -23,6 +23,7 @@ export const ALL_EVENT_TYPES = [
   'HR',
   'Memory',
   'Infrastructure',
+  'Git',
 ] as const;
 export type EventFilterType = (typeof ALL_EVENT_TYPES)[number];
 

@@ -27,6 +27,7 @@ const EVENT_PREFIXES = [
   'slot.',
   'binding.',
   'memory.',
+  'git.',
 ] as const;
 const MAX_EVENTS = 200;
 
@@ -108,6 +109,7 @@ const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
   HR: ['hr.'],
   Memory: ['memory.'],
   Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
+  Git: ['git.'],
 };
 
 /** Determine a display level from event topic only — no payload serialization */

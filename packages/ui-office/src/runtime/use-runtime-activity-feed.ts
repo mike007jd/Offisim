@@ -25,6 +25,7 @@ import type {
   ToolExecutionTelemetryPayload,
   WorkspaceStalenessDetectedPayload,
   ErrorOccurredPayload,
+  GitAutoCommittedPayload,
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeNodeName } from '../lib/agent-display';
@@ -777,6 +778,26 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
+    const offGitCommit = eventBus.on(
+      'git.auto.committed',
+      (event: RuntimeEvent<GitAutoCommittedPayload>) => {
+        const p = event.payload;
+        setEntries((prev) =>
+          pushEntry(
+            prev,
+            {
+              id: `git-commit-${event.timestamp}`,
+              kind: 'system',
+              tone: 'success',
+              label: `Committed: ${truncate(p.commitMessage, 50)} (${p.fileCount} file${p.fileCount === 1 ? '' : 's'})`,
+              timestamp: event.timestamp,
+            },
+            maxEntries,
+          ),
+        );
+      },
+    );
+
     const offSynopsis = eventBus.on(
       'conversation.synopsis.updated',
       (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
@@ -891,6 +912,7 @@ export function useRuntimeActivityFeed(opts?: {
       offMemoryCreated();
       offMcpTool();
       offKnowledgeIndex();
+      offGitCommit();
       offSynopsis();
       offCompact();
       offResume();

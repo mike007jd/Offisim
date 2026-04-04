@@ -246,6 +246,8 @@ export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';
 export { WorkstationAssignmentService } from './runtime/workstation-assignment-service.js';
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export { NodeSummaryService } from './services/node-summary-service.js';
+export { GitAutoCommitService } from './services/git-auto-commit-service.js';
+export type { GitExec, GitExecResult, GitAutoCommitResult } from './services/git-auto-commit-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { InteractionService } from './services/interaction-service.js';
 
