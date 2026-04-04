@@ -28,6 +28,8 @@ import {
 } from '@offisim/core/dist/services/file-history-service.js';
 import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
+import { GitAutoCommitService } from '@offisim/core/dist/services/git-auto-commit-service.js';
+import type { GitExec } from '@offisim/core/dist/services/git-auto-commit-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
@@ -240,6 +242,29 @@ export async function createTauriRuntime(
     toolTelemetryService,
     fileHistoryService,
     interactionService,
+  });
+
+  // Git auto-commit service (desktop only — uses Tauri git_exec bridge)
+  const tauriGitExec: GitExec = async (args, cwd) => {
+    const tauriCoreModule = '@tauri-apps' + '/api/core';
+    const { invoke } = (await import(/* @vite-ignore */ tauriCoreModule)) as {
+      invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+    };
+    return invoke<{ ok: boolean; stdout: string; stderr: string }>('git_exec', { args, cwd });
+  };
+  const gitAutoCommitService = new GitAutoCommitService(
+    { companies: repos.companies, fileHistory: repos.fileHistory, nodeSummaries: repos.nodeSummaries },
+    eventBus,
+    tauriGitExec,
+  );
+  hookRegistry.register({
+    event: 'task.completed',
+    name: 'git-auto-commit',
+    handler: async (payload) => {
+      const p = payload as { threadId: string; companyId: string; stepIndex: number };
+      await gitAutoCommitService.commitStepChanges(p.threadId, p.companyId, p.stepIndex);
+    },
+    timeout: 15_000,
   });
 
   // Seed default cost rates (idempotent — skips if rates already exist)
