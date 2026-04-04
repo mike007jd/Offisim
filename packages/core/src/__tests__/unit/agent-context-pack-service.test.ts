@@ -128,4 +128,23 @@ describe('AgentContextPackService', () => {
     expect(callOrder).toContain('summaries');
     expect(callOrder).toContain('taskRuns');
   });
+
+  it('skips summary query when preloadedSummaries are provided', async () => {
+    let summariesQueried = false;
+    const service = new AgentContextPackService(
+      makeDeps({
+        listNodeSummaries: async () => {
+          summariesQueried = true;
+          return [];
+        },
+      }),
+    );
+    const preloaded = [
+      { node_name: 'boss', employee_id: null, step_index: null, summary_text: 'Preloaded.' },
+    ];
+    const pack = await service.buildPack({ preloadedSummaries: preloaded });
+    expect(summariesQueried).toBe(false);
+    expect(pack.recentNodeSummaries).toHaveLength(1);
+    expect(pack.recentNodeSummaries[0]?.summaryText).toBe('Preloaded.');
+  });
 });

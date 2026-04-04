@@ -83,12 +83,10 @@ export class NodeContextMiddleware implements LlmMiddleware {
   }
 
   async before(ctx: LlmCallContext): Promise<LlmCallContext> {
-    const [summaries, pack] = await Promise.all([
-      this.nodeSummaryRepo.listByThread(ctx.runtimeCtx.threadId, {
-        limit: this.maxSummaries,
-      }),
-      this.packService?.buildPack() ?? null,
-    ]);
+    const summaries = await this.nodeSummaryRepo.listByThread(ctx.runtimeCtx.threadId, {
+      limit: this.maxSummaries,
+    });
+    const pack = await this.packService?.buildPack({ preloadedSummaries: summaries }) ?? null;
 
     const hasPackContent = pack && (
       pack.pendingInteraction ||

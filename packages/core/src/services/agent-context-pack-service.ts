@@ -1,4 +1,5 @@
 import type { AgentContextPack, InteractionRequest } from '@offisim/shared-types';
+import type { NodeSummaryLike } from '../semantics/runtime-context-normalizers.js';
 import {
   deriveRecommendedFocus,
   normalizeActiveTaskRuns,
@@ -13,14 +14,7 @@ export interface AgentContextPackDeps {
   listNodeSummaries(
     threadId: string,
     opts: { limit: number },
-  ): Promise<
-    ReadonlyArray<{
-      node_name: string;
-      employee_id: string | null;
-      step_index: number | null;
-      summary_text: string;
-    }>
-  >;
+  ): Promise<ReadonlyArray<NodeSummaryLike>>;
   listTaskRuns(
     threadId: string,
   ): Promise<
@@ -33,19 +27,23 @@ export interface AgentContextPackDeps {
   >;
 }
 
+export interface BuildPackOptions {
+  preloadedSummaries?: ReadonlyArray<NodeSummaryLike>;
+}
+
 export class AgentContextPackService {
   constructor(private readonly deps: AgentContextPackDeps) {}
 
-  async buildPack(): Promise<AgentContextPack> {
+  async buildPack(options?: BuildPackOptions): Promise<AgentContextPack> {
     const { threadId, companyId } = this.deps;
     const pendingInteraction = normalizePendingInteraction(
       this.deps.getPendingInteraction(),
     );
 
-    const [summaryRows, taskRunRows] = await Promise.all([
-      this.deps.listNodeSummaries(threadId, { limit: 4 }),
-      this.deps.listTaskRuns(threadId),
-    ]);
+    const summaryRows = options?.preloadedSummaries
+      ?? await this.deps.listNodeSummaries(threadId, { limit: 4 });
+
+    const taskRunRows = await this.deps.listTaskRuns(threadId);
 
     const recentNodeSummaries = normalizeNodeSummaries(summaryRows);
     const activeTaskRuns = normalizeActiveTaskRuns(taskRunRows);
