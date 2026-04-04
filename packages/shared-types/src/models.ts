@@ -69,6 +69,8 @@ export interface RuntimePolicyConfig {
   readonly memory: RuntimeMemoryPolicy;
   readonly toolSearch: RuntimeToolSearchPolicy;
   readonly toolPermissions: RuntimeToolPermissionsPolicy;
+  /** Auto-commit file changes after each plan step (desktop only). */
+  readonly gitAutoCommit?: boolean;
 }
 
 /** Fully resolved model config ready for LLM call */

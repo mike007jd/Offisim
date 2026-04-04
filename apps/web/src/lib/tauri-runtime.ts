@@ -261,6 +261,7 @@ export async function createTauriRuntime(
     event: 'task.completed',
     name: 'git-auto-commit',
     handler: async (payload) => {
+      if (runtimePolicy.gitAutoCommit === false) return;
       const p = payload as { threadId: string; companyId: string; stepIndex: number };
       await gitAutoCommitService.commitStepChanges(p.threadId, p.companyId, p.stepIndex);
     },

@@ -101,6 +101,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     String(DEFAULT_POLICY.memory.factConfidenceThreshold),
   );
   const [toolSearchEnabled, setToolSearchEnabled] = useState(true);
+  const [gitAutoCommit, setGitAutoCommit] = useState(true);
   const [toolPermissions, setToolPermissions] = useState<RuntimeToolPermissionsPolicy>(
     DEFAULT_POLICY.toolPermissions,
   );
@@ -141,6 +142,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
         setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
         setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setGitAutoCommit(runtimePolicy.gitAutoCommit ?? true);
         setToolPermissions(runtimePolicy.toolPermissions);
         setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
         setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
@@ -189,6 +191,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
         setMemoryMaxFacts(String(runtimePolicy.memory.maxFacts));
         setMemoryConfidenceThreshold(String(runtimePolicy.memory.factConfidenceThreshold));
         setToolSearchEnabled(runtimePolicy.toolSearch.enabled);
+        setGitAutoCommit(runtimePolicy.gitAutoCommit ?? true);
         setToolPermissions(runtimePolicy.toolPermissions);
         setRuntimeModelDefault(runtimePolicy.modelPolicy.default);
         setRuntimeModelOverrides(runtimePolicy.modelPolicy.overrides);
@@ -300,6 +303,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
           enabled: toolSearchEnabled,
         },
         toolPermissions,
+        gitAutoCommit,
       };
 
       const config: ProviderConfig = {
@@ -708,6 +712,27 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </Select>
                 <p className="text-[10px] text-slate-500 mt-1">
                   Large tool sets can be discovered lazily instead of injected upfront.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="settings-git-auto-commit" className="text-sm text-shell mb-1 block">
+                  Git Auto-Commit
+                </label>
+                <Select
+                  value={gitAutoCommit ? 'enabled' : 'disabled'}
+                  onValueChange={(value) => setGitAutoCommit(value === 'enabled')}
+                >
+                  <SelectTrigger id="settings-git-auto-commit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="enabled">Enabled</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Automatically commit file changes after each plan step (desktop only).
                 </p>
               </div>
 
