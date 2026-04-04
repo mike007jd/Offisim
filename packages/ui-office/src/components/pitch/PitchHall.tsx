@@ -186,14 +186,18 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
             {exporting ? '...' : 'Export'}
           </Button>
           <Button
-            variant="ghost"
+            variant={item.contributingEmployees.length >= 2 && !sopSaved ? 'default' : 'ghost'}
             size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50"
+            className={
+              item.contributingEmployees.length >= 2 && !sopSaved && !savingSop
+                ? 'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse'
+                : 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50'
+            }
             onClick={() => void handleSaveAsSop()}
             disabled={savingSop || sopSaved}
             title="Save the task path that produced this output as a reusable SOP template"
           >
-            {sopSaved ? 'Saved!' : savingSop ? '...' : 'SOP'}
+            {sopSaved ? 'Saved!' : savingSop ? '...' : 'Save as SOP'}
           </Button>
         </div>
       </CardContent>

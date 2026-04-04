@@ -303,14 +303,15 @@ export function App({ onCompanySwitch }: AppProps) {
     setOnboardingStep((current) => current ?? 0);
   }, [activeCompanyId, view]);
 
-  // Subscribe to deliverable.created — show a prominent "Output ready" toast with a View action
+  // Subscribe to deliverable.created — show toast with View or SOP action
   useEffect(() => {
     return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
       const title = e.payload.title || 'Output';
+      const isMultiStep = e.payload.contributingEmployees.length >= 2;
       addToast(`Output ready: ${title}`, 'success', {
-        actionLabel: 'View',
+        actionLabel: isMultiStep ? 'Save as SOP' : 'View',
         onAction: () => setFocusOutputsToken((t) => t + 1),
-        durationMs: 8_000,
+        durationMs: isMultiStep ? 12_000 : 8_000,
       });
     });
   }, [eventBus, addToast]);
