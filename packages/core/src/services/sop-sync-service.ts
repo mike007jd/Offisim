@@ -53,7 +53,8 @@ export class SopSyncService {
     }
 
     const remoteJson = JSON.stringify(remote);
-    if (remoteJson === existing.definition_json) {
+    const normalizedExisting = JSON.stringify(JSON.parse(existing.definition_json));
+    if (remoteJson === normalizedExisting) {
       await this.sopTemplateRepo.update(sopTemplateId, {
         last_synced_at: new Date().toISOString(),
       });
@@ -75,21 +76,30 @@ export class SopSyncService {
    * Import a remote SOP by URL into a company.
    * Creates a new local template linked to the remote source.
    */
-  async importFromUrl(
-    url: string,
+  async importFromUrl(url: string, companyId: string): Promise<SopTemplateRow> {
+    const remote = await this.fetchRemoteSop(url);
+    return this.importFromDefinition(remote, url, companyId);
+  }
+
+  /**
+   * Import an already-fetched SOP definition into a company.
+   * Use when the definition was pre-fetched (e.g. during preview).
+   */
+  async importFromDefinition(
+    definition: SopDefinition,
+    sourceUrl: string,
     companyId: string,
   ): Promise<SopTemplateRow> {
-    const remote = await this.fetchRemoteSop(url);
     const sopTemplateId = `sop_${crypto.randomUUID()}`;
     return this.sopTemplateRepo.create({
       sop_template_id: sopTemplateId,
       company_id: companyId,
-      name: remote.name,
-      description: remote.description,
-      definition_json: JSON.stringify(remote),
+      name: definition.name,
+      description: definition.description,
+      definition_json: JSON.stringify(definition),
       source_thread_id: null,
-      source_url: url,
-      version: remote.sop_id,
+      source_url: sourceUrl,
+      version: definition.sop_id,
       last_synced_at: new Date().toISOString(),
     });
   }

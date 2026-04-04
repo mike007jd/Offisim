@@ -202,6 +202,7 @@ export function SopPanel() {
   const { sendMessage, repos } = useOffisimRuntime();
   const [editorOpen, setEditorOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const handleRun = useCallback(
     (name: string) => {
@@ -212,12 +213,17 @@ export function SopPanel() {
 
   const handleSync = useCallback(
     async (sopTemplateId: string) => {
-      if (!repos?.sopTemplates) return;
-      const svc = new SopSyncService(repos.sopTemplates);
-      await svc.syncFromUrl(sopTemplateId);
-      await refreshSops();
+      if (!repos?.sopTemplates || syncingId) return;
+      setSyncingId(sopTemplateId);
+      try {
+        const svc = new SopSyncService(repos.sopTemplates);
+        await svc.syncFromUrl(sopTemplateId);
+        await refreshSops();
+      } finally {
+        setSyncingId(null);
+      }
     },
-    [repos, refreshSops],
+    [repos, refreshSops, syncingId],
   );
 
   if (loading) {

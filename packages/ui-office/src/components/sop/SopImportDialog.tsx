@@ -1,4 +1,5 @@
 import { SopSyncService } from '@offisim/core/browser';
+import type { SopDefinition } from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -24,21 +25,21 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ name: string; description: string; stepCount: number } | null>(null);
+  const [previewData, setPreviewData] = useState<SopDefinition | null>(null);
+
+  const preview = previewData
+    ? { name: previewData.name, description: previewData.description, stepCount: previewData.steps.length }
+    : null;
 
   const handlePreview = async () => {
     if (!repos?.sopTemplates || !url.trim()) return;
     setLoading(true);
     setError(null);
-    setPreview(null);
+    setPreviewData(null);
     try {
       const svc = new SopSyncService(repos.sopTemplates);
       const remote = await svc.fetchRemoteSop(url.trim());
-      setPreview({
-        name: remote.name,
-        description: remote.description,
-        stepCount: remote.steps.length,
-      });
+      setPreviewData(remote);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch SOP');
     } finally {
@@ -47,14 +48,14 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
   };
 
   const handleImport = async () => {
-    if (!repos?.sopTemplates || !activeCompanyId || !url.trim()) return;
+    if (!repos?.sopTemplates || !activeCompanyId || !previewData) return;
     setLoading(true);
     setError(null);
     try {
       const svc = new SopSyncService(repos.sopTemplates);
-      await svc.importFromUrl(url.trim(), activeCompanyId);
+      await svc.importFromDefinition(previewData, url.trim(), activeCompanyId);
       setUrl('');
-      setPreview(null);
+      setPreviewData(null);
       onOpenChange(false);
       onImported?.();
     } catch (err) {
@@ -85,7 +86,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
-                setPreview(null);
+                setPreviewData(null);
                 setError(null);
               }}
               placeholder="https://raw.githubusercontent.com/..."
