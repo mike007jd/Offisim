@@ -59,8 +59,12 @@ export class GitAutoCommitService {
       return { committed: false, error: 'Not a git repository' };
     }
 
-    // 3. Get files changed in this step
-    const allHistory = await this.repos.fileHistory.listByThread(threadId, { limit: 500 });
+    // 3+4. Fetch file history and node summaries in parallel
+    const [allHistory, summaries] = await Promise.all([
+      this.repos.fileHistory.listByThread(threadId, { limit: 500 }),
+      this.repos.nodeSummaries.listByThread(threadId, { limit: 50 }),
+    ]);
+
     const stepFiles = [
       ...new Set(
         allHistory
@@ -73,15 +77,16 @@ export class GitAutoCommitService {
       return { committed: false, error: 'No file changes in this step' };
     }
 
-    // 4. Get summary for commit message
-    const summaries = await this.repos.nodeSummaries.listByThread(threadId, { limit: 50 });
     const stepSummary = summaries.find((s) => s.step_index === stepIndex);
     const summaryText = stepSummary?.summary_text ?? `Step ${stepIndex + 1} completed`;
 
-    // 5. Build commit message
-    const fileList = stepFiles.length <= 5
-      ? stepFiles.join(', ')
-      : `${stepFiles.slice(0, 4).join(', ')} +${stepFiles.length - 4} more`;
+    // 5. Build commit message (use paths relative to workspace root)
+    const relPath = (p: string) =>
+      p.startsWith(cwd) ? p.slice(cwd.length).replace(/^[/\\]/, '') : p;
+    const relFiles = stepFiles.map(relPath);
+    const fileList = relFiles.length <= 5
+      ? relFiles.join(', ')
+      : `${relFiles.slice(0, 4).join(', ')} +${relFiles.length - 4} more`;
     const commitMessage = `[Offisim] ${summaryText}\n\nFiles: ${fileList}\nThread: ${threadId}`;
 
     // 6. Stage changed files

@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::process::Command;
+use tokio::process::Command;
 
 /// Allowed git subcommands (whitelist for safety).
 const ALLOWED_SUBCOMMANDS: &[&str] = &[
@@ -53,6 +53,7 @@ pub async fn git_exec(args: Vec<String>, cwd: String) -> Result<GitResult, Strin
         .args(&args)
         .current_dir(&cwd)
         .output()
+        .await
         .map_err(|e| format!("Failed to execute git: {}", e))?;
 
     Ok(GitResult {
