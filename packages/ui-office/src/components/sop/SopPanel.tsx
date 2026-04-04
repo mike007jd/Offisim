@@ -53,9 +53,9 @@ function SopStepList({ definitionJson }: SopStepListProps) {
           </span>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-300 leading-tight">{step.label}</span>
-            <span className="text-[9px] text-slate-500 ml-1">({step.role_slug})</span>
+            <span className="text-[10px] text-slate-500 ml-1">({step.role_slug})</span>
             {step.dependencies.length > 0 && (
-              <div className="text-[9px] text-slate-600">after: {step.dependencies.join(', ')}</div>
+              <div className="text-[10px] text-slate-500">after: {step.dependencies.join(', ')}</div>
             )}
           </div>
         </li>
@@ -126,7 +126,7 @@ function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
             )}
           </div>
         </button>
-        <span className="shrink-0 text-[9px] text-slate-600 ml-1">
+        <span className="shrink-0 text-[10px] text-slate-500 ml-1">
           {sop.stepCount}s · {formatDate(sop.createdAt)}
         </span>
       </div>
@@ -229,7 +229,7 @@ export function SopPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <span className="text-[10px] text-slate-600 animate-pulse">Loading SOPs…</span>
+        <span className="text-[10px] text-slate-500 animate-pulse">Loading SOPs…</span>
       </div>
     );
   }

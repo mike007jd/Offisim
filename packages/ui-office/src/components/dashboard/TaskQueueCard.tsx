@@ -49,7 +49,7 @@ function TaskRow({ task }: { task: TaskRunRow }) {
         <span className="text-[10px] text-shell/60 font-pixel-mono">
           {formatDuration(task.started_at)}
         </span>
-        <Badge variant={variant} className="text-[9px]">
+        <Badge variant={variant} className="text-[10px]">
           {task.status}
         </Badge>
       </div>

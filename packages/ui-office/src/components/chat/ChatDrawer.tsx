@@ -41,7 +41,7 @@ function getDefaultHeight(): number {
   if (typeof window === 'undefined') return 280;
   const heightByDensity = {
     compact: Math.round(window.innerHeight * 0.22),
-    normal: Math.round(window.innerHeight * 0.28),
+    normal: Math.round(window.innerHeight * 0.35),
     spacious: Math.round(window.innerHeight * 0.35),
   };
   return heightByDensity[getDensity()];

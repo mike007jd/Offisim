@@ -58,7 +58,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
         <svg
-          className="h-10 w-10 text-slate-600"
+          className="h-10 w-10 text-slate-500"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -71,7 +71,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
           />
         </svg>
         <p className="text-sm text-slate-500">No active plan</p>
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-slate-500">
           Send your team a task in the chat to create a project board.
         </p>
       </div>
@@ -119,7 +119,8 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
         <div className="ml-auto flex gap-1">
           <button
             type="button"
-            className="p-1 rounded hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label="Scroll left"
+            className="p-1 rounded hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:outline-none"
             onClick={() => scrollBy(-280)}
             title="Scroll left"
           >
@@ -136,7 +137,8 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
           </button>
           <button
             type="button"
-            className="p-1 rounded hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label="Scroll right"
+            className="p-1 rounded hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:outline-none"
             onClick={() => scrollBy(280)}
             title="Scroll right"
           >
@@ -162,7 +164,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
             {/* User's original request */}
             {requestText && (
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-2.5 py-2 space-y-1">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-400/70">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400/70">
                   User Request
                 </span>
                 <p className="text-[11px] text-slate-200 leading-relaxed whitespace-pre-wrap">
@@ -172,7 +174,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
             )}
             {/* Plan summary from PM */}
             <div className="rounded-lg border border-white/[0.06] bg-[var(--surface)] px-2.5 py-2 space-y-1">
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 {requestText ? 'Plan Summary' : 'Request'}
               </span>
               <p className="text-[11px] text-slate-300 leading-relaxed">
@@ -198,7 +200,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
           {/* ═══ Deliverables column ═══ */}
           <KanbanColumn title="Deliverables" stepIndex={null} status="deliverables" tasks={[]}>
             {deliverables.length === 0 ? (
-              <div className="flex items-center justify-center py-6 text-[10px] text-slate-600">
+              <div className="flex items-center justify-center py-6 text-[10px] text-slate-500">
                 Outputs will appear here
               </div>
             ) : (
@@ -218,7 +220,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
                       {d.contributingEmployees.map((emp) => (
                         <span
                           key={emp.employeeId}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300"
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300"
                         >
                           {emp.employeeName}
                         </span>

@@ -320,7 +320,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         </div>
         <div className="px-2">
           <p className="text-[11px] font-semibold text-slate-400">No Outputs Yet</p>
-          <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+          <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
             Deliverables will appear here as your AI employees complete tasks. You can copy, export,
             or save them as SOPs.
           </p>

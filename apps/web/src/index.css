@@ -247,3 +247,38 @@ body {
 .pixel-press:active {
   transform: scale(0.98);
 }
+
+/* ── Game UI glow utilities ── */
+.glow-accent {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.1), inset 0 0 15px rgba(59, 130, 246, 0.03);
+}
+.glow-success {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.12), inset 0 0 12px rgba(16, 185, 129, 0.03);
+}
+.glow-error {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.12), inset 0 0 12px rgba(239, 68, 68, 0.03);
+}
+.glow-warning {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.1), inset 0 0 10px rgba(245, 158, 11, 0.03);
+}
+
+/* ── Stagger animation for list items ── */
+@keyframes list-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-list-item {
+  animation: list-item-in 200ms ease-out both;
+}
+
+/* ── Focus visible ring for accessibility ── */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}

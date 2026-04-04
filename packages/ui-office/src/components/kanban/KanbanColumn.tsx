@@ -87,7 +87,7 @@ export function KanbanColumn({
             ).length;
             if (active === 0) return null;
             return (
-              <span className="flex items-center gap-1 text-[9px] text-blue-400">
+              <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
                 {active}
               </span>
@@ -107,7 +107,7 @@ export function KanbanColumn({
           />
         ))}
         {!children && tasks.length === 0 && (
-          <div className="flex items-center justify-center py-6 text-[10px] text-slate-600">
+          <div className="flex items-center justify-center py-6 text-[10px] text-slate-500">
             No tasks yet
           </div>
         )}

@@ -220,7 +220,7 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                 />
                 {i > 0 && (
                   <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-[9px] text-slate-600">After:</span>
+                    <span className="text-[10px] text-slate-500">After:</span>
                     {steps.slice(0, i).map((prev) => {
                       const selected = step.dependencies.includes(prev.step_id);
                       return (
@@ -234,7 +234,7 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                                 : [...step.dependencies, prev.step_id],
                             });
                           }}
-                          className={`px-1.5 py-0.5 rounded text-[9px] transition-colors ${
+                          className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${
                             selected
                               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                               : 'bg-white/5 text-slate-500 border border-white/10 hover:border-white/20'

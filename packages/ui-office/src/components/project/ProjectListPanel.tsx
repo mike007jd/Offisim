@@ -71,7 +71,7 @@ function ProjectCard({
             </span>
           </div>
           {project.description && (
-            <p className="text-[11px] text-slate-600 truncate mt-0.5">{project.description}</p>
+            <p className="text-[11px] text-slate-500 truncate mt-0.5">{project.description}</p>
           )}
           {project.thread_id && (
             <p className="text-[10px] text-slate-700 font-mono mt-0.5 truncate">
@@ -105,7 +105,7 @@ export function ProjectListPanel({
           <FolderOpen className="h-3.5 w-3.5 text-slate-500" />
           <span className="text-xs font-medium text-slate-300">Projects</span>
           {projects.length > 0 && (
-            <span className="text-[10px] text-slate-600 bg-white/5 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
               {projects.length}
             </span>
           )}

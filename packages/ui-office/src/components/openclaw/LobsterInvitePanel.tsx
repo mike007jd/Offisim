@@ -124,7 +124,7 @@ export function LobsterInvitePanel({
 
         {/* Footer badge — only on lobster UI */}
         <div className="mt-3 pt-2 border-t border-white/5 flex justify-center">
-          <span className="text-[10px] text-slate-600">Powered by OpenClaw 🦞</span>
+          <span className="text-[10px] text-slate-500">Powered by OpenClaw 🦞</span>
         </div>
       </CardContent>
     </Card>

@@ -30,7 +30,7 @@ const PROJECT_STATUS_STYLE: Record<ProjectStatus, { label: string; color: string
   active: { label: 'Active', color: 'text-emerald-400' },
   paused: { label: 'Paused', color: 'text-amber-400' },
   completed: { label: 'Done', color: 'text-slate-500' },
-  archived: { label: 'Archived', color: 'text-slate-600' },
+  archived: { label: 'Archived', color: 'text-slate-500' },
 };
 
 interface StatusBarProps {
@@ -48,8 +48,8 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
 
   return (
     <footer
-      className="bg-black/60 backdrop-blur-xl text-slate-500 text-[9px] flex items-center justify-between relative overflow-hidden border-t border-white/5"
-      style={{ minHeight: '36px', paddingInline: 'var(--sp-lg)' }}
+      className="bg-black/60 backdrop-blur-xl text-slate-500 text-[10px] flex items-center justify-between relative overflow-hidden border-t border-white/5"
+      style={{ minHeight: '40px', paddingInline: 'var(--sp-lg)' }}
     >
       <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
 
@@ -72,7 +72,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
                 className={`w-2 h-2 rounded-full ${runStatus === 'running' ? 'bg-emerald-500 animate-pulse' : runStatus === 'error' ? 'bg-red-500' : 'bg-slate-600'}`}
               />
               <span
-                className={`uppercase tracking-[0.2em] font-black ${runStatus === 'running' ? 'text-emerald-500/90' : runStatus === 'error' ? 'text-red-500/90' : 'text-slate-600'}`}
+                className={`uppercase tracking-[0.2em] font-black ${runStatus === 'running' ? 'text-emerald-500/90' : runStatus === 'error' ? 'text-red-500/90' : 'text-slate-500'}`}
               >
                 {runStatus === 'running'
                   ? 'System Online'
@@ -143,7 +143,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
               type="button"
               size="sm"
               variant={interactionMode === 'boss_proxy' ? 'secondary' : 'ghost'}
-              className="h-6 px-2 text-[9px]"
+              className="h-6 px-2 text-[10px]"
               onClick={() => setInteractionMode('boss_proxy')}
             >
               Proxy
@@ -152,7 +152,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
               type="button"
               size="sm"
               variant={interactionMode === 'human_in_loop' ? 'secondary' : 'ghost'}
-              className="h-6 px-2 text-[9px]"
+              className="h-6 px-2 text-[10px]"
               onClick={() => setInteractionMode('human_in_loop')}
             >
               Human

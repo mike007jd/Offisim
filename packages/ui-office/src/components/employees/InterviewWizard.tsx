@@ -79,26 +79,29 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           <Progress value={progress * 100} />
 
           {/* Step dots */}
-          <div className="flex items-center justify-center gap-1.5 mt-3">
+          <div className="flex items-center justify-center gap-1 mt-3">
             {WIZARD_STEPS.map((stepName, idx) => (
               <button
                 key={stepName}
                 type="button"
+                aria-label={`Step ${idx + 1}: ${STEP_LABELS[stepName]}`}
                 onClick={() => {
                   if (state.completedSteps.has(idx) && idx !== state.currentStep) {
                     wizard.dispatch({ type: 'goto', step: idx });
                   }
                 }}
                 className={cn(
-                  'w-2 h-2 rounded-full transition-colors',
+                  'w-6 h-6 rounded-full transition-colors text-[10px] font-semibold flex items-center justify-center',
                   idx === state.currentStep
-                    ? 'bg-red-500'
+                    ? 'bg-red-500 text-white'
                     : state.completedSteps.has(idx)
-                      ? 'bg-emerald-500'
-                      : 'bg-slate-700',
+                      ? 'bg-emerald-500/80 text-white cursor-pointer hover:bg-emerald-400'
+                      : 'bg-slate-700 text-slate-500',
                 )}
                 title={STEP_LABELS[stepName]}
-              />
+              >
+                {idx + 1}
+              </button>
             ))}
           </div>
         </div>
@@ -158,7 +161,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
             )}
 
             {isLastStep ? (
-              <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
                 {isSubmitting ? (
                   'Creating...'
                 ) : (

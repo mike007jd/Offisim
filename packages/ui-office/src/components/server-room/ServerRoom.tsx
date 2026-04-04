@@ -73,7 +73,7 @@ function SlotList({
             </span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-[9px] text-slate-500 font-mono">{slot.exposure_scope}</span>
+            <span className="text-[10px] text-slate-500 font-mono">{slot.exposure_scope}</span>
             <button
               type="button"
               onClick={() => onRemoveSlot(slot.slot_id)}
@@ -141,19 +141,19 @@ function RackCard({
             <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">
               {rack.label}
             </p>
-            <p className="text-[9px] text-slate-500 font-mono truncate">{rack.provider_type}</p>
+            <p className="text-[10px] text-slate-500 font-mono truncate">{rack.provider_type}</p>
           </div>
         </div>
         <Badge
           variant={rackBadgeVariant(rack.status)}
-          className="text-[9px] px-1.5 py-0 flex-shrink-0"
+          className="text-[10px] px-1.5 py-0 flex-shrink-0"
         >
           {rack.status}
         </Badge>
       </div>
 
       {/* Slot count summary */}
-      <div className="flex items-center gap-3 text-[9px] text-slate-500">
+      <div className="flex items-center gap-3 text-[10px] text-slate-500">
         <span>
           {rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}
         </span>
@@ -177,7 +177,7 @@ function RackCard({
           <button
             type="button"
             onClick={() => onUnbind(rack.rack_id)}
-            className="flex items-center gap-1 text-[9px] text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 rounded px-1.5 py-0.5 transition-all"
+            className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 rounded px-1.5 py-0.5 transition-all"
           >
             <Unplug className="w-2.5 h-2.5" />
             Unbind
@@ -186,7 +186,7 @@ function RackCard({
           <button
             type="button"
             onClick={() => onBind(rack.rack_id)}
-            className="flex items-center gap-1 text-[9px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded px-1.5 py-0.5 transition-all"
+            className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded px-1.5 py-0.5 transition-all"
           >
             <Wifi className="w-2.5 h-2.5" />
             Bind
@@ -195,7 +195,7 @@ function RackCard({
         <button
           type="button"
           onClick={() => onDelete(rack.rack_id)}
-          className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded px-1.5 py-0.5 transition-all ml-auto"
+          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded px-1.5 py-0.5 transition-all ml-auto"
         >
           <Trash2 className="w-2.5 h-2.5" />
         </button>
@@ -214,7 +214,7 @@ function EmptyRacks() {
       </div>
       <div className="px-2">
         <p className="text-[11px] font-semibold text-slate-400">No MCP Racks</p>
-        <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+        <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
           Racks are groups of MCP server capabilities that your AI employees can access. Create a
           rack, add capability slots, then bind it to make tools available to agents.
         </p>
@@ -377,7 +377,7 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
           Tool Activity
         </span>
         {stats.total > 0 && (
-          <span className="text-[9px] text-slate-500 ml-auto">
+          <span className="text-[10px] text-slate-500 ml-auto">
             {stats.total} calls &middot; {Math.round(stats.successRate * 100)}% ok &middot; avg{' '}
             {formatMs(stats.avgDurationMs)}
           </span>
@@ -386,7 +386,7 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
 
       {expanded && (
         entries.length === 0 ? (
-          <p className="text-[10px] text-slate-600 italic px-1">No tool calls yet</p>
+          <p className="text-[10px] text-slate-500 italic px-1">No tool calls yet</p>
         ) : (
           <ScrollArea className="max-h-40">
             {entries.slice(-20).map((e) => {
@@ -399,7 +399,7 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
                   <Icon className={`w-2.5 h-2.5 shrink-0 ${color}`} />
                   <span className="flex-1 min-w-0 truncate text-slate-300">{e.toolName}</span>
                   {e.durationMs != null && (
-                    <span className="text-slate-600 shrink-0">{formatMs(e.durationMs)}</span>
+                    <span className="text-slate-500 shrink-0">{formatMs(e.durationMs)}</span>
                   )}
                 </div>
               );

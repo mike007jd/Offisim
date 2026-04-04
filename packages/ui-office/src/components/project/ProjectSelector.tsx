@@ -87,7 +87,7 @@ export function ProjectSelector({
           <span className="text-slate-500">All</span>
         )}
         <ChevronDown
-          className={`h-3 w-3 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3 w-3 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -105,7 +105,7 @@ export function ProjectSelector({
             <span className="w-1.5 h-1.5 rounded-full bg-transparent border border-slate-600 flex-shrink-0" />
             <span>All</span>
             {activeProjectId === null && (
-              <span className="ml-auto text-[10px] text-slate-600">active</span>
+              <span className="ml-auto text-[10px] text-slate-500">active</span>
             )}
           </button>
 
@@ -171,7 +171,7 @@ export function ProjectSelector({
           {activeProjects.length > 0 && (
             <>
               <div className="h-px bg-white/5 my-1" />
-              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-600">
+              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
                 Projects
               </p>
               {activeProjects.map((p) => (
@@ -205,7 +205,7 @@ export function ProjectSelector({
           {completedProjects.length > 0 && (
             <>
               <div className="h-px bg-white/5 my-1" />
-              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-600">
+              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
                 Completed
               </p>
               {completedProjects.map((p) => (
@@ -228,7 +228,7 @@ export function ProjectSelector({
           )}
 
           {projects.length === 0 && (
-            <p className="px-3 py-2 text-slate-600 italic">No projects yet</p>
+            <p className="px-3 py-2 text-slate-500 italic">No projects yet</p>
           )}
         </div>
       )}

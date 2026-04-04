@@ -42,7 +42,7 @@ export function AgentPanel({
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
           <input
             type="text"
             placeholder="Search employees..."
@@ -55,14 +55,15 @@ export function AgentPanel({
 
       {/* Employee list */}
       <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ padding: 'var(--sp-lg)' }}>
-        {filteredEntries.map(([id, agent]) => (
-          <AgentCard
-            key={id}
-            id={id}
-            agent={agent}
-            isSelected={selectedEmployeeId === id}
-            onClick={() => onSelectEmployee?.(id)}
-          />
+        {filteredEntries.map(([id, agent], idx) => (
+          <div key={id} className="animate-list-item" style={{ animationDelay: `${idx * 30}ms` }}>
+            <AgentCard
+              id={id}
+              agent={agent}
+              isSelected={selectedEmployeeId === id}
+              onClick={() => onSelectEmployee?.(id)}
+            />
+          </div>
         ))}
       </div>
 

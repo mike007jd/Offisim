@@ -302,7 +302,7 @@ export function ChatPanel({
           className="flex items-center gap-1.5 border-b border-white/5 h-7 bg-white/2"
           style={{ paddingInline: 'var(--sp-md)' }}
         >
-          <Folder className="h-3 w-3 text-slate-600 flex-shrink-0" />
+          <Folder className="h-3 w-3 text-slate-500 flex-shrink-0" />
           <span className="text-[11px] text-slate-500 truncate">{activeProject.name}</span>
         </div>
       )}
@@ -375,7 +375,7 @@ export function ChatPanel({
               </ScrollArea>
             ) : isDirectChat ? (
               <div className="flex flex-1 items-center justify-center">
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-slate-500">
                   Start a conversation with {selectedEmployeeName ?? 'this employee'}
                 </p>
               </div>

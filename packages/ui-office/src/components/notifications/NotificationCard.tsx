@@ -63,7 +63,7 @@ export function NotificationCard({
           <p className="text-[10px] text-shell/60 leading-tight mt-0.5 line-clamp-2">
             {notification.message}
           </p>
-          <span className="text-[9px] text-shell/40 mt-0.5 block">
+          <span className="text-[10px] text-shell/40 mt-0.5 block">
             {formatTimestamp(notification.timestamp)}
           </span>
         </div>

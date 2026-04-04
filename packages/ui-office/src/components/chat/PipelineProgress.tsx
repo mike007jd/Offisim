@@ -79,7 +79,7 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
               ? 'ring-2 ring-current shadow-[0_0_8px_rgba(59,130,246,0.3)]'
               : state === 'error'
                 ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40'
-                : 'bg-white/5 text-slate-600 ring-1 ring-white/10',
+                : 'bg-white/5 text-slate-500 ring-1 ring-white/10',
           state === 'active' ? meta.chatColorClass : '',
         ]
           .filter(Boolean)
@@ -89,21 +89,21 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
         {state === 'active' && (
           <span className={['w-2 h-2 rounded-full animate-pulse', meta.dotClass].join(' ')} />
         )}
-        {state === 'error' && <span className="text-[9px] font-bold leading-none">✗</span>}
+        {state === 'error' && <span className="text-[10px] font-bold leading-none">✗</span>}
         {state === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-white/10" />}
       </div>
 
       {/* Label */}
       <span
         className={[
-          'text-[9px] font-medium tracking-wide leading-none transition-colors duration-500',
+          'text-[10px] font-medium tracking-wide leading-none transition-colors duration-500',
           state === 'completed'
             ? 'text-emerald-400/70'
             : state === 'active'
               ? meta.chatColorClass
               : state === 'error'
                 ? 'text-red-400/70'
-                : 'text-slate-600',
+                : 'text-slate-500',
         ]
           .filter(Boolean)
           .join(' ')}

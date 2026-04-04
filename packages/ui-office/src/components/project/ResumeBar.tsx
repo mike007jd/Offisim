@@ -28,7 +28,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
             key={p.threadId}
             type="button"
             onClick={() => onResume(p.threadId)}
-            className="px-2 py-0.5 bg-amber-700/50 hover:bg-amber-600/50 rounded text-xs text-amber-100 truncate max-w-[200px]"
+            className="px-2.5 py-1.5 bg-amber-700/50 hover:bg-amber-600/50 rounded text-xs text-amber-100 truncate max-w-[200px]"
             title={p.projectName}
           >
             Resume {p.projectName}

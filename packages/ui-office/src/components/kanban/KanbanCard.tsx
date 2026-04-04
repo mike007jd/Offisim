@@ -69,7 +69,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
       className={cn(
         'w-full text-left rounded-lg border transition-colors duration-150',
         'px-2.5 py-2 space-y-1.5',
-        'border-white/[0.06] bg-[var(--surface)] hover:bg-white/[0.04]',
+        'border-white/[0.06] bg-[var(--surface)] hover:bg-white/[0.06] hover:border-white/15',
         task.status === 'active' || task.status === 'running'
           ? 'border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.08)]'
           : '',
@@ -84,7 +84,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
         <span className="text-[11px] font-semibold text-slate-200 truncate flex-1">
           {task.employeeName ?? task.employeeId ?? 'Unassigned'}
         </span>
-        <span className="text-[9px] text-slate-500 uppercase tracking-wide shrink-0">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wide shrink-0">
           {statusLabel(task.status)}
         </span>
       </div>
@@ -97,12 +97,12 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
       {/* Bottom row: role badge + cost */}
       <div className="flex items-center gap-1.5">
         {task.taskType && (
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded', roleBadgeColor(task.taskType))}>
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded', roleBadgeColor(task.taskType))}>
             {task.taskType}
           </span>
         )}
         {taskCost > 0 && (
-          <span className="ml-auto text-[9px] font-mono text-emerald-400/70">
+          <span className="ml-auto text-[10px] font-mono text-emerald-400/70">
             ${taskCost.toFixed(4)}
           </span>
         )}

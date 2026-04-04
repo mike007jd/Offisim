@@ -17,7 +17,7 @@ export function SkillBindingList({
   if (!runtimeSkill) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/10 py-6 text-center">
-        <Puzzle className="h-8 w-8 text-slate-600" />
+        <Puzzle className="h-8 w-8 text-slate-500" />
         <p className="max-w-[260px] text-xs italic text-slate-400/70">
           No runtime skill bound to this employee yet. Install a skill package from the marketplace
           and bind it to unlock guided capabilities.

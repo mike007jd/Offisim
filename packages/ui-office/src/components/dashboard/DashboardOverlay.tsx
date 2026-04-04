@@ -113,7 +113,7 @@ function NotificationsCard({
                         {n.message}
                       </p>
                     </div>
-                    <span className="text-[9px] text-slate-400/40 shrink-0">
+                    <span className="text-[10px] text-slate-400/40 shrink-0">
                       {formatTimestamp(n.timestamp)}
                     </span>
                   </button>
@@ -175,13 +175,13 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
                       <span className="text-xs font-mono text-slate-400 truncate">
                         {err.errorCode}
                       </span>
-                      <span className="text-[9px] text-slate-400/40 ml-auto shrink-0">
+                      <span className="text-[10px] text-slate-400/40 ml-auto shrink-0">
                         {formatTimestamp(err.timestamp)}
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400/70 mt-1 line-clamp-3">{err.message}</p>
                     {err.nodeName && (
-                      <span className="text-[9px] text-slate-400/40 mt-0.5 block">
+                      <span className="text-[10px] text-slate-400/40 mt-0.5 block">
                         node: {err.nodeName}
                         {err.employeeId ? ` | employee: ${err.employeeId}` : ''}
                       </span>
@@ -228,7 +228,7 @@ function OutputsCard() {
                   <div key={d.id} className="rounded border border-slate-700 bg-slate-800/10 p-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-100 truncate">{d.title}</span>
-                      <span className="text-[9px] text-slate-400/40 shrink-0 ml-2">
+                      <span className="text-[10px] text-slate-400/40 shrink-0 ml-2">
                         {formatTimestamp(d.createdAt)}
                       </span>
                     </div>
@@ -241,7 +241,7 @@ function OutputsCard() {
                           <Badge
                             key={emp.employeeId}
                             variant="info"
-                            className="text-[9px] px-1 py-0"
+                            className="text-[10px] px-1 py-0"
                           >
                             {emp.employeeName}
                           </Badge>

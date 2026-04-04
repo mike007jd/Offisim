@@ -49,7 +49,7 @@ export function EmptyState({ isConfigured, onOpenSettings, onSendPrompt }: Empty
           ))}
         </div>
       )}
-      <p className="text-[10px] text-slate-600 mt-1">
+      <p className="text-[10px] text-slate-500 mt-1">
         Use <kbd className="text-slate-500">/</kbd> for commands,{' '}
         <kbd className="text-slate-500">@</kbd> to mention someone
       </p>

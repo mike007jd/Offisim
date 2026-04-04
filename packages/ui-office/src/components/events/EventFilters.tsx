@@ -88,7 +88,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
 
   const levelPillClass = (level: EventLevel, active: boolean) => {
     const base =
-      'px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
+      'px-2 py-1 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
     if (!active)
       return `${base} bg-transparent text-slate-400 border border-slate-400/30 opacity-40`;
     if (level === 'Error') return `${base} bg-red-500/20 text-red-500 border border-red-500/40`;
@@ -121,7 +121,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
               className={levelPillClass(level, activeLevels.has(level))}
               onClick={() => toggleLevel(level)}
             >
-              {level === 'Warning' ? 'Warn' : level}
+              {level}
             </button>
           ))}
         </div>

@@ -110,7 +110,7 @@ export function CompanyCreationWizard({
       <div className="flex h-screen items-center justify-center bg-surface">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
-          <p className="text-xs text-slate-600">Loading templates...</p>
+          <p className="text-xs text-slate-500">Loading templates...</p>
         </div>
       </div>
     );
@@ -265,7 +265,7 @@ export function CompanyCreationWizard({
                 {isCreateYourOwn ? (
                   <div className="flex flex-col items-center gap-3 text-center">
                     <Wrench className="h-12 w-12 text-emerald-400/40" />
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-500">
                       Your custom office will be designed in the 3D Studio editor
                     </p>
                   </div>
@@ -355,7 +355,7 @@ function BuildingAnimation() {
           Building your office...
         </span>
       </div>
-      <p className="text-xs text-slate-600">Setting up employees, workflows, and office layout</p>
+      <p className="text-xs text-slate-500">Setting up employees, workflows, and office layout</p>
     </div>
   );
 }
@@ -388,7 +388,7 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
           <div className="mt-0.5 text-[13px]" style={{ color: dotColor }}>
             {roleLabel}
           </div>
-          {bio && <div className="mt-0.5 truncate text-xs italic text-slate-600">{bio.bio}</div>}
+          {bio && <div className="mt-0.5 truncate text-xs italic text-slate-500">{bio.bio}</div>}
         </div>
         <div className="shrink-0 text-slate-700">
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -410,7 +410,7 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
                 {tag}
               </span>
             ))}
-            <span className="rounded-md border border-white/[0.04] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-slate-600">
+            <span className="rounded-md border border-white/[0.04] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-slate-500">
               {bio.style}
             </span>
           </div>

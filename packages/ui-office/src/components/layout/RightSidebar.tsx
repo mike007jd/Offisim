@@ -63,7 +63,8 @@ export function RightSidebar({
               key={tab.id}
               value={tab.id}
               title={tab.label}
-              className="flex-1 py-2.5 px-1 flex items-center justify-center data-[state=active]:text-blue-400 data-[state=active]:bg-transparent data-[state=inactive]:text-slate-500 hover:text-slate-300 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 transition-all"
+              aria-label={tab.label}
+              className="flex-1 py-2.5 px-1 flex items-center justify-center data-[state=active]:text-blue-400 data-[state=active]:bg-transparent data-[state=inactive]:text-slate-500 hover:text-slate-300 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 transition-all focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:outline-none"
             >
               <tab.icon className="w-5 h-5" />
             </TabsTrigger>

@@ -8,6 +8,7 @@ export function Library() {
     useLibrary();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -24,7 +25,7 @@ export function Library() {
 
   return (
     <div className="flex flex-col gap-3 p-3 overflow-hidden">
-      <h2 className="text-[8px] uppercase tracking-wider text-slate-400">Library</h2>
+      <h2 className="text-[10px] uppercase tracking-wider text-slate-400">Library</h2>
 
       {/* Search + Upload */}
       <div className="flex items-center gap-1.5">
@@ -65,7 +66,7 @@ export function Library() {
             <p className="text-[11px] font-semibold text-slate-400">
               {searchQuery ? 'No matches' : 'No Documents'}
             </p>
-            <p className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+            <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
               {searchQuery
                 ? 'No documents match your search. Try different keywords.'
                 : 'Upload text, markdown, CSV or JSON files to make them available as reference material for your AI employees.'}
@@ -82,19 +83,41 @@ export function Library() {
               <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[11px] text-slate-200">{doc.title}</div>
-                <div className="text-[9px] text-slate-500 truncate">
+                <div className="text-[10px] text-slate-500 truncate">
                   {doc.source_type} · {doc.content_text.length.toLocaleString()} chars
                   {doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(1)}KB` : ''}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => deleteDocument(doc.doc_id)}
-                className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors p-0.5"
-                title="Delete document"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+              {confirmDeleteId === doc.doc_id ? (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      deleteDocument(doc.doc_id);
+                      setConfirmDeleteId(null);
+                    }}
+                    className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="text-[10px] text-slate-400 hover:text-slate-300 px-1 py-0.5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(doc.doc_id)}
+                  className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors p-0.5"
+                  title="Delete document"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
             </div>
           ))}
         </div>

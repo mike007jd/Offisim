@@ -31,16 +31,18 @@ export function AppLayout({
   );
   const [leftOpen, setLeftOpen] = useState(() => {
     try {
-      return localStorage.getItem('offisim.panel.left') === 'true';
+      const saved = localStorage.getItem('offisim.panel.left');
+      return saved === null ? true : saved === 'true';
     } catch {
-      return false;
+      return true;
     }
   });
   const [rightOpen, setRightOpen] = useState(() => {
     try {
-      return localStorage.getItem('offisim.panel.right') === 'true';
+      const saved = localStorage.getItem('offisim.panel.right');
+      return saved === null ? true : saved === 'true';
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -95,7 +97,7 @@ export function AppLayout({
       >
         {/* ══════ LEFT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className={`border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative ${leftOpen ? 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]' : 'shadow-[0_0_40px_rgba(0,0,0,0.8)]'}`}
           style={{
             width: leftOpen ? '280px' : '44px',
             marginBlock: 'var(--sp-lg)',
@@ -108,11 +110,12 @@ export function AppLayout({
               <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
                 {agentPanel}
               </div>
-              {/* Collapse handle — inside panel, top-right corner */}
+              {/* Collapse handle — vertically-centered edge rail on inner side */}
               <button
                 type="button"
+                aria-label="Collapse personnel panel"
                 onClick={() => setLeftOpen(false)}
-                className="absolute right-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-5 h-16 flex items-center justify-center rounded-l-lg bg-white/5 border-l border-y border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30 transition-all opacity-60 hover:opacity-100"
               >
                 <ChevronLeft className="w-3 h-3 text-slate-400" />
               </button>
@@ -121,8 +124,9 @@ export function AppLayout({
             /* Collapsed — full-height narrow bar, click to expand */
             <button
               type="button"
+              aria-label="Expand personnel panel"
               onClick={() => setLeftOpen(true)}
-              className="flex-1 flex flex-col items-center justify-start pt-5 gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
+              className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
             >
               <Users className="w-4 h-4 text-blue-400" />
               <span
@@ -140,7 +144,7 @@ export function AppLayout({
 
         {/* ══════ RIGHT PANEL — narrow bar ↔ wide panel ══════ */}
         <div
-          className="border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative"
+          className={`border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden pointer-events-auto shrink-0 flex flex-col transition-all duration-300 ease-out relative ${rightOpen ? 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]' : 'shadow-[0_0_40px_rgba(0,0,0,0.8)]'}`}
           style={{
             width: rightOpen ? '280px' : '44px',
             marginBlock: 'var(--sp-lg)',
@@ -158,19 +162,21 @@ export function AppLayout({
           </div>
 
           {rightOpen ? (
-            /* Collapse handle — inside panel, top-left corner */
+            /* Collapse handle — vertically-centered edge rail on inner side */
             <button
               type="button"
+              aria-label="Collapse operations panel"
               onClick={() => setRightOpen(false)}
-              className="absolute left-2 top-2 z-20 bg-white/5 border border-white/10 rounded-lg p-1.5 hover:bg-blue-900/40 transition-all"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-5 h-16 flex items-center justify-center rounded-r-lg bg-white/5 border-r border-y border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30 transition-all opacity-60 hover:opacity-100"
             >
               <ChevronRight className="w-3 h-3 text-slate-400" />
             </button>
           ) : (
             <button
               type="button"
+              aria-label="Expand operations panel"
               onClick={() => setRightOpen(true)}
-              className="flex-1 flex flex-col items-center justify-start pt-5 gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
+              className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
             >
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
               <span
@@ -189,8 +195,8 @@ export function AppLayout({
       <div
         className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
         style={{
-          left: isNarrow ? '16px' : leftOpen ? '300px' : '64px',
-          right: isNarrow ? '16px' : rightOpen ? '300px' : '64px',
+          left: isNarrow ? '16px' : leftOpen ? '296px' : '60px',
+          right: isNarrow ? '16px' : rightOpen ? '296px' : '60px',
         }}
       >
         {chatDrawer}

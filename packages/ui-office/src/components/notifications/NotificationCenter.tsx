@@ -27,12 +27,13 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
         size="icon"
         onClick={() => setIsOpen((prev) => !prev)}
         className="relative"
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
           <Badge
             variant="error"
-            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[9px] flex items-center justify-center"
+            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[10px] flex items-center justify-center"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </Badge>
@@ -53,6 +54,7 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
                 className="h-5 w-5"
                 onClick={clearAll}
                 title="Clear all"
+                aria-label="Clear all notifications"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>

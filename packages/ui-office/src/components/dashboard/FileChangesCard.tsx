@@ -45,7 +45,7 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
             {[...grouped.entries()].map(([stepIndex, items]) => (
               <div key={stepIndex ?? 'none'} className="mb-2 last:mb-0">
                 {stepIndex !== null && (
-                  <p className="text-[10px] uppercase tracking-wider text-slate-600 px-2 py-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 px-2 py-0.5">
                     Step {stepIndex + 1}
                   </p>
                 )}
@@ -57,7 +57,7 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
                       className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-white/5 transition-colors"
                     >
                       <span
-                        className={`w-4 h-4 flex items-center justify-center rounded text-[9px] font-bold ${style.color}`}
+                        className={`w-4 h-4 flex items-center justify-center rounded text-[10px] font-bold ${style.color}`}
                       >
                         {style.label}
                       </span>
@@ -65,7 +65,7 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
                         {c.file_path}
                       </span>
                       {c.tool_name && (
-                        <span className="text-[10px] text-slate-600 shrink-0">{c.tool_name}</span>
+                        <span className="text-[10px] text-slate-500 shrink-0">{c.tool_name}</span>
                       )}
                     </div>
                   );

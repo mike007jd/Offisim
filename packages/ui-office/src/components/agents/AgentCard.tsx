@@ -182,7 +182,7 @@ function SubTaskList({
       {/* Task list */}
       <div className="mt-1 space-y-0.5">
         {visibleTasks.map((st) => (
-          <div key={st.stepIndex} className="flex items-center gap-1 text-[9px] font-mono">
+          <div key={st.stepIndex} className="flex items-center gap-1 text-[10px] font-mono">
             <span className="flex-shrink-0">{STATUS_ICON[st.status] ?? '⏳'}</span>
             <span
               className={[
@@ -197,15 +197,15 @@ function SubTaskList({
               {truncate(st.label, 25)}
             </span>
             {st.status === 'running' && st.startedAt && (
-              <span className="text-slate-600 ml-auto">
+              <span className="text-slate-500 ml-auto">
                 {Math.round((Date.now() - st.startedAt) / 1000)}s
               </span>
             )}
-            {st.status === 'done' && <span className="text-slate-600 ml-auto">done</span>}
+            {st.status === 'done' && <span className="text-slate-500 ml-auto">done</span>}
           </div>
         ))}
         {hiddenCount > 0 && !expanded && (
-          <div className="text-[9px] font-mono text-slate-600 pl-4">+{hiddenCount} more</div>
+          <div className="text-[10px] font-mono text-slate-500 pl-4">+{hiddenCount} more</div>
         )}
       </div>
     </div>

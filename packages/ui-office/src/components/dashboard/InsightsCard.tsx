@@ -47,7 +47,7 @@ export function InsightsCard() {
                 className="px-2 py-1.5 border-b border-white/5 last:border-0"
               >
                 <p className="text-[11px] text-slate-300 leading-relaxed">{m.content}</p>
-                <div className="flex items-center gap-2 mt-0.5 text-[9px] text-slate-600">
+                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
                   <span>Importance: {Math.round((m.importance ?? 0.5) * 100)}%</span>
                   {m.reinforcement_count > 0 && (
                     <span>&middot; Reinforced {m.reinforcement_count}x</span>

@@ -304,13 +304,13 @@ export function ChatInput({
               >
                 <span className="text-xs font-mono text-blue-400 shrink-0">/{cmd.name}</span>
                 <span
-                  className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
+                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
                 >
                   {cmd.category}
                 </span>
                 <span className="text-xs text-slate-400 truncate">{cmd.description}</span>
                 {cmd.argumentHint && (
-                  <span className="text-[10px] text-slate-600 truncate ml-auto shrink-0">
+                  <span className="text-[10px] text-slate-500 truncate ml-auto shrink-0">
                     {cmd.argumentHint}
                   </span>
                 )}
@@ -340,7 +340,7 @@ export function ChatInput({
                 onClick={() => selectMention(opt)}
               >
                 <span
-                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold text-white ${roleColor(opt.role)}`}
+                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white ${roleColor(opt.role)}`}
                 >
                   {opt.name[0]}
                 </span>
@@ -385,10 +385,10 @@ export function ChatInput({
           <span className="text-[10px] text-amber-300/80">{disabledReason}</span>
         ) : (
           <>
-            <span className="text-[10px] text-slate-600">
+            <span className="text-[10px] text-slate-500">
               <kbd className="text-slate-500">/</kbd> commands
             </span>
-            <span className="text-[10px] text-slate-600">
+            <span className="text-[10px] text-slate-500">
               <kbd className="text-slate-500">@</kbd> mention
             </span>
           </>

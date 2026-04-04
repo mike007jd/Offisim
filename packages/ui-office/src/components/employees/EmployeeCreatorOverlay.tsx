@@ -127,7 +127,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-white/50 transition-colors hover:bg-white/[0.05] hover:text-white/80"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-white/50 transition-colors hover:bg-white/[0.05] hover:text-white/80"
             aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -311,14 +311,14 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                         key={presetSeed}
                         type="button"
                         onClick={() => handlePresetClick(presetSeed)}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 transition-all ${
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
                           seed === presetSeed
                             ? 'border-blue-500/40 bg-blue-500/10 shadow-[0_0_12px_rgba(59,130,246,0.15)]'
                             : 'border-white/[0.06] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.05]'
                         }`}
                       >
                         <DicebearAvatar seed={presetSeed} size={44} />
-                        <span className="font-mono text-[9px] text-white/40">{presetSeed}</span>
+                        <span className="font-mono text-[10px] text-white/40">{presetSeed}</span>
                       </button>
                     ))}
                   </div>
@@ -360,7 +360,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             ${
               canDeploy
                 ? 'bg-blue-600 text-white shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:bg-blue-500 active:scale-[0.98]'
-                : 'bg-white/[0.04] text-white/20 cursor-not-allowed'
+                : 'bg-white/[0.04] text-white/30 cursor-not-allowed'
             }
           `}
         >
