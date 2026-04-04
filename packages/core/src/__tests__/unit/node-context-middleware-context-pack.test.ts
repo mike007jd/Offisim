@@ -161,6 +161,22 @@ describe('NodeContextMiddleware with context pack', () => {
     expect(systemMsg?.content).not.toContain('## Runtime Context');
   });
 
+  it('does not render recentNodeSummaries in pack block (dedup with execution context)', async () => {
+    const middleware = new NodeContextMiddleware(
+      makeNodeSummaryRepo([]),
+      {},
+      makePackService(fullPack),
+    );
+
+    const result = await middleware.before(makeLlmCallContext());
+    const systemMsg = result.request.messages[0];
+    // The pack has recentNodeSummaries but they must NOT appear in the pack block
+    expect(systemMsg?.content).not.toContain('Recent outcomes');
+    expect(systemMsg?.content).not.toContain('Boss routed to delegate');
+    // Pack block should still have other content
+    expect(systemMsg?.content).toContain('Allow tool X');
+  });
+
   it('respects total char budget', async () => {
     const longSummary = 'x'.repeat(500);
     const summaries = [

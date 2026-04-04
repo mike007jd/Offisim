@@ -29,10 +29,6 @@ function buildSummaryBlock(
   return content.trimEnd();
 }
 
-function truncate(text: string, maxLen: number): string {
-  return text.length <= maxLen ? text : `${text.slice(0, maxLen - 1)}…`;
-}
-
 function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
   let content = '## Runtime Context (current state)\n';
 
@@ -61,18 +57,8 @@ function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
     }
   }
 
-  if (pack.recentNodeSummaries.length > 0) {
-    const header = 'Recent outcomes:\n';
-    if (content.length + header.length <= maxChars) {
-      content += header;
-      for (const ns of pack.recentNodeSummaries) {
-        const text = truncate(ns.summaryText, 120);
-        const line = `- [${ns.nodeName}${ns.stepIndex != null ? `:step${ns.stepIndex}` : ''}] ${text}\n`;
-        if (content.length + line.length > maxChars) break;
-        content += line;
-      }
-    }
-  }
+  // recentNodeSummaries are intentionally NOT rendered here —
+  // the execution context block already covers them via buildSummaryBlock().
 
   return content.trimEnd();
 }

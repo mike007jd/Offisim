@@ -79,11 +79,20 @@ describe('normalizeActiveTaskRuns', () => {
     task_type: 'deploy',
     status: 'waiting_input',
   };
+  const planned = {
+    task_run_id: 'tr-5',
+    employee_id: 'emp-5',
+    task_type: 'code',
+    status: 'planned',
+    started_at: '2026-04-05T10:00:00Z',
+  };
 
   it('prefers active task runs', () => {
     const result = normalizeActiveTaskRuns([completed, running, queued]);
     expect(result).toHaveLength(2);
-    expect(result.map((r) => r.taskRunId)).toEqual(['tr-1', 'tr-2']);
+    expect(result.map((r) => r.status)).toEqual(
+      expect.arrayContaining(['running', 'queued']),
+    );
   });
 
   it('falls back to most recent completed if no active runs exist', () => {
@@ -108,6 +117,31 @@ describe('normalizeActiveTaskRuns', () => {
     const result = normalizeActiveTaskRuns([completed, waiting]);
     expect(result).toHaveLength(1);
     expect(result[0]?.status).toBe('waiting_input');
+  });
+
+  it('includes planned/created/routed as active pre-dispatch states', () => {
+    const created = { ...planned, task_run_id: 'tr-6', status: 'created' };
+    const routed = { ...planned, task_run_id: 'tr-7', status: 'routed' };
+    const result = normalizeActiveTaskRuns([completed, planned, created, routed]);
+    expect(result).toHaveLength(3);
+    expect(result.map((r) => r.status)).toEqual(
+      expect.arrayContaining(['planned', 'created', 'routed']),
+    );
+  });
+
+  it('sorts by started_at descending', () => {
+    const older = { ...running, task_run_id: 'tr-old', started_at: '2026-04-05T08:00:00Z' };
+    const newer = { ...running, task_run_id: 'tr-new', started_at: '2026-04-05T12:00:00Z' };
+    const result = normalizeActiveTaskRuns([older, newer]);
+    expect(result[0]?.taskRunId).toBe('tr-new');
+    expect(result[1]?.taskRunId).toBe('tr-old');
+  });
+
+  it('completed fallback picks most recent by started_at', () => {
+    const old = { ...completed, task_run_id: 'tr-old', started_at: '2026-04-05T08:00:00Z' };
+    const recent = { ...completed, task_run_id: 'tr-recent', started_at: '2026-04-05T12:00:00Z' };
+    const result = normalizeActiveTaskRuns([old, recent], 1);
+    expect(result[0]?.taskRunId).toBe('tr-recent');
   });
 });
 
@@ -190,6 +224,15 @@ describe('deriveRecommendedFocus', () => {
     ];
     const result = deriveRecommendedFocus(null, tasks, []);
     expect(result).toBe('1 task currently executing.');
+  });
+
+  it('reports planned tasks awaiting dispatch', () => {
+    const tasks = [
+      { taskRunId: 'tr-1', employeeId: 'emp-1', taskType: 'code', status: 'planned' },
+      { taskRunId: 'tr-2', employeeId: 'emp-2', taskType: 'review', status: 'routed' },
+    ];
+    const result = deriveRecommendedFocus(null, tasks, []);
+    expect(result).toBe('2 tasks planned, awaiting dispatch.');
   });
 
   it('falls back to last node summary', () => {

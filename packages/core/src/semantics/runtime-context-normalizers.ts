@@ -10,6 +10,7 @@ export interface TaskRunLike {
   readonly employee_id: string | null;
   readonly task_type: string;
   readonly status: string;
+  readonly started_at?: string;
 }
 
 export interface NodeSummaryLike {
@@ -20,8 +21,11 @@ export interface NodeSummaryLike {
 }
 
 const ACTIVE_TASK_STATUSES = new Set([
-  'running',
+  'planned',
+  'created',
+  'routed',
   'queued',
+  'running',
   'waiting_input',
   'waiting_dependency',
   'review_ready',
@@ -40,15 +44,25 @@ export function normalizePendingInteraction(
   };
 }
 
+function sortByStartedAtDesc(rows: readonly TaskRunLike[]): TaskRunLike[] {
+  return [...rows].sort((a, b) => {
+    if (!a.started_at && !b.started_at) return 0;
+    if (!a.started_at) return 1;
+    if (!b.started_at) return -1;
+    return b.started_at.localeCompare(a.started_at);
+  });
+}
+
 export function normalizeActiveTaskRuns(
   rows: readonly TaskRunLike[],
   limit = 6,
 ): AgentContextPackTaskRun[] {
-  const active = rows.filter((r) => ACTIVE_TASK_STATUSES.has(r.status));
-  const sorted = active.length > 0
+  const sorted = sortByStartedAtDesc(rows);
+  const active = sorted.filter((r) => ACTIVE_TASK_STATUSES.has(r.status));
+  const selected = active.length > 0
     ? active
-    : rows.filter((r) => r.status === 'completed').slice(-limit);
-  return sorted.slice(0, limit).map((r) => ({
+    : sorted.filter((r) => r.status === 'completed').slice(0, limit);
+  return selected.slice(0, limit).map((r) => ({
     taskRunId: r.task_run_id,
     employeeId: r.employee_id,
     taskType: r.task_type,
@@ -94,6 +108,13 @@ export function deriveRecommendedFocus(
   const running = activeTaskRuns.filter((t) => t.status === 'running');
   if (running.length > 0) {
     return `${running.length} task${running.length > 1 ? 's' : ''} currently executing.`;
+  }
+
+  const planned = activeTaskRuns.filter(
+    (t) => t.status === 'planned' || t.status === 'created' || t.status === 'routed' || t.status === 'queued',
+  );
+  if (planned.length > 0) {
+    return `${planned.length} task${planned.length > 1 ? 's' : ''} planned, awaiting dispatch.`;
   }
 
   const lastSummary = nodeSummaries[0];
