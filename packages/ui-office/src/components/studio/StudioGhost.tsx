@@ -280,11 +280,11 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Check collision (rotation-aware) — read from getState() to avoid stale closure (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances } =
+          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
             useStudioStore.getState();
           const isBlocked = checkOverlap(
             x, z,
-            useStudioStore.getState().placingPrefab?.prefabId ?? '',
+            curPlacing?.prefabId ?? '',
             gridW, gridD, curGhostRotation, currentInstances,
           );
           blockedRef.current = isBlocked;
@@ -305,11 +305,11 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Block placement if overlapping (rotation-aware) — read from getState() (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances } =
+          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
             useStudioStore.getState();
           if (checkOverlap(
             x, z,
-            useStudioStore.getState().placingPrefab?.prefabId ?? '',
+            curPlacing?.prefabId ?? '',
             gridW, gridD, curGhostRotation, currentInstances,
           )) {
             return; // don't place

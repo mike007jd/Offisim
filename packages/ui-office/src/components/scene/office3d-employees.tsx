@@ -9,7 +9,7 @@ import {
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
 import { SEAT_OFFSETS } from '../../lib/seat-offsets.js';
-import type { SeatRegistry } from '../../lib/seat-registry.js';
+import { computeRestSeatPosition, type SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
@@ -88,18 +88,15 @@ export function usePlacedEmployees(
             });
             return;
           }
-          const totalSlots = Math.max(zoneEmployeesForZone.length, 6);
-          const angle = (slotIdx / totalSlots) * Math.PI * 1.5 + 0.3;
-          const radius = 1.2 + (slotIdx % 3) * 0.8;
           placed.push({
             id: employee.id,
             agent: employee.agent,
             globalIndex: employee.globalIndex,
-            position: [
-              restZoneLayout.position[0] + Math.cos(angle) * radius,
-              0,
-              restZoneLayout.position[2] + Math.sin(angle) * radius,
-            ],
+            position: computeRestSeatPosition(
+              restZoneLayout.position[0],
+              restZoneLayout.position[2],
+              slotIdx,
+            ),
           });
           return;
         }

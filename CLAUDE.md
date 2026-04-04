@@ -154,6 +154,9 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   修改 Boss 路由行为时两层必须同步, 否则 prompt 改了但 heuristic 没跟上（或反过来）
 - Smoke tests (`vitest.smoke.config.ts`) 不自动加载 `.env.local`,
   必须 `export MINIMAX_API_KEY=... && pnpm --filter @offisim/core exec vitest run --config vitest.smoke.config.ts`
+- `NodeContextMiddleware` 有共享 1800 字符 budget: summary block (1000) + context pack (700)。
+  构造时第三参数接受可选 `AgentContextPackService`, browser-runtime 和 tauri-runtime 已注册。
+  不要再加独立的 context middleware — 扩展现有的共享 budget
 
 ## Product Boundary: AI Runtime Policy
 

@@ -2,6 +2,21 @@ import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
 import { SEAT_OFFSETS } from './seat-offsets';
 import { getSpatialSpec, toWorldAnchor } from './prefab-spatial';
 
+/**
+ * Deterministic circular layout for rest-area seating.
+ * Shared by SeatRegistry and fallback paths.
+ */
+export function computeRestSeatPosition(
+  cx: number,
+  cz: number,
+  slotIndex: number,
+): [number, number, number] {
+  const totalSlots = Math.max(slotIndex + 1, 6);
+  const angle = (slotIndex / totalSlots) * Math.PI * 1.5 + 0.3;
+  const radius = 1.2 + (slotIndex % 3) * 0.8;
+  return [cx + Math.cos(angle) * radius, 0, cz + Math.sin(angle) * radius];
+}
+
 export interface SeatEntry {
   readonly position: [number, number, number];
   readonly facing: number;
@@ -21,7 +36,6 @@ export class SeatRegistry {
     zones: readonly Zone[],
   ): SeatRegistry {
     const seats = new Map<string, SeatEntry[]>();
-    const zonesWithPrefabSeats = new Set<string>();
 
     // Phase 1: collect seats from prefab instances
     for (const inst of instances) {
@@ -67,7 +81,6 @@ export class SeatRegistry {
         }
       }
 
-      zonesWithPrefabSeats.add(inst.zone_id);
     }
 
     // Phase 2: fill fallback seats for zones that need more capacity
@@ -76,18 +89,15 @@ export class SeatRegistry {
     for (const zone of zones) {
       if (zone.deskSlots <= 0) continue;
 
-      const existing = seats.get(zone.zoneId) ?? [];
-      const needed = zone.deskSlots - existing.length;
-      if (needed <= 0) {
-        // Enough prefab seats already — ensure zone is in the map
-        if (!seats.has(zone.zoneId)) seats.set(zone.zoneId, []);
-        continue;
-      }
+      if (!seats.has(zone.zoneId)) seats.set(zone.zoneId, []);
+      const zoneSeats = seats.get(zone.zoneId)!;
+      const needed = zone.deskSlots - zoneSeats.length;
+      if (needed <= 0) continue;
 
-      const zoneSeats = [...existing];
+      const base = zoneSeats.length;
       for (let i = 0; i < needed; i++) {
-        const offsetIdx = (existing.length + i) % SEAT_OFFSETS.length;
-        const rowShift = Math.floor((existing.length + i) / SEAT_OFFSETS.length) * 2;
+        const offsetIdx = (base + i) % SEAT_OFFSETS.length;
+        const rowShift = Math.floor((base + i) / SEAT_OFFSETS.length) * 2;
         const off = SEAT_OFFSETS[offsetIdx]!;
         zoneSeats.push({
           position: [zone.cx + off[0], 0, zone.cz + off[2] + rowShift],
@@ -96,7 +106,6 @@ export class SeatRegistry {
           isFallback: true,
         });
       }
-      seats.set(zone.zoneId, zoneSeats);
     }
 
     return new SeatRegistry(seats);
@@ -117,16 +126,6 @@ export class SeatRegistry {
     slotIndex: number,
   ): [number, number, number] {
     const restZone = zones.find((z) => z.archetype === 'rest');
-    const cx = restZone?.cx ?? 0;
-    const cz = restZone?.cz ?? 0;
-
-    const totalSlots = Math.max(slotIndex + 1, 6);
-    const angle = (slotIndex / totalSlots) * Math.PI * 1.5 + 0.3;
-    const radius = 1.2 + (slotIndex % 3) * 0.8;
-    return [
-      cx + Math.cos(angle) * radius,
-      0,
-      cz + Math.sin(angle) * radius,
-    ];
+    return computeRestSeatPosition(restZone?.cx ?? 0, restZone?.cz ?? 0, slotIndex);
   }
 }

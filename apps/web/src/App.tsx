@@ -35,7 +35,7 @@ import {
   useReducedMotion,
   useSceneOrchestrator,
 } from '@offisim/ui-office';
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AppView,
   isOfficeSceneInteractive,
@@ -80,13 +80,17 @@ function CeremonyHost({ children }: { children: React.ReactNode }) {
   const agents = useAgentStates();
   const { zones } = useCompanyZones();
   const { instances: prefabInstancesWithDef } = usePrefabInstances();
+  const prefabInstances = useMemo(
+    () => prefabInstancesWithDef.map((p) => p.instance),
+    [prefabInstancesWithDef],
+  );
   const ceremony = useSceneOrchestrator({
     companyId: activeCompanyId ?? 'default-scene-company',
     eventBus,
     sceneIntentBus,
     agents,
     zones,
-    prefabInstances: prefabInstancesWithDef.map((p) => p.instance),
+    prefabInstances,
   });
   return <SceneCeremonyProvider value={ceremony}>{children}</SceneCeremonyProvider>;
 }

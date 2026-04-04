@@ -45,7 +45,7 @@ import {
 } from '../lib/scene-behavior';
 import { buildZoneRouteWaypoints, getMeetingZoneId } from '../lib/scene-nav';
 import { SEAT_OFFSETS } from '../lib/seat-offsets';
-import { SeatRegistry } from '../lib/seat-registry';
+import { SeatRegistry, computeRestSeatPosition } from '../lib/seat-registry';
 import { categorizeTool } from '../lib/tool-category';
 import type {
   SceneEmployeeEscalatedPayload,
@@ -104,14 +104,12 @@ function getWorkstationPos(
 
 let restSlotCounter = 0;
 function getRestPos(registry: SeatRegistry | null, zones: readonly Zone[]): [number, number, number] {
+  const idx = restSlotCounter++;
   if (registry) {
-    return [...registry.getRestSeat(zones, restSlotCounter++)];
+    return [...registry.getRestSeat(zones, idx)];
   }
   const restCenter = getZoneCenter(zones, 'rest');
-  const idx = restSlotCounter++;
-  const angle = (idx / 8) * Math.PI * 1.5 + 0.3;
-  const radius = 1.2 + (idx % 3) * 0.8;
-  return [restCenter[0] + Math.cos(angle) * radius, 0, restCenter[2] + Math.sin(angle) * radius];
+  return computeRestSeatPosition(restCenter[0], restCenter[2], idx);
 }
 
 export function createIdleCeremonyState(): CeremonyState {
