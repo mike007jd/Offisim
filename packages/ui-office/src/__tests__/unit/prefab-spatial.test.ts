@@ -3,6 +3,7 @@ import {
   rotateLocalPoint,
   toWorldAnchor,
   toWorldFootprint,
+  footprintsOverlap,
   getSpatialSpec,
 } from '../../lib/prefab-spatial';
 
@@ -61,6 +62,32 @@ describe('toWorldFootprint', () => {
     expect(result.cz).toBeCloseTo(5);
     expect(result.halfW).toBeCloseTo(0.6);
     expect(result.halfD).toBeCloseTo(1.1);
+  });
+});
+
+describe('footprintsOverlap', () => {
+  it('overlapping footprints → true', () => {
+    const a = { cx: 0, cz: 0, halfW: 1, halfD: 1 };
+    const b = { cx: 0.5, cz: 0.5, halfW: 1, halfD: 1 };
+    expect(footprintsOverlap(a, b)).toBe(true);
+  });
+
+  it('non-overlapping → false', () => {
+    const a = { cx: 0, cz: 0, halfW: 1, halfD: 1 };
+    const b = { cx: 5, cz: 5, halfW: 1, halfD: 1 };
+    expect(footprintsOverlap(a, b)).toBe(false);
+  });
+
+  it('overlap on Z axis only → true', () => {
+    const a = { cx: 0, cz: 0, halfW: 1, halfD: 2 };
+    const b = { cx: 0.5, cz: 3, halfW: 1, halfD: 2 };
+    expect(footprintsOverlap(a, b)).toBe(true);
+  });
+
+  it('touching exactly at edge → false (strict <, not <=)', () => {
+    const a = { cx: 0, cz: 0, halfW: 1, halfD: 1 };
+    const b = { cx: 2, cz: 0, halfW: 1, halfD: 1 };
+    expect(footprintsOverlap(a, b)).toBe(false);
   });
 });
 
