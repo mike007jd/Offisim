@@ -253,6 +253,8 @@ export { GitAutoCommitService } from './services/git-auto-commit-service.js';
 export type { GitExec, GitExecResult, GitAutoCommitResult } from './services/git-auto-commit-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { InteractionService } from './services/interaction-service.js';
+export { AgentContextPackService } from './services/agent-context-pack-service.js';
+export type { AgentContextPackDeps } from './services/agent-context-pack-service.js';
 
 // --- Logger ---
 export { Logger, setLogHandler, resetLogHandler } from './services/logger.js';
