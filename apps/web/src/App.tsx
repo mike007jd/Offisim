@@ -30,6 +30,7 @@ import {
   useEmployeeEditor,
   useInstallFlow,
   useOffisimRuntime,
+  usePrefabInstances,
   useProjects,
   useReducedMotion,
   useSceneOrchestrator,
@@ -78,12 +79,14 @@ function CeremonyHost({ children }: { children: React.ReactNode }) {
   const { activeCompanyId } = useCompany();
   const agents = useAgentStates();
   const { zones } = useCompanyZones();
+  const { instances: prefabInstancesWithDef } = usePrefabInstances();
   const ceremony = useSceneOrchestrator({
     companyId: activeCompanyId ?? 'default-scene-company',
     eventBus,
     sceneIntentBus,
     agents,
     zones,
+    prefabInstances: prefabInstancesWithDef.map((p) => p.instance),
   });
   return <SceneCeremonyProvider value={ceremony}>{children}</SceneCeremonyProvider>;
 }
