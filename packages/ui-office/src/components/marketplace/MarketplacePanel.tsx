@@ -122,7 +122,7 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
 
             {isLoading ? (
               <p className="py-8 text-center text-sm text-slate-500">Loading marketplace…</p>
-            ) : results.length === 0 ? (
+            ) : !error && results.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
                 <p className="text-sm font-semibold text-slate-200">No listings found</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">

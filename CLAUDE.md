@@ -5,7 +5,7 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1890+ tests)
+pnpm test             # 全量测试 (vitest)
 pnpm typecheck        # 全量类型检查 (27 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix

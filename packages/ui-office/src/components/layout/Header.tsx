@@ -5,7 +5,6 @@ import {
   PenTool,
   Pencil,
   Settings,
-  UserPlus,
   WandSparkles,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -16,7 +15,6 @@ interface HeaderProps {
   /** Current company display name — shown in the company chip. */
   companyName?: string;
   onOpenSettings: () => void;
-  onOpenEmployeeCreator?: () => void;
   onOpenLayoutEditor?: () => void;
   onOpenStudio?: () => void;
   onOpenCompanySelect?: () => void;
@@ -35,7 +33,6 @@ export function Header({
   providerName,
   companyName,
   onOpenSettings,
-  onOpenEmployeeCreator,
   onOpenLayoutEditor,
   onOpenStudio,
   onOpenCompanySelect,
@@ -141,18 +138,6 @@ export function Header({
       <div className="flex items-center" style={{ columnGap: 'var(--sp-lg)' }}>
         <FileImportTrigger onFileSelect={onFileImport} />
         {notificationSlot}
-        {onOpenEmployeeCreator && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenEmployeeCreator}
-            title="Create Employee"
-            aria-label="Create Employee"
-            className="hover:bg-white/5"
-          >
-            <UserPlus className="h-4 w-4 text-slate-400 hover:text-blue-400" />
-          </Button>
-        )}
         {onOpenLayoutEditor && (
           <Button
             variant="ghost"

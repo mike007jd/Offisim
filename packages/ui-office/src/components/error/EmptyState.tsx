@@ -1,8 +1,5 @@
-import { Settings } from 'lucide-react';
-
 interface EmptyStateProps {
   isConfigured: boolean;
-  onOpenSettings: () => void;
   /** Callback to send a starter prompt directly into the chat. */
   onSendPrompt?: (text: string) => void;
   /** Whether MCP tools are connected. */
@@ -17,17 +14,11 @@ const STARTER_PROMPTS = [
   { label: 'Plan a roadmap', text: 'Plan a product roadmap' },
 ];
 
-export function EmptyState({ isConfigured, onOpenSettings, onSendPrompt }: EmptyStateProps) {
+export function EmptyState({ isConfigured, onSendPrompt }: EmptyStateProps) {
   if (!isConfigured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-500">
-        <Settings className="h-5 w-5" />
-        <p className="text-xs">
-          <button type="button" onClick={onOpenSettings} className="text-blue-400 hover:underline">
-            Configure provider
-          </button>{' '}
-          to get started.
-        </p>
+        <p className="text-xs">Enter a task and watch your AI team collaborate.</p>
       </div>
     );
   }

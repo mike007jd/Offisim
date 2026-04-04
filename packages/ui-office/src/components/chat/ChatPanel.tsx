@@ -382,7 +382,6 @@ export function ChatPanel({
             ) : (
               <EmptyState
                 isConfigured={isReady}
-                onOpenSettings={onOpenSettings}
                 onSendPrompt={handleSend}
               />
             )

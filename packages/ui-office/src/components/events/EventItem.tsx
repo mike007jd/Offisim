@@ -87,7 +87,7 @@ export function EventItem({ event }: EventItemProps) {
       <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
       <div className="flex-1 min-w-0 truncate">
         <span className="font-medium text-sand">{label}</span>
-        {action && <span className="text-shell ml-1">{action}</span>}
+        {action && <span className="text-shell ml-1"> {action}</span>}
       </div>
       <span className="text-shell shrink-0">{formatTimestamp(event.timestamp)}</span>
     </div>
