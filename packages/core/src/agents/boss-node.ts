@@ -44,7 +44,7 @@ Analyze the user's message and decide how to handle it. Respond with JSON only:
 
 Rules:
 - "delegate": for complex tasks requiring planning, multi-step work, or coordination between multiple employees
-- "direct_reply": for simple greetings, status questions, or things you can answer directly
+- "direct_reply": for simple greetings, status questions, or conversational messages that do NOT involve work. NEVER use direct_reply when the user asks someone to build, create, implement, write, design, fix, or perform any task.
 - "direct_delegate": for straightforward single-employee tasks where you can immediately identify the right person. Use this when: (1) the task is simple and self-contained, (2) only one employee is clearly suited, (3) no multi-step planning is needed. You MUST include "targetEmployeeId" with the chosen employee's ID.
 - "meeting": when the user explicitly asks for a team meeting or discussion
 - "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")
@@ -54,7 +54,20 @@ Rules:
 - When "needsClarification" is true, still choose the most likely action you would take after the user answers
 - "use_sop": when the user's request closely matches an available SOP template. Use the SOP's predefined workflow instead of creating a new plan. You MUST include "sopTemplateId".
 - When in doubt between "direct_delegate" and "delegate", prefer "delegate" — it is safer to plan than to skip planning.
-- When an SOP matches, prefer "use_sop" over "delegate" — reusing a proven workflow is better than re-planning from scratch.`;
+- When an SOP matches, prefer "use_sop" over "delegate" — reusing a proven workflow is better than re-planning from scratch.
+
+Decision priority (check in order):
+1. Does the message mention a specific employee + a task? → direct_delegate
+2. Does the message request work (build, create, implement, fix, write, etc.)? → delegate
+3. Does the message match an available SOP? → use_sop
+4. Is it about hiring or team assessment? → hire_or_assess
+5. Is it a meeting request? → meeting
+6. Everything else (greetings, status, conversation) → direct_reply
+
+Examples:
+User: "Ask Alex to implement a login page" → {"action":"direct_delegate","targetEmployeeId":"<Alex's ID>","reason":"single employee task"}
+User: "Build a complete e-commerce platform" → {"action":"delegate","reason":"complex multi-step project","isNewProject":true,"projectName":"E-commerce Platform"}
+User: "What's the team status?" → {"action":"direct_reply","reply":"...","reason":"status inquiry"}`;
 
 const BOSS_DIRECT_REPLY_PROMPT = `You are the Boss AI speaking directly to the user.
 
@@ -184,6 +197,21 @@ export async function bossNode(
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
   const needsClarification =
     decision?.needsClarification === true && typeof decision.clarificationQuestion === 'string';
+
+  // Defensive override: catch weaker models that misroute task requests as direct_reply.
+  if (route === 'direct_reply' && !needsClarification) {
+    const TASK_KEYWORDS =
+      /\b(build|create|implement|write|design|develop|fix|deploy|test|refactor|code|plan|launch|ship)\b/i;
+    const lowerContent = userContent.toLowerCase();
+    const mentionsEmployee = nonManagerEmployees.some((e) =>
+      new RegExp(`\\b${e.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(
+        lowerContent,
+      ),
+    );
+    if (TASK_KEYWORDS.test(userContent) || mentionsEmployee) {
+      route = 'delegate_manager';
+    }
+  }
 
   // Validate direct_delegate: must have a valid targetEmployeeId, otherwise fall back to delegate
   if (route === 'direct_delegate') {

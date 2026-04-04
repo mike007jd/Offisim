@@ -148,6 +148,12 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   baseUrl 从 `localStorage('offisim.registry.base-url')` → `VITE_PLATFORM_API_URL` → `localhost:4100` fallback
 - `EventLog` 的 `EVENT_PREFIXES` 现有 20 个前缀, `TYPE_PREFIX_MAP` 类型收窄为
   `Record<EventFilterType, string[]>`, 新增 filter tab 时两处必须同步更新
+- Boss node 是 JSON 路由器（不用 tool_use）, 输出 `action` 字段路由到 delegate/direct_reply/meeting 等。
+  路由有两层防御: (1) `BOSS_SYSTEM_PROMPT` 的规则 + 决策优先级 + few-shot, (2) `TASK_KEYWORDS` 正则 heuristic
+  把弱模型误判的 `direct_reply` override 为 `delegate_manager`。
+  修改 Boss 路由行为时两层必须同步, 否则 prompt 改了但 heuristic 没跟上（或反过来）
+- Smoke tests (`vitest.smoke.config.ts`) 不自动加载 `.env.local`,
+  必须 `export MINIMAX_API_KEY=... && pnpm --filter @offisim/core exec vitest run --config vitest.smoke.config.ts`
 
 ## Product Boundary: AI Runtime Policy
 

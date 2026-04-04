@@ -287,4 +287,90 @@ describe('bossNode', () => {
       'What kind of website do you want us to build?',
     );
   });
+
+  // --- Defensive route override tests ---
+
+  it('overrides direct_reply to delegate_manager when employee name + task in message', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reply: "I'll relay this to Dev Bot.",
+        reason: 'user request',
+      }),
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('Ask Dev Bot to implement a login page')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('delegate_manager');
+  });
+
+  it('overrides direct_reply to delegate_manager when task keywords present', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reply: 'Sure, here is how to build a website...',
+        reason: 'can answer directly',
+      }),
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('Build me a website with a shopping cart')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('delegate_manager');
+  });
+
+  it('does NOT override direct_reply for genuine greetings', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reply: 'Hello!',
+        reason: 'greeting',
+      }),
+    });
+    gateway.pushStreamResponse({
+      content: 'Hello! How can I help?',
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('Hello!')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('direct_reply');
+  });
+
+  it('does NOT override direct_reply for status questions', async () => {
+    gateway.pushResponse({
+      content: JSON.stringify({
+        action: 'direct_reply',
+        reply: 'We have 8 employees.',
+        reason: 'status inquiry',
+      }),
+    });
+    gateway.pushStreamResponse({
+      content: 'We currently have 8 team members.',
+      usage: { inputTokens: 12, outputTokens: 6 },
+    });
+
+    const result = await bossNode(
+      makeState({
+        messages: [new HumanMessage('How many employees do we have?')],
+      }),
+      config,
+    );
+
+    expect(result.routeDecision).toBe('direct_reply');
+  });
 });
