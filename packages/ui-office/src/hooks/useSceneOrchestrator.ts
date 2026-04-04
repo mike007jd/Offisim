@@ -302,12 +302,14 @@ function getNextSlot(zoneId: string): number {
 
 function resetSlotCounters() {
   zoneSlotCounters.clear();
+  restSlotCounter = 0;
 }
 
 /** Clean up module-level state for a company (call on unmount / company switch). */
 export function clearCompanyState(companyId: string): void {
   companyHandles.delete(companyId);
   zoneSlotCounters.delete(companyId);
+  restSlotCounter = 0;
 }
 
 // ── Hook ────────────────────────────────────────────────────────

@@ -123,12 +123,45 @@ describe('SeatRegistry', () => {
     const zone = makeZone({ zoneId: 'z1', deskSlots: 4 });
     const reg = SeatRegistry.build([instance], [zone]);
 
+    // Zone has 4 deskSlots, 1 prefab seat + 3 fallback seats = 4 total
+    const allSeats = reg.getZoneSeats('z1');
+    expect(allSeats.length).toBe(4);
+
     const seat0 = reg.getSeat('z1', 0);
     const seat5 = reg.getSeat('z1', 5);
     expect(seat0).not.toBeNull();
     expect(seat5).not.toBeNull();
-    // With 1 seat, index 5 % 1 === 0 → same seat
-    expect(seat5!.position).toEqual(seat0!.position);
+    // index 5 % 4 === 1 → second seat (a fallback)
+    expect(seat5!.position).toEqual(allSeats[1]!.position);
+  });
+
+  it('fills fallback seats for partially-furnished zones', () => {
+    // Zone has deskSlots=4 but only 1 workstation prefab → should get 1 real + 3 fallback
+    const instance = makeInstance({
+      instance_id: 'ws1',
+      prefab_id: 'workstation-standard',
+      zone_id: 'z1',
+      position_x: 5,
+      position_y: 8,
+    });
+    const zone = makeZone({ zoneId: 'z1', cx: 10, cz: 20, deskSlots: 4 });
+    const reg = SeatRegistry.build([instance], [zone]);
+
+    const seats = reg.getZoneSeats('z1');
+    expect(seats.length).toBe(4);
+
+    // First seat is the real prefab seat
+    expect(seats[0]!.isFallback).toBe(false);
+    expect(seats[0]!.instanceId).toBe('ws1');
+
+    // Remaining 3 are fallback
+    expect(seats[1]!.isFallback).toBe(true);
+    expect(seats[2]!.isFallback).toBe(true);
+    expect(seats[3]!.isFallback).toBe(true);
+
+    // All 4 positions must be distinct (no stacking)
+    const positions = seats.map((s) => `${s.position[0]},${s.position[2]}`);
+    expect(new Set(positions).size).toBe(4);
   });
 
   it('returns separate seats for multi-capacity prefabs (sofa-set, 3 seats)', () => {

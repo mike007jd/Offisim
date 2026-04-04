@@ -70,15 +70,24 @@ export class SeatRegistry {
       zonesWithPrefabSeats.add(inst.zone_id);
     }
 
-    // Phase 2: fallback seats for zones without prefab-based seats
+    // Phase 2: fill fallback seats for zones that need more capacity
+    // A zone may have SOME prefab seats but fewer than deskSlots —
+    // we must fill the gap instead of skipping the whole zone.
     for (const zone of zones) {
-      if (zonesWithPrefabSeats.has(zone.zoneId)) continue;
       if (zone.deskSlots <= 0) continue;
 
-      const zoneSeats: SeatEntry[] = [];
-      for (let i = 0; i < zone.deskSlots; i++) {
-        const offsetIdx = i % SEAT_OFFSETS.length;
-        const rowShift = Math.floor(i / SEAT_OFFSETS.length) * 2;
+      const existing = seats.get(zone.zoneId) ?? [];
+      const needed = zone.deskSlots - existing.length;
+      if (needed <= 0) {
+        // Enough prefab seats already — ensure zone is in the map
+        if (!seats.has(zone.zoneId)) seats.set(zone.zoneId, []);
+        continue;
+      }
+
+      const zoneSeats = [...existing];
+      for (let i = 0; i < needed; i++) {
+        const offsetIdx = (existing.length + i) % SEAT_OFFSETS.length;
+        const rowShift = Math.floor((existing.length + i) / SEAT_OFFSETS.length) * 2;
         const off = SEAT_OFFSETS[offsetIdx]!;
         zoneSeats.push({
           position: [zone.cx + off[0], 0, zone.cz + off[2] + rowShift],
