@@ -114,6 +114,12 @@ export const OffisimGraphAnnotation = Annotation.Root({
     default: () => null,
   }),
 
+  /** SOP template ID selected by boss — PM planner uses it to build the plan from SOP. */
+  selectedSopTemplateId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+
   // LangGraph message list (with built-in reducer)
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
