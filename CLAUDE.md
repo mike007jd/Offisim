@@ -5,8 +5,8 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
-pnpm test             # 全量测试 (vitest, ~1630+ tests)
-pnpm typecheck        # 全量类型检查 (16 packages)
+pnpm test             # 全量测试 (vitest, ~1890+ tests)
+pnpm typecheck        # 全量类型检查 (27 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
@@ -94,7 +94,7 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   不要把 `useSceneOrchestrator` 直接放在 App 里, 否则高频 ceremony 变化会级联全树 re-render
 - Linux/CI 环境下构建和测试必须跳过 Tauri 包:
   `pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' build`
-  GitHub Actions 中 quality job 用此命令, desktop job 单独跑在 macOS
+  CI (`.github/workflows/ci.yml`) 仅在 PR 时触发 quality job (ubuntu), 无 macOS desktop job
 - `HookRegistry` 和 `EventBus` 是两个独立的 pub/sub 通道:
   EventBus = 内部 UI 通知（同步, prefix-matching, 驱动 React hooks 和场景）;
   HookRegistry = 外部扩展钩子（异步, 有 timeout, 面向未来的插件/instrumentation）。
@@ -103,10 +103,10 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   不要把它当持久存储用, 持久化用 `MemoryService`
 - SceneCanvas 3D 崩溃后自动回退 2D, `crashCountRef` 记录崩溃次数,
   ≥2 次后锁定 2D 不再允许手动切回, 防止 crash loop
-- Zone ID 在 DB 中格式为 `companyId::slug` (如 `abc::zone-dev`),
-  但 `templateToZone()` 返回裸 slug (如 `zone-dev`)。
-  写入 prefab/zone 记录时必须用 `normalizeZoneId()` (shared-types) 补前缀,
-  从 DB ID 提取 slug 用 `extractZoneSlug()` — 不要手写 `.split('::')`
+- Zone ID 在 DB 中格式为 `companyId::slug` (如 `abc::zone-dev`)。
+  `templateToZone(t, companyId)` 已自动 normalize, 不会返回裸 slug。
+  从 DB ID 提取 slug 用 `extractZoneSlug()` — 不要手写 `.split('::')`。
+  `ui-office/lib/zone-config.ts` 已废弃, 不要导入
 - 员工→zone 分配必须用 `resolveZoneForRole()` (zone-resolution.ts) 按 `targetRoles` 匹配,
   不要用 `ROLE_TO_DEPARTMENT` + `zone-${dept}` 构造 zone slug —
   `company-template-service` 已移除此模式, 因为 `content` 部门没有对应的 `zone-content`
@@ -130,6 +130,19 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - UI 全英文。新增面向用户的字符串必须用英文, 不要混入中文
 - `companies.default_model_policy_json` 实际存储公司描述 (`{ description: "..." }`),
   字段名有误导性但已被多处读写依赖, 不要重命名
+- Role 字段统一为 `RoleSlug` branded type (shared-types/roles.ts):
+  EmployeeRow, SopStep, CompanyTemplateEmployee, StepTaskOutput, 事件 payload。
+  不要用裸 `string` 声明 role 相关字段
+- Marketplace 安装目前只支持 `employee` 和 `skill` 类型的包,
+  `sop`/`company_template`/`office_layout` 的 materializer 尚未完成
+- `GitAutoCommitService` 仅在桌面端(Tauri)生效, 通过 `git.rs` Rust bridge 执行 git 操作。
+  浏览器端 no-op。由 HookRegistry `task.completed` hook 触发, 受 `runtimePolicy.gitAutoCommit` 开关控制
+- SOP 远程同步 (`SopSyncService`) 比较 definition 时先 `JSON.parse` 两侧再 stringify,
+  避免 key 顺序差异导致误判更新
+- `useRegistryClient` hook 是 Marketplace 和 InstallFlow 的共享 RegistryClient 入口,
+  baseUrl 从 `localStorage('offisim.registry.base-url')` → `VITE_PLATFORM_API_URL` → `localhost:4100` fallback
+- `EventLog` 的 `EVENT_PREFIXES` 现有 20 个前缀, `TYPE_PREFIX_MAP` 类型收窄为
+  `Record<EventFilterType, string[]>`, 新增 filter tab 时两处必须同步更新
 
 ## Product Boundary: AI Runtime Policy
 
