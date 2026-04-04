@@ -3,24 +3,9 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
 import { db } from './db.js';
+import { resolveAuthSecret, resolveCorsOrigins } from './startup.js';
 
-// ── Auth secret guard ──
-const nodeEnv = process.env.NODE_ENV ?? 'development';
-const authSecret = process.env.BETTER_AUTH_SECRET;
-
-if (!authSecret && nodeEnv === 'production') {
-  console.error(
-    '[startup] FATAL: BETTER_AUTH_SECRET is not set in production. ' +
-      'Refusing to start with a default secret. ' +
-      'Set BETTER_AUTH_SECRET to a strong random string (≥32 chars).',
-  );
-  process.exit(1);
-} else if (!authSecret) {
-  console.warn(
-    '[startup] WARNING: BETTER_AUTH_SECRET is not set — using insecure default. ' +
-      'This is acceptable for local development only.',
-  );
-}
+const authSecret = resolveAuthSecret();
 
 /**
  * Better Auth instance for the Offisim platform.
@@ -37,7 +22,7 @@ if (!authSecret && nodeEnv === 'production') {
  */
 export const auth = betterAuth({
   basePath: '/api/auth',
-  secret: authSecret ?? 'offisim-dev-secret-change-in-production',
+  secret: authSecret,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:4100',
 
   database: drizzleAdapter(db, {
@@ -84,9 +69,7 @@ export const auth = betterAuth({
 
   plugins: [bearer()],
 
-  trustedOrigins: process.env.CORS_ORIGINS?.split(',')
-    .map((o) => o.trim())
-    .filter(Boolean) ?? ['http://localhost:3000', 'http://localhost:5176', 'http://localhost:1420'],
+  trustedOrigins: resolveCorsOrigins(),
 });
 
 export type Auth = typeof auth;

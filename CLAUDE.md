@@ -20,6 +20,7 @@ pnpm --filter @offisim/core test        # 跑单包测试
 pnpm --filter @offisim/core build       # 构建单包
 cd apps/web && pnpm dev                 # 启动 web SPA (port 5176)
 cd apps/platform && pnpm dev            # 启动 platform API (port 4100)
+pnpm --filter @offisim/desktop dev      # 启动 Tauri 桌面应用 (复用 web port 5176)
 ```
 
 Docker:
@@ -77,6 +78,10 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - Tauri 包 (`@tauri-apps/*`) 在浏览器 dev 中被 stub 为空模块
 - `gateway-factory.ts` 的 `subscription` case 用 `require()` 动态加载,
   避免 `node:child_process` 进入浏览器 bundle
+- Dev 端口已锁定: web=5176 (`strictPort: true`), launcher=4200, platform=4100。
+  Tauri `beforeDevCommand` 会先执行 `scripts/ensure-port-free.mjs` 杀掉占用端口的旧进程,
+  防止 Vite 自动跳端口导致 Tauri `devUrl` 连到错误页面。
+  关闭 Tauri 窗口不等于 `tauri dev` 进程结束, 但下次启动会自动清理残留
 - Platform API 的错误处理: DB 连接错误返回 503, 非 500
 - 修改 `shared-types` 的类型后必须先 `pnpm --filter @offisim/shared-types build`,
   否则依赖它的包 (core, ui-office 等) 看不到新类型

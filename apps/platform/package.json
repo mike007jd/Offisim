@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node ../../scripts/ensure-port-free.mjs 4100 && tsx watch src/index.ts",
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",

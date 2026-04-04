@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "identifier": "com.offisim.desktop",
   "build": {
-    "beforeDevCommand": "pnpm --filter @offisim/web dev",
+    "beforeDevCommand": "node ../../scripts/tauri-before-dev.mjs desktop",
     "devUrl": "http://localhost:5176",
     "beforeBuildCommand": "pnpm --filter @offisim/web build",
     "frontendDist": "../../web/dist"

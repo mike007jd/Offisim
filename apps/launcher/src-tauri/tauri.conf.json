@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "identifier": "com.offisim.launcher",
   "build": {
-    "beforeDevCommand": "pnpm vite:dev",
+    "beforeDevCommand": "node ../../scripts/tauri-before-dev.mjs launcher",
     "devUrl": "http://localhost:4200",
     "beforeBuildCommand": "pnpm vite:build",
     "frontendDist": "../dist"

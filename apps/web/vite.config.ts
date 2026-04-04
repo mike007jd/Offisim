@@ -183,6 +183,7 @@ export default defineConfig(({ command }) => ({
   ],
   server: {
     port: 5176,
+    strictPort: true,
     hmr: { overlay: false },
   },
   resolve: {
