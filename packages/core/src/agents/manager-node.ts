@@ -150,6 +150,7 @@ export async function managerNode(
       managerDirective: {
         intent: userContent,
         recommendedEmployees: [soleEmployee.employee_id],
+        sopTemplateId: state.selectedSopTemplateId ?? undefined,
       },
     };
   }
@@ -224,6 +225,7 @@ export async function managerNode(
       intent: userContent,
       recommendedEmployees: decision.assignments.map((a) => a.employeeId),
       constraints,
+      sopTemplateId: state.selectedSopTemplateId ?? undefined,
     },
   };
 }

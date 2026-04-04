@@ -140,8 +140,11 @@ export async function bossNode(
           .join('\n---\n')
       : 'No user message found';
 
-  // Build employee roster for direct_delegate capability
-  const employees = await runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId);
+  // Build employee roster + SOP list in parallel for the prompt
+  const [employees, sopTemplates] = await Promise.all([
+    runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
+    runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
+  ]);
   const nonManagerEmployees = employees.filter((e) => e.role_slug !== 'manager' && e.enabled !== 0);
   let rosterSection = '';
   if (nonManagerEmployees.length > 0) {
@@ -153,7 +156,6 @@ export async function bossNode(
 
   // Inject available SOPs so boss can choose use_sop when a match exists
   let sopSection = '';
-  const sopTemplates = await runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId);
   if (sopTemplates.length > 0) {
     const sopList = sopTemplates
       .map((s) => `- ${s.sop_template_id}: "${s.name}" — ${s.description || 'no description'}`)
@@ -187,6 +189,14 @@ export async function bossNode(
   if (route === 'direct_delegate') {
     const validEmployeeIds = new Set(nonManagerEmployees.map((e) => e.employee_id));
     if (!decision?.targetEmployeeId || !validEmployeeIds.has(decision.targetEmployeeId)) {
+      route = 'delegate_manager';
+    }
+  }
+
+  // Validate use_sop: must have a valid sopTemplateId, otherwise fall back to delegate
+  if (decision?.action === 'use_sop') {
+    const validSopIds = new Set(sopTemplates.map((s) => s.sop_template_id));
+    if (!decision.sopTemplateId || !validSopIds.has(decision.sopTemplateId)) {
       route = 'delegate_manager';
     }
   }
