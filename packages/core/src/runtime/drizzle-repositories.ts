@@ -533,6 +533,13 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         )
         .all() as InstalledPackageRow[];
     },
+    async listByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.installedPackages)
+        .where(eq(schema.installedPackages.company_id, companyId))
+        .all() as InstalledPackageRow[];
+    },
     async delete(id) {
       db.delete(schema.installedPackages)
         .where(eq(schema.installedPackages.installed_package_id, id))

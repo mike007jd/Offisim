@@ -13,7 +13,7 @@
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /** Allowed file extensions (lowercase, with dot). */
-const ALLOWED_EXTENSIONS = new Set(['.aicspkg', '.zip']);
+const ALLOWED_EXTENSIONS = new Set(['.aicspkg', '.zip', '.offisimpkg']);
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -71,7 +71,10 @@ export async function readPackageFile(file: File): Promise<Uint8Array> {
 
   // 3. Read file bytes
   try {
-    const buffer = await file.arrayBuffer();
+    const buffer =
+      typeof file.arrayBuffer === 'function'
+        ? await file.arrayBuffer()
+        : await new Response(file).arrayBuffer();
     return new Uint8Array(buffer);
   } catch (err) {
     throw new FileImportError(

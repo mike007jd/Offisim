@@ -1,9 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
-import { Bell, Book, Columns3, Database, LayoutDashboard, Terminal } from 'lucide-react';
+import { Bell, Book, Columns3, Database, LayoutDashboard, Store, Terminal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { EventLog } from '../events/EventLog';
 import { Library } from '../library/Library';
+import { MarketplacePanel } from '../marketplace/MarketplacePanel';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 import { ServerRoom } from '../server-room/ServerRoom';
@@ -17,6 +18,8 @@ interface RightSidebarProps {
   onOpenKanban?: () => void;
   /** Filter outputs to this thread only. Null shows all. */
   activeThreadId?: string | null;
+  onOpenMarketplaceListing?: (listingId: string) => void;
+  onStartMarketplaceInstall?: (listingId: string, version: string) => void;
 }
 
 export function RightSidebar({
@@ -24,6 +27,8 @@ export function RightSidebar({
   focusOutputsToken,
   onOpenKanban,
   activeThreadId,
+  onOpenMarketplaceListing,
+  onStartMarketplaceInstall,
 }: RightSidebarProps) {
   const agents = useAgentStates();
   const [activeTab, setActiveTab] = useState('events');
@@ -41,6 +46,7 @@ export function RightSidebar({
     { id: 'events', icon: Bell, label: 'Events' },
     { id: 'server-room', icon: Database, label: 'Server' },
     { id: 'library', icon: Book, label: 'Library' },
+    { id: 'marketplace', icon: Store, label: 'Market' },
   ];
 
   return (
@@ -87,6 +93,12 @@ export function RightSidebar({
         </TabsContent>
         <TabsContent value="library" className="mt-0">
           <Library />
+        </TabsContent>
+        <TabsContent value="marketplace" className="mt-0 h-full">
+          <MarketplacePanel
+            onOpenListing={(listingId) => onOpenMarketplaceListing?.(listingId)}
+            onStartInstall={(listingId, version) => onStartMarketplaceInstall?.(listingId, version)}
+          />
         </TabsContent>
       </div>
 

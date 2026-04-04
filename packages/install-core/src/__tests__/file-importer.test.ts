@@ -46,6 +46,14 @@ describe('file-importer / readPackageFile', () => {
       expect(result).toBeInstanceOf(Uint8Array);
     });
 
+    it('accepts .offisimpkg files', async () => {
+      const content = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const file = createMockFile('my-package.offisimpkg', content);
+
+      const result = await readPackageFile(file);
+      expect(result).toBeInstanceOf(Uint8Array);
+    });
+
     it('accepts .AICSPKG files (case insensitive)', async () => {
       const content = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const file = createMockFile('MY-PACKAGE.AICSPKG', content);

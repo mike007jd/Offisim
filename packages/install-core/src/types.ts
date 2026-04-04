@@ -134,6 +134,24 @@ export interface BindingConfirmation {
   readonly valueJson: string;
 }
 
+export interface InstallImportDescriptor {
+  readonly listing_id?: string;
+  readonly package_version_id?: string;
+}
+
+export interface InstallImportOptions {
+  readonly sourceType?: InstallSourceType;
+  readonly sourceRef?: string | null;
+  readonly targetPackageId?: string | null;
+  readonly targetVersion?: string | null;
+  readonly descriptor?: InstallImportDescriptor | null;
+}
+
+export interface InstallProvenance {
+  readonly originListingId: string;
+  readonly originPackageVersionId: string;
+}
+
 // ---------------------------------------------------------------------------
 // DB Row Types (mirrors offisim_local_runtime_schema.sql)
 // ---------------------------------------------------------------------------
@@ -166,6 +184,8 @@ export interface InstalledPackageRow {
   readonly package_hash: string;
   readonly install_state: string;
   readonly enabled: number;
+  readonly origin_listing_id: string | null;
+  readonly origin_package_version_id: string | null;
   readonly installed_at: string;
   readonly updated_at: string;
 }

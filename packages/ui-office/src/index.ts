@@ -64,6 +64,7 @@ export * from './components/layout/Header.js';
 export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
 export * from './components/library/Library.js';
+export * from './components/marketplace/MarketplacePanel.js';
 export * from './components/office/MeetingControls.js';
 export { MeetingPanel } from './components/office/MeetingPanel.js';
 export type { MeetingPanelProps } from './components/office/MeetingPanel.js';
@@ -104,12 +105,16 @@ export * from './hooks/useNotifications.js';
 export * from './hooks/useTaskQueue.js';
 export * from './hooks/useMeeting.js';
 export * from './hooks/useProjects.js';
+export * from './hooks/usePublish.js';
+export * from './hooks/useRegistryClient.js';
+export * from './hooks/useMarketplace.js';
 
 // Lib
 export * from './lib/env.js';
 export * from './lib/desktop-mcp-registry.js';
 export * from './lib/desktop-provider-secrets.js';
 export * from './lib/provider-config.js';
+export * from './lib/export-to-manifest.js';
 
 // Runtime
 export * from './runtime/offisim-runtime-context.js';

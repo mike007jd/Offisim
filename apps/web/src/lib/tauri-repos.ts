@@ -508,7 +508,9 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
-  const installedPackages: InstalledPackageRepository = {
+  const installedPackages: InstalledPackageRepository & {
+    listByCompany(companyId: string): Promise<InstalledPackageRow[]>;
+  } = {
     async create(pkg) {
       await db.insert(schema.installedPackages).values(pkg);
       return pkg as InstalledPackageRow;
@@ -523,6 +525,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
             eq(schema.installedPackages.package_id, packageId),
           ),
         )) as InstalledPackageRow[];
+    },
+    async listByCompany(companyId: string) {
+      return (await db
+        .select()
+        .from(schema.installedPackages)
+        .where(eq(schema.installedPackages.company_id, companyId))) as InstalledPackageRow[];
     },
     async delete(id) {
       await db

@@ -15,6 +15,7 @@ import type {
   AssetBindingRow,
   BindingConfirmation,
   InstallPlan,
+  InstallProvenance,
   InstallRepositories,
   InstalledAssetRow,
   InstalledPackageRow,
@@ -42,6 +43,11 @@ export interface MaterializeResult {
   readonly installedAssetIds: string[];
   readonly employeeIds: string[];
   readonly bindingIds: string[];
+}
+
+export interface MaterializeOptions {
+  readonly provenance?: InstallProvenance;
+  readonly transact?: <T>(fn: () => T) => T;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +102,33 @@ function buildInstalledEmployeeConfig(plan: InstallPlan): string | undefined {
   });
 }
 
+function buildInstalledPackageRow(
+  plan: InstallPlan,
+  companyId: string,
+  installedPackageId: string,
+  now: string,
+  provenance?: InstallProvenance,
+): InstalledPackageRow {
+  const manifest = plan.manifest;
+  return {
+    installed_package_id: installedPackageId,
+    company_id: companyId,
+    package_id: manifest.package.id,
+    package_kind: manifest.package.kind,
+    version: manifest.package.version,
+    source_type: provenance ? 'registry' : 'file',
+    source_ref: provenance?.originListingId ?? null,
+    manifest_hash: plan.manifestHash,
+    package_hash: plan.packageHash,
+    install_state: 'installed',
+    enabled: 1,
+    origin_listing_id: provenance?.originListingId ?? null,
+    origin_package_version_id: provenance?.originPackageVersionId ?? null,
+    installed_at: now,
+    updated_at: now,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -120,10 +153,11 @@ export async function materialize(
   repos: InstallRepositories,
   companyId: string,
   installTxnId: string,
-  transact?: <T>(fn: () => T) => T,
+  options: MaterializeOptions = {},
 ): Promise<MaterializeResult> {
   const now = nowIso();
   const manifest = plan.manifest;
+  const { provenance, transact } = options;
 
   if (transact) {
     // ── Drizzle / better-sqlite3 path ─────────────────────────────────────
@@ -134,21 +168,13 @@ export async function materialize(
     return transact((): MaterializeResult => {
       // 1. Create installed_packages row
       const installedPackageId = generateId();
-      const pkgRow: InstalledPackageRow = {
-        installed_package_id: installedPackageId,
-        company_id: companyId,
-        package_id: manifest.package.id,
-        package_kind: manifest.package.kind,
-        version: manifest.package.version,
-        source_type: 'file',
-        source_ref: null,
-        manifest_hash: plan.manifestHash,
-        package_hash: plan.packageHash,
-        install_state: 'installed',
-        enabled: 1,
-        installed_at: now,
-        updated_at: now,
-      };
+      const pkgRow = buildInstalledPackageRow(
+        plan,
+        companyId,
+        installedPackageId,
+        now,
+        provenance,
+      );
       void repos.installedPackages.create(pkgRow);
 
       // 2. Create assets and employees
@@ -229,21 +255,7 @@ export async function materialize(
 
   // 1. Create installed_packages row
   const installedPackageId = generateId();
-  const pkgRow: InstalledPackageRow = {
-    installed_package_id: installedPackageId,
-    company_id: companyId,
-    package_id: manifest.package.id,
-    package_kind: manifest.package.kind,
-    version: manifest.package.version,
-    source_type: 'file',
-    source_ref: null,
-    manifest_hash: plan.manifestHash,
-    package_hash: plan.packageHash,
-    install_state: 'installed',
-    enabled: 1,
-    installed_at: now,
-    updated_at: now,
-  };
+  const pkgRow = buildInstalledPackageRow(plan, companyId, installedPackageId, now, provenance);
   await repos.installedPackages.create(pkgRow);
 
   // 2. Create assets and employees

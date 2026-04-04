@@ -127,6 +127,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/020_sop_template_remote.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 21,
+            description: "installed package marketplace provenance",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/021_installed_packages_provenance.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

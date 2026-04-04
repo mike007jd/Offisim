@@ -91,6 +91,10 @@ export class MemoryInstalledPackageRepository implements InstalledPackageReposit
     );
   }
 
+  async listByCompany(companyId: string): Promise<InstalledPackageRow[]> {
+    return [...this.store.values()].filter((p) => p.company_id === companyId);
+  }
+
   async delete(id: string): Promise<void> {
     this.store.delete(id);
   }

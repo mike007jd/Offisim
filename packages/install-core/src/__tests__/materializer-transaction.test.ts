@@ -203,7 +203,7 @@ describe('materializer / transact rollback', () => {
     const { repos, store, transact } = createTransactableRepos();
     const plan = makeMultiAssetPlan(3);
 
-    await materialize(plan, [], repos, companyId, installTxnId, transact);
+    await materialize(plan, [], repos, companyId, installTxnId, { transact });
 
     // The transact path fires void repo.create() calls — those resolve in the
     // next microtask under real Drizzle. In our in-memory repos they are
@@ -235,7 +235,7 @@ describe('materializer / transact rollback', () => {
     const forcedRollback = makeForcedRollbackTransact(store);
 
     await expect(
-      materialize(plan, [], repos, companyId, installTxnId, forcedRollback),
+      materialize(plan, [], repos, companyId, installTxnId, { transact: forcedRollback }),
     ).rejects.toThrow('forced DB constraint violation — rollback required');
 
     // Flush microtasks
@@ -278,6 +278,8 @@ describe('materializer / transact rollback', () => {
       package_hash: 'bb',
       install_state: 'installed',
       enabled: 1,
+      origin_listing_id: null,
+      origin_package_version_id: null,
       installed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -287,7 +289,7 @@ describe('materializer / transact rollback', () => {
     const rollbackTransact = makeForcedRollbackTransact(store);
 
     await expect(
-      materialize(plan, [], repos, companyId, installTxnId, rollbackTransact),
+      materialize(plan, [], repos, companyId, installTxnId, { transact: rollbackTransact }),
     ).rejects.toThrow();
 
     // Flush microtasks

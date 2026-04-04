@@ -9,16 +9,18 @@
 import { employeeInstalled } from '@offisim/core/browser';
 import type {
   BindingConfirmation,
+  InstallImportOptions,
   InstallPlan,
   SkillValidationResult,
   UpgradeDiff,
 } from '@offisim/install-core';
 import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
-import { RegistryApiError, RegistryClient } from '@offisim/registry-client';
+import { RegistryApiError } from '@offisim/registry-client';
 import { useCallback, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useRegistryClient } from './useRegistryClient.js';
 
 export type InstallStep =
   | 'idle'
@@ -44,7 +46,7 @@ export interface InstallFlowState {
 }
 
 export interface InstallFlowActions {
-  startFileImport: (file: File) => void;
+  startFileImport: (file: File, options?: InstallImportOptions) => void;
   /** Start install from a marketplace deep link (listing_id + version) */
   startRegistryInstall: (listingId: string, version: string) => void;
   /**
@@ -67,6 +69,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const { installService, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
+  const registryClient = useRegistryClient();
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
@@ -115,8 +118,34 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     [activeCompanyId, eventBus],
   );
 
+  const beginPackageImport = useCallback(
+    async (bytes: Uint8Array, options?: InstallImportOptions) => {
+      if (!installService) {
+        timerRef.current = setTimeout(() => {
+          setPlan(MOCK_INSTALL_PLAN);
+          setStep('review');
+          timerRef.current = null;
+        }, 500);
+        return;
+      }
+
+      const result = await installService.importFile(bytes, options);
+
+      if (result.error || !result.plan) {
+        setStep('error');
+        setError(result.error ?? 'Import failed: no plan returned');
+        return;
+      }
+
+      txnIdRef.current = result.installTxnId;
+      setPlan(result.plan);
+      setStep('review');
+    },
+    [installService],
+  );
+
   const startFileImport = useCallback(
-    (file: File) => {
+    (file: File, options?: InstallImportOptions) => {
       // Validate file size (applies to both real and mock paths)
       if (file.size > MAX_FILE_SIZE) {
         setIsOpen(true);
@@ -181,38 +210,17 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       }
 
       // --- Package import path (.offisimpkg / .zip) ---
-      if (!installService) {
-        // Mock fallback — no real service available
-        timerRef.current = setTimeout(() => {
-          setPlan(MOCK_INSTALL_PLAN);
-          setStep('review');
-          timerRef.current = null;
-        }, 500);
-        return;
-      }
-
-      // Real path: read file bytes and call InstallService.importFile
       (async () => {
         try {
           const bytes = await readPackageFile(file);
-          const result = await installService.importFile(bytes);
-
-          if (result.error || !result.plan) {
-            setStep('error');
-            setError(result.error ?? 'Import failed: no plan returned');
-            return;
-          }
-
-          txnIdRef.current = result.installTxnId;
-          setPlan(result.plan);
-          setStep('review');
+          await beginPackageImport(bytes, options);
         } catch (err) {
           setStep('error');
           setError(err instanceof Error ? err.message : String(err));
         }
       })();
     },
-    [installService],
+    [beginPackageImport, installService],
   );
 
   /**
@@ -307,15 +315,12 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       txnIdRef.current = null;
 
       (async () => {
-        const platformUrl = import.meta.env.VITE_PLATFORM_API_URL ?? 'http://localhost:4100';
-        const client = new RegistryClient({ baseUrl: platformUrl });
-
         try {
           // 1. Get listing detail (provides slug for filename)
-          const detail = await client.getListingDetail(listingId);
+          const detail = await registryClient.getListingDetail(listingId);
 
           // 2. List versions and find the requested one (or fall back to latest)
-          const versionsResponse = await client.listListingVersions(listingId);
+          const versionsResponse = await registryClient.listListingVersions(listingId);
           const versions = versionsResponse.versions;
           const matchedVersion = versions.find((v) => v.version === version) ?? versions[0];
 
@@ -332,7 +337,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             setError(`Version ${version} is missing a downloadable package reference`);
             return;
           }
-          const downloadInfo = await client.getArtifactDownloadInfo(packageVersionId);
+          const downloadInfo = await registryClient.getArtifactDownloadInfo(packageVersionId);
 
           // 4. Download the actual artifact
           const artifactRes = await fetch(downloadInfo.artifact_url);
@@ -347,10 +352,25 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           const file = new File([blob], `${detail.slug ?? listingId}.offisimpkg`, {
             type: 'application/octet-stream',
           });
+          const options: InstallImportOptions = {
+            sourceType: 'registry',
+            sourceRef: listingId,
+            targetPackageId: matchedVersion.package_id ?? null,
+            targetVersion: matchedVersion.version,
+            descriptor: {
+              listing_id: listingId,
+              package_version_id: packageVersionId,
+            },
+          };
 
-          // Continue through file import — dialog is already open, no need to
-          // close/reopen (that would cause a visible flicker).
-          startFileImport(file);
+          if (!installService) {
+            // Mock/runtime-less path still goes through the file-based helper.
+            startFileImport(file, options);
+            return;
+          }
+
+          const bytes = await readPackageFile(file);
+          await beginPackageImport(bytes, options);
         } catch (err) {
           if (err instanceof RegistryApiError) {
             if (err.status === 404) {
@@ -370,7 +390,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         }
       })();
     },
-    [startFileImport],
+    [beginPackageImport, installService, registryClient, startFileImport],
   );
 
   const confirmInstall = useCallback(() => {

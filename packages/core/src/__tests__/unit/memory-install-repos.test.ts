@@ -41,6 +41,8 @@ function makePkg(overrides?: Partial<InstalledPackageRow>): InstalledPackageRow 
     package_hash: 'def456',
     install_state: 'installed',
     enabled: 1,
+    origin_listing_id: null,
+    origin_package_version_id: null,
     installed_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

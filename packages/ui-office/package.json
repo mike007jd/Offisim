@@ -47,6 +47,10 @@
     "./kanban": {
       "types": "./dist/components/kanban/index.d.ts",
       "default": "./dist/components/kanban/index.js"
+    },
+    "./marketplace": {
+      "types": "./dist/components/marketplace/index.d.ts",
+      "default": "./dist/components/marketplace/index.js"
     }
   },
   "scripts": {
@@ -66,6 +70,7 @@
     "@offisim/ui-core": "workspace:*",
     "@dicebear/collection": "^9.4.2",
     "@dicebear/core": "^9.4.2",
+    "fflate": "^0.8.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "lucide-react": "^0.577.0",

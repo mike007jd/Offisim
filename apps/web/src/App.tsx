@@ -125,6 +125,11 @@ const StudioPage = React.lazy(() =>
 const KanbanOverlay = React.lazy(() =>
   import('@offisim/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
 );
+const MarketplaceOverlay = React.lazy(() =>
+  import('@offisim/ui-office/marketplace').then((m) => ({
+    default: m.MarketplaceDetailOverlay,
+  })),
+);
 
 interface AppProps {
   /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
@@ -138,6 +143,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [kanbanOpen, setKanbanOpen] = useState(false);
+  const [marketplaceListingId, setMarketplaceListingId] = useState<string | null>(null);
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(44);
@@ -263,6 +269,10 @@ export function App({ onCompanySwitch }: AppProps) {
         }
         if (kanbanOpen) {
           setKanbanOpen(false);
+          return;
+        }
+        if (marketplaceListingId) {
+          setMarketplaceListingId(null);
           return;
         }
         if (employeeEditor.isOpen) {
@@ -610,6 +620,10 @@ export function App({ onCompanySwitch }: AppProps) {
                     onOpenKanban={() => setKanbanOpen(true)}
                     focusOutputsToken={focusOutputsToken}
                     activeThreadId={activeProject?.thread_id ?? null}
+                    onOpenMarketplaceListing={setMarketplaceListingId}
+                    onStartMarketplaceInstall={(listingId, version) =>
+                      installFlow.startRegistryInstall(listingId, version)
+                    }
                   />
                 }
                 statusBar={<StatusBar modelName={providerConfig?.model} activeProjectStatus={activeProject?.status ?? null} />}
@@ -631,6 +645,18 @@ export function App({ onCompanySwitch }: AppProps) {
                   open={kanbanOpen}
                   onClose={() => setKanbanOpen(false)}
                   requestText={lastUserRequest ?? undefined}
+                />
+              </Suspense>
+            )}
+            {marketplaceListingId && (
+              <Suspense fallback={null}>
+                <MarketplaceOverlay
+                  listingId={marketplaceListingId}
+                  onClose={() => setMarketplaceListingId(null)}
+                  onInstall={(listingId, version) => {
+                    setMarketplaceListingId(null);
+                    installFlow.startRegistryInstall(listingId, version);
+                  }}
                 />
               </Suspense>
             )}

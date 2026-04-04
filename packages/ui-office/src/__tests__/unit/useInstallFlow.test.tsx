@@ -141,6 +141,67 @@ describe('useInstallFlow', () => {
     expect(result.current.error).toContain('Version 9.9.9 not found');
   });
 
+  it('passes registry provenance through the import flow', async () => {
+    registryMocks.getListingDetail.mockResolvedValue({
+      slug: 'writer-pro',
+    });
+    registryMocks.listListingVersions.mockResolvedValue({
+      versions: [
+        {
+          version: '1.2.0',
+          package_id: 'pkg.writer-pro',
+          package_version_id: 'ver-123',
+        },
+      ],
+    });
+    registryMocks.getArtifactDownloadInfo.mockResolvedValue({
+      artifact_url: 'https://cdn.example.com/writer-pro.offisimpkg',
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['package-bytes']),
+    } as Response);
+
+    const importFile = vi.fn().mockResolvedValue({
+      installTxnId: 'txn-registry-1',
+      plan: undefined,
+    });
+
+    const { result } = renderHook(() => useInstallFlow(), {
+      wrapper: createWrapper(
+        createRuntimeValue({
+          installService: {
+            importFile,
+          } as unknown as OffisimRuntimeValue['installService'],
+        }),
+      ),
+    });
+
+    act(() => {
+      result.current.startRegistryInstall('listing-1', '1.2.0');
+    });
+
+    await waitFor(() => {
+      if (!importFile.mock.calls.length && result.current.error) {
+        throw new Error(result.current.error);
+      }
+      expect(importFile).toHaveBeenCalled();
+    });
+
+    expect(importFile).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({
+        sourceType: 'registry',
+        sourceRef: 'listing-1',
+        targetVersion: '1.2.0',
+        descriptor: expect.objectContaining({
+          listing_id: 'listing-1',
+          package_version_id: 'ver-123',
+        }),
+      }),
+    );
+  });
+
   it('clears mock import timers when cancel is called', async () => {
     vi.useFakeTimers();
 

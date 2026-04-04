@@ -19,7 +19,9 @@ import { isTerminalState, validateTransition } from './state-machine.js';
 import type {
   BindingConfirmation,
   InstallEventEmitter,
+  InstallImportOptions,
   InstallPlan,
+  InstallProvenance,
   InstallRepositories,
   InstallTransactionRow,
   RuntimeEnvironment,
@@ -117,7 +119,10 @@ export class InstallService {
    * @param archiveBytes - Raw bytes of the .offisimpkg ZIP archive.
    * @returns ImportResult with txnId and either plan or error.
    */
-  async importFile(archiveBytes: Uint8Array): Promise<ImportResult> {
+  async importFile(
+    archiveBytes: Uint8Array,
+    options: InstallImportOptions = {},
+  ): Promise<ImportResult> {
     // 1. Create transaction row
     const installTxnId = globalThis.crypto.randomUUID();
     const now = new Date().toISOString();
@@ -125,14 +130,14 @@ export class InstallService {
     const txnRow: Omit<InstallTransactionRow, 'finished_at'> = {
       install_txn_id: installTxnId,
       company_id: this.companyId,
-      source_type: 'file',
-      source_ref: null,
-      target_package_id: null,
-      target_version: null,
+      source_type: options.sourceType ?? 'file',
+      source_ref: options.sourceRef ?? null,
+      target_package_id: options.targetPackageId ?? null,
+      target_version: options.targetVersion ?? null,
       state: 'created',
       error_code: null,
       error_detail: null,
-      descriptor_json: null,
+      descriptor_json: options.descriptor ? JSON.stringify(options.descriptor) : null,
       actor_type: 'user',
       started_at: now,
     };
@@ -399,6 +404,8 @@ export class InstallService {
     // ready_to_install -> materializing
     await this.transition(installTxnId, state, 'materializing', txn.target_package_id ?? undefined);
 
+    const provenance = this.extractProvenance(txn);
+
     // Materialize — pass transact so all writes are atomic in Drizzle environments
     let result: MaterializeResult;
     try {
@@ -408,7 +415,10 @@ export class InstallService {
         this.repos,
         this.companyId,
         installTxnId,
-        this.transact,
+        {
+          provenance,
+          transact: this.transact,
+        },
       );
     } catch (err) {
       // Materialization failed — DB writes are already atomic via this.transact
@@ -463,6 +473,31 @@ export class InstallService {
     }
 
     return result;
+  }
+
+  private extractProvenance(txn: InstallTransactionRow): InstallProvenance | undefined {
+    if (txn.source_type !== 'registry') return undefined;
+
+    try {
+      const descriptor = txn.descriptor_json ? JSON.parse(txn.descriptor_json) : null;
+      const listingId =
+        typeof descriptor?.listing_id === 'string'
+          ? descriptor.listing_id
+          : typeof txn.source_ref === 'string'
+            ? txn.source_ref
+            : null;
+      const packageVersionId =
+        typeof descriptor?.package_version_id === 'string' ? descriptor.package_version_id : null;
+
+      if (!listingId || !packageVersionId) return undefined;
+
+      return {
+        originListingId: listingId,
+        originPackageVersionId: packageVersionId,
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   // -------------------------------------------------------------------------

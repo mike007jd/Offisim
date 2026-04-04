@@ -158,6 +158,8 @@ export const installedPackages = sqliteTable(
     package_hash: text('package_hash').notNull(),
     install_state: text('install_state').notNull(),
     enabled: integer('enabled').notNull().default(1),
+    origin_listing_id: text('origin_listing_id'),
+    origin_package_version_id: text('origin_package_version_id'),
     installed_at: text('installed_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
