@@ -218,11 +218,13 @@ export function useOffice3DViewState({
           appendDispatchFlowLine(intent.payload as SceneTaskDispatchedPayload);
         })
       : eventBus.on('task.state.changed', (event: RuntimeEvent) => {
-          const payload = event.payload as { taskState?: string; assignedTo?: string } | undefined;
-          if (payload?.taskState !== 'active') {
+          const payload = event.payload as
+            | { prev?: string; next?: string; employeeId?: string }
+            | undefined;
+          if (payload?.next !== 'running') {
             return;
           }
-          appendDispatchFlowLine({ employeeId: payload.assignedTo ?? null });
+          appendDispatchFlowLine({ employeeId: payload.employeeId ?? null });
         });
 
     const handleApprovalFlowLine = (payload: SceneInteractionWaitingPayload) => {

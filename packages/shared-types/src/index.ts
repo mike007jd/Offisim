@@ -205,6 +205,14 @@ export {
   getPresetsForArchetype,
 } from './zone-presets.js';
 
+export type {
+  AgentContextPack,
+  AgentContextPackThread,
+  AgentContextPackPendingInteraction,
+  AgentContextPackTaskRun,
+  AgentContextPackNodeSummary,
+} from './agent-context-pack.js';
+
 export type { ZoneRect } from './zone-overlap.js';
 export { zonesOverlap, findOverlaps, computeOverlapMap } from './zone-overlap.js';
 

@@ -25,6 +25,7 @@ import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/node-context-middleware.js';
+import { AgentContextPackService } from '@offisim/core/dist/services/agent-context-pack-service.js';
 import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
@@ -118,6 +119,7 @@ export type RuntimeBundle = {
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
+  packService?: AgentContextPackService;
   dispose?: () => void;
 };
 
@@ -233,9 +235,16 @@ export async function createBrowserRuntime(
     'gpt-4o-mini',
     systemCaller,
   );
+  const packService = new AgentContextPackService({
+    threadId,
+    companyId,
+    getPendingInteraction: () => interactionService.getPending(),
+    listNodeSummaries: (tid, opts) => repos.nodeSummaries.listByThread(tid, opts),
+    listTaskRuns: (tid) => repos.taskRuns.findByThread(tid),
+  });
   const middlewareChain = new LlmMiddlewareChain();
   middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
-  middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries));
+  middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries, {}, packService));
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
   const toolTelemetryService = new ToolTelemetryService(eventBus);
   const sessionCostTracker = await SessionCostTracker.create({
@@ -295,6 +304,7 @@ export async function createBrowserRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    packService,
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
