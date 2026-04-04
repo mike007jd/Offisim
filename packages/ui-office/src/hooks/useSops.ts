@@ -10,6 +10,9 @@ export interface SopTemplate {
   description: string;
   definitionJson: string;
   sourceThreadId: string | null;
+  sourceUrl: string | null;
+  version: string | null;
+  lastSyncedAt: string | null;
   createdAt: string;
   updatedAt: string;
   stepCount: number;
@@ -30,6 +33,9 @@ function toSopTemplate(row: SopTemplateRow): SopTemplate {
     description: row.description,
     definitionJson: row.definition_json,
     sourceThreadId: row.source_thread_id,
+    sourceUrl: row.source_url,
+    version: row.version,
+    lastSyncedAt: row.last_synced_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     stepCount,

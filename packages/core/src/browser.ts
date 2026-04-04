@@ -238,6 +238,8 @@ export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { SessionCostTracker } from './runtime/session-cost-tracker.js';
 export { SopService } from './services/sop-service.js';
+export { SopSyncService } from './services/sop-sync-service.js';
+export type { SopSyncResult } from './services/sop-sync-service.js';
 export { RackSlotService } from './services/rack-slot-service.js';
 export { LibraryService } from './services/library-service.js';
 export type { CitationEntry } from './services/library-service.js';

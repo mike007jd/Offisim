@@ -1,9 +1,11 @@
+import { SopSyncService } from '@offisim/core/browser';
 import { Button } from '@offisim/ui-core';
-import { ChevronDown, ChevronRight, ClipboardList, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardList, Download, Link2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useSops } from '../../hooks/useSops';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { SopEditorDialog } from './SopEditorDialog';
+import { SopImportDialog } from './SopImportDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -74,12 +76,15 @@ interface SopCardProps {
     stepCount: number;
     createdAt: string;
     definitionJson: string;
+    sourceUrl: string | null;
+    lastSyncedAt: string | null;
   };
   onRun: (name: string) => void;
   onDelete: (sopTemplateId: string) => void;
+  onSync?: (sopTemplateId: string) => void;
 }
 
-function SopCard({ sop, onRun, onDelete }: SopCardProps) {
+function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -110,7 +115,10 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
             {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-200 truncate leading-tight">{sop.name}</p>
+            <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
+              {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
+              {sop.name}
+            </p>
             {sop.description && (
               <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
                 {sop.description}
@@ -138,6 +146,18 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
           <Play className="w-2.5 h-2.5" />
           Run
         </Button>
+        {sop.sourceUrl && onSync && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[10px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-0.5"
+            onClick={() => onSync(sop.sopTemplateId)}
+            title="Sync from remote"
+          >
+            <RefreshCw className="w-2.5 h-2.5" />
+            Sync
+          </Button>
+        )}
         <div className="flex-1" />
         {confirming ? (
           <>
@@ -179,14 +199,25 @@ function SopCard({ sop, onRun, onDelete }: SopCardProps) {
 
 export function SopPanel() {
   const { sops, loading, deleteSop, refreshSops } = useSops();
-  const { sendMessage } = useOffisimRuntime();
+  const { sendMessage, repos } = useOffisimRuntime();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const handleRun = useCallback(
     (name: string) => {
       void sendMessage(`Run the SOP: ${name}`);
     },
     [sendMessage],
+  );
+
+  const handleSync = useCallback(
+    async (sopTemplateId: string) => {
+      if (!repos?.sopTemplates) return;
+      const svc = new SopSyncService(repos.sopTemplates);
+      await svc.syncFromUrl(sopTemplateId);
+      await refreshSops();
+    },
+    [repos, refreshSops],
   );
 
   if (loading) {
@@ -207,16 +238,27 @@ export function SopPanel() {
           <p className="text-[10px] text-slate-500 leading-relaxed">
             Create your first SOP or complete a task to generate one automatically.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[10px] gap-1"
-            onClick={() => setEditorOpen(true)}
-          >
-            <Plus className="w-3 h-3" /> Create SOP
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] gap-1"
+              onClick={() => setEditorOpen(true)}
+            >
+              <Plus className="w-3 h-3" /> Create
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] gap-1"
+              onClick={() => setImportOpen(true)}
+            >
+              <Download className="w-3 h-3" /> Import
+            </Button>
+          </div>
         </div>
         <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={refreshSops} />
+        <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refreshSops} />
       </>
     );
   }
@@ -224,7 +266,14 @@ export function SopPanel() {
   return (
     <>
       <div className="flex flex-col gap-1.5 px-2 pb-2">
-        <div className="flex items-center justify-end mb-0.5">
+        <div className="flex items-center justify-end gap-2 mb-0.5">
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-0.5 text-[10px] text-cyan-400 hover:text-cyan-300"
+          >
+            <Download className="w-3 h-3" /> Import
+          </button>
           <button
             type="button"
             onClick={() => setEditorOpen(true)}
@@ -234,10 +283,11 @@ export function SopPanel() {
           </button>
         </div>
         {sops.map((sop) => (
-          <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} />
+          <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} onSync={handleSync} />
         ))}
       </div>
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={refreshSops} />
+      <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refreshSops} />
     </>
   );
 }
