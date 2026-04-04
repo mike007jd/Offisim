@@ -532,6 +532,9 @@ export const sopTemplates = sqliteTable('sop_templates', {
   description: text('description').notNull().default(''),
   definition_json: text('definition_json').notNull(),
   source_thread_id: text('source_thread_id'),
+  source_url: text('source_url'),
+  version: text('version'),
+  last_synced_at: text('last_synced_at'),
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });

@@ -121,6 +121,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/019_recovery_knowledge.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 20,
+            description: "sop template remote source",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/020_sop_template_remote.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

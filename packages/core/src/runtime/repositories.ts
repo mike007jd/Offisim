@@ -624,16 +624,24 @@ export interface SopTemplateRow {
   description: string;
   definition_json: string;
   source_thread_id: string | null;
+  source_url: string | null;
+  version: string | null;
+  last_synced_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type NewSopTemplate = Omit<SopTemplateRow, 'created_at' | 'updated_at'>;
 
+export type SopTemplateUpdate = Partial<
+  Pick<SopTemplateRow, 'name' | 'description' | 'definition_json' | 'source_url' | 'version' | 'last_synced_at'>
+>;
+
 export interface SopTemplateRepository {
   create(template: NewSopTemplate): Promise<SopTemplateRow>;
   findById(sopTemplateId: string): Promise<SopTemplateRow | null>;
   findByCompany(companyId: string): Promise<SopTemplateRow[]>;
+  update(sopTemplateId: string, patch: SopTemplateUpdate): Promise<void>;
   delete(sopTemplateId: string): Promise<void>;
 }
 

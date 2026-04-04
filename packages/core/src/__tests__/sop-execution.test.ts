@@ -347,6 +347,9 @@ describe('tryBuildSopPlan', () => {
       description: sopDef.description,
       definition_json: JSON.stringify(sopDef),
       source_thread_id: null,
+      source_url: null,
+      version: null,
+      last_synced_at: null,
     });
 
     const employees = [makeResearcher(), makeWriter(), makeReviewer()];
@@ -376,6 +379,9 @@ describe('tryBuildSopPlan', () => {
       description: sopDef.description,
       definition_json: JSON.stringify(sopDef),
       source_thread_id: null,
+      source_url: null,
+      version: null,
+      last_synced_at: null,
     });
 
     const employees = [makeResearcher()];
@@ -440,6 +446,9 @@ describe('tryBuildSopPlan', () => {
       description: badDef.description,
       definition_json: JSON.stringify(badDef),
       source_thread_id: null,
+      source_url: null,
+      version: null,
+      last_synced_at: null,
     });
 
     const employees = [makeEmployee()];
@@ -496,6 +505,9 @@ describe('pmPlannerNode — SOP integration', () => {
       description: sopDef.description,
       definition_json: JSON.stringify(sopDef),
       source_thread_id: null,
+      source_url: null,
+      version: null,
+      last_synced_at: null,
     });
   });
 

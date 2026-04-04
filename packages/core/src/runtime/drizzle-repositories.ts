@@ -1046,6 +1046,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
         .where(eq(schema.sopTemplates.company_id, companyId))
         .all() as SopTemplateRow[];
     },
+    async update(sopTemplateId, patch) {
+      db.update(schema.sopTemplates)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
+        .run();
+    },
     async delete(sopTemplateId) {
       db.delete(schema.sopTemplates)
         .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))

@@ -116,6 +116,9 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
         description: description.trim(),
         definition_json: JSON.stringify(definition),
         source_thread_id: null,
+        source_url: null,
+        version: null,
+        last_synced_at: null,
       });
       // Reset
       setName('');

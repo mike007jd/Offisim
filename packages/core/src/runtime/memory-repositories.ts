@@ -754,6 +754,16 @@ export class MemorySopTemplateRepository implements SopTemplateRepository {
     return [...this.store.values()].filter((r) => r.company_id === companyId);
   }
 
+  async update(sopTemplateId: string, patch: import('./repositories.js').SopTemplateUpdate): Promise<void> {
+    const existing = this.store.get(sopTemplateId);
+    if (!existing) return;
+    this.store.set(sopTemplateId, {
+      ...existing,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
   async delete(sopTemplateId: string): Promise<void> {
     this.store.delete(sopTemplateId);
   }

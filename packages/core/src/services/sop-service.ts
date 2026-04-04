@@ -102,6 +102,9 @@ export class SopService {
       description,
       definition_json: JSON.stringify(definition),
       source_thread_id: sourceThreadId ?? null,
+      source_url: null,
+      version: null,
+      last_synced_at: null,
     });
     return sopTemplateId;
   }

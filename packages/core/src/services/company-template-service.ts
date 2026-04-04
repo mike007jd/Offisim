@@ -403,6 +403,9 @@ export class CompanyTemplateService {
             description: sop.description,
             definition_json: JSON.stringify(sop),
             source_thread_id: null,
+            source_url: null,
+            version: null,
+            last_synced_at: null,
           });
         }
 
@@ -480,6 +483,9 @@ export class CompanyTemplateService {
         description: sop.description,
         definition_json: JSON.stringify(sop),
         source_thread_id: null,
+        source_url: null,
+        version: null,
+        last_synced_at: null,
       });
       sopTemplateIds.push(sopTemplateId);
     }

@@ -293,6 +293,9 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         description: definition.description,
         definition_json: JSON.stringify(definition),
         source_thread_id: item.threadId,
+        source_url: null,
+        version: null,
+        last_synced_at: null,
       });
 
       // Notify subscribers — useSops auto-refreshes on any sop.* event

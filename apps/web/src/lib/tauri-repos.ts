@@ -1012,6 +1012,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
         .from(schema.sopTemplates)
         .where(eq(schema.sopTemplates.company_id, companyId))) as SopTemplateRow[];
     },
+    async update(sopTemplateId, patch) {
+      await db
+        .update(schema.sopTemplates)
+        .set({ ...patch, updated_at: now() })
+        .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
+    },
     async delete(sopTemplateId) {
       await db
         .delete(schema.sopTemplates)

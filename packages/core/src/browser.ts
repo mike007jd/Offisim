@@ -81,6 +81,7 @@ export type {
   ModelCostRateRepository,
   SopTemplateRow,
   NewSopTemplate,
+  SopTemplateUpdate,
   SopTemplateRepository,
   RackRow,
   NewRack,
