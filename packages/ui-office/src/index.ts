@@ -98,6 +98,7 @@ export * from './hooks/useInstallFlow.js';
 export * from './hooks/useInterviewWizard.js';
 export * from './hooks/useLibrary.js';
 export * from './hooks/useOfficeLayout.js';
+export * from './hooks/usePrefabInstances.js';
 export * from './hooks/useRackSlot.js';
 export * from './hooks/useSceneOrchestrator.js';
 export * from './hooks/useTaskDashboard.js';

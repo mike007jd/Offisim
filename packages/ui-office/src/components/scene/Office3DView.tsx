@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { useMemo } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
+import { SeatRegistry } from '../../lib/seat-registry.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
@@ -111,7 +112,6 @@ export default function Office3DView({
     () => zones3D.filter((zone) => zone.deskSlots > 0),
     [zones3D],
   );
-  const placed = usePlacedEmployees(agents, zones3D, zones);
 
   const {
     selectedEmployeeId,
@@ -145,6 +145,13 @@ export default function Office3DView({
     onSelectEmployee,
     onDeselectEmployee,
   });
+
+  const seatRegistry = useMemo(
+    () => SeatRegistry.build(prefabInstances.map((p) => p.instance), zones),
+    [prefabInstances, zones],
+  );
+
+  const placed = usePlacedEmployees(agents, zones3D, zones, seatRegistry);
 
   const scene: Office3DSceneData = {
     agents,
