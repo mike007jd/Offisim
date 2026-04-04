@@ -119,6 +119,7 @@ export type RuntimeBundle = {
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
+  packService?: AgentContextPackService;
   dispose?: () => void;
 };
 
@@ -303,6 +304,7 @@ export async function createBrowserRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    packService,
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
