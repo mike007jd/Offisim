@@ -21,8 +21,7 @@ const publish = new Hono<PlatformEnv>();
 publish.use('/*', publishRateLimit);
 publish.use('/*', requireAuth);
 
-// GET /v1/publish/me — get the authenticated user's creator profile (null if not a creator)
-// NOTE: this route does NOT use requireCreator — non-creators get { creator: null }
+// GET /v1/publish/me — registered before requireCreator because non-creators get { creator: null }
 publish.get('/me', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');

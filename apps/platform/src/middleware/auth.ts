@@ -1,7 +1,8 @@
-import { apiTokens, users } from '@offisim/db-platform';
+import { apiTokens, creators, users } from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
+import type { PlatformDb } from '../db.js';
 import { auth } from '../auth.js';
 import { sha256 } from '../lib/crypto.js';
 import type { PlatformEnv } from '../types.js';
@@ -174,7 +175,18 @@ export function getRequiredUserId(c: { get: (key: 'userId') => string | undefine
 // Creator middleware — ensures authenticated user has a creator profile
 // ---------------------------------------------------------------------------
 
-import { creators } from '@offisim/db-platform';
+/** Find a creator's id by user_id. Shared between middleware and /me handler. */
+export async function findCreatorIdByUserId(
+  db: PlatformDb,
+  userId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ creator_id: creators.creator_id })
+    .from(creators)
+    .where(eq(creators.user_id, userId))
+    .limit(1);
+  return row?.creator_id ?? null;
+}
 
 /**
  * Ensure the authenticated user has a creator profile.
@@ -185,19 +197,13 @@ export const requireCreator = createMiddleware<PlatformEnv>(async (c, next) => {
   if (!userId) {
     throw new HTTPException(401, { message: 'Authentication required' });
   }
-  const db = c.get('db');
-  const [creator] = await db
-    .select({ creator_id: creators.creator_id })
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
-
-  if (!creator) {
+  const creatorId = await findCreatorIdByUserId(c.get('db'), userId);
+  if (!creatorId) {
     throw new HTTPException(403, {
       message: 'User is not a registered creator. Create a creator profile first.',
     });
   }
-  c.set('creatorId', creator.creator_id);
+  c.set('creatorId', creatorId);
   await next();
 });
 

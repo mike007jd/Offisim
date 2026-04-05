@@ -1,63 +1,62 @@
 /**
  * Rollback — reverse materialization artifacts on install failure.
  *
- * Cleanup order (reverse of creation):
- * 1. bindings  (asset_bindings rows)
- * 2. assets    (installed_assets rows)
- * 3. employees (employees rows created by this install)
- * 4. package   (installed_packages row)
+ * Deletes run in reverse creation order (bindings → assets → employees → package)
+ * to respect foreign key constraints. Within each type deletes run in parallel.
+ * Individual failures are collected and logged (best-effort cleanup).
  */
 
 import type { MaterializeResult } from './materializer.js';
 import type { InstallRepositories } from './types.js';
 
-/**
- * Reverse the effects of a materialization.
- *
- * Deletes rows in reverse order of creation to respect foreign key constraints.
- * Errors during individual deletes are collected and logged, but the function
- * attempts to clean up as much as possible (best-effort).
- */
+function formatError(label: string, err: unknown): string {
+  return `${label}: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+function collectErrors(
+  results: PromiseSettledResult<unknown>[],
+  ids: string[],
+  label: (id: string) => string,
+  errors: string[],
+): void {
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r?.status === 'rejected') {
+      errors.push(formatError(label(ids[i] ?? '<unknown>'), r.reason));
+    }
+  }
+}
+
 export async function rollback(
   result: MaterializeResult,
   repos: InstallRepositories,
 ): Promise<void> {
   const errors: string[] = [];
 
-  for (const id of result.bindingIds) {
-    try {
-      await repos.assetBindings.delete(id);
-    } catch (err) {
-      errors.push(
-        `assetBindings.delete(${id}): ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
+  const bindingResults = await Promise.allSettled(
+    result.bindingIds.map((id) => repos.assetBindings.delete(id)),
+  );
+  collectErrors(bindingResults, result.bindingIds, (id) => `assetBindings.delete(${id})`, errors);
 
-  for (const id of result.installedAssetIds) {
-    try {
-      await repos.installedAssets.delete(id);
-    } catch (err) {
-      errors.push(
-        `installedAssets.delete(${id}): ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
+  const assetResults = await Promise.allSettled(
+    result.installedAssetIds.map((id) => repos.installedAssets.delete(id)),
+  );
+  collectErrors(
+    assetResults,
+    result.installedAssetIds,
+    (id) => `installedAssets.delete(${id})`,
+    errors,
+  );
 
-  for (const id of result.employeeIds) {
-    try {
-      await repos.employees.delete(id);
-    } catch (err) {
-      errors.push(`employees.delete(${id}): ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
+  const employeeResults = await Promise.allSettled(
+    result.employeeIds.map((id) => repos.employees.delete(id)),
+  );
+  collectErrors(employeeResults, result.employeeIds, (id) => `employees.delete(${id})`, errors);
 
   try {
     await repos.installedPackages.delete(result.installedPackageId);
   } catch (err) {
-    errors.push(
-      `installedPackages.delete(${result.installedPackageId}): ${err instanceof Error ? err.message : String(err)}`,
-    );
+    errors.push(formatError(`installedPackages.delete(${result.installedPackageId})`, err));
   }
 
   if (errors.length > 0) {
