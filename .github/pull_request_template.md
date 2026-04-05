@@ -7,7 +7,6 @@ Describe the user-visible and technical changes in this PR.
 - [ ] `pnpm lint`
 - [ ] `pnpm typecheck`
 - [ ] `pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' test`
-- [ ] `pnpm check:provider-policy`
 
 ## Screenshots / Recordings
 

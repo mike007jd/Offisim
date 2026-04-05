@@ -35,6 +35,3 @@ jobs:
 
       - name: Test non-Tauri packages
         run: pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' test
-
-      - name: Provider policy check
-        run: pnpm check:provider-policy

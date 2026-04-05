@@ -29,7 +29,6 @@ Before opening a PR, run:
 pnpm lint
 pnpm typecheck
 pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' test
-pnpm check:provider-policy
 ```
 
 If your change touches desktop packaging, also run:

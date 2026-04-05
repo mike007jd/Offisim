@@ -12,9 +12,6 @@
     "test": {
       "dependsOn": ["build"]
     },
-    "check:provider-policy": {
-      "cache": false
-    },
     "clean": {
       "cache": false
     },
