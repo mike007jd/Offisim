@@ -103,7 +103,7 @@ function getWorkstationPos(
 }
 
 function getRestSlotKey(companyId: string): string {
-  return `${companyId}::__rest__`;
+  return `${companyId}:rest-counter`;
 }
 
 function getRestPos(
@@ -315,7 +315,7 @@ function resetSlotCounters() {
 export function clearCompanyState(companyId: string): void {
   companyHandles.delete(companyId);
   for (const key of zoneSlotCounters.keys()) {
-    if (key.startsWith(companyId)) zoneSlotCounters.delete(key);
+    if (key.startsWith(`${companyId}:`)) zoneSlotCounters.delete(key);
   }
 }
 

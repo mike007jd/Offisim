@@ -146,13 +146,16 @@ function wrapText(
       }
       let remaining = word;
       while (remaining.length > 0) {
-        let end = remaining.length;
-        while (end > 1 && font.widthOfTextAtSize(remaining.slice(0, end), size) > maxWidth) {
-          end--;
+        // Binary search for the longest prefix that fits within maxWidth
+        let lo = 1;
+        let hi = remaining.length;
+        while (lo < hi) {
+          const mid = (lo + hi + 1) >> 1;
+          if (font.widthOfTextAtSize(remaining.slice(0, mid), size) <= maxWidth) lo = mid;
+          else hi = mid - 1;
         }
-        const chunk = remaining.slice(0, end);
-        lines.push(chunk);
-        remaining = remaining.slice(end);
+        lines.push(remaining.slice(0, lo));
+        remaining = remaining.slice(lo);
       }
       continue;
     }

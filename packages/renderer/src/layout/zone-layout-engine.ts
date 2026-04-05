@@ -11,6 +11,14 @@ import type { Zone, ZoneArchetype } from '@offisim/shared-types';
 
 type LayoutZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
 
+/** Scale widths proportionally so their sum (plus gap) fits within available space. */
+function scaleToFit(widths: number[], available: number, gap: number): number[] {
+  const contentWidth = widths.reduce((s, w) => s + w, 0);
+  if (contentWidth + gap <= available) return widths;
+  const scale = (available - gap) / contentWidth;
+  return widths.map((w) => w * scale);
+}
+
 function archetypeToLayoutType(archetype: ZoneArchetype | null): LayoutZoneType {
   switch (archetype) {
     case 'workspace':
@@ -254,14 +262,12 @@ export function computeFloorPlan(
     const row2Y = row1Y + finalRow1Height + (finalRow1Height > 0 ? opts.zonePadding : 0);
     let row2CursorX = opts.margin;
 
-    // Clamp then scale if total exceeds available width
-    let row2Widths = row2Zones.map(() => Math.max(MIN_UTILITY_WIDTH, row2ZoneWidth));
     const row2TotalGap = Math.max(0, row2Zones.length - 1) * opts.zonePadding;
-    const row2TotalClamped = row2Widths.reduce((s, w) => s + w, 0) + row2TotalGap;
-    if (row2TotalClamped > floorContentWidth) {
-      const scale = (floorContentWidth - row2TotalGap) / row2Widths.reduce((s, w) => s + w, 0);
-      row2Widths = row2Widths.map((w) => w * scale);
-    }
+    const row2Widths = scaleToFit(
+      row2Zones.map(() => Math.max(MIN_UTILITY_WIDTH, row2ZoneWidth)),
+      floorContentWidth,
+      row2TotalGap,
+    );
 
     for (let i = 0; i < row2Zones.length; i++) {
       const z = row2Zones[i]!;
@@ -319,16 +325,14 @@ export function computeFloorPlan(
       const totalGap = (row3Zones.length - 1) * opts.zonePadding;
       const availableWidth = floorContentWidth - totalGap;
 
-      // Clamp then scale if total exceeds available width
-      let row3Widths = row3Zones.map((z) => {
-        const fraction = z.type === 'meeting_room' ? meetingFraction : 1 - meetingFraction;
-        return Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
-      });
-      const row3TotalClamped = row3Widths.reduce((s, w) => s + w, 0);
-      if (row3TotalClamped > availableWidth) {
-        const scale = availableWidth / row3TotalClamped;
-        row3Widths = row3Widths.map((w) => w * scale);
-      }
+      const row3Widths = scaleToFit(
+        row3Zones.map((z) => {
+          const fraction = z.type === 'meeting_room' ? meetingFraction : 1 - meetingFraction;
+          return Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
+        }),
+        availableWidth,
+        totalGap,
+      );
 
       let row3CursorX = opts.margin;
       for (let i = 0; i < row3Zones.length; i++) {

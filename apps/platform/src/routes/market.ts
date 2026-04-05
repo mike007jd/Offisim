@@ -461,8 +461,15 @@ market.get('/listings/:listingId/lineage', async (c) => {
     ORDER BY lc.depth
   `);
 
-  // Batch-fetch latest version for all ancestors
-  const ancestorIds = ancestorRows.map((r) => r.listing_id);
+  // Deduplicate ancestors (CTE does not prevent cycles in data)
+  const seenIds = new Set<string>();
+  const dedupedAncestors = ancestorRows.filter((r) => {
+    if (seenIds.has(r.listing_id)) return false;
+    seenIds.add(r.listing_id);
+    return true;
+  });
+
+  const ancestorIds = dedupedAncestors.map((r) => r.listing_id);
   const ancestorVersionMap = new Map<string, string>();
   if (ancestorIds.length > 0) {
     const versionRows = await db.execute<{ listing_id: string; version: string }>(sql`
@@ -476,7 +483,7 @@ market.get('/listings/:listingId/lineage', async (c) => {
     }
   }
 
-  const ancestors = ancestorRows.map((r) => ({
+  const ancestors = dedupedAncestors.map((r) => ({
     listingId: r.listing_id,
     title: r.title,
     slug: r.slug,
