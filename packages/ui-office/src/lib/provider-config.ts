@@ -10,7 +10,6 @@ import type {
   RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from '@offisim/shared-types';
-import { isProductionProvider } from '@offisim/shared-types';
 import { isTauri } from './env';
 
 export interface ProviderConfig {
@@ -307,12 +306,6 @@ function toPersistedConfig(config: ProviderConfig): ProviderConfig {
   return persisted;
 }
 
-function isProviderRejectedInProduction(provider: LlmProvider): boolean {
-  if (isTauri() && !isProductionProvider(provider)) return true;
-  if (!isTauri() && !import.meta.env.DEV && !isProductionProvider(provider)) return true;
-  return false;
-}
-
 export function loadProviderConfig(): ProviderConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -320,14 +313,16 @@ export function loadProviderConfig(): ProviderConfig | null {
     const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return null;
 
-    if (isProviderRejectedInProduction(parsed.provider)) {
+    // subscription adapter runs `claude acp` via node:child_process and cannot run
+    // in a browser renderer. Drop any such saved config when we're not in Tauri.
+    if (!isTauri() && parsed.provider === 'subscription') {
       console.warn(
-        `[Offisim] Saved provider "${parsed.provider}" is a vendor-direct adapter and is not allowed in production runtime. Ignoring saved config.`,
+        '[Offisim] Saved provider "subscription" requires the desktop app. Ignoring saved config in browser.',
       );
       return null;
     }
 
-    if (isTauri() && isProductionProvider(parsed.provider)) {
+    if (isTauri() && parsed.provider === 'subscription') {
       const { apiKey: _apiKey, ...desktopConfig } = parsed;
       return desktopConfig;
     }
@@ -346,26 +341,13 @@ export function clearProviderConfig(): void {
 }
 
 /**
- * Returns the name of the saved provider if it was rejected by production policy,
- * or null if there is no saved config / the config is valid.
+ * Build the subscription (ACP) gateway config from ProviderConfig.
+ * Returns undefined for non-subscription providers.
  */
-export function getRejectedProviderName(): string | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = normalizeProviderConfig(JSON.parse(raw));
-    if (!parsed) return null;
-    return isProviderRejectedInProduction(parsed.provider) ? parsed.provider : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Build the self-developed transport config from ProviderConfig (shared by all runtimes). */
 export function buildSubscriptionGatewayConfig(
   config: ProviderConfig,
 ): { command?: string; args?: string[] } | undefined {
-  if (!isProductionProvider(config.provider)) return undefined;
+  if (config.provider !== 'subscription') return undefined;
   return {
     command: config.acpCommand ?? 'claude',
     args: config.acpArgs ?? ['acp'],

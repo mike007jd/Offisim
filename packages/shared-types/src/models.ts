@@ -1,17 +1,12 @@
 /**
- * Provider classification for AI Runtime Policy enforcement.
+ * Supported LLM provider transports.
  *
- * - SelfDevelopedProvider: Offisim's own transport adapters — valid production paths.
- * - AdapterOnlyProvider: External vendor adapters — test/adapter-layer only, never production.
+ * `subscription` is a Node-only adapter (runs `claude acp` via `node:child_process`)
+ * and is therefore gated to the desktop/Tauri environment by a runtime check in
+ * `gateway-factory.ts` (`shouldRejectSubscriptionInRenderer`). All other providers
+ * are BYO-key adapters and are equally valid in browser and desktop.
  */
-export type SelfDevelopedProvider = 'subscription';
-export type AdapterOnlyProvider = 'openai' | 'anthropic' | 'openai-compat';
-export type LlmProvider = SelfDevelopedProvider | AdapterOnlyProvider;
-
-/** Returns true if the provider is allowed in production runtime. */
-export function isProductionProvider(provider: LlmProvider): provider is SelfDevelopedProvider {
-  return provider === 'subscription';
-}
+export type LlmProvider = 'subscription' | 'openai' | 'anthropic' | 'openai-compat';
 
 /** Abstract model profile — maps to a concrete provider+model */
 export interface ModelProfile {

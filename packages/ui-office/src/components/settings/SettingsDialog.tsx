@@ -56,10 +56,8 @@ interface SettingsDialogProps {
 const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
 
 const IS_DESKTOP = isTauri();
-const IS_DEV = import.meta.env.DEV;
-const IS_BROWSER_PROD = !IS_DESKTOP && !IS_DEV;
-const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ dev: IS_DEV, tauri: IS_DESKTOP });
-const AVAILABLE_PRESETS = getAvailableProviderPresets({ dev: IS_DEV, tauri: IS_DESKTOP });
+const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ tauri: IS_DESKTOP });
+const AVAILABLE_PRESETS = getAvailableProviderPresets({ tauri: IS_DESKTOP });
 
 function parsePositiveInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -78,7 +76,7 @@ function parseConfidence(value: string, fallback: number): number {
 
 export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: SettingsDialogProps) {
   const { density, setDensity } = useTheme();
-  const [preset, setPreset] = useState(DEFAULT_PRESET_KEY ?? '');
+  const [preset, setPreset] = useState<string>(DEFAULT_PRESET_KEY);
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [model, setModel] = useState('');
@@ -150,20 +148,10 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
           ([, p]) => p.defaults.provider === saved.provider && p.defaults.baseURL === saved.baseURL,
         );
         if (match) {
-          const [matchKey, matchPreset] = match;
-          // In production builds, force-migrate legacy vendor-direct configs
-          if (IS_BROWSER_PROD) {
-            setPreset('');
-            setSaveError(
-              `Browser mode does not support AI provider configuration. The saved provider "${matchPreset.label}" will not be active in the browser.`,
-            );
-          } else if (!IS_DEV && matchPreset.devOnly) {
-            setPreset('subscription');
-            setSaveError(
-              `The saved provider "${matchPreset.label}" is no longer a valid production config and has been switched to Subscription. Please save again.`,
-            );
-          } else if (IS_DEV && !IS_DESKTOP && matchKey === 'subscription') {
-            setPreset(DEFAULT_PRESET_KEY ?? '');
+          const [matchKey] = match;
+          // subscription is desktop-only (node:child_process). Browser users get MiniMax fallback.
+          if (!IS_DESKTOP && matchKey === 'subscription') {
+            setPreset(DEFAULT_PRESET_KEY);
             setSaveError(
               'Subscription mode is only available on desktop. Switched to MiniMax — please save again.',
             );
@@ -171,12 +159,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             setPreset(matchKey);
           }
         } else {
-          setPreset(DEFAULT_PRESET_KEY ?? '');
+          setPreset(DEFAULT_PRESET_KEY);
         }
       } else {
         // Apply default preset values on first open
-        const defaultPreset = DEFAULT_PRESET_KEY ? PROVIDER_PRESETS[DEFAULT_PRESET_KEY] : undefined;
-        setPreset(DEFAULT_PRESET_KEY ?? '');
+        const defaultPreset = PROVIDER_PRESETS[DEFAULT_PRESET_KEY];
+        setPreset(DEFAULT_PRESET_KEY);
         setBaseURL(defaultPreset?.defaults.baseURL ?? '');
         setModel(defaultPreset?.defaults.model ?? '');
         setDefaultHeaders('');
@@ -236,12 +224,6 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   async function handleSave() {
     setSaveError('');
     try {
-      if (IS_BROWSER_PROD) {
-        setSaveError(
-          'Browser mode does not support saving AI provider configuration. Please use the desktop app.',
-        );
-        return;
-      }
       setIsSaving(true);
       const p = PROVIDER_PRESETS[preset];
       const effectiveBaseURL = baseURL || p?.defaults.baseURL;
@@ -374,87 +356,69 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
           <TabsContent value="provider" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
-              {IS_BROWSER_PROD && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                  <p className="text-xs text-amber-300 font-medium mb-1">Browser Limitations</p>
-                  <p className="text-[10px] text-slate-400">
-                    The AI runtime is only available in Offisim Desktop. The browser version
-                    supports company management and office editing, but does not support AI
-                    conversations. Download the desktop app for the full experience.
-                  </p>
-                </div>
-              )}
+              <div>
+                <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
+                  Provider
+                </label>
+                <Select value={preset} onValueChange={handlePresetChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(AVAILABLE_PRESETS).map(([key, p]) => (
+                      <SelectItem key={key} value={key}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {!IS_BROWSER_PROD && (
-                <div>
-                  <label htmlFor="settings-provider" className="text-sm text-shell mb-1 block">
-                    Provider
-                  </label>
-                  <Select value={preset} onValueChange={handlePresetChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(AVAILABLE_PRESETS).map(([key, p]) => (
-                        <SelectItem key={key} value={key}>
-                          {p.label}
-                          {p.devOnly ? ' (dev)' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {!IS_BROWSER_PROD &&
-                (isSubscription ? (
-                  <>
-                    <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                      <p className="text-xs text-blue-300 font-medium mb-1">Subscription Mode</p>
-                      <p className="text-[10px] text-slate-400">
-                        Use your locally installed AI subscription (e.g. Claude Pro/Max) to run
-                        agents. No API Key needed — runs on your subscription quota.
-                      </p>
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="settings-acp-command"
-                        className="text-sm text-shell mb-1 block"
-                      >
-                        CLI Command
-                      </label>
-                      <Input
-                        id="settings-acp-command"
-                        value={acpCommand}
-                        onChange={(e) => setAcpCommand(e.target.value)}
-                        placeholder="claude"
-                      />
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        ACP server command path. Default is &quot;claude&quot; (Claude Code CLI).
-                      </p>
-                    </div>
-                  </>
-                ) : (
+              {isSubscription ? (
+                <>
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                    <p className="text-xs text-blue-300 font-medium mb-1">Subscription Mode</p>
+                    <p className="text-[10px] text-slate-400">
+                      Use your locally installed AI subscription (e.g. Claude Pro/Max) to run
+                      agents. No API Key needed — runs on your subscription quota.
+                    </p>
+                  </div>
                   <div>
-                    <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
-                      API Key
+                    <label htmlFor="settings-acp-command" className="text-sm text-shell mb-1 block">
+                      CLI Command
                     </label>
                     <Input
-                      id="settings-api-key"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-...'}
+                      id="settings-acp-command"
+                      value={acpCommand}
+                      onChange={(e) => setAcpCommand(e.target.value)}
+                      placeholder="claude"
                     />
-                    {isTauri() && hasStoredSecret && (
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Leave blank to keep the API key already stored securely on this device.
-                      </p>
-                    )}
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      ACP server command path. Default is &quot;claude&quot; (Claude Code CLI).
+                    </p>
                   </div>
-                ))}
+                </>
+              ) : (
+                <div>
+                  <label htmlFor="settings-api-key" className="text-sm text-shell mb-1 block">
+                    API Key
+                  </label>
+                  <Input
+                    id="settings-api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-...'}
+                  />
+                  {isTauri() && hasStoredSecret && (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Leave blank to keep the API key already stored securely on this device.
+                    </p>
+                  )}
+                </div>
+              )}
 
-              {!IS_BROWSER_PROD && showBaseURL && (
+              {showBaseURL && (
                 <div>
                   <label htmlFor="settings-base-url" className="text-sm text-shell mb-1 block">
                     Base URL
@@ -466,12 +430,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                     placeholder="https://api.example.com/v1"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Enter the endpoint URL for this dev-only provider preset.
+                    Enter the endpoint URL for this provider.
                   </p>
                 </div>
               )}
 
-              {!IS_BROWSER_PROD && !isSubscription && (
+              {!isSubscription && (
                 <div>
                   <label htmlFor="settings-model" className="text-sm text-shell mb-1 block">
                     Model
@@ -493,7 +457,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
                 </div>
               )}
 
-              {!IS_BROWSER_PROD && isThinkingProvider && (
+              {isThinkingProvider && (
                 <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
                   This provider returns thinking blocks that consume the max_tokens budget. Set
                   employee Max Tokens to ≥ 1024, or thinking may exhaust the quota and produce empty
@@ -502,14 +466,12 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               )}
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
-              {!IS_BROWSER_PROD && (
-                <Button
-                  onClick={() => void handleSave()}
-                  disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
-                >
-                  {isSaving ? 'Saving…' : 'Save Configuration'}
-                </Button>
-              )}
+              <Button
+                onClick={() => void handleSave()}
+                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
+              >
+                {isSaving ? 'Saving…' : 'Save Configuration'}
+              </Button>
             </div>
           </TabsContent>
 

@@ -20,7 +20,6 @@ import {
   SceneCeremonyProvider,
   StatusBar,
   disposeEventLogStore,
-  getRejectedProviderName,
   loadProviderConfig,
   primeEventLogStore,
   useAgentStates,
@@ -169,18 +168,6 @@ export function App({ onCompanySwitch }: AppProps) {
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
-
-  // Warn once on mount if saved provider config was rejected by production policy
-  useEffect(() => {
-    const rejected = getRejectedProviderName();
-    if (rejected) {
-      addToast(
-        `Provider "${rejected}" is not allowed in production. AI features are disabled. Switch to Subscription in Settings.`,
-        'error',
-        { durationMs: 10_000 },
-      );
-    }
-  }, [addToast]);
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');

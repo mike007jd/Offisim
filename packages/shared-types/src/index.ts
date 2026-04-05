@@ -125,8 +125,6 @@ export type {
 
 export type {
   LlmProvider,
-  SelfDevelopedProvider,
-  AdapterOnlyProvider,
   ModelProfile,
   ModelPolicyConfig,
   RuntimeExecutionMode,
@@ -139,8 +137,6 @@ export type {
   RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from './models.js';
-
-export { isProductionProvider } from './models.js';
 
 export type { SopStep, SopDefinition } from './sop.js';
 

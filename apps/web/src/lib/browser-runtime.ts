@@ -135,7 +135,7 @@ export async function createBrowserRuntime(
   companyId: string,
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
-  assertBrowserProviderAllowed(config.provider, IS_DEV);
+  assertBrowserProviderAllowed(config.provider);
 
   const threadId = `thread-${companyId}`;
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);

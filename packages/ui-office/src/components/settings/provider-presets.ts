@@ -1,5 +1,4 @@
 import type { LlmProvider } from '@offisim/shared-types';
-import { isProductionProvider } from '@offisim/shared-types';
 import type { ProviderConfig } from '../../lib/provider-config';
 
 export interface ProviderPreset {
@@ -7,17 +6,9 @@ export interface ProviderPreset {
   defaults: Partial<ProviderConfig>;
   /** Provider always returns thinking/reasoning blocks that consume max_tokens budget. */
   hasThinking?: boolean;
-  /**
-   * If true, this preset uses a vendor-direct adapter and is only available in
-   * dev/test mode. Production UI must not display these presets.
-   */
-  devOnly?: boolean;
 }
 
 export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
-  // ---------------------------------------------------------------------------
-  // Production presets — self-developed transport adapters
-  // ---------------------------------------------------------------------------
   subscription: {
     label: 'Subscription',
     defaults: {
@@ -28,10 +19,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       acpArgs: ['acp'],
     },
   },
-
-  // ---------------------------------------------------------------------------
-  // Dev-only presets — vendor-direct adapters for testing / development
-  // ---------------------------------------------------------------------------
   gemini: {
     label: 'Google Gemini',
     defaults: {
@@ -40,7 +27,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'gemini-2.5-flash',
     },
     hasThinking: true,
-    devOnly: true,
   },
   deepseek: {
     label: 'DeepSeek',
@@ -50,7 +36,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'deepseek-reasoner',
     },
     hasThinking: true,
-    devOnly: true,
   },
   minimax: {
     label: 'MiniMax',
@@ -60,7 +45,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'MiniMax-M2.7-highspeed',
     },
     hasThinking: true,
-    devOnly: true,
   },
   openrouter: {
     label: 'OpenRouter',
@@ -69,7 +53,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       baseURL: 'https://openrouter.ai/api/v1',
       model: 'google/gemma-3-4b-it:free',
     },
-    devOnly: true,
   },
   kimi: {
     label: 'Kimi',
@@ -80,7 +63,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       defaultHeaders: { 'User-Agent': 'claude-code/1.0.0' },
     },
     hasThinking: true,
-    devOnly: true,
   },
   openai: {
     label: 'OpenAI',
@@ -88,7 +70,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       provider: 'openai',
       model: 'gpt-4o-mini',
     },
-    devOnly: true,
   },
   anthropic: {
     label: 'Anthropic',
@@ -96,7 +77,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       provider: 'anthropic',
       model: 'claude-sonnet-4-20250514',
     },
-    devOnly: true,
   },
   lmstudio: {
     label: 'LM Studio (Local)',
@@ -106,7 +86,6 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       model: 'qwen/qwen3.5-9b',
       apiKey: 'lm-studio',
     },
-    devOnly: true,
   },
   custom: {
     label: 'Custom (OpenAI-compatible)',
@@ -114,53 +93,31 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       provider: 'openai-compat',
       model: '',
     },
-    devOnly: true,
   },
 };
 
-/** Presets whose provider is allowed in production — pre-computed, stable reference. */
-export const PRODUCTION_PRESETS: Record<string, ProviderPreset> = Object.fromEntries(
-  Object.entries(PROVIDER_PRESETS).filter(
-    ([_, preset]) =>
-      preset.defaults.provider && isProductionProvider(preset.defaults.provider as LlmProvider),
-  ),
-);
+/** Default preset key when no config is saved. */
+export const DEFAULT_PRESET_KEY = 'minimax';
 
-export const BROWSER_DEV_DEFAULT_PRESET_KEY = 'minimax';
-
-/** Presets for browser dev mode — excludes desktop-only subscription. Pre-computed like PRODUCTION_PRESETS. */
-export const BROWSER_DEV_PRESETS: Record<string, ProviderPreset> = Object.fromEntries(
-  Object.entries(PROVIDER_PRESETS).filter(([key]) => key !== 'subscription'),
-);
-
-/** Browser production does not expose runtime provider configuration. */
-export const BROWSER_PROD_PRESETS: Record<string, ProviderPreset> = {};
-
+/**
+ * Returns the presets available in the current environment.
+ *
+ * `subscription` requires Node.js (`claude acp` via `node:child_process`) and is only
+ * available in the desktop build — browser callers see it filtered out.
+ */
 export function getAvailableProviderPresets(options: {
-  dev: boolean;
   tauri: boolean;
 }): Record<string, ProviderPreset> {
-  if (!options.tauri && !options.dev) return BROWSER_PROD_PRESETS;
-  if (!options.dev) return PRODUCTION_PRESETS;
-  return options.tauri ? PROVIDER_PRESETS : BROWSER_DEV_PRESETS;
+  if (options.tauri) return PROVIDER_PRESETS;
+  return Object.fromEntries(
+    Object.entries(PROVIDER_PRESETS).filter(([key]) => key !== 'subscription'),
+  );
 }
 
 export function getDefaultProviderPresetKey(options: {
-  dev: boolean;
   tauri: boolean;
-}): keyof typeof PROVIDER_PRESETS | null {
-  if (!options.tauri && !options.dev) {
-    return null;
-  }
-  if (options.dev && !options.tauri) {
-    return BROWSER_DEV_DEFAULT_PRESET_KEY;
-  }
-  return 'subscription';
+}): keyof typeof PROVIDER_PRESETS {
+  return options.tauri ? 'subscription' : DEFAULT_PRESET_KEY;
 }
 
-/** @deprecated Use PRODUCTION_PRESETS instead. */
-export const getProductionPresets = (): Record<string, ProviderPreset> => PRODUCTION_PRESETS;
-
-/** Check if a provider string is a production-allowed provider. Re-exported for UI convenience. */
-export { isProductionProvider };
 export type { LlmProvider };

@@ -36,7 +36,6 @@ import { UserMemoryService } from '@offisim/core/dist/services/user-memory-servi
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type { InteractionMode } from '@offisim/shared-types';
-import { isProductionProvider } from '@offisim/shared-types';
 import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
@@ -101,12 +100,6 @@ export async function createTauriRuntime(
   companyId: string,
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
-  if (!isProductionProvider(config.provider)) {
-    throw new Error(
-      `Provider "${config.provider}" is not allowed in production runtime. Only self-developed transport adapters (e.g. "subscription") are valid production providers.`,
-    );
-  }
-
   const threadId = `thread-${companyId}`;
   await seedTauriDb();
 
