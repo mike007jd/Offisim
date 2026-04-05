@@ -192,6 +192,18 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - Employee repos (`create()`) 接受可选的 `employee_id` 字段用于 pre-generated ID。
   在 `transact()` 同步事务中必须使用预生成 ID，不要用 `void promise.then()` 捕获返回值 —
   Promise.then 回调是微任务，不会在当前同步代码中执行
+- Platform 路由中 creator 所有权校验统一走 `requireCreator` 中间件 (`middleware/auth.ts`),
+  通过 `getRequiredCreatorId(c)` 取 creator_id。共享的 creator lookup 用
+  `findCreatorIdByUserId(db, userId)`。不要在每个 handler 里手写
+  `db.select().from(creators).where(eq(creators.user_id, ...))` — 这是已淘汰的模式。
+  `/me` 是例外（非 creator 返回 null），必须注册在 `publish.use('/drafts/*', requireCreator)` 之前
+- `primeEventLogStore(eventBus)` 创建 20 个 EventBus 订阅（每个 EVENT_PREFIX 一个），
+  必须在 useEffect cleanup 里调 `disposeEventLogStore(eventBus)` 解绑，否则组件重 mount 会累积订阅。
+  App.tsx 和 OffisimRuntimeProvider unmount 都已调用，`disposeEventLogStore` 幂等（WeakMap 检查）
+- Platform 测试的 `createMockDb([results])` 按 callIndex 顺序消费 DB 调用结果。
+  给路由加新 middleware（如 `requireCreator`）会在 handler 之前多查一次 DB，
+  现有测试的 mock 数组必须在最前面插入 middleware 的查询结果，否则 callIndex 错位导致
+  403/400/404 语义漂移。重构中间件后必须同步更新所有相关测试的 mock 序列
 
 ## Product Boundary: AI Runtime Policy
 
