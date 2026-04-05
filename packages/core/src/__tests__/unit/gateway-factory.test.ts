@@ -65,12 +65,12 @@ describe('createGateway', () => {
     // User-supplied headers pass through.
     expect(headers?.['X-LLM-Base-URL']).toBe('https://api.minimax.io/anthropic');
     // Third-party Anthropic-compat endpoints trigger browser-CORS-friendly
-    // overrides: Bearer auth + null-deletion of x-api-key, anthropic-version,
-    // and all x-stainless-* telemetry headers.
+    // overrides: Bearer auth + null-deletion of x-api-key and anthropic-version.
+    // x-stainless-* headers are stripped by the custom fetch wrapper at request
+    // time (denylist via regex), not via defaultHeaders null values.
     expect(headers?.Authorization).toBe('Bearer sk-test');
     expect(headers?.['x-api-key']).toBeNull();
     expect(headers?.['anthropic-version']).toBeNull();
-    expect(headers?.['X-Stainless-OS']).toBeNull();
   });
 
   it('does not inject browser-compat headers for Anthropic official endpoint', () => {

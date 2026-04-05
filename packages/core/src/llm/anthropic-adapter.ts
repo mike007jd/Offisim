@@ -82,25 +82,36 @@ function mapMessages(messages: readonly LlmMessage[]): Anthropic.MessageParam[] 
 // Third-party Anthropic-compatible endpoints (MiniMax, etc.) typically do not
 // whitelist the Stainless SDK telemetry headers, `x-api-key`, or
 // `anthropic-version` in their CORS allow-list, so browser calls would fail
-// at the CORS preflight stage. Override those headers using the `null` delete
-// semantics baked into `@anthropic-ai/sdk`'s header merger and authenticate
-// via `Authorization: Bearer` instead — which MiniMax and most compat
-// vendors accept, and which is a universally CORS-safe header name.
+// at the CORS preflight stage. We apply two layers:
+// 1. `defaultHeaders` with null-delete semantics for the known non-CORS-safe
+//    headers (`x-api-key`, `anthropic-version`, browser-access flag) and use
+//    `Authorization: Bearer` for auth instead.
+// 2. A custom `fetch` wrapper that strips any header matching `/^x-stainless-/i`
+//    right before the request fires. This denylist approach is future-proof:
+//    if the SDK adds new x-stainless-* telemetry headers in a later version
+//    they are automatically removed, rather than silently leaking and breaking
+//    CORS preflight.
 function buildBrowserCompatHeaders(apiKey: string): Record<string, string | null> {
   return {
     Authorization: `Bearer ${apiKey}`,
     'x-api-key': null,
     'anthropic-version': null,
     'anthropic-dangerous-direct-browser-access': null,
-    'X-Stainless-OS': null,
-    'X-Stainless-Arch': null,
-    'X-Stainless-Lang': null,
-    'X-Stainless-Package-Version': null,
-    'X-Stainless-Runtime': null,
-    'X-Stainless-Runtime-Version': null,
-    'X-Stainless-Retry-Count': null,
-    'X-Stainless-Timeout': null,
-    'X-Stainless-Helper-Method': null,
+  };
+}
+
+function createCorsCleanFetch(): typeof globalThis.fetch {
+  return (input, init) => {
+    if (init?.headers) {
+      const headers = new Headers(init.headers as HeadersInit);
+      const toDelete: string[] = [];
+      headers.forEach((_value, key) => {
+        if (/^x-stainless-/i.test(key)) toDelete.push(key);
+      });
+      for (const key of toDelete) headers.delete(key);
+      return globalThis.fetch(input, { ...init, headers });
+    }
+    return globalThis.fetch(input, init);
   };
 }
 
@@ -108,7 +119,12 @@ function isThirdPartyAnthropicEndpoint(baseURL: string | undefined): boolean {
   if (!baseURL) return false;
   try {
     return !new URL(baseURL).host.endsWith('api.anthropic.com');
-  } catch {
+  } catch (e) {
+    console.warn(
+      '[AnthropicAdapter] Could not parse baseURL for third-party detection:',
+      baseURL,
+      e,
+    );
     return false;
   }
 }
@@ -118,9 +134,8 @@ export class AnthropicAdapter implements LlmGateway {
   private retryConfig: RetryConfig;
 
   constructor(apiKey: string, options?: AnthropicAdapterOptions) {
-    const browserCompatHeaders = isThirdPartyAnthropicEndpoint(options?.baseURL)
-      ? buildBrowserCompatHeaders(apiKey)
-      : undefined;
+    const isThirdParty = isThirdPartyAnthropicEndpoint(options?.baseURL);
+    const browserCompatHeaders = isThirdParty ? buildBrowserCompatHeaders(apiKey) : undefined;
     const mergedHeaders =
       browserCompatHeaders || options?.defaultHeaders
         ? { ...browserCompatHeaders, ...options?.defaultHeaders }
@@ -134,6 +149,10 @@ export class AnthropicAdapter implements LlmGateway {
       // exported type is `Record<string, string>`.
       defaultHeaders: mergedHeaders as Record<string, string> | undefined,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
+      // Strip x-stainless-* telemetry headers at fetch time for third-party
+      // compat endpoints. Denylist approach — future SDK telemetry headers
+      // are auto-removed without maintaining an explicit null list.
+      ...(isThirdParty ? { fetch: createCorsCleanFetch() } : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
   }
@@ -205,7 +224,7 @@ export class AnthropicAdapter implements LlmGateway {
         { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
       );
 
-      const self = this;
+      const mapErr = this.mapError.bind(this);
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
         try {
           const streamToolCalls: Map<number, { id: string; name: string; jsonChunks: string[] }> =
@@ -259,7 +278,7 @@ export class AnthropicAdapter implements LlmGateway {
             usage: { inputTokens, outputTokens },
           };
         } catch (error: unknown) {
-          throw self.mapError(error);
+          throw mapErr(error);
         }
       }
 
