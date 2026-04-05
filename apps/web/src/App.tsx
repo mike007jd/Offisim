@@ -301,6 +301,7 @@ export function App({ onCompanySwitch }: AppProps) {
     dashboardOpen,
     employeeEditor,
     kanbanOpen,
+    marketplaceListingId,
     selectedEmployeeId,
     settingsOpen,
     shortcutHelpOpen,

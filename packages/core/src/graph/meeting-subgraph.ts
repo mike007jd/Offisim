@@ -128,7 +128,10 @@ export async function participantTurnNode(
   if (!employee) {
     // Participant was deleted mid-meeting — skip to next participant gracefully
     logger.warn(`Meeting participant ${currentParticipantId} not found — skipping turn`);
-    const nextIndex = turnState.participantIndex + 1;
+    if (turnState.participantIds.length === 0) {
+      return { pendingAssignments: [] };
+    }
+    const nextIndex = (turnState.participantIndex + 1) % turnState.participantIds.length;
     const nextTurn: MeetingTurnState = { ...turnState, participantIndex: nextIndex };
     return {
       pendingAssignments: [

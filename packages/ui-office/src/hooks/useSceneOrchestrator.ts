@@ -102,9 +102,18 @@ function getWorkstationPos(
   return [center[0] + offset[0], 0, center[2] + offset[2]];
 }
 
-let restSlotCounter = 0;
-function getRestPos(registry: SeatRegistry | null, zones: readonly Zone[]): [number, number, number] {
-  const idx = restSlotCounter++;
+function getRestSlotKey(companyId: string): string {
+  return `${companyId}::__rest__`;
+}
+
+function getRestPos(
+  companyId: string,
+  registry: SeatRegistry | null,
+  zones: readonly Zone[],
+): [number, number, number] {
+  const key = getRestSlotKey(companyId);
+  const idx = zoneSlotCounters.get(key) ?? 0;
+  zoneSlotCounters.set(key, idx + 1);
   if (registry) {
     return [...registry.getRestSeat(zones, idx)];
   }
@@ -300,14 +309,14 @@ function getNextSlot(zoneId: string): number {
 
 function resetSlotCounters() {
   zoneSlotCounters.clear();
-  restSlotCounter = 0;
 }
 
 /** Clean up module-level state for a company (call on unmount / company switch). */
 export function clearCompanyState(companyId: string): void {
   companyHandles.delete(companyId);
-  zoneSlotCounters.delete(companyId);
-  restSlotCounter = 0;
+  for (const key of zoneSlotCounters.keys()) {
+    if (key.startsWith(companyId)) zoneSlotCounters.delete(key);
+  }
 }
 
 // ── Hook ────────────────────────────────────────────────────────
@@ -517,7 +526,7 @@ export function useSceneOrchestrator({
               }));
               for (const empId of dispatchedIds) {
                 const h = getMovementHandles(companyIdRef.current).get(empId);
-                h?.moveTo(getRestPos(registryRef.current, zonesRef.current), 4);
+                h?.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 4);
               }
               // After 3s, ceremony is fully done
               safeTimeout(() => {
@@ -553,7 +562,7 @@ export function useSceneOrchestrator({
           const handles = getMovementHandles(companyIdRef.current);
           for (const [, handle] of handles) {
             handle.stop();
-            handle.moveTo(getRestPos(registryRef.current, zonesRef.current), 5); // quick return to rest first
+            handle.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 5); // quick return to rest first
           }
           hasActivePlan = false;
           assignedWorkPositionsRef.current.clear();
@@ -632,7 +641,7 @@ export function useSceneOrchestrator({
             for (const id of allIds) {
               if (!prev.dispatchedIds.has(id)) {
                 const handle = getMovementHandles(companyIdRef.current).get(id);
-                handle?.moveTo(getRestPos(registryRef.current, zonesRef.current), 4);
+                handle?.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 4);
               }
             }
             return {

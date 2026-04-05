@@ -240,9 +240,9 @@ export class OrchestrationService {
     }
     this.threadQueueDepth.set(threadId, depth + 1);
 
-    // Create AbortController for this execution and register it
+    // Create AbortController for this execution (registered after acquiring the lock
+    // so abortExecution() always targets the *running* request, not a queued one)
     const abort = new AbortController();
-    this.currentAborts.set(threadId, abort);
 
     // Serialize concurrent calls on the same threadId
     const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
@@ -253,6 +253,7 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
+      this.currentAborts.set(threadId, abort);
       return await this._executeInner({ ...input, threadId, signal: abort.signal });
     } finally {
       release?.();

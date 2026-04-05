@@ -53,7 +53,12 @@ export class SopSyncService {
     }
 
     const remoteJson = JSON.stringify(remote);
-    const normalizedExisting = JSON.stringify(JSON.parse(existing.definition_json));
+    let normalizedExisting: string;
+    try {
+      normalizedExisting = JSON.stringify(JSON.parse(existing.definition_json));
+    } catch {
+      return { updated: false, error: 'Corrupted local SOP definition_json' };
+    }
     if (remoteJson === normalizedExisting) {
       await this.sopTemplateRepo.update(sopTemplateId, {
         last_synced_at: new Date().toISOString(),

@@ -90,16 +90,12 @@ export function resolveZoneForRole(role: RoleSlug, zones: readonly Zone[]): Zone
 
 /**
  * Resolve which zone an employee belongs to.
- * Priority: persisted workstationId (if it maps to a valid zone) → role-based fallback.
+ * Uses role-based matching via `resolveZoneForRole()`.
  * Replaces the duplicated logic in Office2DView and Office3DView.
  */
 export function resolveEmployeeZone(
   agent: { role: RoleSlug; workstationId?: string | null },
   zones: readonly Zone[],
 ): string {
-  if (agent.workstationId) {
-    const validIds = new Set(zones.filter((z) => z.deskSlots > 0).map((z) => z.zoneId));
-    if (validIds.has(agent.workstationId)) return agent.workstationId;
-  }
   return resolveZoneForRole(agent.role, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
 }

@@ -254,8 +254,18 @@ export function computeFloorPlan(
     const row2Y = row1Y + finalRow1Height + (finalRow1Height > 0 ? opts.zonePadding : 0);
     let row2CursorX = opts.margin;
 
-    for (const z of row2Zones) {
-      const zoneWidth = Math.max(MIN_UTILITY_WIDTH, row2ZoneWidth);
+    // Clamp then scale if total exceeds available width
+    let row2Widths = row2Zones.map(() => Math.max(MIN_UTILITY_WIDTH, row2ZoneWidth));
+    const row2TotalGap = Math.max(0, row2Zones.length - 1) * opts.zonePadding;
+    const row2TotalClamped = row2Widths.reduce((s, w) => s + w, 0) + row2TotalGap;
+    if (row2TotalClamped > floorContentWidth) {
+      const scale = (floorContentWidth - row2TotalGap) / row2Widths.reduce((s, w) => s + w, 0);
+      row2Widths = row2Widths.map((w) => w * scale);
+    }
+
+    for (let i = 0; i < row2Zones.length; i++) {
+      const z = row2Zones[i]!;
+      const zoneWidth = row2Widths[i]!;
       result.push({
         zoneId: z.zoneId,
         type: z.type as ZoneBounds['type'],
@@ -309,10 +319,21 @@ export function computeFloorPlan(
       const totalGap = (row3Zones.length - 1) * opts.zonePadding;
       const availableWidth = floorContentWidth - totalGap;
 
-      let row3CursorX = opts.margin;
-      for (const z of row3Zones) {
+      // Clamp then scale if total exceeds available width
+      let row3Widths = row3Zones.map((z) => {
         const fraction = z.type === 'meeting_room' ? meetingFraction : 1 - meetingFraction;
-        const zoneWidth = Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
+        return Math.max(MIN_UTILITY_WIDTH, availableWidth * fraction);
+      });
+      const row3TotalClamped = row3Widths.reduce((s, w) => s + w, 0);
+      if (row3TotalClamped > availableWidth) {
+        const scale = availableWidth / row3TotalClamped;
+        row3Widths = row3Widths.map((w) => w * scale);
+      }
+
+      let row3CursorX = opts.margin;
+      for (let i = 0; i < row3Zones.length; i++) {
+        const z = row3Zones[i]!;
+        const zoneWidth = row3Widths[i]!;
 
         result.push({
           zoneId: z.zoneId,

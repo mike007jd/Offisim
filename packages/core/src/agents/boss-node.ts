@@ -226,6 +226,7 @@ export async function bossNode(
     const validSopIds = new Set(sopTemplates.map((s) => s.sop_template_id));
     if (!decision.sopTemplateId || !validSopIds.has(decision.sopTemplateId)) {
       route = 'delegate_manager';
+      decision.sopTemplateId = undefined;
     }
   }
 
