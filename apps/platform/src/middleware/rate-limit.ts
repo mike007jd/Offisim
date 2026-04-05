@@ -70,10 +70,9 @@ function getClientKey(c: { req: { header: (name: string) => string | undefined }
     const ip = parts[idx];
     if (ip) return ip;
   }
-  const realIp = c.req.header('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
+  // X-Real-IP is equally client-spoofable — only trust it when a proxy is
+  // known to set it. For now, fall back to a shared key rather than trusting
+  // an unverified header that lets attackers rotate buckets.
   // Fallback — in production this should always have a proxy header
   return 'unknown';
 }

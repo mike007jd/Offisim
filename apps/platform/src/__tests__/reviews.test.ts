@@ -130,7 +130,7 @@ describe('Reviews Route', () => {
 
     it('returns 404 for non-existent listing', async () => {
       const mockDb = createMockDb([
-        [], // listing lookup returns empty
+        [], // listing + creators JOIN returns empty
       ]);
       const app = createApp(mockDb, USER_ID);
 
@@ -143,10 +143,26 @@ describe('Reviews Route', () => {
       expect(res.status).toBe(404);
     });
 
+    it('blocks self-review with 403', async () => {
+      const mockDb = createMockDb([
+        // listing lookup returns listing whose creator's user_id matches the reviewer
+        [{ listing_id: LISTING_ID, user_id: USER_ID }],
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request('/v1/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: LISTING_ID, rating: 5 }),
+      });
+
+      expect(res.status).toBe(403);
+    });
+
     it('creates a new review (201)', async () => {
       const mockDb = createMockDb([
-        // 1. listing exists check
-        [{ listing_id: LISTING_ID }],
+        // 1. listing + creator check (different user_id = not self-review)
+        [{ listing_id: LISTING_ID, user_id: 'other-creator-id' }],
         // 2. existing review check (none found)
         [],
         // 3. insert returns new review
@@ -180,8 +196,8 @@ describe('Reviews Route', () => {
       const updatedReview = { ...fakeNewReview, rating: 5, updated_at: new Date('2026-03-10') };
 
       const mockDb = createMockDb([
-        // 1. listing exists check
-        [{ listing_id: LISTING_ID }],
+        // 1. listing + creator check (different user_id = not self-review)
+        [{ listing_id: LISTING_ID, user_id: 'other-creator-id' }],
         // 2. existing review check (found)
         [existingReview],
         // 3. update returns updated review

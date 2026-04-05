@@ -88,6 +88,36 @@ describe('Rate Limit Middleware', () => {
     expect(resB.status).toBe(200);
   });
 
+  it('uses rightmost IP from X-Forwarded-For (trusted proxy)', async () => {
+    const app = createApp(1, 1 / 60);
+
+    // Two requests with different leftmost (client-controlled) IP but same
+    // rightmost (proxy-written) IP should share the same bucket
+    const res1 = await app.request('/test', {
+      headers: { 'X-Forwarded-For': '1.1.1.1, 10.0.0.1' },
+    });
+    expect(res1.status).toBe(200);
+
+    const res2 = await app.request('/test', {
+      headers: { 'X-Forwarded-For': '2.2.2.2, 10.0.0.1' },
+    });
+    expect(res2.status).toBe(429);
+  });
+
+  it('does not trust X-Real-IP (client-spoofable)', async () => {
+    const app = createApp(1, 1 / 60);
+
+    // First request without any proxy header
+    const res1 = await app.request('/test');
+    expect(res1.status).toBe(200);
+
+    // Second request with a spoofed X-Real-IP should share the 'unknown' bucket
+    const res2 = await app.request('/test', {
+      headers: { 'X-Real-IP': '9.9.9.9' },
+    });
+    expect(res2.status).toBe(429);
+  });
+
   it('refills tokens over time', async () => {
     const app = createApp(1, 1000); // Very high refill rate for testing
 

@@ -209,7 +209,7 @@ export async function createTauriRuntime(
   const userMemoryService = new UserMemoryService(
     userPrefRepo,
     gateway,
-    'gpt-4o-mini',
+    runtimePolicy.modelPolicy.default.model,
     systemCaller,
   );
   const packService = new AgentContextPackService({

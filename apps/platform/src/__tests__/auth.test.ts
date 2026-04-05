@@ -67,6 +67,43 @@ describe('Auth Middleware', () => {
     expect(body.userId).toBe('user-ok');
   });
 
+  it('requireAuth returns AUTH_LINK_CONFLICT 401 when conflict flag is set', async () => {
+    const { requireAuth } = await import('../middleware/auth.js');
+
+    const app = new Hono<PlatformEnv>();
+    app.use('*', async (c, next) => {
+      c.set('db', {} as MockDb);
+      c.set('authLinkConflict', true);
+      await next();
+    });
+    app.get('/protected', requireAuth, (c) => {
+      return c.json({ ok: true });
+    });
+
+    const res = await app.request('/protected');
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as JsonBody;
+    assertDefined(body.error, 'Expected error response');
+    expect(body.error.code).toBe('AUTH_LINK_CONFLICT');
+  });
+
+  it('public route proceeds anonymously when authLinkConflict is set', async () => {
+    const app = new Hono<PlatformEnv>();
+    app.use('*', async (c, next) => {
+      c.set('db', {} as MockDb);
+      c.set('authLinkConflict', true);
+      await next();
+    });
+    app.get('/public', (c) => {
+      return c.json({ userId: c.get('userId') ?? null });
+    });
+
+    const res = await app.request('/public');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as JsonBody;
+    expect(body.userId).toBeNull();
+  });
+
   it('unauthenticated request proceeds without userId', async () => {
     // Without optionalAuth extracting anything, userId should be undefined
     const app = new Hono<PlatformEnv>();
