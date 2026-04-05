@@ -61,10 +61,15 @@ describe('SeatRegistry', () => {
 
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.instanceId).toBe('ws1');
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.isFallback).toBe(false);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[0]).toBeCloseTo(5, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[2]).toBeCloseTo(9.4, 5);
   });
 
@@ -85,8 +90,11 @@ describe('SeatRegistry', () => {
 
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[0]).toBeCloseTo(6.4, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[2]).toBeCloseTo(8, 5);
   });
 
@@ -102,13 +110,21 @@ describe('SeatRegistry', () => {
     }
 
     // SEAT_OFFSETS = [[-0.8,0,-1.6],[0.8,0,-1.6],[-0.8,0,1.6],[0.8,0,1.6]]
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[0]!.position[0]).toBeCloseTo(10 - 0.8, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[0]!.position[2]).toBeCloseTo(20 - 1.6, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[1]!.position[0]).toBeCloseTo(10 + 0.8, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[1]!.position[2]).toBeCloseTo(20 - 1.6, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[2]!.position[0]).toBeCloseTo(10 - 0.8, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[2]!.position[2]).toBeCloseTo(20 + 1.6, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[3]!.position[0]).toBeCloseTo(10 + 0.8, 5);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[3]!.position[2]).toBeCloseTo(20 + 1.6, 5);
   });
 
@@ -132,6 +148,7 @@ describe('SeatRegistry', () => {
     expect(seat0).not.toBeNull();
     expect(seat5).not.toBeNull();
     // index 5 % 4 === 1 → second seat (a fallback)
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat5!.position).toEqual(allSeats[1]!.position);
   });
 
@@ -151,12 +168,17 @@ describe('SeatRegistry', () => {
     expect(seats.length).toBe(4);
 
     // First seat is the real prefab seat
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[0]!.isFallback).toBe(false);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[0]!.instanceId).toBe('ws1');
 
     // Remaining 3 are fallback
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[1]!.isFallback).toBe(true);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[2]!.isFallback).toBe(true);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seats[3]!.isFallback).toBe(true);
 
     // All 4 positions must be distinct (no stacking)

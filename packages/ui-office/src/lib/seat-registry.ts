@@ -47,6 +47,7 @@ export class SeatRegistry {
       if (!seats.has(inst.zone_id)) {
         seats.set(inst.zone_id, []);
       }
+      // biome-ignore lint/style/noNonNullAssertion: Map.set guarantees entry exists
       const zoneSeats = seats.get(inst.zone_id)!;
 
       if (spec.capacity === 1) {
@@ -79,6 +80,7 @@ export class SeatRegistry {
       if (zone.deskSlots <= 0) continue;
 
       if (!seats.has(zone.zoneId)) seats.set(zone.zoneId, []);
+      // biome-ignore lint/style/noNonNullAssertion: Map.set guarantees entry exists
       const zoneSeats = seats.get(zone.zoneId)!;
       const needed = zone.deskSlots - zoneSeats.length;
       if (needed <= 0) continue;
@@ -87,6 +89,7 @@ export class SeatRegistry {
       for (let i = 0; i < needed; i++) {
         const offsetIdx = (base + i) % SEAT_OFFSETS.length;
         const rowShift = Math.floor((base + i) / SEAT_OFFSETS.length) * 2;
+        // biome-ignore lint/style/noNonNullAssertion: modulo index guarantees valid access
         const off = SEAT_OFFSETS[offsetIdx]!;
         zoneSeats.push({
           position: [zone.cx + off[0], 0, zone.cz + off[2] + rowShift],
@@ -103,6 +106,7 @@ export class SeatRegistry {
   getSeat(zoneId: string, slotIndex: number): SeatEntry | null {
     const zoneSeats = this.seats.get(zoneId);
     if (!zoneSeats || zoneSeats.length === 0) return null;
+    // biome-ignore lint/style/noNonNullAssertion: modulo index guarantees valid access
     return zoneSeats[slotIndex % zoneSeats.length]!;
   }
 

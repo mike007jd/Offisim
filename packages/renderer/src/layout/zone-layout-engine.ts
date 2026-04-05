@@ -270,7 +270,9 @@ export function computeFloorPlan(
     );
 
     for (let i = 0; i < row2Zones.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: loop index i guarantees valid array access
       const z = row2Zones[i]!;
+      // biome-ignore lint/style/noNonNullAssertion: loop index i guarantees valid array access
       const zoneWidth = row2Widths[i]!;
       result.push({
         zoneId: z.zoneId,
@@ -336,7 +338,9 @@ export function computeFloorPlan(
 
       let row3CursorX = opts.margin;
       for (let i = 0; i < row3Zones.length; i++) {
+        // biome-ignore lint/style/noNonNullAssertion: loop index i guarantees valid array access
         const z = row3Zones[i]!;
+        // biome-ignore lint/style/noNonNullAssertion: loop index i guarantees valid array access
         const zoneWidth = row3Widths[i]!;
 
         result.push({

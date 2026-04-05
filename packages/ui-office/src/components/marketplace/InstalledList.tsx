@@ -188,6 +188,7 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
                 <Button
                   type="button"
                   size="sm"
+                  // biome-ignore lint/style/noNonNullAssertion: prior null check guarantees defined
                   onClick={() => onStartInstall(item.origin_listing_id!, update.latestVersion)}
                 >
                   <UploadCloud className="h-3.5 w-3.5" />

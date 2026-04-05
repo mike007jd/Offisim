@@ -64,6 +64,7 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
           stroke="currentColor"
           strokeWidth={1.5}
         >
+          <title>No active plan</title>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"

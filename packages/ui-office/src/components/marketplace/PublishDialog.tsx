@@ -170,6 +170,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     }
   }, [employees, open, selectedCompany, selectedSourceId, sops, sourceKind]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers — reset status when any form field changes
   useEffect(() => {
     setStatus(null);
   }, [

@@ -24,12 +24,14 @@ test.describe('UI Audit: Layout & Sidebar', () => {
     const leftPanel = page.locator('[class*="border border-white"]').first();
     const leftBox = await leftPanel.boundingBox();
     expect(leftBox).toBeTruthy();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(leftBox!.width).toBeGreaterThan(200);
 
     // Right panel should also be 280px wide
     const rightPanel = page.locator('[class*="border border-white"]').last();
     const rightBox = await rightPanel.boundingBox();
     expect(rightBox).toBeTruthy();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(rightBox!.width).toBeGreaterThan(200);
   });
 
@@ -40,7 +42,9 @@ test.describe('UI Audit: Layout & Sidebar', () => {
     const leftBox = await leftHandle.boundingBox();
     expect(leftBox).toBeTruthy();
     // Should be roughly vertically centered (within middle 40% of viewport)
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     const viewportHeight = page.viewportSize()!.height;
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     const leftCenter = leftBox!.y + leftBox!.height / 2;
     expect(leftCenter).toBeGreaterThan(viewportHeight * 0.3);
     expect(leftCenter).toBeLessThan(viewportHeight * 0.7);
@@ -105,6 +109,7 @@ test.describe('UI Audit: Header & Status Bar', () => {
     // Should have minimum height of 40px
     const box = await statusBar.boundingBox();
     expect(box).toBeTruthy();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(box!.height).toBeGreaterThanOrEqual(36);
   });
 
@@ -126,7 +131,7 @@ test.describe('UI Audit: Chat Drawer', () => {
 
   test('chat drawer is visible between sidebars', async ({ page }) => {
     // Look for the chat input placeholder
-    const chatInput = page.getByPlaceholder('Send a message...');
+    const _chatInput = page.getByPlaceholder('Send a message...');
     // It may or may not be visible depending on drawer state
     // But the drawer container should exist
     const drawerContainer = page.locator('.pointer-events-auto').locator('..').first();

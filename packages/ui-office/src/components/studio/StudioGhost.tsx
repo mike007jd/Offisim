@@ -76,7 +76,9 @@ function checkOverlap(
       : {
           cx: inst.position[0],
           cz: inst.position[2],
+          // biome-ignore lint/style/noNonNullAssertion: early continue guarantees def or instSpec is defined
           halfW: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[0] * 0.9,
+          // biome-ignore lint/style/noNonNullAssertion: early continue guarantees def or instSpec is defined
           halfD: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[1] * 0.9,
         };
 

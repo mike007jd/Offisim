@@ -97,7 +97,9 @@ export function useSopRuntimeState(sopTemplateId?: string): SopRuntimeStepState[
       }),
     );
 
-    return () => offs.forEach((off) => off());
+    return () => {
+      for (const off of offs) off();
+    };
   }, [eventBus, sopTemplateId]);
 
   return steps;

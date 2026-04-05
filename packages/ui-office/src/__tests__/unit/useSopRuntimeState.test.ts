@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock EventBus
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
 type Handler = (event: any) => void;
 const handlers = new Map<string, Handler[]>();
 
@@ -28,6 +29,7 @@ function mockOn(prefix: string, handler: Handler) {
   };
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
 function emit(type: string, payload: any) {
   for (const [prefix, list] of handlers) {
     if (type.startsWith(prefix)) {
@@ -115,7 +117,9 @@ describe('useSopRuntimeState', () => {
       } satisfies PlanStepStartedPayload);
     });
 
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(result.current![0].status).toBe('active');
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(result.current![1].status).toBe('pending');
   });
 
@@ -139,6 +143,7 @@ describe('useSopRuntimeState', () => {
       } satisfies PlanStepCompletedPayload);
     });
 
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(result.current![0].status).toBe('completed');
   });
 
@@ -161,6 +166,7 @@ describe('useSopRuntimeState', () => {
       emit('plan.completed', { planId: 'p1', totalSteps: 2 } satisfies PlanCompletedPayload);
     });
 
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(result.current!.every((s) => s.status === 'completed')).toBe(true);
   });
 });

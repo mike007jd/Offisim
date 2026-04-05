@@ -95,7 +95,9 @@ describe('getSpatialSpec', () => {
   it('returns spec for workstation-standard with capacity 1', () => {
     const spec = getSpatialSpec('workstation-standard');
     expect(spec).toBeDefined();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(spec!.capacity).toBe(1);
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(spec!.footprint.halfW).toBeCloseTo(1.2);
   });
 
@@ -106,6 +108,7 @@ describe('getSpatialSpec', () => {
   it('returns spec for meeting-table-4 with capacity 4', () => {
     const spec = getSpatialSpec('meeting-table-4');
     expect(spec).toBeDefined();
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(spec!.capacity).toBe(4);
   });
 });

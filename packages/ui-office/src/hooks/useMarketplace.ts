@@ -50,6 +50,7 @@ export function useMarketplace(): UseMarketplaceResult {
     return () => window.clearTimeout(timer);
   }, [query]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken is an intentional trigger for manual refresh via refresh()
   useEffect(() => {
     let cancelled = false;
 
@@ -83,9 +84,10 @@ export function useMarketplace(): UseMarketplaceResult {
           setTotal(0);
         }
       } finally {
-        if (cancelled) return;
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     }
 

@@ -125,7 +125,7 @@ try {
         const text = await btn.innerText();
         console.log(`  按钮 ${i + 1}: "${text.substring(0, 50)}"`);
       }
-    } catch (e) {}
+    } catch (_e) {}
   }
 
   console.log('\n步骤 11: 测试面板切换');

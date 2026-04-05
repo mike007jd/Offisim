@@ -161,6 +161,7 @@ export function MarketplaceDetailOverlay({
                 type="button"
                 disabled={!detail || !canInstall}
                 onClick={() =>
+                  // biome-ignore lint/style/noNonNullAssertion: disabled prop guards detail is non-null
                   onInstall(detail!.listing_id, selectedVersion || detail!.latest_version)
                 }
               >

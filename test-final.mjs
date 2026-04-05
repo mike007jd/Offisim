@@ -134,7 +134,7 @@ try {
           fullPage: true,
         });
       }
-    } catch (e) {}
+    } catch (_e) {}
   }
 
   console.log('\n【测试 7】测试响应式 - 窄屏');

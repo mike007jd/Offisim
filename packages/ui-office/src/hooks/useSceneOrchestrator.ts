@@ -355,6 +355,7 @@ export function useSceneOrchestrator({
   zonesRef.current = zones;
   const registryRef = useRef<SeatRegistry | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: zones in deps triggers rebuild; zonesRef.current reads latest value
   useEffect(() => {
     registryRef.current = SeatRegistry.build(prefabInstances ?? [], zonesRef.current);
   }, [prefabInstances, zones]);

@@ -190,22 +190,22 @@ try {
 
 console.log('\n=== 网络请求汇总 ===');
 console.log(`总请求数: ${networkRequests.length}`);
-networkRequests.forEach((req) => {
+for (const req of networkRequests) {
   console.log(`  ${req.status} - ${req.url().substring(0, 100)}`);
-});
+}
 
 console.log('\n=== 网络错误 ===');
 if (networkErrors.length === 0) {
   console.log('无网络错误');
 } else {
-  networkErrors.forEach((err) => console.log(`  ${err}`));
+  for (const err of networkErrors) console.log(`  ${err}`);
 }
 
 console.log('\n=== 控制台错误 ===');
 if (pageErrors.length === 0) {
   console.log('无页面错误');
 } else {
-  pageErrors.forEach((err) => console.log(`  ${err}`));
+  for (const err of pageErrors) console.log(`  ${err}`);
 }
 
 await browser.close();

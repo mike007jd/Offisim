@@ -56,7 +56,7 @@ interface SopCompactCardProps {
 function SopCompactCard({ sop, onOpen, onRun, onDelete, onSync }: SopCompactCardProps) {
   const runtimeState = useSopRuntimeState(sop.sopTemplateId);
   const [confirming, setConfirming] = useState(false);
-  const isActive = runtimeState !== null && runtimeState.some((s) => s.status === 'active');
+  const isActive = runtimeState?.some((s) => s.status === 'active') ?? false;
 
   const handleDelete = useCallback(() => {
     if (!confirming) {

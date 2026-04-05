@@ -283,7 +283,7 @@ export function StudioPage(props: StudioPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [mode, companyId, repos]);
+  }, [companyId, repos]);
 
   // -- Save flow --------------------------------------------------------------
 

@@ -82,6 +82,15 @@ const PANEL_SHADOW_GLOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130
 
 /* ── Main layout ── */
 
+function readPanel(key: string): boolean {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved === null ? true : saved === 'true';
+  } catch {
+    return true;
+  }
+}
+
 export function AppLayout({
   header,
   agentPanel,
@@ -93,15 +102,6 @@ export function AppLayout({
 }: AppLayoutProps) {
   const initNarrow =
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false;
-
-  const readPanel = (key: string): boolean => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved === null ? true : saved === 'true';
-    } catch {
-      return true;
-    }
-  };
 
   const [isNarrow, setIsNarrow] = useState(initNarrow);
   const [leftOpen, setLeftOpen] = useState(() =>

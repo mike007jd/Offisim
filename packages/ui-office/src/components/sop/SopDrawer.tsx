@@ -47,9 +47,10 @@ export function SopDrawer({
 
   // When SOP updates (sop.* event triggers useSops refresh → new definitionJson),
   // clear the adjusting state
+  // biome-ignore lint/correctness/useExhaustiveDependencies: definitionJson is an intentional trigger — reset adjusting when SOP definition changes; adjusting is read but not a trigger
   useEffect(() => {
     if (adjusting) setAdjusting(false);
-  }, [definitionJson]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [definitionJson]);
 
   // Click a step card → prefill NL context
   const handleStepClick = useCallback(

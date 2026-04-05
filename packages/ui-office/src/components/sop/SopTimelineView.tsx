@@ -94,7 +94,8 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
     const cards = containerRef.current.querySelectorAll<HTMLElement>('[data-step-id]');
     const parentRect = containerRef.current.getBoundingClientRect();
     const rects: CardRect[] = [];
-    cards.forEach((el) => {
+    for (const el of Array.from(cards)) {
+      // biome-ignore lint/style/noNonNullAssertion: array access within bounds
       const stepId = el.getAttribute('data-step-id')!;
       const r = el.getBoundingClientRect();
       rects.push({
@@ -104,11 +105,12 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
         width: r.width,
         height: r.height,
       });
-    });
+    }
     setCardRects(rects);
     setContainerSize({ w: parentRect.width, h: parentRect.height });
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: definition is an intentional trigger — re-measure card positions when SOP structure changes
   useEffect(() => {
     measureCards();
   }, [measureCards, definition]);

@@ -23,6 +23,7 @@ const LINEAR_SOP: SopDefinition = {
     {
       step_id: 's1',
       label: 'Research',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'researcher' as any,
       instruction: '',
       dependencies: [],
@@ -31,6 +32,7 @@ const LINEAR_SOP: SopDefinition = {
     {
       step_id: 's2',
       label: 'Write',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'writer' as any,
       instruction: '',
       dependencies: ['s1'],
@@ -39,6 +41,7 @@ const LINEAR_SOP: SopDefinition = {
     {
       step_id: 's3',
       label: 'Review',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'manager' as any,
       instruction: '',
       dependencies: ['s2'],
@@ -56,6 +59,7 @@ const PARALLEL_SOP: SopDefinition = {
     {
       step_id: 's1',
       label: 'Research',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'researcher' as any,
       instruction: '',
       dependencies: [],
@@ -64,6 +68,7 @@ const PARALLEL_SOP: SopDefinition = {
     {
       step_id: 's2',
       label: 'Design',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'designer' as any,
       instruction: '',
       dependencies: [],
@@ -72,6 +77,7 @@ const PARALLEL_SOP: SopDefinition = {
     {
       step_id: 's3',
       label: 'Merge',
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
       role_slug: 'manager' as any,
       instruction: '',
       dependencies: ['s1', 's2'],

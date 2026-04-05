@@ -15,6 +15,7 @@ function makeNodeSummaryRepo(
   return {
     listByThread: async (_threadId: string, _opts?: { limit?: number }) => summaries,
     create: async (row: unknown) => row,
+    // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
   } as any;
 }
 
@@ -50,6 +51,7 @@ function makeLlmCallContext(systemContent = 'You are a helpful assistant.'): Llm
       model: 'test-model',
     },
     extras: {},
+    // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
   } as any;
 }
 
@@ -227,6 +229,7 @@ describe('NodeContextMiddleware with context pack', () => {
       runtimeCtx: { threadId: 'thread-1', companyId: 'co-1' },
       meta: { nodeName: 'boss', provider: 'test', model: 'test' },
       extras: {},
+      // biome-ignore lint/suspicious/noExplicitAny: mock type cast in test fixture
     } as any;
 
     const middleware = new NodeContextMiddleware(
