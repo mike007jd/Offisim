@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { injectProvider, waitForRuntime } from './helpers/setup';
+import { clearAllTestState, seedTestCompanyAndProvider, waitForRuntime } from './helpers/setup';
 
 test.describe('Smoke: Install Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await injectProvider(page);
+    await clearAllTestState(page);
+    await seedTestCompanyAndProvider(page);
     await waitForRuntime(page);
   });
 

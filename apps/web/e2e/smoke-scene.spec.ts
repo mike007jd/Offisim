@@ -1,26 +1,32 @@
 import { expect, test } from '@playwright/test';
 import { getEmployeeCount, isCanvasRendered } from './helpers/scene-bridge';
-import { injectProvider, openChat, sendChat, waitForRuntime } from './helpers/setup';
+import {
+  SEEDED_EMPLOYEE_IDS,
+  clearAllTestState,
+  openChat,
+  seedTestCompanyAndProvider,
+  sendChat,
+  waitForGraphNodeEntered,
+  waitForRuntime,
+} from './helpers/setup';
 
 test.describe('Smoke: Scene Rendering', () => {
   test.beforeEach(async ({ page }) => {
-    await injectProvider(page);
+    await clearAllTestState(page);
+    await seedTestCompanyAndProvider(page);
     await waitForRuntime(page);
   });
 
-  test('PixiJS canvas renders with 3 default employees', async ({ page }) => {
-    // Canvas should be in the DOM
+  test('canvas renders with seeded employees', async ({ page }) => {
     await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
-
-    // Debug bridge should report 3 employees
     const count = await getEmployeeCount(page);
-    expect(count).toBe(3);
+    expect(count).toBe(SEEDED_EMPLOYEE_IDS.length);
   });
 
   test('canvas element has non-zero dimensions', async ({ page }) => {
     await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
 
-    // Give PixiJS a moment to render
+    // Give the renderer a moment to draw.
     await page.waitForTimeout(1000);
 
     const rendered = await isCanvasRendered(page);
@@ -28,33 +34,11 @@ test.describe('Smoke: Scene Rendering', () => {
   });
 
   test('scene reacts to graph events during chat execution', async ({ page }) => {
+    // `graph.node.entered` is emitted by the core graph for every node that
+    // runs, and SceneManager uses it to drive employee visual state transitions.
     await openChat(page);
-
-    // Subscribe to graph.node.entered before sending message.
-    // This event is emitted by the core graph for every node that runs,
-    // and SceneManager uses it to drive employee visual state transitions.
-    const nodeEntered = page.evaluate(() => {
-      return new Promise<boolean>((resolve) => {
-        // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
-        const bus = (window as any).__OFFISIM_DEBUG__?.eventBus;
-        if (!bus) {
-          resolve(false);
-          return;
-        }
-        const unsub = bus.on('graph.node.entered', () => {
-          unsub();
-          resolve(true);
-        });
-        // Timeout fallback
-        setTimeout(() => {
-          unsub();
-          resolve(false);
-        }, 55_000);
-      });
-    });
-
+    const nodeEntered = waitForGraphNodeEntered(page);
     await sendChat(page, 'Write a haiku about code.');
-    const didEnter = await nodeEntered;
-    expect(didEnter).toBe(true);
+    expect(await nodeEntered).toBe(true);
   });
 });

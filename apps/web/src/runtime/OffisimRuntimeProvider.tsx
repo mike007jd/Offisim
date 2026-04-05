@@ -32,7 +32,10 @@ import {
 } from '@offisim/ui-office';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
-import { loadBrowserRuntimeBootstrapState } from '../lib/browser-runtime-storage';
+import {
+  loadBrowserRuntimeBootstrapState,
+  loadBrowserRuntimeSnapshot,
+} from '../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { initializeRuntimeBundle } from './initialize-runtime';
 import { getInteractionFollowUp } from './interaction-follow-up';
@@ -688,7 +691,10 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     // Expose debug bridge in dev mode (E2E smoke tests).
     // Always set — even before runtime is ready — so tests can access the
     // EventBus for subscription-based assertions during async init.
-    // Preserve existing getSceneState if SceneManager already mounted it.
+    // `getSceneState` reads the persisted memory-repos snapshot filtered by
+    // the active company. Persistence debounces writes every 300ms / 5s so
+    // this stays in sync with live runtime state. Preserve any getSceneState
+    // a downstream component (e.g. SceneManager) may have registered first.
     if (import.meta.env.DEV) {
       const existingGetSceneState = window.__OFFISIM_DEBUG__?.getSceneState;
       window.__OFFISIM_DEBUG__ = {
@@ -697,10 +703,14 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         installService: runtime?.installService ?? null,
         getSceneState:
           existingGetSceneState ??
-          (() => ({
-            employeeCount: 0,
-            employeeIds: [] as string[],
-          })),
+          (() => {
+            const snapshot = loadBrowserRuntimeSnapshot();
+            const employees = (snapshot?.employees ?? []).filter((e) => e.company_id === companyId);
+            return {
+              employeeCount: employees.length,
+              employeeIds: employees.map((e) => e.employee_id),
+            };
+          }),
       };
     }
 

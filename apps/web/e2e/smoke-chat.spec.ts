@@ -1,15 +1,18 @@
 import { expect, test } from '@playwright/test';
 import {
-  injectProvider,
+  clearAllTestState,
   openChat,
+  seedTestCompanyAndProvider,
   sendChat,
+  waitForGraphNodeEntered,
   waitForResponse,
   waitForRuntime,
 } from './helpers/setup';
 
 test.describe('Smoke: Chat Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await injectProvider(page);
+    await clearAllTestState(page);
+    await seedTestCompanyAndProvider(page);
     await waitForRuntime(page);
   });
 
@@ -24,10 +27,8 @@ test.describe('Smoke: Chat Flow', () => {
 
   test('EventLog shows graph node events after chat', async ({ page }) => {
     await openChat(page);
+    const nodeEntered = waitForGraphNodeEntered(page);
     await sendChat(page, 'Say hello in one sentence.');
-
-    // EventLog should show events even before the full response finishes.
-    // graph.node.entered is emitted as soon as the first node starts.
-    await expect(page.getByText('No events yet')).not.toBeVisible({ timeout: 55_000 });
+    expect(await nodeEntered).toBe(true);
   });
 });

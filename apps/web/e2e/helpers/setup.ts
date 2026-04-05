@@ -5,6 +5,12 @@ const STORAGE_KEY = 'offisim-provider-config';
 const RUNTIME_SNAPSHOT_KEY = 'offisim:browser-runtime-snapshot:v1';
 const ACTIVE_COMPANY_KEY = 'offisim:active-company';
 const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
+const PANEL_LEFT_KEY = 'offisim.panel.left';
+const PANEL_RIGHT_KEY = 'offisim.panel.right';
+
+// Employee IDs written by seedTestCompanyAndProvider — exported so specs that
+// assert on the seeded roster (e.g. smoke-scene) stay in sync with the seed.
+export const SEEDED_EMPLOYEE_IDS = ['e-mgr-1', 'e-writer-1'] as const;
 
 export interface TestProviderConfig {
   provider: 'anthropic';
@@ -80,7 +86,7 @@ export async function seedTestCompanyAndProvider(
     ],
     employees: [
       {
-        employee_id: 'e-mgr-1',
+        employee_id: SEEDED_EMPLOYEE_IDS[0],
         company_id: companyId,
         source_asset_id: null,
         source_package_id: null,
@@ -94,7 +100,7 @@ export async function seedTestCompanyAndProvider(
         updated_at: now,
       },
       {
-        employee_id: 'e-writer-1',
+        employee_id: SEEDED_EMPLOYEE_IDS[1],
         company_id: companyId,
         source_asset_id: null,
         source_package_id: null,
@@ -142,6 +148,8 @@ export async function clearAllTestState(page: Page): Promise<void> {
         RUNTIME_SNAPSHOT_KEY,
         ACTIVE_COMPANY_KEY,
         EVENT_HISTORY_KEY,
+        PANEL_LEFT_KEY,
+        PANEL_RIGHT_KEY,
       ],
     },
   );
@@ -205,4 +213,28 @@ export async function waitForResponse(page: Page, timeout = 45_000): Promise<str
   const responseBubble = page.locator('[data-role="assistant"]').last();
   const text = await responseBubble.textContent();
   return text ?? '';
+}
+
+// Subscribes to the runtime EventBus via the debug bridge and resolves `true`
+// the first time `graph.node.entered` fires, or `false` on timeout. Subscribe
+// before triggering the action that should emit the event to avoid races.
+export function waitForGraphNodeEntered(page: Page, timeout = 55_000): Promise<boolean> {
+  return page.evaluate((timeoutMs) => {
+    return new Promise<boolean>((resolve) => {
+      // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
+      const bus = (window as any).__OFFISIM_DEBUG__?.eventBus;
+      if (!bus) {
+        resolve(false);
+        return;
+      }
+      const unsub = bus.on('graph.node.entered', () => {
+        unsub();
+        resolve(true);
+      });
+      setTimeout(() => {
+        unsub();
+        resolve(false);
+      }, timeoutMs);
+    });
+  }, timeout);
 }

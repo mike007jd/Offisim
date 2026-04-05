@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { injectProvider, waitForRuntime } from './helpers/setup';
+import { clearAllTestState, seedTestCompanyAndProvider, waitForRuntime } from './helpers/setup';
 
 test.describe('Smoke: Settings Dialog', () => {
   test.beforeEach(async ({ page }) => {
-    await injectProvider(page);
+    await clearAllTestState(page);
+    await seedTestCompanyAndProvider(page);
     await waitForRuntime(page);
   });
 
@@ -15,8 +16,9 @@ test.describe('Smoke: Settings Dialog', () => {
     // Dialog should be visible with title
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-    // LLM Provider tab should be active by default
-    await expect(page.getByPlaceholder('sk-...')).toBeVisible();
+    // LLM Provider tab should be active by default.
+    // Use `model-name` placeholder — the apiKey placeholder flips to
+    // 'Stored securely on this device' when a key is already seeded.
     await expect(page.getByPlaceholder('model-name')).toBeVisible();
   });
 
@@ -29,11 +31,11 @@ test.describe('Smoke: Settings Dialog', () => {
     await page.getByRole('tab', { name: /MCP Servers/i }).click();
 
     // LLM fields should be hidden now
-    await expect(page.getByPlaceholder('sk-...')).not.toBeVisible();
+    await expect(page.getByPlaceholder('model-name')).not.toBeVisible();
 
     // Switch back to LLM Provider
     await page.getByRole('tab', { name: /LLM Provider/i }).click();
-    await expect(page.getByPlaceholder('sk-...')).toBeVisible();
+    await expect(page.getByPlaceholder('model-name')).toBeVisible();
   });
 
   test('saves provider config to localStorage', async ({ page }) => {
