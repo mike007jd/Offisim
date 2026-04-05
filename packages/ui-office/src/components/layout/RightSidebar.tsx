@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
-import { Bell, Book, Columns3, Database, LayoutDashboard, Store, Terminal } from 'lucide-react';
+import { Bell, Book, Columns3, Database, GitBranch, LayoutDashboard, Store, Terminal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { EventLog } from '../events/EventLog';
@@ -42,6 +42,7 @@ export function RightSidebar({
 
   const tabs = [
     { id: 'tasks', icon: Terminal, label: 'Tasks' },
+    { id: 'sops', icon: GitBranch, label: 'SOPs' },
     { id: 'outputs', icon: LayoutDashboard, label: 'Outputs' },
     { id: 'events', icon: Bell, label: 'Events' },
     { id: 'server-room', icon: Database, label: 'Server' },
@@ -76,12 +77,9 @@ export function RightSidebar({
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
         <TabsContent value="tasks" className="mt-0">
           <TaskDashboard agents={agents} />
-          <details open className="border-t border-white/5">
-            <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2 text-[10px] font-medium text-slate-400 hover:text-slate-300 select-none">
-              <span className="flex-1">Saved SOPs</span>
-            </summary>
-            <SopPanel />
-          </details>
+        </TabsContent>
+        <TabsContent value="sops" className="mt-0">
+          <SopPanel />
         </TabsContent>
         <TabsContent value="outputs" className="mt-0">
           <PitchHall activeThreadId={activeThreadId} />

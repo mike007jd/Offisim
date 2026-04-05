@@ -239,7 +239,7 @@ export async function tryBuildSopPlan(
   companyId: string,
   intentText: string,
   allEmployees: EmployeeRow[],
-): Promise<LlmPlan | null> {
+): Promise<{ plan: LlmPlan; sopTemplateId: string } | null> {
   const templates = await repos.sopTemplates.findByCompany(companyId);
   if (templates.length === 0) return null;
 
@@ -261,7 +261,7 @@ export async function tryBuildSopPlan(
   const batches = sopService.getExecutionOrder(sopDef);
   if (batches.length === 0) return null;
 
-  return sopBatchesToLlmPlan(sopDef, batches, allEmployees);
+  return { plan: sopBatchesToLlmPlan(sopDef, batches, allEmployees), sopTemplateId: matched.sop_template_id };
 }
 
 export async function pmPlannerNode(
@@ -320,6 +320,7 @@ export async function pmPlannerNode(
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
 
   let plan: LlmPlan | null = reviewedPlan;
+  let resolvedSopTemplateId: string | undefined;
 
   // Explicit SOP selection takes priority over substring matching
   if (directive.sopTemplateId && !planRevisionNote) {
@@ -333,6 +334,7 @@ export async function pmPlannerNode(
           const batches = sopService.getExecutionOrder(sopDef);
           if (batches.length > 0) {
             plan = sopBatchesToLlmPlan(sopDef, batches, allEnabled);
+            resolvedSopTemplateId = directive.sopTemplateId;
           }
         }
       } catch {
@@ -343,7 +345,11 @@ export async function pmPlannerNode(
 
   // Fall back to substring matching if no explicit SOP
   if (!plan && !planRevisionNote) {
-    plan = await tryBuildSopPlan(repos, eventBus, companyId, directive.intent, allEnabled);
+    const sopResult = await tryBuildSopPlan(repos, eventBus, companyId, directive.intent, allEnabled);
+    if (sopResult) {
+      plan = sopResult.plan;
+      resolvedSopTemplateId = sopResult.sopTemplateId;
+    }
   }
 
   // --- Fallback to LLM planning if no SOP matched ---
@@ -530,6 +536,7 @@ export async function pmPlannerNode(
           };
         }),
       })),
+      resolvedSopTemplateId,
     ),
   );
 

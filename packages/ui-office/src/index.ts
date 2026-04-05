@@ -79,6 +79,8 @@ export * from './components/scene/useScene.js';
 export * from './components/server-room/ServerRoom.js';
 export * from './components/settings/McpConfigPanel.js';
 export * from './components/settings/provider-presets.js';
+export * from './components/sop/SopTimelineView.js';
+export * from './components/sop/SopStepCard.js';
 
 // Hooks
 export * from './hooks/use-reduced-motion.js';
@@ -109,6 +111,7 @@ export * from './hooks/useProjects.js';
 export * from './hooks/usePublish.js';
 export * from './hooks/useRegistryClient.js';
 export * from './hooks/useMarketplace.js';
+export * from './hooks/useSopRuntimeState.js';
 
 // Lib
 export * from './lib/env.js';

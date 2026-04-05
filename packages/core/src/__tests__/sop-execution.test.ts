@@ -354,7 +354,7 @@ describe('tryBuildSopPlan', () => {
 
     const employees = [makeResearcher(), makeWriter(), makeReviewer()];
 
-    const plan = await tryBuildSopPlan(
+    const result = await tryBuildSopPlan(
       repos,
       eventBus,
       TEST_COMPANY_ID,
@@ -362,9 +362,10 @@ describe('tryBuildSopPlan', () => {
       employees,
     );
 
-    expect(plan).not.toBeNull();
-    expect(plan?.steps).toHaveLength(3);
-    expect(plan?.summary).toContain('Content Pipeline');
+    expect(result).not.toBeNull();
+    expect(result?.plan.steps).toHaveLength(3);
+    expect(result?.plan.summary).toContain('Content Pipeline');
+    expect(result?.sopTemplateId).toBe('sopt-1');
   });
 
   it('returns null when no SOP matches', async () => {

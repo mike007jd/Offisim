@@ -1,9 +1,12 @@
+import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { SopSyncService } from '@offisim/core/browser';
 import { Button } from '@offisim/ui-core';
-import { ChevronDown, ChevronRight, ClipboardList, Download, Link2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { ClipboardList, Download, ExternalLink, Link2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { SopDrawer } from './SopDrawer';
 import { SopEditorDialog } from './SopEditorDialog';
 import { SopImportDialog } from './SopImportDialog';
 
@@ -21,54 +24,10 @@ function formatDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// SopStepList — expanded step view
+// SopCompactCard — sidebar-width card, click opens drawer
 // ---------------------------------------------------------------------------
 
-interface SopStepListProps {
-  definitionJson: string;
-}
-
-function SopStepList({ definitionJson }: SopStepListProps) {
-  let steps: Array<{ step_id: string; label: string; role_slug: string; dependencies: string[] }> =
-    [];
-  try {
-    const def = JSON.parse(definitionJson) as {
-      steps?: Array<{ step_id: string; label: string; role_slug: string; dependencies: string[] }>;
-    };
-    steps = Array.isArray(def.steps) ? def.steps : [];
-  } catch {
-    // ignore parse error
-  }
-
-  if (steps.length === 0) {
-    return <p className="text-[10px] text-slate-500 italic px-2 pb-1">No steps defined.</p>;
-  }
-
-  return (
-    <ul className="flex flex-col gap-0.5 px-2 pb-1">
-      {steps.map((step, i) => (
-        <li key={step.step_id} className="flex items-start gap-1.5">
-          <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[8px] text-slate-400 font-semibold">
-            {i + 1}
-          </span>
-          <div className="min-w-0">
-            <span className="text-[10px] text-slate-300 leading-tight">{step.label}</span>
-            <span className="text-[10px] text-slate-500 ml-1">({step.role_slug})</span>
-            {step.dependencies.length > 0 && (
-              <div className="text-[10px] text-slate-500">after: {step.dependencies.join(', ')}</div>
-            )}
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SopCard
-// ---------------------------------------------------------------------------
-
-interface SopCardProps {
+interface SopCompactCardProps {
   sop: {
     sopTemplateId: string;
     name: string;
@@ -79,14 +38,16 @@ interface SopCardProps {
     sourceUrl: string | null;
     lastSyncedAt: string | null;
   };
+  onOpen: () => void;
   onRun: (name: string) => void;
   onDelete: (sopTemplateId: string) => void;
   onSync?: (sopTemplateId: string) => void;
 }
 
-function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
-  const [expanded, setExpanded] = useState(false);
+function SopCompactCard({ sop, onOpen, onRun, onDelete, onSync }: SopCompactCardProps) {
+  const runtimeState = useSopRuntimeState(sop.sopTemplateId);
   const [confirming, setConfirming] = useState(false);
+  const isActive = runtimeState !== null && runtimeState.some((s) => s.status === 'active');
 
   const handleDelete = useCallback(() => {
     if (!confirming) {
@@ -97,42 +58,31 @@ function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
     setConfirming(false);
   }, [confirming, onDelete, sop.sopTemplateId]);
 
-  const handleCancelDelete = useCallback(() => {
-    setConfirming(false);
-  }, []);
-
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.03] overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-center gap-1 px-2 pt-2 pb-1">
-        <button
-          type="button"
-          className="flex-1 flex items-start gap-1.5 text-left min-w-0"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-        >
-          <span className="mt-0.5 shrink-0 text-slate-500">
-            {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
-              {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
-              {sop.name}
+    <div className={`rounded-lg border overflow-hidden transition-colors ${isActive ? 'border-blue-500/30 bg-blue-500/[0.04]' : 'border-white/5 bg-white/[0.03]'}`}>
+      {/* Header — click to open drawer */}
+      <button
+        type="button"
+        className="w-full flex items-center gap-1.5 px-2 pt-2 pb-1 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
+        onClick={onOpen}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
+            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />}
+            {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
+            {sop.name}
+          </p>
+          {sop.description && (
+            <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
+              {sop.description}
             </p>
-            {sop.description && (
-              <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
-                {sop.description}
-              </p>
-            )}
-          </div>
-        </button>
+          )}
+        </div>
         <span className="shrink-0 text-[10px] text-slate-500 ml-1">
           {sop.stepCount}s · {formatDate(sop.createdAt)}
         </span>
-      </div>
-
-      {/* Expanded steps */}
-      {expanded && <SopStepList definitionJson={sop.definitionJson} />}
+        <ExternalLink className="w-3 h-3 text-slate-600 shrink-0" />
+      </button>
 
       {/* Actions */}
       <div className="flex items-center gap-1 px-2 pb-2">
@@ -164,7 +114,7 @@ function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
             <button
               type="button"
               className="text-[10px] text-slate-400 hover:text-slate-300 px-1"
-              onClick={handleCancelDelete}
+              onClick={() => setConfirming(false)}
             >
               Cancel
             </button>
@@ -199,10 +149,22 @@ function SopCard({ sop, onRun, onDelete, onSync }: SopCardProps) {
 
 export function SopPanel() {
   const { sops, loading, deleteSop, refreshSops } = useSops();
-  const { sendMessage, repos } = useOffisimRuntime();
+  const { sendMessage, repos, eventBus } = useOffisimRuntime();
   const [editorOpen, setEditorOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [drawerSopId, setDrawerSopId] = useState<string | null>(null);
+
+  const drawerSop = drawerSopId ? sops.find((s) => s.sopTemplateId === drawerSopId) : null;
+
+  // Auto-open drawer when a SOP-based plan starts executing
+  useEffect(() => {
+    return eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
+      if (e.payload.sopTemplateId) {
+        setDrawerSopId(e.payload.sopTemplateId);
+      }
+    });
+  }, [eventBus]);
 
   const handleRun = useCallback(
     (name: string) => {
@@ -289,11 +251,27 @@ export function SopPanel() {
           </button>
         </div>
         {sops.map((sop) => (
-          <SopCard key={sop.sopTemplateId} sop={sop} onRun={handleRun} onDelete={deleteSop} onSync={handleSync} />
+          <SopCompactCard
+            key={sop.sopTemplateId}
+            sop={sop}
+            onOpen={() => setDrawerSopId(sop.sopTemplateId)}
+            onRun={handleRun}
+            onDelete={deleteSop}
+            onSync={handleSync}
+          />
         ))}
       </div>
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={refreshSops} />
       <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refreshSops} />
+      {drawerSop && (
+        <SopDrawer
+          open
+          onClose={() => setDrawerSopId(null)}
+          sopTemplateId={drawerSop.sopTemplateId}
+          sopName={drawerSop.name}
+          definitionJson={drawerSop.definitionJson}
+        />
+      )}
     </>
   );
 }

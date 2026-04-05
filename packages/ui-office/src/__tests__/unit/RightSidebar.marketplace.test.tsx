@@ -39,6 +39,6 @@ describe('RightSidebar marketplace integration', () => {
     );
 
     expect(screen.getByTitle('Market')).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    expect(screen.getAllByRole('tab')).toHaveLength(7);
   });
 });
