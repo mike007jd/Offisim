@@ -263,7 +263,7 @@ describe('Install Full-Flow Integration', () => {
   });
 
   afterEach(() => {
-    InstallService._clearPlanCache();
+    svc.dispose();
   });
 
   // =========================================================================

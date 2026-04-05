@@ -218,7 +218,7 @@ describe('InstallService.importSkill', () => {
   });
 
   afterEach(() => {
-    InstallService._clearPlanCache();
+    svc.dispose();
   });
 
   // -----------------------------------------------------------------------

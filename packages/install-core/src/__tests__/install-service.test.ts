@@ -245,7 +245,7 @@ describe('InstallService', () => {
   });
 
   afterEach(() => {
-    InstallService._clearPlanCache();
+    svc.dispose();
   });
 
   // -----------------------------------------------------------------------

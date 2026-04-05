@@ -345,9 +345,7 @@ export class CompanyTemplateService {
       const employeeIds: string[] = [];
       const createdEmployees: Array<{ role_slug: RoleSlug }> = [];
 
-      // Pre-generate employee IDs using the same UUID strategy as the Drizzle repo.
-      // Note: Drizzle's employees.create() generates its own ID internally.
-      // We capture it via the synchronously-settling promise inside the transaction.
+      // Pre-generate employee IDs and pass them to the repo deterministically.
       for (const emp of template.employees) {
         const empId = crypto.randomUUID();
         employeeIds.push(empId);

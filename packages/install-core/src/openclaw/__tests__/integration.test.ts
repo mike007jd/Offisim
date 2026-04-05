@@ -280,7 +280,7 @@ describe('OpenClaw Skill Import — Integration', () => {
   });
 
   afterEach(() => {
-    InstallService._clearPlanCache();
+    svc.dispose();
   });
 
   // -----------------------------------------------------------------------

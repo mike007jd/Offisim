@@ -78,13 +78,6 @@ export interface SkillImportResult {
 // In-memory plan cache
 // ---------------------------------------------------------------------------
 
-/**
- * After importFile produces a plan, we cache it in memory keyed by txnId.
- * confirmBindings needs the plan to materialize, and storing it in the DB
- * would require serializing the full plan (overkill for MVP).
- */
-const planCache = new Map<string, InstallPlan>();
-
 // ---------------------------------------------------------------------------
 // InstallService
 // ---------------------------------------------------------------------------
@@ -95,6 +88,7 @@ export class InstallService {
   private readonly companyId: string;
   private readonly environment: RuntimeEnvironment;
   private readonly transact: (<T>(fn: () => T) => T) | undefined;
+  private readonly planCache = new Map<string, InstallPlan>();
 
   constructor(deps: InstallServiceDeps) {
     this.repos = deps.repos;
@@ -205,7 +199,7 @@ export class InstallService {
     }
 
     // Cache the plan for confirmBindings
-    planCache.set(installTxnId, plan);
+    this.planCache.set(installTxnId, plan);
 
     return { installTxnId, plan };
   }
@@ -325,7 +319,7 @@ export class InstallService {
     }
 
     // Cache plan for confirmBindings
-    planCache.set(installTxnId, plan);
+    this.planCache.set(installTxnId, plan);
 
     return { installTxnId, plan, skillValidation };
   }
@@ -360,7 +354,7 @@ export class InstallService {
     }
 
     // Retrieve cached plan
-    const plan = planCache.get(installTxnId);
+    const plan = this.planCache.get(installTxnId);
     if (!plan) {
       throw new InstallServiceError(
         'plan_not_found',
@@ -449,7 +443,7 @@ export class InstallService {
     await this.repos.installTransactions.finish(installTxnId, 'installed');
 
     // Clean up cache
-    planCache.delete(installTxnId);
+    this.planCache.delete(installTxnId);
 
     // Emit binding state events for confirmed bindings
     const bindingReqs = plan.bindings;
@@ -529,13 +523,13 @@ export class InstallService {
         'Installation cancelled by user',
       );
       await this.repos.installTransactions.finish(installTxnId, 'failed');
-      planCache.delete(installTxnId);
+      this.planCache.delete(installTxnId);
       return;
     }
 
     await this.transition(installTxnId, txn.state, 'cancelled', txn.target_package_id ?? undefined);
     await this.repos.installTransactions.finish(installTxnId, 'cancelled');
-    planCache.delete(installTxnId);
+    this.planCache.delete(installTxnId);
   }
 
   // -------------------------------------------------------------------------
@@ -642,15 +636,7 @@ export class InstallService {
    * Should be called when the owning runtime is disposed.
    */
   dispose(): void {
-    planCache.clear();
+    this.planCache.clear();
   }
 
-  // -------------------------------------------------------------------------
-  // Static helpers (for testing / external access to plan cache)
-  // -------------------------------------------------------------------------
-
-  /** @internal — clear the plan cache (for testing only). */
-  static _clearPlanCache(): void {
-    planCache.clear();
-  }
 }
