@@ -176,13 +176,13 @@ export interface InstalledPackageRow {
   readonly installed_package_id: string;
   readonly company_id: string;
   readonly package_id: string;
-  readonly package_kind: string;
+  readonly package_kind: AssetKind;
   readonly version: string;
   readonly source_type: InstallSourceType;
   readonly source_ref: string | null;
   readonly manifest_hash: string;
   readonly package_hash: string;
-  readonly install_state: string;
+  readonly install_state: InstallState;
   readonly enabled: number;
   readonly origin_listing_id: string | null;
   readonly origin_package_version_id: string | null;
@@ -194,7 +194,7 @@ export interface InstalledAssetRow {
   readonly installed_asset_id: string;
   readonly installed_package_id: string;
   readonly asset_id: string;
-  readonly asset_kind: string;
+  readonly asset_kind: AssetKind;
   readonly local_instance_id: string | null;
   readonly entrypoint: string | null;
   readonly enabled: number;
@@ -221,6 +221,8 @@ export interface AssetBindingRow {
 
 /** Data needed to create a new employee (from install or UI editor). */
 export interface NewEmployee {
+  /** Optional pre-generated ID. When provided, the repo MUST use it instead of generating its own. */
+  readonly employee_id?: string;
   readonly company_id: string;
   readonly name: string;
   readonly role_slug: string;

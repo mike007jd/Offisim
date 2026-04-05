@@ -312,12 +312,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
 
   const employees: EmployeeRepository = {
     async create(emp: NewEmployee) {
-      const employee_id = crypto.randomUUID();
+      const employee_id = emp.employee_id ?? crypto.randomUUID();
       const ts = now();
       db.insert(schema.employees)
         .values({
-          employee_id,
           ...emp,
+          employee_id,
           created_at: ts,
           updated_at: ts,
         })

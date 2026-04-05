@@ -133,7 +133,7 @@ function createMemoryRepos(): { repos: InstallRepositories; store: MemoryStore }
     },
     employees: {
       create: async (emp) => {
-        const id = globalThis.crypto.randomUUID();
+        const id = emp.employee_id ?? globalThis.crypto.randomUUID();
         store.employees.push({ ...emp, employee_id: id });
         return { employee_id: id };
       },

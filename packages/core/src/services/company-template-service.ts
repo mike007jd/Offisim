@@ -369,25 +369,19 @@ export class CompanyTemplateService {
         : [];
       prefabInstanceIds.push(...prefabInstances.map((instance) => instance.instance_id));
 
-      // Capture actual employee IDs from the Drizzle repo (it generates its own UUID).
-      const capturedEmployeeIds: string[] = [];
-
       this.transact(() => {
-        // Employees
+        // Employees — pass pre-generated IDs so the repo uses them deterministically.
         for (const [i, emp] of template.employees.entries()) {
-          void this.employeeRepo
-            .create({
-              company_id: companyId,
-              source_asset_id: null,
-              source_package_id: null,
-              name: emp.name,
-              role_slug: emp.role_slug,
-              persona_json: emp.persona_json,
-              config_json: emp.config_json,
-            })
-            .then((r) => {
-              capturedEmployeeIds[i] = r.employee_id;
-            });
+          void this.employeeRepo.create({
+            employee_id: employeeIds[i],
+            company_id: companyId,
+            source_asset_id: null,
+            source_package_id: null,
+            name: emp.name,
+            role_slug: emp.role_slug,
+            persona_json: emp.persona_json,
+            config_json: emp.config_json,
+          });
         }
 
         // SOPs
@@ -431,16 +425,15 @@ export class CompanyTemplateService {
         }
       });
 
-      // Emit events after transaction commits (use captured IDs)
-      const finalEmployeeIds = capturedEmployeeIds.length > 0 ? capturedEmployeeIds : employeeIds;
+      // Emit events after transaction commits
       for (const [i, ev] of pendingEvents.entries()) {
         this.eventBus.emit(
-          employeeCreated(companyId, finalEmployeeIds[i] ?? ev.employeeId, ev.name, ev.roleSlug),
+          employeeCreated(companyId, employeeIds[i] ?? ev.employeeId, ev.name, ev.roleSlug),
         );
       }
 
       return {
-        employeeIds: finalEmployeeIds,
+        employeeIds,
         sopTemplateIds,
         layoutId,
         prefabInstanceIds,

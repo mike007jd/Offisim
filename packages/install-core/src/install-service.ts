@@ -264,7 +264,7 @@ export class InstallService {
     const skillValidation = validateSkill(skill, this.environment.environment);
 
     // 4. Synthesize PackageManifest
-    const manifest = skillToManifest(skill);
+    const manifest = skillToManifest(skill, this.environment.schemaVersion);
 
     // 5. Transition: created -> manifest_loaded (skill parse = manifest load)
     await this.transition(installTxnId, 'created', 'manifest_loaded');
@@ -630,6 +630,19 @@ export class InstallService {
     }
 
     await this.repos.installTransactions.finish(txnId, 'failed');
+  }
+
+  // -------------------------------------------------------------------------
+  // Lifecycle
+  // -------------------------------------------------------------------------
+
+  /**
+   * Dispose this service instance — clears the shared plan cache to prevent
+   * memory leaks from abandoned install transactions.
+   * Should be called when the owning runtime is disposed.
+   */
+  dispose(): void {
+    planCache.clear();
   }
 
   // -------------------------------------------------------------------------

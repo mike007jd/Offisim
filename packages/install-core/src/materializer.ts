@@ -199,11 +199,9 @@ export async function materialize(
         installedAssetIds.push(installedAssetId);
 
         if (asset.kind === 'employee') {
-          // Pre-generate the employee ID so we can push it without awaiting.
-          // Drizzle's employee.create() ignores the passed ID and generates its
-          // own via crypto.randomUUID() inside the repo — so we need a different
-          // approach: capture the returned ID from the synchronously-resolving Promise.
+          const employeeId = generateId();
           const empData: NewEmployee = {
+            employee_id: employeeId,
             company_id: companyId,
             name: manifest.package.title,
             role_slug: asset.asset_id,
@@ -212,15 +210,8 @@ export async function materialize(
             persona_json: buildInstalledEmployeePersona(plan),
             config_json: buildInstalledEmployeeConfig(plan),
           };
-          // The Drizzle repo wraps a sync .run() in Promise.resolve().
-          // We capture the result via a synchronously-settled promise chain.
-          let capturedId = '';
-          void repos.employees.create(empData).then((r) => {
-            capturedId = r.employee_id;
-          });
-          // capturedId is now set because the microtask resolved synchronously
-          // (better-sqlite3 never yields to the event loop).
-          employeeIds.push(capturedId);
+          void repos.employees.create(empData);
+          employeeIds.push(employeeId);
         }
       }
 

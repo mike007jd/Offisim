@@ -146,12 +146,20 @@ function createChainableMock(resolveValue: unknown) {
 
 function createMockDb(results: unknown[][]) {
   let callIndex = 0;
-  const handler = {
+  const handler: ProxyHandler<object> = {
     get(_target: unknown, prop: string) {
       if (prop === 'select' || prop === 'insert' || prop === 'update' || prop === 'delete') {
         const idx = callIndex++;
         const resolveValue = results[idx] ?? [];
         return vi.fn(() => createChainableMock(resolveValue));
+      }
+      if (prop === 'transaction') {
+        // Execute the callback with the same proxy so DB calls inside
+        // the transaction consume from the same callIndex sequence.
+        return vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+          const txProxy = new Proxy({}, handler);
+          return fn(txProxy);
+        });
       }
       return vi.fn();
     },

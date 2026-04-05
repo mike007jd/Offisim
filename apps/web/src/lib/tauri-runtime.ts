@@ -313,6 +313,9 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    dispose: () => {
+      installService.dispose();
+    },
   };
 }
 

@@ -1,4 +1,14 @@
-import { boolean, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 // ── 001: Auth and Creators ──
 
@@ -148,19 +158,23 @@ export const reviews = pgTable('reviews', {
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const userLibrary = pgTable('user_library', {
-  user_id: uuid('user_id')
-    .notNull()
-    .references(() => users.user_id),
-  listing_id: uuid('listing_id')
-    .notNull()
-    .references(() => listings.listing_id),
-  package_version_id: uuid('package_version_id').references(
-    () => packageVersions.package_version_id,
-  ),
-  saved_at: timestamp('saved_at').notNull().defaultNow(),
-  install_receipt_id: text('install_receipt_id'),
-});
+export const userLibrary = pgTable(
+  'user_library',
+  {
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id),
+    listing_id: uuid('listing_id')
+      .notNull()
+      .references(() => listings.listing_id),
+    package_version_id: uuid('package_version_id').references(
+      () => packageVersions.package_version_id,
+    ),
+    saved_at: timestamp('saved_at').notNull().defaultNow(),
+    install_receipt_id: text('install_receipt_id'),
+  },
+  (table) => [unique('user_library_user_listing_unique').on(table.user_id, table.listing_id)],
+);
 
 export const installReceipts = pgTable('install_receipts', {
   install_receipt_id: text('install_receipt_id').primaryKey(),

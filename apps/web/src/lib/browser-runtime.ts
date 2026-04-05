@@ -309,6 +309,7 @@ export async function createBrowserRuntime(
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
       persistence.dispose();
+      installService.dispose();
     },
   };
 }

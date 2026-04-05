@@ -98,7 +98,7 @@ function createTransactableRepos(): {
     },
     employees: {
       create: async (emp) => {
-        const employee_id = globalThis.crypto.randomUUID();
+        const employee_id = emp.employee_id ?? globalThis.crypto.randomUUID();
         store.employees.push({ ...emp, employee_id });
         return { employee_id };
       },

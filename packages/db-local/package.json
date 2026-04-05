@@ -17,6 +17,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@offisim/asset-schema": "workspace:*",
+    "@offisim/shared-types": "workspace:*",
     "drizzle-orm": "^0.39.0"
   },
   "devDependencies": {

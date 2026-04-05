@@ -6,6 +6,13 @@
  * definitions, constraints, and indexes.
  */
 
+import type { AssetKind } from '@offisim/asset-schema';
+import type {
+  BindingStatus,
+  BindingType,
+  InstallSourceType,
+  InstallState,
+} from '@offisim/shared-types';
 import { sql } from 'drizzle-orm';
 import {
   index,
@@ -127,11 +134,11 @@ export const installTransactions = sqliteTable(
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
-    source_type: text('source_type').notNull(),
+    source_type: text('source_type').$type<InstallSourceType>().notNull(),
     source_ref: text('source_ref'),
     target_package_id: text('target_package_id'),
     target_version: text('target_version'),
-    state: text('state').notNull(),
+    state: text('state').$type<InstallState>().notNull(),
     error_code: text('error_code'),
     error_detail: text('error_detail'),
     descriptor_json: text('descriptor_json'),
@@ -150,13 +157,13 @@ export const installedPackages = sqliteTable(
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
     package_id: text('package_id').notNull(),
-    package_kind: text('package_kind').notNull(),
+    package_kind: text('package_kind').$type<AssetKind>().notNull(),
     version: text('version').notNull(),
-    source_type: text('source_type').notNull(),
+    source_type: text('source_type').$type<InstallSourceType>().notNull(),
     source_ref: text('source_ref'),
     manifest_hash: text('manifest_hash').notNull(),
     package_hash: text('package_hash').notNull(),
-    install_state: text('install_state').notNull(),
+    install_state: text('install_state').$type<InstallState>().notNull(),
     enabled: integer('enabled').notNull().default(1),
     origin_listing_id: text('origin_listing_id'),
     origin_package_version_id: text('origin_package_version_id'),
@@ -183,7 +190,7 @@ export const installedAssets = sqliteTable(
         onDelete: 'cascade',
       }),
     asset_id: text('asset_id').notNull(),
-    asset_kind: text('asset_kind').notNull(),
+    asset_kind: text('asset_kind').$type<AssetKind>().notNull(),
     local_instance_id: text('local_instance_id'),
     entrypoint: text('entrypoint'),
     enabled: integer('enabled').notNull().default(1),
@@ -208,10 +215,10 @@ export const assetBindings = sqliteTable(
     install_txn_id: text('install_txn_id').references(() => installTransactions.install_txn_id, {
       onDelete: 'cascade',
     }),
-    binding_type: text('binding_type').notNull(),
+    binding_type: text('binding_type').$type<BindingType>().notNull(),
     binding_key: text('binding_key').notNull(),
     binding_value_json: text('binding_value_json'),
-    status: text('status').notNull().default('pending'),
+    status: text('status').$type<BindingStatus>().notNull().default('pending'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
@@ -551,7 +558,7 @@ export const mcpAuditLog = sqliteTable(
     audit_id: text('audit_id').primaryKey(),
     thread_id: text('thread_id')
       .notNull()
-      .references(() => graphThreads.thread_id),
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
     task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
       onDelete: 'set null',
     }),

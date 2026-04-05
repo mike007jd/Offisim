@@ -318,7 +318,7 @@ export function createMemoryRepositories(
 
   const employees: EmployeeRepository = {
     async create(emp: NewEmployee) {
-      const employee_id = crypto.randomUUID();
+      const employee_id = emp.employee_id ?? crypto.randomUUID();
       const ts = now();
       const row: EmployeeRow = {
         employee_id,

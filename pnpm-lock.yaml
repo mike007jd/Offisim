@@ -293,6 +293,12 @@ importers:
 
   packages/db-local:
     dependencies:
+      '@offisim/asset-schema':
+        specifier: workspace:*
+        version: link:../asset-schema
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       drizzle-orm:
         specifier: ^0.39.0
         version: 0.39.3(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(kysely@0.28.12)(postgres@3.4.8)

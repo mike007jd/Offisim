@@ -54,9 +54,10 @@ const ZERO_HASH = '0'.repeat(64);
  * - integrity = zero hashes (synthetic, no archive)
  *
  * @param skill - Parsed OpenClaw skill.
+ * @param schemaVersion - Runtime schema version string (e.g. "2026-03").
  * @returns Synthetic PackageManifest.
  */
-export function skillToManifest(skill: ParsedSkill): PackageManifest {
+export function skillToManifest(skill: ParsedSkill, schemaVersion: string): PackageManifest {
   const slug = slugify(skill.name);
   const packageId = `openclaw-skill-${slug}`;
   const assetId = `skill-${slug}`;
@@ -75,7 +76,7 @@ export function skillToManifest(skill: ParsedSkill): PackageManifest {
     },
     compatibility: {
       runtime_range: '>=0.1.0 <2.0.0',
-      schema_version: '2026-03',
+      schema_version: schemaVersion,
       supported_environments: ['desktop', 'web_limited'],
     },
     requirements: {
