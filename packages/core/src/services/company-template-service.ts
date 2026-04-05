@@ -1,9 +1,4 @@
-import type {
-  PrefabInstanceRow,
-  RoleSlug,
-  Zone,
-  ZoneArchetype,
-} from '@offisim/shared-types';
+import type { PrefabInstanceRow, RoleSlug, Zone, ZoneArchetype } from '@offisim/shared-types';
 import {
   REQUIRED_ARCHETYPES,
   SYSTEM_ZONE_TEMPLATES,
@@ -230,7 +225,13 @@ function buildPrefabInstances(
   now: string,
 ): PrefabInstanceRow[] {
   return [
-    ...buildWorkspacePrefabInstances(companyId, createdEmployees, zoneTemplates, availableZones, now),
+    ...buildWorkspacePrefabInstances(
+      companyId,
+      createdEmployees,
+      zoneTemplates,
+      availableZones,
+      now,
+    ),
     ...buildDefaultPrefabInstances(companyId, zoneTemplates, now),
   ];
 }
@@ -246,7 +247,9 @@ function validateTemplateZones(template: CompanyTemplate): void {
 
   for (const zoneTemplate of template.zones) {
     if (slugSet.has(zoneTemplate.slug)) {
-      throw new Error(`Template "${template.id}" defines duplicate zone slug "${zoneTemplate.slug}"`);
+      throw new Error(
+        `Template "${template.id}" defines duplicate zone slug "${zoneTemplate.slug}"`,
+      );
     }
     slugSet.add(zoneTemplate.slug);
 
@@ -458,9 +461,7 @@ export class CompanyTemplateService {
       createdEmployees.push({ role_slug: emp.role_slug });
 
       // Emit employee.created so SceneManager and UI hooks pick up the new employee
-      this.eventBus.emit(
-        employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug),
-      );
+      this.eventBus.emit(employeeCreated(companyId, result.employee_id, emp.name, emp.role_slug));
     }
 
     // ── Create SOP templates ───────────────────────────────────────

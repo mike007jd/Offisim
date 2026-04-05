@@ -526,7 +526,10 @@ export function useSceneOrchestrator({
               }));
               for (const empId of dispatchedIds) {
                 const h = getMovementHandles(companyIdRef.current).get(empId);
-                h?.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 4);
+                h?.moveTo(
+                  getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
+                  4,
+                );
               }
               // After 3s, ceremony is fully done
               safeTimeout(() => {
@@ -562,7 +565,10 @@ export function useSceneOrchestrator({
           const handles = getMovementHandles(companyIdRef.current);
           for (const [, handle] of handles) {
             handle.stop();
-            handle.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 5); // quick return to rest first
+            handle.moveTo(
+              getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
+              5,
+            ); // quick return to rest first
           }
           hasActivePlan = false;
           assignedWorkPositionsRef.current.clear();
@@ -641,7 +647,10 @@ export function useSceneOrchestrator({
             for (const id of allIds) {
               if (!prev.dispatchedIds.has(id)) {
                 const handle = getMovementHandles(companyIdRef.current).get(id);
-                handle?.moveTo(getRestPos(companyIdRef.current, registryRef.current, zonesRef.current), 4);
+                handle?.moveTo(
+                  getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
+                  4,
+                );
               }
             }
             return {

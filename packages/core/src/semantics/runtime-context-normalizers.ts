@@ -59,9 +59,8 @@ export function normalizeActiveTaskRuns(
 ): AgentContextPackTaskRun[] {
   const sorted = sortByStartedAtDesc(rows);
   const active = sorted.filter((r) => ACTIVE_TASK_STATUSES.has(r.status));
-  const selected = active.length > 0
-    ? active
-    : sorted.filter((r) => r.status === 'completed').slice(0, limit);
+  const selected =
+    active.length > 0 ? active : sorted.filter((r) => r.status === 'completed').slice(0, limit);
   return selected.slice(0, limit).map((r) => ({
     taskRunId: r.task_run_id,
     employeeId: r.employee_id,
@@ -111,7 +110,11 @@ export function deriveRecommendedFocus(
   }
 
   const planned = activeTaskRuns.filter(
-    (t) => t.status === 'planned' || t.status === 'created' || t.status === 'routed' || t.status === 'queued',
+    (t) =>
+      t.status === 'planned' ||
+      t.status === 'created' ||
+      t.status === 'routed' ||
+      t.status === 'queued',
   );
   if (planned.length > 0) {
     return `${planned.length} task${planned.length > 1 ? 's' : ''} planned, awaiting dispatch.`;

@@ -95,7 +95,9 @@ describe('ProjectListPanel', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.getByText('No projects yet — send the boss a task to get started')).toBeInTheDocument();
+    expect(
+      screen.getByText('No projects yet — send the boss a task to get started'),
+    ).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {

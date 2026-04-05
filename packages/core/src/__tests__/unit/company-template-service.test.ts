@@ -115,7 +115,9 @@ describe('CompanyTemplateService.materializeTemplate', () => {
     const instances = await prefabRepo.findByCompany(COMPANY_ID);
     expect(instances.length).toBeGreaterThan(0);
     expect(instances.length).toBe(result.prefabInstanceIds.length);
-    expect(instances.every((instance) => instance.zone_id.startsWith(`${COMPANY_ID}::`))).toBe(true);
+    expect(instances.every((instance) => instance.zone_id.startsWith(`${COMPANY_ID}::`))).toBe(
+      true,
+    );
   });
 
   it('returns empty prefabInstanceIds when prefabRepo is not provided', async () => {
@@ -199,7 +201,13 @@ describe('CompanyTemplateService.materializeTemplate', () => {
   });
 
   it('creates only prefab zone ids that exist in the seeded company zones for every template', async () => {
-    const templateIds = ['rd-company', 'content-studio', 'product-team', 'agency-lite', 'ai-startup'];
+    const templateIds = [
+      'rd-company',
+      'content-studio',
+      'product-team',
+      'agency-lite',
+      'ai-startup',
+    ];
 
     for (const templateId of templateIds) {
       const companyId = `${COMPANY_ID}-${templateId}`;
@@ -225,7 +233,9 @@ describe('CompanyTemplateService.materializeTemplate', () => {
 
     if (!prefabRepo) throw new Error('Expected prefab repo');
     const prefabs = await prefabRepo.findByCompany(companyId);
-    const gpuClusterPrefabs = prefabs.filter((prefab) => prefab.zone_id === `${companyId}::zone-server`);
+    const gpuClusterPrefabs = prefabs.filter(
+      (prefab) => prefab.zone_id === `${companyId}::zone-server`,
+    );
 
     expect(gpuClusterPrefabs).toHaveLength(5);
 

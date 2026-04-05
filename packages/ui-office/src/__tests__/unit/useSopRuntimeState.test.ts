@@ -1,6 +1,11 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import type { RuntimeEvent, PlanCreatedPayload, PlanStepStartedPayload, PlanStepCompletedPayload, PlanCompletedPayload } from '@offisim/shared-types';
+import type {
+  PlanCompletedPayload,
+  PlanCreatedPayload,
+  PlanStepCompletedPayload,
+  PlanStepStartedPayload,
+} from '@offisim/shared-types';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock EventBus
@@ -15,14 +20,27 @@ function mockOn(prefix: string, handler: Handler) {
   handlers.set(prefix, list);
   return () => {
     const l = handlers.get(prefix);
-    if (l) handlers.set(prefix, l.filter((h) => h !== handler));
+    if (l)
+      handlers.set(
+        prefix,
+        l.filter((h) => h !== handler),
+      );
   };
 }
 
 function emit(type: string, payload: any) {
   for (const [prefix, list] of handlers) {
     if (type.startsWith(prefix)) {
-      for (const h of list) h({ type, payload, entityId: '', entityType: '', companyId: '', threadId: '', timestamp: Date.now() });
+      for (const h of list)
+        h({
+          type,
+          payload,
+          entityId: '',
+          entityType: '',
+          companyId: '',
+          threadId: '',
+          timestamp: Date.now(),
+        });
     }
   }
 }
@@ -79,7 +97,9 @@ describe('useSopRuntimeState', () => {
 
     act(() => {
       emit('plan.created', {
-        planId: 'p1', threadId: 't1', summary: 'test',
+        planId: 'p1',
+        threadId: 't1',
+        summary: 'test',
         steps: [
           { stepIndex: 0, description: 's0', tasks: [] },
           { stepIndex: 1, description: 's1', tasks: [] },
@@ -88,7 +108,11 @@ describe('useSopRuntimeState', () => {
     });
 
     act(() => {
-      emit('plan.step.started', { planId: 'p1', stepIndex: 0, taskCount: 1 } satisfies PlanStepStartedPayload);
+      emit('plan.step.started', {
+        planId: 'p1',
+        stepIndex: 0,
+        taskCount: 1,
+      } satisfies PlanStepStartedPayload);
     });
 
     expect(result.current![0].status).toBe('active');
@@ -100,13 +124,19 @@ describe('useSopRuntimeState', () => {
 
     act(() => {
       emit('plan.created', {
-        planId: 'p1', threadId: 't1', summary: 'test',
+        planId: 'p1',
+        threadId: 't1',
+        summary: 'test',
         steps: [{ stepIndex: 0, description: 's0', tasks: [] }],
       } satisfies PlanCreatedPayload);
     });
 
     act(() => {
-      emit('plan.step.completed', { planId: 'p1', stepIndex: 0, outputCount: 1 } satisfies PlanStepCompletedPayload);
+      emit('plan.step.completed', {
+        planId: 'p1',
+        stepIndex: 0,
+        outputCount: 1,
+      } satisfies PlanStepCompletedPayload);
     });
 
     expect(result.current![0].status).toBe('completed');
@@ -117,7 +147,9 @@ describe('useSopRuntimeState', () => {
 
     act(() => {
       emit('plan.created', {
-        planId: 'p1', threadId: 't1', summary: 'test',
+        planId: 'p1',
+        threadId: 't1',
+        summary: 'test',
         steps: [
           { stepIndex: 0, description: 's0', tasks: [] },
           { stepIndex: 1, description: 's1', tasks: [] },

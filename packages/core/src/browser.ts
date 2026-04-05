@@ -148,7 +148,11 @@ export type { ExecutionTrace, ExecutionTraceService } from './services/execution
 export type { ThreadForkService } from './services/thread-fork-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation-service.js';
-export type { CompanyTemplate, CompanyTemplateEmployee, TemplateZoneBlueprint } from './templates/index.js';
+export type {
+  CompanyTemplate,
+  CompanyTemplateEmployee,
+  TemplateZoneBlueprint,
+} from './templates/index.js';
 export type {
   McpServerConfig,
   McpConnection,
@@ -250,7 +254,11 @@ export { WorkstationAssignmentService } from './runtime/workstation-assignment-s
 export { WorkstationToolResolver } from './services/workstation-tool-resolver.js';
 export { NodeSummaryService } from './services/node-summary-service.js';
 export { GitAutoCommitService } from './services/git-auto-commit-service.js';
-export type { GitExec, GitExecResult, GitAutoCommitResult } from './services/git-auto-commit-service.js';
+export type {
+  GitExec,
+  GitExecResult,
+  GitAutoCommitResult,
+} from './services/git-auto-commit-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
 export { InteractionService } from './services/interaction-service.js';
 export { AgentContextPackService } from './services/agent-context-pack-service.js';

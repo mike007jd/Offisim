@@ -1,5 +1,14 @@
 import type { ListingDetail, Review, VersionSummary } from '@offisim/registry-client';
-import { Badge, Button, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
+import {
+  Badge,
+  Button,
+  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@offisim/ui-core';
 import { Download, ExternalLink, Shield, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRegistryClient } from '../../hooks/useRegistryClient.js';
@@ -138,7 +147,10 @@ export function MarketplaceDetailOverlay({
                   </SelectTrigger>
                   <SelectContent>
                     {versions.map((version) => (
-                      <SelectItem key={version.package_version_id ?? version.version} value={version.version}>
+                      <SelectItem
+                        key={version.package_version_id ?? version.version}
+                        value={version.version}
+                      >
                         {version.version}
                       </SelectItem>
                     ))}
@@ -148,12 +160,20 @@ export function MarketplaceDetailOverlay({
               <Button
                 type="button"
                 disabled={!detail || !canInstall}
-                onClick={() => onInstall(detail!.listing_id, selectedVersion || detail!.latest_version)}
+                onClick={() =>
+                  onInstall(detail!.listing_id, selectedVersion || detail!.latest_version)
+                }
               >
                 <Download className="h-4 w-4" />
                 {canInstall ? 'Install' : 'Install not supported'}
               </Button>
-              <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close marketplace detail">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                aria-label="Close marketplace detail"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -162,7 +182,9 @@ export function MarketplaceDetailOverlay({
           <ScrollArea className="flex-1">
             <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-6">
-                {loading ? <p className="text-sm text-slate-500">Loading listing details…</p> : null}
+                {loading ? (
+                  <p className="text-sm text-slate-500">Loading listing details…</p>
+                ) : null}
                 {error ? (
                   <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
                     {error}
@@ -199,12 +221,17 @@ export function MarketplaceDetailOverlay({
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-medium text-slate-100">{version.version}</p>
+                              <p className="text-sm font-medium text-slate-100">
+                                {version.version}
+                              </p>
                               <p className="text-[11px] text-slate-500">
                                 Runtime {version.runtime_range} · Schema {version.schema_version}
                               </p>
                             </div>
-                            <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] uppercase tracking-wide"
+                            >
                               {formatRiskLabel(version.risk_class)}
                             </Badge>
                           </div>
@@ -266,15 +293,21 @@ export function MarketplaceDetailOverlay({
                           <dd>{formatRiskLabel(detail.permissions.risk_class)}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">Filesystem</dt>
+                          <dt className="text-xs uppercase tracking-wide text-slate-500">
+                            Filesystem
+                          </dt>
                           <dd>{detail.permissions.filesystem_scope ?? 'none'}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">Network</dt>
+                          <dt className="text-xs uppercase tracking-wide text-slate-500">
+                            Network
+                          </dt>
                           <dd>{detail.permissions.network_scope ?? 'none'}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">Secrets</dt>
+                          <dt className="text-xs uppercase tracking-wide text-slate-500">
+                            Secrets
+                          </dt>
                           <dd>{detail.permissions.declares_secrets ? 'Declared' : 'None'}</dd>
                         </div>
                       </dl>
@@ -284,7 +317,9 @@ export function MarketplaceDetailOverlay({
                       <h3 className="text-sm font-semibold text-white">Package metadata</h3>
                       <dl className="mt-4 space-y-3 text-sm text-slate-300">
                         <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">Latest version</dt>
+                          <dt className="text-xs uppercase tracking-wide text-slate-500">
+                            Latest version
+                          </dt>
                           <dd>{detail.latest_version}</dd>
                         </div>
                         <div>

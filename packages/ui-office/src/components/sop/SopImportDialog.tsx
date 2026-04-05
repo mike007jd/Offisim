@@ -10,8 +10,8 @@ import {
 } from '@offisim/ui-core';
 import { Download, Link } from 'lucide-react';
 import { useState } from 'react';
-import { useCompany } from '../company/CompanyContext.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useCompany } from '../company/CompanyContext.js';
 
 interface SopImportDialogProps {
   open: boolean;
@@ -28,7 +28,11 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
   const [previewData, setPreviewData] = useState<SopDefinition | null>(null);
 
   const preview = previewData
-    ? { name: previewData.name, description: previewData.description, stepCount: previewData.steps.length }
+    ? {
+        name: previewData.name,
+        description: previewData.description,
+        stepCount: previewData.steps.length,
+      }
     : null;
 
   const handlePreview = async () => {

@@ -168,13 +168,7 @@ export async function materialize(
     return transact((): MaterializeResult => {
       // 1. Create installed_packages row
       const installedPackageId = generateId();
-      const pkgRow = buildInstalledPackageRow(
-        plan,
-        companyId,
-        installedPackageId,
-        now,
-        provenance,
-      );
+      const pkgRow = buildInstalledPackageRow(plan, companyId, installedPackageId, now, provenance);
       void repos.installedPackages.create(pkgRow);
 
       // 2. Create assets and employees

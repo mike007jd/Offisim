@@ -1,9 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  createDevAllProcesses,
-  getTauriBeforeDevConfig,
-} from './dev-config.mjs';
+import test from 'node:test';
+import { createDevAllProcesses, getTauriBeforeDevConfig } from './dev-config.mjs';
 
 test('desktop before-dev config targets the shared web dev server', () => {
   assert.deepEqual(getTauriBeforeDevConfig('desktop'), {

@@ -1,15 +1,14 @@
+import type { SopDefinition } from '@offisim/shared-types';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { SopDefinition } from '@offisim/shared-types';
-import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
 
 vi.mock('../../runtime/offisim-runtime-context.js', () => ({
   useOffisimRuntime: () => ({ eventBus: { on: vi.fn(() => () => {}) } }),
   useOffisimRuntimeStatus: () => ({ isRunning: false }),
 }));
 
-import { SopTimelineView } from '../../components/sop/SopTimelineView.js';
 import { SopStepCard } from '../../components/sop/SopStepCard.js';
+import { SopTimelineView } from '../../components/sop/SopTimelineView.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -21,9 +20,30 @@ const LINEAR_SOP: SopDefinition = {
   description: '',
   created_at: '2026-01-01',
   steps: [
-    { step_id: 's1', label: 'Research', role_slug: 'researcher' as any, instruction: '', dependencies: [], output_key: 'out1' },
-    { step_id: 's2', label: 'Write', role_slug: 'writer' as any, instruction: '', dependencies: ['s1'], output_key: 'out2' },
-    { step_id: 's3', label: 'Review', role_slug: 'manager' as any, instruction: '', dependencies: ['s2'], output_key: 'out3' },
+    {
+      step_id: 's1',
+      label: 'Research',
+      role_slug: 'researcher' as any,
+      instruction: '',
+      dependencies: [],
+      output_key: 'out1',
+    },
+    {
+      step_id: 's2',
+      label: 'Write',
+      role_slug: 'writer' as any,
+      instruction: '',
+      dependencies: ['s1'],
+      output_key: 'out2',
+    },
+    {
+      step_id: 's3',
+      label: 'Review',
+      role_slug: 'manager' as any,
+      instruction: '',
+      dependencies: ['s2'],
+      output_key: 'out3',
+    },
   ],
 };
 
@@ -33,9 +53,30 @@ const PARALLEL_SOP: SopDefinition = {
   description: '',
   created_at: '2026-01-01',
   steps: [
-    { step_id: 's1', label: 'Research', role_slug: 'researcher' as any, instruction: '', dependencies: [], output_key: 'out1' },
-    { step_id: 's2', label: 'Design', role_slug: 'designer' as any, instruction: '', dependencies: [], output_key: 'out2' },
-    { step_id: 's3', label: 'Merge', role_slug: 'manager' as any, instruction: '', dependencies: ['s1', 's2'], output_key: 'out3' },
+    {
+      step_id: 's1',
+      label: 'Research',
+      role_slug: 'researcher' as any,
+      instruction: '',
+      dependencies: [],
+      output_key: 'out1',
+    },
+    {
+      step_id: 's2',
+      label: 'Design',
+      role_slug: 'designer' as any,
+      instruction: '',
+      dependencies: [],
+      output_key: 'out2',
+    },
+    {
+      step_id: 's3',
+      label: 'Merge',
+      role_slug: 'manager' as any,
+      instruction: '',
+      dependencies: ['s1', 's2'],
+      output_key: 'out3',
+    },
   ],
 };
 

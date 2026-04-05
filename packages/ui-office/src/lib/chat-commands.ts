@@ -9,10 +9,7 @@
 
 export type CommandCategory = 'team' | 'workflow' | 'navigate' | 'config' | 'chat';
 
-export const COMMAND_CATEGORIES: Record<
-  CommandCategory,
-  { label: string; badgeClass: string }
-> = {
+export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeClass: string }> = {
   team: { label: 'Team', badgeClass: 'bg-emerald-500/20 text-emerald-400' },
   workflow: { label: 'Workflow', badgeClass: 'bg-blue-500/20 text-blue-400' },
   navigate: { label: 'Navigate', badgeClass: 'bg-amber-500/20 text-amber-400' },

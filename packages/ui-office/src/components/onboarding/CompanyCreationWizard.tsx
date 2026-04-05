@@ -8,8 +8,8 @@ import {
   ROLE_DOT,
   ROLE_LABELS,
   TEMPLATE_META,
-  getTemplateZoneSummary,
   getAvatar,
+  getTemplateZoneSummary,
 } from './company-creation-wizard-data.js';
 import { Office2DPreview } from './company-creation-wizard-preview.js';
 import { ensureCompanyCreationWizardKeyframes } from './company-creation-wizard-styles.js';

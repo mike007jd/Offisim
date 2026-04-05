@@ -70,7 +70,9 @@ export function usePublish(authToken?: string | null): UsePublishResult {
         if (!cancelled) setIsLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [client]);
 
   const submitDraft = useCallback(

@@ -8,9 +8,7 @@ import {
   type OffisimRuntimeValue,
 } from '../../runtime/offisim-runtime-context';
 
-function createRuntimeValue(
-  deleteImpl: () => Promise<void>,
-): OffisimRuntimeValue {
+function createRuntimeValue(deleteImpl: () => Promise<void>): OffisimRuntimeValue {
   return {
     eventBus: {
       emit: vi.fn(),

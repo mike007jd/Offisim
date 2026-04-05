@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, type LucideIcon, LayoutDashboard, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 interface AppLayoutProps {
@@ -31,9 +31,7 @@ function PanelCollapseHandle({
       aria-label={label}
       onClick={onClick}
       className={`absolute top-1/2 -translate-y-1/2 z-30 w-6 h-14 flex items-center justify-center bg-black/80 border border-white/15 hover:bg-blue-500/25 hover:border-blue-500/40 transition-all shadow-lg backdrop-blur-sm group ${
-        side === 'left'
-          ? '-right-3 rounded-r-lg border-l-0'
-          : '-left-3 rounded-l-lg border-r-0'
+        side === 'left' ? '-right-3 rounded-r-lg border-l-0' : '-left-3 rounded-l-lg border-r-0'
       }`}
     >
       <Chevron className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 transition-colors" />
@@ -80,8 +78,7 @@ function CollapsedBar({
 }
 
 const PANEL_SHADOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8)]';
-const PANEL_SHADOW_GLOW =
-  'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]';
+const PANEL_SHADOW_GLOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]';
 
 /* ── Main layout ── */
 
@@ -117,11 +114,15 @@ export function AppLayout({
   // Persist only on explicit user toggle — not on auto-collapse
   const persistLeft = (open: boolean) => {
     setLeftOpen(open);
-    try { localStorage.setItem('offisim.panel.left', String(open)); } catch {}
+    try {
+      localStorage.setItem('offisim.panel.left', String(open));
+    } catch {}
   };
   const persistRight = (open: boolean) => {
     setRightOpen(open);
-    try { localStorage.setItem('offisim.panel.right', String(open)); } catch {}
+    try {
+      localStorage.setItem('offisim.panel.right', String(open));
+    } catch {}
   };
 
   useEffect(() => {

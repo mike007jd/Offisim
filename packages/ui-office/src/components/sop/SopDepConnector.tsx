@@ -43,7 +43,12 @@ function buildPath(from: CardRect, to: CardRect): string {
   return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 }
 
-export function SopDepConnector({ lines, cards, containerWidth, containerHeight }: SopDepConnectorProps) {
+export function SopDepConnector({
+  lines,
+  cards,
+  containerWidth,
+  containerHeight,
+}: SopDepConnectorProps) {
   if (lines.length === 0 || cards.length === 0) return null;
 
   const cardMap = new Map(cards.map((c) => [c.stepId, c]));
@@ -64,12 +69,7 @@ export function SopDepConnector({ lines, cards, containerWidth, containerHeight 
         const key = `${line.fromStepId}-${line.toStepId}`;
         return (
           <g key={key}>
-            <path
-              d={pathD}
-              fill="none"
-              stroke={LINE_COLOR[line.status]}
-              strokeWidth={1.5}
-            />
+            <path d={pathD} fill="none" stroke={LINE_COLOR[line.status]} strokeWidth={1.5} />
             {line.status === 'active' && (
               <>
                 <circle r={2.5} fill={PARTICLE_COLOR.active}>

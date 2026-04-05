@@ -1,7 +1,16 @@
-import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { SopSyncService } from '@offisim/core/browser';
+import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { Button } from '@offisim/ui-core';
-import { ClipboardList, Download, ExternalLink, Link2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ClipboardList,
+  Download,
+  ExternalLink,
+  Link2,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
@@ -59,7 +68,9 @@ function SopCompactCard({ sop, onOpen, onRun, onDelete, onSync }: SopCompactCard
   }, [confirming, onDelete, sop.sopTemplateId]);
 
   return (
-    <div className={`rounded-lg border overflow-hidden transition-colors ${isActive ? 'border-blue-500/30 bg-blue-500/[0.04]' : 'border-white/5 bg-white/[0.03]'}`}>
+    <div
+      className={`rounded-lg border overflow-hidden transition-colors ${isActive ? 'border-blue-500/30 bg-blue-500/[0.04]' : 'border-white/5 bg-white/[0.03]'}`}
+    >
       {/* Header — click to open drawer */}
       <button
         type="button"
@@ -68,7 +79,9 @@ function SopCompactCard({ sop, onOpen, onRun, onDelete, onSync }: SopCompactCard
       >
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
-            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />}
+            {isActive && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+            )}
             {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
             {sop.name}
           </p>

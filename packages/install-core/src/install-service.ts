@@ -408,17 +408,10 @@ export class InstallService {
     // Materialize — pass transact so all writes are atomic in Drizzle environments
     let result: MaterializeResult;
     try {
-      result = await materialize(
-        plan,
-        bindings,
-        this.repos,
-        this.companyId,
-        installTxnId,
-        {
-          provenance,
-          transact: this.transact,
-        },
-      );
+      result = await materialize(plan, bindings, this.repos, this.companyId, installTxnId, {
+        provenance,
+        transact: this.transact,
+      });
     } catch (err) {
       // Materialization failed — DB writes are already atomic via this.transact
       // (passed to materialize at the call above), so no explicit rollback needed.
@@ -643,5 +636,4 @@ export class InstallService {
   dispose(): void {
     this.planCache.clear();
   }
-
 }

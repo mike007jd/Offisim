@@ -473,7 +473,9 @@ export function Office2DPreview({
               stroke={isHighlighted ? (accentHex ?? zone.accent) : zone.accent}
               strokeWidth={isHighlighted ? 2 : isHovered ? 1 : 0.6}
               strokeOpacity={isHighlighted ? 0.7 : isDimmed ? 0.1 : isHovered ? 0.5 : 0.2}
-              strokeDasharray={zone.archetype === 'meeting' || zone.archetype === 'server' ? '3 1.5' : 'none'}
+              strokeDasharray={
+                zone.archetype === 'meeting' || zone.archetype === 'server' ? '3 1.5' : 'none'
+              }
               style={{
                 transition: 'fill-opacity 0.3s, stroke-width 0.3s, stroke-opacity 0.3s',
               }}

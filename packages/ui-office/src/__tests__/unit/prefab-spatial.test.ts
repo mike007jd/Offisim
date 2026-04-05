@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  footprintsOverlap,
+  getSpatialSpec,
   rotateLocalPoint,
   toWorldAnchor,
   toWorldFootprint,
-  footprintsOverlap,
-  getSpatialSpec,
 } from '../../lib/prefab-spatial';
 
 describe('rotateLocalPoint', () => {

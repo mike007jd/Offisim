@@ -152,7 +152,12 @@ export function MeetingPanel({
         </div>
         <div className="flex items-center gap-1.5">
           {duration !== null && (
-            <span className="font-mono text-[10px] text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatDuration(duration)}</span>
+            <span
+              className="font-mono text-[10px] text-slate-500"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {formatDuration(duration)}
+            </span>
           )}
           <Badge variant={statusBadgeVariant}>{status === 'running' ? 'Live' : 'Paused'}</Badge>
         </div>

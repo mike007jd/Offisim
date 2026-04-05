@@ -87,7 +87,9 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
         {activeProjectStatus && (
           <>
             <div className="w-px h-3 bg-white/10" />
-            <span className={`uppercase tracking-[0.15em] font-semibold ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}>
+            <span
+              className={`uppercase tracking-[0.15em] font-semibold ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}
+            >
               {PROJECT_STATUS_STYLE[activeProjectStatus].label}
             </span>
           </>

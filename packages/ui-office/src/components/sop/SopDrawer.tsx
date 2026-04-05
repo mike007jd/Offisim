@@ -13,7 +13,13 @@ interface SopDrawerProps {
   definitionJson: string;
 }
 
-export function SopDrawer({ open, onClose, sopTemplateId, sopName, definitionJson }: SopDrawerProps) {
+export function SopDrawer({
+  open,
+  onClose,
+  sopTemplateId,
+  sopName,
+  definitionJson,
+}: SopDrawerProps) {
   const { sendMessage } = useOffisimRuntime();
   const runtimeState = useSopRuntimeState(sopTemplateId);
   const [nlInput, setNlInput] = useState('');
@@ -46,13 +52,16 @@ export function SopDrawer({ open, onClose, sopTemplateId, sopName, definitionJso
   }, [definitionJson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click a step card → prefill NL context
-  const handleStepClick = useCallback((stepId: string) => {
-    if (!parsed) return;
-    const step = parsed.steps.find((s) => s.step_id === stepId);
-    if (!step) return;
-    setNlInput(`For step "${step.label}" (${step.role_slug}): `);
-    inputRef.current?.focus();
-  }, [parsed]);
+  const handleStepClick = useCallback(
+    (stepId: string) => {
+      if (!parsed) return;
+      const step = parsed.steps.find((s) => s.step_id === stepId);
+      if (!step) return;
+      setNlInput(`For step "${step.label}" (${step.role_slug}): `);
+      inputRef.current?.focus();
+    },
+    [parsed],
+  );
 
   // Send NL modification to chat pipeline
   const handleSend = useCallback(async () => {
@@ -61,9 +70,7 @@ export function SopDrawer({ open, onClose, sopTemplateId, sopName, definitionJso
     setAdjusting(true);
     setNlInput('');
     try {
-      await sendMessage(
-        `Modify the SOP "${sopName}" (template ID: ${sopTemplateId}): ${text}`,
-      );
+      await sendMessage(`Modify the SOP "${sopName}" (template ID: ${sopTemplateId}): ${text}`);
     } catch {
       setAdjusting(false);
     }

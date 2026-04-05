@@ -1,12 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import {
-  Building2,
-  ChevronDown,
-  PenTool,
-  Pencil,
-  Settings,
-  WandSparkles,
-} from 'lucide-react';
+import { Building2, ChevronDown, PenTool, Pencil, Settings, WandSparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 

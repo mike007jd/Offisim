@@ -173,10 +173,11 @@ export function App({ onCompanySwitch }: AppProps) {
     resumeThread,
   } = useOffisimRuntime();
   const activeCompanyName = companies.find((c) => c.company_id === activeCompanyId)?.name;
-  const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } = useProjects({
-    repos,
-    companyId: activeCompanyId ?? '',
-  });
+  const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } =
+    useProjects({
+      repos,
+      companyId: activeCompanyId ?? '',
+    });
   const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const employeeEditor = useEmployeeEditor();
@@ -633,7 +634,12 @@ export function App({ onCompanySwitch }: AppProps) {
                     }
                   />
                 }
-                statusBar={<StatusBar modelName={providerConfig?.model} activeProjectStatus={activeProject?.status ?? null} />}
+                statusBar={
+                  <StatusBar
+                    modelName={providerConfig?.model}
+                    activeProjectStatus={activeProject?.status ?? null}
+                  />
+                }
                 onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>

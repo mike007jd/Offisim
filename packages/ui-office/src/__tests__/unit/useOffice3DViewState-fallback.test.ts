@@ -1,5 +1,5 @@
 import type { RuntimeEvent, TaskStatePayload } from '@offisim/shared-types';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Tests the task.state.changed fallback logic extracted from useOffice3DViewState.
@@ -19,10 +19,7 @@ function simulateFallback(event: RuntimeEvent<TaskStatePayload>): string | null 
   return payload.employeeId ?? null;
 }
 
-function makeTaskStateEvent(
-  next: string,
-  employeeId?: string,
-): RuntimeEvent<TaskStatePayload> {
+function makeTaskStateEvent(next: string, employeeId?: string): RuntimeEvent<TaskStatePayload> {
   return {
     type: 'task.state.changed',
     entityId: 'tr-1',

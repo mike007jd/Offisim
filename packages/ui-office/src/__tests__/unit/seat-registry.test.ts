@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
+import { describe, expect, it } from 'vitest';
 import { SeatRegistry } from '../../lib/seat-registry';
 
 function makeInstance(

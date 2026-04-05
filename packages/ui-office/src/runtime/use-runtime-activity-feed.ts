@@ -2,7 +2,9 @@ import type {
   ConversationCompactCompletedPayload,
   ConversationSynopsisUpdatedPayload,
   DeliverableCreatedPayload,
+  ErrorOccurredPayload,
   ExecutionResumedPayload,
+  GitAutoCommittedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
   HandoffInitiatedPayload,
@@ -24,8 +26,6 @@ import type {
   TaskAssignmentDispatchedPayload,
   ToolExecutionTelemetryPayload,
   WorkspaceStalenessDetectedPayload,
-  ErrorOccurredPayload,
-  GitAutoCommittedPayload,
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeNodeName } from '../lib/agent-display';
@@ -610,30 +610,27 @@ export function useRuntimeActivityFeed(opts?: {
       },
     );
 
-    const offError = eventBus.on(
-      'error.occurred',
-      (event: RuntimeEvent<ErrorOccurredPayload>) => {
-        const payload = event.payload;
-        const nodeName = payload.nodeName ?? 'unknown';
-        const errorCode = payload.errorCode ?? 'error';
-        const message = payload.message ?? `Error in ${humanizeNodeName(nodeName)}`;
-        setBaseHeadline(`Error in ${humanizeNodeName(nodeName)}`);
-        setEntries((prev) =>
-          pushEntry(
-            prev,
-            {
-              id: `error-${event.timestamp}-${errorCode}`,
-              kind: 'system',
-              tone: 'error',
-              label: message,
-              timestamp: event.timestamp,
-              employeeId: payload.employeeId,
-            },
-            maxEntries,
-          ),
-        );
-      },
-    );
+    const offError = eventBus.on('error.occurred', (event: RuntimeEvent<ErrorOccurredPayload>) => {
+      const payload = event.payload;
+      const nodeName = payload.nodeName ?? 'unknown';
+      const errorCode = payload.errorCode ?? 'error';
+      const message = payload.message ?? `Error in ${humanizeNodeName(nodeName)}`;
+      setBaseHeadline(`Error in ${humanizeNodeName(nodeName)}`);
+      setEntries((prev) =>
+        pushEntry(
+          prev,
+          {
+            id: `error-${event.timestamp}-${errorCode}`,
+            kind: 'system',
+            tone: 'error',
+            label: message,
+            timestamp: event.timestamp,
+            employeeId: payload.employeeId,
+          },
+          maxEntries,
+        ),
+      );
+    });
 
     const offDeliverable = eventBus.on(
       'deliverable.created',
@@ -648,9 +645,10 @@ export function useRuntimeActivityFeed(opts?: {
               id: `deliverable-${payload.deliverableId}`,
               kind: 'system',
               tone: 'success',
-              label: empCount > 0
-                ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'})`
-                : `Deliverable ready: "${title}"`,
+              label:
+                empCount > 0
+                  ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'})`
+                  : `Deliverable ready: "${title}"`,
               timestamp: event.timestamp,
             },
             maxEntries,
@@ -690,9 +688,8 @@ export function useRuntimeActivityFeed(opts?: {
               id: `hr-rec-${event.timestamp}`,
               kind: 'system',
               tone: 'info',
-              label: roles.length > 0
-                ? `HR suggests: ${roles.join(', ')}`
-                : 'HR assessment complete',
+              label:
+                roles.length > 0 ? `HR suggests: ${roles.join(', ')}` : 'HR assessment complete',
               timestamp: event.timestamp,
             },
             maxEntries,

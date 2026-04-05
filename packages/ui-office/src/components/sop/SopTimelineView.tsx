@@ -1,7 +1,7 @@
 import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
-import { SopDepConnector, type CardRect, type DepLine } from './SopDepConnector';
+import { type CardRect, type DepLine, SopDepConnector } from './SopDepConnector';
 import { SopStepCard, type SopStepStatus } from './SopStepCard';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,12 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
         let lineStatus: SopStepStatus = 'design';
         if (statusMap) {
           const fromStatus = statusMap.get(fromIdx);
-          lineStatus = fromStatus === 'completed' ? 'completed' : fromStatus === 'active' ? 'active' : 'pending';
+          lineStatus =
+            fromStatus === 'completed'
+              ? 'completed'
+              : fromStatus === 'active'
+                ? 'active'
+                : 'pending';
         }
         result.push({ fromStepId: depId, toStepId: step.step_id, status: lineStatus });
       }
@@ -126,7 +131,9 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
             </span>
             {batch.map((step) => {
               const idx = stepIndexMap.get(step.step_id) ?? 0;
-              const stepStatus: SopStepStatus = statusMap ? (statusMap.get(idx) ?? 'pending') : 'design';
+              const stepStatus: SopStepStatus = statusMap
+                ? (statusMap.get(idx) ?? 'pending')
+                : 'design';
               return (
                 <div key={step.step_id} data-step-id={step.step_id}>
                   <SopStepCard

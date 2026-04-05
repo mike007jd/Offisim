@@ -175,7 +175,10 @@ export interface CompanyRepository {
   update(
     companyId: string,
     fields: Partial<
-      Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'default_model_policy_json'>
+      Pick<
+        CompanyRow,
+        'name' | 'status' | 'template_id' | 'template_label' | 'default_model_policy_json'
+      >
     >,
   ): Promise<void>;
 }
@@ -634,7 +637,10 @@ export interface SopTemplateRow {
 export type NewSopTemplate = Omit<SopTemplateRow, 'created_at' | 'updated_at'>;
 
 export type SopTemplateUpdate = Partial<
-  Pick<SopTemplateRow, 'name' | 'description' | 'definition_json' | 'source_url' | 'version' | 'last_synced_at'>
+  Pick<
+    SopTemplateRow,
+    'name' | 'description' | 'definition_json' | 'source_url' | 'version' | 'last_synced_at'
+  >
 >;
 
 export interface SopTemplateRepository {

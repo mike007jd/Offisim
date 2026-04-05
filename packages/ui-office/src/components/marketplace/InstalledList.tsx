@@ -2,9 +2,9 @@ import type { InstalledPackageRow } from '@offisim/install-core';
 import { Button } from '@offisim/ui-core';
 import { RefreshCcw, Store, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useCompany } from '../company/CompanyContext.js';
 import { useRegistryClient } from '../../hooks/useRegistryClient.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useCompany } from '../company/CompanyContext.js';
 
 interface InstalledListProps {
   readonly onStartInstall: (listingId: string, version: string) => void;
@@ -74,11 +74,12 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
       setCheckingId(item.installed_package_id);
       try {
         const response = await client.listListingVersions(item.origin_listing_id);
-        const latest = response.versions.length > 0
-          ? response.versions.reduce((max, v) =>
-              compareVersionStrings(v.version, max.version) > 0 ? v : max,
-            )
-          : undefined;
+        const latest =
+          response.versions.length > 0
+            ? response.versions.reduce((max, v) =>
+                compareVersionStrings(v.version, max.version) > 0 ? v : max,
+              )
+            : undefined;
         if (!latest) {
           setUpdates((prev) => ({
             ...prev,
@@ -114,7 +115,10 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
     [client],
   );
 
-  const actionableItems = useMemo(() => items.filter((item) => item.install_state === 'installed'), [items]);
+  const actionableItems = useMemo(
+    () => items.filter((item) => item.install_state === 'installed'),
+    [items],
+  );
 
   if (loading) {
     return <p className="px-3 py-6 text-sm text-slate-500">Loading installed packages…</p>;

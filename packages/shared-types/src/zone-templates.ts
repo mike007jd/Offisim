@@ -185,8 +185,16 @@ const ARCHETYPE_DEFAULTS: Readonly<Record<string, ArchetypeDefaults>> = {
  * everything else falls back to the archetype's standard values.
  */
 export function createZoneBlueprint(
-  overrides: Pick<SystemZoneTemplate, 'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'> &
-    Partial<Omit<SystemZoneTemplate, 'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'>>,
+  overrides: Pick<
+    SystemZoneTemplate,
+    'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'
+  > &
+    Partial<
+      Omit<
+        SystemZoneTemplate,
+        'slug' | 'archetype' | 'label' | 'cx' | 'cz' | 'w' | 'd' | 'sortOrder'
+      >
+    >,
 ): SystemZoneTemplate {
   const defaults = ARCHETYPE_DEFAULTS[overrides.archetype];
   return {

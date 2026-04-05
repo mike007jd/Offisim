@@ -21,8 +21,8 @@ import {
 } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
+import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../lib/build-system-prompt';
 import { ROLE_OPTIONS } from '../../lib/roles';
 import { useCompany } from '../company/CompanyContext.js';

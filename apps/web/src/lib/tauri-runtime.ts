@@ -13,7 +13,6 @@ import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/node-context-middleware.js';
-import { AgentContextPackService } from '@offisim/core/dist/services/agent-context-pack-service.js';
 import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
@@ -22,15 +21,16 @@ import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
+import { AgentContextPackService } from '@offisim/core/dist/services/agent-context-pack-service.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
 import {
   FileHistoryService,
   FileHistoryToolExecutor,
 } from '@offisim/core/dist/services/file-history-service.js';
-import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
-import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { GitAutoCommitService } from '@offisim/core/dist/services/git-auto-commit-service.js';
 import type { GitExec } from '@offisim/core/dist/services/git-auto-commit-service.js';
+import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
+import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
 import { InstallService } from '@offisim/install-core';
@@ -261,7 +261,11 @@ export async function createTauriRuntime(
     return invoke<{ ok: boolean; stdout: string; stderr: string }>('git_exec', { args, cwd });
   };
   const gitAutoCommitService = new GitAutoCommitService(
-    { companies: repos.companies, fileHistory: repos.fileHistory, nodeSummaries: repos.nodeSummaries },
+    {
+      companies: repos.companies,
+      fileHistory: repos.fileHistory,
+      nodeSummaries: repos.nodeSummaries,
+    },
     eventBus,
     tauriGitExec,
   );

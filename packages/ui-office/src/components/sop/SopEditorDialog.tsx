@@ -1,4 +1,4 @@
-import { generateId, SopService } from '@offisim/core/browser';
+import { SopService, generateId } from '@offisim/core/browser';
 import { ROLE_REGISTRY } from '@offisim/shared-types';
 import type { RoleSlug, SopDefinition, SopStep } from '@offisim/shared-types';
 import {
@@ -11,8 +11,8 @@ import {
 } from '@offisim/ui-core';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { useCompany } from '../company/CompanyContext.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useCompany } from '../company/CompanyContext.js';
 
 interface StepDraft {
   step_id: string;

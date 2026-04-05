@@ -293,7 +293,11 @@ export { LibraryService } from './services/library-service.js';
 export type { CitationEntry } from './services/library-service.js';
 export { NotificationBridge } from './services/notification-bridge.js';
 export { CompanyTemplateService } from './services/company-template-service.js';
-export type { CompanyTemplate, CompanyTemplateEmployee, TemplateZoneBlueprint } from './templates/index.js';
+export type {
+  CompanyTemplate,
+  CompanyTemplateEmployee,
+  TemplateZoneBlueprint,
+} from './templates/index.js';
 export { listTemplates, getTemplate } from './templates/index.js';
 export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation-service.js';
 export { DEFAULT_COST_RATES } from './runtime/default-cost-rates.js';

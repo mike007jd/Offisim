@@ -180,7 +180,9 @@ export function ProjectListPanel({
           <div className="flex flex-col items-center justify-center py-6 text-slate-700">
             <FolderOpen className="h-6 w-6 mb-2 opacity-40" />
             <p className="text-xs italic">No projects yet — send the boss a task to get started</p>
-            <p className="text-[11px] mt-1 text-slate-800">Offisim creates project threads automatically as needed.</p>
+            <p className="text-[11px] mt-1 text-slate-800">
+              Offisim creates project threads automatically as needed.
+            </p>
           </div>
         )}
       </div>

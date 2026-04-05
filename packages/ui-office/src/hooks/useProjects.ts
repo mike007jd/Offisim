@@ -4,7 +4,9 @@ import type { ProjectRow } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 
 interface UseProjectsOptions {
-  repos: Pick<RuntimeRepositories, 'projects'> & Partial<Pick<RuntimeRepositories, 'threads'>> | null;
+  repos:
+    | (Pick<RuntimeRepositories, 'projects'> & Partial<Pick<RuntimeRepositories, 'threads'>>)
+    | null;
   companyId: string;
 }
 

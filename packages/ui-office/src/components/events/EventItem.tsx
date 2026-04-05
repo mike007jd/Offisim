@@ -72,14 +72,16 @@ function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
 export function EventItem({ event }: EventItemProps) {
   const { category, action } = categorize(event);
   const domain = domainIcon(event.type);
-  const Icon = domain?.Icon ?? (category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle);
-  const iconColor = domain?.color ?? (
-    category === 'error'
+  const Icon =
+    domain?.Icon ??
+    (category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle);
+  const iconColor =
+    domain?.color ??
+    (category === 'error'
       ? 'text-lobster-red'
       : category === 'entered'
         ? 'text-sea-blue'
-        : 'text-kelp-green'
-  );
+        : 'text-kelp-green');
   const label = getDisplayLabel(event);
 
   return (

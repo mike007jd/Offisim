@@ -69,10 +69,11 @@ export function useSopRuntimeState(sopTemplateId?: string): SopRuntimeStepState[
     offs.push(
       eventBus.on('plan.step.started', (e: RuntimeEvent<PlanStepStartedPayload>) => {
         if (sopTemplateId && activePlanIdRef.current !== e.payload.planId) return;
-        setSteps((prev) =>
-          prev?.map((s) =>
-            s.stepIndex === e.payload.stepIndex ? { ...s, status: 'active' as const } : s,
-          ) ?? null,
+        setSteps(
+          (prev) =>
+            prev?.map((s) =>
+              s.stepIndex === e.payload.stepIndex ? { ...s, status: 'active' as const } : s,
+            ) ?? null,
         );
       }),
     );
@@ -80,10 +81,11 @@ export function useSopRuntimeState(sopTemplateId?: string): SopRuntimeStepState[
     offs.push(
       eventBus.on('plan.step.completed', (e: RuntimeEvent<PlanStepCompletedPayload>) => {
         if (sopTemplateId && activePlanIdRef.current !== e.payload.planId) return;
-        setSteps((prev) =>
-          prev?.map((s) =>
-            s.stepIndex === e.payload.stepIndex ? { ...s, status: 'completed' as const } : s,
-          ) ?? null,
+        setSteps(
+          (prev) =>
+            prev?.map((s) =>
+              s.stepIndex === e.payload.stepIndex ? { ...s, status: 'completed' as const } : s,
+            ) ?? null,
         );
       }),
     );

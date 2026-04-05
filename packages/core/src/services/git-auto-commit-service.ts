@@ -11,10 +11,7 @@ export interface GitExecResult {
   stderr: string;
 }
 
-export type GitExec = (
-  args: string[],
-  cwd: string,
-) => Promise<GitExecResult>;
+export type GitExec = (args: string[], cwd: string) => Promise<GitExecResult>;
 
 export interface GitAutoCommitResult {
   committed: boolean;
@@ -66,11 +63,7 @@ export class GitAutoCommitService {
     ]);
 
     const stepFiles = [
-      ...new Set(
-        allHistory
-          .filter((h) => h.step_index === stepIndex)
-          .map((h) => h.file_path),
-      ),
+      ...new Set(allHistory.filter((h) => h.step_index === stepIndex).map((h) => h.file_path)),
     ];
 
     if (stepFiles.length === 0) {
@@ -84,9 +77,10 @@ export class GitAutoCommitService {
     const relPath = (p: string) =>
       p.startsWith(cwd) ? p.slice(cwd.length).replace(/^[/\\]/, '') : p;
     const relFiles = stepFiles.map(relPath);
-    const fileList = relFiles.length <= 5
-      ? relFiles.join(', ')
-      : `${relFiles.slice(0, 4).join(', ')} +${relFiles.length - 4} more`;
+    const fileList =
+      relFiles.length <= 5
+        ? relFiles.join(', ')
+        : `${relFiles.slice(0, 4).join(', ')} +${relFiles.length - 4} more`;
     const commitMessage = `[Offisim] ${summaryText}\n\nFiles: ${fileList}\nThread: ${threadId}`;
 
     // 6. Stage changed files

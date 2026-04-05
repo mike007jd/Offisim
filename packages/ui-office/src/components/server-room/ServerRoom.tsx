@@ -1,5 +1,16 @@
 import { Badge, ScrollArea } from '@offisim/ui-core';
-import { Activity, AlertCircle, CheckCircle, Circle, Clock, Plus, Server, Trash2, Unplug, Wifi } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  Circle,
+  Clock,
+  Plus,
+  Server,
+  Trash2,
+  Unplug,
+  Wifi,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { RackWithSlots } from '@offisim/core/browser';
@@ -230,7 +241,10 @@ function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-const STATUS_ICON: Record<ToolExecutionTelemetryPayload['status'], { Icon: typeof CheckCircle; color: string }> = {
+const STATUS_ICON: Record<
+  ToolExecutionTelemetryPayload['status'],
+  { Icon: typeof CheckCircle; color: string }
+> = {
   started: { Icon: Clock, color: 'text-slate-400' },
   completed: { Icon: CheckCircle, color: 'text-emerald-400' },
   error: { Icon: AlertCircle, color: 'text-red-400' },
@@ -384,8 +398,8 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
         )}
       </button>
 
-      {expanded && (
-        entries.length === 0 ? (
+      {expanded &&
+        (entries.length === 0 ? (
           <p className="text-[10px] text-slate-500 italic px-1">No tool calls yet</p>
         ) : (
           <ScrollArea className="max-h-40">
@@ -405,8 +419,7 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
               );
             })}
           </ScrollArea>
-        )
-      )}
+        ))}
     </div>
   );
 }

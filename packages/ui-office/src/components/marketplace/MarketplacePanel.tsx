@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { useMarketplace } from '../../hooks/useMarketplace.js';
 import { InstalledList } from './InstalledList.js';
 import { ListingCard } from './ListingCard.js';
-import { KIND_ICON } from './marketplace-meta.js';
 import { PublishDialog } from './PublishDialog.js';
+import { KIND_ICON } from './marketplace-meta.js';
 
 interface MarketplacePanelProps {
   readonly onOpenListing: (listingId: string) => void;
@@ -132,11 +132,7 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
             ) : (
               <div className="space-y-3">
                 {results.map((listing) => (
-                  <ListingCard
-                    key={listing.listing_id}
-                    listing={listing}
-                    onOpen={onOpenListing}
-                  />
+                  <ListingCard key={listing.listing_id} listing={listing} onOpen={onOpenListing} />
                 ))}
 
                 {hasMore ? (

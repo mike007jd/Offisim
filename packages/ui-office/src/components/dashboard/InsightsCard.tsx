@@ -2,8 +2,8 @@ import type { MemoryEntryRow } from '@offisim/core/browser';
 import { Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { Lightbulb } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useCompany } from '../company/CompanyContext.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useCompany } from '../company/CompanyContext.js';
 
 export function InsightsCard() {
   const { repos } = useOffisimRuntime();
@@ -42,10 +42,7 @@ export function InsightsCard() {
         ) : (
           <ScrollArea className="max-h-48">
             {memories.map((m) => (
-              <div
-                key={m.memory_id}
-                className="px-2 py-1.5 border-b border-white/5 last:border-0"
-              >
+              <div key={m.memory_id} className="px-2 py-1.5 border-b border-white/5 last:border-0">
                 <p className="text-[11px] text-slate-300 leading-relaxed">{m.content}</p>
                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
                   <span>Importance: {Math.round((m.importance ?? 0.5) * 100)}%</span>

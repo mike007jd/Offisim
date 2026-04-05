@@ -87,10 +87,7 @@ export function toWorldFootprint(
  * AABB overlap test on the XZ plane (strict inequality — touching edges do NOT overlap).
  */
 export function footprintsOverlap(a: WorldFootprint, b: WorldFootprint): boolean {
-  return (
-    Math.abs(a.cx - b.cx) < a.halfW + b.halfW &&
-    Math.abs(a.cz - b.cz) < a.halfD + b.halfD
-  );
+  return Math.abs(a.cx - b.cx) < a.halfW + b.halfW && Math.abs(a.cz - b.cz) < a.halfD + b.halfD;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,11 +177,7 @@ const SPATIAL_SPECS: readonly PrefabSpatialSpec[] = [
   {
     prefabId: 'sofa-set',
     footprint: fp(1.8, 1.0, 0.3),
-    anchors: anchors(
-      anchor([0, 1.6], Math.PI),
-      anchor([0, 1.0], Math.PI),
-      anchor([0, 0], Math.PI),
-    ),
+    anchors: anchors(anchor([0, 1.6], Math.PI), anchor([0, 1.0], Math.PI), anchor([0, 0], Math.PI)),
     capacity: 3,
   },
   {
@@ -250,9 +243,7 @@ const SPATIAL_SPECS: readonly PrefabSpatialSpec[] = [
   },
 ];
 
-const specMap = new Map<string, PrefabSpatialSpec>(
-  SPATIAL_SPECS.map((s) => [s.prefabId, s]),
-);
+const specMap = new Map<string, PrefabSpatialSpec>(SPATIAL_SPECS.map((s) => [s.prefabId, s]));
 
 /** Look up spatial spec by prefab ID. Returns undefined for unknown prefabs. */
 export function getSpatialSpec(prefabId: string): PrefabSpatialSpec | undefined {

@@ -12,7 +12,13 @@ import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface BossDecision {
-  action: 'delegate' | 'direct_reply' | 'meeting' | 'hire_or_assess' | 'direct_delegate' | 'use_sop';
+  action:
+    | 'delegate'
+    | 'direct_reply'
+    | 'meeting'
+    | 'hire_or_assess'
+    | 'direct_delegate'
+    | 'use_sop';
   reason?: string;
   reply?: string;
   isNewProject?: boolean;
@@ -100,8 +106,7 @@ function parseBossDecision(content: string): BossDecision | null {
       projectName: typeof parsed.projectName === 'string' ? parsed.projectName : undefined,
       targetEmployeeId:
         typeof parsed.targetEmployeeId === 'string' ? parsed.targetEmployeeId : undefined,
-      sopTemplateId:
-        typeof parsed.sopTemplateId === 'string' ? parsed.sopTemplateId : undefined,
+      sopTemplateId: typeof parsed.sopTemplateId === 'string' ? parsed.sopTemplateId : undefined,
       needsClarification: parsed.needsClarification === true,
       clarificationQuestion:
         typeof parsed.clarificationQuestion === 'string' ? parsed.clarificationQuestion : undefined,

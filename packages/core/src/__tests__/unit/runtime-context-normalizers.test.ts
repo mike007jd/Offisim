@@ -7,9 +7,7 @@ import {
   normalizePendingInteraction,
 } from '../../semantics/runtime-context-normalizers.js';
 
-const makeInteraction = (
-  overrides: Partial<InteractionRequest> = {},
-): InteractionRequest => ({
+const makeInteraction = (overrides: Partial<InteractionRequest> = {}): InteractionRequest => ({
   interactionId: 'ix-1',
   threadId: 'thread-1',
   companyId: 'co-1',
@@ -90,9 +88,7 @@ describe('normalizeActiveTaskRuns', () => {
   it('prefers active task runs', () => {
     const result = normalizeActiveTaskRuns([completed, running, queued]);
     expect(result).toHaveLength(2);
-    expect(result.map((r) => r.status)).toEqual(
-      expect.arrayContaining(['running', 'queued']),
-    );
+    expect(result.map((r) => r.status)).toEqual(expect.arrayContaining(['running', 'queued']));
   });
 
   it('falls back to most recent completed if no active runs exist', () => {
@@ -219,9 +215,7 @@ describe('deriveRecommendedFocus', () => {
   });
 
   it('reports running tasks', () => {
-    const tasks = [
-      { taskRunId: 'tr-1', employeeId: 'emp-1', taskType: 'code', status: 'running' },
-    ];
+    const tasks = [{ taskRunId: 'tr-1', employeeId: 'emp-1', taskType: 'code', status: 'running' }];
     const result = deriveRecommendedFocus(null, tasks, []);
     expect(result).toBe('1 task currently executing.');
   });

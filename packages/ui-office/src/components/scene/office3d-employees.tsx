@@ -9,7 +9,7 @@ import {
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
 import { SEAT_OFFSETS } from '../../lib/seat-offsets.js';
-import { computeRestSeatPosition, type SeatRegistry } from '../../lib/seat-registry.js';
+import { type SeatRegistry, computeRestSeatPosition } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';

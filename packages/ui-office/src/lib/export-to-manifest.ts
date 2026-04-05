@@ -54,9 +54,9 @@ async function sha256Hex(data: Uint8Array): Promise<string> {
     .join('');
 }
 
-async function buildIntegrityFiles(files: ExportedFiles): Promise<
-  Array<{ path: string; sha256: string }>
-> {
+async function buildIntegrityFiles(
+  files: ExportedFiles,
+): Promise<Array<{ path: string; sha256: string }>> {
   const entries = await Promise.all(
     Object.entries(files).map(async ([path, bytes]) => ({
       path,
@@ -225,7 +225,10 @@ export async function employeeToManifest(
   );
 }
 
-export async function sopToManifest(sop: SopTemplateRow, meta: PublishMeta): Promise<PackageManifest> {
+export async function sopToManifest(
+  sop: SopTemplateRow,
+  meta: PublishMeta,
+): Promise<PackageManifest> {
   const slug = slugify(sop.name);
   const files = buildSopFiles(sop, slug, meta);
   const integrityFiles = await buildIntegrityFiles(files);
@@ -293,7 +296,14 @@ export async function buildEmployeePackage(
     'employee',
     `offisim.employee.${slug}`,
     meta,
-    [{ asset_id: slug, kind: 'employee', path: `assets/employee.${slug}.json`, default_enabled: true }],
+    [
+      {
+        asset_id: slug,
+        kind: 'employee',
+        path: `assets/employee.${slug}.json`,
+        default_enabled: true,
+      },
+    ],
     { marketplace_export_kind: 'employee', employee_role_slug: employee.role_slug },
     integrityFiles,
   );
@@ -346,8 +356,20 @@ export async function buildCompanyPackage(
     'company_template',
     `offisim.company-template.${slug}`,
     meta,
-    [{ asset_id: slug, kind: 'company_template', path: `assets/company-template.${slug}.json`, default_enabled: true }],
-    { marketplace_export_kind: 'company_template', employee_count: employees.length, sop_count: sops.length, zone_count: zones.length },
+    [
+      {
+        asset_id: slug,
+        kind: 'company_template',
+        path: `assets/company-template.${slug}.json`,
+        default_enabled: true,
+      },
+    ],
+    {
+      marketplace_export_kind: 'company_template',
+      employee_count: employees.length,
+      sop_count: sops.length,
+      zone_count: zones.length,
+    },
     integrityFiles,
   );
   return {

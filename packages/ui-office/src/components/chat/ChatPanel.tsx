@@ -380,10 +380,7 @@ export function ChatPanel({
                 </p>
               </div>
             ) : (
-              <EmptyState
-                isConfigured={isReady}
-                onSendPrompt={handleSend}
-              />
+              <EmptyState isConfigured={isReady} onSendPrompt={handleSend} />
             )
           ) : (
             <ScrollArea className="flex-1">

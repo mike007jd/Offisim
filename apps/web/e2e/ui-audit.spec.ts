@@ -112,7 +112,7 @@ test.describe('UI Audit: Header & Status Bar', () => {
     const statusBar = page.locator('footer');
     const fontSize = await statusBar.evaluate((el) => {
       const computed = window.getComputedStyle(el);
-      return parseFloat(computed.fontSize);
+      return Number.parseFloat(computed.fontSize);
     });
     expect(fontSize).toBeGreaterThanOrEqual(9);
   });

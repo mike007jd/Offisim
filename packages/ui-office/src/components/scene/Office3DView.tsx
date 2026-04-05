@@ -147,7 +147,11 @@ export default function Office3DView({
   });
 
   const seatRegistry = useMemo(
-    () => SeatRegistry.build(prefabInstances.map((p) => p.instance), zones),
+    () =>
+      SeatRegistry.build(
+        prefabInstances.map((p) => p.instance),
+        zones,
+      ),
     [prefabInstances, zones],
   );
 

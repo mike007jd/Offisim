@@ -149,19 +149,12 @@ describe('materializer / materialize', () => {
   it('persists marketplace provenance when provided', async () => {
     const plan = createTestPlan();
 
-    await materialize(
-      plan,
-      [],
-      repos,
-      companyId,
-      installTxnId,
-      {
-        provenance: {
-          originListingId: 'listing-123',
-          originPackageVersionId: 'version-456',
-        },
+    await materialize(plan, [], repos, companyId, installTxnId, {
+      provenance: {
+        originListingId: 'listing-123',
+        originPackageVersionId: 'version-456',
       },
-    );
+    });
 
     const pkg = requireDefined(store.packages[0], 'Expected installed package row');
     expect(pkg.origin_listing_id).toBe('listing-123');

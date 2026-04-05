@@ -1,6 +1,6 @@
 import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
-import { SEAT_OFFSETS } from './seat-offsets';
 import { getSpatialSpec, toWorldAnchor } from './prefab-spatial';
+import { SEAT_OFFSETS } from './seat-offsets';
 
 /**
  * Deterministic circular layout for rest-area seating.
@@ -31,10 +31,7 @@ export class SeatRegistry {
     this.seats = seats;
   }
 
-  static build(
-    instances: readonly PrefabInstanceRow[],
-    zones: readonly Zone[],
-  ): SeatRegistry {
+  static build(instances: readonly PrefabInstanceRow[], zones: readonly Zone[]): SeatRegistry {
     const seats = new Map<string, SeatEntry[]>();
 
     // Phase 1: collect seats from prefab instances
@@ -45,10 +42,7 @@ export class SeatRegistry {
       if (!spec || spec.capacity === 0) continue;
 
       const workAnchor = spec.anchors.work;
-      const worldOrigin: readonly [number, number] = [
-        inst.position_x,
-        inst.position_y,
-      ];
+      const worldOrigin: readonly [number, number] = [inst.position_x, inst.position_y];
 
       if (!seats.has(inst.zone_id)) {
         seats.set(inst.zone_id, []);
@@ -69,18 +63,13 @@ export class SeatRegistry {
         for (let i = 0; i < spec.capacity; i++) {
           const offset = (i - (spec.capacity - 1) / 2) * 0.8;
           zoneSeats.push({
-            position: [
-              base.position[0] + offset,
-              base.position[1],
-              base.position[2],
-            ],
+            position: [base.position[0] + offset, base.position[1], base.position[2]],
             facing: base.facing,
             instanceId: inst.instance_id,
             isFallback: false,
           });
         }
       }
-
     }
 
     // Phase 2: fill fallback seats for zones that need more capacity
@@ -121,10 +110,7 @@ export class SeatRegistry {
     return this.seats.get(zoneId) ?? [];
   }
 
-  getRestSeat(
-    zones: readonly Zone[],
-    slotIndex: number,
-  ): [number, number, number] {
+  getRestSeat(zones: readonly Zone[], slotIndex: number): [number, number, number] {
     const restZone = zones.find((z) => z.archetype === 'rest');
     return computeRestSeatPosition(restZone?.cx ?? 0, restZone?.cz ?? 0, slotIndex);
   }

@@ -16,20 +16,17 @@ import {
 } from '@offisim/ui-core';
 import { CloudUpload, Download, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useCompany } from '../company/CompanyContext.js';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePublish } from '../../hooks/usePublish.js';
+import { loadRegistryAuthToken, saveRegistryAuthToken } from '../../hooks/useRegistryClient.js';
 import {
-  loadRegistryAuthToken,
-  saveRegistryAuthToken,
-} from '../../hooks/useRegistryClient.js';
-import {
+  type PublishMeta,
   buildCompanyPackage,
   buildEmployeePackage,
   buildSopPackage,
-  type PublishMeta,
 } from '../../lib/export-to-manifest.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useCompany } from '../company/CompanyContext.js';
 
 type PublishSourceKind = 'employee' | 'sop' | 'company_template';
 
@@ -175,7 +172,16 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
 
   useEffect(() => {
     setStatus(null);
-  }, [sourceKind, selectedSourceId, form.artifactUrl, form.description, form.summary, form.tags, form.title, form.version]);
+  }, [
+    sourceKind,
+    selectedSourceId,
+    form.artifactUrl,
+    form.description,
+    form.summary,
+    form.tags,
+    form.title,
+    form.version,
+  ]);
 
   const updateForm = useCallback(
     <K extends keyof PublishFormState>(key: K, value: PublishFormState[K]) => {
@@ -214,7 +220,16 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
       return buildCompanyPackage(selectedCompany, employees, sops, zones, publishMeta);
     }
     throw new Error('Select a source asset before publishing.');
-  }, [employees, publishMeta, selectedCompany, selectedEmployee, selectedSop, sops, sourceKind, zones]);
+  }, [
+    employees,
+    publishMeta,
+    selectedCompany,
+    selectedEmployee,
+    selectedSop,
+    sops,
+    sourceKind,
+    zones,
+  ]);
 
   const handleDownload = useCallback(async () => {
     setIsPackaging(true);
@@ -222,7 +237,9 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     try {
       const bundle = await buildBundle();
       downloadBytes(bundle.fileName, bundle.archiveBytes);
-      setStatus(`Downloaded ${bundle.fileName}. Upload it to GitHub Releases, then paste the URL here.`);
+      setStatus(
+        `Downloaded ${bundle.fileName}. Upload it to GitHub Releases, then paste the URL here.`,
+      );
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to build package archive.');
     } finally {
@@ -413,7 +430,9 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   <label className="text-xs font-medium text-slate-300">Risk class</label>
                   <Select
                     value={form.riskClass}
-                    onValueChange={(value) => updateForm('riskClass', value as PublishFormState['riskClass'])}
+                    onValueChange={(value) =>
+                      updateForm('riskClass', value as PublishFormState['riskClass'])
+                    }
                   >
                     <SelectTrigger className="mt-2">
                       <SelectValue />

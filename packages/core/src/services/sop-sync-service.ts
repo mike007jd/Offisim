@@ -26,7 +26,11 @@ export class SopSyncService {
       throw new Error(`Failed to fetch SOP from ${url}: ${response.status} ${response.statusText}`);
     }
     const json = (await response.json()) as Record<string, unknown>;
-    if (typeof json.sop_id !== 'string' || typeof json.name !== 'string' || !Array.isArray(json.steps)) {
+    if (
+      typeof json.sop_id !== 'string' ||
+      typeof json.name !== 'string' ||
+      !Array.isArray(json.steps)
+    ) {
       throw new Error('Invalid SOP definition: missing sop_id, name, or steps');
     }
     return json as unknown as SopDefinition;

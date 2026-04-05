@@ -1,5 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
-import { Bell, Book, Columns3, Database, GitBranch, LayoutDashboard, Store, Terminal } from 'lucide-react';
+import {
+  Bell,
+  Book,
+  Columns3,
+  Database,
+  GitBranch,
+  LayoutDashboard,
+  Store,
+  Terminal,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { EventLog } from '../events/EventLog';

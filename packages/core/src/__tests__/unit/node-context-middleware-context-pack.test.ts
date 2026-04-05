@@ -62,9 +62,7 @@ const fullPack: AgentContextPack = {
     employeeId: 'emp-1',
     taskRunId: 'tr-1',
   },
-  activeTaskRuns: [
-    { taskRunId: 'tr-1', employeeId: 'emp-1', taskType: 'code', status: 'running' },
-  ],
+  activeTaskRuns: [{ taskRunId: 'tr-1', employeeId: 'emp-1', taskType: 'code', status: 'running' }],
   recentNodeSummaries: [
     {
       nodeName: 'boss',
@@ -190,7 +188,9 @@ describe('NodeContextMiddleware with context pack', () => {
 
     const result = await middleware.before(makeLlmCallContext());
     const systemMsg = result.request.messages[0];
-    const injected = (systemMsg?.content as string).slice('You are a helpful assistant.\n\n'.length);
+    const injected = (systemMsg?.content as string).slice(
+      'You are a helpful assistant.\n\n'.length,
+    );
     expect(injected.length).toBeLessThanOrEqual(200);
   });
 

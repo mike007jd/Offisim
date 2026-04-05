@@ -4,13 +4,13 @@ import type {
   ToolApprovalMode,
   ToolPermissionPolicy,
 } from '@offisim/core/browser';
-import type { RoleSlug } from '@offisim/shared-types';
 import {
   employeeCreated,
   employeeDeleted,
   employeeUpdated,
   employeeWorkstationChanged,
 } from '@offisim/core/browser';
+import type { RoleSlug } from '@offisim/shared-types';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import { useCallback, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';

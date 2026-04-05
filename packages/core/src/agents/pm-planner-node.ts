@@ -261,7 +261,10 @@ export async function tryBuildSopPlan(
   const batches = sopService.getExecutionOrder(sopDef);
   if (batches.length === 0) return null;
 
-  return { plan: sopBatchesToLlmPlan(sopDef, batches, allEmployees), sopTemplateId: matched.sop_template_id };
+  return {
+    plan: sopBatchesToLlmPlan(sopDef, batches, allEmployees),
+    sopTemplateId: matched.sop_template_id,
+  };
 }
 
 export async function pmPlannerNode(
@@ -345,7 +348,13 @@ export async function pmPlannerNode(
 
   // Fall back to substring matching if no explicit SOP
   if (!plan && !planRevisionNote) {
-    const sopResult = await tryBuildSopPlan(repos, eventBus, companyId, directive.intent, allEnabled);
+    const sopResult = await tryBuildSopPlan(
+      repos,
+      eventBus,
+      companyId,
+      directive.intent,
+      allEnabled,
+    );
     if (sopResult) {
       plan = sopResult.plan;
       resolvedSopTemplateId = sopResult.sopTemplateId;

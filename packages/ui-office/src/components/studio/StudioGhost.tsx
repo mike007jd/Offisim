@@ -21,7 +21,7 @@ import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { getSpatialSpec, toWorldFootprint, footprintsOverlap } from '../../lib/prefab-spatial.js';
+import { footprintsOverlap, getSpatialSpec, toWorldFootprint } from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
@@ -280,12 +280,19 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Check collision (rotation-aware) — read from getState() to avoid stale closure (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
-            useStudioStore.getState();
+          const {
+            ghostRotation: curGhostRotation,
+            instances: currentInstances,
+            placingPrefab: curPlacing,
+          } = useStudioStore.getState();
           const isBlocked = checkOverlap(
-            x, z,
+            x,
+            z,
             curPlacing?.prefabId ?? '',
-            gridW, gridD, curGhostRotation, currentInstances,
+            gridW,
+            gridD,
+            curGhostRotation,
+            currentInstances,
           );
           blockedRef.current = isBlocked;
 
@@ -305,13 +312,22 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Block placement if overlapping (rotation-aware) — read from getState() (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
-            useStudioStore.getState();
-          if (checkOverlap(
-            x, z,
-            curPlacing?.prefabId ?? '',
-            gridW, gridD, curGhostRotation, currentInstances,
-          )) {
+          const {
+            ghostRotation: curGhostRotation,
+            instances: currentInstances,
+            placingPrefab: curPlacing,
+          } = useStudioStore.getState();
+          if (
+            checkOverlap(
+              x,
+              z,
+              curPlacing?.prefabId ?? '',
+              gridW,
+              gridD,
+              curGhostRotation,
+              currentInstances,
+            )
+          ) {
             return; // don't place
           }
 

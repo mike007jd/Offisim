@@ -1,8 +1,8 @@
 import type { InteractionRequest } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
-  AgentContextPackService,
   type AgentContextPackDeps,
+  AgentContextPackService,
 } from '../../services/agent-context-pack-service.js';
 
 function makeDeps(overrides: Partial<AgentContextPackDeps> = {}): AgentContextPackDeps {
@@ -16,9 +16,7 @@ function makeDeps(overrides: Partial<AgentContextPackDeps> = {}): AgentContextPa
   };
 }
 
-const makeInteraction = (
-  overrides: Partial<InteractionRequest> = {},
-): InteractionRequest => ({
+const makeInteraction = (overrides: Partial<InteractionRequest> = {}): InteractionRequest => ({
   interactionId: 'ix-1',
   threadId: 'thread-1',
   companyId: 'co-1',

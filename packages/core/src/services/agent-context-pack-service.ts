@@ -15,9 +15,7 @@ export interface AgentContextPackDeps {
     threadId: string,
     opts: { limit: number },
   ): Promise<ReadonlyArray<NodeSummaryLike>>;
-  listTaskRuns(
-    threadId: string,
-  ): Promise<
+  listTaskRuns(threadId: string): Promise<
     ReadonlyArray<{
       task_run_id: string;
       employee_id: string | null;
@@ -36,12 +34,10 @@ export class AgentContextPackService {
 
   async buildPack(options?: BuildPackOptions): Promise<AgentContextPack> {
     const { threadId, companyId } = this.deps;
-    const pendingInteraction = normalizePendingInteraction(
-      this.deps.getPendingInteraction(),
-    );
+    const pendingInteraction = normalizePendingInteraction(this.deps.getPendingInteraction());
 
-    const summaryRows = options?.preloadedSummaries
-      ?? await this.deps.listNodeSummaries(threadId, { limit: 4 });
+    const summaryRows =
+      options?.preloadedSummaries ?? (await this.deps.listNodeSummaries(threadId, { limit: 4 }));
 
     const taskRunRows = await this.deps.listTaskRuns(threadId);
 

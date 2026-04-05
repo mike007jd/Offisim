@@ -1,5 +1,10 @@
 import { type ExportFormat, type ExportableDocument, exportDocument } from '@offisim/doc-engine';
-import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent, SopDefinition } from '@offisim/shared-types';
+import type {
+  DeliverableCreatedPayload,
+  RoleSlug,
+  RuntimeEvent,
+  SopDefinition,
+} from '@offisim/shared-types';
 import {
   Badge,
   Button,

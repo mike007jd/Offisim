@@ -7,7 +7,11 @@ export interface Deliverable {
   threadId: string;
   title: string;
   content: string;
-  contributingEmployees: ReadonlyArray<{ employeeId: string; employeeName: string; roleSlug: RoleSlug }>;
+  contributingEmployees: ReadonlyArray<{
+    employeeId: string;
+    employeeName: string;
+    roleSlug: RoleSlug;
+  }>;
   createdAt: number;
 }
 

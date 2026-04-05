@@ -164,7 +164,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
             );
           } else if (IS_DEV && !IS_DESKTOP && matchKey === 'subscription') {
             setPreset(DEFAULT_PRESET_KEY ?? '');
-            setSaveError('Subscription mode is only available on desktop. Switched to MiniMax — please save again.');
+            setSaveError(
+              'Subscription mode is only available on desktop. Switched to MiniMax — please save again.',
+            );
           } else {
             setPreset(matchKey);
           }
@@ -235,7 +237,9 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     setSaveError('');
     try {
       if (IS_BROWSER_PROD) {
-        setSaveError('Browser mode does not support saving AI provider configuration. Please use the desktop app.');
+        setSaveError(
+          'Browser mode does not support saving AI provider configuration. Please use the desktop app.',
+        );
         return;
       }
       setIsSaving(true);
@@ -492,8 +496,8 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               {!IS_BROWSER_PROD && isThinkingProvider && (
                 <div className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
                   This provider returns thinking blocks that consume the max_tokens budget. Set
-                  employee Max Tokens to ≥ 1024, or thinking may exhaust the quota and produce
-                  empty replies.
+                  employee Max Tokens to ≥ 1024, or thinking may exhaust the quota and produce empty
+                  replies.
                 </div>
               )}
 

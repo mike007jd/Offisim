@@ -86,14 +86,14 @@ export class NodeContextMiddleware implements LlmMiddleware {
     const summaries = await this.nodeSummaryRepo.listByThread(ctx.runtimeCtx.threadId, {
       limit: this.maxSummaries,
     });
-    const pack = await this.packService?.buildPack({ preloadedSummaries: summaries }) ?? null;
+    const pack = (await this.packService?.buildPack({ preloadedSummaries: summaries })) ?? null;
 
-    const hasPackContent = pack && (
-      pack.pendingInteraction ||
-      pack.activeTaskRuns.length > 0 ||
-      pack.recentNodeSummaries.length > 0 ||
-      pack.recommendedFocus
-    );
+    const hasPackContent =
+      pack &&
+      (pack.pendingInteraction ||
+        pack.activeTaskRuns.length > 0 ||
+        pack.recentNodeSummaries.length > 0 ||
+        pack.recommendedFocus);
 
     let effectiveSummaryBudget: number;
     let effectivePackBudget: number;

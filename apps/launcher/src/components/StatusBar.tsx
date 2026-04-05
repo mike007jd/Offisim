@@ -106,8 +106,7 @@ export function StatusBar({
 }
 
 function DatabaseIndicator({ database }: { database: LauncherStatus['database'] }) {
-  const color =
-    database.status === 'healthy' ? 'var(--success-val)' : 'var(--warning-val)';
+  const color = database.status === 'healthy' ? 'var(--success-val)' : 'var(--warning-val)';
   const label = database.status === 'healthy' ? 'Ready' : 'Unavailable';
 
   return (
