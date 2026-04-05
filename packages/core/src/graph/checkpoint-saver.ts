@@ -1,16 +1,19 @@
 /**
  * @offisim/core — Checkpoint saver factories
  *
- * Production: SqliteSaver from @langchain/langgraph-checkpoint-sqlite
- * Testing: MemorySaver from @langchain/langgraph
+ * Desktop (Tauri): SqliteSaver from @langchain/langgraph-checkpoint-sqlite
+ * Browser / tests: MemorySaver from @langchain/langgraph
+ *
+ * The sqlite saver is loaded via `await import()` instead of a top-level
+ * import so browser bundles don't statically pull in a Node-only dependency
+ * through the main-graph → checkpoint-saver import chain.
  */
 
 import { type BaseCheckpointSaver, MemorySaver } from '@langchain/langgraph';
-import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import type Database from 'better-sqlite3';
 
 /**
- * Create a SQLite-backed checkpoint saver for production use.
+ * Create a SQLite-backed checkpoint saver for desktop use.
  *
  * The provided Database instance should be the same one used by Drizzle
  * to avoid WAL lock contention from dual connections.
@@ -19,12 +22,13 @@ import type Database from 'better-sqlite3';
  * inside the shared SQLite file. These do NOT conflict with our
  * `graph_checkpoints` table.
  */
-export function createCheckpointSaver(db: Database.Database): BaseCheckpointSaver {
+export async function createCheckpointSaver(db: Database.Database): Promise<BaseCheckpointSaver> {
+  const { SqliteSaver } = await import('@langchain/langgraph-checkpoint-sqlite');
   return new SqliteSaver(db);
 }
 
 /**
- * Create an in-memory checkpoint saver for testing.
+ * Create an in-memory checkpoint saver for testing and browser runtime.
  */
 export function createMemoryCheckpointSaver(): BaseCheckpointSaver {
   return new MemorySaver();

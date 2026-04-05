@@ -52,7 +52,7 @@ describe('createGateway', () => {
     expect(client).toBeDefined();
   });
 
-  it('passes defaultHeaders to anthropic adapter', () => {
+  it('passes defaultHeaders through + injects browser-compat headers for third-party endpoints', () => {
     const gw = createGateway({
       provider: 'anthropic',
       apiKey: 'sk-test',
@@ -61,10 +61,29 @@ describe('createGateway', () => {
     });
 
     // biome-ignore lint/suspicious/noExplicitAny: test-only introspection
-    const client = (gw as any).client;
-    expect(client?._options?.defaultHeaders).toEqual({
-      'X-LLM-Base-URL': 'https://api.minimax.io/anthropic',
+    const headers = (gw as any).client?._options?.defaultHeaders;
+    // User-supplied headers pass through.
+    expect(headers?.['X-LLM-Base-URL']).toBe('https://api.minimax.io/anthropic');
+    // Third-party Anthropic-compat endpoints trigger browser-CORS-friendly
+    // overrides: Bearer auth + null-deletion of x-api-key, anthropic-version,
+    // and all x-stainless-* telemetry headers.
+    expect(headers?.Authorization).toBe('Bearer sk-test');
+    expect(headers?.['x-api-key']).toBeNull();
+    expect(headers?.['anthropic-version']).toBeNull();
+    expect(headers?.['X-Stainless-OS']).toBeNull();
+  });
+
+  it('does not inject browser-compat headers for Anthropic official endpoint', () => {
+    const gw = createGateway({
+      provider: 'anthropic',
+      apiKey: 'sk-test',
+      // baseURL omitted → SDK uses api.anthropic.com default
     });
+
+    // biome-ignore lint/suspicious/noExplicitAny: test-only introspection
+    const headers = (gw as any).client?._options?.defaultHeaders;
+    expect(headers?.Authorization).toBeUndefined();
+    expect(headers?.['x-api-key']).toBeUndefined();
   });
 
   it('allows subscription in a trusted desktop renderer', () => {

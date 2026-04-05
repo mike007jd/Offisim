@@ -51,7 +51,7 @@ describe('SqliteSaver coexistence with app tables', () => {
 
   it('SqliteSaver internal tables do not conflict with app tables', async () => {
     const { db } = createTempDb();
-    const checkpointer = createCheckpointSaver(db);
+    const checkpointer = await createCheckpointSaver(db);
 
     // Write app data
     db.exec("INSERT INTO companies (company_id, name) VALUES ('c-1', 'Test Corp')");
@@ -94,7 +94,7 @@ describe('SqliteSaver coexistence with app tables', () => {
 
   it('file-based SqliteSaver persists across reopen', async () => {
     const { db, filePath } = createTempDb();
-    const checkpointer = createCheckpointSaver(db);
+    const checkpointer = await createCheckpointSaver(db);
 
     const config = { configurable: { thread_id: 'file-thread' } };
     const checkpoint = {
@@ -111,7 +111,7 @@ describe('SqliteSaver coexistence with app tables', () => {
 
     // Reopen the same file
     const db2 = new Database(filePath);
-    const checkpointer2 = createCheckpointSaver(db2);
+    const checkpointer2 = await createCheckpointSaver(db2);
 
     const tuple = await checkpointer2.getTuple({
       configurable: { thread_id: 'file-thread', checkpoint_id: 'cp-file' },

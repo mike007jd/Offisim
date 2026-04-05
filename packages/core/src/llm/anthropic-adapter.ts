@@ -79,15 +79,60 @@ function mapMessages(messages: readonly LlmMessage[]): Anthropic.MessageParam[] 
   return result;
 }
 
+// Third-party Anthropic-compatible endpoints (MiniMax, etc.) typically do not
+// whitelist the Stainless SDK telemetry headers, `x-api-key`, or
+// `anthropic-version` in their CORS allow-list, so browser calls would fail
+// at the CORS preflight stage. Override those headers using the `null` delete
+// semantics baked into `@anthropic-ai/sdk`'s header merger and authenticate
+// via `Authorization: Bearer` instead — which MiniMax and most compat
+// vendors accept, and which is a universally CORS-safe header name.
+function buildBrowserCompatHeaders(apiKey: string): Record<string, string | null> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'x-api-key': null,
+    'anthropic-version': null,
+    'anthropic-dangerous-direct-browser-access': null,
+    'X-Stainless-OS': null,
+    'X-Stainless-Arch': null,
+    'X-Stainless-Lang': null,
+    'X-Stainless-Package-Version': null,
+    'X-Stainless-Runtime': null,
+    'X-Stainless-Runtime-Version': null,
+    'X-Stainless-Retry-Count': null,
+    'X-Stainless-Timeout': null,
+    'X-Stainless-Helper-Method': null,
+  };
+}
+
+function isThirdPartyAnthropicEndpoint(baseURL: string | undefined): boolean {
+  if (!baseURL) return false;
+  try {
+    return !new URL(baseURL).host.endsWith('api.anthropic.com');
+  } catch {
+    return false;
+  }
+}
+
 export class AnthropicAdapter implements LlmGateway {
   private client: Anthropic;
   private retryConfig: RetryConfig;
 
   constructor(apiKey: string, options?: AnthropicAdapterOptions) {
+    const browserCompatHeaders = isThirdPartyAnthropicEndpoint(options?.baseURL)
+      ? buildBrowserCompatHeaders(apiKey)
+      : undefined;
+    const mergedHeaders =
+      browserCompatHeaders || options?.defaultHeaders
+        ? { ...browserCompatHeaders, ...options?.defaultHeaders }
+        : undefined;
+
     this.client = new Anthropic({
       apiKey,
       baseURL: options?.baseURL,
-      defaultHeaders: options?.defaultHeaders,
+      // Cast: `@anthropic-ai/sdk` accepts `null` values in defaultHeaders
+      // (see internal/headers.js buildHeaders) to delete headers, but the
+      // exported type is `Record<string, string>`.
+      defaultHeaders: mergedHeaders as Record<string, string> | undefined,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
@@ -139,7 +184,15 @@ export class AnthropicAdapter implements LlmGateway {
     const systemText = systemMessages.map((m) => m.content).join('\n');
 
     try {
-      const stream = this.client.messages.stream(
+      // Use `messages.create({ stream: true })` instead of the `messages.stream()`
+      // helper. The helper hard-injects `X-Stainless-Helper-Method: 'stream'`
+      // into the last slot of the SDK's header merge chain, which overrides any
+      // null-delete we set in defaultHeaders and trips CORS preflight on
+      // third-party Anthropic-compatible endpoints whose allow-list does not
+      // include Stainless telemetry headers. We accumulate usage from
+      // message_start / message_delta events ourselves to replace
+      // stream.finalMessage().
+      const stream = await this.client.messages.create(
         {
           model: request.model,
           max_tokens: request.maxTokens ?? 4096,
@@ -147,6 +200,7 @@ export class AnthropicAdapter implements LlmGateway {
           system: systemText || undefined,
           messages: mapMessages(request.messages),
           tools: mapToolDefs(request.tools),
+          stream: true,
         },
         { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
       );
@@ -154,12 +208,18 @@ export class AnthropicAdapter implements LlmGateway {
       const self = this;
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
         try {
-          // Accumulate tool calls during streaming
           const streamToolCalls: Map<number, { id: string; name: string; jsonChunks: string[] }> =
             new Map();
+          let inputTokens = 0;
+          let outputTokens = 0;
 
           for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            if (event.type === 'message_start') {
+              inputTokens = event.message.usage.input_tokens;
+              outputTokens = event.message.usage.output_tokens;
+            } else if (event.type === 'message_delta') {
+              outputTokens = event.usage.output_tokens;
+            } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
               yield { content: event.delta.text, done: false };
             } else if (
               event.type === 'content_block_start' &&
@@ -179,7 +239,6 @@ export class AnthropicAdapter implements LlmGateway {
             }
           }
 
-          // Build final tool calls from accumulated chunks
           const toolCalls: ToolCallResult[] = [];
           for (const tc of streamToolCalls.values()) {
             const jsonStr = tc.jsonChunks.join('');
@@ -194,14 +253,10 @@ export class AnthropicAdapter implements LlmGateway {
             }
           }
 
-          const finalMessage = await stream.finalMessage();
           yield {
             done: true,
             toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-            usage: {
-              inputTokens: finalMessage.usage.input_tokens,
-              outputTokens: finalMessage.usage.output_tokens,
-            },
+            usage: { inputTokens, outputTokens },
           };
         } catch (error: unknown) {
           throw self.mapError(error);

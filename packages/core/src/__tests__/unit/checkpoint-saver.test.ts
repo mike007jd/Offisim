@@ -8,9 +8,9 @@ import {
 } from '../../graph/checkpoint-saver.js';
 
 describe('createCheckpointSaver', () => {
-  it('returns SqliteSaver backed by provided Database', () => {
+  it('returns SqliteSaver backed by provided Database', async () => {
     const db = new Database(':memory:');
-    const saver = createCheckpointSaver(db);
+    const saver = await createCheckpointSaver(db);
     expect(saver).toBeInstanceOf(SqliteSaver);
     db.close();
   });
@@ -26,7 +26,7 @@ describe('createMemoryCheckpointSaver', () => {
 describe('SqliteSaver basic persistence', () => {
   it('can put and getTuple a checkpoint', async () => {
     const db = new Database(':memory:');
-    const saver = createCheckpointSaver(db);
+    const saver = await createCheckpointSaver(db);
 
     const config = { configurable: { thread_id: 'test-thread-1' } };
 

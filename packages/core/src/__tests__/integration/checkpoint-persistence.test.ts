@@ -10,7 +10,7 @@ describe('checkpoint persistence (E2E)', () => {
   it('graph execution writes checkpoints that survive DB reopen', async () => {
     // --- Phase A: Execute graph with SqliteSaver ---
     const db = new Database(':memory:');
-    const checkpointer = createCheckpointSaver(db);
+    const checkpointer = await createCheckpointSaver(db);
 
     const { gateway, runtimeCtx } = createTestRuntime();
     const graph = buildOffisimGraph({ checkpointer });
@@ -47,7 +47,7 @@ describe('checkpoint persistence (E2E)', () => {
     expect(state.completed).toBe(true);
 
     // --- Phase C: "Restart" — create new SqliteSaver on SAME db ---
-    const checkpointer2 = createCheckpointSaver(db);
+    const checkpointer2 = await createCheckpointSaver(db);
 
     const tuple2 = await checkpointer2.getTuple({
       configurable: { thread_id: TEST_THREAD_ID },
@@ -64,7 +64,7 @@ describe('checkpoint persistence (E2E)', () => {
 
   it('different threads have independent checkpoints', async () => {
     const db = new Database(':memory:');
-    const checkpointer = createCheckpointSaver(db);
+    const checkpointer = await createCheckpointSaver(db);
 
     const { gateway, runtimeCtx } = createTestRuntime();
     const graph = buildOffisimGraph({ checkpointer });
