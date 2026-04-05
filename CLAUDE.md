@@ -13,6 +13,12 @@ pnpm format           # Biome format
 pnpm clean            # 清除 turbo 缓存 + node_modules
 ```
 
+E2E (Playwright, 本地跑, 需要 `.env.local` 里的 `MINIMAX_API_KEY`):
+```bash
+cd apps/web && pnpm test:e2e           # dev mode E2E (25 specs)
+cd apps/web && pnpm test:e2e:prod      # prod bundle E2E (vite build + preview)
+```
+
 单包操作:
 ```bash
 pnpm --filter @offisim/core test        # 跑单包测试
@@ -203,6 +209,16 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   给路由加新 middleware（如 `requireCreator`）会在 handler 之前多查一次 DB，
   现有测试的 mock 数组必须在最前面插入 middleware 的查询结果，否则 callIndex 错位导致
   403/400/404 语义漂移。重构中间件后必须同步更新所有相关测试的 mock 序列
+- `AnthropicAdapter` 在 baseURL 非 `api.anthropic.com` 时自动启用 browser-CORS-friendly 模式：
+  用 `Authorization: Bearer` 替代 `x-api-key`，null 删除 `anthropic-version`，
+  custom `fetch` wrapper 用 `/^x-stainless-/i` 正则 strip SDK telemetry headers，
+  `doChatStream` 用 `messages.create({stream:true})` 替代 `messages.stream()` helper
+  （后者硬注入 `X-Stainless-Helper-Method` 无法通过 defaultHeaders 删除）。
+  Anthropic 官方 endpoint 保持 SDK 默认行为
+- `createCheckpointSaver()` 是 async（返回 `Promise<BaseCheckpointSaver>`）。
+  `SqliteSaver` 通过 `await import('@langchain/langgraph-checkpoint-sqlite')` 懒加载，
+  避免 browser bundle 静态拉 Node-only 依赖。`createMemoryCheckpointSaver()` 保持同步。
+  桌面代码和测试调 `createCheckpointSaver` 时必须 await
 
 ## License and Key Model
 
