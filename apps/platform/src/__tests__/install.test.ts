@@ -174,8 +174,9 @@ describe('Install Route', () => {
 
     it('creates receipt and returns recorded status for new install', async () => {
       const mockDb = createMockDb([
-        [{ install_receipt_id: `rcpt_${USER_ID}_${LISTING_ID}_${VERSION_ID}` }],
-        [],
+        [{ package_version_id: VERSION_ID }], // version-belongs-to-listing validation
+        [{ install_receipt_id: `rcpt_${USER_ID}_${LISTING_ID}_${VERSION_ID}` }], // insert receipt
+        [], // update install_count
       ]);
       const app = createApp(mockDb, USER_ID);
 
@@ -200,8 +201,35 @@ describe('Install Route', () => {
       expect(body.status).toBe('recorded');
     });
 
+    it('rejects receipt when version does not belong to listing', async () => {
+      const mockDb = createMockDb([
+        [], // version-belongs-to-listing validation returns empty
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request('/v1/install/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_id: LISTING_ID,
+          package_version_id: VERSION_ID,
+          install_source: 'registry',
+        }),
+      });
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as InstallReceiptResponse;
+      if (!('error' in body)) {
+        throw new Error('Expected error response');
+      }
+      expect(body.error.message).toContain('does not belong');
+    });
+
     it('returns already_exists for duplicate receipt (idempotent)', async () => {
-      const mockDb = createMockDb([[]]);
+      const mockDb = createMockDb([
+        [{ package_version_id: VERSION_ID }], // version-belongs-to-listing validation
+        [], // insert returns empty (duplicate, ON CONFLICT DO NOTHING)
+      ]);
       const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/install/receipts', {

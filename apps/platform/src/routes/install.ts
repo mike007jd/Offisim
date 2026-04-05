@@ -10,7 +10,7 @@
  */
 
 import { installReceipts, listings, packageVersions } from '@offisim/db-platform';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { requireAuth } from '../middleware/auth.js';
@@ -43,6 +43,24 @@ installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
 
   // Use transaction to guarantee atomicity of receipt insert + count increment
   const result = await db.transaction(async (tx) => {
+    // Verify version belongs to the claimed listing
+    const [validVersion] = await tx
+      .select({ package_version_id: packageVersions.package_version_id })
+      .from(packageVersions)
+      .where(
+        and(
+          eq(packageVersions.package_version_id, body.package_version_id),
+          eq(packageVersions.listing_id, body.listing_id),
+        ),
+      )
+      .limit(1);
+
+    if (!validVersion) {
+      throw new HTTPException(400, {
+        message: 'package_version_id does not belong to listing_id',
+      });
+    }
+
     // Upsert receipt — ON CONFLICT DO NOTHING returns 0 rows if duplicate
     const inserted = await tx
       .insert(installReceipts)

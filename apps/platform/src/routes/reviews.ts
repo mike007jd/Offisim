@@ -1,4 +1,4 @@
-import { listings, reviews } from '@offisim/db-platform';
+import { creators, listings, reviews } from '@offisim/db-platform';
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -18,14 +18,23 @@ reviewsRoute.post('/', requireAuth, async (c) => {
   }
   const body = ReviewCreateSchema.parse(await c.req.json());
 
-  // Verify listing exists
+  // Verify listing exists and check ownership
   const [listing] = await db
-    .select({ listing_id: listings.listing_id })
+    .select({
+      listing_id: listings.listing_id,
+      user_id: creators.user_id,
+    })
     .from(listings)
+    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
     .where(eq(listings.listing_id, body.listing_id))
     .limit(1);
 
   if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+
+  // Block self-review
+  if (listing.user_id === userId) {
+    throw new HTTPException(403, { message: 'Cannot review your own listing' });
+  }
 
   // Upsert: check if user already reviewed this listing
   const [existing] = await db

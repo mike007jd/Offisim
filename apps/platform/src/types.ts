@@ -7,5 +7,6 @@ export interface PlatformEnv {
     requestId: string;
     userId?: string;
     userEmail?: string;
+    authLinkConflict?: boolean;
   };
 }

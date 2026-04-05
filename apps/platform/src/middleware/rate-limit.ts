@@ -48,17 +48,27 @@ function ensureCleanup() {
 }
 
 /**
+ * Number of trusted proxy hops. We take the Nth-from-right entry in
+ * X-Forwarded-For, which is the IP written by the closest trusted proxy.
+ *
+ * Production deployments MUST configure their reverse proxy to overwrite
+ * (not append to) X-Forwarded-For, or set this to match the proxy chain depth.
+ */
+const TRUSTED_PROXY_DEPTH = Number(process.env.TRUSTED_PROXY_DEPTH) || 1;
+
+/**
  * Extract client identifier for rate limiting.
- * Uses X-Forwarded-For (first IP) if behind a proxy, otherwise falls back
- * to a generic key (Hono test requests don't have remote addresses).
+ * Takes the Nth-from-right IP from X-Forwarded-For (the one written by the
+ * closest trusted proxy), rather than the leftmost (which the client controls).
  */
 function getClientKey(c: { req: { header: (name: string) => string | undefined } }): string {
   const forwarded = c.req.header('x-forwarded-for');
   if (forwarded) {
-    const [firstForwarded] = forwarded.split(',');
-    if (firstForwarded) {
-      return firstForwarded.trim();
-    }
+    const parts = forwarded.split(',').map((s) => s.trim());
+    // Take the Nth-from-right entry (index = length - depth)
+    const idx = Math.max(0, parts.length - TRUSTED_PROXY_DEPTH);
+    const ip = parts[idx];
+    if (ip) return ip;
   }
   const realIp = c.req.header('x-real-ip');
   if (realIp) {

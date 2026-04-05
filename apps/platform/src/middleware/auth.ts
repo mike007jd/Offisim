@@ -109,14 +109,19 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
             .limit(1);
 
           if (existingByEmail) {
-            // Link existing Offisim user to Better Auth user
-            await db
-              .update(users)
-              .set({ ba_user_id: session.user.id })
-              .where(eq(users.user_id, existingByEmail.user_id));
+            if (existingByEmail.ba_user_id && existingByEmail.ba_user_id !== session.user.id) {
+              // Email already linked to a different OAuth account — refuse to overwrite
+              c.set('authLinkConflict', true);
+            } else {
+              // Link existing Offisim user to Better Auth user
+              await db
+                .update(users)
+                .set({ ba_user_id: session.user.id })
+                .where(eq(users.user_id, existingByEmail.user_id));
 
-            c.set('userId', existingByEmail.user_id);
-            c.set('userEmail', existingByEmail.email);
+              c.set('userId', existingByEmail.user_id);
+              c.set('userEmail', existingByEmail.email);
+            }
           }
         }
       }
@@ -132,6 +137,17 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
  * Required auth guard — returns 401 JSON if no user extracted.
  */
 export const requireAuth = createMiddleware<PlatformEnv>(async (c, next) => {
+  if (c.get('authLinkConflict')) {
+    return c.json(
+      {
+        error: {
+          code: 'AUTH_LINK_CONFLICT',
+          message: 'Email already linked to another account',
+        },
+      },
+      401,
+    );
+  }
   if (!c.get('userId')) {
     return c.json(
       {

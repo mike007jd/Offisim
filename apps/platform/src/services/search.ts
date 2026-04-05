@@ -94,7 +94,14 @@ export async function searchListings(db: PlatformDb, filters: SearchFilters) {
       .orderBy(orderBy)
       .limit(perPage)
       .offset(offset),
-    db.select({ count: sql<number>`count(*)::int` }).from(listings).where(where),
+    // Only JOIN creators in the count query when WHERE references creators columns (q filter)
+    filters.q
+      ? db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(listings)
+          .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
+          .where(where)
+      : db.select({ count: sql<number>`count(*)::int` }).from(listings).where(where),
   ]);
 
   const total = countResult[0]?.count ?? 0;

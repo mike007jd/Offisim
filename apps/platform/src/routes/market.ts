@@ -8,7 +8,7 @@ import {
   packageVersions,
   reviews,
 } from '@offisim/db-platform';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { type SQL, and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { PlatformDb } from '../db.js';
@@ -22,6 +22,24 @@ import { searchListings } from '../services/search.js';
 import type { PlatformEnv } from '../types.js';
 
 const market = new Hono<PlatformEnv>();
+
+// ── Visibility guard — only return 'listed' listings to public endpoints ──
+
+async function getVisibleListing(db: PlatformDb, condition: SQL) {
+  const [row] = await db
+    .select()
+    .from(listings)
+    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
+    .where(and(eq(listings.status, 'listed'), condition))
+    .limit(1);
+  return row;
+}
+
+async function requireVisibleListingById(db: PlatformDb, listingId: string) {
+  const row = await getVisibleListing(db, eq(listings.listing_id, listingId));
+  if (!row) throw new HTTPException(404, { message: 'Listing not found' });
+  return row;
+}
 
 // ── Shared listing detail builder (used by both by-id and by-slug routes) ──
 
@@ -212,13 +230,7 @@ market.get('/listings/:listingId', async (c) => {
   const db = c.get('db');
   const listingId = c.req.param('listingId');
 
-  const [row] = await db
-    .select()
-    .from(listings)
-    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
+  const row = await getVisibleListing(db, eq(listings.listing_id, listingId));
   if (!row) throw new HTTPException(404, { message: 'Listing not found' });
   return c.json(await buildListingDetail(db, row.listings, row.creators));
 });
@@ -228,13 +240,7 @@ market.get('/listings/by-slug/:slug', async (c) => {
   const db = c.get('db');
   const slug = c.req.param('slug');
 
-  const [row] = await db
-    .select()
-    .from(listings)
-    .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
-    .where(eq(listings.slug, slug))
-    .limit(1);
-
+  const row = await getVisibleListing(db, eq(listings.slug, slug));
   if (!row) throw new HTTPException(404, { message: 'Listing not found' });
   return c.json(await buildListingDetail(db, row.listings, row.creators));
 });
@@ -244,14 +250,7 @@ market.get('/listings/:listingId/versions', async (c) => {
   const db = c.get('db');
   const listingId = c.req.param('listingId');
 
-  // Verify listing exists
-  const [listing] = await db
-    .select({ listing_id: listings.listing_id })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
-  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+  await requireVisibleListingById(db, listingId);
 
   const versions = await db
     .select()
@@ -280,13 +279,7 @@ market.get('/listings/:listingId/reviews', async (c) => {
   const db = c.get('db');
   const listingId = c.req.param('listingId');
 
-  const [listing] = await db
-    .select({ listing_id: listings.listing_id })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
-  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+  await requireVisibleListingById(db, listingId);
 
   const reviewRows = await db
     .select()

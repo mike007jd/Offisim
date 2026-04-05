@@ -5,7 +5,7 @@ import { db } from './db.js';
 import type { PlatformDb } from './db.js';
 import { optionalAuth } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
-import { generalRateLimit } from './middleware/rate-limit.js';
+import { authRateLimit, generalRateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
 import { authRoute } from './routes/auth.js';
 import { creatorsRoute } from './routes/creators.js';
@@ -37,9 +37,7 @@ export function createApp(platformDb: PlatformDb = db) {
     c.set('db', platformDb);
     await next();
   });
-  app.use('/api/auth/*', async (_c, next) => {
-    await next();
-  });
+  app.use('/api/auth/*', authRateLimit);
   app.use('*', optionalAuth);
   app.onError(errorHandler);
 
