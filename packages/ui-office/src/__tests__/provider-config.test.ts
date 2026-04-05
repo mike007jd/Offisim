@@ -187,12 +187,34 @@ describe('provider-config', () => {
     });
   });
 
-  it('returns null for vendor-direct provider on desktop', () => {
+  it('allows vendor-direct providers on desktop', () => {
     setTauriMode(true);
     saveProviderConfig({
       provider: 'openai',
       apiKey: 'sk-desktop',
       model: 'gpt-4o-mini',
+    });
+
+    expect(loadProviderConfig()).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      runtimePolicy: {
+        executionMode: 'auto',
+        modelPolicy: {
+          default: {
+            provider: 'openai',
+            model: 'gpt-4o-mini',
+          },
+        },
+      },
+    });
+  });
+
+  it('returns null for subscription provider in browser mode', () => {
+    saveProviderConfig({
+      provider: 'subscription',
+      apiKey: 'sk-browser',
+      model: 'default',
     });
 
     expect(loadProviderConfig()).toBeNull();
