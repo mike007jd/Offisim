@@ -14,7 +14,7 @@ import {
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
-import { EmptyState } from '../error/EmptyState';
+import { EmptyState, type EmptyStateWelcome, type StarterPrompt } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { MeetingPanel } from '../office/MeetingPanel';
 import { ActivityRail } from './ActivityRail';
@@ -48,6 +48,10 @@ interface ChatPanelProps {
   activeProject?: ProjectRow | null;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
+  /** First-run welcome card (boss greeting) shown in the chat empty state. */
+  onboardingWelcome?: EmptyStateWelcome;
+  /** Template-aware starter prompts for the chat empty state. */
+  onboardingStarterPrompts?: readonly StarterPrompt[];
   compact?: boolean;
 }
 
@@ -67,6 +71,8 @@ export function ChatPanel({
   onOpenStudio,
   activeProject,
   onUserMessage,
+  onboardingWelcome,
+  onboardingStarterPrompts,
   compact = false,
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
@@ -380,7 +386,12 @@ export function ChatPanel({
                 </p>
               </div>
             ) : (
-              <EmptyState isConfigured={isReady} onSendPrompt={handleSend} />
+              <EmptyState
+                isConfigured={isReady}
+                onSendPrompt={handleSend}
+                welcome={onboardingWelcome}
+                starterPrompts={onboardingStarterPrompts}
+              />
             )
           ) : (
             <ScrollArea className="flex-1">

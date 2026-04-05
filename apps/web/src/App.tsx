@@ -37,33 +37,17 @@ import {
   useSceneOrchestrator,
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { OnboardingController } from './components/OnboardingController';
 import {
   type AppView,
   isOfficeSceneInteractive,
   shouldKeepOfficeMounted,
   shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
+import { getOnboardingCopy } from './lib/onboarding-prompts';
+import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboarding-store';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
-const ONBOARDING_DONE_KEY = 'offisim.onboarding.done';
-
-const ONBOARDING_STEPS = [
-  {
-    title: 'Click any employee to start a conversation',
-    body: 'The left panel shows employee details and direct chat.',
-    position: 'left-8 top-24 max-w-xs',
-  },
-  {
-    title: 'Enter a task and watch AI teamwork',
-    body: 'The chat drawer shows collaboration progress, system messages, and outputs.',
-    position: 'left-1/2 bottom-24 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
-  },
-  {
-    title: 'Switch between 3D and 2D views',
-    body: 'Layout and decoration editors are accessible from the top bar.',
-    position: 'left-1/2 top-20 w-[min(420px,calc(100vw-32px))] -translate-x-1/2',
-  },
-] as const;
 
 interface SceneCanvasLazyProps {
   active?: boolean;
@@ -163,8 +147,8 @@ export function App({ onCompanySwitch }: AppProps) {
   const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(
     activeCompanyId,
   );
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const {
     reinitRuntime,
     repos,
@@ -203,12 +187,18 @@ export function App({ onCompanySwitch }: AppProps) {
   }, [activeCompanyId]);
 
   useEffect(() => {
-    if (!activeCompanyId || !repos) return;
+    if (!activeCompanyId || !repos) {
+      setActiveTemplateId(null);
+      return;
+    }
     let cancelled = false;
     void repos.companies.findById(activeCompanyId).then((company) => {
-      if (!cancelled && !company) {
+      if (cancelled) return;
+      if (!company) {
         onCompanySwitch(null);
+        return;
       }
+      setActiveTemplateId(company.template_id ?? null);
     });
     return () => {
       cancelled = true;
@@ -314,19 +304,12 @@ export function App({ onCompanySwitch }: AppProps) {
   ]);
 
   useEffect(() => {
-    if (!activeCompanyId || view !== 'office') return;
-    try {
-      if (localStorage.getItem(ONBOARDING_DONE_KEY) === 'true') {
-        setOnboardingStep(null);
-        return;
-      }
-    } catch {
-      // Ignore storage errors and still show onboarding once per session.
+    if (providerConfig) {
+      markAccount('provider_configured');
     }
-    setOnboardingStep((current) => current ?? 0);
-  }, [activeCompanyId, view]);
+  }, [providerConfig]);
 
-  // Subscribe to deliverable.created — show toast with View or SOP action
+  // Subscribe to deliverable.created — show toast with View or SOP action.
   useEffect(() => {
     return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
       const title = e.payload.title || 'Output';
@@ -336,6 +319,9 @@ export function App({ onCompanySwitch }: AppProps) {
         onAction: () => setFocusOutputsToken((t) => t + 1),
         durationMs: isMultiStep ? 12_000 : 8_000,
       });
+      if (e.companyId) {
+        markCompany(e.companyId, 'first_deliverable_seen');
+      }
     });
   }, [eventBus, addToast]);
 
@@ -355,8 +341,42 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = selectedEmployeeId
     ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
-  const currentOnboardingIndex = onboardingStep ?? 0;
-  const currentOnboardingStep = onboardingStep !== null ? ONBOARDING_STEPS[onboardingStep] : null;
+
+  const handleSelectEmployee = useCallback((id: string | null) => {
+    setSelectedEmployeeId(id);
+    if (id) {
+      markAccount('first_employee_clicked');
+    }
+  }, []);
+
+  const handleUserMessage = useCallback(
+    (text: string) => {
+      setLastUserRequest(text);
+      if (activeCompanyId) {
+        markCompany(activeCompanyId, 'first_task_sent');
+      }
+    },
+    [activeCompanyId],
+  );
+
+  // Welcome card only renders on the very first task of a given company.
+  const activeCompanyOnboarding = useCompanyOnboardingState(activeCompanyId);
+  const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
+  const chatOnboardingWelcome = activeCompanyOnboarding.first_task_sent
+    ? undefined
+    : onboardingCopy.welcome;
+  const chatOnboardingStarters = onboardingCopy.starterPrompts;
+
+  const anyOverlayOpen =
+    settingsOpen ||
+    dashboardOpen ||
+    kanbanOpen ||
+    marketplaceListingId !== null ||
+    employeeEditor.isOpen ||
+    installFlow.isOpen ||
+    companyEditor.isOpen ||
+    shortcutHelpOpen ||
+    companyWizardMode !== null;
 
   const handleLayoutMetricsChange = useCallback(
     ({ leftPanelWidth: w }: { leftPanelWidth: number }) => {
@@ -429,9 +449,14 @@ export function App({ onCompanySwitch }: AppProps) {
   function handleWizardComplete(newCompanyId?: string) {
     refreshCompanies();
     if (newCompanyId) {
+      // Auto-enter the newly created company instead of returning to the portal.
+      // Previous behavior (setView('company-select')) forced users to pick their
+      // brand-new company from a list, breaking onboarding flow continuity.
       setPortalPreviewCompanyId(newCompanyId);
       setCompanyWizardMode(null);
-      setView('company-select');
+      switchCompany(newCompanyId);
+      onCompanySwitch(newCompanyId);
+      setView('office');
     }
     if (!providerConfig && !companyWizardMode && activeCompanyId) {
       setSettingsOpen(true);
@@ -462,15 +487,6 @@ export function App({ onCompanySwitch }: AppProps) {
     refreshCompanies();
     setPortalPreviewCompanyId(newId);
     setView('office');
-  }
-
-  function finishOnboarding() {
-    setOnboardingStep(null);
-    try {
-      localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
-    } catch {
-      // Ignore storage errors.
-    }
   }
 
   return (
@@ -560,7 +576,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     notificationSlot={
                       <NotificationCenter
                         onFocusEmployee={(employeeId) => {
-                          setSelectedEmployeeId(employeeId);
+                          handleSelectEmployee(employeeId);
                           setChatOpenToken((t) => t + 1);
                         }}
                       />
@@ -581,28 +597,30 @@ export function App({ onCompanySwitch }: AppProps) {
                 agentPanel={
                   <AgentPanel
                     agents={agents}
-                    onSelectEmployee={setSelectedEmployeeId}
+                    onSelectEmployee={handleSelectEmployee}
                     selectedEmployeeId={selectedEmployeeId}
                     onOpenCreator={() => setView('employee-creator')}
                   />
                 }
                 sceneCanvas={
-                  <Suspense
-                    fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}
-                  >
-                    <SceneCanvas
-                      active={isOfficeSceneInteractive(view)}
-                      reducedMotion={reducedMotion}
-                      viewMode={viewMode}
-                      selectedEmployeeId={selectedEmployeeId}
-                      onSelectEmployee={setSelectedEmployeeId}
-                      onDeselectEmployee={() => setSelectedEmployeeId(null)}
-                      onFallbackTo2D={() => {
-                        setViewMode('2D');
-                        addToast('3D rendering failed — switched to 2D view', 'error');
-                      }}
-                    />
-                  </Suspense>
+                  <div className="h-full w-full" data-onboarding-target="scene-surface">
+                    <Suspense
+                      fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}
+                    >
+                      <SceneCanvas
+                        active={isOfficeSceneInteractive(view)}
+                        reducedMotion={reducedMotion}
+                        viewMode={viewMode}
+                        selectedEmployeeId={selectedEmployeeId}
+                        onSelectEmployee={handleSelectEmployee}
+                        onDeselectEmployee={() => setSelectedEmployeeId(null)}
+                        onFallbackTo2D={() => {
+                          setViewMode('2D');
+                          addToast('3D rendering failed — switched to 2D view', 'error');
+                        }}
+                      />
+                    </Suspense>
+                  </div>
                 }
                 chatDrawer={
                   <ChatDrawer requestOpen={chatOpenToken}>
@@ -621,7 +639,9 @@ export function App({ onCompanySwitch }: AppProps) {
                           setView('studio');
                         }}
                         activeProject={activeProject}
-                        onUserMessage={setLastUserRequest}
+                        onUserMessage={handleUserMessage}
+                        onboardingWelcome={chatOnboardingWelcome}
+                        onboardingStarterPrompts={chatOnboardingStarters}
                       />
                     )}
                   </ChatDrawer>
@@ -686,53 +706,16 @@ export function App({ onCompanySwitch }: AppProps) {
                 void employeeEditor.openForEdit(id);
               }}
               onStartChat={(id) => {
-                setSelectedEmployeeId(id);
+                handleSelectEmployee(id);
                 setChatOpenToken((t) => t + 1);
               }}
             />
-            {currentOnboardingStep && (
-              <div className="pointer-events-none fixed inset-0 z-[75]">
-                <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
-                <div
-                  className={`pointer-events-auto absolute ${currentOnboardingStep.position} rounded-2xl border border-white/10 bg-slate-950/90 p-4 shadow-2xl`}
-                >
-                  <p className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
-                    First Run Guide
-                  </p>
-                  <h2 className="mt-2 text-lg font-semibold text-white">
-                    {currentOnboardingStep.title}
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-300">{currentOnboardingStep.body}</p>
-                  <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-                    <span>
-                      {currentOnboardingIndex + 1} / {ONBOARDING_STEPS.length}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-md border border-white/10 px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/5"
-                        onClick={finishOnboarding}
-                      >
-                        Skip
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 transition-colors hover:bg-cyan-400/15"
-                        onClick={() => {
-                          if (currentOnboardingIndex >= ONBOARDING_STEPS.length - 1) {
-                            finishOnboarding();
-                            return;
-                          }
-                          setOnboardingStep(currentOnboardingIndex + 1);
-                        }}
-                      >
-                        {currentOnboardingIndex >= ONBOARDING_STEPS.length - 1 ? 'Done' : 'Next'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <OnboardingController
+              activeCompanyId={activeCompanyId}
+              isOfficeView={view === 'office'}
+              anyOverlayOpen={anyOverlayOpen}
+              directChatActive={selectedEmployeeId !== null}
+            />
           </>
         )}
 

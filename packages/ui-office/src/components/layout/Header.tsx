@@ -118,6 +118,7 @@ export function Header({
           <button
             type="button"
             onClick={onOpenSettings}
+            data-onboarding-target="configure-provider"
             className="h-7 rounded-lg border border-amber-400/20 bg-amber-400/8 px-2.5 text-[11px] text-amber-100 transition-colors hover:bg-amber-400/12"
           >
             Configure API Key

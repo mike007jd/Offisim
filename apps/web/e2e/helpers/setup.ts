@@ -1,38 +1,41 @@
 import { type Page, expect } from '@playwright/test';
+import { ONBOARDING_STORAGE_KEY } from '../../src/lib/onboarding-store';
 
 const STORAGE_KEY = 'offisim-provider-config';
+const RUNTIME_SNAPSHOT_KEY = 'offisim:browser-runtime-snapshot:v1';
+const ACTIVE_COMPANY_KEY = 'offisim:active-company';
+const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
 
 export interface TestProviderConfig {
-  provider: 'openai-compat';
+  provider: 'anthropic';
   apiKey: string;
   baseURL: string;
   model: string;
 }
 
-/**
- * Inject an OpenRouter provider config into localStorage and reload.
- * Uses OPENROUTER_API_KEY from process.env (loaded from .env.local via playwright.config.ts).
- */
-export async function injectProvider(page: Page): Promise<void> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+function buildProviderConfig(): TestProviderConfig {
+  const apiKey = process.env.MINIMAX_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'OPENROUTER_API_KEY not found in environment. ' +
-        'Make sure .env.local exists at repo root with OPENROUTER_API_KEY=...',
+      'MINIMAX_API_KEY not found in environment. ' +
+        'E2E requires a live MiniMax key in .env.local at the repo root. ' +
+        'Set MINIMAX_API_KEY=sk-... before running `pnpm test:e2e`.',
     );
   }
-
-  // Model from env (OPENROUTER_MODEL in .env.local) or fallback.
-  // google/gemma-3-4b-it:free does NOT support system messages via Google AI Studio,
-  // so we default to Llama 3.3 which reliably supports them.
-  const model = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
-
-  const config: TestProviderConfig = {
-    provider: 'openai-compat',
+  return {
+    provider: 'anthropic',
     apiKey,
-    baseURL: 'https://openrouter.ai/api/v1',
-    model,
+    baseURL: process.env.MINIMAX_BASE_URL ?? 'https://api.minimax.io/anthropic',
+    model: process.env.MINIMAX_MODEL ?? 'MiniMax-M2.7-highspeed',
   };
+}
+
+// NOTE: injectProvider alone does NOT work on a truly fresh profile. Without an
+// offisim:active-company key, main.tsx mounts BootstrapProvider instead of
+// OffisimRuntimeProvider and the __OFFISIM_DEBUG__ bridge never appears. Use
+// seedTestCompanyAndProvider for specs that require a working runtime.
+export async function injectProvider(page: Page): Promise<void> {
+  const config = buildProviderConfig();
 
   await page.goto('/');
   await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
@@ -42,9 +45,132 @@ export async function injectProvider(page: Page): Promise<void> {
   await page.reload();
 }
 
-/**
- * Wait for the Offisim runtime to be ready (debug bridge available on window).
- */
+// Seed shape mirrors apps/web/output/runtime_probe.mjs (manually verified against
+// MiniMax). Keep the two in sync if MemoryRepositoriesSnapshot fields change.
+export async function seedTestCompanyAndProvider(
+  page: Page,
+  options: { companyId?: string; templateId?: string } = {},
+): Promise<void> {
+  const config = buildProviderConfig();
+  const companyId = options.companyId ?? 'c-e2e-onboarding';
+  const templateId = options.templateId ?? 'ai-startup';
+  const now = new Date().toISOString();
+
+  const snapshot = {
+    companies: [
+      {
+        company_id: companyId,
+        name: 'E2E Test Co',
+        status: 'active',
+        template_id: templateId,
+        template_label: null,
+        workspace_root: null,
+        default_model_policy_json: JSON.stringify({
+          default: {
+            profileName: 'e2e',
+            provider: config.provider,
+            model: config.model,
+            temperature: 0.7,
+            maxTokens: 4096,
+          },
+        }),
+        created_at: now,
+        updated_at: now,
+      },
+    ],
+    employees: [
+      {
+        employee_id: 'e-mgr-1',
+        company_id: companyId,
+        source_asset_id: null,
+        source_package_id: null,
+        name: 'Alex Manager',
+        role_slug: 'manager',
+        workstation_id: null,
+        persona_json: JSON.stringify({ expertise: 'project management' }),
+        config_json: null,
+        enabled: 1,
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        employee_id: 'e-writer-1',
+        company_id: companyId,
+        source_asset_id: null,
+        source_package_id: null,
+        name: 'Sam Writer',
+        role_slug: 'writer',
+        workstation_id: null,
+        persona_json: JSON.stringify({ expertise: 'copywriting and brand voice' }),
+        config_json: null,
+        enabled: 1,
+        created_at: now,
+        updated_at: now,
+      },
+    ],
+  };
+
+  await page.goto('/');
+  await page.evaluate(
+    ({ providerKey, providerValue, snapshotKey, snapshotValue, companyKey, companyIdValue }) => {
+      localStorage.setItem(providerKey, providerValue);
+      localStorage.setItem(snapshotKey, snapshotValue);
+      localStorage.setItem(companyKey, companyIdValue);
+    },
+    {
+      providerKey: STORAGE_KEY,
+      providerValue: JSON.stringify(config),
+      snapshotKey: RUNTIME_SNAPSHOT_KEY,
+      snapshotValue: JSON.stringify(snapshot),
+      companyKey: ACTIVE_COMPANY_KEY,
+      companyIdValue: companyId,
+    },
+  );
+  await page.reload();
+}
+
+export async function clearAllTestState(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(
+    ({ keys }) => {
+      for (const k of keys) localStorage.removeItem(k);
+    },
+    {
+      keys: [
+        STORAGE_KEY,
+        ONBOARDING_STORAGE_KEY,
+        RUNTIME_SNAPSHOT_KEY,
+        ACTIVE_COMPANY_KEY,
+        EVENT_HISTORY_KEY,
+      ],
+    },
+  );
+}
+
+export async function resetOnboardingState(page: Page): Promise<void> {
+  await page.evaluate((key) => {
+    localStorage.removeItem(key);
+  }, ONBOARDING_STORAGE_KEY);
+}
+
+export async function readOnboardingState(page: Page): Promise<{
+  account: Record<string, boolean>;
+  companies: Record<string, Record<string, boolean>>;
+}> {
+  return page.evaluate((key) => {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { account: {}, companies: {} };
+    try {
+      return JSON.parse(raw) as {
+        account: Record<string, boolean>;
+        companies: Record<string, Record<string, boolean>>;
+      };
+    } catch {
+      return { account: {}, companies: {} };
+    }
+  }, ONBOARDING_STORAGE_KEY);
+}
+
 export async function waitForRuntime(page: Page): Promise<void> {
   // biome-ignore lint/suspicious/noExplicitAny: window debug bridge access in E2E
   await page.waitForFunction(() => (window as any).__OFFISIM_DEBUG__ !== undefined, {
@@ -52,47 +178,30 @@ export async function waitForRuntime(page: Page): Promise<void> {
   });
 }
 
-/**
- * Open the chat drawer (it starts collapsed) and wait for input to be ready.
- * The toggle button contains text "Show Chat" / "Hide Chat".
- */
+// Drawer defaults to open on desktop (>768px viewport). Only click toggle on the
+// rare case it was closed by a prior test run.
 export async function openChat(page: Page): Promise<void> {
-  // ChatDrawer toggle button has a <span>Show Chat</span> inside
-  const showChatBtn = page.getByText('Show Chat');
-  // Only click if chat is currently hidden
-  if (await showChatBtn.isVisible()) {
-    await showChatBtn.click();
+  const placeholder = page.getByPlaceholder('Message your team...');
+  if (await placeholder.isVisible().catch(() => false)) return;
+
+  const toggle = page.getByRole('button', { name: /^Chat$/ });
+  if (await toggle.isVisible().catch(() => false)) {
+    await toggle.click();
   }
-  await expect(page.getByPlaceholder('Send a message...')).toBeVisible({
-    timeout: 5_000,
-  });
+  await expect(placeholder).toBeVisible({ timeout: 5_000 });
 }
 
-/**
- * Type a message and send it via the chat input.
- * Locates the send button within the chat input container (flex row with textarea + button).
- */
 export async function sendChat(page: Page, message: string): Promise<void> {
-  const input = page.getByPlaceholder('Send a message...');
+  const input = page.getByPlaceholder('Message your team...');
   await input.fill(message);
-  // The send button is the sibling Button of the textarea, inside the same
-  // .flex.items-end.gap-2 container. Use the parent container to scope.
-  const chatInputContainer = input.locator('..');
-  const sendBtn = chatInputContainer.locator('button');
-  await sendBtn.click();
+  await page.getByRole('button', { name: 'Send message' }).click();
 }
 
-/**
- * Wait for an AI response to appear in the chat panel.
- * Returns the text content of the last assistant message.
- */
 export async function waitForResponse(page: Page, timeout = 45_000): Promise<string> {
-  // First wait for at least one assistant bubble to exist in the DOM
   await page.locator('[data-role="assistant"]').first().waitFor({
     state: 'visible',
     timeout,
   });
-  // Then grab the last one (in case multiple responses)
   const responseBubble = page.locator('[data-role="assistant"]').last();
   const text = await responseBubble.textContent();
   return text ?? '';

@@ -131,7 +131,7 @@ test.describe('UI Audit: Chat Drawer', () => {
 
   test('chat drawer is visible between sidebars', async ({ page }) => {
     // Look for the chat input placeholder
-    const _chatInput = page.getByPlaceholder('Send a message...');
+    const _chatInput = page.getByPlaceholder('Message your team...');
     // It may or may not be visible depending on drawer state
     // But the drawer container should exist
     const drawerContainer = page.locator('.pointer-events-auto').locator('..').first();

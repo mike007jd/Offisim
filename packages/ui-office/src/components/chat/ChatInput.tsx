@@ -284,7 +284,7 @@ export function ChatInput({
   const canSend = !!text.trim() && !disabled;
 
   return (
-    <div className="relative px-3 py-2 border-t border-white/8">
+    <div className="relative px-3 py-2 border-t border-white/8" data-onboarding-target="chat-input">
       {/* Slash command menu */}
       {showSlashMenu && filteredSlash.length > 0 && (
         <div
