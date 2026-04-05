@@ -79,6 +79,11 @@ export { materialize } from './materializer.js';
 export type { MaterializeResult } from './materializer.js';
 
 // ---------------------------------------------------------------------------
+// Rollback (reverse materialization on failure)
+// ---------------------------------------------------------------------------
+export { rollback } from './rollback.js';
+
+// ---------------------------------------------------------------------------
 // Upgrade differ (PRD 3.5)
 // ---------------------------------------------------------------------------
 export { computeUpgradeDiff } from './upgrade-differ.js';
