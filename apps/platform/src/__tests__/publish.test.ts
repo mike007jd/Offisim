@@ -337,7 +337,9 @@ describe('Publish Routes', () => {
     });
 
     it('returns 400 if kind or title missing', async () => {
-      const mockDb = createMockDb([]);
+      const mockDb = createMockDb([
+        [fakeCreator], // requireCreator middleware lookup
+      ]);
       const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/drafts', {
@@ -570,7 +572,9 @@ describe('Publish Routes', () => {
     });
 
     it('rejects submission without draft_id', async () => {
-      const mockDb = createMockDb([]);
+      const mockDb = createMockDb([
+        [fakeCreator], // requireCreator middleware lookup
+      ]);
       const app = createApp(mockDb, USER_ID);
 
       const res = await app.request('/v1/publish/submit', {
@@ -599,6 +603,69 @@ describe('Publish Routes', () => {
       });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /v1/publish/me', () => {
+    it('returns creator profile for authenticated creator', async () => {
+      const mockDb = createMockDb([[fakeCreator]]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request('/v1/publish/me');
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { creator: typeof fakeCreator | null };
+      expect(body.creator).not.toBeNull();
+      assertDefined(body.creator, 'Expected creator in response');
+      expect(body.creator.creator_id).toBe(CREATOR_ID);
+      expect(body.creator.handle).toBe('testcreator');
+    });
+
+    it('returns null creator for authenticated non-creator', async () => {
+      const mockDb = createMockDb([
+        [], // no creator found
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request('/v1/publish/me');
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { creator: null };
+      expect(body.creator).toBeNull();
+    });
+
+    it('returns 401 without auth', async () => {
+      const mockDb = createMockDb([]);
+      const app = createApp(mockDb);
+
+      const res = await app.request('/v1/publish/me');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('DELETE /v1/publish/drafts/:draftId', () => {
+    it('deletes a draft owned by the creator', async () => {
+      const mockDb = createMockDb([
+        [fakeCreator], // creator lookup
+        [fakeDraft], // draft lookup (status=draft, owned)
+        [], // delete result
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}`, { method: 'DELETE' });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { deleted: boolean; draft_id: string };
+      expect(body.deleted).toBe(true);
+      expect(body.draft_id).toBe(DRAFT_ID);
+    });
+
+    it('returns 400 for submitted draft', async () => {
+      const submittedDraft = { ...fakeDraft, status: 'submitted' };
+      const mockDb = createMockDb([[fakeCreator], [submittedDraft]]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request(`/v1/publish/drafts/${DRAFT_ID}`, { method: 'DELETE' });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.message).toContain('Cannot delete');
     });
   });
 });

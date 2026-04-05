@@ -8,7 +8,7 @@ import { creators, moderationJobs, publishDrafts } from '@offisim/db-platform';
 import { and, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { requireAuth } from '../middleware/auth.js';
+import { getRequiredCreatorId, requireAuth, requireCreator } from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
 import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
 import { processModerationJob } from '../services/moderation.js';
@@ -22,6 +22,7 @@ publish.use('/*', publishRateLimit);
 publish.use('/*', requireAuth);
 
 // GET /v1/publish/me — get the authenticated user's creator profile (null if not a creator)
+// NOTE: this route does NOT use requireCreator — non-creators get { creator: null }
 publish.get('/me', async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
@@ -49,29 +50,20 @@ publish.get('/me', async (c) => {
   });
 });
 
+// Draft and submit routes require a creator profile
+publish.use('/drafts/*', requireCreator);
+publish.use('/submit', requireCreator);
+
 // POST /v1/publish/drafts — create a new draft
 publish.post('/drafts', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const body = DraftCreateSchema.parse(await c.req.json());
-
-  // Get creator for this user
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-
-  if (!creator) {
-    throw new HTTPException(403, {
-      message: 'User is not a registered creator. Create a creator profile first.',
-    });
-  }
 
   const rows = await db
     .insert(publishDrafts)
     .values({
-      creator_id: creator.creator_id,
+      creator_id: creatorId,
       listing_id: body.listing_id ?? null,
       kind: body.kind,
       title: body.title,
@@ -103,11 +95,7 @@ publish.post('/drafts', async (c) => {
 // GET /v1/publish/drafts — list my drafts
 publish.get('/drafts', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const statusFilter = c.req.query('status') as
     | 'draft'
     | 'validated'
@@ -116,15 +104,9 @@ publish.get('/drafts', async (c) => {
     | 'rejected'
     | undefined;
 
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-
-  if (!creator) {
-    throw new HTTPException(403, { message: 'Not a creator' });
-  }
-
   const whereClause = statusFilter
-    ? and(eq(publishDrafts.creator_id, creator.creator_id), eq(publishDrafts.status, statusFilter))
-    : eq(publishDrafts.creator_id, creator.creator_id);
+    ? and(eq(publishDrafts.creator_id, creatorId), eq(publishDrafts.status, statusFilter))
+    : eq(publishDrafts.creator_id, creatorId);
 
   const drafts = await db
     .select()
@@ -151,23 +133,13 @@ publish.get('/drafts', async (c) => {
 // GET /v1/publish/drafts/:draftId — get draft status
 publish.get('/drafts/:draftId', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const draftId = c.req.param('draftId');
-
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-
-  if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(
-      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
-    )
+    .where(and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creatorId)))
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
@@ -191,22 +163,13 @@ publish.get('/drafts/:draftId', async (c) => {
 // DELETE /v1/publish/drafts/:draftId — delete a draft (only non-submitted drafts)
 publish.delete('/drafts/:draftId', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const draftId = c.req.param('draftId');
-
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-  if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(
-      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
-    )
+    .where(and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creatorId)))
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
@@ -225,24 +188,14 @@ publish.delete('/drafts/:draftId', async (c) => {
 // PUT /v1/publish/drafts/:draftId/manifest — attach manifest to draft
 publish.put('/drafts/:draftId/manifest', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const draftId = c.req.param('draftId');
   const body = ManifestUploadSchema.parse(await c.req.json());
-
-  // Verify draft exists and belongs to this user's creator
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-  if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(
-      and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creator.creator_id)),
-    )
+    .where(and(eq(publishDrafts.draft_id, draftId), eq(publishDrafts.creator_id, creatorId)))
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
@@ -298,25 +251,13 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
 // POST /v1/publish/submit — submit draft for review
 publish.post('/submit', async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const body = SubmitDraftSchema.parse(await c.req.json());
-
-  const [creator] = await db.select().from(creators).where(eq(creators.user_id, userId)).limit(1);
-  if (!creator) throw new HTTPException(403, { message: 'Not a creator' });
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(
-      and(
-        eq(publishDrafts.draft_id, body.draft_id),
-        eq(publishDrafts.creator_id, creator.creator_id),
-      ),
-    )
+    .where(and(eq(publishDrafts.draft_id, body.draft_id), eq(publishDrafts.creator_id, creatorId)))
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });

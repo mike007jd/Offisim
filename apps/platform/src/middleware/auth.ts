@@ -169,3 +169,42 @@ export function getRequiredUserId(c: { get: (key: 'userId') => string | undefine
   }
   return userId;
 }
+
+// ---------------------------------------------------------------------------
+// Creator middleware — ensures authenticated user has a creator profile
+// ---------------------------------------------------------------------------
+
+import { creators } from '@offisim/db-platform';
+
+/**
+ * Ensure the authenticated user has a creator profile.
+ * Sets `creatorId` in context. Must be chained AFTER `requireAuth`.
+ */
+export const requireCreator = createMiddleware<PlatformEnv>(async (c, next) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Authentication required' });
+  }
+  const db = c.get('db');
+  const [creator] = await db
+    .select({ creator_id: creators.creator_id })
+    .from(creators)
+    .where(eq(creators.user_id, userId))
+    .limit(1);
+
+  if (!creator) {
+    throw new HTTPException(403, {
+      message: 'User is not a registered creator. Create a creator profile first.',
+    });
+  }
+  c.set('creatorId', creator.creator_id);
+  await next();
+});
+
+export function getRequiredCreatorId(c: { get: (key: 'creatorId') => string | undefined }): string {
+  const creatorId = c.get('creatorId');
+  if (!creatorId) {
+    throw new HTTPException(403, { message: 'Creator profile required' });
+  }
+  return creatorId;
+}

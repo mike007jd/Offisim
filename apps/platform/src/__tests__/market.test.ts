@@ -236,11 +236,15 @@ function createMockDb(results: unknown[][]) {
   return new Proxy({}, handler) as MockDb;
 }
 
-function createApp(mockDb: MockDb) {
+function createApp(mockDb: MockDb, userId?: string) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     c.set('db', mockDb);
     c.set('requestId', 'test-req-id');
+    if (userId) {
+      c.set('userId', userId);
+      c.set('userEmail', 'test@example.com');
+    }
     await next();
   });
   app.onError(errorHandler);
@@ -484,6 +488,72 @@ describe('Creators Route', () => {
 
       const res = await app.request('/v1/market/creators/nonexistent');
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('PATCH /v1/market/listings/:listingId/status', () => {
+    const USER_ID = fakeCreator.user_id;
+
+    it('allows owner to change listing status', async () => {
+      const mockDb = createMockDb([
+        // 1. requireCreator middleware — creator lookup
+        [{ creator_id: CREATOR_ID }],
+        // 2. handler — listing lookup
+        [{ listing_id: LISTING_ID, creator_id: CREATOR_ID, status: 'listed' }],
+        // 3. update
+        [],
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request(`/v1/market/listings/${LISTING_ID}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'hidden' }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { ok: boolean; listing_id: string; status: string };
+      expect(body.ok).toBe(true);
+      expect(body.listing_id).toBe(LISTING_ID);
+      expect(body.status).toBe('hidden');
+    });
+
+    it('returns 403 for non-owner', async () => {
+      const OTHER_CREATOR_ID = '99999999-9999-9999-9999-999999999999';
+      const mockDb = createMockDb([
+        // 1. requireCreator middleware — creator lookup
+        [{ creator_id: CREATOR_ID }],
+        // 2. handler — listing lookup (owned by someone else)
+        [{ listing_id: LISTING_ID, creator_id: OTHER_CREATOR_ID, status: 'listed' }],
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request(`/v1/market/listings/${LISTING_ID}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'hidden' }),
+      });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 for invalid transition', async () => {
+      // retired → listed is not allowed (only listed→hidden, listed→retired, hidden→listed, hidden→retired)
+      const mockDb = createMockDb([
+        // 1. requireCreator middleware
+        [{ creator_id: CREATOR_ID }],
+        // 2. handler — listing lookup (retired status)
+        [{ listing_id: LISTING_ID, creator_id: CREATOR_ID, status: 'retired' }],
+      ]);
+      const app = createApp(mockDb, USER_ID);
+
+      const res = await app.request(`/v1/market/listings/${LISTING_ID}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'listed' }),
+      });
+
+      expect(res.status).toBe(400);
     });
   });
 });

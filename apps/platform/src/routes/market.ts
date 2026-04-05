@@ -12,7 +12,7 @@ import { type SQL, and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { PlatformDb } from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { getRequiredCreatorId, requireAuth, requireCreator } from '../middleware/auth.js';
 import {
   ListingStatusPatchSchema,
   ReportCreateSchema,
@@ -521,13 +521,9 @@ market.get('/listings/:listingId/lineage', async (c) => {
 });
 
 // PATCH /v1/market/listings/:listingId/status — creator status management
-market.patch('/listings/:listingId/status', requireAuth, async (c) => {
+market.patch('/listings/:listingId/status', requireAuth, requireCreator, async (c) => {
   const db = c.get('db');
-  const userId = c.get('userId');
-
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
+  const creatorId = getRequiredCreatorId(c);
   const { listingId } = c.req.param();
   const body = ListingStatusPatchSchema.parse(await c.req.json());
 
@@ -546,14 +542,7 @@ market.patch('/listings/:listingId/status', requireAuth, async (c) => {
     throw new HTTPException(404, { message: 'Listing not found' });
   }
 
-  // Check if user is the creator
-  const [creator] = await db
-    .select({ creator_id: creators.creator_id })
-    .from(creators)
-    .where(eq(creators.user_id, userId))
-    .limit(1);
-
-  if (!creator || creator.creator_id !== listing.creator_id) {
+  if (creatorId !== listing.creator_id) {
     throw new HTTPException(403, { message: 'Only the listing creator can change listing status' });
   }
 
