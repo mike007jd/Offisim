@@ -89,11 +89,16 @@ export function useAgentStates(): Map<string, AgentState> {
     setAgents((prev) => buildAgentStateMap(activeCompanyId, bootstrapEmployees, prev));
 
     if (!repos || !activeCompanyId) return;
+    let cancelled = false;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
+      if (cancelled) return;
       setAgents((prev) => {
         return buildAgentStateMap(activeCompanyId, rows, prev);
       });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [repos, activeCompanyId, bootstrapState]);
 
   useEffect(() => {

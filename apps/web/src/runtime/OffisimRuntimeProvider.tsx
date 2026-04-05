@@ -639,6 +639,23 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   }, [companyId, version]);
 
   // ---------------------------------------------------------------------------
+  // EmployeeVersionService — only recreated when runtime changes (version bump).
+  // Extracted from the main value useMemo to avoid recreation on every
+  // unrelated state change (error, connectedMcpServers, etc.).
+  // ---------------------------------------------------------------------------
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version signals runtime readiness; getRuntime reads ref
+  const employeeVersionService = useMemo(() => {
+    const runtime = getRuntime();
+    if (!runtime?.repos) return null;
+    return new EmployeeVersionService(
+      runtime.repos.employeeVersions,
+      runtime.repos.employees,
+      eventBusRef.current,
+      runtime.repos.transact,
+    );
+  }, [version]);
+
+  // ---------------------------------------------------------------------------
   // Volatile status — changes on every task execution (isRunning toggle).
   // Separated so that consumers of stable values (repos, eventBus) don't
   // re-render when isRunning flips.
@@ -684,16 +701,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           })),
       };
     }
-
-    // Create shared EmployeeVersionService once per runtime lifecycle (I6)
-    const employeeVersionService = runtime?.repos
-      ? new EmployeeVersionService(
-          runtime.repos.employeeVersions,
-          runtime.repos.employees,
-          eventBus,
-          runtime.repos.transact,
-        )
-      : null;
 
     return {
       eventBus,

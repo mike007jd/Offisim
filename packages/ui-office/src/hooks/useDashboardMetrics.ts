@@ -146,7 +146,9 @@ export function useDashboardMetrics(): DashboardMetrics {
     }
 
     if (!repos || !activeCompanyId) return;
+    let cancelled = false;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
+      if (cancelled) return;
       const states = employeeStatesRef.current;
       for (const row of rows) {
         if (!states.has(row.employee_id)) {
@@ -160,6 +162,9 @@ export function useDashboardMetrics(): DashboardMetrics {
         }));
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [repos, activeCompanyId, bootstrapEmployeeCount]);
 
   // Reset all accumulators when a new run starts

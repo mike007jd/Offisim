@@ -16,7 +16,7 @@ import type {
 } from '@offisim/install-core';
 import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
 import { RegistryApiError } from '@offisim/registry-client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
@@ -85,6 +85,14 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   // Track the active transaction ID for cancel / confirm operations
   const txnIdRef = useRef<string | null>(null);
+
+  // Guard against setter calls after unmount / cancel
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Track pending timers so we can clean them up on cancel (mock fallback)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,7 +196,9 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         (async () => {
           try {
             const text = await file.text();
+            if (!mountedRef.current) return;
             const result = await installService.importSkill(text);
+            if (!mountedRef.current) return;
 
             if (result.error || !result.plan) {
               setStep('error');
@@ -202,6 +212,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             setSkillValidation(result.skillValidation ?? null);
             setStep('review');
           } catch (err) {
+            if (!mountedRef.current) return;
             setStep('error');
             setError(err instanceof Error ? err.message : String(err));
           }
@@ -213,8 +224,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       (async () => {
         try {
           const bytes = await readPackageFile(file);
+          if (!mountedRef.current) return;
           await beginPackageImport(bytes, options);
         } catch (err) {
+          if (!mountedRef.current) return;
           setStep('error');
           setError(err instanceof Error ? err.message : String(err));
         }
@@ -274,7 +287,9 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         (async () => {
           try {
             const bytes = await readPackageFile(file);
+            if (!mountedRef.current) return;
             const result = await installService.importFile(bytes);
+            if (!mountedRef.current) return;
 
             if (result.error || !result.plan) {
               setStep('error');
@@ -287,6 +302,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             setUpgradeDiff(computeUpgradeDiff(currentManifest, result.plan.manifest));
             setStep('review');
           } catch (err) {
+            if (!mountedRef.current) return;
             setStep('error');
             setError(err instanceof Error ? err.message : String(err));
           }
@@ -318,9 +334,11 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         try {
           // 1. Get listing detail (provides slug for filename)
           const detail = await registryClient.getListingDetail(listingId);
+          if (!mountedRef.current) return;
 
           // 2. List versions and find the requested one (or fall back to latest)
           const versionsResponse = await registryClient.listListingVersions(listingId);
+          if (!mountedRef.current) return;
           const versions = versionsResponse.versions;
           const matchedVersion = versions.find((v) => v.version === version) ?? versions[0];
 
@@ -338,17 +356,34 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             return;
           }
           const downloadInfo = await registryClient.getArtifactDownloadInfo(packageVersionId);
+          if (!mountedRef.current) return;
 
-          // 4. Download the actual artifact
+          // 4. Validate artifact URL protocol before fetching
+          try {
+            const parsedUrl = new URL(downloadInfo.artifact_url);
+            if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+              setStep('error');
+              setError(`Unsafe artifact URL protocol: ${parsedUrl.protocol}`);
+              return;
+            }
+          } catch {
+            setStep('error');
+            setError('Invalid artifact URL');
+            return;
+          }
+
+          // 5. Download the actual artifact
           const artifactRes = await fetch(downloadInfo.artifact_url);
+          if (!mountedRef.current) return;
           if (!artifactRes.ok) {
             setStep('error');
             setError(`Failed to download package: ${artifactRes.statusText}`);
             return;
           }
           const blob = await artifactRes.blob();
+          if (!mountedRef.current) return;
 
-          // 5. Feed into standard file import flow
+          // 6. Feed into standard file import flow
           const file = new File([blob], `${detail.slug ?? listingId}.offisimpkg`, {
             type: 'application/octet-stream',
           });
@@ -370,8 +405,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           }
 
           const bytes = await readPackageFile(file);
+          if (!mountedRef.current) return;
           await beginPackageImport(bytes, options);
         } catch (err) {
+          if (!mountedRef.current) return;
           if (err instanceof RegistryApiError) {
             if (err.status === 404) {
               setError('Listing not found — it may have been removed from the marketplace');
@@ -419,9 +456,11 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     (async () => {
       try {
         const result = await installService.confirmBindings(currentTxnId, []);
+        if (!mountedRef.current) return;
         emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
         setStep('done');
       } catch (err) {
+        if (!mountedRef.current) return;
         setStep('error');
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -454,9 +493,11 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     (async () => {
       try {
         const result = await installService.confirmBindings(currentTxnId, confirmations);
+        if (!mountedRef.current) return;
         emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
         setStep('done');
       } catch (err) {
+        if (!mountedRef.current) return;
         setStep('error');
         setError(err instanceof Error ? err.message : String(err));
       }

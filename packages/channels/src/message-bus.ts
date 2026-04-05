@@ -15,6 +15,7 @@ export class ChannelMessageBus {
   private adapters = new Map<string, ChannelAdapter>();
   private threadMappings = new Map<string, ChannelThreadMapping>();
   private cleanupFns: (() => void)[] = [];
+  private adapterCleanupMap = new Map<string, () => void>();
   private messageHandler:
     | ((
         msg: InboundMessage,
@@ -24,8 +25,23 @@ export class ChannelMessageBus {
 
   /**
    * Register an adapter and wire up its message handler.
+   * If an adapter with the same name already exists, its cleanup and dispose
+   * are called before registering the new one.
    */
   registerAdapter(adapter: ChannelAdapter): void {
+    const existing = this.adapters.get(adapter.name);
+    if (existing) {
+      // Clean up old adapter's message handler subscription
+      const oldCleanup = this.adapterCleanupMap.get(adapter.name);
+      if (oldCleanup) {
+        oldCleanup();
+        const idx = this.cleanupFns.indexOf(oldCleanup);
+        if (idx >= 0) this.cleanupFns.splice(idx, 1);
+      }
+      // Dispose old adapter (fire-and-forget — don't block registration)
+      existing.dispose().catch(() => {});
+    }
+
     this.adapters.set(adapter.name, adapter);
 
     const cleanup = adapter.onMessage(async (msg) => {
@@ -36,6 +52,7 @@ export class ChannelMessageBus {
       return null;
     });
 
+    this.adapterCleanupMap.set(adapter.name, cleanup);
     this.cleanupFns.push(cleanup);
   }
 
@@ -97,6 +114,7 @@ export class ChannelMessageBus {
     // Dispose all adapters concurrently — don't let one stuck adapter block others
     await Promise.allSettled([...this.adapters.values()].map((a) => a.dispose()));
     this.adapters.clear();
+    this.adapterCleanupMap.clear();
     this.threadMappings.clear();
     this.messageHandler = null;
   }

@@ -15,7 +15,7 @@ export function useCompanyZones(): {
   isFallback: boolean;
   refresh: () => void;
 } {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,13 +51,6 @@ export function useCompanyZones(): {
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (!eventBus) return;
-    return eventBus.on('prefab.state.changed', () => {
-      void refresh();
-    });
-  }, [eventBus, refresh]);
 
   return { zones, loading, isFallback, refresh };
 }

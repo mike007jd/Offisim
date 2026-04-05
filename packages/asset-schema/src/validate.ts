@@ -9,7 +9,9 @@ export interface ValidationResult {
 
 // NOTE: validateFormats=false keeps "format" as metadata and suppresses noisy
 // "unknown format: uri" warnings for distribution.source_url in local/dev usage.
-// TODO: If strict URI validation is needed later, install `ajv-formats` and call `addFormats(ajv)`.
+// URI protocol safety is enforced at the consumption site (useInstallFlow.ts)
+// which validates that artifact URLs use only https: or http: protocols
+// before fetching, preventing javascript: / file: / data: URL injection.
 const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
 const validate = ajv.compile(schema);
 

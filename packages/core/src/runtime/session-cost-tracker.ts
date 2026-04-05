@@ -112,7 +112,9 @@ export class SessionCostTracker {
 
   private subscribe(): void {
     this.unsubscribe = this.eventBus.on('llm.usage.recorded', (event) => {
-      void this.onUsageRecorded(event as RuntimeEvent<LlmUsageRecordedPayload>);
+      void this.onUsageRecorded(event as RuntimeEvent<LlmUsageRecordedPayload>).catch((err) => {
+        console.error('SessionCostTracker.onUsageRecorded failed', err);
+      });
     });
   }
 

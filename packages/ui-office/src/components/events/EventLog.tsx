@@ -37,6 +37,7 @@ interface EventHistoryStore {
   listeners: Set<() => void>;
   rafId: number | null;
   initialized: boolean;
+  unsubscribes: (() => void)[];
 }
 
 const eventHistoryStores = new WeakMap<object, EventHistoryStore>();
@@ -51,6 +52,7 @@ function getEventHistoryStore(eventBus: EventBus): EventHistoryStore {
     listeners: new Set(),
     rafId: null,
     initialized: false,
+    unsubscribes: [],
   };
   eventHistoryStores.set(eventBus, store);
   return store;
@@ -73,12 +75,13 @@ export function primeEventLogStore(eventBus: EventBus) {
 
   store.initialized = true;
   for (const prefix of EVENT_PREFIXES) {
-    eventBus.on(prefix, (event: RuntimeEvent) => {
+    const unsub = eventBus.on(prefix, (event: RuntimeEvent) => {
       store.buffer.push(event);
       if (store.rafId === null) {
         store.rafId = requestAnimationFrame(() => flushEventHistory(store));
       }
     });
+    store.unsubscribes.push(unsub);
   }
 
   return store;
@@ -89,6 +92,22 @@ export function hydrateEventLogStore(eventBus: EventBus, events: RuntimeEvent[])
   if (store.events.length > 0 || events.length === 0) return store;
   store.events = events.slice(-MAX_EVENTS);
   return store;
+}
+
+/** Dispose all EventBus subscriptions held by the store. */
+export function disposeEventLogStore(eventBus: EventBus) {
+  const store = eventHistoryStores.get(eventBus);
+  if (!store) return;
+  for (const unsub of store.unsubscribes) {
+    unsub();
+  }
+  store.unsubscribes = [];
+  if (store.rafId !== null) {
+    cancelAnimationFrame(store.rafId);
+    store.rafId = null;
+  }
+  store.initialized = false;
+  eventHistoryStores.delete(eventBus);
 }
 
 /** Map a filter type label to the topic prefix(es) it covers */
