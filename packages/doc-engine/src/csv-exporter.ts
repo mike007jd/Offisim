@@ -57,7 +57,7 @@ function extractStructuredData(
 
   for (const line of lines) {
     const headingMatch = /^(#{1,3})\s+(.+)/.exec(line);
-    if (headingMatch) {
+    if (headingMatch && headingMatch[1] && headingMatch[1].length <= 2) {
       flushSection();
       currentSection = headingMatch[2] ?? line;
     } else {

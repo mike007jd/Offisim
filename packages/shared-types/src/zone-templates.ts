@@ -207,8 +207,11 @@ export function findSystemTemplate(slug: string): SystemZoneTemplate | undefined
 
 /** Convert a SystemZoneTemplate to a Zone object. */
 export function templateToZone(t: SystemZoneTemplate, companyId: string): Zone {
+  // Guard: empty companyId (preview/wizard mode) returns bare slug instead of
+  // malformed '::slug' that normalizeZoneId would produce.
+  const zoneId = companyId ? normalizeZoneId(companyId, t.slug) : t.slug;
   return {
-    zoneId: companyId ? normalizeZoneId(companyId, t.slug) : t.slug,
+    zoneId,
     companyId,
     kind: 'system',
     archetype: t.archetype,

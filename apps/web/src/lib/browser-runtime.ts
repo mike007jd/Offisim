@@ -8,6 +8,7 @@
 
 // Browser-safe imports — lightweight, no LLM/graph deps
 import {
+  AgentContextPackService,
   DEFAULT_COST_RATES,
   MemoryUserPreferenceRepository,
   bindingStateChanged,
@@ -25,7 +26,6 @@ import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
 import { NodeContextMiddleware } from '@offisim/core/dist/middleware/builtin/node-context-middleware.js';
-import { AgentContextPackService } from '@offisim/core/dist/services/agent-context-pack-service.js';
 import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/summarization-middleware.js';
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
@@ -232,7 +232,7 @@ export async function createBrowserRuntime(
   const userMemoryService = new UserMemoryService(
     userPrefRepo,
     gateway,
-    'gpt-4o-mini',
+    runtimePolicy.modelPolicy.default.model,
     systemCaller,
   );
   const packService = new AgentContextPackService({

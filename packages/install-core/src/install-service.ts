@@ -249,8 +249,13 @@ export class InstallService {
       skill = parseSkill(content);
     } catch (err) {
       const msg = err instanceof SkillParseError ? err.message : String(err);
-      await this.transitionToFailed(installTxnId, 'created', 'skill_parse_failed', msg);
-      await this.repos.installTransactions.finish(installTxnId, 'failed');
+      await this.tryTransitionAndFail(
+        installTxnId,
+        'created',
+        'created',
+        'skill_parse_failed',
+        msg,
+      );
       return { installTxnId, error: msg };
     }
 
@@ -271,13 +276,13 @@ export class InstallService {
     const compatibility = checkCompatibility(manifest, this.environment);
     if (!compatibility.compatible) {
       const messages = compatibility.errors.map((e) => e.message).join('; ');
-      await this.transitionToFailed(
+      await this.tryTransitionAndFail(
         installTxnId,
+        'integrity_checked',
         'integrity_checked',
         'compatibility_unsupported',
         `Compatibility check failed: ${messages}`,
       );
-      await this.repos.installTransactions.finish(installTxnId, 'failed');
       return { installTxnId, skillValidation, error: `Compatibility check failed: ${messages}` };
     }
 

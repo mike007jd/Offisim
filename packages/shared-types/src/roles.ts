@@ -80,7 +80,7 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
   { slug: 'marketer', label: 'Marketer', department: 'content', isSystem: false },
   { slug: 'seo_specialist', label: 'SEO Specialist', department: 'content', isSystem: false },
   // Analysis / Product
-  { slug: 'pm', label: 'PM', department: 'product', isSystem: true },
+  { slug: 'pm', label: 'PM', department: 'product', isSystem: false },
   { slug: 'analyst', label: 'Analyst', department: 'product', isSystem: false },
   { slug: 'researcher', label: 'Researcher', department: 'product', isSystem: false },
   { slug: 'qa', label: 'QA', department: 'product', isSystem: false },

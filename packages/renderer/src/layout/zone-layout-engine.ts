@@ -387,7 +387,8 @@ export function computeRestAreaSeats(zone: ZoneBounds, count: number): DeskPosit
     const y = zone.y + headerOffset + padding + row * (seatSize + seatGap) + seatSize / 2;
 
     // Only place seats that fit within the zone
-    if (x + seatSize / 2 > zone.x + zone.width || y + seatSize / 2 > zone.y + zone.height) {
+    // x/y are already center-points, so just check against zone boundary directly
+    if (x > zone.x + zone.width - padding || y > zone.y + zone.height - padding) {
       break;
     }
 

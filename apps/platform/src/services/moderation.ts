@@ -162,8 +162,8 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       });
     }
 
-    // Update tags (batch insert)
-    const tags: string[] = manifest.package.tags ?? [];
+    // Update tags (batch insert, capped at 20)
+    const tags: string[] = (manifest.package.tags ?? []).slice(0, 20);
     if (Array.isArray(tags) && tags.length > 0) {
       await tx
         .insert(listingTags)

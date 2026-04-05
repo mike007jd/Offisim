@@ -79,9 +79,11 @@ export class PrefabEventRouter {
     }
     if (event.type === 'rack.unbound') {
       const payload = event.payload as { rackId: string };
+      const keysToDelete: string[] = [];
       for (const [key, val] of this.providerRackIndex) {
-        if (val === payload.rackId) this.providerRackIndex.delete(key);
+        if (val === payload.rackId) keysToDelete.push(key);
       }
+      for (const key of keysToDelete) this.providerRackIndex.delete(key);
     }
   }
 

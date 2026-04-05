@@ -18,7 +18,7 @@ export function LogViewer({ logs }: LogViewerProps) {
   const lineCount = lines.length;
 
   useEffect(() => {
-    if (lineCount < 0) return;
+    if (lineCount === 0) return;
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }

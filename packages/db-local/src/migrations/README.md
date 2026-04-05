@@ -20,5 +20,13 @@ Apply in lexical order:
 12. `012_agent_events.sql`
 13. `013_recovery_knowledge.sql`
 14. `014_memory_and_thread_synopsis.sql`
+15. `015_mcp_audit_log.sql`
+16. `016_company_template_metadata.sql`
+17. `017_file_history.sql`
+18. `018_thread_compact_baseline.sql`
+19. `019_durable_interactions.sql`
+20. _(020 intentionally skipped)_
+21. `021_installed_packages_provenance.sql`
+22. `022_fix_mcp_audit_fk.sql`
 
 These migrations target SQLite and reflect the current package-local runtime model.

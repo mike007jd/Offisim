@@ -100,37 +100,32 @@ export function App() {
         return next;
       });
 
-      // Listen for new log lines
-      for (const proc of PROCESS_NAMES) {
-        const unlisten = await onLog(proc, (line) => {
-          setLogs((prev) => {
-            const current = prev[proc] ?? [];
-            const next = [...current, line];
-            return {
-              ...prev,
-              [proc]: next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next,
-            };
-          });
-        });
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-        unlisteners.push(unlisten);
-      }
-
-      // Listen for process exits
-      const unlistenExit = await onProcessExit(() => {
-        // Refresh status immediately on process exit
-        getStatus()
-          .then(setStatus)
-          .catch(() => {});
-      });
+      // Listen for new log lines + process exits in parallel
+      const [unlistenExit, ...logUnlisteners] = await Promise.all([
+        onProcessExit(() => {
+          getStatus()
+            .then(setStatus)
+            .catch(() => {});
+        }),
+        ...PROCESS_NAMES.map((proc) =>
+          onLog(proc, (line) => {
+            setLogs((prev) => {
+              const current = prev[proc] ?? [];
+              const next = [...current, line];
+              return {
+                ...prev,
+                [proc]: next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next,
+              };
+            });
+          }),
+        ),
+      ]);
       if (cancelled) {
         unlistenExit();
+        for (const fn of logUnlisteners) fn();
         return;
       }
-      unlisteners.push(unlistenExit);
+      unlisteners.push(unlistenExit, ...logUnlisteners);
     };
 
     setup();

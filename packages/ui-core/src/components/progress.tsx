@@ -19,7 +19,6 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={max}
-        tabIndex={0}
         className={cn(
           'relative h-2 w-full overflow-hidden bg-ocean-mid border border-ocean-light',
           className,

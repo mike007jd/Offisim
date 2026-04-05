@@ -150,6 +150,8 @@ export type {
   PrefabBindingSlotDef,
   RenderTemplate2D,
   PrefabChildDef,
+  CompositePrefabDefinition,
+  AtomicPrefabDefinition,
   PrefabDefinition,
   PrefabInstanceRow,
   PrefabBinding,

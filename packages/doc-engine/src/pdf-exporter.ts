@@ -37,17 +37,22 @@ export const pdfExporter: Exporter = {
       }
     };
 
-    // Title
+    // Title (wrap long titles across multiple lines)
     const titleSize = 22;
-    const titleWidth = fontBold.widthOfTextAtSize(doc.title, titleSize);
-    page.drawText(doc.title, {
-      x: Math.max(MARGIN, (PAGE_WIDTH - titleWidth) / 2),
-      y,
-      size: titleSize,
-      font: fontBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    y -= titleSize + 12;
+    const titleLines = wrapText(doc.title, fontBold, titleSize, MAX_TEXT_WIDTH);
+    for (const titleLine of titleLines) {
+      const titleLineWidth = fontBold.widthOfTextAtSize(titleLine, titleSize);
+      ensureSpace(titleSize + 4);
+      page.drawText(titleLine, {
+        x: Math.max(MARGIN, (PAGE_WIDTH - titleLineWidth) / 2),
+        y,
+        size: titleSize,
+        font: fontBold,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+      y -= titleSize + 4;
+    }
+    y -= 8;
 
     // Metadata
     const date = formatDate(doc.createdAt);
@@ -133,6 +138,24 @@ function wrapText(
   const lines: string[] = [];
   let current = '';
   for (const word of words) {
+    // Force-break a single word that exceeds maxWidth (e.g. long URLs)
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+      let remaining = word;
+      while (remaining.length > 0) {
+        let end = remaining.length;
+        while (end > 1 && font.widthOfTextAtSize(remaining.slice(0, end), size) > maxWidth) {
+          end--;
+        }
+        const chunk = remaining.slice(0, end);
+        lines.push(chunk);
+        remaining = remaining.slice(end);
+      }
+      continue;
+    }
     const test = current ? `${current} ${word}` : word;
     if (font.widthOfTextAtSize(test, size) > maxWidth && current) {
       lines.push(current);

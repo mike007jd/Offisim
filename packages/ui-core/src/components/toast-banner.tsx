@@ -55,7 +55,8 @@ function ToastEntry({
   }, [toast.id, onDismiss, effectiveDuration]);
 
   return (
-    <output
+    <div
+      role="status"
       aria-live="polite"
       className={cn(
         'pointer-events-auto flex items-center justify-between gap-3 border-2 px-4 py-2 font-pixel-mono text-xs shadow-md rounded-lg',
@@ -85,7 +86,7 @@ function ToastEntry({
           x
         </button>
       </div>
-    </output>
+    </div>
   );
 }
 

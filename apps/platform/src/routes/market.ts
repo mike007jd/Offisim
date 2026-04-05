@@ -8,7 +8,7 @@ import {
   packageVersions,
   reviews,
 } from '@offisim/db-platform';
-import { type SQL, and, desc, eq, inArray } from 'drizzle-orm';
+import { type SQL, and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { PlatformDb } from '../db.js';
@@ -432,60 +432,56 @@ market.get('/listings/:listingId/lineage', async (c) => {
 
   if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
 
-  // Ancestors: walk origin_listing_id chain upward (max 10 levels)
-  const ancestors: Array<{ listingId: string; title: string; slug: string; version: string }> = [];
-  let currentId: string | null = listingId;
-  const visited = new Set<string>();
+  // Ancestors: recursive CTE walks origin_listing_id chain upward (max 10 levels)
+  const ancestorRows = await db.execute<{
+    listing_id: string;
+    title: string;
+    slug: string;
+    depth: number;
+  }>(sql`
+    WITH RECURSIVE lineage_chain AS (
+      SELECT pl.origin_listing_id, 1 AS depth
+      FROM ${packageLineage} pl
+      INNER JOIN ${packageVersions} pv ON pl.package_version_id = pv.package_version_id
+      WHERE pv.listing_id = ${listingId}
+      LIMIT 1
 
-  for (let depth = 0; depth < 10 && currentId; depth++) {
-    visited.add(currentId);
+      UNION ALL
 
-    // Find lineage pointing FROM versions of currentId
-    const [lineageRow] = await db
-      .select({
-        origin_listing_id: packageLineage.origin_listing_id,
-      })
-      .from(packageLineage)
-      .innerJoin(
-        packageVersions,
-        eq(packageLineage.package_version_id, packageVersions.package_version_id),
-      )
-      .where(eq(packageVersions.listing_id, currentId))
-      .limit(1);
+      SELECT pl2.origin_listing_id, lc.depth + 1
+      FROM lineage_chain lc
+      INNER JOIN ${packageVersions} pv2 ON pv2.listing_id = lc.origin_listing_id
+      INNER JOIN ${packageLineage} pl2 ON pl2.package_version_id = pv2.package_version_id
+      WHERE lc.depth < 10 AND lc.origin_listing_id IS NOT NULL
+    )
+    SELECT l.listing_id, l.title, l.slug, lc.depth
+    FROM lineage_chain lc
+    INNER JOIN ${listings} l ON l.listing_id = lc.origin_listing_id
+    WHERE lc.origin_listing_id IS NOT NULL
+    ORDER BY lc.depth
+  `);
 
-    if (!lineageRow?.origin_listing_id || visited.has(lineageRow.origin_listing_id)) break;
-
-    const [ancestorRow] = await db
-      .select()
-      .from(listings)
-      .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
-      .where(eq(listings.listing_id, lineageRow.origin_listing_id))
-      .limit(1);
-
-    if (!ancestorRow) break;
-
-    // Get latest version
-    const [latestV] = await db
-      .select({ version: packageVersions.version })
-      .from(packageVersions)
-      .where(
-        and(
-          eq(packageVersions.listing_id, lineageRow.origin_listing_id),
-          eq(packageVersions.status, 'active'),
-        ),
-      )
-      .orderBy(desc(packageVersions.published_at))
-      .limit(1);
-
-    ancestors.push({
-      listingId: ancestorRow.listings.listing_id,
-      title: ancestorRow.listings.title,
-      slug: ancestorRow.listings.slug,
-      version: latestV?.version ?? '0.0.0',
-    });
-
-    currentId = lineageRow.origin_listing_id;
+  // Batch-fetch latest version for all ancestors
+  const ancestorIds = ancestorRows.map((r) => r.listing_id);
+  const ancestorVersionMap = new Map<string, string>();
+  if (ancestorIds.length > 0) {
+    const versionRows = await db.execute<{ listing_id: string; version: string }>(sql`
+      SELECT DISTINCT ON (pv.listing_id) pv.listing_id, pv.version
+      FROM ${packageVersions} pv
+      WHERE pv.listing_id = ANY(${ancestorIds}) AND pv.status = 'active'
+      ORDER BY pv.listing_id, pv.published_at DESC
+    `);
+    for (const vr of versionRows) {
+      ancestorVersionMap.set(vr.listing_id, vr.version);
+    }
   }
+
+  const ancestors = ancestorRows.map((r) => ({
+    listingId: r.listing_id,
+    title: r.title,
+    slug: r.slug,
+    version: ancestorVersionMap.get(r.listing_id) ?? '0.0.0',
+  }));
 
   // Descendants: find all listings whose lineage points to this listing (1 level)
   const lineageRows = await db

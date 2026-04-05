@@ -23,6 +23,8 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
   const eventBusRef = useRef(new InMemoryEventBus());
   const sceneIntentBusRef = useRef(new InMemorySceneIntentBus());
 
+  const runtimeRef = useRef<RuntimeBundle | null>(null);
+
   const initRuntime = useCallback(async () => {
     const eventBus = eventBusRef.current;
     if (isTauri()) {
@@ -45,6 +47,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
           nextRuntime.dispose?.();
           return;
         }
+        runtimeRef.current = nextRuntime;
         setRuntime(nextRuntime);
       })
       .catch((err) => {
@@ -54,14 +57,10 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
 
     return () => {
       disposed = true;
+      runtimeRef.current?.dispose?.();
+      runtimeRef.current = null;
     };
   }, [initRuntime, version]);
-
-  useEffect(() => {
-    return () => {
-      runtime?.dispose?.();
-    };
-  }, [runtime]);
 
   const value = useMemo<OffisimRuntimeValue>(
     () => ({

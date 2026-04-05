@@ -4,7 +4,7 @@
 
 /** Sanitize a document title into a safe filename. */
 export function sanitizeFilename(title: string): string {
-  return title.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, '_').slice(0, 100) || 'document';
+  return title.replace(/[^a-zA-Z0-9\u4e00-\u9fff\u{20000}-\u{2FA1F}_-]/gu, '_').slice(0, 100) || 'document';
 }
 
 /** Format a timestamp to a human-readable date string. */

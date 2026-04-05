@@ -32,18 +32,29 @@ export interface PrefabChildDef {
   readonly offset: readonly [number, number];
 }
 
-export interface PrefabDefinition {
+interface PrefabDefinitionBase {
   readonly prefabId: string;
   readonly name: string;
   readonly description: string;
   readonly category: SemanticCategory;
   readonly gridSize: readonly [number, number];
-  readonly composite: boolean;
-  readonly children?: readonly PrefabChildDef[];
-  readonly render2D?: RenderTemplate2D;
   readonly bindingSlots: readonly PrefabBindingSlotDef[];
   readonly sourcePackageId?: string | null;
 }
+
+export interface CompositePrefabDefinition extends PrefabDefinitionBase {
+  readonly composite: true;
+  readonly children: readonly PrefabChildDef[];
+  readonly render2D?: undefined;
+}
+
+export interface AtomicPrefabDefinition extends PrefabDefinitionBase {
+  readonly composite: false;
+  readonly render2D: RenderTemplate2D;
+  readonly children?: undefined;
+}
+
+export type PrefabDefinition = CompositePrefabDefinition | AtomicPrefabDefinition;
 
 export interface PrefabInstanceRow {
   readonly instance_id: string;
