@@ -21,6 +21,7 @@ import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { getSpatialSpec, toWorldFootprint, footprintsOverlap } from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
@@ -40,33 +41,47 @@ function getRotatedSize(w: number, d: number, rotation: number): [number, number
 
 /**
  * Check if a new prefab at [x, z] with given grid size and rotation overlaps any existing instance.
- * Uses AABB overlap on the XZ plane, accounting for rotation of both the ghost and existing instances.
+ * Uses prefab footprint (with padding) when available, falls back to gridSize-based AABB.
  */
 function checkOverlap(
   x: number,
   z: number,
+  ghostPrefabId: string,
   gridW: number,
   gridD: number,
   ghostRotation: number,
   instances: { position: [number, number, number]; rotation: number; prefabId: string }[],
 ): boolean {
-  const [gw, gd] = getRotatedSize(gridW, gridD, ghostRotation);
-  const halfW = gw * 0.9; // slight margin for edge-touching
-  const halfD = gd * 0.9;
+  const ghostSpec = getSpatialSpec(ghostPrefabId);
+  const ghostFp = ghostSpec
+    ? toWorldFootprint(ghostSpec.footprint, [x, z], ghostRotation as 0 | 90 | 180 | 270)
+    : {
+        cx: x,
+        cz: z,
+        halfW: getRotatedSize(gridW, gridD, ghostRotation)[0] * 0.9,
+        halfD: getRotatedSize(gridW, gridD, ghostRotation)[1] * 0.9,
+      };
 
   for (const inst of instances) {
+    const instSpec = getSpatialSpec(inst.prefabId);
     const def = getBuiltinPrefab(inst.prefabId);
-    if (!def) continue;
-    const [iw, id] = getRotatedSize(def.gridSize[0], def.gridSize[1], inst.rotation);
-    const iHalfW = iw * 0.9;
-    const iHalfD = id * 0.9;
+    if (!def && !instSpec) continue;
 
-    const ix = inst.position[0];
-    const iz = inst.position[2];
+    const instFp = instSpec
+      ? toWorldFootprint(
+          instSpec.footprint,
+          [inst.position[0], inst.position[2]],
+          inst.rotation as 0 | 90 | 180 | 270,
+        )
+      : {
+          cx: inst.position[0],
+          cz: inst.position[2],
+          halfW: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[0] * 0.9,
+          halfD: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[1] * 0.9,
+        };
 
-    // AABB overlap test
-    if (Math.abs(x - ix) < halfW + iHalfW && Math.abs(z - iz) < halfD + iHalfD) {
-      return true; // overlapping
+    if (footprintsOverlap(ghostFp, instFp)) {
+      return true;
     }
   }
   return false;
@@ -228,9 +243,16 @@ export function StudioGhost() {
   // Must be before any conditional return to satisfy React hooks rules.
   const gridW = placingPrefab?.gridSize[0] ?? 1;
   const gridD = placingPrefab?.gridSize[1] ?? 1;
+  const ghostSpec = getSpatialSpec(placingPrefab?.prefabId ?? '');
+  const fpVisualW = ghostSpec
+    ? (ghostSpec.footprint.halfW + ghostSpec.footprint.padding) * 2
+    : gridW * 2.5;
+  const fpVisualD = ghostSpec
+    ? (ghostSpec.footprint.halfD + ghostSpec.footprint.padding) * 2
+    : gridD * 2.5;
   const footprintEdgeGeo = useMemo(
-    () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(gridW * 2.5, gridD * 2.5)),
-    [gridW, gridD],
+    () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(fpVisualW, fpVisualD)),
+    [fpVisualW, fpVisualD],
   );
   useEffect(
     () => () => {
@@ -258,9 +280,13 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Check collision (rotation-aware) — read from getState() to avoid stale closure (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances } =
+          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
             useStudioStore.getState();
-          const isBlocked = checkOverlap(x, z, gridW, gridD, curGhostRotation, currentInstances);
+          const isBlocked = checkOverlap(
+            x, z,
+            curPlacing?.prefabId ?? '',
+            gridW, gridD, curGhostRotation, currentInstances,
+          );
           blockedRef.current = isBlocked;
 
           if (groupRef.current) {
@@ -279,9 +305,13 @@ export function StudioGhost() {
           z = Math.max(-halfD, Math.min(halfD, z));
 
           // Block placement if overlapping (rotation-aware) — read from getState() (PERF-4)
-          const { ghostRotation: curGhostRotation, instances: currentInstances } =
+          const { ghostRotation: curGhostRotation, instances: currentInstances, placingPrefab: curPlacing } =
             useStudioStore.getState();
-          if (checkOverlap(x, z, gridW, gridD, curGhostRotation, currentInstances)) {
+          if (checkOverlap(
+            x, z,
+            curPlacing?.prefabId ?? '',
+            gridW, gridD, curGhostRotation, currentInstances,
+          )) {
             return; // don't place
           }
 
@@ -316,7 +346,7 @@ export function StudioGhost() {
 
         {/* Grid footprint — filled area (y=0.02, above ground, below mesh) */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <planeGeometry args={[gridW * 2.5, gridD * 2.5]} />
+          <planeGeometry args={[fpVisualW, fpVisualD]} />
           <meshBasicMaterial
             ref={filledPlaneMatRef}
             color={STUDIO_COLORS.ghostValid}

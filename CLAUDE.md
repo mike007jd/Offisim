@@ -154,6 +154,23 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   修改 Boss 路由行为时两层必须同步, 否则 prompt 改了但 heuristic 没跟上（或反过来）
 - Smoke tests (`vitest.smoke.config.ts`) 不自动加载 `.env.local`,
   必须 `export MINIMAX_API_KEY=... && pnpm --filter @offisim/core exec vitest run --config vitest.smoke.config.ts`
+- `NodeContextMiddleware` 有共享 1800 字符 budget: summary block (1000) + context pack (700)。
+  构造时第三参数接受可选 `AgentContextPackService`, browser-runtime 和 tauri-runtime 已注册。
+  不要再加独立的 context middleware — 扩展现有的共享 budget
+- 员工 3D 定位通过 `SeatRegistry` (ui-office/lib/seat-registry.ts) 从 prefab instances 解析。
+  有 prefab 的 zone 用 anchor 坐标，不够的位置用 fallback（zone center + SEAT_OFFSETS）。
+  不要在 `useSceneOrchestrator` 或 `office3d-employees` 里硬编码员工位置
+- Prefab 空间数据（footprint + anchors）在 `ui-office/lib/prefab-spatial.ts`，按 prefabId 查表。
+  新增 prefab 类型时必须在 `SPATIAL_SPECS` 数组补 footprint/anchor 数据，
+  否则 Studio 编辑器碰撞检测和员工定位都会退回 gridSize 粗略模式
+- `computeRestSeatPosition()` (seat-registry.ts) 是 rest 区确定性螺旋布局的唯一实现，
+  orchestrator 和 employees 的 fallback 都调用它。不要重复这段 angle/radius 公式
+- SOP 可视化通过 `SopTimelineView` (ui-office/components/sop) 渲染 DAG 时间轴。
+  `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 的本地纯函数副本
+  （避免实例化 SopService 仅为调用纯方法）。两处逻辑必须保持同步
+- `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI：
+  `planCreated()` 工厂 → `pm-planner-node` 两条 SOP 路径 → `useSopRuntimeState(sopTemplateId)` 过滤。
+  新增 plan 事件字段时注意此链路完整性
 
 ## Product Boundary: AI Runtime Policy
 

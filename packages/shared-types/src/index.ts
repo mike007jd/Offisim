@@ -213,6 +213,13 @@ export type {
   AgentContextPackNodeSummary,
 } from './agent-context-pack.js';
 
+export type {
+  PrefabFootprint,
+  PrefabAnchor,
+  PrefabAnchorSet,
+  PrefabSpatialSpec,
+} from './prefab-spatial.js';
+
 export type { ZoneRect } from './zone-overlap.js';
 export { zonesOverlap, findOverlaps, computeOverlapMap } from './zone-overlap.js';
 

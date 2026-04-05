@@ -21,6 +21,7 @@ import type {
   InteractionRequestedPayload,
   InteractionResolvedPayload,
   InteractionRestoredPayload,
+  PrefabInstanceRow,
   RoleSlug,
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
@@ -44,6 +45,7 @@ import {
 } from '../lib/scene-behavior';
 import { buildZoneRouteWaypoints, getMeetingZoneId } from '../lib/scene-nav';
 import { SEAT_OFFSETS } from '../lib/seat-offsets';
+import { SeatRegistry, computeRestSeatPosition } from '../lib/seat-registry';
 import { categorizeTool } from '../lib/tool-category';
 import type {
   SceneEmployeeEscalatedPayload,
@@ -86,22 +88,28 @@ function computeMtgPositions(mtgCenter: [number, number, number]) {
 }
 
 function getWorkstationPos(
+  registry: SeatRegistry | null,
   zones: readonly Zone[],
   zoneId: string,
   slotIdx: number,
 ): [number, number, number] {
+  if (registry) {
+    const seat = registry.getSeat(zoneId, slotIdx);
+    if (seat) return [...seat.position];
+  }
   const center = getZoneCenterById(zones, zoneId);
   const offset = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
-  return [
-    center[0] + offset[0] + (Math.random() - 0.5) * 0.3,
-    0,
-    center[2] + offset[2] + (Math.random() - 0.5) * 0.3,
-  ];
+  return [center[0] + offset[0], 0, center[2] + offset[2]];
 }
 
-function getRestPos(zones: readonly Zone[]): [number, number, number] {
+let restSlotCounter = 0;
+function getRestPos(registry: SeatRegistry | null, zones: readonly Zone[]): [number, number, number] {
+  const idx = restSlotCounter++;
+  if (registry) {
+    return [...registry.getRestSeat(zones, idx)];
+  }
   const restCenter = getZoneCenter(zones, 'rest');
-  return [restCenter[0] + (Math.random() - 0.5) * 4, 0, restCenter[2] + (Math.random() - 0.5) * 3];
+  return computeRestSeatPosition(restCenter[0], restCenter[2], idx);
 }
 
 export function createIdleCeremonyState(): CeremonyState {
@@ -292,12 +300,14 @@ function getNextSlot(zoneId: string): number {
 
 function resetSlotCounters() {
   zoneSlotCounters.clear();
+  restSlotCounter = 0;
 }
 
 /** Clean up module-level state for a company (call on unmount / company switch). */
 export function clearCompanyState(companyId: string): void {
   companyHandles.delete(companyId);
   zoneSlotCounters.delete(companyId);
+  restSlotCounter = 0;
 }
 
 // ── Hook ────────────────────────────────────────────────────────
@@ -313,6 +323,7 @@ interface OrchestratorDeps {
   sceneIntentBus?: SceneIntentBus;
   agents: Map<string, AgentState>;
   zones: readonly Zone[];
+  prefabInstances?: readonly PrefabInstanceRow[];
 }
 
 export function useSceneOrchestrator({
@@ -321,6 +332,7 @@ export function useSceneOrchestrator({
   sceneIntentBus,
   agents,
   zones,
+  prefabInstances,
 }: OrchestratorDeps): CeremonyState {
   const [ceremony, setCeremony] = useState<CeremonyState>(() => createIdleCeremonyState());
 
@@ -332,6 +344,12 @@ export function useSceneOrchestrator({
   companyIdRef.current = companyId;
   const zonesRef = useRef(zones);
   zonesRef.current = zones;
+  const registryRef = useRef<SeatRegistry | null>(null);
+
+  useEffect(() => {
+    registryRef.current = SeatRegistry.build(prefabInstances ?? [], zonesRef.current);
+  }, [prefabInstances, zones]);
+
   const assignedWorkPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
   const assignedWorkZoneIdsRef = useRef<Map<string, string>>(new Map());
   const approvalHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
@@ -405,7 +423,7 @@ export function useSceneOrchestrator({
       const resolvedZone = resolveZoneForRole(role as RoleSlug, zonesRef.current);
       const zoneId = resolvedZone?.zoneId ?? UNASSIGNED_ZONE_ID;
       const slot = getNextSlot(zoneId);
-      const targetPos = getWorkstationPos(zonesRef.current, zoneId, slot);
+      const targetPos = getWorkstationPos(registryRef.current, zonesRef.current, zoneId, slot);
       assignedWorkPositionsRef.current.set(employeeId, targetPos);
       assignedWorkZoneIdsRef.current.set(employeeId, zoneId);
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
@@ -499,7 +517,7 @@ export function useSceneOrchestrator({
               }));
               for (const empId of dispatchedIds) {
                 const h = getMovementHandles(companyIdRef.current).get(empId);
-                h?.moveTo(getRestPos(zonesRef.current), 4);
+                h?.moveTo(getRestPos(registryRef.current, zonesRef.current), 4);
               }
               // After 3s, ceremony is fully done
               safeTimeout(() => {
@@ -535,7 +553,7 @@ export function useSceneOrchestrator({
           const handles = getMovementHandles(companyIdRef.current);
           for (const [, handle] of handles) {
             handle.stop();
-            handle.moveTo(getRestPos(zonesRef.current), 5); // quick return to rest first
+            handle.moveTo(getRestPos(registryRef.current, zonesRef.current), 5); // quick return to rest first
           }
           hasActivePlan = false;
           assignedWorkPositionsRef.current.clear();
@@ -614,7 +632,7 @@ export function useSceneOrchestrator({
             for (const id of allIds) {
               if (!prev.dispatchedIds.has(id)) {
                 const handle = getMovementHandles(companyIdRef.current).get(id);
-                handle?.moveTo(getRestPos(zonesRef.current), 4);
+                handle?.moveTo(getRestPos(registryRef.current, zonesRef.current), 4);
               }
             }
             return {

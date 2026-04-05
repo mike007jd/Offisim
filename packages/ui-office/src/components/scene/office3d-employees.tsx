@@ -9,6 +9,7 @@ import {
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
 import { SEAT_OFFSETS } from '../../lib/seat-offsets.js';
+import { computeRestSeatPosition, type SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
@@ -43,6 +44,7 @@ export function usePlacedEmployees(
   agents: Map<string, AgentState>,
   zones3D: readonly Zone3D[],
   zones: readonly Zone[],
+  registry: SeatRegistry | null,
 ): PlacedEmployee[] {
   return useMemo(() => {
     if (zones3D.length === 0) return [];
@@ -76,21 +78,43 @@ export function usePlacedEmployees(
       const zoneEmployeesForZone = zoneEmployees.get(zone.zoneId) ?? [];
       zoneEmployeesForZone.forEach((employee, slotIdx) => {
         if (zone.zoneId === restZoneId) {
-          const angle = (slotIdx / Math.max(zoneEmployeesForZone.length, 1)) * Math.PI * 1.5 + 0.3;
-          const radius = 1.2 + (slotIdx % 3) * 0.8;
+          if (registry) {
+            const restPos = registry.getRestSeat(zones, slotIdx);
+            placed.push({
+              id: employee.id,
+              agent: employee.agent,
+              globalIndex: employee.globalIndex,
+              position: restPos,
+            });
+            return;
+          }
           placed.push({
             id: employee.id,
             agent: employee.agent,
             globalIndex: employee.globalIndex,
-            position: [
-              restZoneLayout.position[0] + Math.cos(angle) * radius,
-              0,
-              restZoneLayout.position[2] + Math.sin(angle) * radius,
-            ],
+            position: computeRestSeatPosition(
+              restZoneLayout.position[0],
+              restZoneLayout.position[2],
+              slotIdx,
+            ),
           });
           return;
         }
 
+        // Try SeatRegistry first
+        if (registry) {
+          const seat = registry.getSeat(zone.zoneId, slotIdx);
+          if (seat) {
+            placed.push({
+              id: employee.id,
+              agent: employee.agent,
+              globalIndex: employee.globalIndex,
+              position: [...seat.position],
+            });
+            return;
+          }
+        }
+        // Fallback: deterministic zone-center offset
         const deskPos = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? DEFAULT_SEAT_OFFSET;
         placed.push({
           id: employee.id,
@@ -106,7 +130,7 @@ export function usePlacedEmployees(
     }
 
     return placed;
-  }, [agents, zones3D, zones]);
+  }, [agents, zones3D, zones, registry]);
 }
 
 function LowPolyCharacter({
