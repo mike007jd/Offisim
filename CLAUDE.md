@@ -171,6 +171,27 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI：
   `planCreated()` 工厂 → `pm-planner-node` 两条 SOP 路径 → `useSopRuntimeState(sopTemplateId)` 过滤。
   新增 plan 事件字段时注意此链路完整性
+- Platform API 安全模式:
+  listing 访问必须通过 `getVisibleListing(db, condition)` 或 `requireVisibleListingById(db, id)`,
+  它们强制 `status = 'listed'` 过滤。不要直接 `db.select().from(listings).where(eq(id, ...))` —
+  这会暴露 hidden/retired listing。受影响端点: GET listing by id/slug、versions、reviews
+- `optionalAuth` 在 email 冲突时设置 `authLinkConflict: true`（已绑定 ba_user_id 的用户被
+  不同 OAuth 账号尝试 link），`requireAuth` 返回 `AUTH_LINK_CONFLICT` 401。
+  修改 auth 流程时注意此状态通过 `PlatformEnv.Variables` 传递
+- Reviews 路由有 self-review 防护: 通过 creators JOIN 比较 `user_id`，
+  创作者不能评自己的 listing (403)
+- Rate limiter 只信任 `X-Forwarded-For` 最右第 N 个 IP (`TRUSTED_PROXY_DEPTH` 环境变量),
+  不信任 `X-Real-IP`。生产部署必须配置反向代理覆盖 XFF
+- `PrefabDefinition` 是基于 `composite` 的 discriminated union:
+  `CompositePrefabDefinition` (composite: true, 必须有 children, 无 render2D) 和
+  `AtomicPrefabDefinition` (composite: false, 必须有 render2D, 无 children)。
+  新增 prefab 时编译器会强制要求正确字段
+- `InstallService.planCache` 是实例属性（非模块单例），`dispose()` 时自动清理。
+  browser-runtime 和 tauri-runtime 的 dispose 链路已接入。
+  不要在模块层面缓存 install plan
+- Employee repos (`create()`) 接受可选的 `employee_id` 字段用于 pre-generated ID。
+  在 `transact()` 同步事务中必须使用预生成 ID，不要用 `void promise.then()` 捕获返回值 —
+  Promise.then 回调是微任务，不会在当前同步代码中执行
 
 ## Product Boundary: AI Runtime Policy
 
