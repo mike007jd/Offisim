@@ -101,4 +101,55 @@ describe('InMemoryEventBus', () => {
     expect(h1).toHaveBeenCalledTimes(1);
     expect(h2).toHaveBeenCalledTimes(1);
   });
+
+  describe('subscriptionCount', () => {
+    it('starts at 0', () => {
+      const bus = new InMemoryEventBus();
+      expect(bus.subscriptionCount).toBe(0);
+    });
+
+    it('increases with on() and once()', () => {
+      const bus = new InMemoryEventBus();
+      bus.on('a', vi.fn());
+      expect(bus.subscriptionCount).toBe(1);
+      bus.once('b', vi.fn());
+      expect(bus.subscriptionCount).toBe(2);
+      bus.on('c', vi.fn());
+      expect(bus.subscriptionCount).toBe(3);
+    });
+
+    it('decreases when unsubscribe is called', () => {
+      const bus = new InMemoryEventBus();
+      const unsub1 = bus.on('a', vi.fn());
+      const unsub2 = bus.on('b', vi.fn());
+      expect(bus.subscriptionCount).toBe(2);
+
+      unsub1();
+      expect(bus.subscriptionCount).toBe(1);
+
+      unsub2();
+      expect(bus.subscriptionCount).toBe(0);
+    });
+
+    it('is 0 after removeAll()', () => {
+      const bus = new InMemoryEventBus();
+      bus.on('a', vi.fn());
+      bus.on('b', vi.fn());
+      bus.once('c', vi.fn());
+      expect(bus.subscriptionCount).toBe(3);
+
+      bus.removeAll();
+      expect(bus.subscriptionCount).toBe(0);
+    });
+
+    it('decreases after once() subscription fires', () => {
+      const bus = new InMemoryEventBus();
+      bus.once('task', vi.fn());
+      bus.on('task', vi.fn());
+      expect(bus.subscriptionCount).toBe(2);
+
+      bus.emit(makeEvent('task.state.changed'));
+      expect(bus.subscriptionCount).toBe(1);
+    });
+  });
 });

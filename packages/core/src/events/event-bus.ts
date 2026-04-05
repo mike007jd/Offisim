@@ -23,6 +23,11 @@ interface Subscription {
 export class InMemoryEventBus implements EventBus {
   private subscriptions: Subscription[] = [];
 
+  /** Number of active subscriptions (for debugging / leak detection). */
+  get subscriptionCount(): number {
+    return this.subscriptions.length;
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: must accept all RuntimeEvent payload types
   emit(event: RuntimeEvent<any>): void {
     // Snapshot the array before iterating — handlers may call on()/once()/emit()

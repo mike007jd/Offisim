@@ -25,6 +25,7 @@ import {
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
   SceneIntentDispatcher,
+  disposeEventLogStore,
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
@@ -257,6 +258,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   // Full dispose on unmount — release gateway, MCP connections, EventBus subs.
   useEffect(() => {
     return () => {
+      disposeEventLogStore(eventBusRef.current);
       const runtime = runtimeRef.current;
       if (runtime) {
         runtime.dispose?.();

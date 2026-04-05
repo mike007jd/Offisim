@@ -19,6 +19,7 @@ import {
   RightSidebar,
   SceneCeremonyProvider,
   StatusBar,
+  disposeEventLogStore,
   getRejectedProviderName,
   loadProviderConfig,
   primeEventLogStore,
@@ -232,6 +233,9 @@ export function App({ onCompanySwitch }: AppProps) {
 
   useEffect(() => {
     primeEventLogStore(eventBus);
+    return () => {
+      disposeEventLogStore(eventBus);
+    };
   }, [eventBus]);
 
   useEffect(() => {
