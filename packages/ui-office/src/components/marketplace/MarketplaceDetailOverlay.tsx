@@ -108,7 +108,8 @@ export function MarketplaceDetailOverlay({
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; keyboard dismissal via close button in header */}
+      <div className="absolute inset-0" aria-hidden="true" onClick={onClose} />
       <div className="absolute inset-x-6 inset-y-6 rounded-[28px] border border-white/10 bg-slate-950/95 shadow-2xl">
         <div className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">

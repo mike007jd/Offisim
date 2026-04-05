@@ -2,8 +2,8 @@ import { apiTokens, creators, users } from '@offisim/db-platform';
 import { eq } from 'drizzle-orm';
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
-import type { PlatformDb } from '../db.js';
 import { auth } from '../auth.js';
+import type { PlatformDb } from '../db.js';
 import { sha256 } from '../lib/crypto.js';
 import type { PlatformEnv } from '../types.js';
 

@@ -338,7 +338,12 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Source kind</label>
+                  <label
+                    htmlFor="publish-source-kind"
+                    className="text-xs font-medium text-slate-300"
+                  >
+                    Source kind
+                  </label>
                   <Select
                     value={sourceKind}
                     onValueChange={(value) => {
@@ -346,7 +351,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                       setSelectedSourceId('');
                     }}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger id="publish-source-kind" className="mt-2">
                       <SelectValue placeholder="Choose what to publish" />
                     </SelectTrigger>
                     <SelectContent>
@@ -358,9 +363,14 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Source asset</label>
+                  <label
+                    htmlFor="publish-source-asset"
+                    className="text-xs font-medium text-slate-300"
+                  >
+                    Source asset
+                  </label>
                   <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger id="publish-source-asset" className="mt-2">
                       <SelectValue placeholder="Select a local asset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -376,8 +386,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Title</label>
+                  <label htmlFor="publish-title" className="text-xs font-medium text-slate-300">
+                    Title
+                  </label>
                   <Input
+                    id="publish-title"
                     className="mt-2"
                     value={form.title}
                     onChange={(event) => updateForm('title', event.target.value)}
@@ -385,8 +398,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Version</label>
+                  <label htmlFor="publish-version" className="text-xs font-medium text-slate-300">
+                    Version
+                  </label>
                   <Input
+                    id="publish-version"
                     className="mt-2"
                     value={form.version}
                     onChange={(event) => updateForm('version', event.target.value)}
@@ -394,8 +410,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Summary</label>
+                  <label htmlFor="publish-summary" className="text-xs font-medium text-slate-300">
+                    Summary
+                  </label>
                   <Input
+                    id="publish-summary"
                     className="mt-2"
                     value={form.summary}
                     onChange={(event) => updateForm('summary', event.target.value)}
@@ -403,8 +422,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Tags</label>
+                  <label htmlFor="publish-tags" className="text-xs font-medium text-slate-300">
+                    Tags
+                  </label>
                   <Input
+                    id="publish-tags"
                     className="mt-2"
                     value={form.tags}
                     onChange={(event) => updateForm('tags', event.target.value)}
@@ -412,12 +434,14 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">License</label>
+                  <label htmlFor="publish-license" className="text-xs font-medium text-slate-300">
+                    License
+                  </label>
                   <Select
                     value={form.license}
                     onValueChange={(value) => updateForm('license', value)}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger id="publish-license" className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -428,14 +452,19 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Risk class</label>
+                  <label
+                    htmlFor="publish-risk-class"
+                    className="text-xs font-medium text-slate-300"
+                  >
+                    Risk class
+                  </label>
                   <Select
                     value={form.riskClass}
                     onValueChange={(value) =>
                       updateForm('riskClass', value as PublishFormState['riskClass'])
                     }
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger id="publish-risk-class" className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -448,8 +477,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               </div>
 
               <div className="mt-4">
-                <label className="text-xs font-medium text-slate-300">Description / README</label>
+                <label htmlFor="publish-description" className="text-xs font-medium text-slate-300">
+                  Description / README
+                </label>
                 <Textarea
+                  id="publish-description"
                   className="mt-2 min-h-32"
                   value={form.description}
                   onChange={(event) => updateForm('description', event.target.value)}
@@ -458,8 +490,14 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               </div>
 
               <div className="mt-4">
-                <label className="text-xs font-medium text-slate-300">Artifact URL</label>
+                <label
+                  htmlFor="publish-artifact-url"
+                  className="text-xs font-medium text-slate-300"
+                >
+                  Artifact URL
+                </label>
                 <Input
+                  id="publish-artifact-url"
                   className="mt-2"
                   value={form.artifactUrl}
                   onChange={(event) => updateForm('artifactUrl', event.target.value)}

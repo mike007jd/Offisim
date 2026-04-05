@@ -92,6 +92,7 @@ export function SopDrawer({
   return (
     <>
       {/* Backdrop */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: aria-hidden backdrop; keyboard dismissal is handled by the panel's escape key listener */}
       <div
         className="fixed inset-0 z-[80] bg-black/40 transition-opacity"
         onClick={onClose}

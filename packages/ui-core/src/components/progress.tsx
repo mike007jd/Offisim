@@ -13,6 +13,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
     const pct = Math.min(100, Math.max(0, (value / max) * 100));
 
     return (
+      // biome-ignore lint/a11y/useFocusableInteractive: progressbar is a status role, not interactive — focus is not required
       <div
         ref={ref}
         role="progressbar"

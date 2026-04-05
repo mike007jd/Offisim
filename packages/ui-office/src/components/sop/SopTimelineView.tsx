@@ -124,6 +124,7 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
       <div className="flex items-start" style={{ gap: COLUMN_GAP }}>
         {batches.map((batch, batchIdx) => (
           <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: batches are deterministic from the SOP DAG; order is stable across renders
             key={batchIdx}
             className="flex flex-col shrink-0"
             style={{ gap: ROW_GAP, paddingTop: PADDING_Y }}

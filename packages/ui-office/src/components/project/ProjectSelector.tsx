@@ -138,6 +138,7 @@ export function ProjectSelector({
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Project name..."
                     className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+                    // biome-ignore lint/a11y/noAutofocus: intentional — focus the name input when opening the inline create form
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') {

@@ -55,6 +55,7 @@ function ToastEntry({
   }, [toast.id, onDismiss, effectiveDuration]);
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: role=status on div is the standard ARIA live region pattern; <output> is form-associated and not applicable here
     <div
       role="status"
       aria-live="polite"
