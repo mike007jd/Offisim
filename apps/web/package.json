@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:files": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:prod": "playwright test --config=playwright.config.prod.ts",
     "clean": "rm -rf dist"

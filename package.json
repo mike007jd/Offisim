@@ -12,6 +12,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "turbo run test",
+    "test:web:files": "pnpm --filter @offisim/web run test:files",
+    "test:ui-office:files": "pnpm --filter @offisim/ui-office run test:files",
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "launcher": "pnpm --filter @offisim/launcher dev"

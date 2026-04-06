@@ -57,7 +57,8 @@
     "build": "tsc --project tsconfig.json && cp src/components/install/install-animations.css dist/components/install/",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:files": "vitest run"
   },
   "dependencies": {
     "@offisim/asset-schema": "workspace:*",
