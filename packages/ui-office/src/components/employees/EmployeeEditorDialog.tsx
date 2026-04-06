@@ -614,12 +614,14 @@ export function EmployeeEditorDialog({
             )}
             {isEditMode && isConfirmingDelete && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-destructive">Delete this employee?</span>
+                <span className="text-xs text-destructive">
+                  Delete {formData.name || 'this employee'}? This cannot be undone.
+                </span>
                 <Button variant="destructive" size="sm" disabled={isSaving} onClick={confirmDelete}>
-                  {isSaving ? 'Deleting...' : 'Confirm'}
+                  {isSaving ? 'Deleting...' : 'Delete'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={cancelDelete}>
-                  No
+                  Cancel
                 </Button>
               </div>
             )}

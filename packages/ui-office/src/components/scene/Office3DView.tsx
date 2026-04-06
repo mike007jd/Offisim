@@ -41,6 +41,8 @@ type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 interface Office3DViewProps {
   active?: boolean;
   ceremony: CeremonyState;
+  leftInset?: number;
+  rightInset?: number;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -64,6 +66,10 @@ interface Office3DSceneUiState {
   flowLines: FlowLineData[];
   activeCount: number;
   blockedCount: number;
+  viewportInsets: {
+    left: number;
+    right: number;
+  };
 }
 
 interface Office3DSceneControls {
@@ -95,6 +101,8 @@ interface Office3DViewInnerProps {
 export default function Office3DView({
   active = true,
   ceremony,
+  leftInset = 0,
+  rightInset = 0,
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -175,6 +183,7 @@ export default function Office3DView({
     flowLines,
     activeCount,
     blockedCount,
+    viewportInsets: { left: leftInset, right: rightInset },
   };
 
   const controls: Office3DSceneControls = {
@@ -213,6 +222,7 @@ function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerPr
     flowLines,
     activeCount,
     blockedCount,
+    viewportInsets,
   } = ui;
   const { controlsRef, shouldAnimate } = controls;
   const perfConfig = getOffice3DPerformanceConfig(import.meta.env.DEV);
@@ -265,6 +275,7 @@ function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerPr
           isDragging={isDragging}
           hoveredZoneId={hoveredZoneId}
           dragState={dragState}
+          viewportInsets={viewportInsets}
         />
 
         <Office3DFurnitureLayer hasPrefabData={hasPrefabData} prefabInstances={prefabInstances} />

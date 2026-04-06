@@ -52,6 +52,8 @@ interface SceneCanvasLazyProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
+  leftInset?: number;
+  rightInset?: number;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string | null) => void;
   onDeselectEmployee?: () => void;
@@ -138,6 +140,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(44);
+  const [rightPanelWidth, setRightPanelWidth] = useState(44);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
@@ -366,8 +369,15 @@ export function App({ onCompanySwitch }: AppProps) {
     companyWizardMode !== null;
 
   const handleLayoutMetricsChange = useCallback(
-    ({ leftPanelWidth: w }: { leftPanelWidth: number }) => {
-      setLeftPanelWidth(w);
+    ({
+      leftPanelWidth: nextLeftPanelWidth,
+      rightPanelWidth: nextRightPanelWidth,
+    }: {
+      leftPanelWidth: number;
+      rightPanelWidth: number;
+    }) => {
+      setLeftPanelWidth(nextLeftPanelWidth);
+      setRightPanelWidth(nextRightPanelWidth);
     },
     [],
   );
@@ -552,7 +562,6 @@ export function App({ onCompanySwitch }: AppProps) {
                     providerName={providerConfig?.model}
                     companyName={activeCompanyName}
                     onOpenSettings={() => setSettingsOpen(true)}
-                    onOpenLayoutEditor={() => setView('office-editor')}
                     onOpenStudio={() => {
                       setStudioMode('edit');
                       setView('studio');
@@ -598,6 +607,8 @@ export function App({ onCompanySwitch }: AppProps) {
                         active={isOfficeSceneInteractive(view)}
                         reducedMotion={reducedMotion}
                         viewMode={viewMode}
+                        leftInset={leftPanelWidth}
+                        rightInset={rightPanelWidth}
                         selectedEmployeeId={selectedEmployeeId}
                         onSelectEmployee={handleSelectEmployee}
                         onDeselectEmployee={() => setSelectedEmployeeId(null)}

@@ -131,7 +131,13 @@ export function OpenClawSettings({ onConnectionChange }: OpenClawSettingsProps) 
                 Disconnect
               </Button>
             ) : (
-              <Button size="sm" onClick={handleConnect} disabled={isConnecting || !urlInput.trim()}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleConnect}
+                disabled={isConnecting || !urlInput.trim()}
+                className="border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
+              >
                 {isConnecting ? 'Connecting…' : 'Connect'}
               </Button>
             )}

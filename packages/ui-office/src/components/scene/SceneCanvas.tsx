@@ -54,6 +54,8 @@ interface SceneCanvasProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
+  leftInset?: number;
+  rightInset?: number;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -64,6 +66,8 @@ export function SceneCanvas({
   active = true,
   reducedMotion = false,
   viewMode = '3D',
+  leftInset = 0,
+  rightInset = 0,
   selectedEmployeeId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -148,6 +152,8 @@ export function SceneCanvas({
                 <Office3DView
                   active={active && effectiveViewMode === '3D'}
                   ceremony={ceremony}
+                  leftInset={leftInset}
+                  rightInset={rightInset}
                   selectedEmployeeId={selectedEmployeeId}
                   onSelectEmployee={onSelectEmployee}
                   onDeselectEmployee={onDeselectEmployee}

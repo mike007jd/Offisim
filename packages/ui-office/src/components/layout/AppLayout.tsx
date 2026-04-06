@@ -79,17 +79,10 @@ function CollapsedBar({
 
 const PANEL_SHADOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8)]';
 const PANEL_SHADOW_GLOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]';
+const MOBILE_BREAKPOINT = '(max-width: 768px)';
+const TABLET_BREAKPOINT = '(max-width: 1280px)';
 
 /* ── Main layout ── */
-
-function readPanel(key: string): boolean {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved === null ? true : saved === 'true';
-  } catch {
-    return true;
-  }
-}
 
 export function AppLayout({
   header,
@@ -101,52 +94,58 @@ export function AppLayout({
   onLayoutMetricsChange,
 }: AppLayoutProps) {
   const initNarrow =
-    typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false;
+    typeof window !== 'undefined' ? window.matchMedia(MOBILE_BREAKPOINT).matches : false;
+  const initTablet =
+    typeof window !== 'undefined' ? window.matchMedia(TABLET_BREAKPOINT).matches : false;
 
   const [isNarrow, setIsNarrow] = useState(initNarrow);
-  const [leftOpen, setLeftOpen] = useState(() =>
-    initNarrow ? false : readPanel('offisim.panel.left'),
-  );
-  const [rightOpen, setRightOpen] = useState(() =>
-    initNarrow ? false : readPanel('offisim.panel.right'),
-  );
-
-  // Persist only on explicit user toggle — not on auto-collapse
-  const persistLeft = (open: boolean) => {
-    setLeftOpen(open);
-    try {
-      localStorage.setItem('offisim.panel.left', String(open));
-    } catch {}
-  };
-  const persistRight = (open: boolean) => {
-    setRightOpen(open);
-    try {
-      localStorage.setItem('offisim.panel.right', String(open));
-    } catch {}
-  };
+  const [isTablet, setIsTablet] = useState(initTablet);
+  const [leftOpen, setLeftOpen] = useState(() => !initNarrow);
+  const [rightOpen, setRightOpen] = useState(() => !initNarrow && !initTablet);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
-    const sync = (matches: boolean) => setIsNarrow(matches);
-    sync(mediaQuery.matches);
-    const handleChange = (event: MediaQueryListEvent) => sync(event.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    const mobileQuery = window.matchMedia(MOBILE_BREAKPOINT);
+    const tabletQuery = window.matchMedia(TABLET_BREAKPOINT);
+    const sync = () => {
+      setIsNarrow(mobileQuery.matches);
+      setIsTablet(tabletQuery.matches);
+    };
+    sync();
+    const handleChange = () => sync();
+    mobileQuery.addEventListener('change', handleChange);
+    tabletQuery.addEventListener('change', handleChange);
+    return () => {
+      mobileQuery.removeEventListener('change', handleChange);
+      tabletQuery.removeEventListener('change', handleChange);
+    };
   }, []);
 
-  // Auto-collapse on narrow transition; restore preference on wide transition
-  const prevNarrowRef = useRef(initNarrow);
+  // Reset to the intended default layout whenever the viewport tier changes.
+  const prevModeRef = useRef<'mobile' | 'tablet' | 'desktop'>(
+    initNarrow ? 'mobile' : initTablet ? 'tablet' : 'desktop',
+  );
   useEffect(() => {
-    if (isNarrow && !prevNarrowRef.current) {
+    const mode: 'mobile' | 'tablet' | 'desktop' = isNarrow
+      ? 'mobile'
+      : isTablet
+        ? 'tablet'
+        : 'desktop';
+
+    if (mode === prevModeRef.current) return;
+
+    if (mode === 'mobile') {
       setLeftOpen(false);
       setRightOpen(false);
-    } else if (!isNarrow && prevNarrowRef.current) {
-      setLeftOpen(readPanel('offisim.panel.left'));
-      setRightOpen(readPanel('offisim.panel.right'));
+    } else if (mode === 'tablet') {
+      setLeftOpen(true);
+      setRightOpen(false);
+    } else {
+      setLeftOpen(true);
+      setRightOpen(true);
     }
-    prevNarrowRef.current = isNarrow;
-  }, [isNarrow]);
+    prevModeRef.current = mode;
+  }, [isNarrow, isTablet]);
 
   const layoutMetrics = useMemo(
     () => ({
@@ -200,7 +199,7 @@ export function AppLayout({
                 icon={Users}
                 label="Personnel"
                 ariaLabel="Expand personnel panel"
-                onClick={() => persistLeft(true)}
+                onClick={() => setLeftOpen(true)}
               />
             )}
           </div>
@@ -208,7 +207,7 @@ export function AppLayout({
             <PanelCollapseHandle
               side="left"
               label="Collapse personnel panel"
-              onClick={() => persistLeft(false)}
+              onClick={() => setLeftOpen(false)}
             />
           )}
         </div>
@@ -240,7 +239,7 @@ export function AppLayout({
                 icon={LayoutDashboard}
                 label="Operations"
                 ariaLabel="Expand operations panel"
-                onClick={() => persistRight(true)}
+                onClick={() => setRightOpen(true)}
               />
             )}
           </div>
@@ -248,7 +247,7 @@ export function AppLayout({
             <PanelCollapseHandle
               side="right"
               label="Collapse operations panel"
-              onClick={() => persistRight(false)}
+              onClick={() => setRightOpen(false)}
             />
           )}
         </div>

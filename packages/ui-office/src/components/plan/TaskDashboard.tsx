@@ -127,7 +127,14 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
   if (!dashboard.planId) {
     return (
-      <div className="flex items-center justify-center p-6 text-sm text-shell">No active plan</div>
+      <div className="p-3">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center">
+          <p className="text-sm font-semibold text-slate-200">No active plan yet</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            A plan appears here after the manager maps steps and dispatches employees.
+          </p>
+        </div>
+      </div>
     );
   }
 

@@ -44,12 +44,17 @@ export function Office3DZoneLayer({
   isDragging,
   hoveredZoneId,
   dragState,
+  viewportInsets,
 }: {
   zones3D: readonly Zone3D[];
   zoneActivity: Record<string, { count: number; blocked: boolean }>;
   isDragging: boolean;
   hoveredZoneId: string | null;
   dragState: DragState3D | null;
+  viewportInsets: {
+    left: number;
+    right: number;
+  };
 }) {
   return (
     <>
@@ -68,6 +73,7 @@ export function Office3DZoneLayer({
           isMeetingActive={
             zone.archetype === 'meeting' && (zoneActivity[zone.zoneId]?.count ?? 0) > 0
           }
+          viewportInsets={viewportInsets}
         />
       ))}
     </>

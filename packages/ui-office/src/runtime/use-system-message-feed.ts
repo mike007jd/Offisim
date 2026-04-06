@@ -3,49 +3,74 @@ import type {
   ExecutionResumedPayload,
   InteractionRequestedPayload,
   InteractionRestoredPayload,
+  MemoryCreatedPayload,
   RuntimeEvent,
   ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
-import { useEffect, useMemo, useState } from 'react';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
+import { useEffect, useState } from 'react';
+import { useOffisimRuntime } from './offisim-runtime-context';
 
 type SystemTone = 'info' | 'warning';
 
+export type SystemMessageIcon = 'default' | 'approval' | 'memory' | 'navigate' | 'context';
+
 export interface SystemMessageEntry {
   id: string;
-  label: string;
+  title: string;
+  detail: string;
   tone: SystemTone;
+  icon?: SystemMessageIcon;
 }
 
-interface ActiveToolEntry {
-  toolCallId: string;
-  toolName: string;
-  startedAt: number;
-}
-
-function waitingLabel(kind: string): string {
+function waitingTitle(kind: string): string {
   switch (kind) {
     case 'permission_request':
-      return 'Waiting for approval';
+      return 'Approval Needed';
     case 'plan_review':
-      return 'Waiting for plan review';
+      return 'Plan Review Needed';
     case 'agent_question':
-      return 'Waiting for clarification';
+      return 'Interrupt & Steer';
     default:
-      return 'Waiting for input';
+      return 'Input Needed';
   }
 }
 
-function restoredLabel(kind: string): string {
+function waitingDetail(kind: string): string {
   switch (kind) {
     case 'permission_request':
-      return 'Restored pending approval';
+      return 'A blocked tool call is waiting for your approval.';
     case 'plan_review':
-      return 'Restored pending plan review';
+      return 'Review the proposed steps before execution continues.';
     case 'agent_question':
-      return 'Restored pending clarification';
+      return 'Reply now to steer the session without restarting the runtime.';
     default:
-      return 'Restored pending input';
+      return 'Execution is paused until you respond.';
+  }
+}
+
+function restoredTitle(kind: string): string {
+  switch (kind) {
+    case 'permission_request':
+      return 'Approval Restored';
+    case 'plan_review':
+      return 'Plan Review Restored';
+    case 'agent_question':
+      return 'Interrupt & Steer Restored';
+    default:
+      return 'Pending Input Restored';
+  }
+}
+
+function restoredDetail(kind: string): string {
+  switch (kind) {
+    case 'permission_request':
+      return 'The pending approval survived recovery and can be answered now.';
+    case 'plan_review':
+      return 'The review gate was restored after recovery.';
+    case 'agent_question':
+      return 'The pending clarification came back after recovery.';
+    default:
+      return 'The pending decision was restored after recovery.';
   }
 }
 
@@ -58,21 +83,7 @@ export function useSystemMessageFeed(): {
   hasMessages: boolean;
 } {
   const { eventBus } = useOffisimRuntime();
-  const { isRunning } = useOffisimRuntimeStatus();
   const [entries, setEntries] = useState<SystemMessageEntry[]>([]);
-  const [activeTools, setActiveTools] = useState<Map<string, ActiveToolEntry>>(new Map());
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!isRunning) {
-      setActiveTools(new Map());
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1_000);
-    return () => window.clearInterval(timer);
-  }, [isRunning]);
 
   useEffect(() => {
     function pushEntry(entry: SystemMessageEntry): void {
@@ -84,19 +95,27 @@ export function useSystemMessageFeed(): {
       (_event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
         pushEntry({
           id: `synopsis-${Date.now()}`,
-          label: 'Compacting context...',
+          title: 'Context Window Filling Up',
+          detail: 'Auto-compact is summarizing earlier turns so the latest work stays live.',
           tone: 'info',
+          icon: 'context',
         });
       },
     );
 
     const unsubResumed = eventBus.on(
       'execution.resumed',
-      (_event: RuntimeEvent<ExecutionResumedPayload>) => {
+      (event: RuntimeEvent<ExecutionResumedPayload>) => {
+        const resumedFrom =
+          event.payload.rewoundFromStepIndex != null
+            ? `Recovered from step ${event.payload.rewoundFromStepIndex + 1}.`
+            : `Recovered at step ${event.payload.currentStepIndex + 1}.`;
         pushEntry({
           id: `resume-${Date.now()}`,
-          label: 'Restoring from the latest checkpoint',
+          title: 'Resume Restored',
+          detail: `${resumedFrom} The latest checkpoint is loaded and ready to continue.`,
           tone: 'info',
+          icon: 'navigate',
         });
       },
     );
@@ -106,8 +125,10 @@ export function useSystemMessageFeed(): {
       (event: RuntimeEvent<InteractionRequestedPayload>) => {
         pushEntry({
           id: `interaction-requested-${event.payload.request.interactionId}`,
-          label: waitingLabel(event.payload.request.kind),
+          title: waitingTitle(event.payload.request.kind),
+          detail: waitingDetail(event.payload.request.kind),
           tone: 'info',
+          icon: event.payload.request.kind === 'agent_question' ? 'navigate' : 'approval',
         });
       },
     );
@@ -117,8 +138,23 @@ export function useSystemMessageFeed(): {
       (event: RuntimeEvent<InteractionRestoredPayload>) => {
         pushEntry({
           id: `interaction-restored-${event.payload.request.interactionId}`,
-          label: restoredLabel(event.payload.request.kind),
+          title: restoredTitle(event.payload.request.kind),
+          detail: restoredDetail(event.payload.request.kind),
           tone: 'info',
+          icon: event.payload.request.kind === 'agent_question' ? 'navigate' : 'approval',
+        });
+      },
+    );
+
+    const unsubMemoryCreated = eventBus.on(
+      'memory.created',
+      (event: RuntimeEvent<MemoryCreatedPayload>) => {
+        pushEntry({
+          id: `memory-${event.payload.memoryId}`,
+          title: 'Auto Memory Updated',
+          detail: `Saved a reusable ${event.payload.scope} insight for later turns.`,
+          tone: 'info',
+          icon: 'memory',
         });
       },
     );
@@ -127,25 +163,13 @@ export function useSystemMessageFeed(): {
       'tool.execution.telemetry',
       (event: RuntimeEvent<ToolExecutionTelemetryPayload>) => {
         const payload = event.payload;
-        setActiveTools((prev) => {
-          const next = new Map(prev);
-          if (payload.status === 'started') {
-            next.set(payload.toolCallId, {
-              toolCallId: payload.toolCallId,
-              toolName: payload.toolName,
-              startedAt: payload.startedAt,
-            });
-            return next;
-          }
-          next.delete(payload.toolCallId);
-          return next;
-        });
-
         if (payload.status === 'denied' && payload.errorType === 'TOOL_PERMISSION_REQUIRED') {
           pushEntry({
             id: `tool-denied-${payload.toolCallId}`,
-            label: `Approval needed for ${formatToolName(payload.toolName)}`,
+            title: 'Tool Approval Needed',
+            detail: `Approve ${formatToolName(payload.toolName)} so execution can continue.`,
             tone: 'warning',
+            icon: 'approval',
           });
         }
       },
@@ -156,28 +180,13 @@ export function useSystemMessageFeed(): {
       unsubResumed();
       unsubInteractionRequested();
       unsubInteractionRestored();
+      unsubMemoryCreated();
       unsubToolTelemetry();
     };
   }, [eventBus]);
 
-  const liveToolEntries = useMemo<SystemMessageEntry[]>(() => {
-    return [...activeTools.values()]
-      .sort((a, b) => a.startedAt - b.startedAt)
-      .slice(0, 2)
-      .map((tool) => ({
-        id: `tool-active-${tool.toolCallId}`,
-        label: `Tool ${formatToolName(tool.toolName)} running for ${Math.max(0, Math.floor((now - tool.startedAt) / 1_000))}s...`,
-        tone: 'info',
-      }));
-  }, [activeTools, now]);
-
-  const combinedEntries = useMemo(
-    () => [...liveToolEntries, ...entries].slice(0, 4),
-    [entries, liveToolEntries],
-  );
-
   return {
-    entries: combinedEntries,
-    hasMessages: combinedEntries.length > 0,
+    entries,
+    hasMessages: entries.length > 0,
   };
 }

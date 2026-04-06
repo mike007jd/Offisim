@@ -22,7 +22,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@offisim/ui-core';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
   getRuntimeSecretStatus,
@@ -112,6 +112,67 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
   const [hasStoredSecret, setHasStoredSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const loadedSnapshotRef = useRef('');
+  const pendingSnapshotCaptureRef = useRef(false);
+
+  const currentSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        preset,
+        apiKey,
+        baseURL,
+        model,
+        defaultHeaders,
+        acpCommand,
+        executionMode,
+        summarizationEnabled,
+        summarizationTriggerTokens,
+        summarizationKeepRecentMessages,
+        memoryEnabled,
+        memoryInjectionEnabled,
+        memoryMaxFacts,
+        memoryConfidenceThreshold,
+        toolSearchEnabled,
+        gitAutoCommit,
+        toolPermissions,
+        runtimeModelDefault,
+        runtimeModelOverrides,
+        density,
+      }),
+    [
+      acpCommand,
+      apiKey,
+      baseURL,
+      defaultHeaders,
+      density,
+      executionMode,
+      gitAutoCommit,
+      memoryConfidenceThreshold,
+      memoryEnabled,
+      memoryInjectionEnabled,
+      memoryMaxFacts,
+      model,
+      preset,
+      runtimeModelDefault,
+      runtimeModelOverrides,
+      summarizationEnabled,
+      summarizationKeepRecentMessages,
+      summarizationTriggerTokens,
+      toolPermissions,
+      toolSearchEnabled,
+    ],
+  );
+
+  const hasUnsavedChanges =
+    open && loadedSnapshotRef.current !== '' && currentSnapshot !== loadedSnapshotRef.current;
+
+  // Capture the first stable snapshot after loadState sets all fields and React re-renders.
+  useEffect(() => {
+    if (pendingSnapshotCaptureRef.current) {
+      loadedSnapshotRef.current = currentSnapshot;
+      pendingSnapshotCaptureRef.current = false;
+    }
+  }, [currentSnapshot]);
 
   useEffect(() => {
     if (!open) return;
@@ -197,6 +258,8 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
       } else {
         setHasStoredSecret(Boolean(saved?.apiKey));
       }
+
+      pendingSnapshotCaptureRef.current = true;
     }
 
     void loadState();
@@ -313,6 +376,7 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
       saveProviderConfig(config);
       onSave(loadProviderConfig() ?? config);
+      loadedSnapshotRef.current = currentSnapshot;
       onOpenChange(false);
       onSaveSuccess?.();
     } catch (err) {
@@ -328,10 +392,38 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
     preset === 'custom' || PROVIDER_PRESETS[preset]?.defaults.baseURL !== undefined;
   const selectedPreset = PROVIDER_PRESETS[preset];
   const isThinkingProvider = selectedPreset?.hasThinking === true;
+  const isSaveDisabled = isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret);
+
+  const handleRequestClose = () => {
+    if (
+      hasUnsavedChanges &&
+      typeof window !== 'undefined' &&
+      !window.confirm('Discard unsaved changes in Settings?')
+    ) {
+      return;
+    }
+    onOpenChange(false);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[min(640px,85vh)] h-[640px] flex flex-col overflow-hidden">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          onOpenChange(true);
+          return;
+        }
+        handleRequestClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-lg max-h-[min(640px,85vh)] h-[640px] flex flex-col overflow-hidden"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          handleRequestClose();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -467,8 +559,10 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
               <Button
+                variant="secondary"
                 onClick={() => void handleSave()}
-                disabled={isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret)}
+                disabled={isSaveDisabled}
+                className="border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
               >
                 {isSaving ? 'Saving…' : 'Save Configuration'}
               </Button>
@@ -477,6 +571,24 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
 
           <TabsContent value="runtime" className="flex-1 overflow-y-auto min-h-0">
             <div className="flex flex-col gap-4 pt-2">
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                <p className="text-xs font-medium text-shell">Default Model Profile</p>
+                <p className="mt-1 text-[11px] text-slate-300">
+                  Provider:{' '}
+                  <span className="font-mono text-blue-200">{selectedPreset?.label ?? preset}</span>
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  Model:{' '}
+                  <span className="font-mono text-blue-200">
+                    {isSubscription ? 'default' : model || 'Unset'}
+                  </span>
+                </p>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  Runtime policy saves the same provider and model profile configured in the LLM
+                  Provider tab.
+                </p>
+              </div>
+
               <div className="rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
                 <p className="text-xs font-medium text-shell mb-3">Display Density</p>
                 <div className="flex gap-2">
@@ -703,9 +815,19 @@ export function SettingsDialog({ open, onOpenChange, onSave, onSaveSuccess }: Se
               </div>
 
               <p className="text-[10px] text-slate-500">
-                Model selection stays in the provider tab. The runtime policy mirrors that choice as
-                the default model profile.
+                Changes here persist through the same save pipeline as provider settings, so the
+                runtime policy and LLM provider cannot drift.
               </p>
+
+              {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+              <Button
+                variant="secondary"
+                onClick={() => void handleSave()}
+                disabled={isSaveDisabled}
+                className="border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
+              >
+                {isSaving ? 'Saving…' : 'Save Runtime Policy'}
+              </Button>
             </div>
           </TabsContent>
 

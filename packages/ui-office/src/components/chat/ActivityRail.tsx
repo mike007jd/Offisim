@@ -27,7 +27,7 @@ export function ActivityRail({
   if (!hasActivity) {
     return (
       <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
-        Waiting for task to start...
+        Waiting for a task to start…
       </div>
     );
   }
@@ -79,10 +79,10 @@ export function ActivityRail({
           {visibleEntries.slice(0, 4).map((entry) => (
             <div
               key={entry.id}
-              className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] ${ENTRY_STYLES[entry.tone]}`}
+              className={`flex items-start gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] ${ENTRY_STYLES[entry.tone]}`}
             >
-              <TerminalSquare className="h-3 w-3 shrink-0 opacity-80" />
-              <span className="min-w-0 truncate">{entry.label}</span>
+              <TerminalSquare className="mt-0.5 h-3 w-3 shrink-0 opacity-80" />
+              <span className="min-w-0 break-words leading-relaxed">{entry.label}</span>
             </div>
           ))}
         </div>

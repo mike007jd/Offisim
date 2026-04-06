@@ -33,7 +33,8 @@ describe('RightSidebar marketplace integration', () => {
   it('renders the marketplace tab alongside the existing operations tabs', () => {
     render(<RightSidebar onOpenMarketplaceListing={vi.fn()} onStartMarketplaceInstall={vi.fn()} />);
 
-    expect(screen.getByTitle('Market')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'SOPs' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(7);
   });
 });

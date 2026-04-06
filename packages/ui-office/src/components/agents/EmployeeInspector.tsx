@@ -1,5 +1,5 @@
 import { Badge, Button } from '@offisim/ui-core';
-import { MessageSquare, Pencil, X } from 'lucide-react';
+import { BriefcaseBusiness, ListChecks, MessageSquare, Pencil, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
@@ -64,11 +64,20 @@ export function EmployeeInspector({
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
   const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
   const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
+  const subTaskTotal = agent.subTasks?.length ?? 0;
+  const completedSubTasks =
+    agent.subTasks?.filter((subTask) => subTask.status === 'done').length ?? 0;
+  const runningSubTask = agent.subTasks?.find((subTask) => subTask.status === 'running') ?? null;
+  const currentTaskLabel = agent.currentTask?.stepLabel ?? null;
+  const stepProgress =
+    agent.currentTask != null
+      ? `Step ${agent.currentTask.stepIndex + 1} of ${agent.currentTask.totalSteps}`
+      : null;
 
   return (
     <div
       ref={panelRef}
-      className="fixed top-16 z-50 w-72 max-w-xs"
+      className="fixed top-16 z-50 w-80 max-w-[min(22rem,calc(100vw-2rem))]"
       style={{ left: `${leftOffset}px` }}
       data-testid="employee-inspector"
     >
@@ -123,6 +132,43 @@ export function EmployeeInspector({
           className="flex flex-col gap-1"
           style={{ paddingInline: 'var(--sp-lg)', paddingBottom: 'var(--sp-md)' }}
         >
+          {currentTaskLabel ? (
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                <BriefcaseBusiness className="h-3 w-3" />
+                Current Focus
+              </div>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-slate-100">
+                {currentTaskLabel}
+              </p>
+              {stepProgress ? <p className="mt-1 text-xs text-slate-400">{stepProgress}</p> : null}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                Current Focus
+              </div>
+              <p className="mt-2 text-sm text-slate-300">Available for the next assignment.</p>
+            </div>
+          )}
+
+          {subTaskTotal > 0 ? (
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                <ListChecks className="h-3 w-3" />
+                Subtasks
+              </div>
+              <p className="mt-2 text-sm text-slate-100">
+                {completedSubTasks}/{subTaskTotal} complete
+              </p>
+              {runningSubTask ? (
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  In progress: {runningSubTask.label}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {agent.taskRunId && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Task ID</span>
@@ -136,9 +182,6 @@ export function EmployeeInspector({
               <span className="text-slate-500">Workstation</span>
               <span className="font-mono text-slate-300">{agent.workstationId}</span>
             </div>
-          )}
-          {!agent.taskRunId && !agent.workstationId && (
-            <p className="text-xs text-slate-500 italic">No active task</p>
           )}
         </div>
 
@@ -154,7 +197,7 @@ export function EmployeeInspector({
             onClick={() => onStartChat?.(employeeId)}
           >
             <MessageSquare className="h-3 w-3" />
-            Chat
+            Message
           </Button>
           <Button
             variant="outline"
@@ -163,7 +206,7 @@ export function EmployeeInspector({
             onClick={() => onOpenEditor?.(employeeId)}
           >
             <Pencil className="h-3 w-3" />
-            Edit
+            Edit Profile
           </Button>
         </div>
       </div>

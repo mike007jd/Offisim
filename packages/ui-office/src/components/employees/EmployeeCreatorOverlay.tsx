@@ -37,7 +37,7 @@ const PRESET_SEEDS = [
   'flux',
 ] as const;
 
-const STEPS = ['IDENTITY', 'VISUAL', 'ATTRIBUTES'] as const;
+const STEPS = ['IDENTITY', 'VISUAL'] as const;
 
 type PreviewMode = '2d' | '3d';
 
@@ -48,9 +48,6 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
   const [role, setRole] = useState<RoleSlug>('developer');
   const [seed, setSeed] = useState('');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('2d');
-  const [creativity, setCreativity] = useState(5);
-  const [speed, setSpeed] = useState(5);
-  const [quality, setQuality] = useState(5);
   const [activeStep, setActiveStep] = useState(0);
 
   // Auto-generate seed from name (only when user hasn't manually edited the seed)
@@ -69,9 +66,6 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       setRole('developer');
       setSeed('');
       setPreviewMode('2d');
-      setCreativity(5);
-      setSpeed(5);
-      setQuality(5);
       setSeedManuallyEdited(false);
       setActiveStep(0);
     }
@@ -134,7 +128,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           </button>
           <div className="h-5 w-px bg-white/10" />
           <h1 className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-white/90">
-            AGENT_DEPLOYMENT_INTERFACE
+            EMPLOYEE_DEPLOYMENT
           </h1>
         </div>
 
@@ -189,7 +183,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             {/* Character Name */}
             <div className="text-center">
               <p className="min-h-[2rem] text-2xl font-bold text-white/90">
-                {name || <span className="italic text-white/20">Unnamed Agent</span>}
+                {name || <span className="italic text-white/20">Unnamed Employee</span>}
               </p>
               <div className="mt-2 inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-1">
                 <span className="font-mono text-xs uppercase tracking-wider text-blue-400/80">
@@ -249,13 +243,13 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                     htmlFor="creator-name"
                     className="mb-2 block font-mono text-xs text-white/50"
                   >
-                    AGENT NAME
+                    EMPLOYEE NAME
                   </label>
                   <Input
                     id="creator-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter agent designation..."
+                    placeholder="Enter employee name..."
                     className="bg-white/[0.04] border-white/10 rounded-lg text-white placeholder:text-white/20 h-11"
                     autoFocus
                   />
@@ -326,17 +320,15 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
               </div>
             </SectionPanel>
 
-            {/* Section: Attributes (preview) */}
-            <SectionPanel title="TRAIT MATRIX" stepIndex={2} activeStep={activeStep}>
-              <p className="mb-4 font-mono text-[10px] italic text-white/25">
-                Display only -- trait tuning coming in a future update
-              </p>
-              <div className="space-y-1">
-                <TraitSlider label="Creativity" value={creativity} onChange={setCreativity} />
-                <TraitSlider label="Speed" value={speed} onChange={setSpeed} />
-                <TraitSlider label="Quality" value={quality} onChange={setQuality} />
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/35">
+                Role Defaults
               </div>
-            </SectionPanel>
+              <p className="mt-2 text-sm leading-relaxed text-white/55">
+                Traits inherit from the selected role in this build. Create the employee first, then
+                tune persona and memory from the profile editor.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -365,7 +357,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           `}
         >
           <Rocket className="h-4 w-4" />
-          Deploy Agent
+          Add Employee
         </button>
       </div>
     </div>
@@ -406,46 +398,6 @@ function SectionPanel({ title, stepIndex, activeStep, children }: SectionPanelPr
         </h2>
       </div>
       {children}
-    </div>
-  );
-}
-
-interface TraitSliderProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}
-
-function TraitSlider({ label, value, onChange }: TraitSliderProps) {
-  return (
-    <div className="mb-3 last:mb-0">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-mono text-xs text-white/50">{label}</span>
-        <span className="font-mono text-xs tabular-nums text-blue-400/80">{value}/10</span>
-      </div>
-      <input
-        type="range"
-        min={1}
-        max={10}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full
-          bg-white/10
-          [&::-webkit-slider-thumb]:appearance-none
-          [&::-webkit-slider-thumb]:w-3.5
-          [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:rounded-full
-          [&::-webkit-slider-thumb]:bg-blue-500
-          [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(59,130,246,0.5)]
-          [&::-webkit-slider-thumb]:border-0
-          [&::-moz-range-thumb]:w-3.5
-          [&::-moz-range-thumb]:h-3.5
-          [&::-moz-range-thumb]:rounded-full
-          [&::-moz-range-thumb]:bg-blue-500
-          [&::-moz-range-thumb]:shadow-[0_0_8px_rgba(59,130,246,0.5)]
-          [&::-moz-range-thumb]:border-0
-        "
-      />
     </div>
   );
 }

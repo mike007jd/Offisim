@@ -81,7 +81,7 @@ describe('SystemMessageFeed', () => {
     vi.useRealTimers();
   });
 
-  it('renders compacting, checkpoint restore, and pending clarification states', async () => {
+  it('renders context, resume, and steering states as first-class system messages', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);
 
@@ -146,18 +146,34 @@ describe('SystemMessageFeed', () => {
       });
     });
 
-    expect(screen.getByText('Compacting context...')).toBeInTheDocument();
-    expect(screen.getByText('Restoring from the latest checkpoint')).toBeInTheDocument();
-    expect(screen.getByText('Waiting for clarification')).toBeInTheDocument();
+    expect(screen.getByText('Context Window Filling Up')).toBeInTheDocument();
+    expect(screen.getByText('Resume Restored')).toBeInTheDocument();
+    expect(screen.getByText('Interrupt & Steer')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Auto-compact is summarizing earlier turns so the latest work stays live/),
+    ).toBeInTheDocument();
   });
 
-  it('shows live tool progress with elapsed seconds', async () => {
+  it('surfaces memory saves and tool approval friction', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);
 
     render(createElement(SystemMessageFeed), { wrapper });
 
     act(() => {
+      eventBus.emit({
+        type: 'memory.created',
+        entityId: 'memory-1',
+        entityType: 'memory',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          memoryId: 'memory-1',
+          employeeId: 'emp-1',
+          scope: 'team',
+        },
+      });
       eventBus.emit({
         type: 'tool.execution.telemetry',
         entityId: 'tool-1',
@@ -167,22 +183,19 @@ describe('SystemMessageFeed', () => {
         timestamp: Date.now(),
         payload: {
           toolCallId: 'tool-1',
-          toolName: 'bash',
+          toolName: 'edit_file',
           toolType: 'builtin',
           threadId: 'thread-1',
           nodeName: 'employee',
           startedAt: Date.now() - 3_200,
-          status: 'started',
+          status: 'denied',
+          errorType: 'TOOL_PERMISSION_REQUIRED',
         },
       });
     });
 
-    expect(screen.getByText(/Tool bash running for 3s/)).toBeInTheDocument();
-
-    act(() => {
-      vi.advanceTimersByTime(2_000);
-    });
-
-    expect(screen.getByText(/Tool bash running for 5s/)).toBeInTheDocument();
+    expect(screen.getByText('Auto Memory Updated')).toBeInTheDocument();
+    expect(screen.getByText('Tool Approval Needed')).toBeInTheDocument();
+    expect(screen.getByText('Approve edit file so execution can continue.')).toBeInTheDocument();
   });
 });

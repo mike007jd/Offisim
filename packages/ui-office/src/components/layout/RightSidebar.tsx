@@ -65,9 +65,8 @@ export function RightSidebar({
       onValueChange={setActiveTab}
       className="flex h-full flex-col overflow-hidden"
     >
-      {/* Tabs navigation — icon-only to fit 280px */}
-      <div className="flex border-b border-white/5 px-2 pt-2 overflow-hidden">
-        <TabsList className="bg-transparent w-full justify-start gap-0 p-0">
+      <div className="border-b border-white/5 px-2 pt-2">
+        <TabsList className="bg-transparent flex w-full justify-start gap-1 overflow-x-auto p-0 pb-2">
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
@@ -75,9 +74,10 @@ export function RightSidebar({
               title={tab.label}
               aria-label={tab.label}
               data-onboarding-target={tab.id === 'outputs' ? 'outputs-button' : undefined}
-              className="flex-1 py-2.5 px-1 flex items-center justify-center data-[state=active]:text-blue-400 data-[state=active]:bg-transparent data-[state=inactive]:text-slate-500 hover:text-slate-300 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 transition-all focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:outline-none"
+              className="h-auto min-w-fit shrink-0 gap-1.5 rounded-lg border border-transparent px-2.5 py-2 text-[11px] text-slate-400 data-[state=active]:border-blue-500/30 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-300 hover:text-slate-200"
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className="h-4 w-4" />
+              <span>{tab.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>

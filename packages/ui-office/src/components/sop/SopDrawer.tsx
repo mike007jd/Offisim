@@ -100,8 +100,8 @@ export function SopDrawer({
       />
 
       {/* Slide-over panel */}
-      <div className="fixed inset-y-0 right-0 z-[81] flex">
-        <div className="w-[480px] max-w-[calc(100vw-48px)] bg-[#0a0a0f] border-l border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+      <div className="fixed inset-y-4 right-4 z-[81] flex">
+        <div className="w-[min(840px,calc(100vw-32px))] bg-[#0a0a0f] border border-white/10 rounded-2xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 overflow-hidden">
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
             <div className="flex-1 min-w-0">

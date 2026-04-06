@@ -263,6 +263,19 @@ export function CompanySelectionPage({
 
   const { data, loading } = useCompanyPreview(repos, selectedCompany?.company_id ?? null);
   const selectedSummary = selectedCompany ? summaries[selectedCompany.company_id] : null;
+  const [confirmArchiveCompanyId, setConfirmArchiveCompanyId] = useState<string | null>(null);
+  const archiveArmed =
+    selectedCompany?.company_id != null && confirmArchiveCompanyId === selectedCompany.company_id;
+
+  const handleArchiveClick = () => {
+    if (!selectedCompany) return;
+    if (confirmArchiveCompanyId === selectedCompany.company_id) {
+      onArchiveCompany(selectedCompany.company_id);
+      setConfirmArchiveCompanyId(null);
+      return;
+    }
+    setConfirmArchiveCompanyId(selectedCompany.company_id);
+  };
 
   return (
     <div className="flex h-screen bg-[#07101d] text-white">
@@ -312,7 +325,7 @@ export function CompanySelectionPage({
                         {company.name}
                       </div>
                       <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">
-                        {company.template_label ?? 'Custom'}
+                        {company.template_label ?? 'Custom Layout'}
                       </div>
                     </div>
                     {isActive && (
@@ -419,12 +432,22 @@ export function CompanySelectionPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onArchiveCompany(selectedCompany.company_id)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.05]"
+                    onClick={handleArchiveClick}
+                    className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                      archiveArmed
+                        ? 'border-rose-400/40 bg-rose-500/10 text-rose-100 hover:border-rose-300/60 hover:bg-rose-500/15'
+                        : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]'
+                    }`}
                   >
                     <Archive className="h-4 w-4" />
-                    Archive Company
+                    {archiveArmed ? 'Confirm Archive' : 'Archive Company'}
                   </button>
+                  {archiveArmed && (
+                    <p className="rounded-2xl border border-rose-400/20 bg-rose-500/8 px-4 py-3 text-xs leading-relaxed text-rose-100">
+                      Archive {selectedCompany.name}? The company will be removed from the active
+                      list.
+                    </p>
+                  )}
                 </div>
               </>
             ) : (

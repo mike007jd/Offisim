@@ -89,7 +89,14 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
       />
 
       {/* Trigger button */}
-      <Button variant="outline" size="sm" onClick={openFilePicker}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={openFilePicker}
+        className="h-8"
+        title="Install package from file"
+        aria-label="Install package from file"
+      >
         <Package className="h-4 w-4" />
         Install Package
       </Button>

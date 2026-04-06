@@ -18,6 +18,7 @@ import {
   prepareWaitingDisplay,
 } from '../../lib/ceremony-visuals';
 import { truncate } from '../../lib/format-time';
+import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { STATUS_COLORS } from '../../lib/status-colors.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -384,6 +385,14 @@ export default function Office2DView({
   const companyId = activeCompanyId ?? '';
   const { zones } = useCompanyZones();
   const { instances: prefabInstances } = usePrefabInstances();
+  const seatRegistry = useMemo(
+    () =>
+      SeatRegistry.build(
+        prefabInstances.map((entry) => entry.instance),
+        zones,
+      ),
+    [prefabInstances, zones],
+  );
 
   // ── Dynamic zone derivations ──
   const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
@@ -816,16 +825,11 @@ export default function Office2DView({
           {(() => {
             const restZ = zones.find((z) => z.archetype === 'rest');
             if (!restZ) return null;
-            const rs = toSVG(restZ.cx, restZ.cz, restZ.w, restZ.d);
-            const rcx = rs.x + rs.w / 2;
-            const rcy = rs.y + rs.h / 2;
             const restEmps = zoneEmployees.get(restZ.zoneId) ?? [];
             return restEmps.map((emp, idx) => {
               if (employeeCeremonyPositions.has(emp.empId)) return null;
-              const angle = (idx / Math.max(restEmps.length, 1)) * Math.PI * 1.5 + 0.3;
-              const radius = 60 + (idx % 3) * 40;
-              const ex = rcx + Math.cos(angle) * radius;
-              const ey = rcy + Math.sin(angle) * radius * 0.7;
+              const [worldX, , worldZ] = seatRegistry.getRestSeat(zones, idx);
+              const { x: ex, y: ey } = positionToSVG(worldX, worldZ);
               return (
                 <EmployeeNode
                   key={emp.empId}

@@ -116,12 +116,12 @@ describe('ActivityRail', () => {
 
     await waitFor(() => {
       expect(screen.getByText('PM created 1 step')).toBeInTheDocument();
-      expect(screen.getByText('Started bash')).toBeInTheDocument();
+      expect(screen.getByText('Running shell tasks')).toBeInTheDocument();
       expect(screen.getByText('Shell tasks')).toBeInTheDocument();
     });
   });
 
-  it('shows completed tool outcomes once telemetry closes', async () => {
+  it('surfaces failed tool outcomes without adding success noise', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);
 
@@ -141,7 +141,7 @@ describe('ActivityRail', () => {
           toolType: 'builtin',
           threadId: 'thread-1',
           startedAt: Date.now() - 1200,
-          status: 'completed',
+          status: 'failed',
           completedAt: Date.now(),
           durationMs: 1200,
         },
@@ -149,7 +149,7 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Completed read file in 1.2s')).toBeInTheDocument();
+      expect(screen.getByText('Failed read file')).toBeInTheDocument();
     });
   });
 
@@ -260,11 +260,11 @@ describe('ActivityRail', () => {
     await waitFor(() => {
       expect(screen.getByText('Searching the codebase')).toBeInTheDocument();
       expect(screen.getByText('Searching codebase (2)')).toBeInTheDocument();
-      expect(screen.getByText('Searching codebase with 2 tools')).toBeInTheDocument();
+      expect(screen.queryByText('Searching codebase with 2 tools')).toBeNull();
     });
   });
 
-  it('merges consecutive completed file reads into a single burst entry', async () => {
+  it('keeps completed file reads out of the activity feed', async () => {
     const eventBus = new TestEventBus();
     const wrapper = makeWrapper(eventBus);
 
@@ -311,7 +311,8 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Read files with 2 tools')).toBeInTheDocument();
+      expect(screen.queryByText('Read files with 2 tools')).toBeNull();
+      expect(screen.queryByText(/Completed read file/)).toBeNull();
     });
   });
 
@@ -407,9 +408,9 @@ describe('ActivityRail', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Compacted 18 messages and kept a 6-message live tail'),
+        screen.getByText('Summarized earlier turns and kept the latest 6 messages live'),
       ).toBeInTheDocument();
-      expect(screen.getByText('Rewound to step 2 and resumed')).toBeInTheDocument();
+      expect(screen.getByText('Checkpoint rewound to step 2 and resumed')).toBeInTheDocument();
       expect(screen.getByText('Workspace changed locally (3 files)')).toBeInTheDocument();
       expect(screen.getByText('Approval needed for github/search')).toBeInTheDocument();
     });
@@ -475,7 +476,7 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText('Waiting for plan review').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Plan review needed').length).toBeGreaterThan(0);
       expect(screen.getByText('Clarification received: answer and continue')).toBeInTheDocument();
     });
   });
@@ -516,7 +517,7 @@ describe('ActivityRail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText('Restored pending plan review')).toHaveLength(2);
+      expect(screen.getAllByText('Plan review restored')).toHaveLength(2);
     });
   });
 

@@ -28,7 +28,7 @@ import type {
   ToolExecutionTelemetryPayload,
   Zone,
 } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addWaitingRelationship, removeWaitingRelationship } from '../lib/ceremony-visuals';
 import { truncate } from '../lib/format-time';
@@ -40,6 +40,7 @@ import {
   buildManagerPresenceTarget,
   buildReturnToMeetingRoute,
   buildStalledWorkTarget,
+  buildTransitRoute,
   buildWorkActivityTarget,
   moveThroughPoints,
 } from '../lib/scene-behavior';
@@ -119,6 +120,17 @@ function getRestPos(
   }
   const restCenter = getZoneCenter(zones, 'rest');
   return computeRestSeatPosition(restCenter[0], restCenter[2], idx);
+}
+
+function getObstacleFootprints(registry: SeatRegistry | null) {
+  return registry?.getObstacleFootprints() ?? [];
+}
+
+function resolveZoneIdForPosition(
+  position: readonly [number, number, number],
+  zones: readonly Zone[],
+): string | null {
+  return zones.find((zone) => isInsideZone(position[0], position[2], zone))?.zoneId ?? null;
 }
 
 export function createIdleCeremonyState(): CeremonyState {
@@ -386,6 +398,55 @@ export function useSceneOrchestrator({
     };
   }, [activeCompanyId]);
 
+  const moveEmployeeAlongTransit = useCallback(
+    (
+      employeeId: string,
+      targetPosition: [number, number, number],
+      speed: number,
+      options?: {
+        startZoneId?: string | null;
+        endZoneId?: string | null;
+        onComplete?: () => void;
+      },
+    ) => {
+      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      if (!handle) return;
+
+      const currentPosition =
+        handle.getPosition() ?? assignedWorkPositionsRef.current.get(employeeId) ?? targetPosition;
+      const startZoneId =
+        options?.startZoneId ??
+        assignedWorkZoneIdsRef.current.get(employeeId) ??
+        resolveZoneIdForPosition(currentPosition, zonesRef.current);
+      const endZoneId =
+        options?.endZoneId ?? resolveZoneIdForPosition(targetPosition, zonesRef.current);
+      const zoneWaypoints =
+        startZoneId && endZoneId && startZoneId !== endZoneId
+          ? buildZoneRouteWaypoints(zonesRef.current, startZoneId, endZoneId)
+          : [];
+      const route = buildTransitRoute(currentPosition, targetPosition, {
+        zoneWaypoints,
+        obstacleFootprints: getObstacleFootprints(registryRef.current),
+      }).slice(1);
+
+      moveThroughPoints(handle, route, speed, options?.onComplete);
+    },
+    [],
+  );
+
+  const moveEmployeeToRest = useCallback(
+    (employeeId: string, speed: number, onComplete?: () => void) => {
+      const restZoneId = zonesRef.current.find((zone) => zone.archetype === 'rest')?.zoneId ?? null;
+      moveEmployeeAlongTransit(
+        employeeId,
+        getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
+        speed,
+        { endZoneId: restZoneId, onComplete },
+      );
+    },
+    [moveEmployeeAlongTransit],
+  );
+
   /** Move all enabled employees to MTG semicircle positions. */
   const gatherAll = useCallback((_version: number) => {
     const allIds = [...agentsRef.current.keys()];
@@ -441,6 +502,7 @@ export function useSceneOrchestrator({
       const meetingZoneId = getMeetingZoneId(zonesRef.current);
       const route = buildDispatchRoute(mtgCenter, targetZoneCenter, targetPos, {
         zoneWaypoints: buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, zoneId),
+        obstacleFootprints: getObstacleFootprints(registryRef.current),
       });
 
       safeTimeout(() => {
@@ -457,6 +519,7 @@ export function useSceneOrchestrator({
   );
 
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: moveEmployeeToRest is a stable useCallback with empty deps
   const startEndCeremony = useCallback(
     (summaryText: string, version: number) => {
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
@@ -510,6 +573,7 @@ export function useSceneOrchestrator({
           zoneWaypoints: workZoneId
             ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
             : [],
+          obstacleFootprints: getObstacleFootprints(registryRef.current),
         });
 
         moveThroughPoints(handle, route, 5, () => {
@@ -526,11 +590,7 @@ export function useSceneOrchestrator({
                 managerPosition: null,
               }));
               for (const empId of dispatchedIds) {
-                const h = getMovementHandles(companyIdRef.current).get(empId);
-                h?.moveTo(
-                  getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
-                  4,
-                );
+                moveEmployeeToRest(empId, 4);
               }
               // After 3s, ceremony is fully done
               safeTimeout(() => {
@@ -550,6 +610,7 @@ export function useSceneOrchestrator({
   );
 
   // ── EventBus subscriptions ──
+  // biome-ignore lint/correctness/useExhaustiveDependencies: moveEmployeeAlongTransit and moveEmployeeToRest are stable useCallbacks with empty deps
   useEffect(() => {
     // Track whether we have an active task plan
     let hasActivePlan = false;
@@ -564,12 +625,9 @@ export function useSceneOrchestrator({
         if (node === 'manager') {
           // Interrupt any ongoing ceremony: stop all → send to rest → then gather
           const handles = getMovementHandles(companyIdRef.current);
-          for (const [, handle] of handles) {
+          for (const [employeeId, handle] of handles) {
             handle.stop();
-            handle.moveTo(
-              getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
-              5,
-            ); // quick return to rest first
+            moveEmployeeToRest(employeeId, 5); // quick return to rest first
           }
           hasActivePlan = false;
           assignedWorkPositionsRef.current.clear();
@@ -641,17 +699,14 @@ export function useSceneOrchestrator({
       // If this is the last step, switch to working phase
       if (stepIndex === totalSteps - 1) {
         safeTimeout(() => {
+          const undispatchedIds: string[] = [];
           setCeremony((prev) => {
             if (prev.phase !== 'dispatching') return prev;
             // Dismiss undispatched employees to rest
             const allIds = new Set(agentsRef.current.keys());
             for (const id of allIds) {
               if (!prev.dispatchedIds.has(id)) {
-                const handle = getMovementHandles(companyIdRef.current).get(id);
-                handle?.moveTo(
-                  getRestPos(companyIdRef.current, registryRef.current, zonesRef.current),
-                  4,
-                );
+                undispatchedIds.push(id);
               }
             }
             return {
@@ -662,6 +717,9 @@ export function useSceneOrchestrator({
               managerPosition: null,
             };
           });
+          for (const employeeId of undispatchedIds) {
+            moveEmployeeToRest(employeeId, 4);
+          }
         }, 1000);
       }
     };
@@ -808,6 +866,7 @@ export function useSceneOrchestrator({
           zoneWaypoints: workZoneId
             ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
             : [],
+          obstacleFootprints: getObstacleFootprints(registryRef.current),
         }),
         4,
       );
@@ -876,6 +935,7 @@ export function useSceneOrchestrator({
               zoneWaypoints: workZoneId
                 ? buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, workZoneId)
                 : [],
+              obstacleFootprints: getObstacleFootprints(registryRef.current),
             }),
             3.2,
           );
@@ -981,7 +1041,9 @@ export function useSceneOrchestrator({
         const version = ceremonyVersionRef.current;
         moveThroughPoints(
           fromHandle,
-          buildHandoffRoute(fromPosition, toPosition, meetingCenter),
+          buildHandoffRoute(fromPosition, toPosition, meetingCenter, {
+            obstacleFootprints: getObstacleFootprints(registryRef.current),
+          }),
           3.5,
           () => {
             if (ceremonyVersionRef.current !== version) return;
@@ -989,7 +1051,11 @@ export function useSceneOrchestrator({
               assignedWorkPositionsRef.current.get(payload.fromEmployeeId) ??
               resolveEmployeeTargetPosition(payload.fromEmployeeId);
             if (returnPosition) {
-              fromHandle.moveTo(returnPosition, 3.2);
+              moveEmployeeAlongTransit(payload.fromEmployeeId, returnPosition, 3.2, {
+                endZoneId:
+                  assignedWorkZoneIdsRef.current.get(payload.fromEmployeeId) ??
+                  resolveZoneIdForPosition(returnPosition, zonesRef.current),
+              });
             }
           },
         );

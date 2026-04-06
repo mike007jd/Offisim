@@ -70,7 +70,7 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
                 className="pl-9"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search the market"
+                placeholder="Search packages…"
               />
             </div>
 
@@ -116,7 +116,10 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
 
             {error ? (
               <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs leading-relaxed text-rose-100">
-                Marketplace unavailable. {error}
+                Marketplace is unavailable right now. Check the connection and retry.
+                <div className="mt-2 font-mono text-[10px] text-rose-200/80 break-words">
+                  {error}
+                </div>
               </div>
             ) : null}
 
@@ -124,9 +127,9 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
               <p className="py-8 text-center text-sm text-slate-500">Loading marketplace…</p>
             ) : !error && results.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                <p className="text-sm font-semibold text-slate-200">No listings found</p>
+                <p className="text-sm font-semibold text-slate-200">No packages match this view</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                  Try a different query or switch filters.
+                  Try a broader search or switch the asset filter.
                 </p>
               </div>
             ) : (

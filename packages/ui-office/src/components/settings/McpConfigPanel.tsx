@@ -326,12 +326,13 @@ export function McpConfigPanel() {
           <Button
             onClick={handleAdd}
             size="sm"
+            variant="secondary"
             disabled={
               !name.trim() ||
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="self-end"
+            className="self-end border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
           >
             {connecting ? 'Connecting…' : 'Add & Connect'}
           </Button>
@@ -376,11 +377,11 @@ export function McpConfigPanel() {
                   <div className="flex gap-1 shrink-0">
                     {!isConnected(server.name) && (
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="sm"
                         onClick={() => handleReconnect(server)}
                         disabled={!isReady || connecting !== null}
-                        className="text-ocean-light hover:text-sand h-7 px-2 text-[11px]"
+                        className="h-7 border-emerald-500/40 bg-emerald-500/12 px-2 text-[11px] text-emerald-100 hover:bg-emerald-500/22 hover:border-emerald-400"
                       >
                         Connect
                       </Button>

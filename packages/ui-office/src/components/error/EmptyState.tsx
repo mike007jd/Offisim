@@ -36,7 +36,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   if (!isConfigured) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-500">
+      <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto px-6 text-slate-500">
         <p className="text-xs">Enter a task and watch your AI team collaborate.</p>
       </div>
     );
@@ -45,33 +45,35 @@ export function EmptyState({
   const prompts = starterPrompts ?? FALLBACK_STARTER_PROMPTS;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-      {welcome && (
-        <div className="w-full max-w-md rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-center">
-          <h3 className="text-sm font-semibold text-white">{welcome.title}</h3>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{welcome.body}</p>
-        </div>
-      )}
-      <p className="text-xs text-slate-500">What would you like to do?</p>
-      {onSendPrompt && (
-        <div className="flex flex-wrap justify-center gap-2">
-          {prompts.map(({ label, text }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onSendPrompt(text)}
-              className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-blue-300 hover:border-blue-500/30 transition-all"
-              data-onboarding-starter-prompt={label}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-      <p className="text-[10px] text-slate-500">
-        Use <kbd className="text-slate-500">/</kbd> for commands,{' '}
-        <kbd className="text-slate-500">@</kbd> to mention someone
-      </p>
+    <div className="flex flex-1 min-h-0 overflow-y-auto px-6">
+      <div className="m-auto flex w-full max-w-md flex-col items-center gap-4 py-4 text-center">
+        {welcome && (
+          <div className="w-full rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+            <h3 className="text-sm font-semibold text-white">{welcome.title}</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{welcome.body}</p>
+          </div>
+        )}
+        <p className="text-xs text-slate-500">What would you like to do?</p>
+        {onSendPrompt && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {prompts.map(({ label, text }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onSendPrompt(text)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-blue-300 hover:border-blue-500/30 transition-all"
+                data-onboarding-starter-prompt={label}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-[10px] text-slate-500">
+          Use <kbd className="text-slate-500">/</kbd> for commands,{' '}
+          <kbd className="text-slate-500">@</kbd> to mention someone
+        </p>
+      </div>
     </div>
   );
 }

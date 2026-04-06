@@ -40,9 +40,9 @@ function getDensity(): 'compact' | 'normal' | 'spacious' {
 function getDefaultHeight(): number {
   if (typeof window === 'undefined') return 280;
   const heightByDensity = {
-    compact: Math.round(window.innerHeight * 0.22),
-    normal: Math.round(window.innerHeight * 0.35),
-    spacious: Math.round(window.innerHeight * 0.35),
+    compact: Math.round(window.innerHeight * 0.2),
+    normal: Math.round(window.innerHeight * 0.22),
+    spacious: Math.round(window.innerHeight * 0.24),
   };
   return heightByDensity[getDensity()];
 }
@@ -166,6 +166,7 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      event.stopPropagation();
       if (compact) {
         setCompact(false);
       }
@@ -179,11 +180,13 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const dragState = dragStateRef.current;
     if (!dragState) return;
+    event.stopPropagation();
     setHeightPx(clampHeight(dragState.startHeight + (dragState.startY - event.clientY)));
   }, []);
 
   const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStateRef.current) return;
+    event.stopPropagation();
     dragStateRef.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
     document.body.style.userSelect = '';
@@ -198,7 +201,10 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
         <div
           data-testid="chat-resize-handle"
           className="h-1.5 cursor-ns-resize flex items-center justify-center"
-          onDoubleClick={toggleCompact}
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            toggleCompact();
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -230,15 +236,14 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
 
       {/* Content area — always rendered to preserve state */}
       <div
-        className="overflow-hidden transition-opacity duration-300"
-        style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
+        className="min-h-0 overflow-hidden transition-opacity duration-300 flex flex-col"
+        style={{
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+          height: Math.max((compact ? COMPACT_HEIGHT : heightPx) - TOGGLE_BAR_HEIGHT, 0),
+        }}
       >
-        <div
-          className="overflow-y-auto custom-scrollbar"
-          style={{ height: Math.max((compact ? COMPACT_HEIGHT : heightPx) - TOGGLE_BAR_HEIGHT, 0) }}
-        >
-          {typeof children === 'function' ? children({ compact }) : children}
-        </div>
+        {typeof children === 'function' ? children({ compact }) : children}
       </div>
     </div>
   );

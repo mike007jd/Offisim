@@ -1,6 +1,6 @@
 import { Badge, Button, ScrollArea } from '@offisim/ui-core';
 import { Bell, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationCard } from './NotificationCard';
 
@@ -18,10 +18,34 @@ interface NotificationCenterProps {
 export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps) {
   const { notifications, unreadCount, markRead, dismiss, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (rootRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <Button
         variant="ghost"
         size="icon"
@@ -41,10 +65,7 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
       </Button>
 
       {isOpen && (
-        <div
-          ref={panelRef}
-          className="absolute right-0 top-full mt-1 z-50 w-72 bg-ocean-deep border border-ocean-light rounded-md shadow-lg"
-        >
+        <div className="absolute right-full top-1/2 z-50 mr-2 w-72 -translate-y-1/2 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
           <div className="flex items-center justify-between px-3 py-2 border-b border-ocean-light">
             <span className="text-xs font-pixel-body text-shell font-medium">Notifications</span>
             {notifications.length > 0 && (

@@ -56,12 +56,6 @@ function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
-function formatDuration(durationMs?: number): string {
-  if (!durationMs || durationMs < 1000) return '<1s';
-  if (durationMs < 10_000) return `${(durationMs / 1000).toFixed(1)}s`;
-  return `${Math.round(durationMs / 1000)}s`;
-}
-
 function activeToolHeadline(category: ToolCategory): string {
   switch (category) {
     case 'search':
@@ -182,13 +176,13 @@ function exitedEntry(nodeName: string): RuntimeActivityEntry {
 function interactionRequestedLabel(kind: InteractionKind): string {
   switch (kind) {
     case 'permission_request':
-      return 'Waiting for approval';
+      return 'Approval needed';
     case 'plan_review':
-      return 'Waiting for plan review';
+      return 'Plan review needed';
     case 'agent_question':
-      return 'Waiting for clarification';
+      return 'Interrupt & steer';
     default:
-      return 'Waiting for user input';
+      return 'Input needed';
   }
 }
 
@@ -209,13 +203,13 @@ function interactionResolvedLabel(kind: InteractionKind, selectedOptionId: strin
 function interactionRestoredLabel(kind: InteractionKind): string {
   switch (kind) {
     case 'permission_request':
-      return 'Restored pending approval';
+      return 'Approval restored';
     case 'plan_review':
-      return 'Restored pending plan review';
+      return 'Plan review restored';
     case 'agent_question':
-      return 'Restored pending clarification';
+      return 'Interrupt & steer restored';
     default:
-      return 'Restored pending interaction';
+      return 'Pending input restored';
   }
 }
 
@@ -479,27 +473,11 @@ export function useRuntimeActivityFeed(opts?: {
         const payload = event.payload;
         const label = telemetryLabel(payload);
         if (payload.status === 'started') {
-          const category = categorizeTool(payload);
           setActiveToolsState((prev) => {
             const next = new Map(prev);
             next.set(payload.toolCallId, payload);
             return next;
           });
-          setEntries((prev) =>
-            pushEntry(
-              prev,
-              {
-                id: `tool-${payload.toolCallId}-started`,
-                kind: 'tool',
-                tone: 'info',
-                label: `Started ${label}`,
-                timestamp: payload.startedAt,
-                burstKey: `started:${category}`,
-                burstCount: 1,
-              },
-              maxEntries,
-            ),
-          );
           return;
         }
 
@@ -509,27 +487,20 @@ export function useRuntimeActivityFeed(opts?: {
           return next;
         });
 
-        const tone: RuntimeActivityTone =
-          payload.status === 'completed'
-            ? 'success'
-            : payload.status === 'denied'
-              ? 'warning'
-              : 'error';
+        if (payload.status === 'completed') {
+          return;
+        }
+
+        const tone: RuntimeActivityTone = payload.status === 'denied' ? 'warning' : 'error';
         const category = categorizeTool(payload);
         const prefix =
-          payload.status === 'completed'
-            ? 'Completed'
-            : payload.errorType === 'TOOL_PERMISSION_REQUIRED'
-              ? 'Approval needed for'
-              : payload.errorType === 'TOOL_PERMISSION_DENIED'
-                ? 'Access blocked for'
-                : payload.status === 'denied'
-                  ? 'Denied'
-                  : 'Failed';
-        const suffix =
-          payload.status === 'completed' && payload.durationMs != null
-            ? ` in ${formatDuration(payload.durationMs)}`
-            : '';
+          payload.errorType === 'TOOL_PERMISSION_REQUIRED'
+            ? 'Approval needed for'
+            : payload.errorType === 'TOOL_PERMISSION_DENIED'
+              ? 'Access blocked for'
+              : payload.status === 'denied'
+                ? 'Denied'
+                : 'Failed';
 
         setEntries((prev) =>
           pushEntry(
@@ -538,10 +509,7 @@ export function useRuntimeActivityFeed(opts?: {
               id: `tool-${payload.toolCallId}-${payload.status}`,
               kind: 'tool',
               tone,
-              label:
-                payload.status === 'completed'
-                  ? `Completed ${label}${suffix}`
-                  : `${prefix} ${label}`,
+              label: `${prefix} ${label}`,
               timestamp: payload.completedAt ?? event.timestamp,
               burstKey: `${payload.status}:${category}`,
               burstCount: 1,
@@ -727,7 +695,7 @@ export function useRuntimeActivityFeed(opts?: {
               id: `memory-${event.payload.memoryId}`,
               kind: 'system',
               tone: 'success',
-              label: `New ${event.payload.scope} insight saved`,
+              label: `Auto memory saved a ${event.payload.scope} insight`,
               timestamp: event.timestamp,
               employeeId: event.payload.employeeId,
             },
@@ -798,7 +766,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offSynopsis = eventBus.on(
       'conversation.synopsis.updated',
       (event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
-        setBaseHeadline('Compacting context for the next turn');
+        setBaseHeadline('Context window is filling up');
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -806,7 +774,7 @@ export function useRuntimeActivityFeed(opts?: {
               id: `synopsis-${event.payload.version}`,
               kind: 'system',
               tone: 'info',
-              label: `Compacted ${event.payload.prunedMessageCount} messages into a fresh synopsis`,
+              label: 'Auto-compact is preserving the latest turn',
               timestamp: event.timestamp,
             },
             maxEntries,
@@ -818,7 +786,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offCompact = eventBus.on(
       'conversation.compact.completed',
       (event: RuntimeEvent<ConversationCompactCompletedPayload>) => {
-        setBaseHeadline('Established a new compact baseline');
+        setBaseHeadline('Context compacted');
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -826,7 +794,7 @@ export function useRuntimeActivityFeed(opts?: {
               id: `compact-${event.payload.compactId}`,
               kind: 'system',
               tone: 'success',
-              label: `Compacted ${event.payload.compactedNonSystemMessageCount} messages and kept a ${event.payload.keptTailNonSystemMessageCount}-message live tail`,
+              label: `Summarized earlier turns and kept the latest ${event.payload.keptTailNonSystemMessageCount} messages live`,
               timestamp: event.timestamp,
             },
             maxEntries,
@@ -838,7 +806,7 @@ export function useRuntimeActivityFeed(opts?: {
     const offResume = eventBus.on(
       'execution.resumed',
       (event: RuntimeEvent<ExecutionResumedPayload>) => {
-        setBaseHeadline('Restoring from the latest checkpoint');
+        setBaseHeadline('Resume restored');
         setEntries((prev) =>
           pushEntry(
             prev,
@@ -848,8 +816,8 @@ export function useRuntimeActivityFeed(opts?: {
               tone: 'info',
               label:
                 event.payload.rewoundFromStepIndex != null
-                  ? `Rewound to step ${event.payload.rewoundFromStepIndex + 1} and resumed`
-                  : `Resumed at step ${event.payload.currentStepIndex + 1}`,
+                  ? `Checkpoint rewound to step ${event.payload.rewoundFromStepIndex + 1} and resumed`
+                  : `Checkpoint restored at step ${event.payload.currentStepIndex + 1}`,
               timestamp: event.timestamp,
             },
             maxEntries,

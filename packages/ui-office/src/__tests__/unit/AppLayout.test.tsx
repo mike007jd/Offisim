@@ -2,12 +2,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppLayout } from '../../components/layout/AppLayout';
 
-// Mock matchMedia so jsdom doesn't trigger narrow-screen auto-collapse
-beforeEach(() => {
+function mockViewport({
+  mobile = false,
+  tablet = false,
+}: { mobile?: boolean; tablet?: boolean } = {}) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches:
+        query === '(max-width: 768px)' ? mobile : query === '(max-width: 1280px)' ? tablet : false,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -17,10 +20,50 @@ beforeEach(() => {
       dispatchEvent: vi.fn(),
     })),
   });
+}
+
+beforeEach(() => {
+  mockViewport();
   localStorage.clear();
 });
 
 describe('AppLayout', () => {
+  it('defaults both panels open on desktop widths', () => {
+    mockViewport({ mobile: false, tablet: false });
+
+    render(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /collapse personnel/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /collapse operations/i })).toBeInTheDocument();
+  });
+
+  it('defaults to left-open right-collapsed at tablet widths', () => {
+    mockViewport({ mobile: false, tablet: true });
+
+    render(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /collapse personnel/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand operations/i })).toBeInTheDocument();
+  });
+
   it('keeps the operations panel mounted while collapsed so event state is preserved', () => {
     render(
       <AppLayout

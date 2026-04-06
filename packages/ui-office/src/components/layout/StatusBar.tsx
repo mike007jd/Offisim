@@ -59,9 +59,11 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
             <>
               <div
                 className={`w-2 h-2 rounded-full animate-pulse ${STAGE_META[pipelineStage].dotClass}`}
+                title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
               />
               <span
                 className={`uppercase tracking-[0.2em] font-black ${STAGE_META[pipelineStage].colorClass}`}
+                title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
               >
                 {STAGE_META[pipelineStage].label}
               </span>
@@ -70,9 +72,11 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
             <>
               <div
                 className={`w-2 h-2 rounded-full ${runStatus === 'running' ? 'bg-emerald-500 animate-pulse' : runStatus === 'error' ? 'bg-red-500' : 'bg-slate-600'}`}
+                title={`Runtime status: ${runStatus}`}
               />
               <span
                 className={`uppercase tracking-[0.2em] font-black ${runStatus === 'running' ? 'text-emerald-500/90' : runStatus === 'error' ? 'text-red-500/90' : 'text-slate-500'}`}
+                title={`Runtime status: ${runStatus}`}
               >
                 {runStatus === 'running'
                   ? 'System Online'
@@ -89,6 +93,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
             <div className="w-px h-3 bg-white/10" />
             <span
               className={`uppercase tracking-[0.15em] font-semibold ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}
+              title={`Project status: ${PROJECT_STATUS_STYLE[activeProjectStatus].label}`}
             >
               {PROJECT_STATUS_STYLE[activeProjectStatus].label}
             </span>
@@ -99,29 +104,38 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
 
         <div className="flex items-center space-x-4">
           {headline && (
-            <div className="flex items-center space-x-1.5 max-w-[18rem]">
+            <div className="flex items-center space-x-1.5 max-w-[18rem]" title={headline}>
               <Activity className="w-3 h-3 text-cyan-400/60" />
               <span className="truncate font-mono text-cyan-200/70">{headline}</span>
             </div>
           )}
           {activeTools.length > 0 && (
-            <div className="flex items-center space-x-1.5">
+            <div
+              className="flex items-center space-x-1.5"
+              title={`${activeTools.length} tool calls currently running`}
+            >
               <span className="font-mono text-emerald-300/70">{activeTools.length} tools live</span>
             </div>
           )}
           {modelName && (
-            <div className="flex items-center space-x-1.5">
+            <div className="flex items-center space-x-1.5" title={`Model: ${modelName}`}>
               <Cpu className="w-3 h-3 text-blue-400/50" />
               <span className="font-mono">{modelName}</span>
             </div>
           )}
           {metrics.activeTaskCount > 0 && (
-            <div className="flex items-center space-x-1.5">
+            <div
+              className="flex items-center space-x-1.5"
+              title={`${metrics.activeTaskCount} active tasks`}
+            >
               <Zap className="w-3 h-3 text-amber-400/50" />
               <span className="font-mono">{metrics.activeTaskCount} tasks</span>
             </div>
           )}
-          <div className="flex items-center space-x-1.5">
+          <div
+            className="flex items-center space-x-1.5"
+            title={`${metrics.employeeUtilization.active} active of ${metrics.employeeUtilization.total} employees`}
+          >
             <Database className="w-3 h-3 text-purple-400/50" />
             <span className="font-mono">
               {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} agents
@@ -136,7 +150,12 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
           costUsd={metrics.estimatedCostUsd}
         />
         {metrics.elapsedMs != null && (
-          <span className="font-mono">LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s</span>
+          <span
+            className="font-mono"
+            title={`Latency ${(metrics.elapsedMs / 1000).toFixed(1)} seconds`}
+          >
+            LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s
+          </span>
         )}
         <div className="w-px h-3 bg-white/10" />
         {setInteractionMode && (
@@ -147,6 +166,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
               variant={interactionMode === 'boss_proxy' ? 'secondary' : 'ghost'}
               className="h-6 px-2 text-[10px]"
               onClick={() => setInteractionMode('boss_proxy')}
+              title="Route instructions through the boss proxy"
             >
               Proxy
             </Button>
@@ -156,18 +176,25 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
               variant={interactionMode === 'human_in_loop' ? 'secondary' : 'ghost'}
               className="h-6 px-2 text-[10px]"
               onClick={() => setInteractionMode('human_in_loop')}
+              title="Keep approvals and steering in the loop"
             >
               Human
             </Button>
           </div>
         )}
         {pendingInteraction && (
-          <span className="font-mono text-amber-200/80">
+          <span
+            className="font-mono text-amber-200/80"
+            title={pendingInteractionLabel(pendingInteraction)}
+          >
             {pendingInteractionLabel(pendingInteraction)}
           </span>
         )}
         <div className="w-px h-3 bg-white/10" />
-        <div className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity">
+        <div
+          className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity"
+          title="Offisim runtime build v1.0.0-rc.1"
+        >
           <Activity className="w-3 h-3" />
           <span className="font-mono">v1.0.0-rc.1</span>
         </div>

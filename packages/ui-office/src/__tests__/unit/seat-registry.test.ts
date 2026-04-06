@@ -47,8 +47,7 @@ function makeZone(overrides: Partial<Zone> & { zoneId: string }): Zone {
 describe('SeatRegistry', () => {
   it('assigns seats from workstation-standard with correct world positions', () => {
     // workstation-standard: work anchor [0, 1.4], capacity 1
-    // instance at position_x=5, position_y=8, rotation=0
-    // toWorldAnchor([0, 1.4], [5, 8], 0) → position [5, 0, 9.4]
+    // footprint depth edge is z=9.5, so seat should be nudged just outside it.
     const instance = makeInstance({
       instance_id: 'ws1',
       prefab_id: 'workstation-standard',
@@ -70,13 +69,12 @@ describe('SeatRegistry', () => {
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[2]).toBeCloseTo(9.4, 5);
+    expect(seat!.position[2]).toBeCloseTo(9.55, 5);
   });
 
   it('handles rotation=90 correctly', () => {
     // workstation-standard: work anchor [0, 1.4]
-    // rotateLocalPoint([0, 1.4], 90) → [1.4, 0]
-    // instance at [5, 8] → world [5 + 1.4, 0, 8 + 0] = [6.4, 0, 8]
+    // rotated footprint extends to x=6.5, so seat should be nudged just outside it.
     const instance = makeInstance({
       instance_id: 'ws2',
       prefab_id: 'workstation-standard',
@@ -91,7 +89,7 @@ describe('SeatRegistry', () => {
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[0]).toBeCloseTo(6.4, 5);
+    expect(seat!.position[0]).toBeCloseTo(6.55, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
@@ -187,9 +185,7 @@ describe('SeatRegistry', () => {
   });
 
   it('returns separate seats for multi-capacity prefabs (sofa-set, 3 seats)', () => {
-    // sofa-set: capacity=3, work anchor [0, 1.0]
-    // Seats spread: offset = (i - (3-1)/2) * 0.8 = (i - 1) * 0.8
-    // i=0 → -0.8, i=1 → 0, i=2 → +0.8
+    // sofa-set: capacity=3, work anchor is nudged outside the footprint before lateral spread.
     const instance = makeInstance({
       instance_id: 'sofa1',
       prefab_id: 'sofa-set',
@@ -212,32 +208,38 @@ describe('SeatRegistry', () => {
     // Positions should differ in X
     const xs = seats.map((s) => s.position[0]);
     expect(new Set(xs).size).toBe(3);
+    expect(seats.every((seat) => seat.position[2] > 5.3)).toBe(true);
   });
 
-  it('getRestSeat returns deterministic position near rest zone center', () => {
+  it('uses anchored rest seats from rest-zone prefabs before circular fallback', () => {
     const restZone = makeZone({
       zoneId: 'rest1',
       archetype: 'rest',
       cx: 20,
       cz: 30,
+      deskSlots: 0,
     });
-    const reg = SeatRegistry.build([], [restZone]);
+    const sofa = makeInstance({
+      instance_id: 'rest-sofa',
+      prefab_id: 'sofa-set',
+      zone_id: 'rest1',
+      position_x: 20,
+      position_y: 30,
+    });
+    const reg = SeatRegistry.build([sofa], [restZone]);
 
     const pos0 = reg.getRestSeat([restZone], 0);
     const pos1 = reg.getRestSeat([restZone], 1);
+    const pos2 = reg.getRestSeat([restZone], 2);
 
-    // Should be [number, number, number]
-    expect(pos0).toHaveLength(3);
-    expect(pos1).toHaveLength(3);
-
-    // Deterministic — same input same output
+    expect(pos0[2]).toBeCloseTo(31.6, 5);
+    expect(pos1[2]).toBeCloseTo(31.6, 5);
+    expect(pos2[2]).toBeCloseTo(31.6, 5);
+    expect(pos0[0]).toBeCloseTo(19.2, 5);
+    expect(pos1[0]).toBeCloseTo(20, 5);
+    expect(pos2[0]).toBeCloseTo(20.8, 5);
     expect(reg.getRestSeat([restZone], 0)).toEqual(pos0);
-
-    // Different slot indices yield different positions
     expect(pos0).not.toEqual(pos1);
-
-    // Y is always 0
-    expect(pos0[1]).toBe(0);
-    expect(pos1[1]).toBe(0);
+    expect(pos1).not.toEqual(pos2);
   });
 });

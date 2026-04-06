@@ -53,6 +53,10 @@ function getDisplayLabel(event: RuntimeEvent): string {
   return event.entityId;
 }
 
+function formatEventType(type: string): string {
+  return type.replaceAll('.', ' / ');
+}
+
 interface EventItemProps {
   event: RuntimeEvent;
 }
@@ -83,15 +87,22 @@ export function EventItem({ event }: EventItemProps) {
         ? 'text-sea-blue'
         : 'text-kelp-green');
   const label = getDisplayLabel(event);
+  const topicLabel = formatEventType(event.type);
 
   return (
-    <div className="flex items-start gap-2 px-3 py-1.5 text-xs">
+    <div className="flex items-start gap-2 px-3 py-2 text-xs">
       <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
-      <div className="flex-1 min-w-0 truncate">
-        <span className="font-medium text-sand">{label}</span>
-        {action && <span className="text-shell ml-1"> {action}</span>}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="break-words leading-relaxed text-sand">
+          <span className="font-medium">{label}</span>
+          {action && <span className="text-shell ml-1">{action}</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-shell/80">
+          <span className="font-mono">{topicLabel}</span>
+          {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
+        </div>
       </div>
-      <span className="text-shell shrink-0">{formatTimestamp(event.timestamp)}</span>
+      <span className="text-shell shrink-0 pt-0.5">{formatTimestamp(event.timestamp)}</span>
     </div>
   );
 }

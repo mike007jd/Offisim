@@ -283,7 +283,7 @@ export function ChatPanel({
     : 'Message your team...';
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {!isReady && (
         <div className="mx-3 mt-3 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
           <div className="flex items-center justify-between gap-3">
@@ -366,7 +366,7 @@ export function ChatPanel({
           {/* Message area */}
           {showEmpty ? (
             isRunning ? (
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <div
                   ref={scrollRef}
                   className="flex flex-col gap-1"
@@ -394,7 +394,7 @@ export function ChatPanel({
               />
             )
           ) : (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div
                 ref={scrollRef}
                 className="flex flex-col gap-1"
@@ -425,7 +425,11 @@ export function ChatPanel({
       )}
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
-      {!compact && <MeetingPanel agents={agents} />}
+      {!compact && (
+        <div className="shrink-0">
+          <MeetingPanel agents={agents} />
+        </div>
+      )}
       {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
         <InteractionPrompt
           request={pendingInteraction}
@@ -436,18 +440,22 @@ export function ChatPanel({
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
       {!compact && (
-        <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+        <div className="shrink-0">
+          <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+        </div>
       )}
 
       {/* Input */}
-      <ChatInput
-        onSend={handleSend}
-        onCommand={executeCommand}
-        disabled={isRunning || !isReady}
-        disabledReason={inputDisabledReason}
-        placeholder={inputPlaceholder}
-        agents={agents}
-      />
+      <div className="shrink-0">
+        <ChatInput
+          onSend={handleSend}
+          onCommand={executeCommand}
+          disabled={isRunning || !isReady}
+          disabledReason={inputDisabledReason}
+          placeholder={inputPlaceholder}
+          agents={agents}
+        />
+      </div>
     </div>
   );
 }

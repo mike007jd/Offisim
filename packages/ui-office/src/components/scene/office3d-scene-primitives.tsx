@@ -14,6 +14,21 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const intersectPoint = new THREE.Vector3();
+const htmlProjectPoint = new THREE.Vector3();
+const HTML_LABEL_HALF_WIDTH = 92;
+const HTML_LABEL_MARGIN = 18;
+
+function createInsetAwareHtmlPosition(leftInset: number, rightInset: number) {
+  return (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
+    htmlProjectPoint.setFromMatrixPosition(el.matrixWorld).project(camera);
+    const projectedX = (htmlProjectPoint.x * 0.5 + 0.5) * size.width;
+    const projectedY = (htmlProjectPoint.y * -0.5 + 0.5) * size.height;
+    const minX = leftInset + HTML_LABEL_HALF_WIDTH + HTML_LABEL_MARGIN;
+    const maxX = size.width - rightInset - HTML_LABEL_HALF_WIDTH - HTML_LABEL_MARGIN;
+    const clampedX = minX <= maxX ? THREE.MathUtils.clamp(projectedX, minX, maxX) : size.width / 2;
+    return [clampedX, THREE.MathUtils.clamp(projectedY, 20, size.height - 20)];
+  };
+}
 
 export function ZoneLabel({
   position,
@@ -26,6 +41,7 @@ export function ZoneLabel({
   activityCount,
   hasBlocked,
   isMeetingActive,
+  viewportInsets,
 }: {
   position: [number, number, number];
   size: [number, number];
@@ -37,11 +53,19 @@ export function ZoneLabel({
   activityCount?: number;
   hasBlocked?: boolean;
   isMeetingActive?: boolean;
+  viewportInsets: {
+    left: number;
+    right: number;
+  };
 }) {
   const floorOpacity = isDragging ? (isHovered && !isSource ? 0.35 : isSource ? 0.08 : 0.2) : 0.12;
   const borderOpacity = isDragging ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6) : 0.4;
 
   const edgePlaneGeo = useMemo(() => new THREE.PlaneGeometry(size[0], size[1]), [size[0], size[1]]);
+  const htmlPosition = useMemo(
+    () => createInsetAwareHtmlPosition(viewportInsets.left, viewportInsets.right),
+    [viewportInsets.left, viewportInsets.right],
+  );
   useEffect(() => () => edgePlaneGeo.dispose(), [edgePlaneGeo]);
 
   return (
@@ -63,7 +87,12 @@ export function ZoneLabel({
       )}
       {isMeetingActive && <MeetingActiveLabel />}
       {isDragging && !isSource && (
-        <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}>
+        <Html
+          position={[0, 0.8, 0]}
+          center
+          style={{ pointerEvents: 'none' }}
+          calculatePosition={htmlPosition}
+        >
           <div
             style={{
               background: isHovered ? 'rgba(30,64,175,0.85)' : 'rgba(0,0,0,0.5)',
@@ -88,8 +117,14 @@ export function ZoneLabel({
           </div>
         </Html>
       )}
-      <Html position={[0, 0.5, -size[1] / 2 + 0.5]} center style={{ pointerEvents: 'none' }}>
+      <Html
+        position={[0, 0.5, -size[1] / 2 + 0.5]}
+        center
+        style={{ pointerEvents: 'none' }}
+        calculatePosition={htmlPosition}
+      >
         <div
+          data-zone-label={name}
           style={{
             background: 'rgba(0,0,0,0.75)',
             backdropFilter: 'blur(8px)',
