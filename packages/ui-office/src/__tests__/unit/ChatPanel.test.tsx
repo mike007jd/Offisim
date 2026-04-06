@@ -268,6 +268,27 @@ describe('ChatPanel — project scoping', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
+  it('shows an explicit team-chat context label when scoped to a project thread', () => {
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
+
+    expect(screen.getByText('Team chat')).toBeInTheDocument();
+    expect(screen.getByText('Project thread')).toBeInTheDocument();
+  });
+
+  it('shows an explicit direct-chat context label when talking to one employee', () => {
+    render(
+      <ChatPanel
+        onOpenSettings={vi.fn()}
+        activeProject={null}
+        selectedEmployeeId="emp-1"
+        selectedEmployeeName="Alice"
+      />,
+    );
+
+    expect(screen.getByText('Direct chat')).toBeInTheDocument();
+    expect(screen.getByText('Focused on one teammate')).toBeInTheDocument();
+  });
+
   it('shows a pending interaction card even when there are no chat messages yet', () => {
     mockRuntime.pendingInteraction = makeInteractionRequest({
       kind: 'plan_review',

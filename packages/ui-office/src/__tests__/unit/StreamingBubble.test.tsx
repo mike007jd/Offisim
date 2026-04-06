@@ -19,8 +19,8 @@ describe('StreamingBubble', () => {
 
     render(<StreamingBubble />);
 
-    expect(screen.getByText('Boss')).toBeInTheDocument();
-    expect(screen.getByText('Drafting the response...')).toBeInTheDocument();
+    expect(screen.getByText('Boss')).toBeTruthy();
+    expect(screen.getByText('Drafting the response...')).toBeTruthy();
   });
 
   it('prefers streamed content once chunks arrive', () => {
@@ -32,8 +32,21 @@ describe('StreamingBubble', () => {
 
     render(<StreamingBubble />);
 
-    expect(screen.getByText('Employee')).toBeInTheDocument();
-    expect(screen.getByText('Here is the answer so far')).toBeInTheDocument();
+    expect(screen.getByText('Employee')).toBeTruthy();
+    expect(screen.getByText('Here is the answer so far')).toBeTruthy();
     expect(screen.queryByText('Working through the request...')).toBeNull();
+  });
+
+  it('renders streamed callouts with the same readable block treatment as final replies', () => {
+    mockUseStreamingContent.mockReturnValue({
+      content: '> Result: Draft is ready for review.',
+      isStreaming: true,
+      nodeName: 'boss_summary',
+    });
+
+    render(<StreamingBubble />);
+
+    expect(screen.getByText('Result')).toBeTruthy();
+    expect(screen.getByText('Draft is ready for review.')).toBeTruthy();
   });
 });

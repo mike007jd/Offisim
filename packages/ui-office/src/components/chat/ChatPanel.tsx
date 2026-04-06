@@ -281,6 +281,12 @@ export function ChatPanel({
   const inputPlaceholder = isDirectChat
     ? `Message ${selectedEmployeeName ?? 'employee'}...`
     : 'Message your team...';
+  const contextEyebrow = isDirectChat ? 'Direct chat' : 'Team chat';
+  const contextDetail = isDirectChat
+    ? 'Focused on one teammate'
+    : activeProject
+      ? 'Project thread'
+      : 'Shared workspace context';
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -305,30 +311,50 @@ export function ChatPanel({
       {/* Project context banner — shown when a project is scoped */}
       {activeProject && !isDirectChat && (
         <div
-          className="flex items-center gap-1.5 border-b border-white/5 h-7 bg-white/2"
+          className="flex items-center justify-between gap-3 border-b border-white/5 bg-white/2 px-[var(--sp-md)] py-1.5"
           style={{ paddingInline: 'var(--sp-md)' }}
         >
-          <Folder className="h-3 w-3 text-slate-500 flex-shrink-0" />
-          <span className="text-[11px] text-slate-500 truncate">{activeProject.name}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <Folder className="h-3 w-3 flex-shrink-0 text-slate-500" />
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+                {contextEyebrow}
+              </div>
+              <div className="truncate text-[11px] text-slate-500">{activeProject.name}</div>
+            </div>
+          </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            {contextDetail}
+          </span>
         </div>
       )}
 
       {/* Direct chat header — single compact line */}
       {isDirectChat && (
         <div
-          className="flex items-center gap-2 border-b border-white/5 h-8"
+          className="flex items-center justify-between gap-3 border-b border-white/5 px-[var(--sp-md)] py-1.5"
           style={{ paddingInline: 'var(--sp-md)' }}
         >
-          <button
-            type="button"
-            onClick={onClearSelection}
-            className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            <span className="text-xs">Team</span>
-          </button>
-          <span className="text-xs text-slate-300 font-medium">
-            {selectedEmployeeName ?? selectedEmployeeId}
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onClearSelection}
+              className="flex items-center gap-1 text-slate-500 transition-colors hover:text-white"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              <span className="text-xs">Team</span>
+            </button>
+            <div className="min-w-0 border-l border-white/5 pl-2">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+                {contextEyebrow}
+              </div>
+              <div className="truncate text-xs font-medium text-slate-300">
+                {selectedEmployeeName ?? selectedEmployeeId}
+              </div>
+            </div>
+          </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            {contextDetail}
           </span>
         </div>
       )}

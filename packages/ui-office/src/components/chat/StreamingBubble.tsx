@@ -4,6 +4,7 @@ import {
   NODE_DISPLAY_NAMES,
 } from '../../lib/agent-display';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
+import { RichAssistantBody } from './message-rich-content';
 
 const NODE_PLACEHOLDERS: Record<string, string> = {
   boss: 'Drafting the response...',
@@ -33,6 +34,7 @@ export function StreamingBubble() {
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
   const displayContent = content || (isStreaming ? placeholder : '\u00A0');
+  const isStructured = /(^|\n)```|(^|\n)>\s*(Note|Warning|Result):|(^|\n)[-*]\s+/m.test(displayContent);
 
   return (
     <div className="flex flex-col items-start">
@@ -43,10 +45,21 @@ export function StreamingBubble() {
           {label}
         </span>
       )}
-      <div className="max-w-[80%] bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
-        {displayContent}
-        {isStreaming && (
-          <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
+      <div className="max-w-[80%] rounded-xl bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 shadow-[0_10px_24px_rgba(15,23,42,0.14)]">
+        {isStructured ? (
+          <div className="space-y-3 whitespace-normal">
+            <RichAssistantBody text={displayContent} expanded />
+            {isStreaming && (
+              <span className="inline-block h-3.5 w-1.5 rounded-sm bg-blue-400/60 align-middle animate-pulse" />
+            )}
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap">
+            {displayContent}
+            {isStreaming && (
+              <span className="ml-0.5 inline-block h-3.5 w-1.5 rounded-sm bg-blue-400/60 animate-pulse" />
+            )}
+          </div>
         )}
       </div>
     </div>
