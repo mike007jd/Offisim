@@ -16,7 +16,6 @@ import {
   ProjectSelector,
   type ProviderConfig,
   ResumeBar,
-  RightSidebar,
   SceneCeremonyProvider,
   StatusBar,
   disposeEventLogStore,
@@ -36,10 +35,12 @@ import {
   useSceneOrchestrator,
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { WorkspaceCenterPane } from './components/WorkspaceCenterPane';
 import { OnboardingController } from './components/OnboardingController';
+import { WorkspaceRightRail } from './components/WorkspaceRightRail';
+import { getOfficeSpaceEntryViews } from './components/workspace-surface-meta';
 import {
   type AppView,
-  isOfficeSceneInteractive,
   shouldKeepOfficeMounted,
   shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
@@ -170,6 +171,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
   const agents = useAgentStates();
+  const { zones } = useCompanyZones();
   const { toasts, addToast, dismissToast } = useToasts();
 
   useEffect(() => {
@@ -331,6 +333,17 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = selectedEmployeeId
     ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
+  const activeWorkspace = view === 'sops' ? 'sops' : 'office';
+  const showOfficeShell = shouldKeepOfficeMounted(view);
+  const currentSurfaceView =
+    view === 'sops' ||
+    view === 'market' ||
+    view === 'activity-log' ||
+    view === 'library' ||
+    view === 'server'
+      ? view
+      : null;
+  const officeSpaceEntryViews = useMemo(() => getOfficeSpaceEntryViews(zones), [zones]);
 
   const handleSelectEmployee = useCallback((id: string | null) => {
     setSelectedEmployeeId(id);
@@ -544,8 +557,8 @@ export function App({ onCompanySwitch }: AppProps) {
         )}
 
         {/* ── Office view (default) ── */}
-        {shouldKeepOfficeMounted(view) && (
-          <>
+         {showOfficeShell && (
+           <>
             {unfinishedThreads.length > 0 && (
               <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
                 <ResumeBar
@@ -561,6 +574,8 @@ export function App({ onCompanySwitch }: AppProps) {
                   <Header
                     providerName={providerConfig?.model}
                     companyName={activeCompanyName}
+                    activeWorkspace={activeWorkspace}
+                    onSelectWorkspace={(workspace) => setView(workspace)}
                     onOpenSettings={() => setSettingsOpen(true)}
                     onOpenStudio={() => {
                       setStudioMode('edit');
@@ -575,7 +590,23 @@ export function App({ onCompanySwitch }: AppProps) {
                           handleSelectEmployee(employeeId);
                           setChatOpenToken((t) => t + 1);
                         }}
+                        onOpenActivityLog={() => setView('activity-log')}
                       />
+                    }
+                    marketSlot={
+                      <button
+                        type="button"
+                        onClick={() => setView('market')}
+                        title="Market"
+                        aria-label="Market"
+                        className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
+                          view === 'market'
+                            ? 'border-cyan-400/30 bg-cyan-500/12 text-cyan-100'
+                            : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>Market</span>
+                      </button>
                     }
                     projectSlot={
                       <ProjectSelector
@@ -599,69 +630,85 @@ export function App({ onCompanySwitch }: AppProps) {
                   />
                 }
                 sceneCanvas={
-                  <div className="h-full w-full" data-onboarding-target="scene-surface">
-                    <Suspense
-                      fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}
-                    >
-                      <SceneCanvas
-                        active={isOfficeSceneInteractive(view)}
-                        reducedMotion={reducedMotion}
-                        viewMode={viewMode}
-                        leftInset={leftPanelWidth}
-                        rightInset={rightPanelWidth}
-                        selectedEmployeeId={selectedEmployeeId}
-                        onSelectEmployee={handleSelectEmployee}
-                        onDeselectEmployee={() => setSelectedEmployeeId(null)}
-                        onFallbackTo2D={() => {
-                          setViewMode('2D');
-                          addToast('3D rendering failed — switched to 2D view', 'error');
-                        }}
-                      />
-                    </Suspense>
-                  </div>
-                }
-                chatDrawer={
-                  <ChatDrawer requestOpen={chatOpenToken}>
-                    {({ compact }) => (
-                      <ChatPanel
-                        compact={compact}
-                        onOpenSettings={() => setSettingsOpen(true)}
-                        selectedEmployeeId={selectedEmployeeId}
-                        selectedEmployeeName={selectedEmployeeName}
-                        onClearSelection={() => setSelectedEmployeeId(null)}
-                        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
-                        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
-                        onOpenEditor={() => setView('office-editor')}
-                        onOpenStudio={() => {
-                          setStudioMode('edit');
-                          setView('studio');
-                        }}
-                        activeProject={activeProject}
-                        onUserMessage={handleUserMessage}
-                        onboardingWelcome={chatOnboardingWelcome}
-                        onboardingStarterPrompts={chatOnboardingStarters}
-                      />
-                    )}
-                  </ChatDrawer>
-                }
-                eventLog={
-                  <RightSidebar
-                    onOpenDashboard={() => setDashboardOpen(true)}
-                    onOpenKanban={() => setKanbanOpen(true)}
-                    focusOutputsToken={focusOutputsToken}
+                  <WorkspaceCenterPane
+                    view={view}
+                    viewMode={viewMode}
+                    reducedMotion={reducedMotion}
+                    leftInset={leftPanelWidth}
+                    rightInset={rightPanelWidth}
+                    selectedEmployeeId={selectedEmployeeId}
+                    zones={zones}
                     activeThreadId={activeProject?.thread_id ?? null}
-                    onOpenMarketplaceListing={setMarketplaceListingId}
-                    onStartMarketplaceInstall={(listingId, version) =>
+                    sceneCanvas={SceneCanvas}
+                    currentSurfaceView={currentSurfaceView}
+                    onSelectEmployee={handleSelectEmployee}
+                    onDeselectEmployee={() => setSelectedEmployeeId(null)}
+                    onFallbackTo2D={() => {
+                      setViewMode('2D');
+                      addToast('3D rendering failed — switched to 2D view', 'error');
+                    }}
+                    onOpenListing={setMarketplaceListingId}
+                    onStartInstall={(listingId, version) =>
                       installFlow.startRegistryInstall(listingId, version)
                     }
                   />
                 }
+                 chatDrawer={
+                   <ChatDrawer requestOpen={chatOpenToken}>
+                     {({ compact }) => (
+                       <ChatPanel
+                         compact={compact}
+                         onOpenSettings={() => setSettingsOpen(true)}
+                         selectedEmployeeId={selectedEmployeeId}
+                         selectedEmployeeName={selectedEmployeeName}
+                         onClearSelection={() => setSelectedEmployeeId(null)}
+                         onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+                         onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+                         onOpenEditor={() => setView('office-editor')}
+                         onOpenStudio={() => {
+                           setStudioMode('edit');
+                           setView('studio');
+                         }}
+                         activeProject={activeProject}
+                         onUserMessage={handleUserMessage}
+                         onboardingWelcome={chatOnboardingWelcome}
+                         onboardingStarterPrompts={chatOnboardingStarters}
+                       />
+                     )}
+                   </ChatDrawer>
+                 }
+                  eventLog={
+                    <WorkspaceRightRail
+                      view={view}
+                      zones={zones}
+                      officeSpaceEntryViews={officeSpaceEntryViews}
+                      agents={agents}
+                      activeProject={activeProject}
+                      selectedEmployeeId={selectedEmployeeId}
+                      selectedEmployeeName={selectedEmployeeName}
+                      focusOutputsToken={focusOutputsToken}
+                      onboardingWelcome={chatOnboardingWelcome}
+                      onboardingStarterPrompts={chatOnboardingStarters}
+                      onSelectView={setView}
+                      onOpenSettings={() => setSettingsOpen(true)}
+                      onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+                      onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+                      onOpenEditor={() => setView('office-editor')}
+                      onOpenStudio={() => {
+                        setStudioMode('edit');
+                        setView('studio');
+                      }}
+                      onClearSelection={() => setSelectedEmployeeId(null)}
+                      onUserMessage={handleUserMessage}
+                    />
+                  }
                 statusBar={
                   <StatusBar
                     modelName={providerConfig?.model}
                     activeProjectStatus={activeProject?.status ?? null}
                   />
                 }
+                requestRightPanelOpen={chatOpenToken}
                 onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>

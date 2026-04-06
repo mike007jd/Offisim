@@ -346,6 +346,12 @@ export function ChatPanel({
         />
       )}
 
+      {!compact && (
+        <div className="shrink-0">
+          <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+        </div>
+      )}
+
       {compact ? (
         <div className="flex flex-1 flex-col justify-end gap-2 px-3 py-2">
           {latestMessage ? (
@@ -436,13 +442,6 @@ export function ChatPanel({
           employeeName={interactionEmployeeName}
           onRespond={handleInteractionRespond}
         />
-      )}
-
-      {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
-      {!compact && (
-        <div className="shrink-0">
-          <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
-        </div>
       )}
 
       {/* Input */}

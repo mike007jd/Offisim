@@ -24,6 +24,7 @@ const mockSendMessage = vi.fn().mockResolvedValue(undefined);
 const mockRetryLastMessage = vi.fn().mockResolvedValue(undefined);
 const mockRespondToInteraction = vi.fn().mockResolvedValue(undefined);
 const mockEventBus = { on: vi.fn().mockReturnValue(() => {}) };
+let mockPipelineStage: 'boss' | 'manager' | 'planning' | 'executing' | 'summary' | null = null;
 const mockRuntime = {
   sendMessage: mockSendMessage,
   retryLastMessage: mockRetryLastMessage,
@@ -71,14 +72,15 @@ vi.mock('../../hooks/useErrorTracking.js', () => ({
 }));
 
 vi.mock('../../hooks/usePipelineStage.js', () => ({
-  usePipelineStage: () => null,
+  usePipelineStage: () => mockPipelineStage,
   STAGE_META: {},
   PIPELINE_STEPS: ['boss', 'manager', 'planning', 'executing', 'summary'],
 }));
 
 // Mock PipelineProgress (imported by ChatPanel)
 vi.mock('../../components/chat/PipelineProgress.js', () => ({
-  PipelineProgress: () => null,
+  PipelineProgress: ({ stage }: { stage: string | null }) =>
+    stage ? <div data-testid="pipeline-progress">workflow: {stage}</div> : null,
 }));
 
 vi.mock('../../components/company/CompanyContext.js', () => ({
@@ -193,6 +195,7 @@ function makeInteractionRequest(
 describe('ChatPanel — project scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPipelineStage = null;
     mockSendMessage.mockResolvedValue(undefined);
     mockRetryLastMessage.mockResolvedValue(undefined);
     mockRespondToInteraction.mockResolvedValue(undefined);
@@ -275,6 +278,17 @@ describe('ChatPanel — project scoping', () => {
     render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
 
     expect(screen.getByText('Review plan before execution')).toBeInTheDocument();
+  });
+
+  it('renders workflow status above the chat content instead of attaching it to the input area', () => {
+    mockPipelineStage = 'executing';
+
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={null} />);
+
+    const workflow = screen.getByTestId('pipeline-progress');
+    const emptyStateEntry = screen.getByRole('button', { name: 'Send test' });
+
+    expect(workflow.compareDocumentPosition(emptyStateEntry)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('appends agent-question answers and follow-up assistant replies to the chat', async () => {

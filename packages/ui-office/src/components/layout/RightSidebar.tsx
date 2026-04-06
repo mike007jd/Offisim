@@ -1,23 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import {
-  Bell,
-  Book,
   Columns3,
-  Database,
-  GitBranch,
   LayoutDashboard,
-  Store,
   Terminal,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
-import { EventLog } from '../events/EventLog';
-import { Library } from '../library/Library';
-import { MarketplacePanel } from '../marketplace/MarketplacePanel';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
-import { ServerRoom } from '../server-room/ServerRoom';
-import { SopPanel } from '../sop/SopPanel';
 
 interface RightSidebarProps {
   onOpenDashboard?: () => void;
@@ -36,11 +26,9 @@ export function RightSidebar({
   focusOutputsToken,
   onOpenKanban,
   activeThreadId,
-  onOpenMarketplaceListing,
-  onStartMarketplaceInstall,
 }: RightSidebarProps) {
   const agents = useAgentStates();
-  const [activeTab, setActiveTab] = useState('events');
+  const [activeTab, setActiveTab] = useState('tasks');
 
   // Switch to outputs tab whenever the parent signals a new deliverable
   useEffect(() => {
@@ -51,12 +39,7 @@ export function RightSidebar({
 
   const tabs = [
     { id: 'tasks', icon: Terminal, label: 'Tasks' },
-    { id: 'sops', icon: GitBranch, label: 'SOPs' },
-    { id: 'outputs', icon: LayoutDashboard, label: 'Outputs' },
-    { id: 'events', icon: Bell, label: 'Events' },
-    { id: 'server-room', icon: Database, label: 'Server' },
-    { id: 'library', icon: Book, label: 'Library' },
-    { id: 'marketplace', icon: Store, label: 'Market' },
+    { id: 'outputs', icon: LayoutDashboard, label: 'Results' },
   ];
 
   return (
@@ -88,26 +71,8 @@ export function RightSidebar({
         <TabsContent value="tasks" className="mt-0">
           <TaskDashboard agents={agents} />
         </TabsContent>
-        <TabsContent value="sops" className="mt-0">
-          <SopPanel />
-        </TabsContent>
         <TabsContent value="outputs" className="mt-0">
           <PitchHall activeThreadId={activeThreadId} />
-        </TabsContent>
-        <TabsContent value="events" className="mt-0">
-          <EventLog />
-        </TabsContent>
-        <TabsContent value="server-room" className="mt-0 p-3">
-          <ServerRoom activeThreadId={activeThreadId ?? null} />
-        </TabsContent>
-        <TabsContent value="library" className="mt-0">
-          <Library />
-        </TabsContent>
-        <TabsContent value="marketplace" className="mt-0 h-full">
-          <MarketplacePanel
-            onOpenListing={(listingId) => onOpenMarketplaceListing?.(listingId)}
-            onStartInstall={(listingId, version) => onStartMarketplaceInstall?.(listingId, version)}
-          />
         </TabsContent>
       </div>
 

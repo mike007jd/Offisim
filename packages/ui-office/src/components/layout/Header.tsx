@@ -1,7 +1,9 @@
 import { Button } from '@offisim/ui-core';
-import { Building2, ChevronDown, PenTool, Pencil, Settings } from 'lucide-react';
+import { Building2, ChevronDown, PenTool, Pencil, Settings, Store } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
+
+export type WorkspaceNavKey = 'office' | 'sops';
 
 interface HeaderProps {
   providerName?: string;
@@ -13,8 +15,11 @@ interface HeaderProps {
   onOpenCompanyEditor?: () => void;
   onFileImport: (file: File) => void;
   notificationSlot?: ReactNode;
+  marketSlot?: ReactNode;
   /** Slot for project selector dropdown — rendered in the left section. */
   projectSlot?: ReactNode;
+  activeWorkspace?: WorkspaceNavKey;
+  onSelectWorkspace?: (workspace: WorkspaceNavKey) => void;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
   /** Show provider setup guidance when runtime config is incomplete. */
@@ -30,7 +35,10 @@ export function Header({
   onOpenCompanyEditor,
   onFileImport,
   notificationSlot,
+  marketSlot,
   projectSlot,
+  activeWorkspace = 'office',
+  onSelectWorkspace,
   viewMode,
   onViewModeChange,
   needsConfig,
@@ -133,10 +141,46 @@ export function Header({
 
         {/* Project selector slot */}
         {projectSlot}
+
+        {onSelectWorkspace && (
+          <div className="flex h-8 items-center rounded-lg border border-white/10 bg-black/30 p-1">
+            {([
+              { key: 'office', label: 'Office' },
+              { key: 'sops', label: 'SOPs' },
+            ] as const).map((workspace) => {
+              const isActive = activeWorkspace === workspace.key;
+              return (
+                <button
+                  key={workspace.key}
+                  type="button"
+                  onClick={() => onSelectWorkspace(workspace.key)}
+                  className={`h-6 rounded-md px-3 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-blue-500/18 text-blue-100'
+                      : 'text-slate-500 hover:text-slate-200'
+                  }`}
+                >
+                  {workspace.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center shrink-0" style={{ columnGap: 'var(--sp-sm)' }}>
         <FileImportTrigger onFileSelect={onFileImport} />
+        {marketSlot ?? (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Market"
+            aria-label="Market"
+            className="h-8 w-8 hover:bg-white/5"
+          >
+            <Store className="h-4 w-4 text-slate-400 hover:text-cyan-400" />
+          </Button>
+        )}
         {notificationSlot}
         {onOpenStudio && (
           <Button

@@ -55,6 +55,83 @@ function renderWithCitations(text: string): ReactNode {
   });
 }
 
+function renderInlineMarkdown(text: string): ReactNode {
+  const strongSplit = text.split(/(\*\*[^*]+\*\*)/g);
+  let key = 0;
+
+  return strongSplit.map((segment) => {
+    const strongMatch = /^\*\*([^*]+)\*\*$/.exec(segment);
+    if (strongMatch) {
+      key += 1;
+      return <strong key={`strong-${key}`}>{renderWithCitations(strongMatch[1] ?? '')}</strong>;
+    }
+
+    const inlineCodeSplit = segment.split(/(`[^`]+`)/g);
+    return inlineCodeSplit.map((inlineSegment) => {
+      const codeMatch = /^`([^`]+)`$/.exec(inlineSegment);
+      key += 1;
+      if (codeMatch) {
+        return (
+          <code
+            key={`code-${key}`}
+            className="rounded bg-black/35 px-1 py-0.5 font-mono text-[0.9em] text-cyan-100"
+          >
+            {codeMatch[1]}
+          </code>
+        );
+      }
+      return <span key={`text-${key}`}>{renderWithCitations(inlineSegment)}</span>;
+    });
+  });
+}
+
+function renderAssistantBody(text: string): ReactNode {
+  const blocks = text.split(/\n{2,}/).filter((block) => block.trim().length > 0);
+
+  return blocks.map((block) => {
+    const fencedCodeMatch = /^```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```$/.exec(block.trim());
+    if (fencedCodeMatch) {
+      const language = fencedCodeMatch[1];
+      const code = fencedCodeMatch[2] ?? '';
+      return (
+        <div key={`code-block-${block}`} className="overflow-x-auto rounded-lg bg-black/35">
+          {language ? (
+            <div className="border-b border-white/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              {language}
+            </div>
+          ) : null}
+          <pre className="px-3 py-2 font-mono text-[12px] leading-relaxed text-slate-100">
+            <code>{code}</code>
+          </pre>
+        </div>
+      );
+    }
+
+    const lines = block.split('\n');
+    const isBulletList = lines.every((line) => /^[-*]\s+/.test(line.trim()));
+    if (isBulletList) {
+      return (
+        <ul key={`list-${block}`} className="list-disc space-y-1 pl-5">
+          {lines.map((line) => (
+            <li key={`list-item-${line}`}>{renderInlineMarkdown(line.trim().slice(2))}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <p key={`paragraph-${block}`} className="leading-relaxed">
+        {lines.map((line, lineIndex) => (
+          <span key={`line-${line}`}>
+            {lineIndex > 0 ? <br /> : null}
+            {renderInlineMarkdown(line)}
+          </span>
+        ))}
+      </p>
+    );
+  });
+}
+
 // ── Component ──────────────────────────────────────────────────────
 
 export function MessageBubble({ role, content }: MessageBubbleProps) {
@@ -88,11 +165,15 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
       )}
       <div
         className={cn(
-          'max-w-[80%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
+          'max-w-[80%] px-3 py-1.5 text-sm leading-snug rounded-xl',
           isUser ? 'bg-blue-600/20 text-slate-100' : 'bg-white/5 text-slate-200',
         )}
       >
-        {isUser ? displayContent : renderWithCitations(displayContent)}
+        {isUser ? (
+          <div className="whitespace-pre-wrap">{displayContent}</div>
+        ) : (
+          <div className="space-y-3 whitespace-normal">{renderAssistantBody(displayContent)}</div>
+        )}
       </div>
     </div>
   );

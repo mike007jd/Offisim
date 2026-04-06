@@ -8,6 +8,11 @@ import {
 describe('app view layout helpers', () => {
   it('keeps the office scaffold mounted while the employee creator is open', () => {
     expect(shouldKeepOfficeMounted('office')).toBe(true);
+    expect(shouldKeepOfficeMounted('sops')).toBe(true);
+    expect(shouldKeepOfficeMounted('market')).toBe(true);
+    expect(shouldKeepOfficeMounted('activity-log')).toBe(true);
+    expect(shouldKeepOfficeMounted('library')).toBe(true);
+    expect(shouldKeepOfficeMounted('server')).toBe(true);
     expect(shouldKeepOfficeMounted('employee-creator')).toBe(true);
     expect(shouldKeepOfficeMounted('office-editor')).toBe(false);
     expect(shouldKeepOfficeMounted('company-select')).toBe(false);

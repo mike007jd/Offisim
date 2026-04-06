@@ -42,12 +42,12 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
       <Tabs defaultValue="browse" className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-3">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Marketplace</p>
-            <p className="mt-1 text-sm font-semibold text-white">Browse and publish packages</p>
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ecosystem</p>
+            <p className="mt-1 text-sm font-semibold text-white">Browse shared capabilities and reusable building blocks</p>
           </div>
           <Button type="button" size="sm" onClick={() => setPublishOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            Publish
+            Share
           </Button>
         </div>
 
@@ -116,7 +116,7 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
 
             {error ? (
               <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs leading-relaxed text-rose-100">
-                Marketplace is unavailable right now. Check the connection and retry.
+                The ecosystem catalog is unavailable right now. Check the connection and retry.
                 <div className="mt-2 font-mono text-[10px] text-rose-200/80 break-words">
                   {error}
                 </div>
@@ -127,9 +127,9 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
               <p className="py-8 text-center text-sm text-slate-500">Loading marketplace…</p>
             ) : !error && results.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                <p className="text-sm font-semibold text-slate-200">No packages match this view</p>
+                <p className="text-sm font-semibold text-slate-200">No catalog entries match this view</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                  Try a broader search or switch the asset filter.
+                  Try a broader search or switch the capability filter.
                 </p>
               </div>
             ) : (

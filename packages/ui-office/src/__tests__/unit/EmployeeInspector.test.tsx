@@ -44,10 +44,12 @@ describe('EmployeeInspector', () => {
     expect(screen.getByText('1/2 complete')).toBeInTheDocument();
     expect(screen.getByText('In progress: Rewrite runtime copy')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Message' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit Profile' })).toBeInTheDocument();
+    expect(screen.getByText('Quick Inspect')).toBeInTheDocument();
+    expect(screen.queryByText('Employee Profile')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open details' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Message' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open details' }));
 
     expect(onStartChat).toHaveBeenCalledWith('emp-1');
     expect(onOpenEditor).toHaveBeenCalledWith('emp-1');

@@ -60,6 +60,23 @@ const CANVAS_CONTAINER: React.CSSProperties = {
   bottom: LAYOUT.bottomBarHeight,
 };
 
+const MODE_BANNER_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  top: LAYOUT.toolbarHeight + 12,
+  left: LAYOUT.paletteWidth + 16,
+  zIndex: 25,
+  display: 'flex',
+  alignItems: 'center',
+  gap: SP.sm,
+  padding: `${SP.sm}px ${SP.md}px`,
+  borderRadius: 999,
+  border: `1px solid ${STUDIO_COLORS.border}`,
+  background: 'rgba(6, 10, 20, 0.88)',
+  color: STUDIO_COLORS.textSecondary,
+  pointerEvents: 'none',
+  backdropFilter: 'blur(10px)',
+};
+
 // -- Inline modal for company name --------------------------------------------
 
 function CompanyNameModal({
@@ -218,6 +235,39 @@ export function StudioPage(props: StudioPageProps) {
   // -- beforeunload guard (Skill §15) ------------------------------------------
 
   const dirty = useStudioStore((s) => s.dirty);
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const placingPrefab = useStudioStore((s) => s.placingPrefab);
+  const placingZonePreset = useStudioStore((s) => s.placingZonePreset);
+  const zones = useStudioStore((s) => s.zones);
+
+  const focusedZoneLabel = focusedZoneId
+    ? (zones.find((zone) => zone.zoneId === focusedZoneId)?.label ?? 'Selected zone')
+    : null;
+  const modeBadge = isEditingZone
+    ? {
+        label: 'Decoration Mode',
+        detail: focusedZoneLabel ? `Editing ${focusedZoneLabel}` : 'Editing selected zone',
+      }
+    : focusedZoneId
+      ? {
+          label: 'Zone Mode',
+          detail: focusedZoneLabel ? `Focused on ${focusedZoneLabel}` : 'Focused zone',
+        }
+      : placingZonePreset
+        ? {
+            label: 'Zone Mode',
+            detail: `Placing ${placingZonePreset.label}`,
+          }
+        : placingPrefab
+          ? {
+              label: 'Decoration Mode',
+              detail: `Placing ${placingPrefab.name}`,
+            }
+          : {
+              label: 'Zone Mode',
+              detail: 'Shape the office first, then refine each zone.',
+            };
 
   useEffect(() => {
     if (!dirty) return;
@@ -429,6 +479,27 @@ export function StudioPage(props: StudioPageProps) {
     <div style={ROOT_STYLE}>
       {/* Top toolbar: tools, grid toggle, save, back */}
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
+
+      <div style={MODE_BANNER_STYLE} aria-live="polite">
+        <span
+          style={{
+            fontSize: FONT.sm,
+            fontWeight: FONT.semibold,
+            color: STUDIO_COLORS.textPrimary,
+          }}
+        >
+          {modeBadge.label}
+        </span>
+        <span
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: '50%',
+            background: STUDIO_COLORS.borderActive,
+          }}
+        />
+        <span style={{ fontSize: FONT.sm }}>{modeBadge.detail}</span>
+      </div>
 
       {/* Left palette: prefab catalog */}
       <StudioPalette />

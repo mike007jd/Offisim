@@ -37,7 +37,7 @@ describe('PipelineProgress', () => {
       waitingRelationships: [],
     });
 
-    render(<PipelineProgress stage="dispatching" isRunning />);
+    render(<PipelineProgress stage="manager" isRunning />);
 
     expect(screen.getByText('Dispatching tasks').parentElement).not.toHaveClass('pl-[11.75rem]');
   });

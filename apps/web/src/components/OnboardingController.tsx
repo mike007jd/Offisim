@@ -36,6 +36,16 @@ interface TargetRect {
   height: number;
 }
 
+interface ViewportSize {
+  width: number;
+  height: number;
+}
+
+const HINT_CARD_WIDTH = 320;
+const HINT_CARD_HEIGHT = 164;
+const HINT_GAP = 12;
+const HINT_MARGIN = 8;
+
 function pickActiveHint(
   account: AccountOnboardingState,
   company: CompanyOnboardingState,
@@ -142,25 +152,35 @@ function useTargetRect(selector: string | null): TargetRect | null {
   return rect;
 }
 
-function computeHintPosition(rect: TargetRect | null): React.CSSProperties {
+export function computeHintPosition(
+  rect: TargetRect | null,
+  viewport: ViewportSize = { width: window.innerWidth, height: window.innerHeight },
+): React.CSSProperties {
   if (!rect) {
     return { left: '50%', bottom: 24, transform: 'translateX(-50%)' };
   }
-  const viewportH = window.innerHeight;
-  const viewportW = window.innerWidth;
-  const cardWidth = 320;
-  const gap = 12;
+  const viewportH = viewport.height;
+  const viewportW = viewport.width;
 
-  const placeAbove = rect.top > viewportH / 2;
+  const canPlaceBelow = rect.top + rect.height + HINT_GAP + HINT_CARD_HEIGHT <= viewportH - HINT_MARGIN;
+  const placeAbove = !canPlaceBelow;
   const left = Math.min(
-    Math.max(8, rect.left + rect.width / 2 - cardWidth / 2),
-    viewportW - cardWidth - 8,
+    Math.max(HINT_MARGIN, rect.left + rect.width / 2 - HINT_CARD_WIDTH / 2),
+    viewportW - HINT_CARD_WIDTH - HINT_MARGIN,
   );
 
   if (placeAbove) {
-    return { left, bottom: viewportH - rect.top + gap, width: cardWidth };
+    const top = Math.max(
+      HINT_MARGIN,
+      Math.min(rect.top - HINT_GAP - HINT_CARD_HEIGHT, viewportH - HINT_CARD_HEIGHT - HINT_MARGIN),
+    );
+    return { left, top, width: HINT_CARD_WIDTH };
   }
-  return { left, top: rect.top + rect.height + gap, width: cardWidth };
+  return {
+    left,
+    top: Math.min(rect.top + rect.height + HINT_GAP, viewportH - HINT_CARD_HEIGHT - HINT_MARGIN),
+    width: HINT_CARD_WIDTH,
+  };
 }
 
 function OnboardingControllerImpl({

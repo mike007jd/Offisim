@@ -6,6 +6,7 @@ import { NotificationCard } from './NotificationCard';
 
 interface NotificationCenterProps {
   onFocusEmployee?: (employeeId: string) => void;
+  onOpenActivityLog?: () => void;
 }
 
 /**
@@ -15,7 +16,10 @@ interface NotificationCenterProps {
  * Self-contained: reads notification state from the shared
  * NotificationProvider context via useNotifications().
  */
-export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps) {
+export function NotificationCenter({
+  onFocusEmployee,
+  onOpenActivityLog,
+}: NotificationCenterProps) {
   const { notifications, unreadCount, markRead, dismiss, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -68,18 +72,33 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
         <div className="absolute right-full top-1/2 z-50 mr-2 w-72 -translate-y-1/2 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
           <div className="flex items-center justify-between px-3 py-2 border-b border-ocean-light">
             <span className="text-xs font-pixel-body text-shell font-medium">Notifications</span>
-            {notifications.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={clearAll}
-                title="Clear all"
-                aria-label="Clear all notifications"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {onOpenActivityLog && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onOpenActivityLog();
+                  }}
+                >
+                  Activity Log
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={clearAll}
+                  title="Clear all"
+                  aria-label="Clear all notifications"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <ScrollArea className="max-h-80">

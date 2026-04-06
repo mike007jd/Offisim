@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquare, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 interface AppLayoutProps {
@@ -8,6 +8,7 @@ interface AppLayoutProps {
   chatDrawer: ReactNode;
   eventLog: ReactNode;
   statusBar: ReactNode;
+  requestRightPanelOpen?: number;
   onLayoutMetricsChange?: (metrics: {
     isNarrow: boolean;
     leftOpen: boolean;
@@ -91,6 +92,7 @@ export function AppLayout({
   chatDrawer,
   eventLog,
   statusBar,
+  requestRightPanelOpen,
   onLayoutMetricsChange,
 }: AppLayoutProps) {
   const initNarrow =
@@ -161,6 +163,11 @@ export function AppLayout({
   useEffect(() => {
     onLayoutMetricsChange?.(layoutMetrics);
   }, [layoutMetrics, onLayoutMetricsChange]);
+
+  useEffect(() => {
+    if (!requestRightPanelOpen || isNarrow) return;
+    setRightOpen(true);
+  }, [requestRightPanelOpen, isNarrow]);
 
   return (
     <div className="h-screen bg-surface text-slate-300 flex flex-col overflow-hidden relative">
@@ -236,9 +243,9 @@ export function AppLayout({
             {!rightOpen && (
               <CollapsedBar
                 side="right"
-                icon={LayoutDashboard}
-                label="Operations"
-                ariaLabel="Expand operations panel"
+                icon={MessageSquare}
+                label="Chat"
+                ariaLabel="Expand chat panel"
                 onClick={() => setRightOpen(true)}
               />
             )}
@@ -246,23 +253,24 @@ export function AppLayout({
           {rightOpen && (
             <PanelCollapseHandle
               side="right"
-              label="Collapse operations panel"
+              label="Collapse chat panel"
               onClick={() => setRightOpen(false)}
             />
           )}
         </div>
       </div>
 
-      {/* Chat drawer */}
-      <div
-        className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
-        style={{
-          left: isNarrow ? '16px' : leftOpen ? '296px' : '60px',
-          right: isNarrow ? '16px' : rightOpen ? '296px' : '60px',
-        }}
-      >
-        {chatDrawer}
-      </div>
+      {isNarrow && (
+        <div
+          className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
+          style={{
+            left: '16px',
+            right: '16px',
+          }}
+        >
+          {chatDrawer}
+        </div>
+      )}
       <div className="relative z-30 shrink-0">{statusBar}</div>
     </div>
   );

@@ -5,14 +5,6 @@ vi.mock('../../runtime/use-agent-states', () => ({
   useAgentStates: () => [],
 }));
 
-vi.mock('../../components/events/EventLog', () => ({
-  EventLog: () => <div>events-panel</div>,
-}));
-
-vi.mock('../../components/library/Library', () => ({
-  Library: () => <div>library-panel</div>,
-}));
-
 vi.mock('../../components/pitch/PitchHall', () => ({
   PitchHall: () => <div>outputs-panel</div>,
 }));
@@ -21,20 +13,15 @@ vi.mock('../../components/plan/TaskDashboard', () => ({
   TaskDashboard: () => <div>tasks-panel</div>,
 }));
 
-vi.mock('../../components/server-room/ServerRoom', () => ({
-  ServerRoom: () => <div>server-panel</div>,
-}));
+describe('RightSidebar collaboration tabs', () => {
+  it('keeps only collaboration-oriented tabs in the right panel', () => {
+    render(<RightSidebar />);
 
-vi.mock('../../components/sop/SopPanel', () => ({
-  SopPanel: () => <div>sops-panel</div>,
-}));
-
-describe('RightSidebar marketplace integration', () => {
-  it('renders the marketplace tab alongside the existing operations tabs', () => {
-    render(<RightSidebar onOpenMarketplaceListing={vi.fn()} onStartMarketplaceInstall={vi.fn()} />);
-
-    expect(screen.getByRole('tab', { name: 'SOPs' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Market' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(7);
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Results' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'SOPs' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Market' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Events' })).toBeNull();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
   });
 });

@@ -127,7 +127,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
       <button
         type="button"
         onClick={onBack}
-        aria-label="Back to company selection"
+        aria-label="Back to office"
         style={{
           ...toolButtonStyle(false),
           gap: SP.xs,

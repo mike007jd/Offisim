@@ -30,4 +30,16 @@ describe('NotificationCenter', () => {
     fireEvent.pointerDown(document.body);
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
+
+  it('exposes an Activity Log action and closes the popover after opening it', () => {
+    const onOpenActivityLog = vi.fn();
+
+    render(<NotificationCenter onOpenActivityLog={onOpenActivityLog} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Activity Log' }));
+
+    expect(onOpenActivityLog).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
+  });
 });

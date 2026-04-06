@@ -22,6 +22,8 @@ import { STUDIO_COLORS } from './studio-tokens.js';
 const RING_INNER = 0.8;
 const RING_OUTER = 1.0;
 const RING_SEGMENTS = 32;
+const HIT_TARGET_HEIGHT = 1.8;
+const HIT_TARGET_SIZE = 1.6;
 
 // Pre-allocated objects for handleObjectChange (Skill §7: no allocations in hot path)
 const _pos = new THREE.Vector3();
@@ -110,6 +112,10 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       onPointerOut={isDimmed ? undefined : handlePointerOut}
     >
       <Prefab3D definition={definition} state="idle" />
+      <mesh position={[0, HIT_TARGET_HEIGHT / 2, 0]} visible={false}>
+        <boxGeometry args={[HIT_TARGET_SIZE, HIT_TARGET_HEIGHT, HIT_TARGET_SIZE]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       {isSelected && (
         <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
       )}
@@ -270,7 +276,29 @@ export function StudioPlacedPrefabs() {
           }}
         >
           <Prefab3D definition={selectedDefinition} state="idle" />
+          <mesh position={[0, HIT_TARGET_HEIGHT / 2, 0]} visible={false}>
+            <boxGeometry args={[HIT_TARGET_SIZE, HIT_TARGET_HEIGHT, HIT_TARGET_SIZE]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
           <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
+          <Html position={[0, 1.15, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
+            <div
+              style={{
+                background: 'rgba(15, 23, 42, 0.88)',
+                color: '#cbd5e1',
+                padding: '2px 6px',
+                borderRadius: 999,
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                border: `1px solid ${transformEnabled ? STUDIO_COLORS.borderActive : STUDIO_COLORS.borderSubtle}`,
+                boxShadow: transformEnabled ? '0 0 0 1px rgba(99,102,241,0.16)' : 'none',
+              }}
+            >
+              {transformEnabled ? (transformMode === 'rotate' ? 'Rotate object' : 'Drag object') : 'Selected'}
+            </div>
+          </Html>
         </group>
       )}
 
@@ -281,6 +309,7 @@ export function StudioPlacedPrefabs() {
           enabled={transformEnabled}
           visible={transformEnabled}
           mode={transformMode}
+          size={1.15}
           translationSnap={0.5}
           rotationSnap={Math.PI / 2}
           showX={true}
