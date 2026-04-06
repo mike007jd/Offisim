@@ -16,6 +16,8 @@ interface MovementLike {
 interface RouteOptions {
   zoneWaypoints?: readonly Vec3[];
   obstacleFootprints?: readonly ObstacleFootprint[];
+  terminalApproach?: Vec3;
+  departureApproach?: Vec3;
 }
 
 const MEETING_EXIT_DISTANCE = 1.6;
@@ -61,6 +63,78 @@ function ensureTerminalPoint(points: readonly Vec3[], terminal: Vec3): Vec3[] {
   return next;
 }
 
+function pickBestOrthogonalTurn(
+  start: Vec3,
+  target: Vec3,
+  footprints: readonly ObstacleFootprint[],
+): Vec3 | null {
+  const candidates: Vec3[] = [
+    [start[0], 0, target[2]],
+    [target[0], 0, start[2]],
+  ];
+
+  const validCandidates = candidates.filter((candidate) => {
+    if (distance2D(start, candidate) < DUPLICATE_POINT_EPSILON) return false;
+    if (distance2D(candidate, target) < DUPLICATE_POINT_EPSILON) return false;
+    if (footprints.some((footprint) => pointInsideExpandedFootprint(candidate, footprint))) {
+      return false;
+    }
+    if (footprints.some((footprint) => segmentIntersectsFootprint(start, candidate, footprint))) {
+      return false;
+    }
+    if (footprints.some((footprint) => segmentIntersectsFootprint(candidate, target, footprint))) {
+      return false;
+    }
+    return true;
+  });
+
+  const best = validCandidates.sort(
+    (left, right) =>
+      distance2D(start, left) +
+      distance2D(left, target) -
+      (distance2D(start, right) + distance2D(right, target)),
+  )[0];
+
+  return best ?? null;
+}
+
+function adjustTerminalApproach(
+  points: readonly Vec3[],
+  terminal: Vec3,
+  footprints: readonly ObstacleFootprint[],
+): Vec3[] {
+  const withTerminal = ensureTerminalPoint(points, terminal);
+  if (withTerminal.length < 2 || footprints.length === 0) {
+    return withTerminal;
+  }
+
+  const prev = withTerminal.at(-2);
+  const last = withTerminal.at(-1);
+  if (!prev || !last) {
+    return withTerminal;
+  }
+
+  if (!footprints.some((footprint) => segmentIntersectsFootprint(prev, last, footprint))) {
+    return withTerminal;
+  }
+
+  const turn = pickBestOrthogonalTurn(prev, terminal, footprints);
+  if (!turn) {
+    return withTerminal;
+  }
+
+  return dedupePath([...withTerminal.slice(0, -1), turn, terminal]);
+}
+
+function buildOrthogonalConnector(
+  start: Vec3,
+  target: Vec3,
+  footprints: readonly ObstacleFootprint[],
+): Vec3[] {
+  const turn = pickBestOrthogonalTurn(start, target, footprints);
+  return turn ? [turn] : [];
+}
+
 function pathDistance(points: readonly Vec3[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) {
@@ -91,6 +165,20 @@ function pointInsideExpandedFootprint(point: Vec3, footprint: ObstacleFootprint)
     Math.abs(point[0] - footprint.cx) < footprint.halfW + OBSTACLE_CLEARANCE &&
     Math.abs(point[2] - footprint.cz) < footprint.halfD + OBSTACLE_CLEARANCE
   );
+}
+
+function pickSafePose(
+  basePosition: Vec3,
+  candidate: Vec3,
+  footprints: readonly ObstacleFootprint[] = [],
+): Vec3 {
+  if (footprints.length === 0) {
+    return candidate;
+  }
+  if (!footprints.some((footprint) => pointInsideExpandedFootprint(candidate, footprint))) {
+    return candidate;
+  }
+  return [...basePosition];
 }
 
 function segmentsIntersect2D(a1: Vec3, a2: Vec3, b1: Vec3, b2: Vec3): boolean {
@@ -162,8 +250,10 @@ function buildFootprintDetours(start: Vec3, end: Vec3, footprint: ObstacleFootpr
   // the first/last leg of the detour doesn't re-enter the obstacle.
   const safeStartX = start[0] < footprint.cx ? Math.min(start[0], left) : Math.max(start[0], right);
   const safeEndX = end[0] < footprint.cx ? Math.min(end[0], left) : Math.max(end[0], right);
+  const safeStartZ = start[2] < footprint.cz ? Math.min(start[2], top) : Math.max(start[2], bottom);
+  const safeEndZ = end[2] < footprint.cz ? Math.min(end[2], top) : Math.max(end[2], bottom);
 
-  // Two-waypoint L-shaped detours through top or bottom of the obstacle.
+  // Two-waypoint L-shaped detours around all four sides of the obstacle.
   const candidates: Vec3[][] = [
     [
       [safeStartX, 0, top],
@@ -172,6 +262,14 @@ function buildFootprintDetours(start: Vec3, end: Vec3, footprint: ObstacleFootpr
     [
       [safeStartX, 0, bottom],
       [safeEndX, 0, bottom],
+    ],
+    [
+      [left, 0, safeStartZ],
+      [left, 0, safeEndZ],
+    ],
+    [
+      [right, 0, safeStartZ],
+      [right, 0, safeEndZ],
     ],
   ];
 
@@ -240,35 +338,67 @@ function applyObstacleDetours(
   return dedupePath(routed).slice(1);
 }
 
+function finalizeRoute(
+  origin: Vec3,
+  basePath: readonly Vec3[],
+  terminal: Vec3,
+  obstacleFootprints: readonly ObstacleFootprint[],
+): Vec3[] {
+  return adjustTerminalApproach(
+    applyObstacleDetours(
+      origin,
+      filterBlockedWaypoints(basePath, obstacleFootprints),
+      obstacleFootprints,
+    ),
+    terminal,
+    obstacleFootprints,
+  );
+}
+
 export function buildDispatchRoute(
-  meetingCenter: Vec3,
+  startPosition: Vec3,
   targetZoneCenter: Vec3,
   targetSeat: Vec3,
   options?: RouteOptions,
 ): Vec3[] {
   const meetingExit: Vec3 = [
-    meetingCenter[0],
+    startPosition[0],
     0,
-    meetingCenter[2] +
-      (targetZoneCenter[2] >= meetingCenter[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
+    startPosition[2] +
+      (targetZoneCenter[2] >= startPosition[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
   ];
   const targetZone: Vec3 = [targetZoneCenter[0], 0, targetZoneCenter[2]];
   const seat: Vec3 = [targetSeat[0], 0, targetSeat[2]];
   const zoneWaypoints = options?.zoneWaypoints ?? [];
   const obstacleFootprints = options?.obstacleFootprints ?? [];
+  const terminalApproach = options?.terminalApproach;
+  const connectorStart = zoneWaypoints.at(-1) ?? meetingExit;
+  const approachConnector = terminalApproach
+    ? buildOrthogonalConnector(connectorStart, terminalApproach, obstacleFootprints)
+    : [];
   const basePath =
     zoneWaypoints.length > 0
-      ? dedupePath([meetingExit, ...zoneWaypoints, targetZone, seat])
-      : dedupePath([meetingExit, [targetZoneCenter[0], 0, meetingExit[2]], targetZone, seat]);
+      ? dedupePath([
+          meetingExit,
+          ...zoneWaypoints,
+          ...(terminalApproach ? [...approachConnector, terminalApproach] : [targetZone]),
+          seat,
+        ])
+      : terminalApproach
+        ? dedupePath([
+            meetingExit,
+            ...approachConnector,
+            terminalApproach,
+            seat,
+          ])
+        : dedupePath([
+            meetingExit,
+            [targetZoneCenter[0], 0, meetingExit[2]],
+            targetZone,
+            seat,
+          ]);
 
-  return ensureTerminalPoint(
-    applyObstacleDetours(
-      meetingCenter,
-      filterBlockedWaypoints(basePath, obstacleFootprints),
-      obstacleFootprints,
-    ),
-    seat,
-  );
+  return finalizeRoute(startPosition, basePath, seat, obstacleFootprints);
 }
 
 export function buildReturnToMeetingRoute(
@@ -277,28 +407,38 @@ export function buildReturnToMeetingRoute(
   targetSeat: Vec3,
   options?: RouteOptions,
 ): Vec3[] {
+  const departureApproach = options?.departureApproach;
+  const exitStart = departureApproach ?? workPosition;
   const meetingApproach: Vec3 = [
-    workPosition[0],
+    exitStart[0],
     0,
     meetingCenter[2] +
-      (workPosition[2] >= meetingCenter[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
+      (exitStart[2] >= meetingCenter[2] ? MEETING_EXIT_DISTANCE : -MEETING_EXIT_DISTANCE),
   ];
   const seat: Vec3 = [targetSeat[0], 0, targetSeat[2]];
   const zoneWaypoints = options?.zoneWaypoints ?? [];
   const obstacleFootprints = options?.obstacleFootprints ?? [];
+  const departureConnector = departureApproach
+    ? buildOrthogonalConnector(workPosition, departureApproach, obstacleFootprints)
+    : [];
   const basePath =
     zoneWaypoints.length > 0
-      ? dedupePath([meetingApproach, ...zoneWaypoints, seat])
-      : dedupePath([meetingApproach, [targetSeat[0], 0, meetingApproach[2]], seat]);
+      ? dedupePath([
+          ...departureConnector,
+          ...(departureApproach ? [departureApproach] : []),
+          meetingApproach,
+          ...zoneWaypoints,
+          seat,
+        ])
+      : dedupePath([
+          ...departureConnector,
+          ...(departureApproach ? [departureApproach] : []),
+          meetingApproach,
+          [targetSeat[0], 0, meetingApproach[2]],
+          seat,
+        ]);
 
-  return ensureTerminalPoint(
-    applyObstacleDetours(
-      workPosition,
-      filterBlockedWaypoints(basePath, obstacleFootprints),
-      obstacleFootprints,
-    ),
-    seat,
-  );
+  return finalizeRoute(exitStart, basePath, seat, obstacleFootprints);
 }
 
 export function buildApprovalHoldTarget(meetingCenter: Vec3, slotIndex = 0): Vec3 {
@@ -338,14 +478,7 @@ export function buildHandoffRoute(
 
   return [
     fromPos,
-    ...ensureTerminalPoint(
-      applyObstacleDetours(
-        fromPos,
-        filterBlockedWaypoints(basePath, obstacleFootprints),
-        obstacleFootprints,
-      ),
-      toPos,
-    ),
+    ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints),
   ];
 }
 
@@ -355,14 +488,7 @@ export function buildTransitRoute(fromPos: Vec3, toPos: Vec3, options?: RouteOpt
   const obstacleFootprints = options?.obstacleFootprints ?? [];
   return [
     fromPos,
-    ...ensureTerminalPoint(
-      applyObstacleDetours(
-        fromPos,
-        filterBlockedWaypoints(basePath, obstacleFootprints),
-        obstacleFootprints,
-      ),
-      toPos,
-    ),
+    ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints),
   ];
 }
 
@@ -379,7 +505,11 @@ export function buildManagerPresenceTarget(
   }
 }
 
-export function buildWorkActivityTarget(basePosition: Vec3, category: ToolCategory): Vec3 {
+export function buildWorkActivityTarget(
+  basePosition: Vec3,
+  category: ToolCategory,
+  footprints: readonly ObstacleFootprint[] = [],
+): Vec3 {
   const offsets: Record<ToolCategory, Vec3> = {
     search: [-0.65, 0, 0.45],
     read: [0, 0, 0.5],
@@ -388,23 +518,24 @@ export function buildWorkActivityTarget(basePosition: Vec3, category: ToolCatego
     other: [0.15, 0, 0.2],
   };
   const offset = offsets[category];
-  return [
+  return pickSafePose(basePosition, [
     Number((basePosition[0] + offset[0]).toFixed(2)),
     0,
     Number((basePosition[2] + offset[2]).toFixed(2)),
-  ];
+  ], footprints);
 }
 
 export function buildStalledWorkTarget(
   basePosition: Vec3,
   kind: 'blocked' | 'failed' = 'blocked',
+  footprints: readonly ObstacleFootprint[] = [],
 ): Vec3 {
   const offset: Vec3 = kind === 'failed' ? [0.45, 0, 0.55] : [-0.45, 0, 0.65];
-  return [
+  return pickSafePose(basePosition, [
     Number((basePosition[0] + offset[0]).toFixed(2)),
     0,
     Number((basePosition[2] + offset[2]).toFixed(2)),
-  ];
+  ], footprints);
 }
 
 export function moveThroughPoints(

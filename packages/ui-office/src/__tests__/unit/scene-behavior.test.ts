@@ -154,11 +154,66 @@ describe('scene-behavior', () => {
     expectRouteToAvoidFootprint(route, footprint);
   });
 
+  it('buildDispatchRoute can route around a horizontal furniture cluster between meeting and workspace', () => {
+    const footprints = [
+      {
+        cx: -12.5,
+        cz: 2,
+        halfW: 1.75,
+        halfD: 0.55,
+      },
+      {
+        cx: -10,
+        cz: 2,
+        halfW: 1.75,
+        halfD: 0.55,
+      },
+    ];
+    const route = buildDispatchRoute([-10, 0, -8], [-13, 0, 11], [-13, 0, 12.55], {
+      zoneWaypoints: [[-10, 0, 2]],
+      obstacleFootprints: footprints,
+    });
+
+    expect(route.at(-1)).toEqual([-13, 0, 12.55]);
+    expect(route.length).toBeGreaterThan(3);
+    for (const footprint of footprints) {
+      expectRouteToAvoidFootprint(route, footprint);
+    }
+  });
+
+  it('buildDispatchRoute skips the target zone center when a terminal approach is provided', () => {
+    const footprint = {
+      cx: -13,
+      cz: 11,
+      halfW: 1.5,
+      halfD: 1.5,
+    };
+    const route = buildDispatchRoute([-10, 0, -8], [-13, 0, 11], [-13, 0, 12.85], {
+      zoneWaypoints: [[-11, 0, 2]],
+      obstacleFootprints: [footprint],
+      terminalApproach: [-13, 0, 13.2],
+    });
+
+    expect(route).toEqual([
+      [-10, 0, -6.4],
+      [-11, 0, 2],
+      [-11, 0, 13.2],
+      [-13, 0, 13.2],
+      [-13, 0, 12.85],
+    ]);
+  });
+
   it('buildWorkActivityTarget nudges search/read/edit/shell into distinct work poses', () => {
     expect(buildWorkActivityTarget([10, 0, 10], 'search')).toEqual([9.35, 0, 10.45]);
     expect(buildWorkActivityTarget([10, 0, 10], 'read')).toEqual([10, 0, 10.5]);
     expect(buildWorkActivityTarget([10, 0, 10], 'edit')).toEqual([10.35, 0, 9.85]);
     expect(buildWorkActivityTarget([10, 0, 10], 'shell')).toEqual([9.7, 0, 9.75]);
+  });
+
+  it('buildWorkActivityTarget falls back to the base seat when the pose would enter furniture', () => {
+    const base = [10, 0, 10] as const;
+    const footprint = { cx: 10.2, cz: 9.9, halfW: 0.4, halfD: 0.4 };
+    expect(buildWorkActivityTarget([...base], 'edit', [footprint])).toEqual([10, 0, 10]);
   });
 
   it('buildReturnToMeetingRoute creates a believable aisle return path for reporting', () => {
@@ -202,6 +257,19 @@ describe('scene-behavior', () => {
     expect(route.length).toBeGreaterThan(2);
     expect(route.some((point) => point[2] !== 1.8)).toBe(true);
     expectRouteToAvoidFootprint(route, footprint);
+  });
+
+  it('buildReturnToMeetingRoute leaves through a departure approach before heading back to meeting', () => {
+    const route = buildReturnToMeetingRoute([-13, 0, 12.85], [-10, 0, -8], [-16, 0, -10.5], {
+      departureApproach: [-13, 0, 13.2],
+    });
+
+    expect(route).toEqual([
+      [-13, 0, 13.2],
+      [-13, 0, -6.4],
+      [-16, 0, -6.4],
+      [-16, 0, -10.5],
+    ]);
   });
 
   it('buildApprovalHoldTarget creates readable waiting spots in front of the meeting area', () => {
@@ -257,6 +325,12 @@ describe('scene-behavior', () => {
   it('buildStalledWorkTarget separates blocked and failed poses around the desk', () => {
     expect(buildStalledWorkTarget([10, 0, 10], 'blocked')).toEqual([9.55, 0, 10.65]);
     expect(buildStalledWorkTarget([10, 0, 10], 'failed')).toEqual([10.45, 0, 10.55]);
+  });
+
+  it('buildStalledWorkTarget falls back to the base seat when the pose would enter furniture', () => {
+    const base = [10, 0, 10] as const;
+    const footprint = { cx: 9.6, cz: 10.7, halfW: 0.4, halfD: 0.4 };
+    expect(buildStalledWorkTarget([...base], 'blocked', [footprint])).toEqual([10, 0, 10]);
   });
 
   it('moveThroughPoints walks points in order and only fires onComplete once', () => {

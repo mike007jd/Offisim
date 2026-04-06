@@ -103,6 +103,19 @@ function getWorkstationPos(
   return [center[0] + offset[0], 0, center[2] + offset[2]];
 }
 
+function getWorkstationApproachPos(
+  registry: SeatRegistry | null,
+  zones: readonly Zone[],
+  zoneId: string,
+  slotIdx: number,
+): [number, number, number] {
+  if (registry) {
+    const seat = registry.getSeat(zoneId, slotIdx);
+    if (seat) return [...seat.approachPosition];
+  }
+  return getWorkstationPos(registry, zones, zoneId, slotIdx);
+}
+
 function getRestSlotKey(companyId: string): string {
   return `${companyId}:rest-counter`;
 }
@@ -279,6 +292,13 @@ function getMovementHandles(companyId: string): Map<string, CharacterMovementHan
   return companyHandles.get(companyId) ?? new Map();
 }
 
+export function getMovementHandle(
+  companyId: string,
+  employeeId: string,
+): CharacterMovementHandle | undefined {
+  return getMovementHandles(companyId).get(employeeId);
+}
+
 export function registerMovementHandle(
   companyId: string,
   employeeId: string,
@@ -307,6 +327,26 @@ export function unregisterMovementHandle(companyId: string, employeeId: string) 
     map.delete(employeeId);
     if (map.size === 0) companyHandles.delete(companyId);
   }
+}
+
+export function getMovementDebugInfo(companyId: string): Array<{
+  id: string;
+  x: number;
+  y: number;
+  isMoving: boolean;
+}> {
+  return [...getMovementHandles(companyId).entries()]
+    .map(([id, handle]) => {
+      const position = handle.getPosition();
+      if (!position) return null;
+      return {
+        id,
+        x: position[0],
+        y: position[2],
+        isMoving: handle.isMoving(),
+      };
+    })
+    .filter((entry): entry is { id: string; x: number; y: number; isMoving: boolean } => entry != null);
 }
 
 // ── Slot tracker for workstation assignment ──────────────────────
@@ -373,9 +413,21 @@ export function useSceneOrchestrator({
   }, [prefabInstances, zones]);
 
   const assignedWorkPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
+  const assignedWorkApproachPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
   const assignedWorkZoneIdsRef = useRef<Map<string, string>>(new Map());
   const approvalHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
   const clarificationHoldPositionsRef = useRef<Map<string, [number, number, number]>>(new Map());
+  const clearAssignedSceneState = useCallback(() => {
+    assignedWorkPositionsRef.current.clear();
+    assignedWorkApproachPositionsRef.current.clear();
+    assignedWorkZoneIdsRef.current.clear();
+    approvalHoldPositionsRef.current.clear();
+    clarificationHoldPositionsRef.current.clear();
+  }, []);
+  const getSceneObstacleFootprints = useCallback(
+    () => getObstacleFootprints(registryRef.current),
+    [],
+  );
 
   // Timer tracking — clear all pending timeouts on unmount
   const timerRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -387,6 +439,14 @@ export function useSceneOrchestrator({
     timerRefs.current.add(id);
     return id;
   }, []);
+  const clearSceneBubbleText = useCallback((label: string, delayMs: number) => {
+    safeTimeout(() => {
+      setCeremony((prev) => {
+        if (prev.bubbleText !== label) return prev;
+        return { ...prev, bubbleText: '' };
+      });
+    }, delayMs);
+  }, [safeTimeout]);
 
   // Cleanup module-level Maps and pending timers on unmount / company switch
   const activeCompanyId = companyId;
@@ -426,12 +486,12 @@ export function useSceneOrchestrator({
           : [];
       const route = buildTransitRoute(currentPosition, targetPosition, {
         zoneWaypoints,
-        obstacleFootprints: getObstacleFootprints(registryRef.current),
+        obstacleFootprints: getSceneObstacleFootprints(),
       }).slice(1);
 
       moveThroughPoints(handle, route, speed, options?.onComplete);
     },
-    [],
+    [getSceneObstacleFootprints],
   );
 
   const moveEmployeeToRest = useCallback(
@@ -463,10 +523,7 @@ export function useSceneOrchestrator({
       managerPosition: null,
       waitingRelationships: [],
     });
-    assignedWorkPositionsRef.current.clear();
-    assignedWorkZoneIdsRef.current.clear();
-    approvalHoldPositionsRef.current.clear();
-    clarificationHoldPositionsRef.current.clear();
+    clearAssignedSceneState();
 
     const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
     const mtgPositions = computeMtgPositions(mtgCenter);
@@ -482,7 +539,7 @@ export function useSceneOrchestrator({
       ];
       handle.moveTo(jittered, 5); // ceremony speed
     });
-  }, []);
+  }, [clearAssignedSceneState]);
 
   /** Dispatch one employee from MTG to their workstation zone. */
   const dispatchEmployee = useCallback(
@@ -495,14 +552,23 @@ export function useSceneOrchestrator({
       const zoneId = resolvedZone?.zoneId ?? UNASSIGNED_ZONE_ID;
       const slot = getNextSlot(zoneId);
       const targetPos = getWorkstationPos(registryRef.current, zonesRef.current, zoneId, slot);
+      const targetApproachPos = getWorkstationApproachPos(
+        registryRef.current,
+        zonesRef.current,
+        zoneId,
+        slot,
+      );
       assignedWorkPositionsRef.current.set(employeeId, targetPos);
+      assignedWorkApproachPositionsRef.current.set(employeeId, targetApproachPos);
       assignedWorkZoneIdsRef.current.set(employeeId, zoneId);
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
       const targetZoneCenter = getZoneCenterById(zonesRef.current, zoneId);
       const meetingZoneId = getMeetingZoneId(zonesRef.current);
-      const route = buildDispatchRoute(mtgCenter, targetZoneCenter, targetPos, {
+      const currentPosition = handle.getPosition() ?? mtgCenter;
+      const route = buildDispatchRoute(currentPosition, targetZoneCenter, targetPos, {
         zoneWaypoints: buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, zoneId),
-        obstacleFootprints: getObstacleFootprints(registryRef.current),
+        obstacleFootprints: getSceneObstacleFootprints(),
+        terminalApproach: targetApproachPos,
       });
 
       safeTimeout(() => {
@@ -515,7 +581,7 @@ export function useSceneOrchestrator({
         dispatchedIds: new Set([...prev.dispatchedIds, employeeId]),
       }));
     },
-    [safeTimeout],
+    [getSceneObstacleFootprints, safeTimeout],
   );
 
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
@@ -545,10 +611,7 @@ export function useSceneOrchestrator({
         safeTimeout(() => {
           if (ceremonyVersionRef.current !== version) return;
           setCeremony(createIdleCeremonyState());
-          assignedWorkPositionsRef.current.clear();
-          assignedWorkZoneIdsRef.current.clear();
-          approvalHoldPositionsRef.current.clear();
-          clarificationHoldPositionsRef.current.clear();
+          clearAssignedSceneState();
         }, 1500);
         return;
       }
@@ -567,13 +630,16 @@ export function useSceneOrchestrator({
           seat[2] + (Math.random() - 0.5) * 0.3,
         ];
         const basePosition = assignedWorkPositionsRef.current.get(id) ?? reportSeat;
+        const departureApproach =
+          assignedWorkApproachPositionsRef.current.get(id) ?? basePosition;
         const meetingZoneId = getMeetingZoneId(zonesRef.current);
         const workZoneId = assignedWorkZoneIdsRef.current.get(id);
         const route = buildReturnToMeetingRoute(basePosition, mtgCenter, reportSeat, {
+          departureApproach,
           zoneWaypoints: workZoneId
             ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
             : [],
-          obstacleFootprints: getObstacleFootprints(registryRef.current),
+          obstacleFootprints: getSceneObstacleFootprints(),
         });
 
         moveThroughPoints(handle, route, 5, () => {
@@ -596,17 +662,14 @@ export function useSceneOrchestrator({
               safeTimeout(() => {
                 if (ceremonyVersionRef.current !== version) return;
                 setCeremony(createIdleCeremonyState());
-                assignedWorkPositionsRef.current.clear();
-                assignedWorkZoneIdsRef.current.clear();
-                approvalHoldPositionsRef.current.clear();
-                clarificationHoldPositionsRef.current.clear();
+                clearAssignedSceneState();
               }, 3000);
             }, 1500);
           }
         });
       });
     },
-    [safeTimeout],
+    [clearAssignedSceneState, getSceneObstacleFootprints, moveEmployeeToRest, safeTimeout],
   );
 
   // ── EventBus subscriptions ──
@@ -630,10 +693,7 @@ export function useSceneOrchestrator({
             moveEmployeeToRest(employeeId, 5); // quick return to rest first
           }
           hasActivePlan = false;
-          assignedWorkPositionsRef.current.clear();
-          assignedWorkZoneIdsRef.current.clear();
-          approvalHoldPositionsRef.current.clear();
-          clarificationHoldPositionsRef.current.clear();
+          clearAssignedSceneState();
           // Brief delay to visually separate the reset from the new gathering
           safeTimeout(() => {
             if (ceremonyVersionRef.current !== version) return; // another interrupt happened
@@ -800,23 +860,39 @@ export function useSceneOrchestrator({
         });
 
         if (basePosition && handle) {
+          const obstacleFootprints = getSceneObstacleFootprints();
           if (e.payload.status === 'started') {
-            handle.moveTo(buildWorkActivityTarget(basePosition, categorizeTool(e.payload)), 2.8);
+            handle.moveTo(
+              buildWorkActivityTarget(
+                basePosition,
+                categorizeTool(e.payload),
+                obstacleFootprints,
+              ),
+              2.8,
+            );
           } else {
             handle.moveTo(basePosition, 2.4);
           }
         }
 
         if (e.payload.status !== 'started') {
-          safeTimeout(() => {
-            setCeremony((prev) => {
-              if (prev.phase !== 'working' || prev.bubbleText !== label) return prev;
-              return { ...prev, bubbleText: '' };
-            });
-          }, 900);
+          clearSceneBubbleText(label, 900);
         }
       },
     );
+
+    const getAssignedEmployeeSceneContext = (employeeId: string) => {
+      const basePosition = assignedWorkPositionsRef.current.get(employeeId);
+      const departureApproach = assignedWorkApproachPositionsRef.current.get(employeeId);
+      const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
+      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      return {
+        basePosition,
+        departureApproach,
+        workZoneId,
+        handle,
+      };
+    };
 
     const handleInteractionApproval = (payload: SceneInteractionWaitingPayload) => {
       const label = describeInteractionSceneRequest({ kind: payload.kind }, payload.restored);
@@ -843,15 +919,14 @@ export function useSceneOrchestrator({
       }
 
       const employeeId = payload.employeeId;
-      const basePosition = assignedWorkPositionsRef.current.get(employeeId);
-      const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+      const { basePosition, departureApproach, handle, workZoneId } =
+        getAssignedEmployeeSceneContext(employeeId);
       if (!basePosition || !handle) {
         return;
       }
 
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
       const meetingZoneId = getMeetingZoneId(zonesRef.current);
-      const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
       const isApproval = payload.kind === 'permission_request';
       const positionsRef = isApproval ? approvalHoldPositionsRef : clarificationHoldPositionsRef;
       const buildHold = isApproval ? buildApprovalHoldTarget : buildClarificationHoldTarget;
@@ -863,10 +938,11 @@ export function useSceneOrchestrator({
       moveThroughPoints(
         handle,
         buildReturnToMeetingRoute(basePosition, meetingCenter, holdTarget, {
+          departureApproach,
           zoneWaypoints: workZoneId
             ? buildZoneRouteWaypoints(zonesRef.current, workZoneId, meetingZoneId).reverse()
             : [],
-          obstacleFootprints: getObstacleFootprints(registryRef.current),
+          obstacleFootprints: getSceneObstacleFootprints(),
         }),
         4,
       );
@@ -918,9 +994,7 @@ export function useSceneOrchestrator({
 
       if (payload.employeeId) {
         const employeeId = payload.employeeId;
-        const basePosition = assignedWorkPositionsRef.current.get(employeeId);
-        const workZoneId = assignedWorkZoneIdsRef.current.get(employeeId);
-        const handle = getMovementHandles(companyIdRef.current).get(employeeId);
+        const { basePosition, handle, workZoneId } = getAssignedEmployeeSceneContext(employeeId);
         approvalHoldPositionsRef.current.delete(employeeId);
         clarificationHoldPositionsRef.current.delete(employeeId);
         if (basePosition && handle) {
@@ -929,25 +1003,21 @@ export function useSceneOrchestrator({
           const targetZoneCenter = workZoneId
             ? getZoneCenterById(zonesRef.current, workZoneId)
             : basePosition;
+          const currentPosition = handle.getPosition() ?? meetingCenter;
           moveThroughPoints(
             handle,
-            buildDispatchRoute(meetingCenter, targetZoneCenter, basePosition, {
+            buildDispatchRoute(currentPosition, targetZoneCenter, basePosition, {
               zoneWaypoints: workZoneId
                 ? buildZoneRouteWaypoints(zonesRef.current, meetingZoneId, workZoneId)
                 : [],
-              obstacleFootprints: getObstacleFootprints(registryRef.current),
+              obstacleFootprints: getSceneObstacleFootprints(),
             }),
             3.2,
           );
         }
       }
 
-      safeTimeout(() => {
-        setCeremony((prev) => {
-          if (prev.bubbleText !== label) return prev;
-          return { ...prev, bubbleText: '' };
-        });
-      }, 1200);
+      clearSceneBubbleText(label, 1200);
     };
 
     const unsubInteractionResolved = sceneIntentBus
@@ -981,15 +1051,13 @@ export function useSceneOrchestrator({
       });
 
       if (basePosition && handle) {
-        handle.moveTo(buildStalledWorkTarget(basePosition, next), 2.2);
+        handle.moveTo(
+          buildStalledWorkTarget(basePosition, next, getSceneObstacleFootprints()),
+          2.2,
+        );
       }
 
-      safeTimeout(() => {
-        setCeremony((prev) => {
-          if (prev.bubbleText !== label) return prev;
-          return { ...prev, bubbleText: '' };
-        });
-      }, 1400);
+      clearSceneBubbleText(label, 1400);
     };
 
     const resolveEmployeeTargetPosition = (employeeId: string): [number, number, number] | null => {
@@ -1042,7 +1110,7 @@ export function useSceneOrchestrator({
         moveThroughPoints(
           fromHandle,
           buildHandoffRoute(fromPosition, toPosition, meetingCenter, {
-            obstacleFootprints: getObstacleFootprints(registryRef.current),
+            obstacleFootprints: getSceneObstacleFootprints(),
           }),
           3.5,
           () => {
@@ -1072,12 +1140,7 @@ export function useSceneOrchestrator({
         return { ...prev, bubbleText: 'Handoff received', waitingRelationships };
       });
 
-      safeTimeout(() => {
-        setCeremony((prev) => {
-          if (prev.bubbleText !== 'Handoff received') return prev;
-          return { ...prev, bubbleText: '' };
-        });
-      }, 1200);
+      clearSceneBubbleText('Handoff received', 1200);
     };
 
     const unsubEmployeeState = sceneIntentBus

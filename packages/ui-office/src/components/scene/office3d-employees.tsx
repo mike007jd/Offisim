@@ -325,6 +325,7 @@ export function EmployeeMarker({
   );
 
   const groupRef = useRef<THREE.Group>(null);
+  const seededPositionRef = useRef(false);
   const movementHandle = useCharacterMovement(groupRef, isOpenClaw ? null : limbRefs);
 
   const { activeCompanyId: markerCompanyId } = useCompany();
@@ -337,12 +338,36 @@ export function EmployeeMarker({
   useEffect(() => {
     // Cast needed: in jsdom tests groupRef.current is a DOM element, not THREE.Group
     const group = groupRef.current as {
-      position?: { set(x: number, y: number, z: number): void };
+      position?: { x: number; z: number; set(x: number, y: number, z: number): void };
     } | null;
-    if (group?.position?.set) {
+    if (!group?.position?.set) {
+      return;
+    }
+
+    if (!seededPositionRef.current) {
+      group.position.set(emp.position[0], 0, emp.position[2]);
+      seededPositionRef.current = true;
+      return;
+    }
+
+    if (movementHandle.isMoving()) {
+      return;
+    }
+
+    const currentPosition = movementHandle.getPosition();
+    if (!currentPosition) {
+      group.position.set(emp.position[0], 0, emp.position[2]);
+      return;
+    }
+
+    const drift = Math.hypot(
+      currentPosition[0] - emp.position[0],
+      currentPosition[2] - emp.position[2],
+    );
+    if (drift < 0.05) {
       group.position.set(emp.position[0], 0, emp.position[2]);
     }
-  }, [emp.position]);
+  }, [emp.position, movementHandle]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: react-three-fiber groups are not keyboard-focusable DOM nodes.

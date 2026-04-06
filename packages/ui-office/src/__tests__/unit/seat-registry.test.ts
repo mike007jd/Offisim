@@ -2,6 +2,12 @@ import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { SeatRegistry } from '../../lib/seat-registry';
 
+function planarDistance(a: readonly [number, number, number], b: readonly [number, number, number]) {
+  const dx = a[0] - b[0];
+  const dz = a[2] - b[2];
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
 function makeInstance(
   overrides: Partial<PrefabInstanceRow> & {
     instance_id: string;
@@ -69,7 +75,9 @@ describe('SeatRegistry', () => {
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[2]).toBeCloseTo(9.55, 5);
+    expect(seat!.position[2]).toBeCloseTo(9.85, 5);
+    expect(seat!.approachPosition[2]).toBeGreaterThan(seat!.position[2]);
+    expect(planarDistance(seat!.position, seat!.approachPosition)).toBeCloseTo(0.35, 5);
   });
 
   it('handles rotation=90 correctly', () => {
@@ -89,7 +97,9 @@ describe('SeatRegistry', () => {
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[0]).toBeCloseTo(6.55, 5);
+    expect(seat!.position[0]).toBeCloseTo(6.85, 5);
+    expect(seat!.approachPosition[0]).toBeGreaterThan(seat!.position[0]);
+    expect(planarDistance(seat!.position, seat!.approachPosition)).toBeCloseTo(0.35, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
     expect(seat!.position[1]).toBeCloseTo(0, 5);
     // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
@@ -203,6 +213,8 @@ describe('SeatRegistry', () => {
     for (const s of seats) {
       expect(s.isFallback).toBe(false);
       expect(s.instanceId).toBe('sofa1');
+      expect(s.approachPosition[2]).toBeGreaterThan(s.position[2]);
+      expect(planarDistance(s.position, s.approachPosition)).toBeCloseTo(0.35, 5);
     }
 
     // Positions should differ in X
@@ -232,9 +244,9 @@ describe('SeatRegistry', () => {
     const pos1 = reg.getRestSeat([restZone], 1);
     const pos2 = reg.getRestSeat([restZone], 2);
 
-    expect(pos0[2]).toBeCloseTo(31.6, 5);
-    expect(pos1[2]).toBeCloseTo(31.6, 5);
-    expect(pos2[2]).toBeCloseTo(31.6, 5);
+    expect(pos0[2]).toBeCloseTo(31.65, 5);
+    expect(pos1[2]).toBeCloseTo(31.65, 5);
+    expect(pos2[2]).toBeCloseTo(31.65, 5);
     expect(pos0[0]).toBeCloseTo(19.2, 5);
     expect(pos1[0]).toBeCloseTo(20, 5);
     expect(pos2[0]).toBeCloseTo(20.8, 5);

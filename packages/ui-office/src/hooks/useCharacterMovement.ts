@@ -57,6 +57,8 @@ const SQUASH_DURATION = 0.3;
 export interface CharacterMovementHandle {
   /** Command the character to walk to a destination. */
   moveTo: (dest: [number, number, number], speed?: number, onArrive?: () => void) => void;
+  /** Instantly place the character at a destination without animating. */
+  teleportTo?: (dest: [number, number, number]) => void;
   /** Stop movement immediately. */
   stop: () => void;
   /** Whether the character is currently moving. */
@@ -83,6 +85,21 @@ export function useCharacterMovement(
     targetRef.current = { dest, speed, onArrive };
     squashRef.current = 0;
   }, []);
+
+  const teleportTo = useCallback(
+    (dest: [number, number, number]) => {
+      const group = groupRef.current;
+      if (!group) return;
+      targetRef.current = null;
+      walkTimeRef.current = 0;
+      squashRef.current = 0;
+      group.position.set(dest[0], dest[1], dest[2]);
+      if (limbRefs) {
+        resetLimbs(limbRefs);
+      }
+    },
+    [groupRef, limbRefs],
+  );
 
   const stop = useCallback(() => {
     targetRef.current = null;
@@ -179,8 +196,8 @@ export function useCharacterMovement(
 
   // Memoize handle to prevent re-registration churn in EmployeeMarker
   return useMemo(
-    () => ({ moveTo, stop, isMoving, getPosition }),
-    [moveTo, stop, isMoving, getPosition],
+    () => ({ moveTo, teleportTo, stop, isMoving, getPosition }),
+    [moveTo, teleportTo, stop, isMoving, getPosition],
   );
 }
 

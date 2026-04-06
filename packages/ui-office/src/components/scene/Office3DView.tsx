@@ -1,8 +1,19 @@
 import { Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo } from 'react';
+import type { Zone, RoleSlug } from '@offisim/shared-types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
-import type { CeremonyState } from '../../hooks/useSceneOrchestrator.js';
+import {
+  getMovementHandle,
+  getMovementDebugInfo,
+  type CeremonyState,
+} from '../../hooks/useSceneOrchestrator.js';
+import {
+  buildDispatchRoute,
+  buildReturnToMeetingRoute,
+  moveThroughPoints,
+} from '../../lib/scene-behavior';
+import { buildZoneRouteWaypoints, getMeetingZoneId } from '../../lib/scene-nav';
 import { SeatRegistry } from '../../lib/seat-registry.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -35,6 +46,7 @@ import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
 import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
+import { isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
 
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
@@ -154,6 +166,29 @@ export default function Office3DView({
     onDeselectEmployee,
   });
 
+  const [debugMotionActive, setDebugMotionActive] = useState(false);
+  const debugMotionTimerRef = useRef<number | null>(null);
+  const armDebugMotion = useCallback(() => {
+    setDebugMotionActive(true);
+    if (typeof window === 'undefined') return;
+    if (debugMotionTimerRef.current !== null) {
+      window.clearTimeout(debugMotionTimerRef.current);
+    }
+    debugMotionTimerRef.current = window.setTimeout(() => {
+      debugMotionTimerRef.current = null;
+      setDebugMotionActive(false);
+    }, 30000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (typeof window !== 'undefined' && debugMotionTimerRef.current !== null) {
+        window.clearTimeout(debugMotionTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const seatRegistry = useMemo(
     () =>
       SeatRegistry.build(
@@ -164,6 +199,177 @@ export default function Office3DView({
   );
 
   const placed = usePlacedEmployees(agents, zones3D, zones, seatRegistry);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined' || !window.__OFFISIM_DEBUG__) {
+      return;
+    }
+
+    const previous = window.__OFFISIM_DEBUG__;
+    const obstacleFootprints = seatRegistry.getObstacleFootprints();
+    let lastRoute: {
+      employeeId: string;
+      kind: string;
+      points: [number, number, number][];
+    } | null = null;
+    const buildMeetingStagingTarget = (zone: Zone): [number, number, number] => [
+      zone.cx - zone.w / 2 + 1,
+      0,
+      zone.cz - zone.d / 2 + 0.5,
+    ];
+    const findZoneById = (zoneId: string | null) =>
+      zoneId ? zones.find((zone) => zone.zoneId === zoneId) ?? null : null;
+    const findPlacedEmployee = (employeeId: string) =>
+      placed.find((entry) => entry.id === employeeId) ?? null;
+    const findCurrentPosition = (employeeId: string): [number, number, number] | null => {
+      const live = activeCompanyId ? getMovementHandle(activeCompanyId, employeeId)?.getPosition() : null;
+      if (live) return live;
+      const employee = findPlacedEmployee(employeeId);
+      return employee ? [...employee.position] : null;
+    };
+    const findZoneIdForPosition = (position: readonly [number, number, number]): string | null =>
+      zones.find((zone) => isInsideZone(position[0], position[2], zone))?.zoneId ?? null;
+    const rememberRoute = (
+      employeeId: string,
+      kind: 'dispatch' | 'return-to-meeting',
+      route: readonly [number, number, number][],
+    ) => {
+      lastRoute = {
+        employeeId,
+        kind,
+        points: route.map((point) => [...point] as [number, number, number]),
+      };
+    };
+    const getWorkspaceSeatTargets = (zone: Zone) => {
+      const seat = seatRegistry.getSeat(zone.zoneId, 0);
+      if (!seat) {
+        const fallback: [number, number, number] = [zone.cx, 0, zone.cz];
+        return {
+          seat: fallback,
+          approach: fallback,
+        };
+      }
+      return {
+        seat: [...seat.position] as [number, number, number],
+        approach: [...seat.approachPosition] as [number, number, number],
+      };
+    };
+    const moveEmployeeToMeeting = (employeeId: string) => {
+      if (!activeCompanyId) return false;
+      const handle = getMovementHandle(activeCompanyId, employeeId);
+      const meetingZone = zones.find((zone) => zone.zoneId === getMeetingZoneId(zones));
+      if (!handle || !meetingZone) return false;
+      const target = buildMeetingStagingTarget(meetingZone);
+      handle.stop();
+      handle.teleportTo?.(target);
+      return true;
+    };
+    const dispatchEmployeeToWorkspace = (employeeId: string) => {
+      if (!activeCompanyId) return false;
+      const handle = getMovementHandle(activeCompanyId, employeeId);
+      const current = findCurrentPosition(employeeId);
+      const employee = findPlacedEmployee(employeeId);
+      const role = employee?.agent.role;
+      const targetZone = role ? resolveZoneForRole(role as RoleSlug, zones) : null;
+      if (!handle || !current || !targetZone) return false;
+      const target = getWorkspaceSeatTargets(targetZone);
+      const route = buildDispatchRoute(current, [targetZone.cx, 0, targetZone.cz], target.seat, {
+        zoneWaypoints: buildZoneRouteWaypoints(zones, getMeetingZoneId(zones), targetZone.zoneId),
+        obstacleFootprints,
+        terminalApproach: target.approach,
+      });
+      rememberRoute(employeeId, 'dispatch', route);
+      armDebugMotion();
+      moveThroughPoints(handle, route, 8);
+      return true;
+    };
+    const returnEmployeeToMeeting = (employeeId: string) => {
+      if (!activeCompanyId) return false;
+      const handle = getMovementHandle(activeCompanyId, employeeId);
+      const current = findCurrentPosition(employeeId);
+      const currentZoneId = current ? findZoneIdForPosition(current) : null;
+      const meetingZoneId = getMeetingZoneId(zones);
+      const meetingZone = findZoneById(meetingZoneId);
+      if (!handle || !current || !meetingZone) return false;
+      const target = buildMeetingStagingTarget(meetingZone);
+      const currentZone = findZoneById(currentZoneId);
+      const departureApproach =
+        currentZone && currentZone.zoneId !== meetingZoneId
+          ? getWorkspaceSeatTargets(currentZone).approach
+          : undefined;
+      const route = buildReturnToMeetingRoute(current, [meetingZone.cx, 0, meetingZone.cz], target, {
+        departureApproach,
+        zoneWaypoints:
+          currentZone && currentZone.zoneId !== meetingZoneId
+            ? buildZoneRouteWaypoints(zones, currentZone.zoneId, meetingZoneId)
+            : [],
+        obstacleFootprints,
+      });
+      rememberRoute(employeeId, 'return-to-meeting', route);
+      armDebugMotion();
+      moveThroughPoints(handle, route, 8);
+      return true;
+    };
+    const getSceneState = () => {
+      const fallback = previous.getSceneState?.() ?? {
+        employeeCount: placed.length,
+        employeeIds: placed.map((employee) => employee.id),
+      };
+      const positionsById = new Map(
+        (activeCompanyId ? getMovementDebugInfo(activeCompanyId) : []).map((entry) => [entry.id, entry]),
+      );
+
+      return {
+        ...fallback,
+        employeeCount: placed.length,
+        employeeIds: placed.map((employee) => employee.id),
+        employeeDebugInfo: placed.map((employee) => {
+          const debugPosition = positionsById.get(employee.id);
+          return {
+            id: employee.id,
+            x: debugPosition?.x ?? employee.position[0],
+            y: debugPosition?.y ?? employee.position[2],
+            roleSlug: employee.agent.role,
+            isMoving: debugPosition?.isMoving ?? false,
+          };
+        }),
+        obstacleFootprints: seatRegistry.getObstacleFootprints().map((footprint) => ({
+          cx: footprint.cx,
+          cz: footprint.cz,
+          halfW: footprint.halfW,
+          halfD: footprint.halfD,
+        })),
+        zones: zones.map((zone) => ({
+          zoneId: zone.zoneId,
+          archetype: zone.archetype,
+          cx: zone.cx,
+          cz: zone.cz,
+          w: zone.w,
+          d: zone.d,
+        })),
+        lastRoute,
+      };
+    };
+
+    window.__OFFISIM_DEBUG__ = {
+      ...previous,
+      sceneActions: {
+        moveEmployeeToMeeting,
+        dispatchEmployeeToWorkspace,
+        returnEmployeeToMeeting,
+      },
+      getSceneState,
+    };
+
+    return () => {
+      if (window.__OFFISIM_DEBUG__?.getSceneState === getSceneState) {
+        window.__OFFISIM_DEBUG__ = {
+          ...window.__OFFISIM_DEBUG__,
+          getSceneState: previous.getSceneState,
+        };
+      }
+    };
+  }, [activeCompanyId, placed, seatRegistry, zones]);
 
   const scene: Office3DSceneData = {
     agents,
@@ -190,13 +396,14 @@ export default function Office3DView({
     controlsRef,
     shouldAnimate:
       active &&
-      shouldAnimateOfficeScene({
-        activeCount,
-        blockedCount,
-        isDragging,
-        flowLineCount: flowLines.length,
-        ceremonyPhase: ceremony.phase,
-      }),
+      (debugMotionActive ||
+        shouldAnimateOfficeScene({
+          activeCount,
+          blockedCount,
+          isDragging,
+          flowLineCount: flowLines.length,
+          ceremonyPhase: ceremony.phase,
+        })),
   };
 
   const actions: Office3DSceneActions = {

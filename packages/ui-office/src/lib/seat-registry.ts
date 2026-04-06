@@ -14,8 +14,9 @@ import {
 import { SEAT_OFFSETS } from './seat-offsets';
 
 const REST_SEAT_TARGET_COUNT = 18;
-const SEAT_CLEARANCE = 0.05;
+const SEAT_CLEARANCE = 0.35;
 const MIN_SEAT_SPACING = 0.75;
+const MIN_APPROACH_LEAD = 0.35;
 
 /**
  * Deterministic circular layout for rest-area seating.
@@ -34,6 +35,7 @@ export function computeRestSeatPosition(
 
 export interface SeatEntry {
   readonly position: [number, number, number];
+  readonly approachPosition: [number, number, number];
   readonly facing: number;
   readonly instanceId: string | null;
   readonly isFallback: boolean;
@@ -62,6 +64,12 @@ function ensureOutsideFootprint(
     outZ = footprint.cz + sign * (footprint.halfD + SEAT_CLEARANCE);
   }
   return [outX, position[1], outZ];
+}
+
+function distance2D(a: readonly [number, number, number], b: readonly [number, number, number]) {
+  const dx = a[0] - b[0];
+  const dz = a[2] - b[2];
+  return Math.sqrt(dx * dx + dz * dz);
 }
 
 function isBlockedByFootprint(
@@ -96,15 +104,45 @@ function buildAnchoredSeats(
   spec: PrefabSpatialSpec,
   inst: PrefabInstanceRow,
   anchor: PrefabAnchor,
+  approachAnchor: PrefabAnchor,
 ): SeatEntry[] {
   const worldOrigin: readonly [number, number] = [inst.position_x, inst.position_y];
   const footprint = toWorldFootprint(spec.footprint, worldOrigin, inst.rotation);
   const base = toWorldAnchor(anchor, worldOrigin, inst.rotation);
+  const approachBase = toWorldAnchor(approachAnchor, worldOrigin, inst.rotation);
   const seats: SeatEntry[] = [];
 
-  const pushSeat = (position: readonly [number, number, number]) => {
+  const pushSeat = (
+    position: readonly [number, number, number],
+    approachPosition: readonly [number, number, number],
+  ) => {
+    const resolvedPosition = ensureOutsideFootprint(position, footprint, base.facing);
+    let resolvedApproach = ensureOutsideFootprint(
+      approachPosition,
+      footprint,
+      approachBase.facing,
+    );
+    if (distance2D(resolvedPosition, resolvedApproach) < MIN_APPROACH_LEAD) {
+      const rawDx = approachPosition[0] - position[0];
+      const rawDz = approachPosition[2] - position[2];
+      const rawLength = Math.hypot(rawDx, rawDz);
+      const fallbackAngle = approachBase.facing + Math.PI;
+      const dirX = rawLength > 1e-6 ? rawDx / rawLength : Math.cos(fallbackAngle);
+      const dirZ = rawLength > 1e-6 ? rawDz / rawLength : Math.sin(fallbackAngle);
+      resolvedApproach = ensureOutsideFootprint(
+        [
+          resolvedPosition[0] + dirX * MIN_APPROACH_LEAD,
+          resolvedPosition[1],
+          resolvedPosition[2] + dirZ * MIN_APPROACH_LEAD,
+        ],
+        footprint,
+        approachBase.facing,
+      );
+    }
+
     seats.push({
-      position: ensureOutsideFootprint(position, footprint, base.facing),
+      position: resolvedPosition,
+      approachPosition: resolvedApproach,
       facing: base.facing,
       instanceId: inst.instance_id,
       isFallback: false,
@@ -112,14 +150,21 @@ function buildAnchoredSeats(
   };
 
   if (spec.capacity <= 1) {
-    pushSeat(base.position);
+    pushSeat(base.position, approachBase.position);
     return seats;
   }
 
   for (let i = 0; i < spec.capacity; i++) {
     const lateralOffset = (i - (spec.capacity - 1) / 2) * 0.8;
     const [offsetX, offsetZ] = rotateLocalPoint([lateralOffset, 0], inst.rotation);
-    pushSeat([base.position[0] + offsetX, base.position[1], base.position[2] + offsetZ]);
+    pushSeat(
+      [base.position[0] + offsetX, base.position[1], base.position[2] + offsetZ],
+      [
+        approachBase.position[0] + offsetX,
+        approachBase.position[1],
+        approachBase.position[2] + offsetZ,
+      ],
+    );
   }
 
   return seats;
@@ -161,6 +206,7 @@ function buildFallbackZoneSeat(
 
   return {
     position,
+    approachPosition: position,
     facing: Math.PI,
     instanceId: null,
     isFallback: true,
@@ -188,6 +234,7 @@ function buildRestFallbackSeats(
     }
     fallbackSeats.push({
       position,
+      approachPosition: position,
       facing: Math.PI,
       instanceId: null,
       isFallback: true,
@@ -265,12 +312,19 @@ export class SeatRegistry {
       const zone = zoneById.get(inst.zone_id);
       const targetSeats =
         zone?.archetype === 'rest' ? getRestZoneSeats(inst.zone_id) : getZoneSeats(inst.zone_id);
-      const anchor =
-        zone?.archetype === 'rest'
-          ? (spec.anchors.stand ?? spec.anchors.approach ?? spec.anchors.work)
-          : spec.anchors.work;
-
-      targetSeats.push(...buildAnchoredSeats(spec, inst, anchor));
+      if (zone?.archetype === 'rest') {
+        const restAnchor = spec.anchors.stand ?? spec.anchors.approach ?? spec.anchors.work;
+        targetSeats.push(...buildAnchoredSeats(spec, inst, restAnchor, restAnchor));
+      } else {
+        targetSeats.push(
+          ...buildAnchoredSeats(
+            spec,
+            inst,
+            spec.anchors.work,
+            spec.anchors.approach ?? spec.anchors.work,
+          ),
+        );
+      }
     }
 
     // Phase 2: fill workspace fallback seats for zones that need more capacity.
