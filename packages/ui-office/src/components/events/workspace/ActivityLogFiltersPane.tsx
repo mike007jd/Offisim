@@ -24,11 +24,9 @@ interface ActivityLogFiltersPaneProps {
   search: string;
   eventTypes: string[];
   datePreset: DatePreset;
-  actorFilters: string[];
   onSearchChange: (search: string) => void;
   onEventTypesChange: (types: string[]) => void;
   onDatePresetChange: (preset: DatePreset) => void;
-  onActorFiltersChange: (actors: string[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,11 +37,9 @@ export function ActivityLogFiltersPane({
   search,
   eventTypes,
   datePreset,
-  actorFilters: _actorFilters,
   onSearchChange,
   onEventTypesChange,
   onDatePresetChange,
-  onActorFiltersChange: _onActorFiltersChange,
 }: ActivityLogFiltersPaneProps) {
   const toggleEventType = useCallback(
     (type: string) => {
@@ -68,7 +64,10 @@ export function ActivityLogFiltersPane({
     <div className="flex flex-col gap-4 p-4 h-full overflow-y-auto">
       {/* Search */}
       <div>
-        <label htmlFor="activity-log-search" className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 block">
+        <label
+          htmlFor="activity-log-search"
+          className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 block"
+        >
           Search
         </label>
         <div className="relative">
@@ -138,9 +137,7 @@ export function ActivityLogFiltersPane({
         <div className="flex flex-wrap gap-1">
           {ALL_LEVELS.map((level) => {
             const active = eventTypes.length === 0 || eventTypes.includes(level);
-            return (
-              <LevelPill key={level} level={level} active={active} />
-            );
+            return <LevelPill key={level} level={level} active={active} />;
           })}
         </div>
       </div>
@@ -172,9 +169,7 @@ function LevelPill({ level, active }: { level: EventLevel; active: boolean }) {
   return (
     <span
       className={`px-2 py-1 rounded text-[11px] font-medium border ${
-        active
-          ? colorMap[level]
-          : 'bg-transparent text-slate-400 border-slate-400/20 opacity-40'
+        active ? colorMap[level] : 'bg-transparent text-slate-400 border-slate-400/20 opacity-40'
       }`}
     >
       {level}

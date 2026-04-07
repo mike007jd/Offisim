@@ -7,6 +7,18 @@ export function formatTimestamp(ts: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+/** Format a Unix timestamp (ms) as a full absolute date/time string. */
+export function formatFullTimestamp(ts: number): string {
+  return new Date(ts).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 /** Truncate a string to max length with ellipsis. */
 export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;

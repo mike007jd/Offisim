@@ -2,12 +2,18 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
-import { hydrateEventLogStore, getEventLevel } from '../EventLog';
-import type { EventDisplayLevel } from '../EventLog';
+import type { EventFilterType } from '../EventFilters';
 import { EventItem } from '../EventItem';
+import {
+  LEVEL_ROW_STYLES,
+  TYPE_PREFIX_MAP,
+  getEventLevel,
+  hydrateEventLogStore,
+} from '../EventLog';
+import type { EventDisplayLevel } from '../EventLog';
+import { ActivityLogEventFocus } from './ActivityLogEventFocus';
 import { ActivityLogFiltersPane } from './ActivityLogFiltersPane';
 import type { DatePreset } from './ActivityLogFiltersPane';
-import { ActivityLogEventFocus } from './ActivityLogEventFocus';
 
 // ---------------------------------------------------------------------------
 // Types — mirrored from apps/web workspace types to avoid cross-package deps
@@ -31,61 +37,28 @@ export interface ActivityLogPageProps {
 }
 
 // ---------------------------------------------------------------------------
-// Filter type → topic prefix mapping (reused from EventLog)
-// ---------------------------------------------------------------------------
-
-const TYPE_PREFIX_MAP: Record<string, string[]> = {
-  All: [],
-  Node: ['graph.node.'],
-  Plan: ['plan.'],
-  Task: ['task.'],
-  Deliverable: ['deliverable.'],
-  Employee: ['employee.'],
-  Install: ['install.'],
-  LLM: ['llm.'],
-  Interaction: ['interaction.'],
-  Error: ['error.'],
-  MCP: ['mcp.'],
-  Knowledge: ['knowledge.'],
-  Meeting: ['meeting.', 'direct.chat.'],
-  HR: ['hr.'],
-  Memory: ['memory.'],
-  Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
-  Git: ['git.'],
-};
-
-// ---------------------------------------------------------------------------
 // Date preset → cutoff timestamp
 // ---------------------------------------------------------------------------
 
 function getDateCutoff(preset: DatePreset): number {
   const now = Date.now();
   switch (preset) {
-    case 'today': return now - 24 * 60 * 60 * 1000;
-    case '7d': return now - 7 * 24 * 60 * 60 * 1000;
-    case '30d': return now - 30 * 24 * 60 * 60 * 1000;
-    case 'custom': return 0; // no cutoff
+    case 'today':
+      return now - 24 * 60 * 60 * 1000;
+    case '7d':
+      return now - 7 * 24 * 60 * 60 * 1000;
+    case '30d':
+      return now - 30 * 24 * 60 * 60 * 1000;
+    case 'custom':
+      return 0; // no cutoff
   }
 }
-
-// ---------------------------------------------------------------------------
-// Level row styles (reused from EventLog)
-// ---------------------------------------------------------------------------
-
-const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
-  Info: '',
-  Warning: 'border-l-2 border-amber-400 bg-amber-400/5',
-  Error: 'border-l-2 border-red-400 bg-red-400/5',
-};
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ActivityLogPage({
-  sessionState,
-  onSessionStateChange,
-}: ActivityLogPageProps) {
+export function ActivityLogPage({ sessionState, onSessionStateChange }: ActivityLogPageProps) {
   const { eventBus, bootstrapState } = useOffisimRuntime();
   const store = useMemo(
     () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
@@ -122,7 +95,7 @@ export function ActivityLogPage({
     const prefixes: string[] = [];
     if (eventTypes.length > 0) {
       for (const type of eventTypes) {
-        const p = TYPE_PREFIX_MAP[type];
+        const p = TYPE_PREFIX_MAP[type as EventFilterType];
         if (p) prefixes.push(...p);
       }
     }
@@ -146,10 +119,17 @@ export function ActivityLogPage({
   // Find the focused event
   const focusedEvent = useMemo(() => {
     if (!sessionState.selectedEventId) return null;
-    return events.find(
-      (e) => `${e.timestamp}-${e.entityId}` === sessionState.selectedEventId,
-    ) ?? null;
+    return (
+      events.find((e) => `${e.timestamp}-${e.entityId}` === sessionState.selectedEventId) ?? null
+    );
   }, [events, sessionState.selectedEventId]);
+
+  // Deleted entity recovery: selected event no longer in store
+  useEffect(() => {
+    if (sessionState.selectedEventId && !focusedEvent) {
+      onSessionStateChange({ ...sessionState, selectedEventId: null });
+    }
+  }, [sessionState, focusedEvent, onSessionStateChange]);
 
   // Handlers
   const handleSelectEvent = useCallback(
@@ -190,17 +170,14 @@ export function ActivityLogPage({
     [sessionState, onSessionStateChange],
   );
 
-  const handleActorFiltersChange = useCallback(
-    (actorFilters: string[]) => {
-      onSessionStateChange({ ...sessionState, actorFilters });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
   // Event-focused mode
   if (sessionState.selectedEventId && focusedEvent) {
     return (
-      <div data-workspace="activity-log" data-testid="workspace-activity-log" className="flex flex-col h-full">
+      <div
+        data-workspace="activity-log"
+        data-testid="workspace-activity-log"
+        className="flex flex-col h-full"
+      >
         <header className="workspace-shell-header">
           <div className="min-w-0">
             <p className="workspace-shell-eyebrow">Workspace</p>
@@ -214,17 +191,12 @@ export function ActivityLogPage({
     );
   }
 
-  // Handle selected event that no longer exists (deleted entity recovery)
-  if (sessionState.selectedEventId && !focusedEvent) {
-    // Event was deleted or no longer in store — fall back to timeline
-    // Use a microtask to avoid setState during render
-    queueMicrotask(() => {
-      onSessionStateChange({ ...sessionState, selectedEventId: null });
-    });
-  }
-
   return (
-    <div data-workspace="activity-log" data-testid="workspace-activity-log" className="flex flex-col h-full">
+    <div
+      data-workspace="activity-log"
+      data-testid="workspace-activity-log"
+      className="flex flex-col h-full"
+    >
       <header className="workspace-shell-header">
         <div className="min-w-0">
           <p className="workspace-shell-eyebrow">Workspace</p>
@@ -243,11 +215,9 @@ export function ActivityLogPage({
             search={sessionState.search}
             eventTypes={sessionState.eventTypes}
             datePreset={sessionState.datePreset}
-            actorFilters={sessionState.actorFilters}
             onSearchChange={handleSearchChange}
             onEventTypesChange={handleEventTypesChange}
             onDatePresetChange={handleDatePresetChange}
-            onActorFiltersChange={handleActorFiltersChange}
           />
         </aside>
 
@@ -281,21 +251,14 @@ export function ActivityLogPage({
                 filteredEvents.map(({ event, level }, i) => {
                   const rowStyle = LEVEL_ROW_STYLES[level];
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={`${event.timestamp}-${i}`}
-                      role="button"
-                      tabIndex={0}
-                      className={`${rowStyle} cursor-pointer hover:bg-white/5 transition-colors`}
+                      className={`${rowStyle} cursor-pointer hover:bg-white/5 transition-colors text-left w-full`}
                       onClick={() => handleSelectEvent(event)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleSelectEvent(event);
-                        }
-                      }}
                     >
                       <EventItem event={event} />
-                    </div>
+                    </button>
                   );
                 })
               )}

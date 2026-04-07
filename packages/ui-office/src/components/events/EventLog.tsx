@@ -111,7 +111,7 @@ export function disposeEventLogStore(eventBus: EventBus) {
 }
 
 /** Map a filter type label to the topic prefix(es) it covers */
-const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
+export const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
   All: [],
   Node: ['graph.node.'],
   Plan: ['plan.'],
@@ -154,7 +154,7 @@ function extractEmployeeId(event: RuntimeEvent): string | null {
   return null;
 }
 
-const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
+export const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
   Info: '',
   Warning: 'border-l-2 border-amber-400 bg-amber-400/5',
   Error: 'border-l-2 border-red-400 bg-red-400/5',
