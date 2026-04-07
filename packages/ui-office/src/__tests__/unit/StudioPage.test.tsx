@@ -8,6 +8,7 @@ const storeState = {
   isEditingZone: false,
   placingPrefab: null as { name: string } | null,
   placingZonePreset: null as { label: string } | null,
+  placementFeedback: null as { tone: 'info' | 'warning'; message: string } | null,
   zones: [] as Array<{ zoneId: string; label: string }>,
   resetForCompany: vi.fn(),
   loadZonesFromDb: vi.fn(),
@@ -77,5 +78,22 @@ describe('StudioPage', () => {
     ).toBeInTheDocument();
 
     storeState.placingPrefab = null;
+  });
+
+  it('surfaces placement warnings when the current location would leave the prefab unassigned', () => {
+    storeState.placingPrefab = { name: 'Focus Pod' };
+    storeState.placementFeedback = {
+      tone: 'warning',
+      message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+    };
+
+    render(<StudioPage mode="create" repos={null} onBack={vi.fn()} />);
+
+    expect(
+      screen.getByText('This spot does not belong to a compatible zone. The prefab will be left unassigned.'),
+    ).toBeInTheDocument();
+
+    storeState.placingPrefab = null;
+    storeState.placementFeedback = null;
   });
 });

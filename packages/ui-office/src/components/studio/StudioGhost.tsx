@@ -17,6 +17,7 @@
  */
 
 import { getBuiltinPrefab } from '@offisim/renderer';
+import { resolveZoneForPosition, UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
@@ -104,6 +105,7 @@ export function StudioGhost() {
   const plotSize = useStudioStore((s) => s.plotSize);
   const placeInstance = useStudioStore((s) => s.placeInstance);
   const cancelPlacement = useStudioStore((s) => s.cancelPlacement);
+  const setPlacementFeedback = useStudioStore((s) => s.setPlacementFeedback);
   const gridSnap = useStudioStore((s) => s.gridSnap);
   // instances is read via getState() in event handlers to avoid stale closure (PERF-4)
 
@@ -166,6 +168,12 @@ export function StudioGhost() {
     });
     return () => cancelAnimationFrame(raf);
   }, [placingPrefab, validMat, invalidate]);
+
+  useEffect(() => {
+    if (!placingPrefab) {
+      setPlacementFeedback(null);
+    }
+  }, [placingPrefab, setPlacementFeedback]);
 
   // ── Layer assignment (Skill §12): ghost group → Layer 1 ──────────
   useEffect(() => {
@@ -286,6 +294,7 @@ export function StudioGhost() {
             ghostRotation: curGhostRotation,
             instances: currentInstances,
             placingPrefab: curPlacing,
+            zones: currentZones,
           } = useStudioStore.getState();
           const isBlocked = checkOverlap(
             x,
@@ -297,6 +306,32 @@ export function StudioGhost() {
             currentInstances,
           );
           blockedRef.current = isBlocked;
+
+          const zoneMatch = resolveZoneForPosition(
+            x,
+            z,
+            curPlacing?.category ?? placingPrefab.category,
+            currentZones,
+          );
+          if (isBlocked) {
+            setPlacementFeedback({
+              tone: 'warning',
+              message: 'This spot is blocked by another prefab. Move to a clear area before placing.',
+            });
+          } else if (zoneMatch.zoneId === UNASSIGNED_ZONE_ID) {
+            setPlacementFeedback({
+              tone: 'warning',
+              message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+            });
+          } else {
+            const zoneLabel = currentZones.find((zone) => zone.zoneId === zoneMatch.zoneId)?.label;
+            setPlacementFeedback({
+              tone: 'info',
+              message: zoneLabel
+                ? `This prefab will be assigned to ${zoneLabel}.`
+                : 'This placement is valid.',
+            });
+          }
 
           if (groupRef.current) {
             groupRef.current.position.set(x, 0, z);
@@ -330,6 +365,10 @@ export function StudioGhost() {
               currentInstances,
             )
           ) {
+            setPlacementFeedback({
+              tone: 'warning',
+              message: 'This spot is blocked by another prefab. Move to a clear area before placing.',
+            });
             return; // don't place
           }
 
@@ -339,6 +378,7 @@ export function StudioGhost() {
         onContextMenu={(e) => {
           e.stopPropagation();
           cancelPlacement();
+          setPlacementFeedback(null);
           invalidate();
         }}
       >

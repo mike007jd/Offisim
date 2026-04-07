@@ -240,6 +240,7 @@ export function StudioPage(props: StudioPageProps) {
   const isEditingZone = useStudioStore((s) => s.isEditingZone);
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
   const placingZonePreset = useStudioStore((s) => s.placingZonePreset);
+  const placementFeedback = useStudioStore((s) => s.placementFeedback);
   const zones = useStudioStore((s) => s.zones);
 
   const focusedZoneLabel = focusedZoneId
@@ -510,6 +511,20 @@ export function StudioPage(props: StudioPageProps) {
         <span style={{ fontSize: FONT.xs, color: STUDIO_COLORS.textTertiary, lineHeight: 1.45 }}>
           {modeBadge.guidance}
         </span>
+        {placementFeedback ? (
+          <span
+            style={{
+              fontSize: FONT.xs,
+              color:
+                placementFeedback.tone === 'warning'
+                  ? STUDIO_COLORS.warning
+                  : STUDIO_COLORS.catWorkspace,
+              lineHeight: 1.45,
+            }}
+          >
+            {placementFeedback.message}
+          </span>
+        ) : null}
       </div>
 
       {/* Left palette: prefab catalog */}

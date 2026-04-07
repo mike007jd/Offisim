@@ -18,6 +18,11 @@ export interface PlotSize {
   depth: number; // 3D Z axis
 }
 
+export interface PlacementFeedback {
+  tone: 'info' | 'warning';
+  message: string;
+}
+
 export const PLOT_SIZES: PlotSize[] = [
   { name: 'Small Studio', width: 20, depth: 15 },
   { name: 'Standard Office', width: 40, depth: 30 },
@@ -43,6 +48,7 @@ export interface StudioStore {
   isEditingZone: boolean;
   /** Active zone preset during zone placement mode. */
   placingZonePreset: ZonePreset | null;
+  placementFeedback: PlacementFeedback | null;
   dirty: boolean;
   gridSnap: boolean;
 
@@ -83,6 +89,7 @@ export interface StudioStore {
   startZonePlacement: (preset: ZonePreset) => void;
   /** Cancel zone placement mode. */
   cancelZonePlacement: () => void;
+  setPlacementFeedback: (feedback: PlacementFeedback | null) => void;
   /** Place a zone preset at the given world position, creating zone + prefab instances. */
   placeZoneFromPreset: (
     position: [number, number, number],
@@ -129,6 +136,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   selectedZoneId: null,
   isEditingZone: false,
   placingZonePreset: null,
+  placementFeedback: null,
   dirty: false,
   gridSnap: true,
 
@@ -147,6 +155,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       selectedZoneId: null,
       isEditingZone: false,
       placingZonePreset: null,
+      placementFeedback: null,
       dirty: false,
       gridSnap: true,
     });
@@ -161,8 +170,15 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
   startPlacement: (def) =>
-    set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
-  cancelPlacement: () => set({ tool: 'select', placingPrefab: null, ghostRotation: 0 }),
+    set({
+      tool: 'place',
+      placingPrefab: def,
+      ghostRotation: 0,
+      selectedInstanceId: null,
+      placementFeedback: null,
+    }),
+  cancelPlacement: () =>
+    set({ tool: 'select', placingPrefab: null, ghostRotation: 0, placementFeedback: null }),
 
   rotateGhost: () => {
     const ROTATIONS: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
@@ -182,7 +198,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       rotation: ghostRotation,
       zoneId: match.zoneId,
     };
-    set({ instances: [...instances, instance], dirty: true });
+    set({ instances: [...instances, instance], dirty: true, placementFeedback: null });
   },
 
   selectInstance: (id) => set({ selectedInstanceId: id }),
@@ -363,9 +379,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       ghostRotation: 0,
       selectedInstanceId: null,
       selectedZoneId: null,
+      placementFeedback: null,
     }),
 
-  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null }),
+  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null, placementFeedback: null }),
+
+  setPlacementFeedback: (placementFeedback) => set({ placementFeedback }),
 
   placeZoneFromPreset: (position, allPrefabsMap) => {
     const { placingZonePreset } = get();
