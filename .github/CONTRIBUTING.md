@@ -21,21 +21,9 @@ Start with [`Docs/00_start_here/LOCAL_DEVELOPMENT.md`](../Docs/00_start_here/LOC
 - Feature branches: `feature/<name>` or `fix/<name>`
 - Keep pull requests focused; avoid unrelated cleanup in the same PR
 
-## Pull Request Requirements
+## Pull Request Recommendations
 
-Before opening a PR, run:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' test
-```
-
-If your change touches desktop packaging, also run:
-
-```bash
-pnpm --filter @offisim/desktop build
-```
+For manual verification before opening a PR, run the checks relevant to your change locally.
 
 ## Commit Style
 
