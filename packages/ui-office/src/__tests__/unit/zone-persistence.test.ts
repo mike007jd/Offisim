@@ -83,6 +83,7 @@ describe('useStudioStore zone actions', () => {
       instances: [],
       dirty: false,
       selectedZoneId: null,
+      placementFeedback: null,
     });
   });
 
@@ -137,5 +138,35 @@ describe('useStudioStore zone actions', () => {
         false,
       );
     }
+  });
+
+  it('clears stale placement feedback when leaving placement mode via tool switch', () => {
+    useStudioStore.setState({
+      tool: 'place',
+      placementFeedback: {
+        tone: 'warning',
+        message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+      },
+    });
+
+    useStudioStore.getState().setTool('select');
+
+    expect(useStudioStore.getState().placementFeedback).toBeNull();
+  });
+
+  it('ignores redundant placement feedback updates with the same content', () => {
+    useStudioStore.getState().setPlacementFeedback({
+      tone: 'warning',
+      message: 'Blocked',
+    });
+
+    const firstFeedback = useStudioStore.getState().placementFeedback;
+
+    useStudioStore.getState().setPlacementFeedback({
+      tone: 'warning',
+      message: 'Blocked',
+    });
+
+    expect(useStudioStore.getState().placementFeedback).toBe(firstFeedback);
   });
 });

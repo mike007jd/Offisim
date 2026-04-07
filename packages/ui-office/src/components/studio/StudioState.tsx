@@ -164,8 +164,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setTool: (tool) => {
     const current = get();
     const placingPrefab = tool !== 'place' ? null : current.placingPrefab;
-    if (current.tool === tool && current.placingPrefab === placingPrefab) return;
-    set({ tool, placingPrefab });
+    const placementFeedback = tool === 'place' ? current.placementFeedback : null;
+    if (
+      current.tool === tool &&
+      current.placingPrefab === placingPrefab &&
+      current.placementFeedback === placementFeedback
+    )
+      return;
+    set({ tool, placingPrefab, placementFeedback });
   },
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
@@ -384,7 +390,20 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null, placementFeedback: null }),
 
-  setPlacementFeedback: (placementFeedback) => set({ placementFeedback }),
+  setPlacementFeedback: (placementFeedback) =>
+    set((state) => {
+      const current = state.placementFeedback;
+      if (
+        current?.tone === placementFeedback?.tone &&
+        current?.message === placementFeedback?.message
+      ) {
+        return state;
+      }
+      if (current === null && placementFeedback === null) {
+        return state;
+      }
+      return { placementFeedback };
+    }),
 
   placeZoneFromPreset: (position, allPrefabsMap) => {
     const { placingZonePreset } = get();
