@@ -66,7 +66,6 @@ const MODE_BANNER_STYLE: React.CSSProperties = {
   left: LAYOUT.paletteWidth + 16,
   zIndex: 25,
   display: 'flex',
-  alignItems: 'center',
   gap: SP.sm,
   padding: `${SP.sm}px ${SP.md}px`,
   borderRadius: 999,
@@ -75,6 +74,8 @@ const MODE_BANNER_STYLE: React.CSSProperties = {
   color: STUDIO_COLORS.textSecondary,
   pointerEvents: 'none',
   backdropFilter: 'blur(10px)',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
 };
 
 // -- Inline modal for company name --------------------------------------------
@@ -248,25 +249,30 @@ export function StudioPage(props: StudioPageProps) {
     ? {
         label: 'Decoration Mode',
         detail: focusedZoneLabel ? `Editing ${focusedZoneLabel}` : 'Editing selected zone',
+        guidance: 'Drag furniture inside the focused zone. Press Escape to return to overview.',
       }
     : focusedZoneId
       ? {
           label: 'Zone Mode',
           detail: focusedZoneLabel ? `Focused on ${focusedZoneLabel}` : 'Focused zone',
+          guidance: 'Press Enter Decoration Mode to edit only this zone, or press Escape to zoom back out.',
         }
       : placingZonePreset
         ? {
             label: 'Zone Mode',
             detail: `Placing ${placingZonePreset.label}`,
+            guidance: 'Click an open area to place the zone preset. Press Escape to cancel placement.',
           }
         : placingPrefab
           ? {
               label: 'Decoration Mode',
               detail: `Placing ${placingPrefab.name}`,
+              guidance: 'Click a valid floor area to place it. Use R to rotate before confirming.',
             }
           : {
               label: 'Zone Mode',
               detail: 'Shape the office first, then refine each zone.',
+              guidance: 'Select a zone to focus it, then enter decoration mode to work inside it.',
             };
 
   useEffect(() => {
@@ -481,24 +487,29 @@ export function StudioPage(props: StudioPageProps) {
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
       <div style={MODE_BANNER_STYLE} aria-live="polite">
-        <span
-          style={{
-            fontSize: FONT.sm,
-            fontWeight: FONT.semibold,
-            color: STUDIO_COLORS.textPrimary,
-          }}
-        >
-          {modeBadge.label}
+        <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
+          <span
+            style={{
+              fontSize: FONT.sm,
+              fontWeight: FONT.semibold,
+              color: STUDIO_COLORS.textPrimary,
+            }}
+          >
+            {modeBadge.label}
+          </span>
+          <span
+            style={{
+              width: 4,
+              height: 4,
+              borderRadius: '50%',
+              background: STUDIO_COLORS.borderActive,
+            }}
+          />
+          <span style={{ fontSize: FONT.sm }}>{modeBadge.detail}</span>
+        </div>
+        <span style={{ fontSize: FONT.xs, color: STUDIO_COLORS.textTertiary, lineHeight: 1.45 }}>
+          {modeBadge.guidance}
         </span>
-        <span
-          style={{
-            width: 4,
-            height: 4,
-            borderRadius: '50%',
-            background: STUDIO_COLORS.borderActive,
-          }}
-        />
-        <span style={{ fontSize: FONT.sm }}>{modeBadge.detail}</span>
       </div>
 
       {/* Left palette: prefab catalog */}

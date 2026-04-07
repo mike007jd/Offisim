@@ -361,25 +361,19 @@ export function StudioProperties() {
 
               {/* Position */}
               <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Position</div>
-                <div style={ROW_STYLE}>
-                  <span
-                    style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}
-                  >
-                    X
-                  </span>
-                  <span style={{ ...valueStyle() }}>{x.toFixed(1)}</span>
-                  <span
-                    style={{
-                      fontSize: FONT.sm,
-                      fontWeight: FONT.bold,
-                      color: STUDIO_COLORS.catWorkspace,
-                      marginLeft: SP.md,
-                    }}
-                  >
-                    Z
-                  </span>
-                  <span style={{ ...valueStyle() }}>{z.toFixed(1)}</span>
+                <div style={labelStyle()}>Placement</div>
+                <div style={{ ...valueStyle(), lineHeight: 1.5 }}>
+                  {instanceZone ? `Assigned to ${instanceZone.label}` : 'Not assigned to a compatible zone'}
+                </div>
+                <div
+                  style={{
+                    marginTop: SP.xs / 2,
+                    fontSize: FONT.sm,
+                    color: STUDIO_COLORS.textTertiary,
+                    fontFamily: FONT.family,
+                  }}
+                >
+                  X {x.toFixed(1)} · Z {z.toFixed(1)}
                 </div>
               </div>
 
@@ -443,6 +437,18 @@ export function StudioProperties() {
                       {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
                     </span>
                   )}
+                </div>
+                <div
+                  style={{
+                    marginTop: SP.xs / 2,
+                    fontSize: FONT.sm,
+                    color: instanceZone ? STUDIO_COLORS.textTertiary : STUDIO_COLORS.warning,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {instanceZone
+                    ? 'Move or rotate the prefab and its zone assignment will update automatically.'
+                    : 'Move this prefab into a compatible zone so the office can reason about ownership.'}
                 </div>
               </div>
 
