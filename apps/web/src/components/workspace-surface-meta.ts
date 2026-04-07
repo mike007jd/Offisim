@@ -17,7 +17,8 @@ export const WORKSPACE_SURFACE_META: Record<
   library: {
     label: 'Library',
     icon: BookOpen,
-    entryDescription: 'Open the office knowledge shelf without promoting it to a permanent global tab.',
+    entryDescription:
+      'Open the office knowledge shelf without promoting it to a permanent global tab.',
   },
   server: {
     label: 'Server Room',

@@ -17,7 +17,7 @@
  */
 
 import { getBuiltinPrefab } from '@offisim/renderer';
-import { resolveZoneForPosition, UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForPosition } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
@@ -316,12 +316,14 @@ export function StudioGhost() {
           if (isBlocked) {
             setPlacementFeedback({
               tone: 'warning',
-              message: 'This spot is blocked by another prefab. Move to a clear area before placing.',
+              message:
+                'This spot is blocked by another prefab. Move to a clear area before placing.',
             });
           } else if (zoneMatch.zoneId === UNASSIGNED_ZONE_ID) {
             setPlacementFeedback({
               tone: 'warning',
-              message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+              message:
+                'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
             });
           } else {
             const zoneLabel = currentZones.find((zone) => zone.zoneId === zoneMatch.zoneId)?.label;
@@ -367,7 +369,8 @@ export function StudioGhost() {
           ) {
             setPlacementFeedback({
               tone: 'warning',
-              message: 'This spot is blocked by another prefab. Move to a clear area before placing.',
+              message:
+                'This spot is blocked by another prefab. Move to a clear area before placing.',
             });
             return; // don't place
           }

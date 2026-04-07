@@ -34,7 +34,9 @@ export function StreamingBubble() {
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
   const displayContent = content || (isStreaming ? placeholder : '\u00A0');
-  const isStructured = /(^|\n)```|(^|\n)>\s*(Note|Warning|Result):|(^|\n)[-*]\s+/m.test(displayContent);
+  const isStructured = /(^|\n)```|(^|\n)>\s*(Note|Warning|Result):|(^|\n)[-*]\s+/m.test(
+    displayContent,
+  );
 
   return (
     <div className="flex flex-col items-start">

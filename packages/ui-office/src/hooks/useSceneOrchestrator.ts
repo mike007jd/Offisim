@@ -346,7 +346,9 @@ export function getMovementDebugInfo(companyId: string): Array<{
         isMoving: handle.isMoving(),
       };
     })
-    .filter((entry): entry is { id: string; x: number; y: number; isMoving: boolean } => entry != null);
+    .filter(
+      (entry): entry is { id: string; x: number; y: number; isMoving: boolean } => entry != null,
+    );
 }
 
 // ── Slot tracker for workstation assignment ──────────────────────
@@ -439,14 +441,17 @@ export function useSceneOrchestrator({
     timerRefs.current.add(id);
     return id;
   }, []);
-  const clearSceneBubbleText = useCallback((label: string, delayMs: number) => {
-    safeTimeout(() => {
-      setCeremony((prev) => {
-        if (prev.bubbleText !== label) return prev;
-        return { ...prev, bubbleText: '' };
-      });
-    }, delayMs);
-  }, [safeTimeout]);
+  const clearSceneBubbleText = useCallback(
+    (label: string, delayMs: number) => {
+      safeTimeout(() => {
+        setCeremony((prev) => {
+          if (prev.bubbleText !== label) return prev;
+          return { ...prev, bubbleText: '' };
+        });
+      }, delayMs);
+    },
+    [safeTimeout],
+  );
 
   // Cleanup module-level Maps and pending timers on unmount / company switch
   const activeCompanyId = companyId;
@@ -508,38 +513,42 @@ export function useSceneOrchestrator({
   );
 
   /** Move all enabled employees to MTG semicircle positions. */
-  const gatherAll = useCallback((_version: number) => {
-    const allIds = [...agentsRef.current.keys()];
-    if (allIds.length === 0) return; // No employees to gather
-    const participantIds = new Set(allIds);
-    resetSlotCounters();
+  const gatherAll = useCallback(
+    (_version: number) => {
+      const allIds = [...agentsRef.current.keys()];
+      if (allIds.length === 0) return; // No employees to gather
+      const participantIds = new Set(allIds);
+      resetSlotCounters();
 
-    setCeremony({
-      phase: 'gathering',
-      bubbleText: 'Gathering team...',
-      participantIds,
-      dispatchedIds: new Set(),
-      managerVisible: false,
-      managerPosition: null,
-      waitingRelationships: [],
-    });
-    clearAssignedSceneState();
+      setCeremony({
+        phase: 'gathering',
+        bubbleText: 'Gathering team...',
+        participantIds,
+        dispatchedIds: new Set(),
+        managerVisible: false,
+        managerPosition: null,
+        waitingRelationships: [],
+      });
+      clearAssignedSceneState();
 
-    const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
-    const mtgPositions = computeMtgPositions(mtgCenter);
+      const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
+      const mtgPositions = computeMtgPositions(mtgCenter);
 
-    allIds.forEach((id, idx) => {
-      const handle = getMovementHandles(companyIdRef.current).get(id);
-      if (!handle) return;
-      const resolvedSeat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
-      const jittered: [number, number, number] = [
-        resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
-        0,
-        resolvedSeat[2] + (Math.random() - 0.5) * 0.3,
-      ];
-      handle.moveTo(jittered, 5); // ceremony speed
-    });
-  }, [clearAssignedSceneState]);
+      allIds.forEach((id, idx) => {
+        const handle = getMovementHandles(companyIdRef.current).get(id);
+        if (!handle) return;
+        const resolvedSeat =
+          mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
+        const jittered: [number, number, number] = [
+          resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
+          0,
+          resolvedSeat[2] + (Math.random() - 0.5) * 0.3,
+        ];
+        handle.moveTo(jittered, 5); // ceremony speed
+      });
+    },
+    [clearAssignedSceneState],
+  );
 
   /** Dispatch one employee from MTG to their workstation zone. */
   const dispatchEmployee = useCallback(
@@ -585,7 +594,6 @@ export function useSceneOrchestrator({
   );
 
   /** End ceremony: gather participants back to MTG, show summary, then dismiss. */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: moveEmployeeToRest is a stable useCallback with empty deps
   const startEndCeremony = useCallback(
     (summaryText: string, version: number) => {
       const meetingCenter = getZoneCenter(zonesRef.current, 'meeting');
@@ -630,8 +638,7 @@ export function useSceneOrchestrator({
           seat[2] + (Math.random() - 0.5) * 0.3,
         ];
         const basePosition = assignedWorkPositionsRef.current.get(id) ?? reportSeat;
-        const departureApproach =
-          assignedWorkApproachPositionsRef.current.get(id) ?? basePosition;
+        const departureApproach = assignedWorkApproachPositionsRef.current.get(id) ?? basePosition;
         const meetingZoneId = getMeetingZoneId(zonesRef.current);
         const workZoneId = assignedWorkZoneIdsRef.current.get(id);
         const route = buildReturnToMeetingRoute(basePosition, mtgCenter, reportSeat, {
@@ -863,11 +870,7 @@ export function useSceneOrchestrator({
           const obstacleFootprints = getSceneObstacleFootprints();
           if (e.payload.status === 'started') {
             handle.moveTo(
-              buildWorkActivityTarget(
-                basePosition,
-                categorizeTool(e.payload),
-                obstacleFootprints,
-              ),
+              buildWorkActivityTarget(basePosition, categorizeTool(e.payload), obstacleFootprints),
               2.8,
             );
           } else {

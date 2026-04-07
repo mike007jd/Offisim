@@ -5,7 +5,13 @@ export type AssistantBlock =
   | { type: 'code'; key: string; language: string | null; code: string }
   | { type: 'list'; key: string; items: string[] }
   | { type: 'paragraph'; key: string; lines: string[] }
-  | { type: 'callout'; key: string; tone: 'note' | 'warning' | 'result'; title: string; body: string };
+  | {
+      type: 'callout';
+      key: string;
+      tone: 'note' | 'warning' | 'result';
+      title: string;
+      body: string;
+    };
 
 function renderWithCitations(text: string): ReactNode {
   const parts = text.split(/(\[\d+\])/g);
@@ -105,7 +111,9 @@ export function parseAssistantBlocks(text: string): AssistantBlock[] {
     flushList();
     const label = calloutMatch[1] ?? 'Note';
     const tone = label.toLowerCase() as 'note' | 'warning' | 'result';
-    const title = label[0]?.toUpperCase() ? label[0].toUpperCase() + label.slice(1).toLowerCase() : 'Note';
+    const title = label[0]?.toUpperCase()
+      ? label[0].toUpperCase() + label.slice(1).toLowerCase()
+      : 'Note';
     blocks.push({
       type: 'callout',
       key: `callout-${blocks.length}-${rawLine}`,
@@ -215,7 +223,9 @@ function CalloutBlock({
 
   return (
     <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">{title}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">
+        {title}
+      </div>
       <div className="mt-1 text-sm leading-relaxed">{renderInlineMarkdown(body)}</div>
     </div>
   );
@@ -238,12 +248,7 @@ export function RichAssistantBody({
 
     if (block.type === 'callout') {
       return (
-        <CalloutBlock
-          key={block.key}
-          tone={block.tone}
-          title={block.title}
-          body={block.body}
-        />
+        <CalloutBlock key={block.key} tone={block.tone} title={block.title} body={block.body} />
       );
     }
 

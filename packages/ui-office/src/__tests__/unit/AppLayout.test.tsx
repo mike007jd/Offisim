@@ -136,9 +136,7 @@ describe('AppLayout', () => {
 
     expect(label).toHaveStyle({ writingMode: 'vertical-rl', transform: 'rotate(180deg)' });
     expect(
-      container.querySelector(
-        'button[aria-label="Expand chat panel"] svg.lucide-chevron-left',
-      ),
+      container.querySelector('button[aria-label="Expand chat panel"] svg.lucide-chevron-left'),
     ).not.toBeNull();
     expect(expandButton).toContainElement(label);
   });

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, MessageSquare, type LucideIcon, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, type LucideIcon, MessageSquare, Users } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 interface AppLayoutProps {

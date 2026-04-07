@@ -1,11 +1,8 @@
 import type { Zone } from '@offisim/shared-types';
+import { EventLog, Library, MarketplacePanel, ServerRoom, SopPanel } from '@offisim/ui-office';
 import { BookOpen, Database } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { EventLog, Library, MarketplacePanel, ServerRoom, SopPanel } from '@offisim/ui-office';
-import {
-  hasWorkspaceSurfaceZone,
-  type WorkspaceSurfaceView,
-} from './workspace-surface-meta';
+import { type WorkspaceSurfaceView, hasWorkspaceSurfaceZone } from './workspace-surface-meta';
 
 interface WorkspaceSurfaceProps {
   view: WorkspaceSurfaceView;

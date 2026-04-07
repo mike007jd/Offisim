@@ -256,13 +256,15 @@ export function StudioPage(props: StudioPageProps) {
       ? {
           label: 'Zone Mode',
           detail: focusedZoneLabel ? `Focused on ${focusedZoneLabel}` : 'Focused zone',
-          guidance: 'Press Enter Decoration Mode to edit only this zone, or press Escape to zoom back out.',
+          guidance:
+            'Press Enter Decoration Mode to edit only this zone, or press Escape to zoom back out.',
         }
       : placingZonePreset
         ? {
             label: 'Zone Mode',
             detail: `Placing ${placingZonePreset.label}`,
-            guidance: 'Click an open area to place the zone preset. Press Escape to cancel placement.',
+            guidance:
+              'Click an open area to place the zone preset. Press Escape to cancel placement.',
           }
         : placingPrefab
           ? {

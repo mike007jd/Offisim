@@ -1,10 +1,10 @@
 import type { Zone } from '@offisim/shared-types';
 import type { ComponentType } from 'react';
 import { Suspense } from 'react';
+import type { AppView } from '../lib/app-view-layout';
 import { WorkspaceSurface } from './WorkspaceSurface';
 import { getWorkspaceCenterPaneMode } from './workspace-center-pane-mode';
 import type { WorkspaceSurfaceView } from './workspace-surface-meta';
-import type { AppView } from '../lib/app-view-layout';
 
 interface SceneCanvasLazyProps {
   active?: boolean;

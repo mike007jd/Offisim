@@ -1,9 +1,9 @@
 import type { Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
+  WORKSPACE_SURFACE_META,
   getOfficeSpaceEntryViews,
   hasWorkspaceSurfaceZone,
-  WORKSPACE_SURFACE_META,
 } from './workspace-surface-meta';
 
 function makeZone(archetype: Zone['archetype']): Zone {

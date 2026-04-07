@@ -145,7 +145,8 @@ describe('useStudioStore zone actions', () => {
       tool: 'place',
       placementFeedback: {
         tone: 'warning',
-        message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+        message:
+          'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
       },
     });
 

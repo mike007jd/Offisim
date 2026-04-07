@@ -144,10 +144,12 @@ export function Header({
 
         {onSelectWorkspace && (
           <div className="flex h-8 items-center rounded-lg border border-white/10 bg-black/30 p-1">
-            {([
-              { key: 'office', label: 'Office' },
-              { key: 'sops', label: 'SOPs' },
-            ] as const).map((workspace) => {
+            {(
+              [
+                { key: 'office', label: 'Office' },
+                { key: 'sops', label: 'SOPs' },
+              ] as const
+            ).map((workspace) => {
               const isActive = activeWorkspace === workspace.key;
               return (
                 <button

@@ -281,7 +281,11 @@ export function StudioPlacedPrefabs() {
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
           <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
-          <Html position={[0, 1.15, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
+          <Html
+            position={[0, 1.15, 0]}
+            center
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
             <div
               style={{
                 background: 'rgba(15, 23, 42, 0.88)',
@@ -296,7 +300,11 @@ export function StudioPlacedPrefabs() {
                 boxShadow: transformEnabled ? '0 0 0 1px rgba(99,102,241,0.16)' : 'none',
               }}
             >
-              {transformEnabled ? (transformMode === 'rotate' ? 'Rotate object' : 'Drag object') : 'Selected'}
+              {transformEnabled
+                ? transformMode === 'rotate'
+                  ? 'Rotate object'
+                  : 'Drag object'
+                : 'Selected'}
             </div>
           </Html>
         </group>

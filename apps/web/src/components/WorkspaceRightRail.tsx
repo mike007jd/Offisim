@@ -2,9 +2,9 @@ import type { ProjectRow, Zone } from '@offisim/shared-types';
 import { ChatPanel, RightSidebar, TaskDashboard } from '@offisim/ui-office';
 import type { AgentState } from '@offisim/ui-office';
 import type { ComponentProps } from 'react';
-import { WORKSPACE_SURFACE_META, type WorkspaceSurfaceView } from './workspace-surface-meta';
-import { getWorkspaceRightRailMode } from './workspace-right-rail-mode';
 import type { AppView } from '../lib/app-view-layout';
+import { getWorkspaceRightRailMode } from './workspace-right-rail-mode';
+import { WORKSPACE_SURFACE_META, type WorkspaceSurfaceView } from './workspace-surface-meta';
 
 interface WorkspaceRightRailProps {
   view: AppView;
@@ -40,7 +40,10 @@ function CollaborationRail({
   onOpenStudio,
   onClearSelection,
   onUserMessage,
-}: Omit<WorkspaceRightRailProps, 'view' | 'zones' | 'officeSpaceEntryViews' | 'agents' | 'focusOutputsToken' | 'onSelectView'>) {
+}: Omit<
+  WorkspaceRightRailProps,
+  'view' | 'zones' | 'officeSpaceEntryViews' | 'agents' | 'focusOutputsToken' | 'onSelectView'
+>) {
   return (
     <ChatPanel
       compact={false}

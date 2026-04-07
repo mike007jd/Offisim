@@ -43,7 +43,9 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ecosystem</p>
-            <p className="mt-1 text-sm font-semibold text-white">Browse shared capabilities and reusable building blocks</p>
+            <p className="mt-1 text-sm font-semibold text-white">
+              Browse shared capabilities and reusable building blocks
+            </p>
           </div>
           <Button type="button" size="sm" onClick={() => setPublishOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
@@ -127,7 +129,9 @@ export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplaceP
               <p className="py-8 text-center text-sm text-slate-500">Loading marketplace…</p>
             ) : !error && results.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                <p className="text-sm font-semibold text-slate-200">No catalog entries match this view</p>
+                <p className="text-sm font-semibold text-slate-200">
+                  No catalog entries match this view
+                </p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">
                   Try a broader search or switch the capability filter.
                 </p>

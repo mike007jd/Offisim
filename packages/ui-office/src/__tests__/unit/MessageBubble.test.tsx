@@ -15,9 +15,16 @@ import { MessageBubble } from '../../components/chat/MessageBubble.js';
 
 describe('MessageBubble', () => {
   it('renders assistant markdown-like paragraphs, bullets, and fenced code blocks consistently', () => {
-    const markdownReply = ['**Plan**', '', '- First step', '- `Second` step', '', '```ts', 'const value = 1;', '```'].join(
-      '\n',
-    );
+    const markdownReply = [
+      '**Plan**',
+      '',
+      '- First step',
+      '- `Second` step',
+      '',
+      '```ts',
+      'const value = 1;',
+      '```',
+    ].join('\n');
 
     render(createElement(MessageBubble, { role: 'assistant', content: markdownReply }));
 
@@ -43,7 +50,9 @@ describe('MessageBubble', () => {
 
   it('collapses long assistant replies until the reader expands them', async () => {
     const user = userEvent.setup();
-    const longReply = Array.from({ length: 9 }, (_, index) => `Paragraph ${index + 1}`).join('\n\n');
+    const longReply = Array.from({ length: 9 }, (_, index) => `Paragraph ${index + 1}`).join(
+      '\n\n',
+    );
 
     render(createElement(MessageBubble, { role: 'assistant', content: longReply }));
 
@@ -77,9 +86,10 @@ describe('MessageBubble', () => {
     render(
       createElement(MessageBubble, {
         role: 'assistant',
-        content: ['> Note: Shared context helps the whole team.', '> Warning: This will overwrite the draft.'].join(
-          '\n\n',
-        ),
+        content: [
+          '> Note: Shared context helps the whole team.',
+          '> Warning: This will overwrite the draft.',
+        ].join('\n\n'),
       }),
     );
 

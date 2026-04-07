@@ -2,7 +2,10 @@ import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { SeatRegistry } from '../../lib/seat-registry';
 
-function planarDistance(a: readonly [number, number, number], b: readonly [number, number, number]) {
+function planarDistance(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+) {
   const dx = a[0] - b[0];
   const dz = a[2] - b[2];
   return Math.sqrt(dx * dx + dz * dz);
@@ -66,18 +69,16 @@ describe('SeatRegistry', () => {
 
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.instanceId).toBe('ws1');
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.isFallback).toBe(false);
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[0]).toBeCloseTo(5, 5);
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[1]).toBeCloseTo(0, 5);
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[2]).toBeCloseTo(9.85, 5);
-    expect(seat!.approachPosition[2]).toBeGreaterThan(seat!.position[2]);
-    expect(planarDistance(seat!.position, seat!.approachPosition)).toBeCloseTo(0.35, 5);
+    if (!seat) {
+      throw new Error('expected workstation seat');
+    }
+    expect(seat.instanceId).toBe('ws1');
+    expect(seat.isFallback).toBe(false);
+    expect(seat.position[0]).toBeCloseTo(5, 5);
+    expect(seat.position[1]).toBeCloseTo(0, 5);
+    expect(seat.position[2]).toBeCloseTo(9.85, 5);
+    expect(seat.approachPosition[2]).toBeGreaterThan(seat.position[2]);
+    expect(planarDistance(seat.position, seat.approachPosition)).toBeCloseTo(0.35, 5);
   });
 
   it('handles rotation=90 correctly', () => {
@@ -96,14 +97,14 @@ describe('SeatRegistry', () => {
 
     const seat = reg.getSeat('z1', 0);
     expect(seat).not.toBeNull();
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[0]).toBeCloseTo(6.85, 5);
-    expect(seat!.approachPosition[0]).toBeGreaterThan(seat!.position[0]);
-    expect(planarDistance(seat!.position, seat!.approachPosition)).toBeCloseTo(0.35, 5);
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[1]).toBeCloseTo(0, 5);
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat!.position[2]).toBeCloseTo(8, 5);
+    if (!seat) {
+      throw new Error('expected rotated workstation seat');
+    }
+    expect(seat.position[0]).toBeCloseTo(6.85, 5);
+    expect(seat.approachPosition[0]).toBeGreaterThan(seat.position[0]);
+    expect(planarDistance(seat.position, seat.approachPosition)).toBeCloseTo(0.35, 5);
+    expect(seat.position[1]).toBeCloseTo(0, 5);
+    expect(seat.position[2]).toBeCloseTo(8, 5);
   });
 
   it('falls back to zone-center + SEAT_OFFSETS when no instances exist', () => {

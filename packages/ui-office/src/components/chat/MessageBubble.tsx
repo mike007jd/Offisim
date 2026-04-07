@@ -83,7 +83,9 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
                 aria-label={expanded ? 'Collapse response' : 'Show full response'}
                 className="text-xs font-medium text-cyan-200 transition-colors hover:text-cyan-100"
               >
-                {expanded ? 'Collapse response' : `Show full response (${assistantBlocks.length} sections)`}
+                {expanded
+                  ? 'Collapse response'
+                  : `Show full response (${assistantBlocks.length} sections)`}
               </button>
             ) : null}
           </div>

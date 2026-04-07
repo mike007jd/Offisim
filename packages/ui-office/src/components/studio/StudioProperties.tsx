@@ -363,7 +363,9 @@ export function StudioProperties() {
               <div style={SECTION_STYLE}>
                 <div style={labelStyle()}>Placement</div>
                 <div style={{ ...valueStyle(), lineHeight: 1.5 }}>
-                  {instanceZone ? `Assigned to ${instanceZone.label}` : 'Not assigned to a compatible zone'}
+                  {instanceZone
+                    ? `Assigned to ${instanceZone.label}`
+                    : 'Not assigned to a compatible zone'}
                 </div>
                 <div
                   style={{

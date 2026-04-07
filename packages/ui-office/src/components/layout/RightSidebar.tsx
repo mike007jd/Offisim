@@ -1,9 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
-import {
-  Columns3,
-  LayoutDashboard,
-  Terminal,
-} from 'lucide-react';
+import { Columns3, LayoutDashboard, Terminal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { PitchHall } from '../pitch/PitchHall';

@@ -84,13 +84,16 @@ describe('StudioPage', () => {
     storeState.placingPrefab = { name: 'Focus Pod' };
     storeState.placementFeedback = {
       tone: 'warning',
-      message: 'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+      message:
+        'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
     };
 
     render(<StudioPage mode="create" repos={null} onBack={vi.fn()} />);
 
     expect(
-      screen.getByText('This spot does not belong to a compatible zone. The prefab will be left unassigned.'),
+      screen.getByText(
+        'This spot does not belong to a compatible zone. The prefab will be left unassigned.',
+      ),
     ).toBeInTheDocument();
 
     storeState.placingPrefab = null;

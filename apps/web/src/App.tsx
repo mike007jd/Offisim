@@ -35,8 +35,8 @@ import {
   useSceneOrchestrator,
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { WorkspaceCenterPane } from './components/WorkspaceCenterPane';
 import { OnboardingController } from './components/OnboardingController';
+import { WorkspaceCenterPane } from './components/WorkspaceCenterPane';
 import { WorkspaceRightRail } from './components/WorkspaceRightRail';
 import { getOfficeSpaceEntryViews } from './components/workspace-surface-meta';
 import {
@@ -557,8 +557,8 @@ export function App({ onCompanySwitch }: AppProps) {
         )}
 
         {/* ── Office view (default) ── */}
-         {showOfficeShell && (
-           <>
+        {showOfficeShell && (
+          <>
             {unfinishedThreads.length > 0 && (
               <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
                 <ResumeBar
@@ -653,55 +653,55 @@ export function App({ onCompanySwitch }: AppProps) {
                     }
                   />
                 }
-                 chatDrawer={
-                   <ChatDrawer requestOpen={chatOpenToken}>
-                     {({ compact }) => (
-                       <ChatPanel
-                         compact={compact}
-                         onOpenSettings={() => setSettingsOpen(true)}
-                         selectedEmployeeId={selectedEmployeeId}
-                         selectedEmployeeName={selectedEmployeeName}
-                         onClearSelection={() => setSelectedEmployeeId(null)}
-                         onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
-                         onToggleKanban={() => setKanbanOpen((prev) => !prev)}
-                         onOpenEditor={() => setView('office-editor')}
-                         onOpenStudio={() => {
-                           setStudioMode('edit');
-                           setView('studio');
-                         }}
-                         activeProject={activeProject}
-                         onUserMessage={handleUserMessage}
-                         onboardingWelcome={chatOnboardingWelcome}
-                         onboardingStarterPrompts={chatOnboardingStarters}
-                       />
-                     )}
-                   </ChatDrawer>
-                 }
-                  eventLog={
-                    <WorkspaceRightRail
-                      view={view}
-                      zones={zones}
-                      officeSpaceEntryViews={officeSpaceEntryViews}
-                      agents={agents}
-                      activeProject={activeProject}
-                      selectedEmployeeId={selectedEmployeeId}
-                      selectedEmployeeName={selectedEmployeeName}
-                      focusOutputsToken={focusOutputsToken}
-                      onboardingWelcome={chatOnboardingWelcome}
-                      onboardingStarterPrompts={chatOnboardingStarters}
-                      onSelectView={setView}
-                      onOpenSettings={() => setSettingsOpen(true)}
-                      onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
-                      onToggleKanban={() => setKanbanOpen((prev) => !prev)}
-                      onOpenEditor={() => setView('office-editor')}
-                      onOpenStudio={() => {
-                        setStudioMode('edit');
-                        setView('studio');
-                      }}
-                      onClearSelection={() => setSelectedEmployeeId(null)}
-                      onUserMessage={handleUserMessage}
-                    />
-                  }
+                chatDrawer={
+                  <ChatDrawer requestOpen={chatOpenToken}>
+                    {({ compact }) => (
+                      <ChatPanel
+                        compact={compact}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        selectedEmployeeId={selectedEmployeeId}
+                        selectedEmployeeName={selectedEmployeeName}
+                        onClearSelection={() => setSelectedEmployeeId(null)}
+                        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+                        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+                        onOpenEditor={() => setView('office-editor')}
+                        onOpenStudio={() => {
+                          setStudioMode('edit');
+                          setView('studio');
+                        }}
+                        activeProject={activeProject}
+                        onUserMessage={handleUserMessage}
+                        onboardingWelcome={chatOnboardingWelcome}
+                        onboardingStarterPrompts={chatOnboardingStarters}
+                      />
+                    )}
+                  </ChatDrawer>
+                }
+                eventLog={
+                  <WorkspaceRightRail
+                    view={view}
+                    zones={zones}
+                    officeSpaceEntryViews={officeSpaceEntryViews}
+                    agents={agents}
+                    activeProject={activeProject}
+                    selectedEmployeeId={selectedEmployeeId}
+                    selectedEmployeeName={selectedEmployeeName}
+                    focusOutputsToken={focusOutputsToken}
+                    onboardingWelcome={chatOnboardingWelcome}
+                    onboardingStarterPrompts={chatOnboardingStarters}
+                    onSelectView={setView}
+                    onOpenSettings={() => setSettingsOpen(true)}
+                    onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+                    onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+                    onOpenEditor={() => setView('office-editor')}
+                    onOpenStudio={() => {
+                      setStudioMode('edit');
+                      setView('studio');
+                    }}
+                    onClearSelection={() => setSelectedEmployeeId(null)}
+                    onUserMessage={handleUserMessage}
+                  />
+                }
                 statusBar={
                   <StatusBar
                     modelName={providerConfig?.model}

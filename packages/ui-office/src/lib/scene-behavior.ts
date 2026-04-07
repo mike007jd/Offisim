@@ -385,18 +385,8 @@ export function buildDispatchRoute(
           seat,
         ])
       : terminalApproach
-        ? dedupePath([
-            meetingExit,
-            ...approachConnector,
-            terminalApproach,
-            seat,
-          ])
-        : dedupePath([
-            meetingExit,
-            [targetZoneCenter[0], 0, meetingExit[2]],
-            targetZone,
-            seat,
-          ]);
+        ? dedupePath([meetingExit, ...approachConnector, terminalApproach, seat])
+        : dedupePath([meetingExit, [targetZoneCenter[0], 0, meetingExit[2]], targetZone, seat]);
 
   return finalizeRoute(startPosition, basePath, seat, obstacleFootprints);
 }
@@ -476,20 +466,14 @@ export function buildHandoffRoute(
       ? dedupePath([fromAisle, ...zoneWaypoints, transferPoint, toAisle, toPos])
       : dedupePath([fromAisle, transferPoint, toAisle, toPos]);
 
-  return [
-    fromPos,
-    ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints),
-  ];
+  return [fromPos, ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints)];
 }
 
 export function buildTransitRoute(fromPos: Vec3, toPos: Vec3, options?: RouteOptions): Vec3[] {
   const zoneWaypoints = options?.zoneWaypoints ?? [];
   const basePath = dedupePath([...zoneWaypoints, toPos]);
   const obstacleFootprints = options?.obstacleFootprints ?? [];
-  return [
-    fromPos,
-    ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints),
-  ];
+  return [fromPos, ...finalizeRoute(fromPos, basePath, toPos, obstacleFootprints)];
 }
 
 export function buildManagerPresenceTarget(
@@ -518,11 +502,15 @@ export function buildWorkActivityTarget(
     other: [0.15, 0, 0.2],
   };
   const offset = offsets[category];
-  return pickSafePose(basePosition, [
-    Number((basePosition[0] + offset[0]).toFixed(2)),
-    0,
-    Number((basePosition[2] + offset[2]).toFixed(2)),
-  ], footprints);
+  return pickSafePose(
+    basePosition,
+    [
+      Number((basePosition[0] + offset[0]).toFixed(2)),
+      0,
+      Number((basePosition[2] + offset[2]).toFixed(2)),
+    ],
+    footprints,
+  );
 }
 
 export function buildStalledWorkTarget(
@@ -531,11 +519,15 @@ export function buildStalledWorkTarget(
   footprints: readonly ObstacleFootprint[] = [],
 ): Vec3 {
   const offset: Vec3 = kind === 'failed' ? [0.45, 0, 0.55] : [-0.45, 0, 0.65];
-  return pickSafePose(basePosition, [
-    Number((basePosition[0] + offset[0]).toFixed(2)),
-    0,
-    Number((basePosition[2] + offset[2]).toFixed(2)),
-  ], footprints);
+  return pickSafePose(
+    basePosition,
+    [
+      Number((basePosition[0] + offset[0]).toFixed(2)),
+      0,
+      Number((basePosition[2] + offset[2]).toFixed(2)),
+    ],
+    footprints,
+  );
 }
 
 export function moveThroughPoints(

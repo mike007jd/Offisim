@@ -162,7 +162,8 @@ export function computeHintPosition(
   const viewportH = viewport.height;
   const viewportW = viewport.width;
 
-  const canPlaceBelow = rect.top + rect.height + HINT_GAP + HINT_CARD_HEIGHT <= viewportH - HINT_MARGIN;
+  const canPlaceBelow =
+    rect.top + rect.height + HINT_GAP + HINT_CARD_HEIGHT <= viewportH - HINT_MARGIN;
   const placeAbove = !canPlaceBelow;
   const left = Math.min(
     Math.max(HINT_MARGIN, rect.left + rect.width / 2 - HINT_CARD_WIDTH / 2),

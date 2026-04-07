@@ -309,7 +309,9 @@ describe('ChatPanel — project scoping', () => {
     const workflow = screen.getByTestId('pipeline-progress');
     const emptyStateEntry = screen.getByRole('button', { name: 'Send test' });
 
-    expect(workflow.compareDocumentPosition(emptyStateEntry)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(workflow.compareDocumentPosition(emptyStateEntry)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('appends agent-question answers and follow-up assistant replies to the chat', async () => {

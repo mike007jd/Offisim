@@ -117,11 +117,7 @@ function buildAnchoredSeats(
     approachPosition: readonly [number, number, number],
   ) => {
     const resolvedPosition = ensureOutsideFootprint(position, footprint, base.facing);
-    let resolvedApproach = ensureOutsideFootprint(
-      approachPosition,
-      footprint,
-      approachBase.facing,
-    );
+    let resolvedApproach = ensureOutsideFootprint(approachPosition, footprint, approachBase.facing);
     if (distance2D(resolvedPosition, resolvedApproach) < MIN_APPROACH_LEAD) {
       const rawDx = approachPosition[0] - position[0];
       const rawDz = approachPosition[2] - position[2];

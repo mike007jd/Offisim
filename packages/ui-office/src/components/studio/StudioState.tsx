@@ -388,7 +388,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       placementFeedback: null,
     }),
 
-  cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null, placementFeedback: null }),
+  cancelZonePlacement: () =>
+    set({ tool: 'select', placingZonePreset: null, placementFeedback: null }),
 
   setPlacementFeedback: (placementFeedback) =>
     set((state) => {
