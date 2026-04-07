@@ -8,6 +8,13 @@ interface AppLayoutProps {
   chatDrawer: ReactNode;
   eventLog: ReactNode;
   statusBar: ReactNode;
+  /**
+   * When provided, replaces the scene canvas in the center surface.
+   * Used by WorkspaceRouter to render non-office workspace pages.
+   * When `null` / `undefined`, the scene canvas is shown (Office mode).
+   */
+  centerContent?: ReactNode;
+  chatDrawerMode?: 'always' | 'mobile-only';
   onLayoutMetricsChange?: (metrics: {
     isNarrow: boolean;
     leftOpen: boolean;
@@ -91,6 +98,8 @@ export function AppLayout({
   chatDrawer,
   eventLog,
   statusBar,
+  centerContent,
+  chatDrawerMode = 'always',
   onLayoutMetricsChange,
 }: AppLayoutProps) {
   const initNarrow =
@@ -167,7 +176,7 @@ export function AppLayout({
       <div className="noise" />
       <div className="scanline" />
 
-      <div className="absolute inset-0 z-0">{sceneCanvas}</div>
+      <div className="absolute inset-0 z-0">{!centerContent && sceneCanvas}</div>
 
       <div
         className="relative z-50"
@@ -212,7 +221,11 @@ export function AppLayout({
           )}
         </div>
 
-        <main className="flex-1 min-w-0 pointer-events-none" />
+        <main className="flex-1 min-w-0 pointer-events-none">
+          {centerContent ? (
+            <div className="pointer-events-auto h-full">{centerContent}</div>
+          ) : null}
+        </main>
 
         {/* ══════ RIGHT PANEL ══════ */}
         <div
@@ -237,8 +250,8 @@ export function AppLayout({
               <CollapsedBar
                 side="right"
                 icon={LayoutDashboard}
-                label="Operations"
-                ariaLabel="Expand operations panel"
+                label="Collaboration"
+                ariaLabel="Expand collaboration panel"
                 onClick={() => setRightOpen(true)}
               />
             )}
@@ -246,23 +259,24 @@ export function AppLayout({
           {rightOpen && (
             <PanelCollapseHandle
               side="right"
-              label="Collapse operations panel"
+              label="Collapse collaboration panel"
               onClick={() => setRightOpen(false)}
             />
           )}
         </div>
       </div>
 
-      {/* Chat drawer */}
-      <div
-        className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
-        style={{
-          left: isNarrow ? '16px' : leftOpen ? '296px' : '60px',
-          right: isNarrow ? '16px' : rightOpen ? '296px' : '60px',
-        }}
-      >
-        {chatDrawer}
-      </div>
+      {chatDrawer && (chatDrawerMode === 'always' || isNarrow) ? (
+        <div
+          className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
+          style={{
+            left: isNarrow ? '16px' : leftOpen ? '296px' : '60px',
+            right: isNarrow ? '16px' : rightOpen ? '296px' : '60px',
+          }}
+        >
+          {chatDrawer}
+        </div>
+      ) : null}
       <div className="relative z-30 shrink-0">{statusBar}</div>
     </div>
   );

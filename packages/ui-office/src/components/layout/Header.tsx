@@ -1,13 +1,18 @@
 import { Button } from '@offisim/ui-core';
-import { Building2, ChevronDown, PenTool, Pencil, Settings } from 'lucide-react';
+import { Building2, ChevronDown, PenTool, Pencil, Settings, Store } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
+
+type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log';
 
 interface HeaderProps {
   providerName?: string;
   /** Current company display name — shown in the company chip. */
   companyName?: string;
   onOpenSettings: () => void;
+  onOpenOffice?: () => void;
+  onOpenSops?: () => void;
+  onOpenMarket?: () => void;
   onOpenStudio?: () => void;
   onOpenCompanySelect?: () => void;
   onOpenCompanyEditor?: () => void;
@@ -19,12 +24,16 @@ interface HeaderProps {
   onViewModeChange?: (mode: '2D' | '3D') => void;
   /** Show provider setup guidance when runtime config is incomplete. */
   needsConfig?: boolean;
+  activeWorkspace?: WorkspaceKey;
 }
 
 export function Header({
   providerName,
   companyName,
   onOpenSettings,
+  onOpenOffice,
+  onOpenSops,
+  onOpenMarket,
   onOpenStudio,
   onOpenCompanySelect,
   onOpenCompanyEditor,
@@ -34,13 +43,19 @@ export function Header({
   viewMode,
   onViewModeChange,
   needsConfig,
+  activeWorkspace = 'office',
 }: HeaderProps) {
+  const primaryNav = [
+    { key: 'office' as const, label: 'Office', onClick: onOpenOffice },
+    { key: 'sops' as const, label: 'SOPs', onClick: onOpenSops },
+  ];
+
   return (
     <header
-      className="h-12 bg-black/20 backdrop-blur-md flex items-center justify-between rounded-xl border border-white/10 shadow-2xl"
-      style={{ paddingInline: 'var(--sp-lg)' }}
+      className="min-h-12 bg-black/20 backdrop-blur-md flex items-center justify-between rounded-xl border border-white/10 shadow-2xl"
+      style={{ paddingInline: 'var(--sp-lg)', paddingBlock: '0.5rem' }}
     >
-      <div className="flex items-center min-w-0" style={{ columnGap: 'var(--sp-md)' }}>
+      <div className="flex items-center min-w-0 flex-wrap" style={{ columnGap: 'var(--sp-md)', rowGap: '0.5rem' }}>
         {/* 2D/3D View Toggle */}
         {viewMode && onViewModeChange && (
           <div className="flex h-8 items-center bg-black/40 border border-white/10 rounded-lg px-1">
@@ -107,6 +122,29 @@ export function Header({
 
         <div className="h-5 w-px bg-white/10" />
 
+        <nav
+          aria-label="Primary workspace navigation"
+          className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 p-1"
+        >
+          {primaryNav.map((item) =>
+            item.onClick ? (
+              <button
+                key={item.key}
+                type="button"
+                onClick={item.onClick}
+                aria-label={`${item.label} workspace`}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
+                  activeWorkspace === item.key
+                    ? 'bg-blue-500/15 text-blue-100 border border-blue-400/30'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+                }`}
+              >
+                {item.label}
+              </button>
+            ) : null,
+          )}
+        </nav>
+
         {/* Provider badge */}
         {providerName && (
           <div className="flex items-center space-x-2" title={`Current provider: ${providerName}`}>
@@ -137,14 +175,26 @@ export function Header({
 
       <div className="flex items-center shrink-0" style={{ columnGap: 'var(--sp-sm)' }}>
         <FileImportTrigger onFileSelect={onFileImport} />
+        {onOpenMarket && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenMarket}
+            title="Market utility"
+            aria-label="Market utility"
+            className="h-8 w-8 hover:bg-white/5"
+          >
+            <Store className="h-4 w-4 text-slate-400 hover:text-cyan-300" />
+          </Button>
+        )}
         {notificationSlot}
         {onOpenStudio && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onOpenStudio}
-            title="Decoration Studio"
-            aria-label="Decoration Studio"
+            title="Studio utility"
+            aria-label="Studio utility"
             className="h-8 w-8 hover:bg-white/5"
           >
             <PenTool className="h-4 w-4 text-slate-400 hover:text-emerald-400" />

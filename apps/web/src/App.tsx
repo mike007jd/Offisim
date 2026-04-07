@@ -37,6 +37,10 @@ import {
 } from '@offisim/ui-office';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { OnboardingController } from './components/OnboardingController';
+import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
+import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
+import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
+import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
   isOfficeSceneInteractive,
@@ -129,6 +133,8 @@ interface AppProps {
   onCompanySwitch: (id: string | null) => void;
 }
 
+// WorkspaceSurface removed — workspace pages are now rendered by WorkspaceRouter
+
 export function App({ onCompanySwitch }: AppProps) {
   const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
   const [view, setView] = useState<AppView>(() => (activeCompanyId ? 'office' : 'company-select'));
@@ -151,6 +157,38 @@ export function App({ onCompanySwitch }: AppProps) {
   );
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+
+  // ── Workspace IA: session state + back navigation ──────────────────
+  const {
+    state: workspaceSessionState,
+    activeWorkspace,
+    setActiveWorkspace,
+    goBack,
+  } = useWorkspaceSessionState();
+
+  useWorkspaceBackNavigation(activeWorkspace, goBack);
+
+  // ── Sync view ↔ activeWorkspace ────────────────────────────────────
+  // When the workspace session state changes (e.g. via header nav), update
+  // the legacy `view` state to match. This keeps existing code paths working
+  // while we migrate to the workspace router.
+  const handleWorkspaceSwitch = useCallback(
+    (key: WorkspaceKey) => {
+      setActiveWorkspace(key);
+      setView(key as AppView);
+    },
+    [setActiveWorkspace],
+  );
+
+  // Keep activeWorkspace in sync when view changes from non-workspace paths
+  useEffect(() => {
+    const workspaceViews: WorkspaceKey[] = ['office', 'sops', 'market', 'activity-log'];
+    if (workspaceViews.includes(view as WorkspaceKey)) {
+      if (activeWorkspace !== view) {
+        setActiveWorkspace(view as WorkspaceKey);
+      }
+    }
+  }, [view, activeWorkspace, setActiveWorkspace]);
   const {
     reinitRuntime,
     repos,
@@ -275,8 +313,22 @@ export function App({ onCompanySwitch }: AppProps) {
           setSelectedEmployeeId(null);
           return;
         }
-        if (view === 'employee-creator' || view === 'office-editor' || view === 'studio') {
-          setView('office');
+        if (
+          view === 'employee-creator' ||
+          view === 'office-editor' ||
+          view === 'studio' ||
+          view === 'sops' ||
+          view === 'market' ||
+          view === 'activity-log'
+        ) {
+          // For workspace views, use handleWorkspaceSwitch to update session state.
+          // For non-workspace views (employee-creator, office-editor, studio),
+          // just set the view directly.
+          if (view === 'sops' || view === 'market' || view === 'activity-log') {
+            handleWorkspaceSwitch('office');
+          } else {
+            setView('office');
+          }
         }
       }
     }
@@ -285,6 +337,7 @@ export function App({ onCompanySwitch }: AppProps) {
   }, [
     dashboardOpen,
     employeeEditor,
+    handleWorkspaceSwitch,
     kanbanOpen,
     marketplaceListingId,
     selectedEmployeeId,
@@ -303,11 +356,10 @@ export function App({ onCompanySwitch }: AppProps) {
   useEffect(() => {
     return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
       const title = e.payload.title || 'Output';
-      const isMultiStep = e.payload.contributingEmployees.length >= 2;
       addToast(`Output ready: ${title}`, 'success', {
-        actionLabel: isMultiStep ? 'Save as SOP' : 'View',
+        actionLabel: 'Open Tasks',
         onAction: () => setFocusOutputsToken((t) => t + 1),
-        durationMs: isMultiStep ? 12_000 : 8_000,
+        durationMs: 10_000,
       });
       if (e.companyId) {
         markCompany(e.companyId, 'first_deliverable_seen');
@@ -381,6 +433,67 @@ export function App({ onCompanySwitch }: AppProps) {
     },
     [],
   );
+
+  const renderChatPanel = useCallback(
+    ({
+      compact,
+      showPipelineProgress,
+      showMeetingPanel,
+    }: {
+      compact?: boolean;
+      showPipelineProgress?: boolean;
+      showMeetingPanel?: boolean;
+    }) => (
+      <ChatPanel
+        compact={compact}
+        onOpenSettings={() => setSettingsOpen(true)}
+        selectedEmployeeId={selectedEmployeeId}
+        selectedEmployeeName={selectedEmployeeName}
+        onClearSelection={() => setSelectedEmployeeId(null)}
+        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
+        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
+        onOpenEditor={() => setView('office-editor')}
+        onOpenStudio={() => {
+          setStudioMode('edit');
+          setView('studio');
+        }}
+        activeProject={activeProject}
+        onUserMessage={handleUserMessage}
+        onboardingWelcome={chatOnboardingWelcome}
+        onboardingStarterPrompts={chatOnboardingStarters}
+        showPipelineProgress={showPipelineProgress}
+        showMeetingPanel={showMeetingPanel}
+      />
+    ),
+    [
+      activeProject,
+      chatOnboardingStarters,
+      chatOnboardingWelcome,
+      handleUserMessage,
+      selectedEmployeeId,
+      selectedEmployeeName,
+    ],
+  );
+
+  // ── Workspace center content via WorkspaceRouter ────────────────────
+  // When the active workspace is not 'office', WorkspaceRouter renders the
+  // appropriate workspace page. When it IS 'office', it renders children
+  // (the Office scene slot) — but we handle that via the sceneCanvas prop
+  // in AppLayout, so we only need WorkspaceRouter for non-office workspaces.
+  const isNonOfficeWorkspace =
+    view === 'sops' || view === 'market' || view === 'activity-log';
+
+  const workspaceRouterContent = useMemo(() => {
+    if (!isNonOfficeWorkspace) return null;
+    return (
+      <WorkspaceRouter
+        activeWorkspace={activeWorkspace}
+        sessionState={workspaceSessionState}
+        // TODO: Wire to updateWorkspaceState once placeholder pages have real interactions
+        onSessionStateChange={() => {}}
+      />
+    );
+  }, [isNonOfficeWorkspace, activeWorkspace, workspaceSessionState]);
 
   const handleCreatorDeploy = useCallback(
     async ({ name, role, seed }: { name: string; role: RoleSlug; seed: string }) => {
@@ -562,6 +675,9 @@ export function App({ onCompanySwitch }: AppProps) {
                     providerName={providerConfig?.model}
                     companyName={activeCompanyName}
                     onOpenSettings={() => setSettingsOpen(true)}
+                    onOpenOffice={() => handleWorkspaceSwitch('office')}
+                    onOpenSops={() => handleWorkspaceSwitch('sops')}
+                    onOpenMarket={() => handleWorkspaceSwitch('market')}
                     onOpenStudio={() => {
                       setStudioMode('edit');
                       setView('studio');
@@ -575,6 +691,7 @@ export function App({ onCompanySwitch }: AppProps) {
                           handleSelectEmployee(employeeId);
                           setChatOpenToken((t) => t + 1);
                         }}
+                        onOpenActivityLog={() => handleWorkspaceSwitch('activity-log')}
                       />
                     }
                     projectSlot={
@@ -588,6 +705,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
                     needsConfig={!providerConfig}
+                    activeWorkspace={view === 'sops' || view === 'market' || view === 'activity-log' ? view : 'office'}
                   />
                 }
                 agentPanel={
@@ -622,38 +740,24 @@ export function App({ onCompanySwitch }: AppProps) {
                 }
                 chatDrawer={
                   <ChatDrawer requestOpen={chatOpenToken}>
-                    {({ compact }) => (
-                      <ChatPanel
-                        compact={compact}
-                        onOpenSettings={() => setSettingsOpen(true)}
-                        selectedEmployeeId={selectedEmployeeId}
-                        selectedEmployeeName={selectedEmployeeName}
-                        onClearSelection={() => setSelectedEmployeeId(null)}
-                        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
-                        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
-                        onOpenEditor={() => setView('office-editor')}
-                        onOpenStudio={() => {
-                          setStudioMode('edit');
-                          setView('studio');
-                        }}
-                        activeProject={activeProject}
-                        onUserMessage={handleUserMessage}
-                        onboardingWelcome={chatOnboardingWelcome}
-                        onboardingStarterPrompts={chatOnboardingStarters}
-                      />
-                    )}
+                    {({ compact }) =>
+                      renderChatPanel({
+                        compact,
+                        showPipelineProgress: true,
+                        showMeetingPanel: !compact,
+                      })
+                    }
                   </ChatDrawer>
                 }
                 eventLog={
                   <RightSidebar
-                    onOpenDashboard={() => setDashboardOpen(true)}
-                    onOpenKanban={() => setKanbanOpen(true)}
-                    focusOutputsToken={focusOutputsToken}
+                    chatPanel={renderChatPanel({
+                      showPipelineProgress: false,
+                      showMeetingPanel: false,
+                    })}
+                    focusTasksToken={focusOutputsToken}
+                    requestChatToken={chatOpenToken}
                     activeThreadId={activeProject?.thread_id ?? null}
-                    onOpenMarketplaceListing={setMarketplaceListingId}
-                    onStartMarketplaceInstall={(listingId, version) =>
-                      installFlow.startRegistryInstall(listingId, version)
-                    }
                   />
                 }
                 statusBar={
@@ -662,6 +766,8 @@ export function App({ onCompanySwitch }: AppProps) {
                     activeProjectStatus={activeProject?.status ?? null}
                   />
                 }
+                centerContent={workspaceRouterContent}
+                chatDrawerMode="mobile-only"
                 onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>
