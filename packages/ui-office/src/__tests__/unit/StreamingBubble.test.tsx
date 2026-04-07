@@ -19,8 +19,8 @@ describe('StreamingBubble', () => {
 
     render(<StreamingBubble />);
 
-    expect(screen.getByText('Boss')).toBeTruthy();
-    expect(screen.getByText('Drafting the response...')).toBeTruthy();
+    expect(screen.getByText('Boss')).toBeInTheDocument();
+    expect(screen.getByText('Drafting the response...')).toBeInTheDocument();
   });
 
   it('prefers streamed content once chunks arrive', () => {
@@ -32,8 +32,8 @@ describe('StreamingBubble', () => {
 
     render(<StreamingBubble />);
 
-    expect(screen.getByText('Employee')).toBeTruthy();
-    expect(screen.getByText('Here is the answer so far')).toBeTruthy();
+    expect(screen.getByText('Employee')).toBeInTheDocument();
+    expect(screen.getByText('Here is the answer so far')).toBeInTheDocument();
     expect(screen.queryByText('Working through the request...')).toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe('StreamingBubble', () => {
 
     render(<StreamingBubble />);
 
-    expect(screen.getByText('Result')).toBeTruthy();
-    expect(screen.getByText('Draft is ready for review.')).toBeTruthy();
+    expect(screen.getByText('Result')).toBeInTheDocument();
+    expect(screen.getByText('Draft is ready for review.')).toBeInTheDocument();
   });
 });

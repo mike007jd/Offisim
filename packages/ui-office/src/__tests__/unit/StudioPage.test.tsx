@@ -59,11 +59,11 @@ describe('StudioPage', () => {
   it('shows zone mode guidance by default', () => {
     render(<StudioPage mode="create" repos={null} onBack={vi.fn()} />);
 
-    expect(screen.getByText('Zone Mode')).toBeTruthy();
-    expect(screen.getByText('Shape the office first, then refine each zone.')).toBeTruthy();
+    expect(screen.getByText('Zone Mode')).toBeInTheDocument();
+    expect(screen.getByText('Shape the office first, then refine each zone.')).toBeInTheDocument();
     expect(
       screen.getByText('Select a zone to focus it, then enter decoration mode to work inside it.'),
-    ).toBeTruthy();
+    ).toBeInTheDocument();
   });
 
   it('shows placement guidance when a prefab is being positioned', () => {
@@ -71,10 +71,10 @@ describe('StudioPage', () => {
 
     render(<StudioPage mode="create" repos={null} onBack={vi.fn()} />);
 
-    expect(screen.getByText('Placing Focus Pod')).toBeTruthy();
+    expect(screen.getByText('Placing Focus Pod')).toBeInTheDocument();
     expect(
       screen.getByText('Click a valid floor area to place it. Use R to rotate before confirming.'),
-    ).toBeTruthy();
+    ).toBeInTheDocument();
 
     storeState.placingPrefab = null;
   });
