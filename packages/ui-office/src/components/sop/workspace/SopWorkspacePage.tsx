@@ -20,16 +20,7 @@ export type SopSessionState = {
   centerMode: 'empty' | 'definition' | 'run-focus';
   rightPaneTab: 'context' | 'runs' | 'history';
   search: string;
-  filters: string[];
 };
-
-type SopWorkspaceState =
-  | { mode: 'browse-empty' }
-  | { mode: 'browse-selected'; sopId: string }
-  | { mode: 'run-focus'; sopId: string; runId: string }
-  | { mode: 'editing-meta'; sopId: string }
-  | { mode: 'creating' }
-  | { mode: 'importing' };
 
 // ---------------------------------------------------------------------------
 // Props
@@ -41,40 +32,9 @@ export interface SopWorkspacePageProps {
 }
 
 // ---------------------------------------------------------------------------
-// Derive the internal state-machine mode from SopSessionState
-// ---------------------------------------------------------------------------
-
-export function deriveWorkspaceState(session: SopSessionState): SopWorkspaceState {
-  if (!session.selectedSopId) {
-    return { mode: 'browse-empty' };
-  }
-  if (session.centerMode === 'run-focus') {
-    return { mode: 'run-focus', sopId: session.selectedSopId, runId: '' };
-  }
-  if (session.centerMode === 'definition') {
-    return { mode: 'browse-selected', sopId: session.selectedSopId };
-  }
-  return { mode: 'browse-empty' };
-}
-
-// ---------------------------------------------------------------------------
 // SopWorkspacePage
 // ---------------------------------------------------------------------------
 
-/**
- * Full SOPs workspace with 3-pane layout.
- *
- * - Left pane:   SOP library sidebar (search, filters, SOP list)
- * - Center pane: SOP definition canvas or empty state
- * - Right pane:  Context pane (run status, linked tasks, history)
- *
- * Manages the internal state machine:
- *   browse-empty → browse-selected → run-focus
- *   browse-empty → creating | importing
- *   browse-selected → editing-meta
- *
- * Task 5.6: Handles deleted entity recovery, zero-results, and run completion.
- */
 export function SopWorkspacePage({
   sessionState,
   onSessionStateChange,
@@ -85,12 +45,6 @@ export function SopWorkspacePage({
   const [editorOpen, setEditorOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
-  const workspaceState = useMemo(
-    () => deriveWorkspaceState(sessionState),
-    [sessionState],
-  );
-
-  // Resolve the selected SOP from the list
   const selectedSop = useMemo(
     () =>
       sessionState.selectedSopId
@@ -99,31 +53,22 @@ export function SopWorkspacePage({
     [sops, sessionState.selectedSopId],
   );
 
-  // -----------------------------------------------------------------------
-  // Task 5.6: Deleted entity recovery
-  // When the selected SOP disappears from the list (deleted), fall back to
-  // browse-empty while preserving search, filters, and mode.
-  // -----------------------------------------------------------------------
+  // Deleted entity recovery: when the selected SOP disappears from the list,
+  // fall back to browse-empty while preserving search and leftPaneMode.
   const prevSelectedIdRef = useRef(sessionState.selectedSopId);
 
   useEffect(() => {
     const prevId = prevSelectedIdRef.current;
     prevSelectedIdRef.current = sessionState.selectedSopId;
 
-    // Only act if we had a selection, it's still in session state, but the
-    // SOP is no longer in the loaded list (and we're not still loading).
     if (
       sessionState.selectedSopId &&
       !loading &&
-      sops.length >= 0 &&
       !sops.find((s) => s.sopTemplateId === sessionState.selectedSopId)
     ) {
-      // Only toast if the ID was previously valid (i.e. it was deleted, not
-      // a stale deep-link on first load).
       if (prevId === sessionState.selectedSopId) {
         addToast('The selected SOP was deleted.', 'info');
       }
-      // Fall back — preserve search, filters, leftPaneMode
       onSessionStateChange({
         ...sessionState,
         selectedSopId: null,
@@ -132,19 +77,7 @@ export function SopWorkspacePage({
     }
   }, [sops, loading, sessionState, onSessionStateChange, addToast]);
 
-  // -----------------------------------------------------------------------
-  // Task 5.6: Running SOP completion notification — don't hijack selection
-  // We listen for plan.completed but only show a toast, never change selection.
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    return eventBus.on('plan.completed', () => {
-      // Notification only — selection stays as-is
-    });
-  }, [eventBus]);
-
-  // -----------------------------------------------------------------------
   // Callbacks
-  // -----------------------------------------------------------------------
 
   const handleSelectSop = useCallback(
     (sopId: string) => {
@@ -188,7 +121,6 @@ export function SopWorkspacePage({
   const handleDeleteSop = useCallback(
     async (sopTemplateId: string) => {
       await deleteSop(sopTemplateId);
-      // Deleted entity recovery is handled by the useEffect above
     },
     [deleteSop],
   );
@@ -205,9 +137,7 @@ export function SopWorkspacePage({
     void refreshSops();
   }, [refreshSops]);
 
-  // -----------------------------------------------------------------------
-  // Auto-select newly created SOP when plan starts
-  // -----------------------------------------------------------------------
+  // Auto-switch to run-focus when the selected SOP's plan starts
   useEffect(() => {
     return eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
       if (e.payload.sopTemplateId && sessionState.selectedSopId === e.payload.sopTemplateId) {
@@ -220,17 +150,12 @@ export function SopWorkspacePage({
     });
   }, [eventBus, sessionState, onSessionStateChange]);
 
-  const showEmptyCenter =
-    workspaceState.mode === 'browse-empty' ||
-    workspaceState.mode === 'creating' ||
-    workspaceState.mode === 'importing';
+  const showEmptyCenter = !sessionState.selectedSopId;
 
   return (
     <div data-workspace="sops" data-testid="workspace-sops" className="flex flex-col h-full">
-      {/* Toast banner for deleted entity notifications */}
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Page header */}
       <header className="workspace-shell-header">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
@@ -242,7 +167,6 @@ export function SopWorkspacePage({
 
       {/* 3-pane layout */}
       <div className="sop-workspace-panes">
-        {/* Left pane — Library sidebar */}
         <aside
           className="sop-workspace-sidebar"
           data-testid="sop-workspace-sidebar"
@@ -253,7 +177,6 @@ export function SopWorkspacePage({
             loading={loading}
             selectedSopId={sessionState.selectedSopId}
             search={sessionState.search}
-            filters={sessionState.filters}
             leftPaneMode={sessionState.leftPaneMode}
             onSelectSop={handleSelectSop}
             onSearchChange={handleSearchChange}
@@ -265,7 +188,6 @@ export function SopWorkspacePage({
           />
         </aside>
 
-        {/* Center pane — Definition canvas or empty state */}
         <main
           className="sop-workspace-canvas"
           data-testid="sop-workspace-canvas"
@@ -280,13 +202,11 @@ export function SopWorkspacePage({
           ) : (
             <SopWorkspaceCanvas
               sop={selectedSop}
-              centerMode={sessionState.centerMode}
               onRunFocus={handleRunFocus}
             />
           )}
         </main>
 
-        {/* Right pane — Context pane */}
         <aside
           className="sop-workspace-context"
           data-testid="sop-workspace-context"

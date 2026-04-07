@@ -22,7 +22,6 @@ export type SopSessionState = {
   centerMode: 'empty' | 'definition' | 'run-focus';
   rightPaneTab: 'context' | 'runs' | 'history';
   search: string;
-  filters: string[];
 };
 
 export type MarketSessionState = {
@@ -53,14 +52,6 @@ export type WorkspaceSessionState = {
 // ---------------------------------------------------------------------------
 // State Machine Union Types
 // ---------------------------------------------------------------------------
-
-export type SopWorkspaceState =
-  | { mode: 'browse-empty' }
-  | { mode: 'browse-selected'; sopId: string }
-  | { mode: 'run-focus'; sopId: string; runId: string }
-  | { mode: 'editing-meta'; sopId: string }
-  | { mode: 'creating' }
-  | { mode: 'importing' };
 
 export type MarketWorkspaceState =
   | { mode: 'explore-feed' }
@@ -168,7 +159,6 @@ export function createDefaultSopState(): SopSessionState {
     centerMode: 'empty',
     rightPaneTab: 'context',
     search: '',
-    filters: [],
   };
 }
 

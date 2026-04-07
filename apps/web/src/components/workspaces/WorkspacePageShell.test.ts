@@ -42,7 +42,7 @@ function findByTestId(
   }
 
   // Traverse children
-  const children = React.Children.toArray(props.children);
+  const children = React.Children.toArray(props.children as React.ReactNode);
   for (const child of children) {
     if (React.isValidElement(child)) {
       const found = findByTestId(child, testId);

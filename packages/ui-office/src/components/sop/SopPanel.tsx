@@ -15,22 +15,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { formatSopDate } from '../../lib/sop-utils';
 import { SopDrawer } from './SopDrawer';
 import { SopEditorDialog } from './SopEditorDialog';
 import { SopImportDialog } from './SopImportDialog';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return iso;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // SopCompactCard — sidebar-width card, click opens drawer
@@ -92,7 +80,7 @@ function SopCompactCard({ sop, onOpen, onRun, onDelete, onSync }: SopCompactCard
           )}
         </div>
         <span className="shrink-0 text-[10px] text-slate-500 ml-1">
-          {sop.stepCount}s · {formatDate(sop.createdAt)}
+          {sop.stepCount}s · {formatSopDate(sop.createdAt)}
         </span>
         <ExternalLink className="w-3 h-3 text-slate-600 shrink-0" />
       </button>

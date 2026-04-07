@@ -1,45 +1,29 @@
-import type { SopDefinition } from '@offisim/shared-types';
 import type { SopTemplate } from '../../../hooks/useSops';
 import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import { SopTimelineView } from '../SopTimelineView';
+import { parseSopDefinition } from '../../../lib/sop-utils';
 import { Loader2, Play, Send } from 'lucide-react';
 import { Button } from '@offisim/ui-core';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-// ---------------------------------------------------------------------------
-// SopWorkspaceCanvas — Task 5.3
-// ---------------------------------------------------------------------------
-
 export interface SopWorkspaceCanvasProps {
   sop: SopTemplate | null;
-  centerMode: 'empty' | 'definition' | 'run-focus';
   onRunFocus?: () => void;
 }
 
-/**
- * Center pane of the SOP workspace.
- *
- * Displays the SOP definition surface with steps, dependencies, and annotations.
- * Extracted from SopDrawer — reuses SopTimelineView for the step DAG.
- * Supports run entry and NL modification affordances.
- */
-export function SopWorkspaceCanvas({ sop, centerMode: _centerMode, onRunFocus }: SopWorkspaceCanvasProps) {
+/** Center pane — SOP definition surface with timeline, NL edit, and run controls. */
+export function SopWorkspaceCanvas({ sop, onRunFocus }: SopWorkspaceCanvasProps) {
   const { sendMessage } = useOffisimRuntime();
   const runtimeState = useSopRuntimeState(sop?.sopTemplateId);
   const [nlInput, setNlInput] = useState('');
   const [adjusting, setAdjusting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const parsed = useMemo<SopDefinition | null>(() => {
-    if (!sop) return null;
-    try {
-      const def = JSON.parse(sop.definitionJson) as SopDefinition;
-      return Array.isArray(def.steps) && def.steps.length > 0 ? def : null;
-    } catch {
-      return null;
-    }
-  }, [sop]);
+  const parsed = useMemo(
+    () => (sop ? parseSopDefinition(sop.definitionJson) : null),
+    [sop],
+  );
 
   const isActive = runtimeState?.some((s) => s.status === 'active') ?? false;
 
@@ -90,7 +74,6 @@ export function SopWorkspaceCanvas({ sop, centerMode: _centerMode, onRunFocus }:
 
   return (
     <div className="flex flex-col h-full">
-      {/* Canvas header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 shrink-0">
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-slate-200 truncate">{sop.name}</h2>
@@ -111,7 +94,6 @@ export function SopWorkspaceCanvas({ sop, centerMode: _centerMode, onRunFocus }:
         </Button>
       </div>
 
-      {/* Timeline / definition surface */}
       <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar p-4">
         {adjusting ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
@@ -129,7 +111,6 @@ export function SopWorkspaceCanvas({ sop, centerMode: _centerMode, onRunFocus }:
         )}
       </div>
 
-      {/* NL edit area — extracted from SopDrawer */}
       <div className="border-t border-white/5 px-3 py-2.5 shrink-0">
         <p className="text-[9px] text-slate-600 mb-1.5">Describe changes in natural language</p>
         <div className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import { SopSyncService } from '@offisim/core/browser';
 import type { SopTemplate } from '../../../hooks/useSops';
 import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
+import { formatSopDate, pillClass } from '../../../lib/sop-utils';
 import { Button } from '@offisim/ui-core';
 import {
   Download,
@@ -15,10 +16,6 @@ import {
 import { useCallback, useMemo, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 
-// ---------------------------------------------------------------------------
-// SopSidebarCard — compact card for the sidebar list
-// ---------------------------------------------------------------------------
-
 interface SopSidebarCardProps {
   sop: SopTemplate;
   selected: boolean;
@@ -26,14 +23,6 @@ interface SopSidebarCardProps {
   onRun: (name: string) => void;
   onDelete: (sopTemplateId: string) => void;
   onSync?: (sopTemplateId: string) => void;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return iso;
-  }
 }
 
 function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: SopSidebarCardProps) {
@@ -60,7 +49,6 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
             : 'border-white/5 bg-white/[0.03]'
       }`}
     >
-      {/* Header — click to select */}
       <button
         type="button"
         className="w-full flex items-center gap-1.5 px-2 pt-2 pb-1 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
@@ -82,12 +70,11 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
           )}
         </div>
         <span className="shrink-0 text-[10px] text-slate-500 ml-1">
-          {sop.stepCount}s · {formatDate(sop.createdAt)}
+          {sop.stepCount}s · {formatSopDate(sop.createdAt)}
         </span>
         <ExternalLink className="w-3 h-3 text-slate-600 shrink-0" />
       </button>
 
-      {/* Actions */}
       <div className="flex items-center gap-1 px-2 pb-2">
         <Button
           variant="ghost"
@@ -146,17 +133,11 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
   );
 }
 
-
-// ---------------------------------------------------------------------------
-// SopWorkspaceSidebar — Task 5.2
-// ---------------------------------------------------------------------------
-
 export interface SopWorkspaceSidebarProps {
   sops: SopTemplate[];
   loading: boolean;
   selectedSopId: string | null;
   search: string;
-  filters: string[];
   leftPaneMode: 'library' | 'active-runs';
   onSelectSop: (sopId: string) => void;
   onSearchChange: (search: string) => void;
@@ -184,7 +165,6 @@ export function SopWorkspaceSidebar({
   const { repos } = useOffisimRuntime();
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  // Filter SOPs by search term
   const filteredSops = useMemo(() => {
     if (!search.trim()) return sops;
     const q = search.toLowerCase();
@@ -209,26 +189,17 @@ export function SopWorkspaceSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Mode pivot: Library / Active Runs */}
       <div className="flex items-center gap-1 px-3 pt-3 pb-1">
         <button
           type="button"
-          className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
-            leftPaneMode === 'library'
-              ? 'bg-white/10 text-slate-200'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={pillClass(leftPaneMode === 'library')}
           onClick={() => onLeftPaneModeChange('library')}
         >
           Library
         </button>
         <button
           type="button"
-          className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
-            leftPaneMode === 'active-runs'
-              ? 'bg-white/10 text-slate-200'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={pillClass(leftPaneMode === 'active-runs')}
           onClick={() => onLeftPaneModeChange('active-runs')}
         >
           Active Runs
@@ -252,7 +223,6 @@ export function SopWorkspaceSidebar({
         </button>
       </div>
 
-      {/* Search */}
       <div className="px-3 pb-2">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
@@ -266,7 +236,6 @@ export function SopWorkspaceSidebar({
         </div>
       </div>
 
-      {/* SOP list */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
         {loading ? (
           <div className="flex items-center justify-center py-4">

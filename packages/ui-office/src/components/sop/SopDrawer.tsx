@@ -2,6 +2,7 @@ import type { SopDefinition } from '@offisim/shared-types';
 import { Loader2, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
+import { parseSopDefinition } from '../../lib/sop-utils';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { SopTimelineView } from './SopTimelineView';
 
@@ -26,14 +27,10 @@ export function SopDrawer({
   const [adjusting, setAdjusting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const parsed = useMemo<SopDefinition | null>(() => {
-    try {
-      const def = JSON.parse(definitionJson) as SopDefinition;
-      return Array.isArray(def.steps) && def.steps.length > 0 ? def : null;
-    } catch {
-      return null;
-    }
-  }, [definitionJson]);
+  const parsed = useMemo<SopDefinition | null>(
+    () => parseSopDefinition(definitionJson),
+    [definitionJson],
+  );
 
   // Close on Escape
   useEffect(() => {

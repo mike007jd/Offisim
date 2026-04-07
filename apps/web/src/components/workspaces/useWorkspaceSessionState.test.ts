@@ -150,16 +150,14 @@ describe('tryWorkspaceInternalBack', () => {
       expect(consumed).toBe(false);
     });
 
-    it('preserves search and filters during unwind', () => {
+    it('preserves search during unwind', () => {
       const state = withSops({
         centerMode: 'definition',
         selectedSopId: 'sop-1',
         search: 'onboarding',
-        filters: ['active'],
       });
       const [, next] = tryWorkspaceInternalBack('sops', state);
       expect(next.sops.search).toBe('onboarding');
-      expect(next.sops.filters).toEqual(['active']);
     });
   });
 

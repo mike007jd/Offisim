@@ -1,9 +1,6 @@
 import { ClipboardList, Download, Plus } from 'lucide-react';
 import { Button } from '@offisim/ui-core';
 
-// ---------------------------------------------------------------------------
-// SopWorkspaceEmptyState — Task 5.5
-// ---------------------------------------------------------------------------
 
 interface SopWorkspaceEmptyStateProps {
   /** True when the SOP library has zero SOPs at all */
