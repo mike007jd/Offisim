@@ -454,6 +454,8 @@ export function App({ onCompanySwitch }: AppProps) {
         onToggleKanban={() => setKanbanOpen((prev) => !prev)}
         onOpenEditor={() => setView('office-editor')}
         onOpenStudio={() => {
+          // Studio can only be entered from Office (Req 5.1)
+          if (activeWorkspace !== 'office') return;
           setStudioMode('edit');
           setView('studio');
         }}
@@ -467,6 +469,7 @@ export function App({ onCompanySwitch }: AppProps) {
     ),
     [
       activeProject,
+      activeWorkspace,
       chatOnboardingStarters,
       chatOnboardingWelcome,
       handleUserMessage,
@@ -679,6 +682,8 @@ export function App({ onCompanySwitch }: AppProps) {
                     onOpenSops={() => handleWorkspaceSwitch('sops')}
                     onOpenMarket={() => handleWorkspaceSwitch('market')}
                     onOpenStudio={() => {
+                      // Studio can only be entered from Office (Req 5.1)
+                      if (activeWorkspace !== 'office') return;
                       setStudioMode('edit');
                       setView('studio');
                     }}
@@ -768,6 +773,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 }
                 centerContent={workspaceRouterContent}
                 chatDrawerMode="mobile-only"
+                requestRightExpandToken={chatOpenToken}
                 onLayoutMetricsChange={handleLayoutMetricsChange}
               />
             </CeremonyHost>

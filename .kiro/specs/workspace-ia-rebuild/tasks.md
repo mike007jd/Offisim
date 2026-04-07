@@ -89,12 +89,12 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Update `apps/web/src/lib/app-view-layout.ts` to remove `shouldKeepOfficeMounted` legacy behavior
     - _Requirements: 1.1, 1.2, 1.5_
 
-- [ ] 2. Phase 0 Checkpoint
+- [x] 2. Phase 0 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: switching Office ↔ SOPs reads as page navigation, no stacked-card effect, session state preserved
 
-- [-] 3. Phase 1 — Office Surface Stabilization
-  - [ ] 3.1 Update Header for workspace-aware navigation
+- [x] 3. Phase 1 — Office Surface Stabilization
+  - [x] 3.1 Update Header for workspace-aware navigation
     - Modify `packages/ui-office/src/components/layout/Header.tsx`
     - Display primary nav (Office, SOPs) in header middle
     - Display utility nav (Market, Bell/Activity Log, Studio, Settings) in header right
@@ -108,7 +108,7 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Switching away from Office closes Studio; Studio entry rejected on non-office workspaces; Studio nav hidden when not on Office
     - **Validates: Requirements 5.1, 5.2, 17.3**
 
-  - [ ] 3.3 Enforce collaboration-only right rail
+  - [x] 3.3 Enforce collaboration-only right rail
     - Modify `packages/ui-office/src/components/layout/RightSidebar.tsx`
     - Ensure only Chat, Tasks, Deliverables content is rendered
     - Remove any SOP detail, Market detail, or Activity Log content from the rail
@@ -120,14 +120,14 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Right_Rail contains only Chat, Tasks, Deliverables at all times
     - **Validates: Requirement 11.1**
 
-  - [ ] 3.5 Ensure Office scene and Studio state rules
+  - [x] 3.5 Ensure Office scene and Studio state rules
     - Modify `apps/web/src/App.tsx` and `packages/ui-office/src/components/office/OfficeEditorOverlay.tsx`
     - Studio can only be entered from Office
     - Leaving Office while Studio is active closes Studio
     - Returning to Office restores viewMode, selectedEmployeeId but does not auto-reopen Studio
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 3.6 Ensure chat actions don't disrupt workspace state
+  - [x] 3.6 Ensure chat actions don't disrupt workspace state
     - Modify `packages/ui-office/src/components/chat/ChatPanel.tsx`
     - Direct chat from notification or employee inspector focuses Chat panel in right rail
     - Active workspace session state (selections, filters, mode) must not change

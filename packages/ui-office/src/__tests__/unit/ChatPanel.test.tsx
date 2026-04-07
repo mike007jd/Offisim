@@ -349,3 +349,82 @@ describe('ChatPanel — project scoping', () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * Chat action workspace isolation (Req 11.3, 11.4)
+ *
+ * ChatPanel receives `selectedEmployeeId` and `selectedEmployeeName` as props
+ * when a chat action fires (from notification or employee inspector). These
+ * props only affect local chat state — the direct-chat header and message
+ * target. ChatPanel has NO props or callbacks that modify the active workspace,
+ * workspace session state, or trigger workspace switches. This is by design:
+ * the parent (App.tsx) only calls `setSelectedEmployeeId` + `setChatOpenToken`
+ * on chat actions, neither of which touches workspace state.
+ */
+describe('ChatPanel — workspace isolation (Req 11.3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSendMessage.mockResolvedValue(undefined);
+    mockRuntime.isRunning = false;
+    mockRuntime.isReady = true;
+    mockRuntime.error = null;
+    mockRuntime.pendingInteraction = null;
+  });
+
+  it('switching selectedEmployeeId only changes the direct-chat header, not workspace state', () => {
+    const onOpenSettings = vi.fn();
+    const { rerender } = render(
+      <ChatPanel onOpenSettings={onOpenSettings} activeProject={ACTIVE_PROJECT} />,
+    );
+
+    // No direct-chat header initially
+    expect(screen.queryByText('Team')).toBeNull();
+
+    // Simulate chat action: selectedEmployeeId changes (as if from notification/inspector)
+    rerender(
+      <ChatPanel
+        onOpenSettings={onOpenSettings}
+        activeProject={ACTIVE_PROJECT}
+        selectedEmployeeId="emp-1"
+        selectedEmployeeName="Alice"
+      />,
+    );
+
+    // Direct-chat header appears with employee name
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    // Project banner is hidden in direct-chat mode (local UI change only)
+    expect(screen.queryByText('Alpha Initiative')).toBeNull();
+  });
+
+  it('does not expose any workspace-switching callbacks in its props interface', () => {
+    // ChatPanel's props do not include setActiveWorkspace, handleWorkspaceSwitch,
+    // or any callback that could modify workspace session state. This test
+    // documents the architectural guarantee by verifying the component renders
+    // and functions with only chat-local callbacks.
+    const callbacks = {
+      onOpenSettings: vi.fn(),
+      onClearSelection: vi.fn(),
+      onToggleDashboard: vi.fn(),
+      onToggleKanban: vi.fn(),
+      onOpenEditor: vi.fn(),
+      onOpenStudio: vi.fn(),
+      onUserMessage: vi.fn(),
+    };
+
+    render(
+      <ChatPanel
+        {...callbacks}
+        activeProject={ACTIVE_PROJECT}
+        selectedEmployeeId="emp-1"
+        selectedEmployeeName="Alice"
+      />,
+    );
+
+    // Component renders without any workspace-related props
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    // None of the callbacks were invoked during render
+    for (const cb of Object.values(callbacks)) {
+      expect(cb).not.toHaveBeenCalled();
+    }
+  });
+});

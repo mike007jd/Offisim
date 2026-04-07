@@ -157,4 +157,58 @@ describe('AppLayout', () => {
 
     expect(screen.getByText('workspace-page')).toBeInTheDocument();
   });
+
+  it('expands the right rail when requestRightExpandToken changes on desktop', () => {
+    mockViewport({ mobile: false, tablet: false });
+
+    const { rerender } = render(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+      />,
+    );
+
+    // Collapse the right rail first
+    fireEvent.click(screen.getByRole('button', { name: /collapse collaboration/i }));
+    expect(screen.getByRole('button', { name: /expand collaboration/i })).toBeInTheDocument();
+
+    // Simulate a chat action by bumping the token
+    rerender(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+        requestRightExpandToken={1}
+      />,
+    );
+
+    // Right rail should auto-expand
+    expect(screen.getByRole('button', { name: /collapse collaboration/i })).toBeInTheDocument();
+  });
+
+  it('does NOT expand the right rail on narrow/mobile when requestRightExpandToken changes', () => {
+    mockViewport({ mobile: true, tablet: true });
+
+    render(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+        requestRightExpandToken={1}
+      />,
+    );
+
+    // On mobile, both rails are collapsed by default and should stay collapsed
+    expect(screen.queryByRole('button', { name: /collapse collaboration/i })).not.toBeInTheDocument();
+  });
 });

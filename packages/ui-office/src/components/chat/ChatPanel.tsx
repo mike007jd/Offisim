@@ -62,6 +62,18 @@ function genMsgId(): string {
   return `msg-${nextMsgId++}`;
 }
 
+/**
+ * ChatPanel — collaboration chat surface rendered inside the Right Rail.
+ *
+ * **Workspace isolation guarantee (Req 11.3):**
+ * Chat actions triggered from notifications or the employee inspector
+ * (via `selectedEmployeeId` prop changes) only affect local chat state
+ * (message target, direct-chat header). They never modify the active
+ * workspace, workspace session state (selections, filters, mode), or
+ * trigger workspace switches. The parent (App.tsx) ensures this by
+ * only calling `setSelectedEmployeeId` + `setChatOpenToken` — neither
+ * of which touches `setActiveWorkspace` or `handleWorkspaceSwitch`.
+ */
 export function ChatPanel({
   onOpenSettings,
   selectedEmployeeId,

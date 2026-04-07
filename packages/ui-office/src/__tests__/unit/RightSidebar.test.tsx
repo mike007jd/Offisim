@@ -44,11 +44,24 @@ describe('RightSidebar', () => {
     expect(screen.queryByRole('tab', { name: 'Library' })).not.toBeInTheDocument();
   });
 
+  it('shows the Collaboration label and workflow status', () => {
+    render(<RightSidebar chatPanel={<div>chat-panel</div>} />);
+
+    expect(screen.getByText('Collaboration')).toBeInTheDocument();
+    expect(screen.getByText(/Idle\. Collaboration happens here\./)).toBeInTheDocument();
+  });
+
   it('shows outputs inside the tasks context instead of as a top-level destination', () => {
     render(<RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} />);
 
     expect(screen.getByText('tasks-panel')).toBeInTheDocument();
     expect(screen.getByText('outputs-panel')).toBeInTheDocument();
+  });
+
+  it('shows Deliverables section inside the tasks tab', () => {
+    render(<RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} />);
+
+    expect(screen.getByText('Deliverables')).toBeInTheDocument();
   });
 
   it('returns to chat when a direct-chat request token changes', () => {

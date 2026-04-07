@@ -15,6 +15,12 @@ interface AppLayoutProps {
    */
   centerContent?: ReactNode;
   chatDrawerMode?: 'always' | 'mobile-only';
+  /**
+   * Increment to request the right rail to expand (e.g. when a direct chat
+   * action fires). The rail only expands if the current responsive tier
+   * permits it (desktop or tablet — not narrow/mobile).
+   */
+  requestRightExpandToken?: number;
   onLayoutMetricsChange?: (metrics: {
     isNarrow: boolean;
     leftOpen: boolean;
@@ -100,6 +106,7 @@ export function AppLayout({
   statusBar,
   centerContent,
   chatDrawerMode = 'always',
+  requestRightExpandToken,
   onLayoutMetricsChange,
 }: AppLayoutProps) {
   const initNarrow =
@@ -155,6 +162,14 @@ export function AppLayout({
     }
     prevModeRef.current = mode;
   }, [isNarrow, isTablet]);
+
+  // Auto-expand right rail when a chat/collaboration action requests it,
+  // but only if the responsive tier permits (not narrow/mobile).
+  useEffect(() => {
+    if (requestRightExpandToken && !isNarrow) {
+      setRightOpen(true);
+    }
+  }, [requestRightExpandToken, isNarrow]);
 
   const layoutMetrics = useMemo(
     () => ({

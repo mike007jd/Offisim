@@ -182,13 +182,13 @@ export function Header({
             onClick={onOpenMarket}
             title="Market utility"
             aria-label="Market utility"
-            className="h-8 w-8 hover:bg-white/5"
+            className={`h-8 w-8 hover:bg-white/5 ${activeWorkspace === 'market' ? 'bg-cyan-500/15 border border-cyan-400/30' : ''}`}
           >
-            <Store className="h-4 w-4 text-slate-400 hover:text-cyan-300" />
+            <Store className={`h-4 w-4 ${activeWorkspace === 'market' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`} />
           </Button>
         )}
         {notificationSlot}
-        {onOpenStudio && (
+        {onOpenStudio && activeWorkspace === 'office' && (
           <Button
             variant="ghost"
             size="icon"
