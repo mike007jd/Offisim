@@ -1,20 +1,5 @@
-import type { ActivityLogSessionState } from '../types';
-
-interface ActivityLogPageProps {
-  sessionState: ActivityLogSessionState;
-  onSessionStateChange: (state: ActivityLogSessionState) => void;
-}
-
 /**
- * Placeholder — will be replaced by the real ActivityLogPage in Phase 4.
+ * Re-export the real ActivityLogPage from @offisim/ui-office.
+ * This file exists so the lazy-load import in WorkspaceRouter resolves correctly.
  */
-export default function ActivityLogPage({
-  sessionState: _sessionState,
-  onSessionStateChange: _onSessionStateChange,
-}: ActivityLogPageProps) {
-  return (
-    <div data-workspace="activity-log" data-testid="workspace-activity-log">
-      Activity Log
-    </div>
-  );
-}
+export { ActivityLogPage as default } from '@offisim/ui-office';

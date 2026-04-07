@@ -265,31 +265,31 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Implement Market responsive rules (desktop 3-pane, tablet collapsible right, narrow stacked)
     - _Requirements: 3.5, 13.1, 13.2, 13.3_
 
-- [ ] 8. Phase 3 Checkpoint
+- [x] 8. Phase 3 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: Market is a full workspace, listing detail in-page, Explore/Manage feel distinct, no MarketplaceDetailOverlay for primary inspection
 
-- [ ] 9. Phase 4 — Activity Log Page
-  - [ ] 9.1 Create Activity Log page structure
+- [x] 9. Phase 4 — Activity Log Page
+  - [x] 9.1 Create Activity Log page structure
     - Create `packages/ui-office/src/components/events/workspace/ActivityLogPage.tsx`
     - Render filter pane (left) and full timeline (center) with optional contextual metadata
     - Accept `ActivityLogSessionState` and `onSessionStateChange` props
     - Manage internal state machine: timeline-default, timeline-filtered, event-focused
     - _Requirements: 9.1, 9.5_
 
-  - [ ] 9.2 Create Activity Log filters pane
+  - [x] 9.2 Create Activity Log filters pane
     - Create `packages/ui-office/src/components/events/workspace/ActivityLogFiltersPane.tsx`
     - Event type filters, actor filters, date presets, search
     - Reuse existing `EventLog` filter logic
     - _Requirements: 9.2, 9.4, 9.7_
 
-  - [ ] 9.3 Create Activity Log event focus view
+  - [x] 9.3 Create Activity Log event focus view
     - Create `packages/ui-office/src/components/events/workspace/ActivityLogEventFocus.tsx`
     - Detailed event information display
     - Handle deleted entity references with fallback labels
     - _Requirements: 9.3, 9.8_
 
-  - [ ] 9.4 Implement Activity Log edge cases
+  - [x] 9.4 Implement Activity Log edge cases
     - No events: show empty-history state
     - Zero filter results: retain controls, show zero-results message
     - Event references deleted entity: render fallback label
@@ -300,13 +300,13 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Any sequence of valid user actions produces a valid ActivityLogState following defined transitions
     - **Validates: Requirements 9.2, 9.3, 9.4**
 
-  - [ ] 9.6 Enforce notification bell panel boundary
+  - [x] 9.6 Enforce notification bell panel boundary
     - Modify `packages/ui-office/src/components/notifications/NotificationCenter.tsx`
     - Bell panel shows capped recent list, does not mount full ActivityLogPage
     - Bell panel footer links to ActivityLogPage as workspace page transition
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ] 9.7 Wire ActivityLogPage into WorkspaceRouter
+  - [x] 9.7 Wire ActivityLogPage into WorkspaceRouter
     - Register Activity Log workspace in WorkspaceRouter
     - Implement Activity Log back navigation (event-focused → timeline state → previous workspace)
     - Implement responsive rules (desktop filters+timeline, tablet collapsible filters, narrow stacked)

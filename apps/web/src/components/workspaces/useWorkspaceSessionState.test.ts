@@ -185,16 +185,16 @@ describe('tryWorkspaceInternalBack', () => {
       expect(consumed).toBe(false);
     });
 
-    it('preserves search and filters during unwind', () => {
+    it('preserves search and kind during unwind', () => {
       const state = withMarket({
         mode: 'explore',
         selectedListingId: 'listing-1',
         search: 'sop template',
-        filters: ['free'],
+        kind: 'employee',
       });
       const [, next] = tryWorkspaceInternalBack('market', state);
       expect(next.market.search).toBe('sop template');
-      expect(next.market.filters).toEqual(['free']);
+      expect(next.market.kind).toBe('employee');
     });
   });
 

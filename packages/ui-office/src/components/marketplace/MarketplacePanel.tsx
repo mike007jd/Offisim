@@ -1,4 +1,3 @@
-import type { AssetKind } from '@offisim/asset-schema';
 import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
@@ -6,20 +5,12 @@ import { useMarketplace } from '../../hooks/useMarketplace.js';
 import { InstalledList } from './InstalledList.js';
 import { ListingCard } from './ListingCard.js';
 import { PublishDialog } from './PublishDialog.js';
-import { KIND_ICON } from './marketplace-meta.js';
+import { KIND_FILTERS, KIND_ICON } from './marketplace-meta.js';
 
 interface MarketplacePanelProps {
   readonly onOpenListing: (listingId: string) => void;
   readonly onStartInstall: (listingId: string, version: string) => void;
 }
-
-const KIND_FILTERS: Array<{ value: AssetKind | 'all'; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'employee', label: 'Employees' },
-  { value: 'skill', label: 'Skills' },
-  { value: 'sop', label: 'SOPs' },
-  { value: 'company_template', label: 'Companies' },
-];
 
 export function MarketplacePanel({ onOpenListing, onStartInstall }: MarketplacePanelProps) {
   const {

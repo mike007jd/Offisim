@@ -1,6 +1,9 @@
+import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
-import { useCallback, useEffect, useRef } from 'react';
-import { useRegistryClient } from '../../../hooks/useRegistryClient.js';
+import type { MarketSortOption } from '../marketplace-meta.js';
+
+export type { MarketSortOption } from '../marketplace-meta.js';
+import { useListingDetail } from '../../../hooks/useListingDetail.js';
 import { MarketWorkspaceContextPane } from './MarketWorkspaceContextPane.js';
 import { MarketWorkspaceDetail } from './MarketWorkspaceDetail.js';
 import { MarketWorkspaceExplore } from './MarketWorkspaceExplore.js';
@@ -15,8 +18,8 @@ export type MarketSessionState = {
   mode: 'explore' | 'manage';
   selectedListingId: string | null;
   search: string;
-  sort: string;
-  filters: string[];
+  sort: MarketSortOption;
+  kind: AssetKind | 'all';
   manageTab: 'installed' | 'updates' | 'published';
 };
 
@@ -39,106 +42,58 @@ export function MarketWorkspacePage({
   onSessionStateChange,
   onStartInstall,
 }: MarketWorkspacePageProps) {
-  const client = useRegistryClient();
-  const { toasts, addToast, dismissToast } = useToasts();
+  const { toasts, dismissToast } = useToasts();
 
-  // Deleted entity recovery: verify selected listing still exists
-  const prevSelectedIdRef = useRef(sessionState.selectedListingId);
+  // Single source of truth for listing detail — shared with ContextPane and Detail
+  const activeListingId = sessionState.mode === 'explore' ? sessionState.selectedListingId : null;
+  const {
+    detail,
+    loading: detailLoading,
+    unavailable: detailUnavailable,
+  } = useListingDetail(activeListingId);
 
-  useEffect(() => {
-    const prevId = prevSelectedIdRef.current;
-    prevSelectedIdRef.current = sessionState.selectedListingId;
+  function handleModeChange(mode: 'explore' | 'manage') {
+    onSessionStateChange({ ...sessionState, mode, selectedListingId: null });
+  }
 
-    if (!sessionState.selectedListingId || sessionState.mode !== 'explore') return;
+  function handleManageTabChange(manageTab: 'installed' | 'updates' | 'published') {
+    onSessionStateChange({ ...sessionState, manageTab });
+  }
 
-    // Only check if we just navigated to a listing (id changed)
-    if (prevId === sessionState.selectedListingId) return;
+  function handleSearchChange(search: string) {
+    onSessionStateChange({ ...sessionState, search });
+  }
 
-    let cancelled = false;
-    client
-      .getListingDetail(sessionState.selectedListingId)
-      .catch(() => {
-        if (cancelled) return;
-        addToast('The selected listing is no longer available.', 'info');
-        onSessionStateChange({
-          ...sessionState,
-          selectedListingId: null,
-        });
-      });
+  function handleSortChange(sort: MarketSortOption) {
+    onSessionStateChange({ ...sessionState, sort });
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [client, sessionState, onSessionStateChange, addToast]);
+  function handleKindChange(kind: AssetKind | 'all') {
+    onSessionStateChange({ ...sessionState, kind });
+  }
 
-  // Callbacks
+  function handleSelectListing(listingId: string) {
+    onSessionStateChange({ ...sessionState, selectedListingId: listingId });
+  }
 
-  const handleModeChange = useCallback(
-    (mode: 'explore' | 'manage') => {
-      onSessionStateChange({ ...sessionState, mode, selectedListingId: null });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleManageTabChange = useCallback(
-    (manageTab: 'installed' | 'updates' | 'published') => {
-      onSessionStateChange({ ...sessionState, manageTab });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleSearchChange = useCallback(
-    (search: string) => {
-      onSessionStateChange({ ...sessionState, search });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleSortChange = useCallback(
-    (sort: string) => {
-      onSessionStateChange({ ...sessionState, sort });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleFiltersChange = useCallback(
-    (filters: string[]) => {
-      onSessionStateChange({ ...sessionState, filters });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleSelectListing = useCallback(
-    (listingId: string) => {
-      onSessionStateChange({ ...sessionState, selectedListingId: listingId });
-    },
-    [sessionState, onSessionStateChange],
-  );
-
-  const handleBack = useCallback(() => {
+  function handleBack() {
     onSessionStateChange({ ...sessionState, selectedListingId: null });
-  }, [sessionState, onSessionStateChange]);
+  }
 
-  const handleResetFilters = useCallback(() => {
-    onSessionStateChange({ ...sessionState, search: '', sort: '', filters: [] });
-  }, [sessionState, onSessionStateChange]);
+  function handleResetFilters() {
+    onSessionStateChange({ ...sessionState, search: '', sort: 'relevance', kind: 'all' });
+  }
 
-  const handleInstall = useCallback(
-    (listingId: string, version: string) => {
-      if (onStartInstall) {
-        onStartInstall(listingId, version);
-      }
-    },
-    [onStartInstall],
-  );
+  function handleInstall(listingId: string, version: string) {
+    onStartInstall?.(listingId, version);
+  }
 
-  const handleGoToExplore = useCallback(() => {
+  function handleGoToExplore() {
     onSessionStateChange({ ...sessionState, mode: 'explore', selectedListingId: null });
-  }, [sessionState, onSessionStateChange]);
+  }
 
   // Determine center pane content
-  const showDetail =
-    sessionState.mode === 'explore' && sessionState.selectedListingId !== null;
+  const showDetail = sessionState.mode === 'explore' && sessionState.selectedListingId !== null;
   const showExplore = sessionState.mode === 'explore' && !showDetail;
   const showManage = sessionState.mode === 'manage';
 
@@ -147,7 +102,7 @@ export function MarketWorkspacePage({
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
       <header className="workspace-shell-header">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="workspace-shell-eyebrow">Workspace</p>
             <h1 className="workspace-shell-title">Market</h1>
@@ -155,7 +110,6 @@ export function MarketWorkspacePage({
         </div>
       </header>
 
-      {/* 3-pane layout */}
       <div className="market-workspace-panes">
         <aside
           className="market-workspace-sidebar"
@@ -167,12 +121,12 @@ export function MarketWorkspacePage({
             manageTab={sessionState.manageTab}
             search={sessionState.search}
             sort={sessionState.sort}
-            filters={sessionState.filters}
+            kind={sessionState.kind}
             onModeChange={handleModeChange}
             onManageTabChange={handleManageTabChange}
             onSearchChange={handleSearchChange}
             onSortChange={handleSortChange}
-            onFiltersChange={handleFiltersChange}
+            onKindChange={handleKindChange}
             onStartInstall={handleInstall}
           />
         </aside>
@@ -186,7 +140,7 @@ export function MarketWorkspacePage({
             <MarketWorkspaceExplore
               search={sessionState.search}
               sort={sessionState.sort}
-              filters={sessionState.filters}
+              kind={sessionState.kind}
               onSelectListing={handleSelectListing}
               onResetFilters={handleResetFilters}
             />
@@ -196,6 +150,9 @@ export function MarketWorkspacePage({
             <MarketWorkspaceDetail
               // biome-ignore lint/style/noNonNullAssertion: showDetail guards non-null
               listingId={sessionState.selectedListingId!}
+              detail={detail}
+              detailLoading={detailLoading}
+              detailUnavailable={detailUnavailable}
               onBack={handleBack}
               onInstall={handleInstall}
             />
@@ -216,9 +173,9 @@ export function MarketWorkspacePage({
           aria-label="Market context"
         >
           <MarketWorkspaceContextPane
-            selectedListingId={
-              sessionState.mode === 'explore' ? sessionState.selectedListingId : null
-            }
+            detail={detail}
+            loading={detailLoading}
+            unavailable={detailUnavailable}
           />
         </aside>
       </div>

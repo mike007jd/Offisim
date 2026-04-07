@@ -1,4 +1,7 @@
+import type { AssetKind } from '@offisim/asset-schema';
 import type React from 'react';
+
+import type { MarketSortOption } from '@offisim/ui-office';
 
 // ---------------------------------------------------------------------------
 // Workspace Keys
@@ -28,8 +31,8 @@ export type MarketSessionState = {
   mode: 'explore' | 'manage';
   selectedListingId: string | null;
   search: string;
-  sort: string;
-  filters: string[];
+  sort: MarketSortOption;
+  kind: AssetKind | 'all';
   manageTab: 'installed' | 'updates' | 'published';
 };
 
@@ -167,8 +170,8 @@ export function createDefaultMarketState(): MarketSessionState {
     mode: 'explore',
     selectedListingId: null,
     search: '',
-    sort: '',
-    filters: [],
+    sort: 'relevance',
+    kind: 'all',
     manageTab: 'installed',
   };
 }

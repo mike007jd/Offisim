@@ -1,0 +1,310 @@
+import type { RuntimeEvent } from '@offisim/shared-types';
+import { ScrollArea } from '@offisim/ui-core';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
+import { hydrateEventLogStore, getEventLevel } from '../EventLog';
+import type { EventDisplayLevel } from '../EventLog';
+import { EventItem } from '../EventItem';
+import { ActivityLogFiltersPane } from './ActivityLogFiltersPane';
+import type { DatePreset } from './ActivityLogFiltersPane';
+import { ActivityLogEventFocus } from './ActivityLogEventFocus';
+
+// ---------------------------------------------------------------------------
+// Types — mirrored from apps/web workspace types to avoid cross-package deps
+// ---------------------------------------------------------------------------
+
+export type ActivityLogSessionState = {
+  selectedEventId: string | null;
+  search: string;
+  eventTypes: string[];
+  actorFilters: string[];
+  datePreset: 'today' | '7d' | '30d' | 'custom';
+};
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+export interface ActivityLogPageProps {
+  sessionState: ActivityLogSessionState;
+  onSessionStateChange: (state: ActivityLogSessionState) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Filter type → topic prefix mapping (reused from EventLog)
+// ---------------------------------------------------------------------------
+
+const TYPE_PREFIX_MAP: Record<string, string[]> = {
+  All: [],
+  Node: ['graph.node.'],
+  Plan: ['plan.'],
+  Task: ['task.'],
+  Deliverable: ['deliverable.'],
+  Employee: ['employee.'],
+  Install: ['install.'],
+  LLM: ['llm.'],
+  Interaction: ['interaction.'],
+  Error: ['error.'],
+  MCP: ['mcp.'],
+  Knowledge: ['knowledge.'],
+  Meeting: ['meeting.', 'direct.chat.'],
+  HR: ['hr.'],
+  Memory: ['memory.'],
+  Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
+  Git: ['git.'],
+};
+
+// ---------------------------------------------------------------------------
+// Date preset → cutoff timestamp
+// ---------------------------------------------------------------------------
+
+function getDateCutoff(preset: DatePreset): number {
+  const now = Date.now();
+  switch (preset) {
+    case 'today': return now - 24 * 60 * 60 * 1000;
+    case '7d': return now - 7 * 24 * 60 * 60 * 1000;
+    case '30d': return now - 30 * 24 * 60 * 60 * 1000;
+    case 'custom': return 0; // no cutoff
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Level row styles (reused from EventLog)
+// ---------------------------------------------------------------------------
+
+const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
+  Info: '',
+  Warning: 'border-l-2 border-amber-400 bg-amber-400/5',
+  Error: 'border-l-2 border-red-400 bg-red-400/5',
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function ActivityLogPage({
+  sessionState,
+  onSessionStateChange,
+}: ActivityLogPageProps) {
+  const { eventBus, bootstrapState } = useOffisimRuntime();
+  const store = useMemo(
+    () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
+    [eventBus, bootstrapState],
+  );
+  const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync events from the shared store
+  useEffect(() => {
+    setEvents(store.events);
+    const syncEvents = () => setEvents(store.events);
+    store.listeners.add(syncEvents);
+    return () => {
+      store.listeners.delete(syncEvents);
+    };
+  }, [store]);
+
+  // Auto-scroll to bottom on new events (only when not focused on an event)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: events array triggers scroll intentionally
+  useEffect(() => {
+    if (!sessionState.selectedEventId && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events, sessionState.selectedEventId]);
+
+  // Filtered events
+  const filteredEvents = useMemo(() => {
+    const { search, eventTypes, datePreset } = sessionState;
+    const searchLower = search.toLowerCase();
+    const cutoff = getDateCutoff(datePreset);
+
+    // Collect all matching prefixes from selected event types
+    const prefixes: string[] = [];
+    if (eventTypes.length > 0) {
+      for (const type of eventTypes) {
+        const p = TYPE_PREFIX_MAP[type];
+        if (p) prefixes.push(...p);
+      }
+    }
+
+    const result: { event: RuntimeEvent; level: EventDisplayLevel }[] = [];
+    for (const event of events) {
+      // Date filter
+      if (event.timestamp < cutoff) continue;
+
+      // Type filter
+      if (prefixes.length > 0 && !prefixes.some((p) => event.type.startsWith(p))) continue;
+
+      // Search filter
+      if (searchLower && !event.type.toLowerCase().includes(searchLower)) continue;
+
+      result.push({ event, level: getEventLevel(event) });
+    }
+    return result;
+  }, [events, sessionState]);
+
+  // Find the focused event
+  const focusedEvent = useMemo(() => {
+    if (!sessionState.selectedEventId) return null;
+    return events.find(
+      (e) => `${e.timestamp}-${e.entityId}` === sessionState.selectedEventId,
+    ) ?? null;
+  }, [events, sessionState.selectedEventId]);
+
+  // Handlers
+  const handleSelectEvent = useCallback(
+    (event: RuntimeEvent) => {
+      onSessionStateChange({
+        ...sessionState,
+        selectedEventId: `${event.timestamp}-${event.entityId}`,
+      });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
+  const handleBackFromFocus = useCallback(() => {
+    onSessionStateChange({
+      ...sessionState,
+      selectedEventId: null,
+    });
+  }, [sessionState, onSessionStateChange]);
+
+  const handleSearchChange = useCallback(
+    (search: string) => {
+      onSessionStateChange({ ...sessionState, search });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
+  const handleEventTypesChange = useCallback(
+    (eventTypes: string[]) => {
+      onSessionStateChange({ ...sessionState, eventTypes });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
+  const handleDatePresetChange = useCallback(
+    (datePreset: DatePreset) => {
+      onSessionStateChange({ ...sessionState, datePreset });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
+  const handleActorFiltersChange = useCallback(
+    (actorFilters: string[]) => {
+      onSessionStateChange({ ...sessionState, actorFilters });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
+  // Event-focused mode
+  if (sessionState.selectedEventId && focusedEvent) {
+    return (
+      <div data-workspace="activity-log" data-testid="workspace-activity-log" className="flex flex-col h-full">
+        <header className="workspace-shell-header">
+          <div className="min-w-0">
+            <p className="workspace-shell-eyebrow">Workspace</p>
+            <h1 className="workspace-shell-title">Activity Log</h1>
+          </div>
+        </header>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ActivityLogEventFocus event={focusedEvent} onBack={handleBackFromFocus} />
+        </div>
+      </div>
+    );
+  }
+
+  // Handle selected event that no longer exists (deleted entity recovery)
+  if (sessionState.selectedEventId && !focusedEvent) {
+    // Event was deleted or no longer in store — fall back to timeline
+    // Use a microtask to avoid setState during render
+    queueMicrotask(() => {
+      onSessionStateChange({ ...sessionState, selectedEventId: null });
+    });
+  }
+
+  return (
+    <div data-workspace="activity-log" data-testid="workspace-activity-log" className="flex flex-col h-full">
+      <header className="workspace-shell-header">
+        <div className="min-w-0">
+          <p className="workspace-shell-eyebrow">Workspace</p>
+          <h1 className="workspace-shell-title">Activity Log</h1>
+        </div>
+      </header>
+
+      <div className="activity-log-panes">
+        {/* Left: Filters */}
+        <aside
+          className="activity-log-filters"
+          data-testid="activity-log-filters"
+          aria-label="Activity log filters"
+        >
+          <ActivityLogFiltersPane
+            search={sessionState.search}
+            eventTypes={sessionState.eventTypes}
+            datePreset={sessionState.datePreset}
+            actorFilters={sessionState.actorFilters}
+            onSearchChange={handleSearchChange}
+            onEventTypesChange={handleEventTypesChange}
+            onDatePresetChange={handleDatePresetChange}
+            onActorFiltersChange={handleActorFiltersChange}
+          />
+        </aside>
+
+        {/* Center: Timeline */}
+        <main
+          className="activity-log-timeline"
+          data-testid="activity-log-timeline"
+          aria-label="Event timeline"
+        >
+          <ScrollArea className="h-full">
+            <div ref={scrollRef}>
+              {filteredEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-2 text-center px-6">
+                  {events.length === 0 ? (
+                    <>
+                      <p className="text-sm text-slate-400">No events yet</p>
+                      <p className="text-xs text-slate-500">
+                        Events will appear here as your company operates.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-400">No events match filters</p>
+                      <p className="text-xs text-slate-500">
+                        Try adjusting your filters or search query.
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                filteredEvents.map(({ event, level }, i) => {
+                  const rowStyle = LEVEL_ROW_STYLES[level];
+                  return (
+                    <div
+                      key={`${event.timestamp}-${i}`}
+                      role="button"
+                      tabIndex={0}
+                      className={`${rowStyle} cursor-pointer hover:bg-white/5 transition-colors`}
+                      onClick={() => handleSelectEvent(event)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelectEvent(event);
+                        }
+                      }}
+                    >
+                      <EventItem event={event} />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default ActivityLogPage;

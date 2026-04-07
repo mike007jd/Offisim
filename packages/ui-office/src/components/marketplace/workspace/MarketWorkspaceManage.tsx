@@ -39,10 +39,7 @@ export function MarketWorkspaceManage({
         </div>
       ) : null}
 
-      <InstalledListWithEmptyState
-        onStartInstall={onStartInstall}
-        onGoToExplore={onGoToExplore}
-      />
+      <InstalledListWithEmptyState onStartInstall={onStartInstall} onGoToExplore={onGoToExplore} />
     </div>
   );
 }

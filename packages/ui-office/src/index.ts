@@ -84,6 +84,7 @@ export * from './components/sop/SopTimelineView.js';
 export * from './components/sop/SopStepCard.js';
 export * from './components/sop/workspace/SopWorkspacePage.js';
 export * from './components/marketplace/workspace/MarketWorkspacePage.js';
+export * from './components/events/workspace/ActivityLogPage.js';
 
 // Hooks
 export * from './hooks/use-reduced-motion.js';

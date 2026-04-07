@@ -2,12 +2,13 @@ import type { AssetKind } from '@offisim/asset-schema';
 import { Button } from '@offisim/ui-core';
 import { useEffect } from 'react';
 import { useMarketplace } from '../../../hooks/useMarketplace.js';
+import type { MarketSortOption } from '../marketplace-meta.js';
 import { ListingCard } from '../ListingCard.js';
 
 export interface MarketWorkspaceExploreProps {
   search: string;
-  sort: string;
-  filters: string[];
+  sort: MarketSortOption;
+  kind: AssetKind | 'all';
   onSelectListing: (listingId: string) => void;
   onResetFilters: () => void;
 }
@@ -15,13 +16,10 @@ export interface MarketWorkspaceExploreProps {
 export function MarketWorkspaceExplore({
   search,
   sort,
-  filters,
+  kind,
   onSelectListing,
   onResetFilters,
 }: MarketWorkspaceExploreProps) {
-  const activeKind = (filters[0] as AssetKind | 'all') ?? 'all';
-  const sortVal = (sort || 'relevance') as 'relevance' | 'newest' | 'rating' | 'installs';
-
   const {
     query,
     setQuery,
@@ -36,18 +34,17 @@ export function MarketWorkspaceExplore({
     loadMore,
   } = useMarketplace();
 
-  // Sync external session state into the hook
   useEffect(() => {
     if (query !== search) setQuery(search);
   }, [search, query, setQuery]);
 
   useEffect(() => {
-    if (mFilters.kind !== activeKind) setKind(activeKind);
-  }, [activeKind, mFilters.kind, setKind]);
+    if (mFilters.kind !== kind) setKind(kind);
+  }, [kind, mFilters.kind, setKind]);
 
   useEffect(() => {
-    if (mFilters.sort !== sortVal) setSort(sortVal);
-  }, [sortVal, mFilters.sort, setSort]);
+    if (mFilters.sort !== sort) setSort(sort);
+  }, [sort, mFilters.sort, setSort]);
 
   if (error) {
     return (

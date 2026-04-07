@@ -9,18 +9,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { Download, ExternalLink, Shield, Star, X } from 'lucide-react';
+import { Download, ExternalLink, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRegistryClient } from '../../hooks/useRegistryClient.js';
-import { KIND_ICON, formatInstallCount, formatRiskLabel } from './marketplace-meta.js';
+import { PermissionsBlock } from './PermissionsBlock.js';
+import {
+  INSTALLABLE_KINDS,
+  KIND_ICON,
+  formatInstallCount,
+  formatRiskLabel,
+} from './marketplace-meta.js';
 
 interface MarketplaceDetailOverlayProps {
   readonly listingId: string;
   readonly onClose: () => void;
   readonly onInstall: (listingId: string, version: string) => void;
 }
-
-const INSTALLABLE_KINDS = new Set(['employee', 'skill']);
 
 export function MarketplaceDetailOverlay({
   listingId,
@@ -284,36 +288,7 @@ export function MarketplaceDetailOverlay({
               <aside className="space-y-6">
                 {detail ? (
                   <>
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                        <Shield className="h-4 w-4 text-cyan-300" />
-                        Permissions
-                      </div>
-                      <dl className="mt-4 space-y-3 text-sm text-slate-300">
-                        <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">Risk</dt>
-                          <dd>{formatRiskLabel(detail.permissions.risk_class)}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">
-                            Filesystem
-                          </dt>
-                          <dd>{detail.permissions.filesystem_scope ?? 'none'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">
-                            Network
-                          </dt>
-                          <dd>{detail.permissions.network_scope ?? 'none'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs uppercase tracking-wide text-slate-500">
-                            Secrets
-                          </dt>
-                          <dd>{detail.permissions.declares_secrets ? 'Declared' : 'None'}</dd>
-                        </div>
-                      </dl>
-                    </section>
+                    <PermissionsBlock permissions={detail.permissions} variant="wide" />
 
                     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                       <h3 className="text-sm font-semibold text-white">Package metadata</h3>

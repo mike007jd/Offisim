@@ -471,3 +471,53 @@ body {
     display: none;
   }
 }
+
+/* ── Activity Log Workspace Layout ── */
+
+.activity-log-panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.activity-log-filters {
+  width: 240px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-val);
+  overflow-y: auto;
+}
+
+.activity-log-timeline {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Responsive: Tablet — filters collapsible ── */
+@media (max-width: 1280px) {
+  .activity-log-filters {
+    width: 200px;
+    min-width: 160px;
+  }
+}
+
+/* ── Responsive: Narrow — filters become top section, timeline single-column ── */
+@media (max-width: 768px) {
+  .activity-log-panes {
+    flex-direction: column;
+  }
+
+  .activity-log-filters {
+    width: 100%;
+    min-width: 0;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-val);
+  }
+
+  .activity-log-timeline {
+    flex: 1;
+  }
+}
