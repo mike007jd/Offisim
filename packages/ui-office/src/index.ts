@@ -79,6 +79,7 @@ export * from './components/scene/useScene.js';
 export * from './components/server-room/ServerRoom.js';
 export * from './components/settings/McpConfigPanel.js';
 export * from './components/settings/provider-presets.js';
+export * from './components/sop/SopPanel.js';
 export * from './components/sop/SopTimelineView.js';
 export * from './components/sop/SopStepCard.js';
 
