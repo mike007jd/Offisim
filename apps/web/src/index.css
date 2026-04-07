@@ -410,3 +410,64 @@ body {
     display: none;
   }
 }
+
+/* ── Market Workspace 3-Pane Layout ── */
+
+.market-workspace-panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.market-workspace-sidebar {
+  width: 260px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-val);
+  overflow-y: auto;
+}
+
+.market-workspace-canvas {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.market-workspace-context {
+  width: 280px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-val);
+  overflow-y: auto;
+}
+
+/* ── Responsive: Tablet — collapse right pane ── */
+@media (max-width: 1280px) {
+  .market-workspace-context {
+    display: none;
+  }
+}
+
+/* ── Responsive: Narrow — stack panes vertically ── */
+@media (max-width: 768px) {
+  .market-workspace-panes {
+    flex-direction: column;
+  }
+
+  .market-workspace-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-val);
+  }
+
+  .market-workspace-canvas {
+    flex: 1;
+  }
+
+  .market-workspace-context {
+    display: none;
+  }
+}

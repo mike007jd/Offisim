@@ -1,20 +1,7 @@
-import type { MarketSessionState } from '../types';
-
-interface MarketWorkspacePageProps {
-  sessionState: MarketSessionState;
-  onSessionStateChange: (state: MarketSessionState) => void;
-}
-
 /**
- * Placeholder — will be replaced by the real MarketWorkspacePage in Phase 3.
+ * Re-exports the real MarketWorkspacePage from @offisim/ui-office.
+ *
+ * This file exists so the WorkspaceRouter can lazy-import via a default
+ * export without pulling in the entire ui-office barrel.
  */
-export default function MarketWorkspacePage({
-  sessionState: _sessionState,
-  onSessionStateChange: _onSessionStateChange,
-}: MarketWorkspacePageProps) {
-  return (
-    <div data-workspace="market" data-testid="workspace-market">
-      Market Workspace
-    </div>
-  );
-}
+export { MarketWorkspacePage as default } from '@offisim/ui-office';

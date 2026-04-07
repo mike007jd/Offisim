@@ -205,48 +205,48 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Resizing from desktop to narrow collapses context pane but preserves selectedSopId
     - **Validates: Requirement 13.4**
 
-- [ ] 6. Phase 2 Checkpoint
+- [x] 6. Phase 2 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: SOPs is a full workspace, selecting SOP stays in-page, back unwinds selection, no SopDrawer for primary inspection
 
-- [ ] 7. Phase 3 — Market Workspace
-  - [ ] 7.1 Create Market workspace page structure
+- [x] 7. Phase 3 — Market Workspace
+  - [x] 7.1 Create Market workspace page structure
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspacePage.tsx`
     - Implement 3-pane layout: mode/filter rail (left), content area (center), metadata/context pane (right)
     - Accept `MarketSessionState` and `onSessionStateChange` props
     - Manage internal state machine: explore-feed, explore-detail, manage-installed, manage-updates, manage-published, publishing, installing
     - _Requirements: 8.1, 8.6_
 
-  - [ ] 7.2 Create Market workspace sidebar
+  - [x] 7.2 Create Market workspace sidebar
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspaceSidebar.tsx`
     - Scope filters, category filters, Explore vs Manage mode switch
     - Search and sort controls that persist per mode
     - _Requirements: 8.1, 8.2, 8.4_
 
-  - [ ] 7.3 Create Market workspace explore view
+  - [x] 7.3 Create Market workspace explore view
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspaceExplore.tsx`
     - Listing feed in explore mode
     - Reuse `useMarketplace` hook for data
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 7.4 Create Market workspace detail view
+  - [x] 7.4 Create Market workspace detail view
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspaceDetail.tsx`
     - Extract listing detail content from `MarketplaceDetailOverlay.tsx`
     - Display listing detail in center pane without overlay
     - _Requirements: 8.3, 12.2_
 
-  - [ ] 7.5 Create Market workspace context pane
+  - [x] 7.5 Create Market workspace context pane
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspaceContextPane.tsx`
     - Package metadata, version/install/update state, trust/risk/reviews, compatibility signals
     - _Requirements: 8.1_
 
-  - [ ] 7.6 Create Market workspace manage view
+  - [x] 7.6 Create Market workspace manage view
     - Create `packages/ui-office/src/components/marketplace/workspace/MarketWorkspaceManage.tsx`
     - Installed, updates, published tabs
     - Handle zero installed packages with jump-to-Explore affordance
     - _Requirements: 8.2, 8.9_
 
-  - [ ] 7.7 Implement Market edge cases and error handling
+  - [x] 7.7 Implement Market edge cases and error handling
     - Selected listing becomes unavailable: show inline unavailable state
     - Install requires config/auth: launch Short_Flow_Dialog, return to same listing
     - Install in progress on workspace leave: continue in background, reflect in bell/Activity Log
@@ -259,7 +259,7 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Any sequence of valid user actions produces a valid MarketWorkspaceState following defined transitions
     - **Validates: Requirements 8.3, 8.4, 8.5**
 
-  - [ ] 7.9 Wire MarketWorkspacePage into WorkspaceRouter
+  - [x] 7.9 Wire MarketWorkspacePage into WorkspaceRouter
     - Register Market workspace in WorkspaceRouter
     - Implement Market-specific back navigation (explore-detail → explore-feed → previous workspace)
     - Implement Market responsive rules (desktop 3-pane, tablet collapsible right, narrow stacked)
