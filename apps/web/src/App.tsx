@@ -420,6 +420,12 @@ export function App({ onCompanySwitch }: AppProps) {
     shortcutHelpOpen ||
     companyWizardMode !== null;
 
+  const handleOpenStudio = useCallback(() => {
+    if (activeWorkspace !== 'office') return;
+    setStudioMode('edit');
+    setView('studio');
+  }, [activeWorkspace]);
+
   const handleLayoutMetricsChange = useCallback(
     ({
       leftPanelWidth: nextLeftPanelWidth,
@@ -453,12 +459,7 @@ export function App({ onCompanySwitch }: AppProps) {
         onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
         onToggleKanban={() => setKanbanOpen((prev) => !prev)}
         onOpenEditor={() => setView('office-editor')}
-        onOpenStudio={() => {
-          // Studio can only be entered from Office (Req 5.1)
-          if (activeWorkspace !== 'office') return;
-          setStudioMode('edit');
-          setView('studio');
-        }}
+        onOpenStudio={handleOpenStudio}
         activeProject={activeProject}
         onUserMessage={handleUserMessage}
         onboardingWelcome={chatOnboardingWelcome}
@@ -469,9 +470,9 @@ export function App({ onCompanySwitch }: AppProps) {
     ),
     [
       activeProject,
-      activeWorkspace,
       chatOnboardingStarters,
       chatOnboardingWelcome,
+      handleOpenStudio,
       handleUserMessage,
       selectedEmployeeId,
       selectedEmployeeName,
@@ -681,12 +682,7 @@ export function App({ onCompanySwitch }: AppProps) {
                     onOpenOffice={() => handleWorkspaceSwitch('office')}
                     onOpenSops={() => handleWorkspaceSwitch('sops')}
                     onOpenMarket={() => handleWorkspaceSwitch('market')}
-                    onOpenStudio={() => {
-                      // Studio can only be entered from Office (Req 5.1)
-                      if (activeWorkspace !== 'office') return;
-                      setStudioMode('edit');
-                      setView('studio');
-                    }}
+                    onOpenStudio={handleOpenStudio}
                     onOpenCompanySelect={() => setView('company-select')}
                     onOpenCompanyEditor={companyEditor.open}
                     onFileImport={installFlow.startFileImport}

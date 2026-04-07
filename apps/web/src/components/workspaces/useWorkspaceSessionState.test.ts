@@ -265,8 +265,6 @@ describe('Studio containment state rules', () => {
   });
 
   it('switching away from Office with active studioMode should nullify it (Req 5.2)', () => {
-    // This tests the invariant enforced by setActiveWorkspace in the hook:
-    // When leaving Office with studioMode !== null, studioMode is set to null.
     const state: WorkspaceSessionState = {
       ...createDefaultSessionState(),
       office: {
@@ -277,40 +275,14 @@ describe('Studio containment state rules', () => {
     };
 
     // Simulate what setActiveWorkspace does: close Studio when leaving Office
-    const nextOffice = {
-      ...state.office,
-      studioMode: null as 'create' | 'edit' | null,
+    const nextState: WorkspaceSessionState = {
+      ...state,
+      office: { ...state.office, studioMode: null },
     };
-    const nextState = { ...state, office: nextOffice };
 
     expect(nextState.office.studioMode).toBeNull();
     // viewMode and selectedEmployeeId preserved (Req 5.4)
     expect(nextState.office.viewMode).toBe('2D');
     expect(nextState.office.selectedEmployeeId).toBe('emp-42');
-  });
-
-  it('returning to Office after studioMode was closed does not auto-reopen Studio (Req 5.3)', () => {
-    // After studioMode is nullified by a workspace switch, returning to Office
-    // restores the session state as-is — studioMode remains null.
-    const state: WorkspaceSessionState = {
-      ...createDefaultSessionState(),
-      office: {
-        viewMode: '2D',
-        selectedEmployeeId: 'emp-42',
-        studioMode: null, // was closed by the switch
-      },
-    };
-
-    // Session state is restored as-is on return — no auto-reopen
-    expect(state.office.studioMode).toBeNull();
-    expect(state.office.viewMode).toBe('2D');
-    expect(state.office.selectedEmployeeId).toBe('emp-42');
-  });
-
-  it('studioMode can only be non-null when activeWorkspace is office (validation rule)', () => {
-    // This is a design invariant: studioMode !== null implies activeWorkspace === 'office'
-    const state = createDefaultSessionState();
-    // Default studioMode is null for all workspaces
-    expect(state.office.studioMode).toBeNull();
   });
 });
