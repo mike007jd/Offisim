@@ -1,3 +1,13 @@
+/**
+ * @deprecated SopDrawer is a legacy slide-over panel used only by SopPanel.
+ *
+ * SopPanel is no longer mounted in the main app flow — primary SOP inspection
+ * now happens inside SopWorkspacePage (the full 3-pane workspace). SopDrawer
+ * has no visible user path for primary SOP inspection and should be removed
+ * once SopPanel is fully retired.
+ *
+ * See: packages/ui-office/src/components/sop/workspace/SopWorkspacePage.tsx
+ */
 import type { SopDefinition } from '@offisim/shared-types';
 import { Loader2, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

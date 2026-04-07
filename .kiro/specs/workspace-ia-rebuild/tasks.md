@@ -312,31 +312,31 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Implement responsive rules (desktop filters+timeline, tablet collapsible filters, narrow stacked)
     - _Requirements: 3.6, 13.1, 13.2, 13.3_
 
-- [ ] 10. Phase 4 Checkpoint
+- [x] 10. Phase 4 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: Activity Log is a page, bell stays compact, event focus and filter states unwind correctly
 
-- [ ] 11. Phase 5 — Collaboration Rail Finalization
-  - [ ] 11.1 Finalize right rail content and behavior
+- [x] 11. Phase 5 — Collaboration Rail Finalization
+  - [x] 11.1 Finalize right rail content and behavior
     - Review and clean `packages/ui-office/src/components/layout/RightSidebar.tsx`
     - Ensure Chat is primary, Tasks is context, Deliverables inside task context
     - Workflow status is lightweight, text-first, page-aware
     - Remove any remaining non-collaboration content
     - _Requirements: 11.1, 11.2, 11.5_
 
-  - [ ] 11.2 Clean up ChatPanel and task context
+  - [x] 11.2 Clean up ChatPanel and task context
     - Modify `packages/ui-office/src/components/chat/ChatPanel.tsx` — remove page-independent baggage
     - Modify `packages/ui-office/src/components/plan/TaskDashboard.tsx` — ensure readable in all workspaces
     - Modify `packages/ui-office/src/components/pitch/PitchHall.tsx` — ensure collaboration-only
     - Modify `packages/ui-office/src/components/chat/PipelineProgress.tsx` — lightweight workflow status
     - _Requirements: 11.1, 11.3, 11.4_
 
-- [ ] 12. Phase 5 Checkpoint
+- [x] 12. Phase 5 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: right rail reads as collaboration on every page, no tool tabs reappear
 
-- [ ] 13. Phase 6 — Employee and Office Semantics Cleanup
-  - [ ] 13.1 Clean up employee inspector and Studio semantics
+- [x] 13. Phase 6 — Employee and Office Semantics Cleanup
+  - [x] 13.1 Clean up employee inspector and Studio semantics
     - Modify `packages/ui-office/src/components/agents/EmployeeInspector.tsx` — keep as quick inspect, no fake HR profile language
     - Modify `packages/ui-office/src/components/office/OfficeEditorOverlay.tsx` — reinforce "Office edit mode" wording
     - Modify `packages/ui-office/src/components/studio/StudioPlacedPrefabs.tsx` — explicit zone focus and decoration ownership
@@ -344,21 +344,21 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Handle Studio with no selected zone: show "editing the office shell" state
     - _Requirements: 5.1, 5.3_
 
-- [ ] 14. Phase 7 — Visual Unification and Overlay Retirement
-  - [ ] 14.1 Unify workspace page shell styling
+- [x] 14. Phase 7 — Visual Unification and Overlay Retirement
+  - [x] 14.1 Unify workspace page shell styling
     - Unify page-shell spacing, hierarchy, and motion across SOPs, Market, Activity Log
     - Ensure each workspace has distinct job-specific structure (workbench / ecosystem browser / timeline)
     - Remove visual traces of "sidebar panel promoted into page"
     - Ensure animations respect reduced motion preferences
     - _Requirements: 6.1, 6.5_
 
-  - [ ] 14.2 Retire overlay components
+  - [x] 14.2 Retire overlay components
     - Remove or mark as legacy: `SopDrawer.tsx` (no visible user path opens it for primary SOP inspection)
     - Remove or mark as legacy: `MarketplaceDetailOverlay.tsx` (no visible user path opens it for primary market inspection)
     - Remove `WorkspaceSurface` temporary helper from `App.tsx`
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-  - [ ] 14.3 Implement deep link handling for missing entities
+  - [x] 14.3 Implement deep link handling for missing entities
     - When deep link targets a missing entity, load workspace in default state
     - Show non-blocking notice explaining entity not found
     - Provide full workspace functionality for browsing
@@ -369,7 +369,7 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Test that no runtime path opens retired overlays
     - _Requirements: 12.4, 12.5, 15.1, 15.2, 15.3_
 
-- [ ] 15. Final Checkpoint
+- [x] 15. Final Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: all workspaces are page-native, right rail is collaboration-only, no overlay detail paths remain, responsive layouts work across tiers, back navigation unwinds correctly everywhere
 

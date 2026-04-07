@@ -127,6 +127,11 @@ const MarketplaceOverlay = React.lazy(() =>
     default: m.MarketplaceDetailOverlay,
   })),
 );
+// TODO(Phase 7): MarketplaceDetailOverlay is a legacy overlay path. Primary market
+// inspection now happens inside MarketWorkspacePage (the full 3-pane workspace).
+// The `marketplaceListingId` state and this overlay are kept for deep-link installs
+// (offisim://install?listing_id=X) that may open a listing before the workspace
+// is navigated to. Remove once deep-link installs are routed through MarketWorkspacePage.
 
 interface AppProps {
   /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
@@ -368,6 +373,19 @@ export function App({ onCompanySwitch }: AppProps) {
   }, [eventBus, addToast]);
 
   // Deep link install handler — receives offisim://install?listing_id=X&version=Y from Tauri shell
+  //
+  // Deep link → workspace flow:
+  //   1. Tauri shell intercepts the offisim:// URL and emits it to the renderer.
+  //   2. useDeepLinkInstall fires this callback with { listing_id, version }.
+  //   3. installFlow.startRegistryInstall opens the InstallDialog (a Short_Flow_Dialog).
+  //   4. InstallDialog fetches the listing from the registry and shows install options.
+  //   5. If the listing doesn't exist, InstallDialog handles the 404 gracefully and
+  //      shows an error state — the workspace loads in its default state (no crash).
+  //   6. On successful install, the user is returned to whichever workspace was active.
+  //
+  // Missing entity recovery: if listing_id no longer exists in the registry, the
+  // InstallDialog renders an error and the user can dismiss it. The active workspace
+  // (MarketWorkspacePage or Office) is unaffected. See Error Scenario 2 in design.md.
   useDeepLinkInstall(
     useCallback(
       ({ listing_id, version }) => {

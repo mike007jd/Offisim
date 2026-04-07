@@ -521,3 +521,41 @@ body {
     flex: 1;
   }
 }
+
+/* ── Reduced Motion — disable transitions and animations ── */
+/* Respects the OS-level "reduce motion" accessibility preference.
+   All workspace transitions, list animations, and pipeline progress
+   animations are disabled when this preference is active. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Workspace shell — no slide-in entrance */
+  .workspace-shell {
+    animation: none;
+  }
+
+  /* List item stagger animation */
+  .animate-list-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Tailwind animate-in / slide-in utilities used by workspace pages */
+  .animate-in {
+    animation: none !important;
+  }
+  .slide-in-from-bottom-2,
+  .slide-in-from-right,
+  .fade-in {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
