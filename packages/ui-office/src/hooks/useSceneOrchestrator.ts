@@ -447,6 +447,13 @@ export function useSceneOrchestrator({
       });
     }, delayMs);
   }, [safeTimeout]);
+  const scheduleCeremonyReset = useCallback((version: number, delayMs: number) => {
+    safeTimeout(() => {
+      if (ceremonyVersionRef.current !== version) return;
+      setCeremony(createIdleCeremonyState());
+      clearAssignedSceneState();
+    }, delayMs);
+  }, [clearAssignedSceneState, safeTimeout]);
 
   // Cleanup module-level Maps and pending timers on unmount / company switch
   const activeCompanyId = companyId;
@@ -506,6 +513,22 @@ export function useSceneOrchestrator({
     },
     [moveEmployeeAlongTransit],
   );
+  const startDismissPhase = useCallback((employeeIds: readonly string[], version: number) => {
+    safeTimeout(() => {
+      if (ceremonyVersionRef.current !== version) return;
+      setCeremony((prev) => ({
+        ...prev,
+        phase: 'dismissing',
+        bubbleText: '',
+        managerVisible: false,
+        managerPosition: null,
+      }));
+      for (const employeeId of employeeIds) {
+        moveEmployeeToRest(employeeId, 4);
+      }
+      scheduleCeremonyReset(version, 3000);
+    }, 1500);
+  }, [moveEmployeeToRest, safeTimeout, scheduleCeremonyReset]);
 
   /** Move all enabled employees to MTG semicircle positions. */
   const gatherAll = useCallback((_version: number) => {
@@ -608,21 +631,19 @@ export function useSceneOrchestrator({
 
       // Guard: 0 employees → skip straight to dismiss
       if (dispatchedIds.length === 0) {
-        safeTimeout(() => {
-          if (ceremonyVersionRef.current !== version) return;
-          setCeremony(createIdleCeremonyState());
-          clearAssignedSceneState();
-        }, 1500);
+        scheduleCeremonyReset(version, 1500);
         return;
       }
 
       let arrivedCount = 0;
+      let expectedArrivals = 0;
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
       const mtgPositions = computeMtgPositions(mtgCenter);
 
       dispatchedIds.forEach((id, idx) => {
         const handle = getMovementHandles(companyIdRef.current).get(id);
         if (!handle) return;
+        expectedArrivals += 1;
         const seat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
         const reportSeat: [number, number, number] = [
           seat[0] + (Math.random() - 0.5) * 0.3,
@@ -644,32 +665,17 @@ export function useSceneOrchestrator({
 
         moveThroughPoints(handle, route, 5, () => {
           arrivedCount++;
-          if (arrivedCount >= dispatchedIds.length && ceremonyVersionRef.current === version) {
-            // All gathered — show summary for 1.5s then dismiss
-            safeTimeout(() => {
-              if (ceremonyVersionRef.current !== version) return;
-              setCeremony((prev) => ({
-                ...prev,
-                phase: 'dismissing',
-                bubbleText: '',
-                managerVisible: false,
-                managerPosition: null,
-              }));
-              for (const empId of dispatchedIds) {
-                moveEmployeeToRest(empId, 4);
-              }
-              // After 3s, ceremony is fully done
-              safeTimeout(() => {
-                if (ceremonyVersionRef.current !== version) return;
-                setCeremony(createIdleCeremonyState());
-                clearAssignedSceneState();
-              }, 3000);
-            }, 1500);
+          if (arrivedCount >= expectedArrivals && ceremonyVersionRef.current === version) {
+            startDismissPhase(dispatchedIds, version);
           }
         });
       });
+
+      if (expectedArrivals === 0) {
+        scheduleCeremonyReset(version, 1500);
+      }
     },
-    [clearAssignedSceneState, getSceneObstacleFootprints, moveEmployeeToRest, safeTimeout],
+    [getSceneObstacleFootprints, scheduleCeremonyReset, startDismissPhase],
   );
 
   // ── EventBus subscriptions ──

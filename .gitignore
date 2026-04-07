@@ -4,6 +4,7 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .superpowers/
+.serena/
 .env
 .env.*
 !.env.example
@@ -20,12 +21,15 @@ tmp/
 .playwright-mcp/
 .playwright-cli/
 .claude/settings.local.json
+.claude/worktrees/
 
 # Playwright test artifacts
 test-results/
 playwright-report/
 blob-report/
-.claude/worktrees/
 
-# Verification screenshots (not tracked)
-*.png
+# Test/debug screenshots and artifacts
+screenshots/
+audit-*.png
+[0-9]*-*.png
+/icon.png
