@@ -35,11 +35,11 @@ describe('MarketplacePanel', () => {
   it('frames Market as ecosystem access rather than a store checkout surface', () => {
     render(<MarketplacePanel onOpenListing={vi.fn()} onStartInstall={vi.fn()} />);
 
-    expect(screen.getByText('Ecosystem')).toBeTruthy();
+    expect(screen.getByText('Ecosystem')).toBeInTheDocument();
     expect(
       screen.getByText('Browse shared capabilities and reusable building blocks'),
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
-    expect(screen.getByText('No catalog entries match this view')).toBeTruthy();
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    expect(screen.getByText('No catalog entries match this view')).toBeInTheDocument();
   });
 });

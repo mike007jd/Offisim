@@ -21,11 +21,11 @@ describe('MessageBubble', () => {
 
     render(createElement(MessageBubble, { role: 'assistant', content: markdownReply }));
 
-    expect(screen.getByText('Plan')).toBeTruthy();
-    expect(screen.getByText('First step')).toBeTruthy();
-    expect(screen.getByText('Second')).toBeTruthy();
-    expect(screen.getByText('ts')).toBeTruthy();
-    expect(screen.getByText('const value = 1;')).toBeTruthy();
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.getByText('First step')).toBeInTheDocument();
+    expect(screen.getByText('Second')).toBeInTheDocument();
+    expect(screen.getByText('ts')).toBeInTheDocument();
+    expect(screen.getByText('const value = 1;')).toBeInTheDocument();
   });
 
   it('keeps agent badges while rendering the assistant body separately', () => {
@@ -36,9 +36,9 @@ describe('MessageBubble', () => {
       }),
     );
 
-    expect(screen.getByText('Alice')).toBeTruthy();
-    expect(screen.getByText('Reviewed')).toBeTruthy();
-    expect(screen.getByText('the output.')).toBeTruthy();
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
+    expect(screen.getByText('the output.')).toBeInTheDocument();
   });
 
   it('collapses long assistant replies until the reader expands them', async () => {
@@ -47,13 +47,13 @@ describe('MessageBubble', () => {
 
     render(createElement(MessageBubble, { role: 'assistant', content: longReply }));
 
-    expect(screen.getByRole('button', { name: 'Show full response' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show full response' })).toBeInTheDocument();
     expect(screen.queryByText('Paragraph 9')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Show full response' }));
 
-    expect(screen.getByRole('button', { name: 'Collapse response' })).toBeTruthy();
-    expect(screen.getByText('Paragraph 9')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse response' })).toBeInTheDocument();
+    expect(screen.getByText('Paragraph 9')).toBeInTheDocument();
   });
 
   it('adds a copy action for fenced code blocks', async () => {
@@ -83,9 +83,9 @@ describe('MessageBubble', () => {
       }),
     );
 
-    expect(screen.getByText('Note')).toBeTruthy();
-    expect(screen.getByText('Shared context helps the whole team.')).toBeTruthy();
-    expect(screen.getByText('Warning')).toBeTruthy();
-    expect(screen.getByText('This will overwrite the draft.')).toBeTruthy();
+    expect(screen.getByText('Note')).toBeInTheDocument();
+    expect(screen.getByText('Shared context helps the whole team.')).toBeInTheDocument();
+    expect(screen.getByText('Warning')).toBeInTheDocument();
+    expect(screen.getByText('This will overwrite the draft.')).toBeInTheDocument();
   });
 });
