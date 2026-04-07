@@ -139,45 +139,45 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Triggering a direct chat action focuses Chat without modifying workspace session state
     - **Validates: Requirement 11.3**
 
-- [ ] 4. Phase 1 Checkpoint
+- [x] 4. Phase 1 Checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Verify: Office remains spatial, Studio reads as edit mode, collaboration rail is clean, workspace switching doesn't leak Office scene
 
-- [ ] 5. Phase 2 — SOPs Workspace
-  - [ ] 5.1 Create SOP workspace page structure
+- [x] 5. Phase 2 — SOPs Workspace
+  - [x] 5.1 Create SOP workspace page structure
     - Create `packages/ui-office/src/components/sop/workspace/SopWorkspacePage.tsx`
     - Implement 3-pane layout: library sidebar (left), definition canvas (center), context pane (right)
     - Accept `SopSessionState` and `onSessionStateChange` props
     - Manage internal state machine: browse-empty, browse-selected, run-focus, editing-meta, creating, importing
     - _Requirements: 7.1, 7.6_
 
-  - [ ] 5.2 Create SOP workspace sidebar
+  - [x] 5.2 Create SOP workspace sidebar
     - Create `packages/ui-office/src/components/sop/workspace/SopWorkspaceSidebar.tsx`
     - Extract SOP list from `SopPanel.tsx` into left-pane component
     - Include search, grouping, filters, recent/active-run pivots, create/import entry points
     - Reuse `useSops` hook for data
     - _Requirements: 7.1, 7.7, 7.8_
 
-  - [ ] 5.3 Create SOP workspace canvas (center pane)
+  - [x] 5.3 Create SOP workspace canvas (center pane)
     - Create `packages/ui-office/src/components/sop/workspace/SopWorkspaceCanvas.tsx`
     - Extract SOP definition content from `SopDrawer.tsx` into reusable workspace content
     - Display selected SOP definition surface with steps, dependencies, annotations
     - Handle run entry and run-relevant affordances
     - _Requirements: 7.2, 7.4, 12.1_
 
-  - [ ] 5.4 Create SOP workspace context pane (right pane)
+  - [x] 5.4 Create SOP workspace context pane (right pane)
     - Create `packages/ui-office/src/components/sop/workspace/SopWorkspaceContextPane.tsx`
     - Display run status, linked tasks, deliverables, source thread/URL, revision context
     - Support tabs: context, runs, history
     - _Requirements: 7.1, 7.4_
 
-  - [ ] 5.5 Create SOP workspace empty state
+  - [x] 5.5 Create SOP workspace empty state
     - Create `packages/ui-office/src/components/sop/workspace/SopWorkspaceEmptyState.tsx`
     - Show create/import guidance when no SOP is selected
     - Show empty library state when no SOPs exist
     - _Requirements: 7.3, 7.7_
 
-  - [ ] 5.6 Implement SOP deleted entity recovery and edge cases
+  - [x] 5.6 Implement SOP deleted entity recovery and edge cases
     - When selected SOP is deleted, fall back to browse-empty with non-blocking toast
     - Preserve search, filters, mode on entity deletion
     - Handle zero-results from search/filter without claiming data loss
@@ -194,7 +194,7 @@ Rebuild the Offisim product information architecture across 8 phases so that Off
     - Deleting a selected SOP transitions to no-selection state while preserving other workspace state
     - **Validates: Requirements 14.1, 14.3**
 
-  - [ ] 5.9 Wire SopWorkspacePage into WorkspaceRouter
+  - [x] 5.9 Wire SopWorkspacePage into WorkspaceRouter
     - Register SOPs workspace in WorkspaceRouter
     - Implement SOPs-specific back navigation (run-focus → browse-selected → browse-empty → previous workspace)
     - Implement SOPs responsive rules (desktop 3-pane, tablet collapsible right, narrow stacked)

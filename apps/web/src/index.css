@@ -349,3 +349,64 @@ body {
     font-size: 0.5625rem;
   }
 }
+
+/* ── SOP Workspace 3-Pane Layout ── */
+
+.sop-workspace-panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sop-workspace-sidebar {
+  width: 260px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-val);
+  overflow-y: auto;
+}
+
+.sop-workspace-canvas {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.sop-workspace-context {
+  width: 280px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-val);
+  overflow-y: auto;
+}
+
+/* ── Responsive: Tablet — collapse right pane ── */
+@media (max-width: 1280px) {
+  .sop-workspace-context {
+    display: none;
+  }
+}
+
+/* ── Responsive: Narrow — stack panes vertically ── */
+@media (max-width: 768px) {
+  .sop-workspace-panes {
+    flex-direction: column;
+  }
+
+  .sop-workspace-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-val);
+  }
+
+  .sop-workspace-canvas {
+    flex: 1;
+  }
+
+  .sop-workspace-context {
+    display: none;
+  }
+}
