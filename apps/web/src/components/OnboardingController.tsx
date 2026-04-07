@@ -72,9 +72,9 @@ function pickActiveHint(
   if (company.first_task_sent && !company.first_deliverable_seen && companyId) {
     return {
       slot: 'first_deliverable_seen',
-      selector: '[data-onboarding-target="outputs-button"]',
-      title: 'Results land here',
-      body: 'Completed work appears in Outputs. We will notify you when the first one is ready.',
+      selector: '[data-onboarding-target="tasks-tab"]',
+      title: 'Results stay with the work',
+      body: 'Completed work now appears inside the task context on the collaboration rail.',
       dismiss: () => markCompany(companyId, 'first_deliverable_seen'),
     };
   }
@@ -142,7 +142,7 @@ function useTargetRect(selector: string | null): TargetRect | null {
   return rect;
 }
 
-function computeHintPosition(rect: TargetRect | null): React.CSSProperties {
+export function computeHintPosition(rect: TargetRect | null): React.CSSProperties {
   if (!rect) {
     return { left: '50%', bottom: 24, transform: 'translateX(-50%)' };
   }
@@ -150,17 +150,30 @@ function computeHintPosition(rect: TargetRect | null): React.CSSProperties {
   const viewportW = window.innerWidth;
   const cardWidth = 320;
   const gap = 12;
+  const viewportPadding = 8;
+  const estimatedCardHeight = 170;
 
   const placeAbove = rect.top > viewportH / 2;
   const left = Math.min(
-    Math.max(8, rect.left + rect.width / 2 - cardWidth / 2),
-    viewportW - cardWidth - 8,
+    Math.max(viewportPadding, rect.left + rect.width / 2 - cardWidth / 2),
+    viewportW - cardWidth - viewportPadding,
   );
 
   if (placeAbove) {
-    return { left, bottom: viewportH - rect.top + gap, width: cardWidth };
+    return {
+      left,
+      bottom: Math.min(viewportH - viewportPadding, viewportH - rect.top + gap),
+      width: cardWidth,
+    };
   }
-  return { left, top: rect.top + rect.height + gap, width: cardWidth };
+  return {
+    left,
+    top: Math.min(
+      Math.max(viewportPadding, rect.top + rect.height + gap),
+      viewportH - estimatedCardHeight - viewportPadding,
+    ),
+    width: cardWidth,
+  };
 }
 
 function OnboardingControllerImpl({

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EmployeeInspector } from '../../components/agents/EmployeeInspector';
 
 describe('EmployeeInspector', () => {
-  it('shows task focus, subtask progress, and action labels', () => {
+  it('shows quick-inspect task context and action labels', () => {
     const onClose = vi.fn();
     const onOpenEditor = vi.fn();
     const onStartChat = vi.fn();
@@ -44,10 +44,11 @@ describe('EmployeeInspector', () => {
     expect(screen.getByText('1/2 complete')).toBeInTheDocument();
     expect(screen.getByText('In progress: Rewrite runtime copy')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Message' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit Profile' })).toBeInTheDocument();
+    expect(screen.getByText('Quick Inspect')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit Details' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Message' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Details' }));
 
     expect(onStartChat).toHaveBeenCalledWith('emp-1');
     expect(onOpenEditor).toHaveBeenCalledWith('emp-1');

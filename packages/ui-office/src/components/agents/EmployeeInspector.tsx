@@ -89,7 +89,7 @@ export function EmployeeInspector({
           style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Employee Profile
+            Quick Inspect
           </span>
           <button
             type="button"
@@ -206,7 +206,7 @@ export function EmployeeInspector({
             onClick={() => onOpenEditor?.(employeeId)}
           >
             <Pencil className="h-3 w-3" />
-            Edit Profile
+            Edit Details
           </Button>
         </div>
       </div>

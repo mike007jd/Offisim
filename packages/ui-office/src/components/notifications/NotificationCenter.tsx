@@ -6,6 +6,7 @@ import { NotificationCard } from './NotificationCard';
 
 interface NotificationCenterProps {
   onFocusEmployee?: (employeeId: string) => void;
+  onOpenActivityLog?: () => void;
 }
 
 /**
@@ -15,7 +16,10 @@ interface NotificationCenterProps {
  * Self-contained: reads notification state from the shared
  * NotificationProvider context via useNotifications().
  */
-export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps) {
+export function NotificationCenter({
+  onFocusEmployee,
+  onOpenActivityLog,
+}: NotificationCenterProps) {
   const { notifications, unreadCount, markRead, dismiss, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -65,7 +69,7 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
       </Button>
 
       {isOpen && (
-        <div className="absolute right-full top-1/2 z-50 mr-2 w-72 -translate-y-1/2 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-80 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
           <div className="flex items-center justify-between px-3 py-2 border-b border-ocean-light">
             <span className="text-xs font-pixel-body text-shell font-medium">Notifications</span>
             {notifications.length > 0 && (
@@ -101,6 +105,22 @@ export function NotificationCenter({ onFocusEmployee }: NotificationCenterProps)
               ))
             )}
           </ScrollArea>
+
+          <div className="flex items-center justify-between border-t border-ocean-light px-3 py-2">
+            <p className="text-[11px] text-shell/60">Recent items live here. Full history lives in Activity Log.</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsOpen(false);
+                onOpenActivityLog?.();
+              }}
+              aria-label="Open activity log"
+              className="h-7 text-[11px]"
+            >
+              Open Activity Log
+            </Button>
+          </div>
         </div>
       )}
     </div>

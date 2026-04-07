@@ -95,11 +95,16 @@ function TopBar({ ed, onClose }: { ed: Ed; onClose: () => void }) {
         </button>
         <div className="h-4 w-px bg-white/10" />
         <h1 className="font-mono text-xs font-black uppercase tracking-[0.25em] text-white/90">
-          OFFISIM_STUDIO
+          OFFICE STUDIO
         </h1>
         <span className="rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-zinc-500">
-          ZONE MODE
+          ZONE EDIT MODE
         </span>
+        {ed.selectedZone && (
+          <span className="rounded border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] text-cyan-200">
+            Focus: {ed.selectedZone.label}
+          </span>
+        )}
         {ed.dirty && (
           <span className="ml-2 rounded bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] text-amber-400">
             UNSAVED

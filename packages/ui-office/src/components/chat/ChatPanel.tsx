@@ -53,6 +53,8 @@ interface ChatPanelProps {
   /** Template-aware starter prompts for the chat empty state. */
   onboardingStarterPrompts?: readonly StarterPrompt[];
   compact?: boolean;
+  showPipelineProgress?: boolean;
+  showMeetingPanel?: boolean;
 }
 
 let nextMsgId = 0;
@@ -74,6 +76,8 @@ export function ChatPanel({
   onboardingWelcome,
   onboardingStarterPrompts,
   compact = false,
+  showPipelineProgress = true,
+  showMeetingPanel = true,
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
     useOffisimRuntime();
@@ -425,7 +429,7 @@ export function ChatPanel({
       )}
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
-      {!compact && (
+      {!compact && showMeetingPanel && (
         <div className="shrink-0">
           <MeetingPanel agents={agents} />
         </div>
@@ -439,7 +443,7 @@ export function ChatPanel({
       )}
 
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
-      {!compact && (
+      {!compact && showPipelineProgress && (
         <div className="shrink-0">
           <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
         </div>

@@ -43,7 +43,7 @@ describe('AppLayout', () => {
     );
 
     expect(screen.getByRole('button', { name: /collapse personnel/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /collapse operations/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /collapse collaboration/i })).toBeInTheDocument();
   });
 
   it('defaults to left-open right-collapsed at tablet widths', () => {
@@ -61,10 +61,10 @@ describe('AppLayout', () => {
     );
 
     expect(screen.getByRole('button', { name: /collapse personnel/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /expand operations/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand collaboration/i })).toBeInTheDocument();
   });
 
-  it('keeps the operations panel mounted while collapsed so event state is preserved', () => {
+  it('keeps the collaboration panel mounted while collapsed so state is preserved', () => {
     render(
       <AppLayout
         header={<div>header</div>}
@@ -77,10 +77,9 @@ describe('AppLayout', () => {
     );
 
     // Panels default to expanded — collapse the right panel
-    fireEvent.click(screen.getByRole('button', { name: /collapse operations/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse collaboration/i }));
 
-    // Event log content stays mounted even when panel is collapsed
-    expect(screen.getByText('Operations')).toBeInTheDocument();
+    expect(screen.getByText('Collaboration')).toBeInTheDocument();
     expect(screen.getByText('persistent-events')).toBeInTheDocument();
   });
 
@@ -117,7 +116,7 @@ describe('AppLayout', () => {
     });
   });
 
-  it('mirrors the collapsed operations rail so the right side points inward', () => {
+  it('mirrors the collapsed collaboration rail so the right side points inward', () => {
     const { container } = render(
       <AppLayout
         header={<div>header</div>}
@@ -129,17 +128,33 @@ describe('AppLayout', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /collapse operations/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse collaboration/i }));
 
-    const expandButton = screen.getByRole('button', { name: /expand operations/i });
-    const label = screen.getByText('Operations');
+    const expandButton = screen.getByRole('button', { name: /expand collaboration/i });
+    const label = screen.getByText('Collaboration');
 
     expect(label).toHaveStyle({ writingMode: 'vertical-rl', transform: 'rotate(180deg)' });
     expect(
       container.querySelector(
-        'button[aria-label="Expand operations panel"] svg.lucide-chevron-left',
+        'button[aria-label="Expand collaboration panel"] svg.lucide-chevron-left',
       ),
     ).not.toBeNull();
     expect(expandButton).toContainElement(label);
+  });
+
+  it('renders center workspace content when provided', () => {
+    render(
+      <AppLayout
+        header={<div>header</div>}
+        agentPanel={<div>agents</div>}
+        sceneCanvas={<div>scene</div>}
+        chatDrawer={<div>chat</div>}
+        eventLog={<div>persistent-events</div>}
+        statusBar={<div>status</div>}
+        centerContent={<div>workspace-page</div>}
+      />,
+    );
+
+    expect(screen.getByText('workspace-page')).toBeInTheDocument();
   });
 });

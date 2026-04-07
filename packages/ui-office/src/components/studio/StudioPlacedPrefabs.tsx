@@ -271,6 +271,24 @@ export function StudioPlacedPrefabs() {
         >
           <Prefab3D definition={selectedDefinition} state="idle" />
           <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
+          <Html position={[0, 1.15, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
+            <div
+              style={{
+                background: 'rgba(2, 6, 23, 0.88)',
+                color: STUDIO_COLORS.textPrimary,
+                padding: '4px 8px',
+                borderRadius: 6,
+                fontSize: 10,
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                border: `1px solid ${STUDIO_COLORS.borderActive}`,
+                boxShadow: '0 10px 24px rgba(0,0,0,0.28)',
+              }}
+            >
+              {transformMode === 'rotate' ? 'Rotate selected object' : 'Drag selected object'}
+            </div>
+          </Html>
         </group>
       )}
 
@@ -281,6 +299,7 @@ export function StudioPlacedPrefabs() {
           enabled={transformEnabled}
           visible={transformEnabled}
           mode={transformMode}
+          size={1.25}
           translationSnap={0.5}
           rotationSnap={Math.PI / 2}
           showX={true}

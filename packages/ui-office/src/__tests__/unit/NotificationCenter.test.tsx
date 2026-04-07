@@ -30,4 +30,15 @@ describe('NotificationCenter', () => {
     fireEvent.pointerDown(document.body);
     expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
+
+  it('offers a dedicated path to the activity log', () => {
+    const onOpenActivityLog = vi.fn();
+
+    render(<NotificationCenter onOpenActivityLog={onOpenActivityLog} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    fireEvent.click(screen.getByRole('button', { name: /open activity log/i }));
+
+    expect(onOpenActivityLog).toHaveBeenCalledTimes(1);
+  });
 });
