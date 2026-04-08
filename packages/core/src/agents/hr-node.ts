@@ -126,6 +126,9 @@ export async function hrNode(
     },
     { nodeName: 'hr', provider: resolved.provider, model: resolved.model },
     (chunk) => {
+      if (chunk.reasoning) {
+        eventBus.emit(llmStreamChunk(companyId, state.threadId, 'hr', chunk.reasoning, 'reasoning'));
+      }
       if (chunk.content) {
         eventBus.emit(llmStreamChunk(companyId, state.threadId, 'hr', chunk.content));
       }

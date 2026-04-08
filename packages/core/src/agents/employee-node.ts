@@ -433,6 +433,17 @@ export async function employeeNode(
         taskRunId: meta.taskRunId,
       },
       (chunk) => {
+        if (chunk.reasoning) {
+          runtimeCtx.eventBus.emit(
+            llmStreamChunk(
+              runtimeCtx.companyId,
+              state.threadId,
+              'employee',
+              chunk.reasoning,
+              'reasoning',
+            ),
+          );
+        }
         if (chunk.content) {
           runtimeCtx.eventBus.emit(
             llmStreamChunk(runtimeCtx.companyId, state.threadId, 'employee', chunk.content),
@@ -443,6 +454,7 @@ export async function employeeNode(
 
     return {
       content: streamResult.fullContent,
+      reasoningContent: streamResult.fullReasoning || undefined,
       toolCalls: streamResult.toolCalls,
       usage: streamResult.usage,
     };
@@ -676,6 +688,9 @@ export async function employeeNode(
       conversationHistory.push({
         role: 'assistant',
         content: llmResponse.content || '',
+        ...(llmResponse.reasoningContent
+          ? { reasoningContent: llmResponse.reasoningContent }
+          : {}),
         toolCalls: llmResponse.toolCalls.map((tc) => ({
           id: tc.id,
           name: tc.name,

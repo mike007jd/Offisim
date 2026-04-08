@@ -1,6 +1,6 @@
 import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
-import { SeatRegistry } from '../../lib/seat-registry';
+import { SeatRegistry, computeWorkspaceFallbackSeatPosition } from '../../lib/seat-registry';
 
 function planarDistance(a: readonly [number, number, number], b: readonly [number, number, number]) {
   const dx = a[0] - b[0];
@@ -51,6 +51,14 @@ function makeZone(overrides: Partial<Zone> & { zoneId: string }): Zone {
 }
 
 describe('SeatRegistry', () => {
+  it('spreads workspace fallback positions beyond the first four slots', () => {
+    const seat0 = computeWorkspaceFallbackSeatPosition(10, 20, 0);
+    const seat4 = computeWorkspaceFallbackSeatPosition(10, 20, 4);
+
+    expect(seat0).not.toEqual(seat4);
+    expect(seat4[2]).toBeGreaterThan(seat0[2]);
+  });
+
   it('assigns seats from workstation-standard with correct world positions', () => {
     // workstation-standard: work anchor [0, 1.4], capacity 1
     // footprint depth edge is z=9.5, so seat should be nudged just outside it.
@@ -136,7 +144,7 @@ describe('SeatRegistry', () => {
     expect(seats[3]!.position[2]).toBeCloseTo(20 + 1.6, 5);
   });
 
-  it('returns valid seat when slot index exceeds capacity (wraps around)', () => {
+  it('returns a distinct overflow seat when slot index exceeds precomputed capacity', () => {
     const instance = makeInstance({
       instance_id: 'ws1',
       prefab_id: 'workstation-standard',
@@ -155,9 +163,14 @@ describe('SeatRegistry', () => {
     const seat5 = reg.getSeat('z1', 5);
     expect(seat0).not.toBeNull();
     expect(seat5).not.toBeNull();
-    // index 5 % 4 === 1 → second seat (a fallback)
-    // biome-ignore lint/style/noNonNullAssertion: test assertion — value verified by preceding check
-    expect(seat5!.position).toEqual(allSeats[1]!.position);
+    expect(seat5!.position).not.toEqual(allSeats[1]!.position);
+    expect(seat5!.position).not.toEqual(seat0!.position);
+    expect(seat5!.isFallback).toBe(true);
+
+    const occupied = allSeats.map((seat) => seat.position);
+    for (const position of occupied) {
+      expect(planarDistance(seat5!.position, position)).toBeGreaterThanOrEqual(0.75);
+    }
   });
 
   it('fills fallback seats for partially-furnished zones', () => {
@@ -253,5 +266,24 @@ describe('SeatRegistry', () => {
     expect(reg.getRestSeat([restZone], 0)).toEqual(pos0);
     expect(pos0).not.toEqual(pos1);
     expect(pos1).not.toEqual(pos2);
+  });
+
+  it('returns distinct overflow rest seats instead of reusing the same rest slot', () => {
+    const restZone = makeZone({
+      zoneId: 'rest1',
+      archetype: 'rest',
+      cx: 20,
+      cz: 30,
+      deskSlots: 1,
+    });
+    const reg = SeatRegistry.build([], [restZone]);
+
+    const baseSeats = Array.from({ length: 18 }, (_, index) => reg.getRestSeat([restZone], index));
+    const overflowSeat = reg.getRestSeat([restZone], 19);
+
+    for (const position of baseSeats) {
+      expect(overflowSeat).not.toEqual(position);
+      expect(planarDistance(overflowSeat, position)).toBeGreaterThanOrEqual(0.75);
+    }
   });
 });

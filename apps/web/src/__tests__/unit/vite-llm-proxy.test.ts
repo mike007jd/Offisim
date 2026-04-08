@@ -100,7 +100,7 @@ describe('llm-proxy middleware', () => {
     const handler = getProxyHandler();
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('ok', { status: 200 }));
+      .mockImplementation(async () => new Response('ok', { status: 200 }));
     const req = createRequest('https://api.minimax.io/anthropic');
     const res = createResponse();
 
@@ -110,5 +110,34 @@ describe('llm-proxy middleware', () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://api.minimax.io/anthropic/v1/messages');
     expect(res.body).toBe('ok');
+  });
+
+  it('allows official Anthropic-compatible and coding endpoints for supported provider hosts', async () => {
+    const handler = getProxyHandler();
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => new Response('ok', { status: 200 }));
+
+    const cases = [
+      'https://api.minimaxi.com/anthropic',
+      'https://api.moonshot.ai/v1',
+      'https://api.z.ai/api/anthropic',
+      'https://api.z.ai/api/coding/paas/v4',
+    ];
+
+    for (const target of cases) {
+      const req = createRequest(target);
+      const res = createResponse();
+      await handler(req, res.response);
+      expect(res.statusCode).toBe(200);
+    }
+
+    expect(fetchSpy).toHaveBeenCalledTimes(cases.length);
+    expect(fetchSpy.mock.calls.map((call) => call[0])).toEqual([
+      'https://api.minimaxi.com/anthropic/v1/messages',
+      'https://api.moonshot.ai/v1/v1/messages',
+      'https://api.z.ai/api/anthropic/v1/messages',
+      'https://api.z.ai/api/coding/paas/v4/v1/messages',
+    ]);
   });
 });

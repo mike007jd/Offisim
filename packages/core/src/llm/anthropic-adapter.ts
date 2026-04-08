@@ -238,6 +238,11 @@ export class AnthropicAdapter implements LlmGateway {
               outputTokens = event.message.usage.output_tokens;
             } else if (event.type === 'message_delta') {
               outputTokens = event.usage.output_tokens;
+            } else if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'thinking_delta'
+            ) {
+              yield { reasoning: event.delta.thinking, done: false };
             } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
               yield { content: event.delta.text, done: false };
             } else if (

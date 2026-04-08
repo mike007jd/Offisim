@@ -45,8 +45,11 @@ import {
   moveThroughPoints,
 } from '../lib/scene-behavior';
 import { buildZoneRouteWaypoints, getMeetingZoneId } from '../lib/scene-nav';
-import { SEAT_OFFSETS } from '../lib/seat-offsets';
-import { SeatRegistry, computeRestSeatPosition } from '../lib/seat-registry';
+import {
+  SeatRegistry,
+  computeRestSeatPosition,
+  computeWorkspaceFallbackSeatPosition,
+} from '../lib/seat-registry';
 import { categorizeTool } from '../lib/tool-category';
 import type {
   SceneEmployeeEscalatedPayload,
@@ -63,6 +66,7 @@ import type { CharacterMovementHandle } from './useCharacterMovement';
 // ── Zone-aware coordinate helpers ────────────────────────────────
 
 const MTG_RADIUS = 2.5;
+const MTG_RING_SPACING = 1.2;
 
 /** Fallback center if zone not found. */
 const ORIGIN: [number, number, number] = [0, 0, 0];
@@ -77,15 +81,29 @@ function getZoneCenterById(zones: readonly Zone[], zoneId: string): [number, num
   return z ? [z.cx, 0, z.cz] : ORIGIN;
 }
 
-function computeMtgPositions(mtgCenter: [number, number, number]) {
-  return Array.from({ length: 8 }, (_, i) => {
-    const angle = (Math.PI * (i + 1)) / 9;
-    return [
-      mtgCenter[0] + Math.cos(angle) * MTG_RADIUS,
-      0,
-      mtgCenter[2] + Math.sin(angle) * MTG_RADIUS,
-    ] as [number, number, number];
-  });
+function computeMtgPositions(
+  mtgCenter: [number, number, number],
+  participantCount = 8,
+): [number, number, number][] {
+  const total = Math.max(participantCount, 0);
+  const positions: [number, number, number][] = [];
+  let ring = 0;
+
+  while (positions.length < total) {
+    const slotsInRing = 8 + ring * 4;
+    const radius = MTG_RADIUS + ring * MTG_RING_SPACING;
+    for (let i = 0; i < slotsInRing && positions.length < total; i++) {
+      const angle = (Math.PI * (i + 1)) / (slotsInRing + 1);
+      positions.push([
+        mtgCenter[0] + Math.cos(angle) * radius,
+        0,
+        mtgCenter[2] + Math.sin(angle) * radius,
+      ]);
+    }
+    ring++;
+  }
+
+  return positions;
 }
 
 function getWorkstationPos(
@@ -99,8 +117,7 @@ function getWorkstationPos(
     if (seat) return [...seat.position];
   }
   const center = getZoneCenterById(zones, zoneId);
-  const offset = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
-  return [center[0] + offset[0], 0, center[2] + offset[2]];
+  return computeWorkspaceFallbackSeatPosition(center[0], center[2], slotIdx);
 }
 
 function getWorkstationApproachPos(
@@ -549,12 +566,12 @@ export function useSceneOrchestrator({
     clearAssignedSceneState();
 
     const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
-    const mtgPositions = computeMtgPositions(mtgCenter);
+    const mtgPositions = computeMtgPositions(mtgCenter, allIds.length);
 
     allIds.forEach((id, idx) => {
       const handle = getMovementHandles(companyIdRef.current).get(id);
       if (!handle) return;
-      const resolvedSeat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
+      const resolvedSeat = mtgPositions[idx] ?? mtgPositions[0] ?? mtgCenter;
       const jittered: [number, number, number] = [
         resolvedSeat[0] + (Math.random() - 0.5) * 0.3,
         0,
@@ -638,13 +655,13 @@ export function useSceneOrchestrator({
       let arrivedCount = 0;
       let expectedArrivals = 0;
       const mtgCenter = getZoneCenter(zonesRef.current, 'meeting');
-      const mtgPositions = computeMtgPositions(mtgCenter);
+      const mtgPositions = computeMtgPositions(mtgCenter, dispatchedIds.length);
 
       dispatchedIds.forEach((id, idx) => {
         const handle = getMovementHandles(companyIdRef.current).get(id);
         if (!handle) return;
         expectedArrivals += 1;
-        const seat = mtgPositions[idx % mtgPositions.length] ?? mtgPositions[0] ?? mtgCenter;
+        const seat = mtgPositions[idx] ?? mtgPositions[0] ?? mtgCenter;
         const reportSeat: [number, number, number] = [
           seat[0] + (Math.random() - 0.5) * 0.3,
           0,
@@ -807,10 +824,13 @@ export function useSceneOrchestrator({
     let currentStreamNode = '';
 
     const unsubChunk = eventBus.on('llm.stream.chunk', (e: RuntimeEvent) => {
-      const payload = e.payload as { nodeName?: string; content?: string } | undefined;
+      const payload = e.payload as
+        | { nodeName?: string; content?: string; channel?: 'content' | 'reasoning' }
+        | undefined;
       if (!payload?.content) return;
 
       const node = payload.nodeName ?? '';
+      const channel = payload.channel ?? 'content';
       if (node !== currentStreamNode) {
         // New node started streaming — reset accumulation
         currentStreamNode = node;
@@ -820,6 +840,9 @@ export function useSceneOrchestrator({
       }
 
       if (node === 'boss_summary' || node === 'boss') {
+        if (channel !== 'content') {
+          return;
+        }
         accumulatedBossText += payload.content;
         lastLlmChunk = accumulatedBossText;
         // Live-update bubble with streaming boss summary (first 50 chars)

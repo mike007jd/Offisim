@@ -53,6 +53,18 @@ describe('teeStream', () => {
     expect(result.toolCalls[0]?.name).toBe('search');
   });
 
+  it('accumulates reasoning chunks separately from visible content', async () => {
+    const stream = mockStream([
+      { reasoning: 'Need more context', done: false },
+      { content: 'Final answer', done: false },
+      { done: true, usage: { inputTokens: 3, outputTokens: 2 } },
+    ]);
+
+    const result = await teeStream(stream, () => {});
+    expect(result.fullReasoning).toBe('Need more context');
+    expect(result.fullContent).toBe('Final answer');
+  });
+
   it('returns zero usage when stream has no usage chunk', async () => {
     const stream = mockStream([{ content: 'hi', done: true }]);
     const result = await teeStream(stream, () => {});

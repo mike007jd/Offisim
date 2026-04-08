@@ -12,6 +12,7 @@ type SessionStateKeyMap = {
   sops: 'sops';
   market: 'market';
   'activity-log': 'activityLog';
+  settings: 'settings';
 };
 
 export const SESSION_KEY: SessionStateKeyMap = {
@@ -19,6 +20,7 @@ export const SESSION_KEY: SessionStateKeyMap = {
   sops: 'sops',
   market: 'market',
   'activity-log': 'activityLog',
+  settings: 'settings',
 };
 
 type StateKeyFor<K extends WorkspaceKey> = SessionStateKeyMap[K];
@@ -104,6 +106,7 @@ export function tryWorkspaceInternalBack(
 
     // Office: no internal drill-in
     case 'office':
+    case 'settings':
     default:
       return [false, sessionState];
   }
@@ -127,6 +130,7 @@ export function hasInternalDrillIn(
     case 'activity-log':
       return sessionState.activityLog.selectedEventId !== null;
     case 'office':
+    case 'settings':
     default:
       return false;
   }

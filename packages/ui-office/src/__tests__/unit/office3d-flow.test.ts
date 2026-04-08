@@ -7,6 +7,7 @@ import {
   buildReportingFlowLines,
   getFlowLineColor,
   getFlowLineVariantLabel,
+  resolveEmployeeSceneZoneId,
 } from '../../components/scene/office3d-shared';
 
 const zones: readonly Zone[] = [
@@ -167,5 +168,14 @@ describe('office3d flow helpers', () => {
     expect(getFlowLineVariantLabel('approval')).toBe('Pending approval');
     expect(getFlowLineVariantLabel('report')).toBe('Reporting');
     expect(getFlowLineVariantLabel('blocked')).toBe('Blocked');
+  });
+
+  it('falls back active employees without a matching workstation zone to the first workspace zone for scene rendering', () => {
+    expect(
+      resolveEmployeeSceneZoneId(
+        { role: 'designer', workstationId: null },
+        zones,
+      ),
+    ).toBe('dev');
   });
 });

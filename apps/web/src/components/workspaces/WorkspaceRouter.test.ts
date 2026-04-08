@@ -11,7 +11,7 @@ import {
 // All workspace keys and transition states for exhaustive testing
 // ---------------------------------------------------------------------------
 
-const ALL_WORKSPACES: WorkspaceKey[] = ['office', 'sops', 'market', 'activity-log'];
+const ALL_WORKSPACES: WorkspaceKey[] = ['office', 'sops', 'market', 'activity-log', 'settings'];
 const ALL_TRANSITIONS: TransitionState[] = ['idle', 'animating-out', 'animating-in'];
 
 // ---------------------------------------------------------------------------

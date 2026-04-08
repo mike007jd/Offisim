@@ -3,7 +3,6 @@ import {
   NODE_BADGE_COLORS,
   NODE_DISPLAY_NAMES,
 } from '../../lib/agent-display';
-import { useStreamingContent } from '../../runtime/use-streaming-content';
 
 const NODE_PLACEHOLDERS: Record<string, string> = {
   boss: 'Drafting the response...',
@@ -20,10 +19,15 @@ const NODE_PLACEHOLDERS: Record<string, string> = {
 
 const DEFAULT_PLACEHOLDER = 'Thinking...';
 
-export function StreamingBubble() {
-  const { content, isStreaming, nodeName } = useStreamingContent();
+interface StreamingBubbleProps {
+  content: string;
+  reasoning: string;
+  isStreaming: boolean;
+  nodeName: string | null;
+}
 
-  if (!isStreaming && !content) return null;
+export function StreamingBubble({ content, reasoning, isStreaming, nodeName }: StreamingBubbleProps) {
+  if (!isStreaming && !content && !reasoning) return null;
 
   const label = nodeName ? (NODE_DISPLAY_NAMES[nodeName] ?? nodeName) : null;
   const badgeColor = nodeName
@@ -42,6 +46,14 @@ export function StreamingBubble() {
         >
           {label}
         </span>
+      )}
+      {reasoning && (
+        <div className="mb-1 max-w-[80%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100 whitespace-pre-wrap">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80">
+            Reasoning
+          </div>
+          {reasoning}
+        </div>
       )}
       <div className="max-w-[80%] bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
         {displayContent}

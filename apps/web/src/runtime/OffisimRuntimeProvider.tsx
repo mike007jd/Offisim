@@ -29,6 +29,7 @@ import {
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
+  useChatStreamingSync,
 } from '@offisim/ui-office/web';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
@@ -127,6 +128,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const eventBusRef = useRef(new InMemoryEventBus());
   const sceneIntentBusRef = useRef(new InMemorySceneIntentBus());
   const notificationBridgeRef = useRef<NotificationBridge | null>(null);
+
+  useChatStreamingSync(eventBusRef.current);
 
   // Activate NotificationBridge once — subscribes to runtime events on the
   // stable EventBus and emits `notification.created` for the UI.

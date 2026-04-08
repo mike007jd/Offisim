@@ -29,7 +29,7 @@ import {
   buildHandoffFlowLine,
   buildReportingFlowLines,
   hitTestZone3D,
-  resolveEmployeeZoneDynamic,
+  resolveEmployeeSceneZoneId,
 } from './office3d-shared.js';
 
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
@@ -136,7 +136,7 @@ export function useOffice3DViewState({
       activity[zone.zoneId] = { count: 0, blocked: false };
     }
     for (const [, agent] of agents) {
-      const zoneId = resolveEmployeeZoneDynamic(agent, zones);
+      const zoneId = resolveEmployeeSceneZoneId(agent, zones);
       if (!activity[zoneId]) {
         continue;
       }
@@ -187,7 +187,7 @@ export function useOffice3DViewState({
       const defaultWorkspaceZoneId =
         currentZones.find((zone) => zone.archetype === 'workspace')?.zoneId ?? UNASSIGNED_ZONE_ID;
       const assignedZoneId = payload.employeeId
-        ? resolveEmployeeZoneDynamic(
+        ? resolveEmployeeSceneZoneId(
             agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
             currentZones,
           )
@@ -241,7 +241,7 @@ export function useOffice3DViewState({
           elevateWaypoints(
             buildZoneRouteWaypoints(
               zonesRef.current,
-              resolveEmployeeZoneDynamic(
+              resolveEmployeeSceneZoneId(
                 agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
                 zonesRef.current,
               ),
@@ -296,7 +296,7 @@ export function useOffice3DViewState({
           elevateWaypoints(
             buildZoneRouteWaypoints(
               zonesRef.current,
-              resolveEmployeeZoneDynamic(
+              resolveEmployeeSceneZoneId(
                 agentsRef.current.get(payload.employeeId) ?? { role: 'employee' },
                 zonesRef.current,
               ),
@@ -441,7 +441,7 @@ export function useOffice3DViewState({
       if (nativeEvent.button !== 0) {
         return;
       }
-      const zoneId = resolveEmployeeZoneDynamic(agent, zonesRef.current);
+      const zoneId = resolveEmployeeSceneZoneId(agent, zonesRef.current);
       setDragState({
         employeeId: empId,
         sourceZoneId: zoneId,

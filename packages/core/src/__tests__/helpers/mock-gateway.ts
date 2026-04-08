@@ -91,13 +91,23 @@ export class MockLlmGateway implements LlmGateway {
     }
 
     // Simulate streaming by yielding content word by word
+    const reasoningWords = response.reasoningContent?.split(' ') ?? [];
+    for (const word of reasoningWords) {
+      if (word) {
+        yield { reasoning: `${word} `, done: false };
+      }
+    }
     const words = response.content.split(' ');
     for (const word of words) {
       if (word) {
         yield { content: `${word} `, done: false };
       }
     }
-    yield { usage: response.usage, done: true };
+    yield {
+      toolCalls: response.toolCalls.length > 0 ? response.toolCalls : undefined,
+      usage: response.usage,
+      done: true,
+    };
   }
 
   getLastRequest(): LlmRequest | undefined {

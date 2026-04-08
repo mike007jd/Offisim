@@ -34,6 +34,11 @@ describe('provider-config', () => {
   it('persists api keys in browser mode', () => {
     const config: ProviderConfig = {
       provider: 'openai',
+      providerVariantId: 'openai-default',
+      vendor: 'openai',
+      region: 'shared',
+      compatibility: 'native',
+      surface: 'general',
       apiKey: 'sk-browser',
       model: 'gpt-4o-mini',
       runtimePolicy: {
@@ -66,6 +71,11 @@ describe('provider-config', () => {
     expect(localStorage.getItem('offisim-provider-config')).toContain('"runtimePolicy"');
     expect(loadProviderConfig()).toMatchObject({
       provider: 'openai',
+      providerVariantId: 'openai-default',
+      vendor: 'openai',
+      region: 'shared',
+      compatibility: 'native',
+      surface: 'general',
       apiKey: 'sk-browser',
       model: 'gpt-4o-mini',
       runtimePolicy: {
@@ -103,6 +113,11 @@ describe('provider-config', () => {
     setTauriMode(true);
     const config: ProviderConfig = {
       provider: 'subscription',
+      providerVariantId: 'subscription',
+      vendor: 'offisim',
+      region: 'local',
+      compatibility: 'native',
+      surface: 'desktop-subscription',
       apiKey: 'sk-desktop',
       model: 'gpt-4o-mini',
       runtimePolicy: {
@@ -129,6 +144,11 @@ describe('provider-config', () => {
     expect(localStorage.getItem('offisim-provider-config')).not.toContain('sk-desktop');
     expect(loadProviderConfig()).toMatchObject({
       provider: 'subscription',
+      providerVariantId: 'subscription',
+      vendor: 'offisim',
+      region: 'local',
+      compatibility: 'native',
+      surface: 'desktop-subscription',
       model: 'gpt-4o-mini',
       runtimePolicy: {
         executionMode: 'browser-limited',
@@ -191,12 +211,22 @@ describe('provider-config', () => {
     setTauriMode(true);
     saveProviderConfig({
       provider: 'openai',
+      providerVariantId: 'openai-default',
+      vendor: 'openai',
+      region: 'shared',
+      compatibility: 'native',
+      surface: 'general',
       apiKey: 'sk-desktop',
       model: 'gpt-4o-mini',
     });
 
     expect(loadProviderConfig()).toMatchObject({
       provider: 'openai',
+      providerVariantId: 'openai-default',
+      vendor: 'openai',
+      region: 'shared',
+      compatibility: 'native',
+      surface: 'general',
       model: 'gpt-4o-mini',
       runtimePolicy: {
         executionMode: 'auto',
@@ -213,6 +243,11 @@ describe('provider-config', () => {
   it('returns null for subscription provider in browser mode', () => {
     saveProviderConfig({
       provider: 'subscription',
+      providerVariantId: 'subscription',
+      vendor: 'offisim',
+      region: 'local',
+      compatibility: 'native',
+      surface: 'desktop-subscription',
       apiKey: 'sk-browser',
       model: 'default',
     });
@@ -255,6 +290,45 @@ describe('provider-config', () => {
           enabled: true,
         },
       },
+    });
+  });
+
+  it('preserves provider metadata for anthropic-compatible vendor presets', () => {
+    saveProviderConfig({
+      provider: 'anthropic',
+      providerVariantId: 'zai-shared-anthropic-coding',
+      vendor: 'zai',
+      region: 'shared',
+      compatibility: 'anthropic-compatible',
+      surface: 'coding-plan',
+      capabilities: {
+        streaming: true,
+        thinking: true,
+        toolCalls: true,
+        toolStreaming: false,
+        codingPlan: true,
+      },
+      apiKey: 'sk-zai',
+      model: 'GLM-4.7',
+      baseURL: 'https://api.z.ai/api/anthropic',
+    });
+
+    expect(loadProviderConfig()).toMatchObject({
+      provider: 'anthropic',
+      providerVariantId: 'zai-shared-anthropic-coding',
+      vendor: 'zai',
+      region: 'shared',
+      compatibility: 'anthropic-compatible',
+      surface: 'coding-plan',
+      capabilities: {
+        streaming: true,
+        thinking: true,
+        toolCalls: true,
+        toolStreaming: false,
+        codingPlan: true,
+      },
+      model: 'GLM-4.7',
+      baseURL: 'https://api.z.ai/api/anthropic',
     });
   });
 

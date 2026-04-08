@@ -180,6 +180,7 @@ export interface GraphNodeExitedPayload {
 export interface LlmStreamChunkPayload {
   readonly nodeName: string;
   readonly content: string;
+  readonly channel?: 'content' | 'reasoning';
 }
 
 export interface ConversationSynopsisUpdatedPayload {

@@ -20,6 +20,7 @@ export type { MarketSortOption } from './components/marketplace/workspace/Market
 export { ActivityLogPage } from './components/events/workspace/ActivityLogPage.js';
 export { MarketWorkspacePage } from './components/marketplace/workspace/MarketWorkspacePage.js';
 export { SopWorkspacePage } from './components/sop/workspace/SopWorkspacePage.js';
+export { SettingsPage } from './components/settings/SettingsPage.js';
 export { disposeEventLogStore, primeEventLogStore } from './components/events/EventLog.js';
 export { useCompanyEditor } from './hooks/useCompanyEditor.js';
 export { useCompanyZones } from './hooks/useCompanyZones.js';
@@ -51,4 +52,5 @@ export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';
 export { InMemorySceneIntentBus } from './runtime/scene-intents.js';
 export { useAgentStates } from './runtime/use-agent-states.js';
+export { useChatStreamingSync } from './runtime/use-chat-streaming-sync.js';
 export { ThemeProvider, type Theme, useTheme } from './theme/index.js';

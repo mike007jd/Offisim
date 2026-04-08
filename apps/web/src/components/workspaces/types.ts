@@ -1,13 +1,13 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import type React from 'react';
 
-import type { MarketSortOption } from '@offisim/ui-office/web';
+import type { MarketSortOption, ProviderConfig } from '@offisim/ui-office/web';
 
 // ---------------------------------------------------------------------------
 // Workspace Keys
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log';
+export type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
 
 // ---------------------------------------------------------------------------
 // Per-Workspace Session State
@@ -44,11 +44,16 @@ export type ActivityLogSessionState = {
   datePreset: 'today' | '7d' | '30d' | 'custom';
 };
 
+export type SettingsSessionState = {
+  activeTab: 'provider' | 'runtime' | 'mcp' | 'openclaw';
+};
+
 export type WorkspaceSessionState = {
   office: OfficeSessionState;
   sops: SopSessionState;
   market: MarketSessionState;
   activityLog: ActivityLogSessionState;
+  settings: SettingsSessionState;
 };
 
 
@@ -130,6 +135,11 @@ export interface WorkspaceRouterProps {
   activeWorkspace: WorkspaceKey;
   sessionState: WorkspaceSessionState;
   onSessionStateChange: (state: WorkspaceSessionState) => void;
+  settingsPageProps?: {
+    onBack: () => void;
+    onSave: (config: ProviderConfig) => void;
+    onSaveSuccess?: () => void;
+  };
   children?: React.ReactNode;
 }
 
@@ -182,5 +192,6 @@ export function createDefaultSessionState(): WorkspaceSessionState {
     sops: createDefaultSopState(),
     market: createDefaultMarketState(),
     activityLog: createDefaultActivityLogState(),
+    settings: { activeTab: 'provider' },
   };
 }

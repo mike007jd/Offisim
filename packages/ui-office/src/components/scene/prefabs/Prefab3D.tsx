@@ -13,6 +13,7 @@ import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
 import { MeetingTableMesh3D } from './MeetingTableMesh3D.js';
 import { RestAreaMesh3D } from './RestAreaMesh3D.js';
 import { ServerRackMesh3D } from './ServerRackMesh3D.js';
+import { WhiteboardMesh3D } from './WhiteboardMesh3D.js';
 import { WorkstationMesh3D } from './WorkstationMesh3D.js';
 
 export interface Prefab3DProps {
@@ -41,6 +42,9 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
       return <ServerRackMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'knowledge':
+      if (template === 'whiteboard') {
+        return <WhiteboardMesh3D position={position} rotation={rotation} state={state} />;
+      }
       return <BookshelfMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'collaboration':

@@ -175,6 +175,19 @@ describe('SystemMessageFeed', () => {
         },
       });
       eventBus.emit({
+        type: 'memory.created',
+        entityId: 'memory-1',
+        entityType: 'memory',
+        companyId: 'co-1',
+        threadId: 'thread-1',
+        timestamp: Date.now(),
+        payload: {
+          memoryId: 'memory-1',
+          employeeId: 'emp-1',
+          scope: 'team',
+        },
+      });
+      eventBus.emit({
         type: 'tool.execution.telemetry',
         entityId: 'tool-1',
         entityType: 'runtime',
@@ -194,7 +207,7 @@ describe('SystemMessageFeed', () => {
       });
     });
 
-    expect(screen.getByText('Auto Memory Updated')).toBeInTheDocument();
+    expect(screen.getAllByText('Auto Memory Updated')).toHaveLength(1);
     expect(screen.getByText('Tool Approval Needed')).toBeInTheDocument();
     expect(screen.getByText('Approve edit file so execution can continue.')).toBeInTheDocument();
   });

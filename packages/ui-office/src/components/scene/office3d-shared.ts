@@ -126,7 +126,7 @@ export function buildEmployeeToMeetingFlowLine(
   const agent = agents.get(employeeId);
   if (!meetingLayout || !agent) return null;
 
-  const zoneId = resolveEmployeeZoneDynamic(agent, zones);
+  const zoneId = resolveEmployeeSceneZoneId(agent, zones);
   const fromLayout = layoutMap[zoneId];
   if (!fromLayout || zoneId === meetingZoneId) return null;
 
@@ -152,7 +152,7 @@ export function buildReportingFlowLines(
     if (!ACTIVE_REPORTING_STATES.has(agent.state ?? 'idle')) {
       continue;
     }
-    const zoneId = resolveEmployeeZoneDynamic(agent, zones);
+    const zoneId = resolveEmployeeSceneZoneId(agent, zones);
     const zone = zones.find((entry) => entry.zoneId === zoneId);
     if (!zone || zone.archetype === 'meeting' || zone.archetype === 'rest') {
       continue;
@@ -182,8 +182,8 @@ export function buildHandoffFlowLine(
   const toAgent = agents.get(toEmployeeId);
   if (!fromAgent || !toAgent) return null;
 
-  const fromLayout = layoutMap[resolveEmployeeZoneDynamic(fromAgent, zones)];
-  const toLayout = layoutMap[resolveEmployeeZoneDynamic(toAgent, zones)];
+  const fromLayout = layoutMap[resolveEmployeeSceneZoneId(fromAgent, zones)];
+  const toLayout = layoutMap[resolveEmployeeSceneZoneId(toAgent, zones)];
   const meetingLayout = getMeetingLayout(zones, layoutMap);
   if (!fromLayout || !toLayout || !meetingLayout) return null;
 
@@ -210,6 +210,23 @@ export function resolveEmployeeZoneDynamic(
     }
   }
   return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+}
+
+export function resolveEmployeeSceneZoneId(
+  agent: { role: string; workstationId?: string | null },
+  zones: readonly Zone[],
+): string {
+  const resolvedZoneId = resolveEmployeeZoneDynamic(agent, zones);
+  if (resolvedZoneId !== UNASSIGNED_ZONE_ID) {
+    return resolvedZoneId;
+  }
+
+  return (
+    zones.find((zone) => zone.deskSlots > 0)?.zoneId ??
+    zones.find((zone) => zone.archetype === 'rest')?.zoneId ??
+    zones.find((zone) => zone.archetype === 'meeting')?.zoneId ??
+    UNASSIGNED_ZONE_ID
+  );
 }
 
 export function hitTestZone3D(

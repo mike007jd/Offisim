@@ -196,4 +196,194 @@ describe('useSceneOrchestrator', () => {
     clearCompanyState(COMPANY_ID);
     vi.useRealTimers();
   });
+
+  it('ignores reasoning-only boss summary chunks when updating reporting bubble text', () => {
+    vi.useFakeTimers();
+    const eventBus = new TestEventBus();
+    const agents = new Map([['emp-1', { id: 'emp-1', name: 'Ava', role: 'developer', state: 'idle' }]]);
+
+    clearCompanyState(COMPANY_ID);
+    registerMovementHandle(COMPANY_ID, 'emp-1', createImmediateHandle([0, 0, 0]));
+
+    const { result, unmount } = renderHook(() =>
+      useSceneOrchestrator({
+        companyId: COMPANY_ID,
+        eventBus: eventBus as unknown as {
+          on: <TPayload = unknown>(
+            prefix: string,
+            handler: (e: RuntimeEvent<TPayload>) => void,
+          ) => () => void;
+        },
+        agents,
+        zones: ZONES,
+      }),
+    );
+
+    act(() => {
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'manager' });
+      vi.advanceTimersByTime(301);
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'step_dispatcher' });
+      emitEvent(eventBus, 'task.assignment.dispatched', {
+        employeeId: 'emp-1',
+        employeeName: 'Ava',
+        stepLabel: 'Build feature',
+        stepIndex: 0,
+        totalSteps: 1,
+      });
+      vi.advanceTimersByTime(1501);
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'boss_summary' });
+    });
+
+    expect(result.current.phase).toBe('reporting');
+    expect(result.current.bubbleText).toBe('Work complete.');
+
+    act(() => {
+      emitEvent(eventBus, 'llm.stream.chunk', {
+        nodeName: 'boss_summary',
+        content: 'Hidden reasoning',
+        channel: 'reasoning',
+      });
+    });
+
+    expect(result.current.bubbleText).toBe('Work complete.');
+
+    act(() => {
+      emitEvent(eventBus, 'llm.stream.chunk', {
+        nodeName: 'boss_summary',
+        content: 'Visible summary',
+        channel: 'content',
+      });
+    });
+
+    expect(result.current.bubbleText).toBe('Visible summary');
+
+    unmount();
+    unregisterMovementHandle(COMPANY_ID, 'emp-1');
+    clearCompanyState(COMPANY_ID);
+    vi.useRealTimers();
+  });
+
+  it('assigns distinct meeting gather positions when more than eight employees join the ceremony', () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const eventBus = new TestEventBus();
+    const agents = new Map(
+      Array.from({ length: 10 }, (_, index) => [
+        `emp-${index + 1}`,
+        {
+          id: `emp-${index + 1}`,
+          name: `Employee ${index + 1}`,
+          role: 'developer',
+          state: 'idle',
+        },
+      ]),
+    );
+
+    clearCompanyState(COMPANY_ID);
+    const handles = Array.from({ length: 10 }, (_, index) => {
+      const id = `emp-${index + 1}`;
+      const handle = createImmediateHandle([0, 0, 0]);
+      registerMovementHandle(COMPANY_ID, id, handle);
+      return { id, handle };
+    });
+
+    const { unmount } = renderHook(() =>
+      useSceneOrchestrator({
+        companyId: COMPANY_ID,
+        eventBus: eventBus as unknown as {
+          on: <TPayload = unknown>(
+            prefix: string,
+            handler: (e: RuntimeEvent<TPayload>) => void,
+          ) => () => void;
+        },
+        agents,
+        zones: ZONES,
+      }),
+    );
+
+    act(() => {
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'manager' });
+      vi.advanceTimersByTime(301);
+    });
+
+    const positions = handles.map(({ handle }) => handle.getPosition()).filter(Boolean);
+    expect(positions).toHaveLength(10);
+
+    const serialized = positions.map((position) => JSON.stringify(position));
+    expect(new Set(serialized).size).toBe(10);
+
+    unmount();
+    for (const { id } of handles) {
+      unregisterMovementHandle(COMPANY_ID, id);
+    }
+    clearCompanyState(COMPANY_ID);
+    randomSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('spreads fallback workstation dispatch positions when no workspace zone matches the role', () => {
+    vi.useFakeTimers();
+    const eventBus = new TestEventBus();
+    const agents = new Map(
+      Array.from({ length: 5 }, (_, index) => [
+        `emp-${index + 1}`,
+        {
+          id: `emp-${index + 1}`,
+          name: `Employee ${index + 1}`,
+          role: 'developer',
+          state: 'idle',
+        },
+      ]),
+    );
+    const zonesWithoutWorkspace = ZONES.filter((zone) => zone.zoneId !== `${COMPANY_ID}::zone-dev`);
+
+    clearCompanyState(COMPANY_ID);
+    const handles = Array.from({ length: 5 }, (_, index) => {
+      const id = `emp-${index + 1}`;
+      const handle = createImmediateHandle([0, 0, 0]);
+      registerMovementHandle(COMPANY_ID, id, handle);
+      return { id, handle };
+    });
+
+    const { unmount } = renderHook(() =>
+      useSceneOrchestrator({
+        companyId: COMPANY_ID,
+        eventBus: eventBus as unknown as {
+          on: <TPayload = unknown>(
+            prefix: string,
+            handler: (e: RuntimeEvent<TPayload>) => void,
+          ) => () => void;
+        },
+        agents,
+        zones: zonesWithoutWorkspace,
+      }),
+    );
+
+    act(() => {
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'manager' });
+      vi.advanceTimersByTime(301);
+      emitEvent(eventBus, 'graph.node.entered', { nodeName: 'step_dispatcher' });
+      for (let index = 0; index < 5; index++) {
+        emitEvent(eventBus, 'task.assignment.dispatched', {
+          employeeId: `emp-${index + 1}`,
+          employeeName: `Employee ${index + 1}`,
+          stepLabel: `Fallback task ${index + 1}`,
+          stepIndex: index,
+          totalSteps: 5,
+        });
+      }
+      vi.advanceTimersByTime(1501);
+    });
+
+    const positions = handles.map(({ handle }) => handle.getPosition()).filter(Boolean);
+    expect(positions).toHaveLength(5);
+    expect(new Set(positions.map((position) => JSON.stringify(position))).size).toBe(5);
+
+    unmount();
+    for (const { id } of handles) {
+      unregisterMovementHandle(COMPANY_ID, id);
+    }
+    clearCompanyState(COMPANY_ID);
+    vi.useRealTimers();
+  });
 });

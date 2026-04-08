@@ -47,8 +47,9 @@ describe('RightSidebar', () => {
   it('shows the Collaboration label and workflow status', () => {
     render(<RightSidebar chatPanel={<div>chat-panel</div>} />);
 
-    expect(screen.getByText('Collaboration')).toBeInTheDocument();
-    expect(screen.getByText(/Idle\. Collaboration happens here\./)).toBeInTheDocument();
+    expect(screen.getByText('Workspace Rail')).toBeInTheDocument();
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.queryByText(/Idle\. Collaboration happens here\./)).not.toBeInTheDocument();
   });
 
   it('shows outputs inside the tasks context instead of as a top-level destination', () => {
@@ -67,7 +68,7 @@ describe('RightSidebar', () => {
   it('returns to chat when a direct-chat request token changes', () => {
     const { rerender } = render(<RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} />);
 
-    expect(screen.queryByText('chat-panel')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveAttribute('data-state', 'active');
 
     rerender(
       <RightSidebar
@@ -78,5 +79,6 @@ describe('RightSidebar', () => {
     );
 
     expect(screen.getByText('chat-panel')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute('data-state', 'active');
   });
 });

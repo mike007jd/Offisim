@@ -33,6 +33,17 @@ export function computeRestSeatPosition(
   return [cx + Math.cos(angle) * radius, 0, cz + Math.sin(angle) * radius];
 }
 
+export function computeWorkspaceFallbackSeatPosition(
+  cx: number,
+  cz: number,
+  slotIndex: number,
+): [number, number, number] {
+  const offsetIdx = slotIndex % SEAT_OFFSETS.length;
+  const rowShift = Math.floor(slotIndex / SEAT_OFFSETS.length) * 2;
+  const offset = SEAT_OFFSETS[offsetIdx] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
+  return [cx + offset[0], 0, cz + offset[2] + rowShift];
+}
+
 export interface SeatEntry {
   readonly position: [number, number, number];
   readonly approachPosition: [number, number, number];
@@ -176,24 +187,14 @@ function buildFallbackZoneSeat(
   footprints: readonly WorldFootprint[],
   existingSeats: readonly SeatEntry[],
 ): SeatEntry {
-  const offsetIdx = slotIndex % SEAT_OFFSETS.length;
-  const rowShift = Math.floor(slotIndex / SEAT_OFFSETS.length) * 2;
-  const offset = SEAT_OFFSETS[offsetIdx] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
-  let position: [number, number, number] = [zone.cx + offset[0], 0, zone.cz + offset[2] + rowShift];
+  let position = computeWorkspaceFallbackSeatPosition(zone.cx, zone.cz, slotIndex);
 
   if (
     isBlockedByFootprint(position[0], position[2], footprints) ||
     isTooCloseToExisting(position, existingSeats)
   ) {
     for (let candidate = slotIndex; candidate < slotIndex + 24; candidate++) {
-      const candidateOffsetIdx = candidate % SEAT_OFFSETS.length;
-      const candidateRowShift = Math.floor(candidate / SEAT_OFFSETS.length) * 2;
-      const candidateOffset = SEAT_OFFSETS[candidateOffsetIdx] ?? SEAT_OFFSETS[0] ?? [0, 0, 0];
-      const candidatePosition: [number, number, number] = [
-        zone.cx + candidateOffset[0],
-        0,
-        zone.cz + candidateOffset[2] + candidateRowShift,
-      ];
+      const candidatePosition = computeWorkspaceFallbackSeatPosition(zone.cx, zone.cz, candidate);
       if (
         !isBlockedByFootprint(candidatePosition[0], candidatePosition[2], footprints) &&
         !isTooCloseToExisting(candidatePosition, existingSeats)
@@ -218,11 +219,12 @@ function buildRestFallbackSeats(
   targetCount: number,
   footprints: readonly WorldFootprint[],
   existingSeats: readonly SeatEntry[],
+  candidateStart = 0,
 ): SeatEntry[] {
   const fallbackSeats: SeatEntry[] = [];
   for (
-    let candidate = 0;
-    fallbackSeats.length < targetCount && candidate < targetCount * 8;
+    let candidate = candidateStart;
+    fallbackSeats.length < targetCount && candidate < candidateStart + Math.max(targetCount * 128, 256);
     candidate++
   ) {
     const position = computeRestSeatPosition(zone.cx, zone.cz, candidate);
@@ -243,6 +245,50 @@ function buildRestFallbackSeats(
   return fallbackSeats;
 }
 
+function buildOverflowRestSeat(
+  zone: Zone,
+  seedIndex: number,
+  footprints: readonly WorldFootprint[],
+  existingSeats: readonly SeatEntry[],
+): SeatEntry {
+  for (let attempt = 0; attempt < 256; attempt++) {
+    const candidateIndex = seedIndex + attempt;
+    const ring = Math.floor(candidateIndex / 12);
+    const angle =
+      ((candidateIndex % 12) / 12) * Math.PI * 2 + (ring % 2 === 0 ? 0 : Math.PI / 12);
+    const radius = 1.6 + ring * MIN_SEAT_SPACING;
+    const position: [number, number, number] = [
+      zone.cx + Math.cos(angle) * radius,
+      0,
+      zone.cz + Math.sin(angle) * radius,
+    ];
+
+    if (
+      isBlockedByFootprint(position[0], position[2], footprints) ||
+      isTooCloseToExisting(position, existingSeats)
+    ) {
+      continue;
+    }
+
+    return {
+      position,
+      approachPosition: position,
+      facing: Math.PI,
+      instanceId: null,
+      isFallback: true,
+    };
+  }
+
+  const position = computeRestSeatPosition(zone.cx, zone.cz, seedIndex);
+  return {
+    position,
+    approachPosition: position,
+    facing: Math.PI,
+    instanceId: null,
+    isFallback: true,
+  };
+}
+
 interface ZoneFootprint extends WorldFootprint {
   readonly instanceId: string;
 }
@@ -252,16 +298,21 @@ export class SeatRegistry {
   private readonly restSeats: ReadonlyMap<string, readonly SeatEntry[]>;
   private readonly obstacleFootprintsByZone: ReadonlyMap<string, readonly ZoneFootprint[]>;
   private readonly allObstacleFootprints: readonly WorldFootprint[];
+  private readonly zonesById: ReadonlyMap<string, Zone>;
+  private readonly overflowSeatsByZone = new Map<string, SeatEntry[]>();
+  private readonly overflowRestSeatsByZone = new Map<string, SeatEntry[]>();
 
   private constructor(
     seats: Map<string, SeatEntry[]>,
     restSeats: Map<string, SeatEntry[]>,
     obstacleFootprints: Map<string, ZoneFootprint[]>,
+    zonesById: Map<string, Zone>,
   ) {
     this.seats = seats;
     this.restSeats = restSeats;
     this.obstacleFootprintsByZone = obstacleFootprints;
     this.allObstacleFootprints = [...obstacleFootprints.values()].flat();
+    this.zonesById = zonesById;
   }
 
   static build(instances: readonly PrefabInstanceRow[], zones: readonly Zone[]): SeatRegistry {
@@ -361,13 +412,21 @@ export class SeatRegistry {
       }
     }
 
-    return new SeatRegistry(seats, restSeats, zoneFootprints);
+    return new SeatRegistry(seats, restSeats, zoneFootprints, zoneById);
   }
 
   getSeat(zoneId: string, slotIndex: number): SeatEntry | null {
     const zoneSeats = this.seats.get(zoneId);
-    if (!zoneSeats || zoneSeats.length === 0) return null;
-    return zoneSeats[slotIndex % zoneSeats.length] ?? null;
+    if (zoneSeats && slotIndex < zoneSeats.length) {
+      return zoneSeats[slotIndex] ?? null;
+    }
+
+    const zone = this.zonesById.get(zoneId);
+    if (!zone) return null;
+
+    const overflowSeats = this.ensureOverflowSeats(zoneId, zone, slotIndex + 1);
+    const overflowIndex = slotIndex - (zoneSeats?.length ?? 0);
+    return overflowSeats[overflowIndex] ?? null;
   }
 
   getZoneSeats(zoneId: string): readonly SeatEntry[] {
@@ -377,9 +436,15 @@ export class SeatRegistry {
   getRestSeat(zones: readonly Zone[], slotIndex: number): [number, number, number] {
     const restZone = zones.find((z) => z.archetype === 'rest');
     const seatPool = restZone ? this.restSeats.get(restZone.zoneId) : undefined;
-    if (seatPool && seatPool.length > 0) {
-      const seat = seatPool[slotIndex % seatPool.length] ?? seatPool[0];
-      return seat ? [...seat.position] : computeRestSeatPosition(0, 0, slotIndex);
+    if (restZone && seatPool && slotIndex < seatPool.length) {
+      const seat = seatPool[slotIndex];
+      return seat ? [...seat.position] : computeRestSeatPosition(restZone.cx, restZone.cz, slotIndex);
+    }
+    if (restZone) {
+      const overflowSeats = this.ensureOverflowRestSeats(restZone.zoneId, restZone, slotIndex + 1);
+      const overflowIndex = slotIndex - (seatPool?.length ?? 0);
+      const seat = overflowSeats[overflowIndex];
+      if (seat) return [...seat.position];
     }
     return computeRestSeatPosition(restZone?.cx ?? 0, restZone?.cz ?? 0, slotIndex);
   }
@@ -389,5 +454,43 @@ export class SeatRegistry {
       return this.obstacleFootprintsByZone.get(zoneId) ?? [];
     }
     return this.allObstacleFootprints;
+  }
+
+  private ensureOverflowSeats(zoneId: string, zone: Zone, targetCount: number): SeatEntry[] {
+    const baseSeats = [...(this.seats.get(zoneId) ?? [])];
+    const overflowSeats = this.overflowSeatsByZone.get(zoneId) ?? [];
+    const zoneObstacleFootprints = this.obstacleFootprintsByZone.get(zoneId) ?? [];
+
+    while (baseSeats.length + overflowSeats.length < targetCount) {
+      const nextSeat = buildFallbackZoneSeat(
+        zone,
+        baseSeats.length + overflowSeats.length,
+        zoneObstacleFootprints,
+        [...baseSeats, ...overflowSeats],
+      );
+      overflowSeats.push(nextSeat);
+    }
+
+    this.overflowSeatsByZone.set(zoneId, overflowSeats);
+    return overflowSeats;
+  }
+
+  private ensureOverflowRestSeats(zoneId: string, zone: Zone, targetCount: number): SeatEntry[] {
+    const baseSeats = [...(this.restSeats.get(zoneId) ?? [])];
+    const overflowSeats = this.overflowRestSeatsByZone.get(zoneId) ?? [];
+    const zoneObstacleFootprints = this.obstacleFootprintsByZone.get(zoneId) ?? [];
+
+    while (baseSeats.length + overflowSeats.length < targetCount) {
+      const nextSeat = buildOverflowRestSeat(
+        zone,
+        baseSeats.length + overflowSeats.length,
+        zoneObstacleFootprints,
+        [...baseSeats, ...overflowSeats],
+      );
+      overflowSeats.push(nextSeat);
+    }
+
+    this.overflowRestSeatsByZone.set(zoneId, overflowSeats);
+    return overflowSeats;
   }
 }

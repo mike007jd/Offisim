@@ -1,6 +1,8 @@
 export interface LlmMessage {
   readonly role: 'system' | 'user' | 'assistant' | 'tool';
   readonly content: string;
+  /** Provider-specific hidden reasoning payload that must be echoed back for some tool loops. */
+  readonly reasoningContent?: string;
   /** For role='assistant': tool calls the model wants to make */
   readonly toolCalls?: readonly ToolCallResult[];
   /** For role='tool': the tool_call_id this result responds to */
@@ -38,12 +40,14 @@ export interface LlmRequest {
 
 export interface LlmResponse {
   readonly content: string;
+  readonly reasoningContent?: string;
   readonly toolCalls: readonly ToolCallResult[];
   readonly usage: LlmUsage;
 }
 
 export interface LlmStreamChunk {
   readonly content?: string;
+  readonly reasoning?: string;
   readonly toolCalls?: readonly ToolCallResult[];
   readonly usage?: LlmUsage;
   readonly done: boolean;

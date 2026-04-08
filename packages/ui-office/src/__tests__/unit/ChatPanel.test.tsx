@@ -2,6 +2,7 @@ import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps, PropsWithChildren } from 'react';
+import { useChatSessionStore } from '../../components/chat/chat-session-store.js';
 
 /**
  * ChatPanel — focused tests on project-scoping behavior.
@@ -59,7 +60,7 @@ vi.mock('../../runtime/offisim-runtime-context.js', () => ({
 }));
 
 vi.mock('../../runtime/use-streaming-content.js', () => ({
-  useStreamingContent: () => ({ content: '', isStreaming: false }),
+  useStreamingContentForConversation: () => ({ content: '', isStreaming: false, nodeName: null }),
 }));
 
 vi.mock('../../runtime/use-agent-states.js', () => ({
@@ -193,6 +194,7 @@ function makeInteractionRequest(
 describe('ChatPanel — project scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useChatSessionStore.getState().reset();
     mockSendMessage.mockResolvedValue(undefined);
     mockRetryLastMessage.mockResolvedValue(undefined);
     mockRespondToInteraction.mockResolvedValue(undefined);
@@ -248,6 +250,26 @@ describe('ChatPanel — project scoping', () => {
 
     const callArgs = mockSendMessage.mock.calls[0];
     expect(callArgs[1]).toMatchObject({ threadId: undefined });
+  });
+
+  it('persists conversation history across unmount/remount for the same project thread', async () => {
+    const user = userEvent.setup();
+    mockSendMessage.mockResolvedValue('assistant reply');
+
+    const firstRender = render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
+    await user.click(screen.getByTestId('chat-input-send'));
+
+    await waitFor(() => {
+      expect(screen.getByText('test message')).toBeInTheDocument();
+      expect(screen.getByText('assistant reply')).toBeInTheDocument();
+    });
+
+    firstRender.unmount();
+
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
+
+    expect(screen.getByText('test message')).toBeInTheDocument();
+    expect(screen.getByText('assistant reply')).toBeInTheDocument();
   });
 
   it('hides project banner when in direct-chat mode even with activeProject set', () => {
@@ -347,6 +369,31 @@ describe('ChatPanel — project scoping', () => {
         exact: false,
       }),
     ).toBeInTheDocument();
+  });
+
+  it('does not append a duplicate assistant message when the final reply matches streamed content', async () => {
+    let resolveReply: ((value: string | undefined) => void) | null = null;
+    mockSendMessage.mockImplementation(
+      () =>
+        new Promise<string | undefined>((resolve) => {
+          resolveReply = resolve;
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
+
+    await user.click(screen.getByTestId('chat-input-send'));
+
+    useChatSessionStore
+      .getState()
+      .appendStreamingChunkForActiveRun('boss', 'Streamed final answer');
+
+    resolveReply?.('Streamed final answer');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Streamed final answer')).toHaveLength(1);
+    });
   });
 });
 

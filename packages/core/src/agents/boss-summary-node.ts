@@ -209,6 +209,17 @@ export async function bossSummaryNode(
     },
     { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
     (chunk) => {
+      if (chunk.reasoning) {
+        runtimeCtx.eventBus.emit(
+          llmStreamChunk(
+            runtimeCtx.companyId,
+            state.threadId,
+            'boss_summary',
+            chunk.reasoning,
+            'reasoning',
+          ),
+        );
+      }
       if (chunk.content) {
         runtimeCtx.eventBus.emit(
           llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss_summary', chunk.content),

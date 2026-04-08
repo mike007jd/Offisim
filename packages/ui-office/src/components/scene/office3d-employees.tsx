@@ -8,15 +8,18 @@ import {
   registerMovementHandle,
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
-import { SEAT_OFFSETS } from '../../lib/seat-offsets.js';
-import { type SeatRegistry, computeRestSeatPosition } from '../../lib/seat-registry.js';
+import {
+  type SeatRegistry,
+  computeRestSeatPosition,
+  computeWorkspaceFallbackSeatPosition,
+} from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { Lobster3D } from './Lobster3D.js';
 import type { Zone3D } from './office3d-shared.js';
-import { resolveEmployeeZoneDynamic } from './office3d-shared.js';
+import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
 const OUTFIT_COLORS = [
   '#3b82f6',
@@ -30,8 +33,6 @@ const OUTFIT_COLORS = [
 ];
 
 const SKIN_TONES = ['#fce7f3', '#fef3c7', '#92400e', '#fdf2f8', '#fff1f2', '#d4a574', '#f5deb3'];
-
-const DEFAULT_SEAT_OFFSET = SEAT_OFFSETS[0] ?? [0, 0, 0];
 
 export interface PlacedEmployee {
   id: string;
@@ -65,7 +66,7 @@ export function usePlacedEmployees(
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
-      const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeZoneDynamic(agent, zones);
+      const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeSceneZoneId(agent, zones);
       const zoneBucket = zoneEmployees.get(zoneId);
       if (zoneBucket) {
         zoneBucket.push({ id, agent, globalIndex: globalIdx });
@@ -115,16 +116,16 @@ export function usePlacedEmployees(
           }
         }
         // Fallback: deterministic zone-center offset
-        const deskPos = SEAT_OFFSETS[slotIdx % SEAT_OFFSETS.length] ?? DEFAULT_SEAT_OFFSET;
+        const deskPos = computeWorkspaceFallbackSeatPosition(
+          zone.position[0],
+          zone.position[2],
+          slotIdx,
+        );
         placed.push({
           id: employee.id,
           agent: employee.agent,
           globalIndex: employee.globalIndex,
-          position: [
-            zone.position[0] + deskPos[0],
-            0,
-            zone.position[2] + deskPos[2] + Math.floor(slotIdx / 4) * 2,
-          ],
+          position: deskPos,
         });
       });
     }

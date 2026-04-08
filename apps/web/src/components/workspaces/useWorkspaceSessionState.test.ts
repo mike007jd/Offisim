@@ -54,6 +54,7 @@ describe('SESSION_KEY mapping', () => {
     expect(SESSION_KEY['sops']).toBe('sops');
     expect(SESSION_KEY['market']).toBe('market');
     expect(SESSION_KEY['activity-log']).toBe('activityLog');
+    expect(SESSION_KEY['settings']).toBe('settings');
   });
 });
 
@@ -104,6 +105,10 @@ describe('hasInternalDrillIn', () => {
     expect(
       hasInternalDrillIn('activity-log', withActivityLog({ selectedEventId: 'e-1' })),
     ).toBe(true);
+  });
+
+  it('returns false for settings (no internal drill-in)', () => {
+    expect(hasInternalDrillIn('settings', createDefaultSessionState())).toBe(false);
   });
 });
 
@@ -223,6 +228,15 @@ describe('tryWorkspaceInternalBack', () => {
       expect(next.activityLog.eventTypes).toEqual(['sop-run']);
       expect(next.activityLog.actorFilters).toEqual(['emp-1']);
       expect(next.activityLog.datePreset).toBe('7d');
+    });
+  });
+
+  describe('settings', () => {
+    it('returns not consumed (settings has no internal drill-in)', () => {
+      const state = createDefaultSessionState();
+      const [consumed, next] = tryWorkspaceInternalBack('settings', state);
+      expect(consumed).toBe(false);
+      expect(next).toBe(state);
     });
   });
 });

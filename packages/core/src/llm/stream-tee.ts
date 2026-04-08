@@ -5,6 +5,7 @@ const logger = new Logger('llm');
 
 export interface TeeResult {
   fullContent: string;
+  fullReasoning: string;
   toolCalls: ToolCallResult[];
   usage: LlmUsage;
 }
@@ -14,6 +15,7 @@ export async function teeStream(
   onChunk: (chunk: LlmStreamChunk) => void,
 ): Promise<TeeResult> {
   let fullContent = '';
+  let fullReasoning = '';
   let usage: LlmUsage = { inputTokens: 0, outputTokens: 0 };
   const toolCalls: ToolCallResult[] = [];
 
@@ -24,9 +26,10 @@ export async function teeStream(
       logger.error('teeStream onChunk error', err);
     }
     if (chunk.content) fullContent += chunk.content;
+    if (chunk.reasoning) fullReasoning += chunk.reasoning;
     if (chunk.toolCalls) toolCalls.push(...chunk.toolCalls);
     if (chunk.usage) usage = chunk.usage;
   }
 
-  return { fullContent, toolCalls, usage };
+  return { fullContent, fullReasoning, toolCalls, usage };
 }

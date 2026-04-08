@@ -1,7 +1,7 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../../lib/chat-commands.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
-import { useStreamingContent } from '../../runtime/use-streaming-content';
+import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
 import { EmptyState, type EmptyStateWelcome, type StarterPrompt } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ActivityRail } from './ActivityRail';
@@ -22,6 +22,11 @@ import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
+import {
+  type ChatMessage,
+  getConversationKey,
+  useChatSessionStore,
+} from './chat-session-store';
 
 const MeetingPanel = lazy(() =>
   import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
@@ -29,12 +34,6 @@ const MeetingPanel = lazy(() =>
 const PipelineProgress = lazy(() =>
   import('./PipelineProgress').then((module) => ({ default: module.PipelineProgress })),
 );
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
 
 interface ChatPanelProps {
   onOpenSettings: () => void;
@@ -63,6 +62,7 @@ interface ChatPanelProps {
 }
 
 let nextMsgId = 0;
+const EMPTY_MESSAGES: ChatMessage[] = [];
 function genMsgId(): string {
   return `msg-${nextMsgId++}`;
 }
@@ -95,15 +95,14 @@ export function ChatPanel({
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
     useOffisimRuntime();
   const { pendingInteraction, respondToInteraction } = useOffisimRuntime();
-  const { content: streamContent, isStreaming } = useStreamingContent();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
   const pipelineStage = usePipelineStage();
-
-  // Per-target message history: null key = boss chat, employeeId = direct chat
-  const [messagesByTarget, setMessagesByTarget] = useState<Map<string | null, ChatMessage[]>>(
-    new Map(),
-  );
+  const appendMessage = useChatSessionStore((state) => state.appendMessage);
+  const startRun = useChatSessionStore((state) => state.startRun);
+  const finalizeActiveRun = useChatSessionStore((state) => state.finalizeActiveRun);
+  const clearAllConversations = useChatSessionStore((state) => state.clearAllConversations);
+  const getMessages = useChatSessionStore((state) => state.getMessages);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -113,12 +112,27 @@ export function ChatPanel({
 
   // Current target key
   const targetKey = selectedEmployeeId ?? null;
+  const conversationKey = getConversationKey({
+    threadId: activeProject?.thread_id ?? null,
+    targetEmployeeId: targetKey,
+  });
   const interactionEmployeeName = pendingInteraction?.employeeId
     ? (agents.get(pendingInteraction.employeeId)?.name ?? null)
     : null;
+  const {
+    content: streamContent,
+    reasoning: streamReasoning,
+    isStreaming,
+    nodeName: streamNodeName,
+  } = useStreamingContentForConversation(conversationKey);
 
   // Current messages for the active target
-  const messages = messagesByTarget.get(targetKey) ?? [];
+  const messages = useChatSessionStore(
+    useCallback(
+      (state) => state.conversations[conversationKey]?.messages ?? EMPTY_MESSAGES,
+      [conversationKey],
+    ),
+  );
 
   // Clear error when switching targets
   const prevTargetRef = useRef(targetKey);
@@ -128,14 +142,6 @@ export function ChatPanel({
     }
     prevTargetRef.current = targetKey;
   }, [targetKey, error, clearError]);
-
-  const lastStreamRef = useRef('');
-
-  useEffect(() => {
-    if (isStreaming && streamContent) {
-      lastStreamRef.current = streamContent;
-    }
-  }, [isStreaming, streamContent]);
 
   useEffect(() => {
     if (pendingInteraction) {
@@ -153,13 +159,14 @@ export function ChatPanel({
     }
   }, [messages, streamContent]);
 
-  function addMessage(target: string | null, msg: ChatMessage) {
-    setMessagesByTarget((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(target) ?? [];
-      next.set(target, [...existing, msg]);
-      return next;
-    });
+  function addMessage(targetEmployeeId: string | null, msg: ChatMessage) {
+    appendMessage(
+      getConversationKey({
+        threadId: activeProject?.thread_id ?? null,
+        targetEmployeeId,
+      }),
+      msg,
+    );
   }
 
   async function handleInteractionRespond(
@@ -175,20 +182,20 @@ export function ChatPanel({
       addMessage(interactionTarget, { id: genMsgId(), role: 'user', content: trimmedResponse });
     }
 
-    lastStreamRef.current = '';
+    startRun(
+      getConversationKey({
+        threadId: activeProject?.thread_id ?? null,
+        targetEmployeeId: interactionTarget,
+      }),
+    );
     const response = await respondToInteraction(selectedOptionId, trimmedResponse);
-    const finalContent = lastStreamRef.current || response;
-    if (finalContent) {
-      addMessage(interactionTarget, { id: genMsgId(), role: 'assistant', content: finalContent });
-    }
-    lastStreamRef.current = '';
+    finalizeActiveRun(response);
   }
 
   async function handleSend(
     text: string,
     options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
   ) {
-    lastStreamRef.current = '';
     errorTargetRef.current = targetKey;
 
     // Notify parent of user message (only for team chat, not direct employee chat)
@@ -200,48 +207,52 @@ export function ChatPanel({
     const mentionHints = agents ? extractMentionHints(text, agents) : [];
     const targetHint =
       mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
+    const resolvedTargetEmployeeId = selectedEmployeeId ?? targetHint ?? null;
 
     addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
+    startRun(conversationKey);
 
     const response = await sendMessage(text, {
       entryMode: options?.entryMode,
-      targetEmployeeId: selectedEmployeeId ?? targetHint,
+      targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
       threadId: activeProject?.thread_id ?? undefined,
     });
-
-    const finalContent = lastStreamRef.current || response;
-    if (finalContent) {
-      addMessage(targetKey, { id: genMsgId(), role: 'assistant', content: finalContent });
-    }
-    lastStreamRef.current = '';
+    finalizeActiveRun(response);
   }
 
   async function handleRetry() {
-    lastStreamRef.current = '';
     const retryTarget = errorTargetRef.current;
+    startRun(
+      getConversationKey({
+        threadId: activeProject?.thread_id ?? null,
+        targetEmployeeId: retryTarget,
+      }),
+    );
     const response = await retryLastMessage();
-    const finalContent = lastStreamRef.current || response;
-    if (finalContent) {
-      addMessage(retryTarget, { id: genMsgId(), role: 'assistant', content: finalContent });
-    }
-    lastStreamRef.current = '';
+    finalizeActiveRun(response);
   }
 
   function handleSwapPerson(employeeId: string) {
-    const allMessages = messagesByTarget.get(errorTargetRef.current) ?? [];
+    const allMessages = getMessages(
+      getConversationKey({
+        threadId: activeProject?.thread_id ?? null,
+        targetEmployeeId: errorTargetRef.current,
+      }),
+    );
     const lastUserMsg = [...allMessages].reverse().find((m) => m.role === 'user');
     if (!lastUserMsg) return;
 
     clearError();
-    lastStreamRef.current = '';
 
     addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
+    startRun(
+      getConversationKey({
+        threadId: activeProject?.thread_id ?? null,
+        targetEmployeeId: employeeId,
+      }),
+    );
     sendMessage(lastUserMsg.content, { targetEmployeeId: employeeId }).then((response) => {
-      const finalContent = lastStreamRef.current || response;
-      if (finalContent) {
-        addMessage(employeeId, { id: genMsgId(), role: 'assistant', content: finalContent });
-      }
-      lastStreamRef.current = '';
+      finalizeActiveRun(response);
     });
   }
 
@@ -261,9 +272,7 @@ export function ChatPanel({
       if (command.type === 'client') {
         const ctx: ClientCommandContext = {
           showDashboard: () => onToggleDashboard?.(),
-          clearMessages: () => {
-            setMessagesByTarget(new Map());
-          },
+          clearMessages: () => clearAllConversations(),
           showHelp: () => {
             const helpText = buildHelpText();
             addMessage(targetKey, { id: genMsgId(), role: 'system', content: helpText });
@@ -283,7 +292,15 @@ export function ChatPanel({
         command.execute(args, ctx);
       }
     },
-    [targetKey, onToggleDashboard, onToggleKanban, onOpenSettings, onOpenEditor, onOpenStudio],
+    [
+      targetKey,
+      onToggleDashboard,
+      onToggleKanban,
+      onOpenSettings,
+      onOpenEditor,
+      onOpenStudio,
+      clearAllConversations,
+    ],
   );
 
   const showEmpty = messages.length === 0 && !isStreaming && !pendingInteraction;
@@ -376,7 +393,12 @@ export function ChatPanel({
               Enter a task and watch your AI team collaborate.
             </div>
           )}
-          {isStreaming && <StreamingBubble />}
+          <StreamingBubble
+            content={streamContent}
+            reasoning={streamReasoning}
+            isStreaming={isStreaming}
+            nodeName={streamNodeName}
+          />
         </div>
       ) : (
         <>
@@ -434,7 +456,12 @@ export function ChatPanel({
                 {messages.map((msg) => (
                   <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
                 ))}
-                {isStreaming && <StreamingBubble />}
+                <StreamingBubble
+                  content={streamContent}
+                  reasoning={streamReasoning}
+                  isStreaming={isStreaming}
+                  nodeName={streamNodeName}
+                />
               </div>
             </ScrollArea>
           )}

@@ -194,6 +194,55 @@ describe('employeeNode', () => {
     expect(llmCalls.filter((c) => c.node_name === 'employee')).toHaveLength(3);
   });
 
+  it('preserves assistant reasoning content across tool-call rounds', async () => {
+    gateway.pushResponse({
+      content: '',
+      reasoningContent: 'Need to inspect the project first.',
+      toolCalls: [{ id: 'tc-1', name: 'readFile', arguments: { path: '/src/index.ts' } }],
+    });
+    gateway.pushResponse({
+      content: 'I inspected the file and here is the answer.',
+    });
+
+    const state = makeState();
+    await employeeNode(state, config);
+
+    const followUpRequest = gateway.requests[1];
+    expect(followUpRequest).toBeDefined();
+    const assistantTurn = followUpRequest?.messages.find((message) => message.role === 'assistant');
+    expect(assistantTurn?.reasoningContent).toBe('Need to inspect the project first.');
+  });
+
+  it('preserves assistant reasoning content across streamed direct-chat tool rounds', async () => {
+    gateway.pushStreamResponse({
+      content: '',
+      reasoningContent: 'I should inspect the file before replying.',
+      toolCalls: [{ id: 'tc-1', name: 'readFile', arguments: { path: '/src/index.ts' } }],
+    });
+    gateway.pushStreamResponse({
+      content: 'I inspected the file and here is the answer.',
+    });
+
+    const state = makeState({
+      entryMode: 'direct_chat',
+      targetEmployeeId: 'e-dev-1',
+      pendingAssignments: [
+        {
+          taskType: 'direct_chat',
+          employeeId: 'e-dev-1',
+          inputJson: { description: 'Check the file', taskRunId: 'tr-test-1' },
+        },
+      ],
+    });
+
+    await employeeNode(state, config);
+
+    const followUpRequest = gateway.requests[1];
+    expect(followUpRequest).toBeDefined();
+    const assistantTurn = followUpRequest?.messages.find((message) => message.role === 'assistant');
+    expect(assistantTurn?.reasoningContent?.trim()).toBe('I should inspect the file before replying.');
+  });
+
   it('stops after MAX_TOOL_ROUNDS (5) even if LLM keeps requesting tools', async () => {
     // Push 6 responses that all request tool calls
     for (let i = 0; i < 6; i++) {

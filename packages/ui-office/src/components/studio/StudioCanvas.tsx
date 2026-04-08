@@ -232,6 +232,8 @@ function ZoneFloor({
   const color = useMemo(() => new THREE.Color(zone.accentColor), [zone.accentColor]);
   const focusZone = useStudioStore((s) => s.focusZone);
   const unfocusZone = useStudioStore((s) => s.unfocusZone);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const enterEditZone = useStudioStore((s) => s.enterEditZone);
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
@@ -405,40 +407,55 @@ function ZoneFloor({
 
       {/* Zone label pill — clickable to focus/unfocus */}
       <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
-        <button
-          type="button"
-          className="studio-zone-label"
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
-            if (isFocused) unfocusZone();
-            else focusZone(zone.zoneId);
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            if (isFocused) unfocusZone();
-            else focusZone(zone.zoneId);
-          }}
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            color: '#fff',
-            background: zone.accentColor,
-            padding: isFocused ? '3px 10px' : '2px 8px',
-            borderRadius: 4,
-            border: isFocused ? '2px solid #fff' : '2px solid transparent',
-            opacity: labelOpacity,
-            whiteSpace: 'nowrap',
-            cursor: isDragging ? 'grabbing' : 'pointer',
-            userSelect: 'none',
-            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          {isFocused ? `✦ ${zone.label}` : zone.label}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="studio-zone-label"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
+              if (isFocused) unfocusZone();
+              else focusZone(zone.zoneId);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              e.stopPropagation();
+              if (isFocused) unfocusZone();
+              else focusZone(zone.zoneId);
+            }}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              color: '#fff',
+              background: zone.accentColor,
+              padding: isFocused ? '3px 10px' : '2px 8px',
+              borderRadius: 4,
+              border: isFocused ? '2px solid #fff' : '2px solid transparent',
+              opacity: labelOpacity,
+              whiteSpace: 'nowrap',
+              cursor: isDragging ? 'grabbing' : 'pointer',
+              userSelect: 'none',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {isFocused ? `✦ ${zone.label}` : zone.label}
+          </button>
+          {isSelected && !isEditingZone ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                enterEditZone(zone.zoneId);
+              }}
+              className="rounded-full border border-cyan-300/30 bg-slate-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100"
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
       </Html>
     </group>
   );

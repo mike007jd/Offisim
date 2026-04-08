@@ -68,4 +68,40 @@ describe('AnthropicAdapter', () => {
 
     expect(response.content).toBe('');
   });
+
+  it('maps thinking deltas separately from text deltas in streaming mode', async () => {
+    const { default: MockAnthropic } = await import('@anthropic-ai/sdk');
+    const mockInstance = new MockAnthropic();
+    (mockInstance.messages.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      (async function* () {
+        yield { type: 'message_start', message: { usage: { input_tokens: 12, output_tokens: 0 } } };
+        yield {
+          type: 'content_block_delta',
+          delta: { type: 'thinking_delta', thinking: 'Inspecting the constraints' },
+        };
+        yield {
+          type: 'content_block_delta',
+          delta: { type: 'text_delta', text: 'Visible answer' },
+        };
+        yield { type: 'message_delta', usage: { output_tokens: 8 } };
+      })(),
+    );
+
+    const customAdapter = new AnthropicAdapter('key');
+    (customAdapter as unknown as { client: typeof mockInstance }).client = mockInstance;
+
+    const chunks = [];
+    for await (const chunk of customAdapter.chatStream({
+      messages: [{ role: 'user', content: 'test' }],
+      model: 'claude-sonnet-4-20250514',
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual([
+      { reasoning: 'Inspecting the constraints', done: false },
+      { content: 'Visible answer', done: false },
+      { done: true, toolCalls: undefined, usage: { inputTokens: 12, outputTokens: 8 } },
+    ]);
+  });
 });

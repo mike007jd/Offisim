@@ -1,12 +1,25 @@
-import { ExternalLink } from 'lucide-react';
-import { useState } from 'react';
+import { ExternalLink, Save, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
+import { parseZoneLayoutMap } from './company-editor-layout';
+import {
+  FieldLabel,
+  MetricCard,
+  SurfaceCard,
+  surfaceInputClassName,
+  surfaceTextareaClassName,
+} from './company-editor-primitives';
 import { PolicyEditor } from './PolicyEditor';
 
 type Tab = 'general' | 'zones' | 'defaults';
+const COMPANY_EDITOR_TABS: Array<[Tab, string]> = [
+  ['general', 'Overview'],
+  ['zones', 'Zone Layout'],
+  ['defaults', 'Employee Defaults'],
+];
 
 interface CompanyEditorProps
   extends Pick<
@@ -49,26 +62,14 @@ export function CompanyEditor({
     close();
   }
 
-  // Parse current zone props from the active layout for the read-only summary
-  let zoneLayoutMap: ZoneLayoutMap = {};
-  try {
-    if (activeLayout?.layout_json) {
-      const parsed = JSON.parse(activeLayout.layout_json) as Record<string, unknown>;
-      if (
-        parsed.zoneProps &&
-        typeof parsed.zoneProps === 'object' &&
-        !Array.isArray(parsed.zoneProps)
-      ) {
-        zoneLayoutMap = parsed.zoneProps as ZoneLayoutMap;
-      }
-    }
-  } catch {
-    /* use empty map */
-  }
+  const zoneLayoutMap = useMemo<ZoneLayoutMap>(
+    () => parseZoneLayoutMap(activeLayout?.layout_json),
+    [activeLayout?.layout_json],
+  );
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
@@ -77,104 +78,151 @@ export function CompanyEditor({
       }}
       tabIndex={-1}
     >
-      <div className="relative flex flex-col w-full max-w-xl rounded-lg border border-gray-700 bg-gray-900 shadow-xl max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-700 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-white">Company Settings</h2>
-            {isDirty && (
-              <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-400">
-                Unsaved changes
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded p-1 text-gray-400 hover:text-white hover:bg-gray-700"
-            aria-label="Close"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <title>Close company editor</title>
-              <path d="M3.22 3.22a.75.75 0 0 1 1.06 0L8 6.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L9.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L8 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L6.94 8 3.22 4.28a.75.75 0 0 1 0-1.06z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-700 px-5">
-          {(['general', 'zones', 'defaults'] as Tab[]).map((tab) => (
+      <div className="mx-auto mt-3 flex h-[calc(100vh-24px)] w-[min(1480px,calc(100vw-24px))] max-w-none flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,#14203d_0%,#0b1121_42%,#040814_100%)] shadow-[0_30px_120px_rgba(0,0,0,0.52)]">
+        <div className="border-b border-white/10 bg-slate-950/45 px-6 py-5 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-cyan-300/80">
+                Layout & Defaults
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Studio Profile</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Shape the company identity, open the zone layout workflow, and define the defaults
+                that new employees inherit. This surface now matches the rest of the new workspace UI.
+              </p>
+            </div>
             <button
-              key={tab}
               type="button"
-              onClick={() => setActiveTab(tab)}
-              className={[
-                'px-3 py-2.5 text-sm capitalize transition-colors',
-                activeTab === tab
-                  ? 'border-b-2 border-blue-500 text-blue-400 font-medium'
-                  : 'text-gray-400 hover:text-gray-200',
-              ].join(' ')}
+              onClick={close}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close company editor"
             >
-              {tab === 'defaults'
-                ? 'New Employee Defaults'
-                : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              <X className="h-4 w-4" />
             </button>
-          ))}
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <MetricCard
+              label="Company"
+              value={company?.name || 'Untitled company'}
+              detail="Identity and description live here."
+            />
+            <MetricCard
+              label="Zone Layout"
+              value={`${Object.keys(zoneLayoutMap).length} mapped zones`}
+              detail="Studio edits remain explicit and zone-first."
+            />
+            <MetricCard
+              label="Status"
+              value={isDirty ? 'Unsaved changes' : 'Synced'}
+              detail="Changes apply to the active company profile."
+            />
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0">
+        <div className="border-b border-white/10 bg-slate-950/25 px-6 py-4">
+          <div className="grid w-full gap-2 rounded-full border border-white/10 bg-white/[0.03] p-1 md:grid-cols-3">
+            {COMPANY_EDITOR_TABS.map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`rounded-full px-4 py-2 text-sm transition ${
+                  activeTab === tab
+                    ? 'bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/30'
+                    : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           {activeTab === 'general' && (
-            <div className="flex flex-col gap-4">
-              <div>
-                <label htmlFor="company-name" className="block text-sm text-gray-300 mb-1">
-                  Company Name
-                </label>
-                <input
-                  id="company-name"
-                  type="text"
-                  value={company?.name ?? ''}
-                  onChange={(e) => updateCompanyName(e.target.value)}
-                  placeholder="My AI Company"
-                  className="w-full rounded bg-gray-800 border border-gray-600 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 placeholder-gray-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="company-description" className="block text-sm text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="company-description"
-                  rows={3}
-                  value={company?.description ?? ''}
-                  onChange={(e) => updateCompanyDescription(e.target.value)}
-                  placeholder="A short description of your company..."
-                  className="w-full rounded bg-gray-800 border border-gray-600 px-3 py-1.5 text-sm text-white resize-none focus:outline-none focus:border-blue-500 placeholder-gray-500"
-                />
-              </div>
+            <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
+              <SurfaceCard
+                eyebrow="Identity"
+                title="Studio identity"
+                description="Keep the company profile tight and specific. This feeds the rest of the workspace without pulling you back into the old retro settings aesthetic."
+              >
+                <div className="space-y-3 text-sm text-slate-300">
+                  <div className="rounded-[20px] border border-cyan-400/15 bg-cyan-400/10 px-4 py-4">
+                    <p className="font-semibold text-white">{company?.name || 'Untitled company'}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-300">
+                      Naming, positioning, and defaults stay aligned with the active studio profile.
+                    </p>
+                  </div>
+                  <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Workflow</p>
+                    <p className="mt-2 text-sm text-slate-300">
+                      Zone layout editing stays explicit. Select a zone first, then enter its edit mode.
+                    </p>
+                  </div>
+                </div>
+              </SurfaceCard>
+
+              <SurfaceCard
+                eyebrow="Overview"
+                title="Company narrative"
+                description="Set the visible identity for the company profile and keep the copy aligned with the workspace."
+              >
+                <div className="grid gap-4">
+                  <div>
+                    <FieldLabel htmlFor="company-name">Company name</FieldLabel>
+                    <input
+                      id="company-name"
+                      type="text"
+                      value={company?.name ?? ''}
+                      onChange={(e) => updateCompanyName(e.target.value)}
+                      placeholder="My AI Company"
+                      className={surfaceInputClassName('placeholder:text-slate-500')}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="company-description">Description</FieldLabel>
+                    <textarea
+                      id="company-description"
+                      rows={5}
+                      value={company?.description ?? ''}
+                      onChange={(e) => updateCompanyDescription(e.target.value)}
+                      placeholder="Describe the operating style, audience, and outcome this company is here to produce."
+                      className={surfaceTextareaClassName('placeholder:text-slate-500')}
+                    />
+                  </div>
+                </div>
+              </SurfaceCard>
             </div>
           )}
 
           {activeTab === 'zones' && (
-            <ZoneSummaryTab zoneLayoutMap={zoneLayoutMap} onOpenOfficeEditor={onOpenOfficeEditor} />
+            <SurfaceCard
+              eyebrow="Layout"
+              title="Zone Layout"
+              description="Zone placement and furniture editing now live inside the dedicated studio workflow. This panel stays as the launch and summary surface."
+            >
+              <ZoneSummaryTab zoneLayoutMap={zoneLayoutMap} onOpenOfficeEditor={onOpenOfficeEditor} />
+            </SurfaceCard>
           )}
 
-          {activeTab === 'defaults' && <PolicyEditor policy={policy} onChange={updatePolicy} />}
+          {activeTab === 'defaults' && (
+            <SurfaceCard
+              eyebrow="Defaults"
+              title="Employee defaults"
+              description="These values seed new employees. Existing employees keep their own model and token settings."
+            >
+              <PolicyEditor policy={policy} onChange={updatePolicy} />
+            </SurfaceCard>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-700 px-5 py-3">
+        <div className="flex items-center justify-end gap-3 border-t border-white/10 bg-slate-950/35 px-6 py-4 backdrop-blur-xl">
           <button
             type="button"
             onClick={close}
             disabled={isSaving}
-            className="rounded px-4 py-1.5 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+            className="inline-flex h-11 items-center rounded-2xl border border-white/10 px-4 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
           >
             Cancel
           </button>
@@ -182,9 +230,10 @@ export function CompanyEditor({
             type="button"
             onClick={() => void handleSave()}
             disabled={!isDirty || isSaving}
-            className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-5 text-sm font-medium text-cyan-50 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            <Save className="h-4 w-4" />
+            {isSaving ? 'Saving...' : 'Save studio profile'}
           </button>
         </div>
       </div>
@@ -205,24 +254,25 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-gray-300 font-medium">Office Zones</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Zone layout is managed in the Office Editor. Use the button to open it.
+          <p className="text-sm font-medium text-slate-100">Office Zones</p>
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            Zone layout is managed in the studio editor. Open it from here, then select a zone and
+            explicitly enter its edit mode.
           </p>
         </div>
         {onOpenOfficeEditor && (
           <button
             type="button"
             onClick={onOpenOfficeEditor}
-            className="shrink-0 flex items-center gap-1.5 rounded border border-blue-500/40 bg-blue-600/15 px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-600/25 hover:text-blue-300 transition-colors"
+            className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/25"
           >
             <ExternalLink className="h-3 w-3" />
-            Open Office Editor
+            Open Studio Layout
           </button>
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {zones.map((zone) => {
           const props = zoneLayoutMap[zone.zoneId];
           const accentColor = props?.accentColor ?? zone.accentColor;
@@ -233,8 +283,10 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
           return (
             <div
               key={zone.zoneId}
-              className={`flex items-center gap-3 rounded-md border px-3 py-2.5 ${
-                isEnabled ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-900 opacity-50'
+              className={`flex items-center gap-3 rounded-[22px] border px-4 py-4 ${
+                isEnabled
+                  ? 'border-white/10 bg-white/[0.04]'
+                  : 'border-white/5 bg-slate-950/40 opacity-50'
               }`}
             >
               <span
@@ -242,15 +294,19 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
                 style={{ backgroundColor: accentColor }}
               />
               <div className="flex-1 min-w-0">
-                <span className="block truncate text-sm font-medium text-gray-200">
+                <span className="block truncate text-sm font-medium text-slate-100">
                   {displayName}
                 </span>
-                <span className="text-xs text-gray-500">{zone.archetype ?? zone.label}</span>
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {zone.archetype ?? zone.label}
+                </span>
               </div>
-              {seats > 0 && <span className="shrink-0 text-xs text-gray-500">{seats} seats</span>}
+              {seats > 0 && <span className="shrink-0 text-xs text-slate-400">{seats} seats</span>}
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                  isEnabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-gray-700/50 text-gray-500'
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] ${
+                  isEnabled
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : 'bg-slate-800 text-slate-500'
                 }`}
               >
                 {isEnabled ? 'On' : 'Off'}

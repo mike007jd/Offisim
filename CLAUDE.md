@@ -77,11 +77,13 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 | Area | Entry point | Purpose |
 |------|-------------|---------|
 | Web SPA | `apps/web/src/App.tsx` | Root component, view routing, runtime init |
+| Workspace view helpers | `apps/web/src/lib/app-view-layout.ts` | Shared workspace/full-page workspace classification |
 | LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes, state machine |
 | Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core bridge |
 | Scene orchestrator | `packages/ui-office/src/hooks/useSceneOrchestrator.ts` | 3D ceremony + movement |
 | Scene routing | `packages/ui-office/src/lib/scene-behavior.ts` | Employee pathfinding with obstacle avoidance |
 | Seat allocation | `packages/ui-office/src/lib/seat-registry.ts` | Prefab-aware seat + rest positions + footprints |
+| 2D desk layout | `packages/ui-office/src/components/scene/office-2d-layout.ts` | SeatRegistry-backed SVG employee placement |
 | Prefab spatial | `packages/ui-office/src/lib/prefab-spatial.ts` | Footprint + anchor data per prefab type |
 | Chat commands | `packages/ui-office/src/lib/chat-commands.ts` | Slash command registry (runtime/client/panel) |
 | Ceremony visuals | `packages/ui-office/src/lib/ceremony-visuals.ts` | Phase colors, manager presence, bubble text |
@@ -169,9 +171,15 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - 员工 3D 定位通过 `SeatRegistry` (`ui-office/lib/seat-registry.ts`) 从 prefab instances 解析。
   三类座位: workspace seats (anchor-derived, 碰撞后 nudge 到 footprint 外侧),
   rest seats (prefab anchor 优先, 不够时 circular fallback 避开家具),
-  zone fallback seats (SEAT_OFFSETS + 碰撞扫描)。
+  zone fallback seats (SEAT_OFFSETS + 行扩展 + 碰撞扫描)。
   `getObstacleFootprints()` 返回缓存的全局家具碰撞数据供路由使用。
   不要在 `useSceneOrchestrator` 或 `office3d-employees` 里硬编码员工位置
+- 2D 和 3D 员工落位现在都必须走 `SeatRegistry`。
+  `Office2DView` 的 desk/rest/dispatched 布局通过 `office-2d-layout.ts` 和 `SeatRegistry`
+  统一生成；不要恢复成 4 象限或 `idx % 2/% 3` 的手写 SVG 偏移
+- Scene 侧的 zone fallback 不要直接用 `resolveEmployeeZoneDynamic()` 做渲染或 flow line。
+  `resolveEmployeeSceneZoneId()` 会在无有效 workstation/role 匹配时回退到首个 workspace zone，
+  避免活跃员工掉进 `UNASSIGNED_ZONE_ID` 后不可见
 - 员工移动路由在 `scene-behavior.ts`。所有 `build*Route()` 接受 `obstacleFootprints` 选项,
   通过 `rerouteSegment()` 递归生成 L 形绕行 (MAX_DETOUR_DEPTH=6)。
   `buildTransitRoute()` 是通用点对点路由, orchestrator 的 `moveEmployeeAlongTransit` 包装了
@@ -181,8 +189,20 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   否则 Studio 编辑器碰撞检测和员工定位都会退回 gridSize 粗略模式
 - `computeRestSeatPosition()` (seat-registry.ts) 是 rest 区确定性螺旋布局的 fallback 实现，
   有 prefab 的 rest zone 优先用 anchor 座位。不要重复 angle/radius 公式
-- `SettingsDialog` 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
+- Settings 主入口现在是 full-page workspace `settings`，由 `App.tsx` + `WorkspaceRouter`
+  路由到 `packages/ui-office/src/components/settings/SettingsPage.tsx`。
+  `SettingsDialog` 仍保留给旧入口，但 page/dialog 的共享内容已经收敛到
+  `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx`。
+  后续改 Settings UI / load/save / unsaved-confirm / tabs 时优先改 shared surface，
+  不要重新把逻辑分叉回两个文件
+- Settings 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
   否则已有的 tool permission 配置会被静默覆盖为默认值
+- Company / studio-adjacent settings 的共享 UI primitive 在
+  `packages/ui-office/src/components/company/company-editor-primitives.tsx`，
+  zone layout summary 解析在
+  `packages/ui-office/src/components/company/company-editor-layout.ts`。
+  后续改 `CompanyEditor` / `PolicyEditor` 的表单样式或 zone summary 读取时，
+  优先改共享 helper，不要把同类结构再复制回两个文件
 - Chat 命令系统集中在 `chat-commands.ts` (ui-office/lib),
   三种类型: `runtime` (发给 AI), `client` (本地 JS), `panel` (打开 UI)。
   新增命令只需在 `CHAT_COMMANDS` 数组添加条目, ChatInput 和 ChatPanel 自动发现。

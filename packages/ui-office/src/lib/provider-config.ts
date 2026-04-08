@@ -12,8 +12,41 @@ import type {
 } from '@offisim/shared-types';
 import { isTauri } from './env';
 
+export type ProviderVendor =
+  | 'offisim'
+  | 'anthropic'
+  | 'openai'
+  | 'openrouter'
+  | 'google'
+  | 'deepseek'
+  | 'minimax'
+  | 'kimi'
+  | 'zai'
+  | 'lmstudio'
+  | 'custom';
+
+export type ProviderRegion = 'intl' | 'cn' | 'shared' | 'local';
+
+export type ProviderCompatibility = 'native' | 'anthropic-compatible' | 'openai-compatible';
+
+export type ProviderSurface = 'general' | 'coding-plan' | 'desktop-subscription';
+
+export interface ProviderCapabilities {
+  streaming: boolean;
+  thinking: boolean;
+  toolCalls: boolean;
+  toolStreaming: boolean;
+  codingPlan: boolean;
+}
+
 export interface ProviderConfig {
   provider: LlmProvider;
+  providerVariantId?: string;
+  vendor?: ProviderVendor;
+  region?: ProviderRegion;
+  compatibility?: ProviderCompatibility;
+  surface?: ProviderSurface;
+  capabilities?: ProviderCapabilities;
   apiKey?: string;
   baseURL?: string;
   model: string;
@@ -46,6 +79,26 @@ const DEFAULT_TOOL_PERMISSIONS: RuntimeToolPermissionsPolicy = {
   rules: [],
 };
 const DEFAULT_MODEL_PROFILE_NAME = 'runtime-default';
+const PROVIDER_VENDORS = new Set<ProviderVendor>([
+  'offisim',
+  'anthropic',
+  'openai',
+  'openrouter',
+  'google',
+  'deepseek',
+  'minimax',
+  'kimi',
+  'zai',
+  'lmstudio',
+  'custom',
+]);
+const PROVIDER_REGIONS = new Set<ProviderRegion>(['intl', 'cn', 'shared', 'local']);
+const PROVIDER_COMPATIBILITIES = new Set<ProviderCompatibility>([
+  'native',
+  'anthropic-compatible',
+  'openai-compatible',
+]);
+const PROVIDER_SURFACES = new Set<ProviderSurface>(['general', 'coding-plan', 'desktop-subscription']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -66,6 +119,38 @@ function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
 
 function normalizeExecutionMode(value: unknown): RuntimeExecutionMode {
   return isRuntimeExecutionMode(value) ? value : DEFAULT_EXECUTION_MODE;
+}
+
+function isProviderVendor(value: unknown): value is ProviderVendor {
+  return typeof value === 'string' && PROVIDER_VENDORS.has(value as ProviderVendor);
+}
+
+function isProviderRegion(value: unknown): value is ProviderRegion {
+  return typeof value === 'string' && PROVIDER_REGIONS.has(value as ProviderRegion);
+}
+
+function isProviderCompatibility(value: unknown): value is ProviderCompatibility {
+  return (
+    typeof value === 'string' && PROVIDER_COMPATIBILITIES.has(value as ProviderCompatibility)
+  );
+}
+
+function isProviderSurface(value: unknown): value is ProviderSurface {
+  return typeof value === 'string' && PROVIDER_SURFACES.has(value as ProviderSurface);
+}
+
+function normalizeProviderCapabilities(candidate: unknown): ProviderCapabilities | undefined {
+  if (!isRecord(candidate)) return undefined;
+
+  const normalized: ProviderCapabilities = {
+    streaming: typeof candidate.streaming === 'boolean' ? candidate.streaming : false,
+    thinking: typeof candidate.thinking === 'boolean' ? candidate.thinking : false,
+    toolCalls: typeof candidate.toolCalls === 'boolean' ? candidate.toolCalls : false,
+    toolStreaming: typeof candidate.toolStreaming === 'boolean' ? candidate.toolStreaming : false,
+    codingPlan: typeof candidate.codingPlan === 'boolean' ? candidate.codingPlan : false,
+  };
+
+  return normalized;
 }
 
 function normalizeModelProfile(
@@ -269,6 +354,7 @@ function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
   const provider = parsed.provider;
   const model = parsed.model;
   const apiKey = parsed.apiKey;
+  const capabilities = normalizeProviderCapabilities(parsed.capabilities);
 
   if (!isLlmProvider(provider) || typeof model !== 'string' || !model.trim()) {
     return null;
@@ -277,6 +363,16 @@ function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
   const normalized: ProviderConfig = {
     provider,
     model,
+    ...(typeof parsed.providerVariantId === 'string' && parsed.providerVariantId.trim()
+      ? { providerVariantId: parsed.providerVariantId }
+      : {}),
+    ...(isProviderVendor(parsed.vendor) ? { vendor: parsed.vendor } : {}),
+    ...(isProviderRegion(parsed.region) ? { region: parsed.region } : {}),
+    ...(isProviderCompatibility(parsed.compatibility)
+      ? { compatibility: parsed.compatibility }
+      : {}),
+    ...(isProviderSurface(parsed.surface) ? { surface: parsed.surface } : {}),
+    ...(capabilities ? { capabilities } : {}),
     ...(typeof apiKey === 'string' ? { apiKey } : {}),
     ...(typeof parsed.baseURL === 'string' ? { baseURL: parsed.baseURL } : {}),
     ...(isRecord(parsed.defaultHeaders)

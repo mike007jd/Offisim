@@ -60,8 +60,8 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       // Only allow selection with appropriate tools (Skill §2)
       const { tool, isEditingZone, focusedZoneId } = useStudioStore.getState();
       if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
-      // In Edit Zone mode, only allow selecting prefabs inside the focused zone
-      if (isEditingZone && instance.zoneId !== focusedZoneId) return;
+      // Overview mode is zone-first: prefab selection is only allowed inside Edit Zone mode.
+      if (!isEditingZone || instance.zoneId !== focusedZoneId) return;
       onSelect(instance.id);
     },
     [instance.id, instance.zoneId, onSelect],
@@ -71,8 +71,9 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
   const handlePointerOver = useCallback(
     (e: THREE.Event) => {
       (e as unknown as { stopPropagation: () => void }).stopPropagation();
-      const tool = useStudioStore.getState().tool;
+      const { tool, isEditingZone, focusedZoneId } = useStudioStore.getState();
       if (tool !== 'select' && tool !== 'move' && tool !== 'rotate') return;
+      if (!isEditingZone || instance.zoneId !== focusedZoneId) return;
       (e as unknown as { eventObject: THREE.Group }).eventObject.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
           child.material.emissiveIntensity = 0.08;
@@ -251,7 +252,7 @@ export function StudioPlacedPrefabs() {
           key={inst.id}
           instance={inst}
           isSelected={false}
-          isDimmed={isEditingZone && inst.zoneId !== focusedZoneId}
+          isDimmed={!isEditingZone || inst.zoneId !== focusedZoneId}
           onSelect={handleSelect}
           highlightRingGeo={highlightRingGeo}
           highlightRingMat={highlightRingMat}
@@ -266,6 +267,7 @@ export function StudioPlacedPrefabs() {
           rotation={[0, (selectedInstance.rotation * Math.PI) / 180, 0]}
           onPointerDown={(e) => {
             e.stopPropagation();
+            if (!isEditingZone || selectedInstance.zoneId !== focusedZoneId) return;
             handleSelect(selectedInstance.id);
           }}
         >
@@ -296,8 +298,8 @@ export function StudioPlacedPrefabs() {
       {selectedInstance && selectedDefinition && (
         <TransformControls
           object={selectedGroupRef as React.RefObject<THREE.Object3D>}
-          enabled={transformEnabled}
-          visible={transformEnabled}
+          enabled={transformEnabled && isEditingZone}
+          visible={transformEnabled && isEditingZone}
           mode={transformMode}
           size={1.25}
           translationSnap={0.5}

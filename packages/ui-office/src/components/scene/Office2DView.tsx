@@ -1,5 +1,4 @@
-import type { RoleSlug } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 /**
  * SVG-based 2D office top-down view.
  * Replaces PixiJS for visual rendering — cleaner, matches 3D layout 1:1.
@@ -29,6 +28,7 @@ import { useCompany } from '../company/CompanyContext.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import { Office2DPrefab, PlantSVG } from './Office2DPrefab.js';
 import { getAvatarUri } from './office-2d-avatar-cache';
+import { buildZoneDeskEmployeeSvgPositions } from './office-2d-layout';
 import {
   ROOM_H,
   ROOM_W,
@@ -37,6 +37,7 @@ import {
   screenToSvg as screenToSvgPure,
   toSVG,
 } from './office-2d-geometry';
+import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 import { useOffice2DDrag } from './useOffice2DDrag';
 
 // ── Employee Node ─────────────────────────────────────────────────────
@@ -396,10 +397,6 @@ export default function Office2DView({
 
   // ── Dynamic zone derivations ──
   const dropTargetZones = useMemo(() => zones.filter((z) => z.deskSlots > 0), [zones]);
-  const dropTargetZoneIds = useMemo(
-    () => new Set(dropTargetZones.map((z) => z.zoneId)),
-    [dropTargetZones],
-  );
 
   const zoneSvgBounds = useMemo(
     () =>
@@ -413,12 +410,9 @@ export default function Office2DView({
   /** Resolve which zone an employee belongs to (role-based, dynamic). */
   const resolveEmployeeZone = useCallback(
     (agent: { role: string; workstationId?: string | null }): string => {
-      if (agent.workstationId && dropTargetZoneIds.has(agent.workstationId)) {
-        return agent.workstationId;
-      }
-      return resolveZoneForRole(agent.role as RoleSlug, zones)?.zoneId ?? UNASSIGNED_ZONE_ID;
+      return resolveEmployeeSceneZoneId(agent, zones);
     },
-    [zones, dropTargetZoneIds],
+    [zones],
   );
 
   // ── Viewport state ──
@@ -618,11 +612,17 @@ export default function Office2DView({
         const zoneId = agent ? resolveEmployeeZone(agent) : UNASSIGNED_ZONE_ID;
         const zone = zones.find((z) => z.zoneId === zoneId);
         if (zone) {
-          const zoneSvg = toSVG(zone.cx, zone.cz, zone.w, zone.d);
-          positions.set(empId, {
-            x: zoneSvg.x + zoneSvg.w / 2 + (idx % 2 === 0 ? -40 : 40),
-            y: zoneSvg.y + zoneSvg.h / 2 + (idx % 3 === 0 ? -30 : 30),
-          });
+          const zoneEmps = zoneEmployees.get(zoneId) ?? [];
+          const zoneIndex = zoneEmps.findIndex((entry) => entry.empId === empId);
+          const deskPositions = buildZoneDeskEmployeeSvgPositions(
+            zone,
+            zoneEmps.length,
+            seatRegistry,
+          );
+          const deskPosition = deskPositions[Math.max(zoneIndex, 0)];
+          if (deskPosition) {
+            positions.set(empId, deskPosition);
+          }
         }
       } else if (
         isParticipant ||
@@ -647,6 +647,8 @@ export default function Office2DView({
     agents,
     zones,
     resolveEmployeeZone,
+    seatRegistry,
+    zoneEmployees,
   ]);
 
   const cursor = isDragging ? 'grabbing' : isPanning ? 'grabbing' : 'grab';
@@ -849,24 +851,15 @@ export default function Office2DView({
 
           {/* Department employees — desk clusters */}
           {dropTargetZones.map((z) => {
-            const s = toSVG(z.cx, z.cz, z.w, z.d);
-            const cx = s.x + s.w / 2;
-            const cy = s.y + s.h / 2;
             const emps = zoneEmployees.get(z.zoneId) ?? [];
-            const qx = s.w * 0.28;
-            const qy = s.h * 0.25;
-            const quads: [number, number][] = [
-              [-qx, -qy],
-              [qx, -qy],
-              [-qx, qy],
-              [qx, qy],
-            ];
+            const deskPositions = buildZoneDeskEmployeeSvgPositions(z, emps.length, seatRegistry);
             return (
               <g key={z.zoneId}>
-                {quads.map(([dx, dy], i) => {
+                {deskPositions.map((position, i) => {
                   const emp = emps[i] ?? null;
+                  if (!emp) return null;
                   return (
-                    <g key={`${dx},${dy}`} transform={`translate(${cx + dx}, ${cy + dy})`}>
+                    <g key={`${emp.empId}:${position.x}:${position.y}`} transform={`translate(${position.x}, ${position.y})`}>
                       <rect
                         x="-28"
                         y="-22"
@@ -885,18 +878,11 @@ export default function Office2DView({
                         fill="var(--surface-light)"
                       />
                       <rect x="-14" y="-4" width="28" height="3" fill="#0ea5e9" opacity="0.5" />
-                      <circle
-                        cx="0"
-                        cy={dy < 0 ? 32 : -32}
-                        r="10"
-                        fill="var(--surface-lighter)"
-                        stroke="var(--surface-mid)"
-                        strokeWidth="1"
-                      />
-                      {emp && !employeeCeremonyPositions.has(emp.empId) && (
+                      <circle cx="0" cy="32" r="10" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
+                      {!employeeCeremonyPositions.has(emp.empId) && (
                         <EmployeeNode
                           x={0}
-                          y={dy < 0 ? 32 : -32}
+                          y={32}
                           agent={emp.agent}
                           seed={emp.seed}
                           companyId={companyId}

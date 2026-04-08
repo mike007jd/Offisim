@@ -30,12 +30,13 @@ describe('Phase 2.3 event factories', () => {
 
   describe('llmStreamChunk', () => {
     it('produces correct event shape with content', () => {
-      const event = llmStreamChunk(companyId, threadId, 'boss_summary', 'Hello');
+      const event = llmStreamChunk(companyId, threadId, 'boss_summary', 'Hello', 'reasoning');
       expect(event.type).toBe('llm.stream.chunk');
       expect(event.entityId).toBe('boss_summary');
       expect(event.entityType).toBe('llm');
       expect(event.payload.nodeName).toBe('boss_summary');
       expect(event.payload.content).toBe('Hello');
+      expect(event.payload.channel).toBe('reasoning');
     });
   });
 });

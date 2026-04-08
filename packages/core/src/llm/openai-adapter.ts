@@ -22,6 +22,16 @@ export interface OpenAiAdapterOptions {
   dangerouslyAllowBrowser?: boolean;
 }
 
+type CompatAssistantMessage = OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
+  reasoning_content?: string | null;
+};
+
+type CompatDelta = {
+  content?: string | null;
+  reasoning_content?: string | null;
+  tool_calls?: OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta.ToolCall[];
+};
+
 /** Convert our ToolDef to OpenAI's tool format */
 function mapToolDefs(
   tools?: readonly ToolDef[],
@@ -49,7 +59,7 @@ function mapMessages(
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
       // Assistant message with tool calls
-      result.push({
+      const assistantMessage: CompatAssistantMessage = {
         role: 'assistant',
         content: msg.content || null,
         tool_calls: msg.toolCalls.map((tc) => ({
@@ -60,7 +70,11 @@ function mapMessages(
             arguments: JSON.stringify(tc.arguments),
           },
         })),
-      });
+      };
+      if (msg.reasoningContent) {
+        assistantMessage.reasoning_content = msg.reasoningContent;
+      }
+      result.push(assistantMessage);
     } else if (msg.role === 'tool' && msg.toolCallId) {
       // Tool result message
       result.push({
@@ -69,10 +83,18 @@ function mapMessages(
         tool_call_id: msg.toolCallId,
       });
     } else {
-      result.push({
+      const baseMessage = {
         role: msg.role as 'system' | 'user' | 'assistant',
         content: msg.content,
-      });
+      };
+      if (msg.role === 'assistant' && msg.reasoningContent) {
+        result.push({
+          ...baseMessage,
+          reasoning_content: msg.reasoningContent,
+        } as CompatAssistantMessage);
+      } else {
+        result.push(baseMessage);
+      }
     }
   }
 
@@ -160,7 +182,10 @@ export class OpenAiAdapter implements LlmGateway {
             new Map();
 
           for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta;
+            const delta = chunk.choices[0]?.delta as CompatDelta | undefined;
+            if (delta?.reasoning_content) {
+              yield { reasoning: delta.reasoning_content, done: false };
+            }
             if (delta?.content) {
               yield { content: delta.content, done: false };
             }
@@ -226,6 +251,10 @@ export class OpenAiAdapter implements LlmGateway {
   private mapResponse(response: OpenAI.Chat.Completions.ChatCompletion): LlmResponse {
     const choice = response.choices[0];
     const content = choice?.message?.content ?? '';
+    const reasoningContent =
+      (choice?.message as OpenAI.Chat.Completions.ChatCompletionMessage & {
+        reasoning_content?: string | null;
+      } | undefined)?.reasoning_content ?? undefined;
     const toolCalls: ToolCallResult[] = [];
 
     if (choice?.message?.tool_calls) {
@@ -247,6 +276,7 @@ export class OpenAiAdapter implements LlmGateway {
 
     return {
       content,
+      ...(reasoningContent ? { reasoningContent } : {}),
       toolCalls,
       usage: {
         inputTokens: response.usage?.prompt_tokens ?? 0,

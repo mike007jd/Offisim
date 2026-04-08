@@ -3,7 +3,7 @@ import { Building2, ChevronDown, PenTool, Pencil, Settings, Store } from 'lucide
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
-type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log';
+type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
 
 interface HeaderProps {
   providerName?: string;
@@ -52,13 +52,13 @@ export function Header({
 
   return (
     <header
-      className="min-h-12 bg-black/20 backdrop-blur-md flex items-center justify-between rounded-xl border border-white/10 shadow-2xl"
-      style={{ paddingInline: 'var(--sp-lg)', paddingBlock: '0.5rem' }}
+      className="flex min-h-11 items-center justify-between rounded-[18px] border border-white/10 bg-black/20 shadow-2xl backdrop-blur-md"
+      style={{ paddingInline: 'var(--sp-md)', paddingBlock: '0.375rem' }}
     >
-      <div className="flex items-center min-w-0 flex-wrap" style={{ columnGap: 'var(--sp-md)', rowGap: '0.5rem' }}>
+      <div className="flex min-w-0 flex-wrap items-center" style={{ columnGap: '0.625rem', rowGap: '0.375rem' }}>
         {/* 2D/3D View Toggle */}
         {viewMode && onViewModeChange && (
-          <div className="flex h-8 items-center bg-black/40 border border-white/10 rounded-lg px-1">
+          <div className="flex h-8 items-center rounded-full border border-white/10 bg-black/35 px-1">
             <button
               type="button"
               onClick={() => onViewModeChange('3D')}
@@ -66,7 +66,7 @@ export function Header({
               aria-label="Switch to 3D office view"
               className={`h-6 px-3 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
                 viewMode === '3D'
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  ? 'rounded-full border border-cyan-400/35 bg-cyan-400/12 text-cyan-100'
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
@@ -79,7 +79,7 @@ export function Header({
               aria-label="Switch to 2D office map"
               className={`h-6 px-3 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
                 viewMode === '2D'
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  ? 'rounded-full border border-cyan-400/35 bg-cyan-400/12 text-cyan-100'
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
@@ -94,7 +94,7 @@ export function Header({
             <button
               type="button"
               onClick={onOpenCompanySelect}
-              className="flex min-w-0 items-center gap-1.5 h-8 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-colors"
+              className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 hover:border-white/20 hover:bg-white/10 transition-colors"
               title="Switch Company"
             >
               <Building2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0" />
@@ -109,7 +109,7 @@ export function Header({
                 <button
                   type="button"
                   onClick={onOpenCompanyEditor}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/8 hover:bg-white/10 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 transition-colors hover:bg-white/10"
                   title="Company Settings"
                   aria-label="Company Settings"
                 >
@@ -124,7 +124,7 @@ export function Header({
 
         <nav
           aria-label="Primary workspace navigation"
-          className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 p-1"
+          className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1"
         >
           {primaryNav.map((item) =>
             item.onClick ? (
@@ -133,9 +133,9 @@ export function Header({
                 type="button"
                 onClick={item.onClick}
                 aria-label={`${item.label} workspace`}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
                   activeWorkspace === item.key
-                    ? 'bg-blue-500/15 text-blue-100 border border-blue-400/30'
+                    ? 'border border-cyan-400/30 bg-blue-500/15 text-blue-100'
                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
                 }`}
               >
@@ -147,7 +147,7 @@ export function Header({
 
         {/* Provider badge */}
         {providerName && (
-          <div className="flex items-center space-x-2" title={`Current provider: ${providerName}`}>
+          <div className="flex items-center space-x-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1" title={`Current provider: ${providerName}`}>
             <div className="w-1 h-1 bg-emerald-500 rounded-full" />
             <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
               {providerName}

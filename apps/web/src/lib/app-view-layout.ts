@@ -3,10 +3,37 @@ export type AppView =
   | 'sops'
   | 'market'
   | 'activity-log'
+  | 'settings'
   | 'employee-creator'
   | 'office-editor'
   | 'company-select'
   | 'studio';
+
+export type WorkspaceAppView = (typeof WORKSPACE_VIEWS)[number];
+export type FullPageWorkspaceAppView = (typeof FULL_PAGE_WORKSPACE_VIEWS)[number];
+
+export const WORKSPACE_VIEWS = [
+  'office',
+  'sops',
+  'market',
+  'activity-log',
+  'settings',
+] as const satisfies readonly AppView[];
+
+export const FULL_PAGE_WORKSPACE_VIEWS = [
+  'sops',
+  'market',
+  'activity-log',
+  'settings',
+] as const satisfies readonly AppView[];
+
+export function isWorkspaceView(view: AppView): view is WorkspaceAppView {
+  return (WORKSPACE_VIEWS as readonly AppView[]).includes(view);
+}
+
+export function isFullPageWorkspaceView(view: AppView): view is FullPageWorkspaceAppView {
+  return (FULL_PAGE_WORKSPACE_VIEWS as readonly AppView[]).includes(view);
+}
 
 /**
  * Whether the main app shell (header + left rail + center + right rail) should
@@ -18,13 +45,7 @@ export type AppView =
  * center-surface switching and the Office scene is only mounted when active.
  */
 export function shouldShowAppShell(view: AppView): boolean {
-  return (
-    view === 'office' ||
-    view === 'sops' ||
-    view === 'market' ||
-    view === 'activity-log' ||
-    view === 'employee-creator'
-  );
+  return view === 'office' || view === 'employee-creator';
 }
 
 /**

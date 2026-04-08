@@ -18,12 +18,15 @@ import {
   useOffisimRuntime,
 } from '@offisim/ui-office/web';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { FullPageWorkspaceShell } from './components/workspaces/FullPageWorkspaceShell';
 import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
 import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
+  isFullPageWorkspaceView,
+  isWorkspaceView,
   shouldShowAppShell,
   shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
@@ -43,9 +46,6 @@ const EmployeeCreatorOverlay = React.lazy(() =>
 );
 const OfficeEditorOverlay = React.lazy(() =>
   import('@offisim/ui-office/office-editor').then((m) => ({ default: m.OfficeEditorOverlay })),
-);
-const SettingsDialog = React.lazy(() =>
-  import('@offisim/ui-office/settings').then((m) => ({ default: m.SettingsDialog })),
 );
 const CompanyEditor = React.lazy(() =>
   import('@offisim/ui-office/company-editor').then((m) => ({ default: m.CompanyEditor })),
@@ -78,7 +78,6 @@ export function App({ onCompanySwitch }: AppProps) {
   const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
   const [view, setView] = useState<AppView>(() => (activeCompanyId ? 'office' : 'company-select'));
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [kanbanOpen, setKanbanOpen] = useState(false);
   const [marketplaceListingId, setMarketplaceListingId] = useState<string | null>(null);
@@ -122,13 +121,16 @@ export function App({ onCompanySwitch }: AppProps) {
 
   // Keep activeWorkspace in sync when view changes from non-workspace paths
   useEffect(() => {
-    const workspaceViews: WorkspaceKey[] = ['office', 'sops', 'market', 'activity-log'];
-    if (workspaceViews.includes(view as WorkspaceKey)) {
+    if (isWorkspaceView(view)) {
       if (activeWorkspace !== view) {
         setActiveWorkspace(view as WorkspaceKey);
       }
     }
   }, [view, activeWorkspace, setActiveWorkspace]);
+
+  const handleOpenSettings = useCallback(() => {
+    handleWorkspaceSwitch('settings');
+  }, [handleWorkspaceSwitch]);
   const {
     reinitRuntime,
     repos,
@@ -138,6 +140,8 @@ export function App({ onCompanySwitch }: AppProps) {
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
   const { toasts, addToast, dismissToast } = useToasts();
+  const activeCompanyName =
+    companies.find((company) => company.company_id === activeCompanyId)?.name ?? null;
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -218,10 +222,6 @@ export function App({ onCompanySwitch }: AppProps) {
           setShortcutHelpOpen(false);
           return;
         }
-        if (settingsOpen) {
-          setSettingsOpen(false);
-          return;
-        }
         if (dashboardOpen) {
           setDashboardOpen(false);
           return;
@@ -248,12 +248,13 @@ export function App({ onCompanySwitch }: AppProps) {
           view === 'studio' ||
           view === 'sops' ||
           view === 'market' ||
-          view === 'activity-log'
+          view === 'activity-log' ||
+          view === 'settings'
         ) {
           // For workspace views, use handleWorkspaceSwitch to update session state.
           // For non-workspace views (employee-creator, office-editor, studio),
           // just set the view directly.
-          if (view === 'sops' || view === 'market' || view === 'activity-log') {
+          if (isFullPageWorkspaceView(view)) {
             handleWorkspaceSwitch('office');
           } else {
             setView('office');
@@ -270,7 +271,6 @@ export function App({ onCompanySwitch }: AppProps) {
     kanbanOpen,
     marketplaceListingId,
     selectedEmployeeId,
-    settingsOpen,
     shortcutHelpOpen,
     view,
   ]);
@@ -347,7 +347,6 @@ export function App({ onCompanySwitch }: AppProps) {
   const chatOnboardingStarters = onboardingCopy.starterPrompts;
 
   const anyOverlayOpen =
-    settingsOpen ||
     dashboardOpen ||
     kanbanOpen ||
     marketplaceListingId !== null ||
@@ -382,14 +381,18 @@ export function App({ onCompanySwitch }: AppProps) {
   // appropriate workspace page. When it IS 'office', it renders children
   // (the Office scene slot) — but we handle that via the sceneCanvas prop
   // in AppLayout, so we only need WorkspaceRouter for non-office workspaces.
-  const isNonOfficeWorkspace =
-    view === 'sops' || view === 'market' || view === 'activity-log';
+  const isNonOfficeWorkspace = isFullPageWorkspaceView(view);
 
   const workspaceRouterContent = isNonOfficeWorkspace ? (
     <WorkspaceRouter
       activeWorkspace={activeWorkspace}
       sessionState={workspaceSessionState}
       onSessionStateChange={setSessionState}
+      settingsPageProps={{
+        onBack: () => handleWorkspaceSwitch('office'),
+        onSave: handleSaveConfig,
+        onSaveSuccess: () => addToast('Provider configuration saved', 'success'),
+      }}
     />
   ) : null;
 
@@ -467,7 +470,7 @@ export function App({ onCompanySwitch }: AppProps) {
       setView('office');
     }
     if (!providerConfig && !companyWizardMode && activeCompanyId) {
-      setSettingsOpen(true);
+      handleOpenSettings();
     }
   }
 
@@ -554,6 +557,18 @@ export function App({ onCompanySwitch }: AppProps) {
           </Suspense>
         )}
 
+        {isNonOfficeWorkspace && (
+          <FullPageWorkspaceShell
+            activeWorkspace={view}
+            companyName={activeCompanyName}
+            onBackToOffice={() => handleWorkspaceSwitch('office')}
+            onOpenSettings={handleOpenSettings}
+            onWorkspaceSwitch={(workspace) => handleWorkspaceSwitch(workspace)}
+          >
+            {workspaceRouterContent}
+          </FullPageWorkspaceShell>
+        )}
+
         {/* ── Office view (default) ── */}
         {shouldShowAppShell(view) && (
           <Suspense fallback={null}>
@@ -582,7 +597,7 @@ export function App({ onCompanySwitch }: AppProps) {
               onOpenCompanySelect={() => setView('company-select')}
               onOpenEmployeeCreator={() => setView('employee-creator')}
               onOpenOfficeEditor={() => setView('office-editor')}
-              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenSettings={handleOpenSettings}
               onOpenStudio={handleOpenStudio}
               onSelectEmployee={handleSelectEmployee}
               onStartEmployeeChat={(id) => {
@@ -612,14 +627,6 @@ export function App({ onCompanySwitch }: AppProps) {
         )}
 
         {/* ── Global dialogs (available across all views) ── */}
-        <Suspense fallback={null}>
-          <SettingsDialog
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            onSave={handleSaveConfig}
-            onSaveSuccess={() => addToast('Provider configuration saved', 'success')}
-          />
-        </Suspense>
         <Suspense fallback={null}>
           <InstallDialog {...installFlow} />
         </Suspense>

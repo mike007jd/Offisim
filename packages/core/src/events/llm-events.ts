@@ -88,6 +88,7 @@ export function llmStreamChunk(
   threadId: string,
   nodeName: string,
   content: string,
+  channel: 'content' | 'reasoning' = 'content',
 ): RuntimeEvent<LlmStreamChunkPayload> {
   return {
     type: 'llm.stream.chunk',
@@ -96,7 +97,7 @@ export function llmStreamChunk(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { nodeName, content },
+    payload: { nodeName, content, channel },
   };
 }
 

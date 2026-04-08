@@ -1,6 +1,6 @@
 import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@offisim/shared-types';
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { ChevronDown, GitBranch, Plus } from 'lucide-react';
+import { BriefcaseBusiness, ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ProjectSelectorProps {
@@ -74,10 +74,10 @@ export function ProjectSelector({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 h-7 px-2 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-colors text-xs text-slate-300"
+        className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10"
         title="Select project context"
       >
-        <GitBranch className="h-3 w-3 text-blue-400/60 flex-shrink-0" />
+        <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" />
         {activeProject ? (
           <>
             <StatusDot status={activeProject.status} />

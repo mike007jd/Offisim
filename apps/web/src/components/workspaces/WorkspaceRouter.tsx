@@ -62,6 +62,10 @@ const ActivityLogPage = React.lazy(
   () => import('./placeholders/ActivityLogPage'),
 );
 
+const SettingsPage = React.lazy(
+  () => import('./placeholders/SettingsPage'),
+);
+
 // ---------------------------------------------------------------------------
 // WorkspaceRouter
 // ---------------------------------------------------------------------------
@@ -79,6 +83,7 @@ export function WorkspaceRouter({
   activeWorkspace,
   sessionState,
   onSessionStateChange,
+  settingsPageProps,
   children,
 }: WorkspaceRouterProps) {
   // For now we treat the transition state as idle — animation support will
@@ -127,6 +132,18 @@ export function WorkspaceRouter({
             onSessionStateChange={(s) =>
               onSessionStateChange({ ...sessionState, activityLog: s })
             }
+          />
+        )}
+
+        {activeWorkspace === 'settings' && (
+          <SettingsPage
+            sessionState={sessionState.settings}
+            onSessionStateChange={(s) =>
+              onSessionStateChange({ ...sessionState, settings: s })
+            }
+            onBack={settingsPageProps?.onBack ?? (() => {})}
+            onSave={settingsPageProps?.onSave ?? (() => {})}
+            onSaveSuccess={settingsPageProps?.onSaveSuccess}
           />
         )}
       </Suspense>
