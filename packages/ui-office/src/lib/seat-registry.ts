@@ -224,7 +224,7 @@ function buildRestFallbackSeats(
   const fallbackSeats: SeatEntry[] = [];
   for (
     let candidate = candidateStart;
-    fallbackSeats.length < targetCount && candidate < candidateStart + Math.max(targetCount * 128, 256);
+    fallbackSeats.length < targetCount && candidate < candidateStart + Math.max(targetCount * 8, 64);
     candidate++
   ) {
     const position = computeRestSeatPosition(zone.cx, zone.cz, candidate);

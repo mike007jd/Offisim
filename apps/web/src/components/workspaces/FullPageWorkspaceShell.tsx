@@ -1,10 +1,10 @@
 import { Button } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, ClipboardList, Logs, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { WorkspaceKey } from './types';
+import type { FullPageWorkspaceAppView } from '../../lib/app-view-layout';
 
 const WORKSPACE_META: Record<
-  Exclude<WorkspaceKey, 'office'>,
+  FullPageWorkspaceAppView,
   { label: string; icon: typeof ClipboardList }
 > = {
   sops: { label: 'SOPs', icon: ClipboardList },
@@ -14,11 +14,11 @@ const WORKSPACE_META: Record<
 };
 
 interface FullPageWorkspaceShellProps {
-  activeWorkspace: Exclude<WorkspaceKey, 'office'>;
+  activeWorkspace: FullPageWorkspaceAppView;
   companyName?: string | null;
   onBackToOffice: () => void;
   onOpenSettings: () => void;
-  onWorkspaceSwitch: (workspace: Exclude<WorkspaceKey, 'office'>) => void;
+  onWorkspaceSwitch: (workspace: FullPageWorkspaceAppView) => void;
   children: ReactNode;
 }
 
@@ -60,7 +60,7 @@ export function FullPageWorkspaceShell({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {(Object.keys(WORKSPACE_META) as Array<Exclude<WorkspaceKey, 'office'>>).map((workspace) => {
+            {(Object.keys(WORKSPACE_META) as Array<FullPageWorkspaceAppView>).map((workspace) => {
               const meta = WORKSPACE_META[workspace];
               const Icon = meta.icon;
               const active = workspace === activeWorkspace;

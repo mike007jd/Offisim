@@ -5,19 +5,12 @@ import type {
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
 import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@offisim/ui-core';
-import { Bot, BrainCircuit, Cpu, ShieldCheck, Sparkles, Workflow } from 'lucide-react';
+import { Cpu, Workflow } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
@@ -38,10 +31,12 @@ import { McpConfigPanel } from './McpConfigPanel';
 import {
   PROVIDER_PRESETS,
   findProviderPresetKeyByConfig,
-  getAvailableProviderPresets,
   getDefaultProviderPresetKey,
   getProviderPreset,
 } from './provider-presets';
+import { MetricCard, SurfaceCard } from './settings-primitives';
+import { SettingsProviderTab } from './SettingsProviderTab';
+import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 
 export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'openclaw';
 
@@ -57,7 +52,6 @@ const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
 
 const IS_DESKTOP = isTauri();
 const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ tauri: IS_DESKTOP });
-const AVAILABLE_PRESETS = getAvailableProviderPresets({ tauri: IS_DESKTOP });
 
 function parsePositiveInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -105,87 +99,19 @@ function capabilitySummary(
     | {
         streaming?: boolean;
         thinking?: boolean;
-        tool_calls?: boolean;
-        tool_stream?: boolean;
-        coding_plan?: boolean;
+        toolCalls?: boolean;
+        toolStreaming?: boolean;
+        codingPlan?: boolean;
       }
     | undefined,
 ) {
   const labels: string[] = [];
   if (capabilities?.streaming) labels.push('streaming');
   if (capabilities?.thinking) labels.push('thinking');
-  if (capabilities?.tool_calls) labels.push('tools');
-  if (capabilities?.tool_stream) labels.push('tool stream');
-  if (capabilities?.coding_plan) labels.push('coding plan');
+  if (capabilities?.toolCalls) labels.push('tools');
+  if (capabilities?.toolStreaming) labels.push('tool stream');
+  if (capabilities?.codingPlan) labels.push('coding plan');
   return labels.length > 0 ? labels.join(' • ') : 'manual configuration';
-}
-
-function SurfaceCard({
-  title,
-  description,
-  icon,
-  children,
-  className = '',
-}: {
-  title: string;
-  description?: string;
-  icon?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`rounded-[24px] border border-white/10 bg-slate-950/45 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl ${className}`}
-    >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-400">
-            {title}
-          </p>
-          {description ? <p className="mt-2 text-sm text-slate-300">{description}</p> : null}
-        </div>
-        {icon ? (
-          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-2 text-cyan-100">
-            {icon}
-          </div>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">{label}</p>
-      <p className="mt-2 text-base font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{detail}</p>
-    </div>
-  );
-}
-
-function SectionLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400"
-    >
-      {children}
-    </label>
-  );
-}
-
-function surfaceInputProps(className = '') {
-  return `h-11 rounded-2xl border-white/10 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-400/40 ${className}`;
 }
 
 export function useSettingsWorkspaceController({
@@ -620,53 +546,13 @@ export function SettingsWorkspaceSurface({
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
   const {
-    acpCommand,
-    apiKey,
     baseURL,
-    density,
-    executionMode,
-    gitAutoCommit,
-    handlePresetChange,
-    handleSave,
-    hasStoredSecret,
-    isSaveDisabled,
-    isSaving,
-    isSubscription,
-    isThinkingProvider,
-    memoryConfidenceThreshold,
-    memoryEnabled,
-    memoryInjectionEnabled,
-    memoryMaxFacts,
-    model,
-    preset,
-    saveError,
     selectedCapabilities,
     selectedCompatibility,
     selectedPreset,
     selectedRegion,
     selectedSurface,
     selectedVendor,
-    setAcpCommand,
-    setApiKey,
-    setBaseURL,
-    setDensity,
-    setExecutionMode,
-    setGitAutoCommit,
-    setMemoryConfidenceThreshold,
-    setMemoryEnabled,
-    setMemoryInjectionEnabled,
-    setMemoryMaxFacts,
-    setModel,
-    setRuntimeModelDefault,
-    setSummarizationEnabled,
-    setSummarizationKeepRecentMessages,
-    setSummarizationTriggerTokens,
-    setToolSearchEnabled,
-    showBaseURL,
-    summarizationEnabled,
-    summarizationKeepRecentMessages,
-    summarizationTriggerTokens,
-    toolSearchEnabled,
   } = controller;
 
   return (
@@ -746,435 +632,11 @@ export function SettingsWorkspaceSurface({
           </div>
 
           <TabsContent value="provider" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <div className="grid min-h-0 gap-6 xl:grid-cols-[340px,minmax(0,1fr)]">
-              <div className="space-y-4">
-                <SurfaceCard
-                  title="Official compatibility"
-                  description="Pick the vendor preset first. Transport, headers, endpoint, and capability hints are derived from the provider's own documentation, not Anthropic or OpenAI marketing copy."
-                  icon={<ShieldCheck className="h-5 w-5" />}
-                >
-                  <div className="rounded-[20px] border border-cyan-400/15 bg-cyan-400/10 px-4 py-4">
-                    <p className="text-sm font-semibold text-white">
-                      {selectedPreset?.label ?? 'Custom provider'}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      {selectedCompatibility} • {selectedSurface} • {selectedRegion}
-                    </p>
-                    <p className="mt-3 text-xs leading-5 text-slate-400">{selectedCapabilities}</p>
-                  </div>
-                </SurfaceCard>
-
-                <SurfaceCard
-                  title="Preset notes"
-                  description="Anthropic-compatible surfaces are preferred whenever the provider officially supports Claude Code style integration."
-                  icon={<Sparkles className="h-5 w-5" />}
-                >
-                  <div className="space-y-3 text-sm text-slate-300">
-                    <p>
-                      Offisim stores vendor, region, compatibility surface, and capability matrix
-                      alongside the base transport.
-                    </p>
-                    <p>
-                      Custom mode remains available when you need a non-standard endpoint, but
-                      presets should be the default path.
-                    </p>
-                  </div>
-                </SurfaceCard>
-              </div>
-
-              <div className="space-y-4">
-                <SurfaceCard
-                  title="Models & Access"
-                  description="Configure the active provider surface, credentials, endpoint, and model profile."
-                  icon={<Bot className="h-5 w-5" />}
-                >
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="lg:col-span-2">
-                      <SectionLabel htmlFor="settings-provider">Official vendor preset</SectionLabel>
-                      <Select value={preset} onValueChange={handlePresetChange}>
-                        <SelectTrigger className={surfaceInputProps()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(AVAILABLE_PRESETS).map(([key, providerPreset]) => (
-                            <SelectItem key={key} value={key}>
-                              {providerPreset.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {isSubscription ? (
-                      <>
-                        <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
-                          <p className="text-sm font-semibold text-blue-100">Subscription runtime</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-300">
-                            Use your local AI subscription runtime without storing an API key.
-                            This path is desktop-only and keeps the ACP command explicit.
-                          </p>
-                        </div>
-                        <div className="lg:col-span-2">
-                          <SectionLabel htmlFor="settings-acp-command">ACP command</SectionLabel>
-                          <Input
-                            id="settings-acp-command"
-                            value={acpCommand}
-                            onChange={(event) => setAcpCommand(event.target.value)}
-                            placeholder="claude"
-                            className={surfaceInputProps('font-mono')}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="lg:col-span-2">
-                        <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
-                        <Input
-                          id="settings-api-key"
-                          type="password"
-                          value={apiKey}
-                          onChange={(event) => setApiKey(event.target.value)}
-                          placeholder={
-                            hasStoredSecret ? 'Stored securely on this device' : 'sk-ant-...'
-                          }
-                          className={surfaceInputProps()}
-                        />
-                        {isTauri() && hasStoredSecret ? (
-                          <p className="mt-2 text-xs text-slate-400">
-                            Leave this empty to keep the existing secure credential.
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
-
-                    {showBaseURL ? (
-                      <div className="lg:col-span-2">
-                        <SectionLabel htmlFor="settings-base-url">Base URL</SectionLabel>
-                        <Input
-                          id="settings-base-url"
-                          value={baseURL}
-                          onChange={(event) => setBaseURL(event.target.value)}
-                          placeholder="https://api.example.com/v1"
-                          className={surfaceInputProps('font-mono text-sm')}
-                        />
-                        <p className="mt-2 text-xs text-slate-400">
-                          Keep this aligned with the provider's official endpoint surface.
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {!isSubscription ? (
-                      <div className="lg:col-span-2">
-                        <SectionLabel htmlFor="settings-model">Recommended model</SectionLabel>
-                        <Input
-                          id="settings-model"
-                          value={model}
-                          onChange={(event) => {
-                            const nextModel = event.target.value;
-                            setModel(nextModel);
-                            setRuntimeModelDefault((prev) => ({
-                              ...prev,
-                              provider: selectedPreset?.defaults.provider ?? 'openai-compat',
-                              model: nextModel,
-                            }));
-                          }}
-                          placeholder="model-name"
-                          className={surfaceInputProps('font-mono text-sm')}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {isThinkingProvider ? (
-                    <div className="mt-4 rounded-[20px] border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-100">
-                      Thinking-capable providers burn part of the token budget on reasoning. Keep
-                      employee max tokens at 1024 or higher to avoid clipped replies.
-                    </div>
-                  ) : null}
-
-                  {saveError ? <p className="mt-4 text-sm text-red-400">{saveError}</p> : null}
-
-                  <div className="mt-5 flex justify-end">
-                    <Button
-                      variant="secondary"
-                      onClick={() => void handleSave()}
-                      disabled={isSaveDisabled}
-                      className="h-11 rounded-2xl border-emerald-400/40 bg-emerald-500/15 px-5 text-emerald-50 hover:border-emerald-300 hover:bg-emerald-500/25"
-                    >
-                      {isSaving ? 'Saving…' : 'Save provider workspace'}
-                    </Button>
-                  </div>
-                </SurfaceCard>
-              </div>
-            </div>
+            <SettingsProviderTab controller={controller} />
           </TabsContent>
 
           <TabsContent value="runtime" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
-              <div className="space-y-4">
-                <SurfaceCard
-                  title="Runtime orchestration"
-                  description="Execution trust, memory retention, summarization, density, and tool search are tuned here without letting the runtime drift away from the active provider preset."
-                  icon={<Workflow className="h-5 w-5" />}
-                >
-                  <div className="space-y-3">
-                    <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bound model</p>
-                      <p className="mt-2 font-mono text-sm text-cyan-100">
-                        {isSubscription ? 'default' : model || 'Unset'}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">{selectedPreset?.label ?? preset}</p>
-                    </div>
-                    <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Persistence</p>
-                      <p className="mt-2 text-sm text-slate-300">
-                        Runtime policy and provider metadata save through the same pipeline.
-                      </p>
-                    </div>
-                  </div>
-                </SurfaceCard>
-              </div>
-
-              <div className="space-y-4">
-                <SurfaceCard
-                  title="Runtime controls"
-                  description="Tune orchestration behavior for the local runtime, while keeping the active provider surface pinned."
-                  icon={<Cpu className="h-5 w-5" />}
-                >
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
-                      <p className="text-sm font-semibold text-blue-100">Default model profile</p>
-                      <p className="mt-2 text-sm text-slate-300">
-                        Provider:{' '}
-                        <span className="font-mono text-cyan-100">
-                          {selectedPreset?.label ?? preset}
-                        </span>
-                      </p>
-                      <p className="mt-1 text-sm text-slate-300">
-                        Model:{' '}
-                        <span className="font-mono text-cyan-100">
-                          {isSubscription ? 'default' : model || 'Unset'}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div>
-                      <SectionLabel htmlFor="settings-execution-mode">Execution mode</SectionLabel>
-                      <Select
-                        value={executionMode}
-                        onValueChange={(value) => setExecutionMode(value as RuntimeExecutionMode)}
-                      >
-                        <SelectTrigger id="settings-execution-mode" className={surfaceInputProps()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">Auto</SelectItem>
-                          <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
-                          <SelectItem value="browser-limited">Browser limited</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <SectionLabel htmlFor="settings-tool-search">Tool search</SectionLabel>
-                      <Select
-                        value={toolSearchEnabled ? 'enabled' : 'disabled'}
-                        onValueChange={(value) => setToolSearchEnabled(value === 'enabled')}
-                      >
-                        <SelectTrigger id="settings-tool-search" className={surfaceInputProps()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="enabled">Enabled</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <SectionLabel htmlFor="settings-git-auto-commit">Git auto-commit</SectionLabel>
-                      <Select
-                        value={gitAutoCommit ? 'enabled' : 'disabled'}
-                        onValueChange={(value) => setGitAutoCommit(value === 'enabled')}
-                      >
-                        <SelectTrigger
-                          id="settings-git-auto-commit"
-                          className={surfaceInputProps()}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="enabled">Enabled</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="lg:col-span-2">
-                      <SectionLabel htmlFor="settings-density-group">Display density</SectionLabel>
-                      <div
-                        id="settings-density-group"
-                        className="grid gap-2 rounded-[20px] border border-white/10 bg-white/[0.04] p-2 md:grid-cols-3"
-                      >
-                        {[
-                          { value: 'compact', label: 'Compact' },
-                          { value: 'normal', label: 'Normal' },
-                          { value: 'spacious', label: 'Spacious' },
-                        ].map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setDensity(option.value as typeof density)}
-                            className={`rounded-2xl px-4 py-3 text-sm transition ${
-                              density === option.value
-                                ? 'bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/30'
-                                : 'bg-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </SurfaceCard>
-
-                <SurfaceCard
-                  title="Summarization"
-                  description="Control when long-running conversations compress themselves."
-                  icon={<BrainCircuit className="h-5 w-5" />}
-                >
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div>
-                      <SectionLabel htmlFor="runtime-summarization-enabled">Enabled</SectionLabel>
-                      <Select
-                        value={summarizationEnabled ? 'enabled' : 'disabled'}
-                        onValueChange={(value) => setSummarizationEnabled(value === 'enabled')}
-                      >
-                        <SelectTrigger
-                          id="runtime-summarization-enabled"
-                          className={surfaceInputProps()}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="enabled">Enabled</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <SectionLabel htmlFor="runtime-summarization-trigger-tokens">
-                        Trigger tokens
-                      </SectionLabel>
-                      <Input
-                        id="runtime-summarization-trigger-tokens"
-                        type="number"
-                        value={summarizationTriggerTokens}
-                        onChange={(event) => setSummarizationTriggerTokens(event.target.value)}
-                        min={1}
-                        className={surfaceInputProps()}
-                      />
-                    </div>
-                    <div>
-                      <SectionLabel htmlFor="runtime-summarization-keep-recent">
-                        Keep recent
-                      </SectionLabel>
-                      <Input
-                        id="runtime-summarization-keep-recent"
-                        type="number"
-                        value={summarizationKeepRecentMessages}
-                        onChange={(event) => setSummarizationKeepRecentMessages(event.target.value)}
-                        min={0}
-                        className={surfaceInputProps()}
-                      />
-                    </div>
-                  </div>
-                </SurfaceCard>
-
-                <SurfaceCard
-                  title="Memory"
-                  description="Tune fact retention and memory injection thresholds."
-                  icon={<Bot className="h-5 w-5" />}
-                >
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div>
-                      <SectionLabel htmlFor="runtime-memory-enabled">Enabled</SectionLabel>
-                      <Select
-                        value={memoryEnabled ? 'enabled' : 'disabled'}
-                        onValueChange={(value) => setMemoryEnabled(value === 'enabled')}
-                      >
-                        <SelectTrigger id="runtime-memory-enabled" className={surfaceInputProps()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="enabled">Enabled</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <SectionLabel htmlFor="runtime-memory-injection-enabled">
-                        Prompt injection
-                      </SectionLabel>
-                      <Select
-                        value={memoryInjectionEnabled ? 'enabled' : 'disabled'}
-                        onValueChange={(value) => setMemoryInjectionEnabled(value === 'enabled')}
-                      >
-                        <SelectTrigger
-                          id="runtime-memory-injection-enabled"
-                          className={surfaceInputProps()}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="enabled">Enabled</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <SectionLabel htmlFor="runtime-memory-max-facts">Max facts</SectionLabel>
-                      <Input
-                        id="runtime-memory-max-facts"
-                        type="number"
-                        value={memoryMaxFacts}
-                        onChange={(event) => setMemoryMaxFacts(event.target.value)}
-                        min={1}
-                        className={surfaceInputProps()}
-                      />
-                    </div>
-                    <div>
-                      <SectionLabel htmlFor="runtime-memory-confidence-threshold">
-                        Confidence threshold
-                      </SectionLabel>
-                      <Input
-                        id="runtime-memory-confidence-threshold"
-                        type="number"
-                        value={memoryConfidenceThreshold}
-                        onChange={(event) => setMemoryConfidenceThreshold(event.target.value)}
-                        min={0}
-                        max={1}
-                        step="0.1"
-                        className={surfaceInputProps()}
-                      />
-                    </div>
-                  </div>
-
-                  {saveError ? <p className="mt-4 text-sm text-red-400">{saveError}</p> : null}
-
-                  <div className="mt-5 flex justify-end">
-                    <Button
-                      variant="secondary"
-                      onClick={() => void handleSave()}
-                      disabled={isSaveDisabled}
-                      className="h-11 rounded-2xl border-emerald-400/40 bg-emerald-500/15 px-5 text-emerald-50 hover:border-emerald-300 hover:bg-emerald-500/25"
-                    >
-                      {isSaving ? 'Saving…' : 'Save runtime orchestration'}
-                    </Button>
-                  </div>
-                </SurfaceCard>
-              </div>
-            </div>
+            <SettingsRuntimeTab controller={controller} />
           </TabsContent>
 
           <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">

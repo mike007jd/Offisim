@@ -25,6 +25,7 @@ import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSe
 import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
+  type FullPageWorkspaceAppView,
   isFullPageWorkspaceView,
   isWorkspaceView,
   shouldShowAppShell,
@@ -559,7 +560,7 @@ export function App({ onCompanySwitch }: AppProps) {
 
         {isNonOfficeWorkspace && (
           <FullPageWorkspaceShell
-            activeWorkspace={view}
+            activeWorkspace={view as FullPageWorkspaceAppView}
             companyName={activeCompanyName}
             onBackToOffice={() => handleWorkspaceSwitch('office')}
             onOpenSettings={handleOpenSettings}

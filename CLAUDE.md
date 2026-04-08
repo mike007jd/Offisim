@@ -195,6 +195,11 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx`。
   后续改 Settings UI / load/save / unsaved-confirm / tabs 时优先改 shared surface，
   不要重新把逻辑分叉回两个文件
+- Settings shared surface 现在允许继续拆到
+  `settings-primitives.tsx`、`SettingsProviderTab.tsx`、`SettingsRuntimeTab.tsx`。
+  做这类提取时要顺手清掉 `SettingsWorkspaceSurface` 和子组件中的 stale import /
+  stale const；仓库启用了 `noUnusedLocals`，这类残留会直接把 `@offisim/ui-office`
+  的 typecheck 打挂
 - Settings 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
   否则已有的 tool permission 配置会被静默覆盖为默认值
 - Company / studio-adjacent settings 的共享 UI primitive 在
