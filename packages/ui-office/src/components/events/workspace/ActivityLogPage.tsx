@@ -3,7 +3,7 @@ import { ScrollArea } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import type { EventFilterType } from '../EventFilters';
-import { EventItem } from '../EventItem';
+import { EventItem, getDisplayLabel } from '../EventItem';
 import {
   LEVEL_ROW_STYLES,
   TYPE_PREFIX_MAP,
@@ -39,6 +39,10 @@ export interface ActivityLogPageProps {
 // ---------------------------------------------------------------------------
 // Date preset → cutoff timestamp
 // ---------------------------------------------------------------------------
+
+function getEventId(event: RuntimeEvent): string {
+  return `${event.timestamp}-${event.entityId ?? 'none'}`;
+}
 
 function getDateCutoff(preset: DatePreset): number {
   const now = Date.now();
@@ -108,8 +112,12 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
       // Type filter
       if (prefixes.length > 0 && !prefixes.some((p) => event.type.startsWith(p))) continue;
 
-      // Search filter
-      if (searchLower && !event.type.toLowerCase().includes(searchLower)) continue;
+      // Search filter — match against event type, display label, and entity type
+      if (searchLower) {
+        const haystack =
+          `${event.type} ${getDisplayLabel(event)} ${event.entityType ?? ''}`.toLowerCase();
+        if (!haystack.includes(searchLower)) continue;
+      }
 
       result.push({ event, level: getEventLevel(event) });
     }
@@ -119,9 +127,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
   // Find the focused event
   const focusedEvent = useMemo(() => {
     if (!sessionState.selectedEventId) return null;
-    return (
-      events.find((e) => `${e.timestamp}-${e.entityId}` === sessionState.selectedEventId) ?? null
-    );
+    return events.find((e) => getEventId(e) === sessionState.selectedEventId) ?? null;
   }, [events, sessionState.selectedEventId]);
 
   // Deleted entity recovery: selected event no longer in store
@@ -136,7 +142,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     (event: RuntimeEvent) => {
       onSessionStateChange({
         ...sessionState,
-        selectedEventId: `${event.timestamp}-${event.entityId}`,
+        selectedEventId: getEventId(event),
       });
     },
     [sessionState, onSessionStateChange],

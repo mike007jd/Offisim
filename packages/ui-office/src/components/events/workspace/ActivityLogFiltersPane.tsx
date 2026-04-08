@@ -1,5 +1,4 @@
 import { Search } from 'lucide-react';
-import { useCallback } from 'react';
 import { ALL_EVENT_TYPES, ALL_LEVELS } from '../EventFilters';
 import type { EventFilterType, EventLevel } from '../EventFilters';
 
@@ -41,19 +40,16 @@ export function ActivityLogFiltersPane({
   onEventTypesChange,
   onDatePresetChange,
 }: ActivityLogFiltersPaneProps) {
-  const toggleEventType = useCallback(
-    (type: string) => {
-      if (type === 'All') {
-        onEventTypesChange([]);
-        return;
-      }
-      const next = eventTypes.includes(type)
-        ? eventTypes.filter((t) => t !== type)
-        : [...eventTypes, type];
-      onEventTypesChange(next);
-    },
-    [eventTypes, onEventTypesChange],
-  );
+  function toggleEventType(type: string) {
+    if (type === 'All') {
+      onEventTypesChange([]);
+      return;
+    }
+    const next = eventTypes.includes(type)
+      ? eventTypes.filter((t) => t !== type)
+      : [...eventTypes, type];
+    onEventTypesChange(next);
+  }
 
   const isTypeActive = (type: EventFilterType) => {
     if (type === 'All') return eventTypes.length === 0;
@@ -159,17 +155,19 @@ export function ActivityLogFiltersPane({
 // Level pill (display-only for now — levels are derived from event topics)
 // ---------------------------------------------------------------------------
 
-function LevelPill({ level, active }: { level: EventLevel; active: boolean }) {
-  const colorMap: Record<EventLevel, string> = {
-    Info: active ? 'bg-blue-500/20 text-blue-400 border-blue-500/40' : '',
-    Warning: active ? 'bg-amber-400/20 text-amber-400 border-amber-400/40' : '',
-    Error: active ? 'bg-red-500/20 text-red-400 border-red-500/40' : '',
-  };
+const ACTIVE_LEVEL_COLORS: Record<EventLevel, string> = {
+  Info: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+  Warning: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
+  Error: 'bg-red-500/20 text-red-400 border-red-500/40',
+};
 
+function LevelPill({ level, active }: { level: EventLevel; active: boolean }) {
   return (
     <span
       className={`px-2 py-1 rounded text-[11px] font-medium border ${
-        active ? colorMap[level] : 'bg-transparent text-slate-400 border-slate-400/20 opacity-40'
+        active
+          ? ACTIVE_LEVEL_COLORS[level]
+          : 'bg-transparent text-slate-400 border-slate-400/20 opacity-40'
       }`}
     >
       {level}

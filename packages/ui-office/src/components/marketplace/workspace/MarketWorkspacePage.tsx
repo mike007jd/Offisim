@@ -1,5 +1,6 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
+import { useCallback } from 'react';
 import type { MarketSortOption } from '../marketplace-meta.js';
 
 export type { MarketSortOption } from '../marketplace-meta.js';
@@ -52,45 +53,66 @@ export function MarketWorkspacePage({
     unavailable: detailUnavailable,
   } = useListingDetail(activeListingId);
 
-  function handleModeChange(mode: 'explore' | 'manage') {
-    onSessionStateChange({ ...sessionState, mode, selectedListingId: null });
-  }
+  const handleModeChange = useCallback(
+    (mode: 'explore' | 'manage') => {
+      onSessionStateChange({ ...sessionState, mode, selectedListingId: null });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleManageTabChange(manageTab: 'installed' | 'updates' | 'published') {
-    onSessionStateChange({ ...sessionState, manageTab });
-  }
+  const handleManageTabChange = useCallback(
+    (manageTab: 'installed' | 'updates' | 'published') => {
+      onSessionStateChange({ ...sessionState, manageTab });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleSearchChange(search: string) {
-    onSessionStateChange({ ...sessionState, search });
-  }
+  const handleSearchChange = useCallback(
+    (search: string) => {
+      onSessionStateChange({ ...sessionState, search });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleSortChange(sort: MarketSortOption) {
-    onSessionStateChange({ ...sessionState, sort });
-  }
+  const handleSortChange = useCallback(
+    (sort: MarketSortOption) => {
+      onSessionStateChange({ ...sessionState, sort });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleKindChange(kind: AssetKind | 'all') {
-    onSessionStateChange({ ...sessionState, kind });
-  }
+  const handleKindChange = useCallback(
+    (kind: AssetKind | 'all') => {
+      onSessionStateChange({ ...sessionState, kind });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleSelectListing(listingId: string) {
-    onSessionStateChange({ ...sessionState, selectedListingId: listingId });
-  }
+  const handleSelectListing = useCallback(
+    (listingId: string) => {
+      onSessionStateChange({ ...sessionState, selectedListingId: listingId });
+    },
+    [sessionState, onSessionStateChange],
+  );
 
-  function handleBack() {
+  const handleBack = useCallback(() => {
     onSessionStateChange({ ...sessionState, selectedListingId: null });
-  }
+  }, [sessionState, onSessionStateChange]);
 
-  function handleResetFilters() {
+  const handleResetFilters = useCallback(() => {
     onSessionStateChange({ ...sessionState, search: '', sort: 'relevance', kind: 'all' });
-  }
+  }, [sessionState, onSessionStateChange]);
 
-  function handleInstall(listingId: string, version: string) {
-    onStartInstall?.(listingId, version);
-  }
+  const handleInstall = useCallback(
+    (listingId: string, version: string) => {
+      onStartInstall?.(listingId, version);
+    },
+    [onStartInstall],
+  );
 
-  function handleGoToExplore() {
+  const handleGoToExplore = useCallback(() => {
     onSessionStateChange({ ...sessionState, mode: 'explore', selectedListingId: null });
-  }
+  }, [sessionState, onSessionStateChange]);
 
   // Determine center pane content
   const showDetail = sessionState.mode === 'explore' && sessionState.selectedListingId !== null;
