@@ -1,95 +1,58 @@
 import { describe, expect, it, vi } from 'vitest';
-
-// ---------------------------------------------------------------------------
-// The hook is thin glue: useEffect + refs + popstate listener.
-// We extract and test the core decision logic that the popstate handler uses.
-// This avoids needing a jsdom environment while still validating the contract.
-// ---------------------------------------------------------------------------
-
-/**
- * Simulates the popstate handler logic from useWorkspaceBackNavigation.
- * Returns what actions were taken.
- */
-function simulatePopState(
-  workspaceInternalBack: () => boolean,
-  switchToPreviousWorkspace: () => void,
-): { pushStateCalled: boolean } {
-  let pushStateCalled = false;
-
-  const consumed = workspaceInternalBack();
-
-  if (consumed) {
-    // In the real hook, this would be window.history.pushState(...)
-    pushStateCalled = true;
-  } else {
-    switchToPreviousWorkspace();
-  }
-
-  return { pushStateCalled };
-}
+import { handleWorkspacePopState } from './useWorkspaceBackNavigation';
 
 describe('useWorkspaceBackNavigation — popstate handler logic', () => {
-  it('calls workspaceInternalBack first on popstate', () => {
-    const internalBack = vi.fn().mockReturnValue(true);
-    const switchPrev = vi.fn();
+  it('always delegates to goBack first', () => {
+    const goBack = vi.fn().mockReturnValue('internal');
+    const restoreHistoryEntry = vi.fn();
 
-    simulatePopState(internalBack, switchPrev);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
 
-    expect(internalBack).toHaveBeenCalledOnce();
-    expect(switchPrev).not.toHaveBeenCalled();
+    expect(goBack).toHaveBeenCalledOnce();
   });
 
-  it('calls switchToPreviousWorkspace when internalBack returns false', () => {
-    const internalBack = vi.fn().mockReturnValue(false);
-    const switchPrev = vi.fn();
+  it('restores the current history entry when back is consumed internally', () => {
+    const goBack = vi.fn().mockReturnValue('internal');
+    const restoreHistoryEntry = vi.fn();
 
-    simulatePopState(internalBack, switchPrev);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
 
-    expect(internalBack).toHaveBeenCalledOnce();
-    expect(switchPrev).toHaveBeenCalledOnce();
+    expect(restoreHistoryEntry).toHaveBeenCalledOnce();
   });
 
-  it('pushes a new history entry when internal back is consumed', () => {
-    const internalBack = vi.fn().mockReturnValue(true);
-    const switchPrev = vi.fn();
+  it('does not restore the history entry when switching to a previous workspace', () => {
+    const goBack = vi.fn().mockReturnValue('workspace');
+    const restoreHistoryEntry = vi.fn();
 
-    const result = simulatePopState(internalBack, switchPrev);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
 
-    expect(result.pushStateCalled).toBe(true);
+    expect(restoreHistoryEntry).not.toHaveBeenCalled();
   });
 
-  it('does not push history entry when switching to previous workspace', () => {
-    const internalBack = vi.fn().mockReturnValue(false);
-    const switchPrev = vi.fn();
+  it('does not restore the history entry when there is nothing left to unwind', () => {
+    const goBack = vi.fn().mockReturnValue('none');
+    const restoreHistoryEntry = vi.fn();
 
-    const result = simulatePopState(internalBack, switchPrev);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
 
-    expect(result.pushStateCalled).toBe(false);
-    expect(switchPrev).toHaveBeenCalledOnce();
+    expect(restoreHistoryEntry).not.toHaveBeenCalled();
   });
 
-  it('handles multiple sequential back presses correctly', () => {
-    // Simulate: first two backs are consumed internally, third switches workspace
-    let callCount = 0;
-    const internalBack = vi.fn().mockImplementation(() => {
-      callCount++;
-      return callCount <= 2;
-    });
-    const switchPrev = vi.fn();
+  it('restores history only for internally consumed backs across a sequence', () => {
+    const outcomes: Array<'internal' | 'workspace' | 'none'> = [
+      'internal',
+      'internal',
+      'workspace',
+      'none',
+    ];
+    const goBack = vi.fn().mockImplementation(() => outcomes.shift() ?? 'none');
+    const restoreHistoryEntry = vi.fn();
 
-    // First back — consumed
-    const r1 = simulatePopState(internalBack, switchPrev);
-    expect(r1.pushStateCalled).toBe(true);
-    expect(switchPrev).not.toHaveBeenCalled();
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
+    handleWorkspacePopState(goBack, restoreHistoryEntry);
 
-    // Second back — consumed
-    const r2 = simulatePopState(internalBack, switchPrev);
-    expect(r2.pushStateCalled).toBe(true);
-    expect(switchPrev).not.toHaveBeenCalled();
-
-    // Third back — not consumed, switch workspace
-    const r3 = simulatePopState(internalBack, switchPrev);
-    expect(r3.pushStateCalled).toBe(false);
-    expect(switchPrev).toHaveBeenCalledOnce();
+    expect(restoreHistoryEntry).toHaveBeenCalledTimes(2);
   });
 });

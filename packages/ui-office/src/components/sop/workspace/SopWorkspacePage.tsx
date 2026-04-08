@@ -5,6 +5,7 @@ import { useSops } from '../../../hooks/useSops';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import { SopEditorDialog } from '../SopEditorDialog';
 import { SopImportDialog } from '../SopImportDialog';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import { SopWorkspaceCanvas } from './SopWorkspaceCanvas';
 import { SopWorkspaceContextPane } from './SopWorkspaceContextPane';
 import { SopWorkspaceEmptyState } from './SopWorkspaceEmptyState';
@@ -153,19 +154,12 @@ export function SopWorkspacePage({
   const showEmptyCenter = !sessionState.selectedSopId;
 
   return (
-    <div data-workspace="sops" data-testid="workspace-sops" className="flex flex-col h-full">
-      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-
-      <header className="workspace-shell-header">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="min-w-0">
-            <p className="workspace-shell-eyebrow">Workspace</p>
-            <h1 className="workspace-shell-title">SOPs</h1>
-          </div>
-        </div>
-      </header>
-
-      {/* 3-pane layout */}
+    <WorkspacePageShell
+      title="SOPs"
+      workspace="sops"
+      testId="workspace-sops"
+      topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
+    >
       <div className="sop-workspace-panes">
         <aside
           className="sop-workspace-sidebar"
@@ -220,7 +214,6 @@ export function SopWorkspacePage({
         </aside>
       </div>
 
-      {/* Dialogs — kept as modals per spec */}
       <SopEditorDialog
         open={editorOpen}
         onOpenChange={setEditorOpen}
@@ -231,7 +224,7 @@ export function SopWorkspacePage({
         onOpenChange={setImportOpen}
         onImported={handleCreated}
       />
-    </div>
+    </WorkspacePageShell>
   );
 }
 

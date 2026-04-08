@@ -60,6 +60,7 @@ export * from './components/notifications/NotificationCard.js';
 export * from './components/notifications/NotificationCenter.js';
 export * from './components/project/ProjectSelector.js';
 export * from './components/project/ProjectListPanel.js';
+export * from './components/workspace/WorkspacePageShell.js';
 export * from './components/layout/Header.js';
 export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';

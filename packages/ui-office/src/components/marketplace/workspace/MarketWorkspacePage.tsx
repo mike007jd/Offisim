@@ -1,10 +1,11 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MarketSortOption } from '../marketplace-meta.js';
 
 export type { MarketSortOption } from '../marketplace-meta.js';
 import { useListingDetail } from '../../../hooks/useListingDetail.js';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import { MarketWorkspaceContextPane } from './MarketWorkspaceContextPane.js';
 import { MarketWorkspaceDetail } from './MarketWorkspaceDetail.js';
 import { MarketWorkspaceExplore } from './MarketWorkspaceExplore.js';
@@ -43,7 +44,7 @@ export function MarketWorkspacePage({
   onSessionStateChange,
   onStartInstall,
 }: MarketWorkspacePageProps) {
-  const { toasts, dismissToast } = useToasts();
+  const { toasts, addToast, dismissToast } = useToasts();
 
   // Single source of truth for listing detail — shared with ContextPane and Detail
   const activeListingId = sessionState.mode === 'explore' ? sessionState.selectedListingId : null;
@@ -52,6 +53,19 @@ export function MarketWorkspacePage({
     loading: detailLoading,
     unavailable: detailUnavailable,
   } = useListingDetail(activeListingId);
+  const lastUnavailableListingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeListingId || !detailUnavailable) {
+      lastUnavailableListingIdRef.current = null;
+      return;
+    }
+
+    if (lastUnavailableListingIdRef.current === activeListingId) return;
+
+    lastUnavailableListingIdRef.current = activeListingId;
+    addToast('The selected listing is no longer available.', 'info');
+  }, [activeListingId, detailUnavailable, addToast]);
 
   const handleModeChange = useCallback(
     (mode: 'explore' | 'manage') => {
@@ -120,18 +134,12 @@ export function MarketWorkspacePage({
   const showManage = sessionState.mode === 'manage';
 
   return (
-    <div data-workspace="market" data-testid="workspace-market" className="flex flex-col h-full">
-      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-
-      <header className="workspace-shell-header">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="workspace-shell-eyebrow">Workspace</p>
-            <h1 className="workspace-shell-title">Market</h1>
-          </div>
-        </div>
-      </header>
-
+    <WorkspacePageShell
+      title="Market"
+      workspace="market"
+      testId="workspace-market"
+      topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
+    >
       <div className="market-workspace-panes">
         <aside
           className="market-workspace-sidebar"
@@ -201,7 +209,7 @@ export function MarketWorkspacePage({
           />
         </aside>
       </div>
-    </div>
+    </WorkspacePageShell>
   );
 }
 

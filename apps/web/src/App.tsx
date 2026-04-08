@@ -44,7 +44,7 @@ import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
   isOfficeSceneInteractive,
-  shouldKeepOfficeMounted,
+  shouldShowAppShell,
   shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
@@ -168,6 +168,7 @@ export function App({ onCompanySwitch }: AppProps) {
     state: workspaceSessionState,
     activeWorkspace,
     setActiveWorkspace,
+    setSessionState,
     goBack,
   } = useWorkspaceSessionState();
 
@@ -505,17 +506,13 @@ export function App({ onCompanySwitch }: AppProps) {
   const isNonOfficeWorkspace =
     view === 'sops' || view === 'market' || view === 'activity-log';
 
-  const workspaceRouterContent = useMemo(() => {
-    if (!isNonOfficeWorkspace) return null;
-    return (
-      <WorkspaceRouter
-        activeWorkspace={activeWorkspace}
-        sessionState={workspaceSessionState}
-        // TODO: Wire to updateWorkspaceState once placeholder pages have real interactions
-        onSessionStateChange={() => {}}
-      />
-    );
-  }, [isNonOfficeWorkspace, activeWorkspace, workspaceSessionState]);
+  const workspaceRouterContent = isNonOfficeWorkspace ? (
+    <WorkspaceRouter
+      activeWorkspace={activeWorkspace}
+      sessionState={workspaceSessionState}
+      onSessionStateChange={setSessionState}
+    />
+  ) : null;
 
   const handleCreatorDeploy = useCallback(
     async ({ name, role, seed }: { name: string; role: RoleSlug; seed: string }) => {
@@ -679,7 +676,7 @@ export function App({ onCompanySwitch }: AppProps) {
         )}
 
         {/* ── Office view (default) ── */}
-        {shouldKeepOfficeMounted(view) && (
+        {shouldShowAppShell(view) && (
           <>
             {unfinishedThreads.length > 0 && (
               <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">

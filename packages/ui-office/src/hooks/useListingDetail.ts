@@ -26,6 +26,7 @@ export function useListingDetail(listingId: string | null): UseListingDetailResu
     }
 
     let cancelled = false;
+    setDetail(null);
     setLoading(true);
     setError(null);
     setUnavailable(false);

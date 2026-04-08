@@ -34,6 +34,15 @@ interface InternalState {
   historyStack: WorkspaceKey[];
 }
 
+export type BackNavigationOutcome = 'internal' | 'workspace' | 'none';
+
+interface BackNavigationResolution {
+  outcome: BackNavigationOutcome;
+  activeWorkspace: WorkspaceKey;
+  sessionState: WorkspaceSessionState;
+  historyStack: WorkspaceKey[];
+}
+
 // ---------------------------------------------------------------------------
 // Workspace-internal back navigation helpers
 // ---------------------------------------------------------------------------
@@ -123,6 +132,42 @@ export function hasInternalDrillIn(
   }
 }
 
+export function resolveBackNavigation(
+  activeWorkspace: WorkspaceKey,
+  sessionState: WorkspaceSessionState,
+  historyStack: WorkspaceKey[],
+): BackNavigationResolution {
+  const [consumed, nextSessionState] = tryWorkspaceInternalBack(activeWorkspace, sessionState);
+
+  if (consumed) {
+    return {
+      outcome: 'internal',
+      activeWorkspace,
+      sessionState: nextSessionState,
+      historyStack,
+    };
+  }
+
+  if (historyStack.length === 0) {
+    return {
+      outcome: 'none',
+      activeWorkspace,
+      sessionState,
+      historyStack,
+    };
+  }
+
+  const nextHistoryStack = historyStack.slice(0, -1);
+  const previousWorkspace = historyStack[historyStack.length - 1]!;
+
+  return {
+    outcome: 'workspace',
+    activeWorkspace: previousWorkspace,
+    sessionState,
+    historyStack: nextHistoryStack,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -180,6 +225,13 @@ export function useWorkspaceSessionState() {
     [],
   );
 
+  const setSessionState = useCallback((sessionState: WorkspaceSessionState) => {
+    setInternal((prev) => {
+      if (prev.sessionState === sessionState) return prev;
+      return { ...prev, sessionState };
+    });
+  }, []);
+
   // ── canGoBack ───────────────────────────────────────────────────────
   const canGoBack = useMemo(
     () =>
@@ -189,37 +241,32 @@ export function useWorkspaceSessionState() {
   );
 
   // ── goBack ──────────────────────────────────────────────────────────
-  const goBack = useCallback(() => {
-    setInternal((prev) => {
-      // First try workspace-internal back
-      const [consumed, nextSessionState] = tryWorkspaceInternalBack(
-        prev.activeWorkspace,
-        prev.sessionState,
-      );
+  const goBack = useCallback((): BackNavigationOutcome => {
+    const resolution = resolveBackNavigation(
+      internal.activeWorkspace,
+      internal.sessionState,
+      internal.historyStack,
+    );
 
-      if (consumed) {
-        return { ...prev, sessionState: nextSessionState };
-      }
+    if (resolution.outcome === 'none') {
+      return 'none';
+    }
 
-      // No internal drill-in — switch to previous workspace
-      if (prev.historyStack.length === 0) return prev; // nothing to go back to
-
-      const newHistory = prev.historyStack.slice(0, -1);
-      const previousWorkspace = prev.historyStack[prev.historyStack.length - 1]!;
-
-      return {
-        activeWorkspace: previousWorkspace,
-        sessionState: prev.sessionState,
-        historyStack: newHistory,
-      };
+    setInternal({
+      activeWorkspace: resolution.activeWorkspace,
+      sessionState: resolution.sessionState,
+      historyStack: resolution.historyStack,
     });
-  }, []);
+
+    return resolution.outcome;
+  }, [internal]);
 
   return {
     state: internal.sessionState,
     activeWorkspace: internal.activeWorkspace,
     setActiveWorkspace,
     updateWorkspaceState,
+    setSessionState,
     canGoBack,
     goBack,
   };

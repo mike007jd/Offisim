@@ -1,6 +1,16 @@
 import { useEffect, useRef } from 'react';
 
 import type { WorkspaceKey } from './types';
+import type { BackNavigationOutcome } from './useWorkspaceSessionState';
+
+export function handleWorkspacePopState(
+  goBack: () => BackNavigationOutcome,
+  restoreHistoryEntry: () => void,
+): void {
+  if (goBack() === 'internal') {
+    restoreHistoryEntry();
+  }
+}
 
 /**
  * Bridges workspace back-navigation to the browser history API.
@@ -15,7 +25,7 @@ import type { WorkspaceKey } from './types';
  */
 export function useWorkspaceBackNavigation(
   activeWorkspace: WorkspaceKey,
-  goBack: () => void,
+  goBack: () => BackNavigationOutcome,
 ): void {
   const goBackRef = useRef(goBack);
 
@@ -28,7 +38,9 @@ export function useWorkspaceBackNavigation(
     window.history.pushState({ workspace: activeWorkspace }, '');
 
     const handlePopState = () => {
-      goBackRef.current();
+      handleWorkspacePopState(goBackRef.current, () => {
+        window.history.pushState({ workspace: activeWorkspace }, '');
+      });
     };
 
     window.addEventListener('popstate', handlePopState);

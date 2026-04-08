@@ -1,5 +1,5 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { ScrollArea } from '@offisim/ui-core';
+import { ScrollArea, ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import type { EventFilterType } from '../EventFilters';
@@ -14,6 +14,11 @@ import type { EventDisplayLevel } from '../EventLog';
 import { ActivityLogEventFocus } from './ActivityLogEventFocus';
 import { ActivityLogFiltersPane } from './ActivityLogFiltersPane';
 import type { DatePreset } from './ActivityLogFiltersPane';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
+import {
+  getAvailableActorFilters,
+  matchesActorFilters,
+} from './activity-log-utils';
 
 // ---------------------------------------------------------------------------
 // Types — mirrored from apps/web workspace types to avoid cross-package deps
@@ -64,6 +69,7 @@ function getDateCutoff(preset: DatePreset): number {
 
 export function ActivityLogPage({ sessionState, onSessionStateChange }: ActivityLogPageProps) {
   const { eventBus, bootstrapState } = useOffisimRuntime();
+  const { toasts, addToast, dismissToast } = useToasts();
   const store = useMemo(
     () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
     [eventBus, bootstrapState],
@@ -112,6 +118,9 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
       // Type filter
       if (prefixes.length > 0 && !prefixes.some((p) => event.type.startsWith(p))) continue;
 
+      // Actor filter
+      if (!matchesActorFilters(event, sessionState.actorFilters)) continue;
+
       // Search filter — match against event type, display label, and entity type
       if (searchLower) {
         const haystack =
@@ -124,6 +133,8 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     return result;
   }, [events, sessionState]);
 
+  const actorOptions = useMemo(() => getAvailableActorFilters(events), [events]);
+
   // Find the focused event
   const focusedEvent = useMemo(() => {
     if (!sessionState.selectedEventId) return null;
@@ -133,9 +144,10 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
   // Deleted entity recovery: selected event no longer in store
   useEffect(() => {
     if (sessionState.selectedEventId && !focusedEvent) {
+      addToast('The selected event is no longer available.', 'info');
       onSessionStateChange({ ...sessionState, selectedEventId: null });
     }
-  }, [sessionState, focusedEvent, onSessionStateChange]);
+  }, [sessionState, focusedEvent, onSessionStateChange, addToast]);
 
   // Handlers
   const handleSelectEvent = useCallback(
@@ -176,42 +188,37 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     [sessionState, onSessionStateChange],
   );
 
+  const handleActorFiltersChange = useCallback(
+    (actorFilters: string[]) => {
+      onSessionStateChange({ ...sessionState, actorFilters });
+    },
+    [sessionState, onSessionStateChange],
+  );
+
   // Event-focused mode
   if (sessionState.selectedEventId && focusedEvent) {
     return (
-      <div
-        data-workspace="activity-log"
-        data-testid="workspace-activity-log"
-        className="flex flex-col h-full"
+      <WorkspacePageShell
+        title="Activity Log"
+        workspace="activity-log"
+        testId="workspace-activity-log"
+        topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
       >
-        <header className="workspace-shell-header">
-          <div className="min-w-0">
-            <p className="workspace-shell-eyebrow">Workspace</p>
-            <h1 className="workspace-shell-title">Activity Log</h1>
-          </div>
-        </header>
         <div className="flex-1 min-h-0 overflow-hidden">
           <ActivityLogEventFocus event={focusedEvent} onBack={handleBackFromFocus} />
         </div>
-      </div>
+      </WorkspacePageShell>
     );
   }
 
   return (
-    <div
-      data-workspace="activity-log"
-      data-testid="workspace-activity-log"
-      className="flex flex-col h-full"
+    <WorkspacePageShell
+      title="Activity Log"
+      workspace="activity-log"
+      testId="workspace-activity-log"
+      topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
     >
-      <header className="workspace-shell-header">
-        <div className="min-w-0">
-          <p className="workspace-shell-eyebrow">Workspace</p>
-          <h1 className="workspace-shell-title">Activity Log</h1>
-        </div>
-      </header>
-
       <div className="activity-log-panes">
-        {/* Left: Filters */}
         <aside
           className="activity-log-filters"
           data-testid="activity-log-filters"
@@ -220,14 +227,16 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
           <ActivityLogFiltersPane
             search={sessionState.search}
             eventTypes={sessionState.eventTypes}
+            actorOptions={actorOptions}
+            actorFilters={sessionState.actorFilters}
             datePreset={sessionState.datePreset}
             onSearchChange={handleSearchChange}
             onEventTypesChange={handleEventTypesChange}
+            onActorFiltersChange={handleActorFiltersChange}
             onDatePresetChange={handleDatePresetChange}
           />
         </aside>
 
-        {/* Center: Timeline */}
         <main
           className="activity-log-timeline"
           data-testid="activity-log-timeline"
@@ -272,7 +281,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
           </ScrollArea>
         </main>
       </div>
-    </div>
+    </WorkspacePageShell>
   );
 }
 

@@ -22,9 +22,12 @@ export type DatePreset = (typeof DATE_PRESETS)[number]['value'];
 interface ActivityLogFiltersPaneProps {
   search: string;
   eventTypes: string[];
+  actorOptions: string[];
+  actorFilters: string[];
   datePreset: DatePreset;
   onSearchChange: (search: string) => void;
   onEventTypesChange: (types: string[]) => void;
+  onActorFiltersChange: (actors: string[]) => void;
   onDatePresetChange: (preset: DatePreset) => void;
 }
 
@@ -35,9 +38,12 @@ interface ActivityLogFiltersPaneProps {
 export function ActivityLogFiltersPane({
   search,
   eventTypes,
+  actorOptions,
+  actorFilters,
   datePreset,
   onSearchChange,
   onEventTypesChange,
+  onActorFiltersChange,
   onDatePresetChange,
 }: ActivityLogFiltersPaneProps) {
   function toggleEventType(type: string) {
@@ -55,6 +61,13 @@ export function ActivityLogFiltersPane({
     if (type === 'All') return eventTypes.length === 0;
     return eventTypes.includes(type);
   };
+
+  function toggleActor(actor: string) {
+    const next = actorFilters.includes(actor)
+      ? actorFilters.filter((currentActor) => currentActor !== actor)
+      : [...actorFilters, actor];
+    onActorFiltersChange(next);
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 h-full overflow-y-auto">
@@ -138,14 +151,42 @@ export function ActivityLogFiltersPane({
         </div>
       </div>
 
-      {/* Actor filters — placeholder */}
+      {/* Actor filters */}
       <div>
         <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
           Actors
         </p>
-        <p className="text-[11px] text-slate-500 italic">
-          All actors shown. Actor filtering coming soon.
-        </p>
+        {actorOptions.length === 0 ? (
+          <p className="text-[11px] text-slate-500 italic">No actor-specific events yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => onActorFiltersChange([])}
+              className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                actorFilters.length === 0
+                  ? 'bg-accent/20 text-accent border border-accent/40'
+                  : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
+              }`}
+            >
+              All actors
+            </button>
+            {actorOptions.map((actor) => (
+              <button
+                key={actor}
+                type="button"
+                onClick={() => toggleActor(actor)}
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                  actorFilters.includes(actor)
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                    : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
+                }`}
+              >
+                {actor}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

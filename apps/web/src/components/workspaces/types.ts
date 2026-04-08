@@ -133,16 +133,6 @@ export interface WorkspaceRouterProps {
   children?: React.ReactNode;
 }
 
-export interface WorkspacePageShellProps {
-  eyebrow: string;
-  title: string;
-  actions?: React.ReactNode;
-  loading?: boolean;
-  error?: string;
-  empty?: React.ReactNode;
-  children: React.ReactNode;
-}
-
 // ---------------------------------------------------------------------------
 // Default State Factories
 // ---------------------------------------------------------------------------
