@@ -22,7 +22,7 @@
     "@offisim/registry-client": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "fflate": "^0.8.2",
-    "gray-matter": "^4.0.3"
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

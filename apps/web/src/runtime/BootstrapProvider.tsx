@@ -6,7 +6,7 @@ import {
   OffisimRuntimeStatusContext,
   type OffisimRuntimeValue,
   isTauri,
-} from '@offisim/ui-office';
+} from '@offisim/ui-office/web';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 import { loadBrowserRuntimeBootstrapState } from '../lib/browser-runtime-storage';

@@ -1,1 +1,1 @@
-export { WorkspacePageShell } from '@offisim/ui-office';
+export { WorkspacePageShell } from '@offisim/ui-office/web';

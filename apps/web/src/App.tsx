@@ -2,48 +2,28 @@ import { employeeCreated } from '@offisim/core/browser';
 import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
-  AgentPanel,
-  AppLayout,
-  ChatDrawer,
-  ChatPanel,
   CompanySelectionPage,
   EmployeeEditorDialog,
-  EmployeeInspector,
   ErrorBoundary,
-  Header,
   KeyboardShortcutsDialog,
-  NotificationCenter,
-  ProjectSelector,
   type ProviderConfig,
-  ResumeBar,
-  RightSidebar,
-  SceneCeremonyProvider,
-  StatusBar,
   disposeEventLogStore,
   loadProviderConfig,
   primeEventLogStore,
-  useAgentStates,
   useCompany,
   useCompanyEditor,
-  useCompanyZones,
   useDeepLinkInstall,
   useEmployeeEditor,
   useInstallFlow,
   useOffisimRuntime,
-  usePrefabInstances,
-  useProjects,
-  useReducedMotion,
-  useSceneOrchestrator,
-} from '@offisim/ui-office';
+} from '@offisim/ui-office/web';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { OnboardingController } from './components/OnboardingController';
 import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
 import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
-  isOfficeSceneInteractive,
   shouldShowAppShell,
   shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
@@ -52,52 +32,9 @@ import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboa
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
 
-interface SceneCanvasLazyProps {
-  active?: boolean;
-  reducedMotion?: boolean;
-  viewMode?: '2D' | '3D';
-  leftInset?: number;
-  rightInset?: number;
-  selectedEmployeeId?: string | null;
-  onSelectEmployee?: (id: string | null) => void;
-  onDeselectEmployee?: () => void;
-  onFallbackTo2D?: () => void;
-}
-
-function CeremonyHost({ children }: { children: React.ReactNode }) {
-  const { eventBus, sceneIntentBus } = useOffisimRuntime();
-  const { activeCompanyId } = useCompany();
-  const agents = useAgentStates();
-  const { zones } = useCompanyZones();
-  const { instances: prefabInstancesWithDef } = usePrefabInstances();
-  const prefabInstances = useMemo(
-    () => prefabInstancesWithDef.map((p) => p.instance),
-    [prefabInstancesWithDef],
-  );
-  const ceremony = useSceneOrchestrator({
-    companyId: activeCompanyId ?? 'default-scene-company',
-    eventBus,
-    sceneIntentBus,
-    agents,
-    zones,
-    prefabInstances,
-  });
-  return <SceneCeremonyProvider value={ceremony}>{children}</SceneCeremonyProvider>;
-}
-
-/** Lazy-loaded SceneCanvas — keeps Three.js + scene rendering out of the initial bundle */
-const SceneCanvas = React.lazy<React.ComponentType<SceneCanvasLazyProps>>(() =>
-  import('@offisim/ui-office/scene').then((m) => ({
-    default: m.SceneCanvas as React.ComponentType<SceneCanvasLazyProps>,
-  })),
-);
-
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
   import('@offisim/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
-);
-const DashboardOverlay = React.lazy(() =>
-  import('@offisim/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
 );
 const EmployeeCreatorOverlay = React.lazy(() =>
   import('@offisim/ui-office/employee-creator').then((m) => ({
@@ -119,12 +56,9 @@ const InstallDialog = React.lazy(() =>
 const StudioPage = React.lazy(() =>
   import('@offisim/ui-office/studio').then((m) => ({ default: m.StudioPage })),
 );
-const KanbanOverlay = React.lazy(() =>
-  import('@offisim/ui-office/kanban').then((m) => ({ default: m.KanbanOverlay })),
-);
-const MarketplaceOverlay = React.lazy(() =>
-  import('@offisim/ui-office/marketplace').then((m) => ({
-    default: m.MarketplaceDetailOverlay,
+const OfficeWorkspaceShellLazy = React.lazy(() =>
+  import('./components/office-shell/OfficeWorkspaceShell').then((module) => ({
+    default: module.OfficeWorkspaceShell,
   })),
 );
 // TODO(Phase 7): MarketplaceDetailOverlay is a legacy overlay path. Primary market
@@ -199,21 +133,10 @@ export function App({ onCompanySwitch }: AppProps) {
     reinitRuntime,
     repos,
     eventBus,
-    unfinishedThreads,
-    dismissUnfinishedThreads,
-    resumeThread,
   } = useOffisimRuntime();
-  const activeCompanyName = companies.find((c) => c.company_id === activeCompanyId)?.name;
-  const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } =
-    useProjects({
-      repos,
-      companyId: activeCompanyId ?? '',
-    });
-  const reducedMotion = useReducedMotion();
   const companyEditor = useCompanyEditor();
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
-  const agents = useAgentStates();
   const { toasts, addToast, dismissToast } = useToasts();
 
   useEffect(() => {
@@ -398,11 +321,6 @@ export function App({ onCompanySwitch }: AppProps) {
     ),
   );
 
-  // Resolve selected employee name for ChatPanel header
-  const selectedEmployeeName = selectedEmployeeId
-    ? (agents.get(selectedEmployeeId)?.name ?? null)
-    : null;
-
   const handleSelectEmployee = useCallback((id: string | null) => {
     setSelectedEmployeeId(id);
     if (id) {
@@ -457,45 +375,6 @@ export function App({ onCompanySwitch }: AppProps) {
       setRightPanelWidth(nextRightPanelWidth);
     },
     [],
-  );
-
-  const renderChatPanel = useCallback(
-    ({
-      compact,
-      showPipelineProgress,
-      showMeetingPanel,
-    }: {
-      compact?: boolean;
-      showPipelineProgress?: boolean;
-      showMeetingPanel?: boolean;
-    }) => (
-      <ChatPanel
-        compact={compact}
-        onOpenSettings={() => setSettingsOpen(true)}
-        selectedEmployeeId={selectedEmployeeId}
-        selectedEmployeeName={selectedEmployeeName}
-        onClearSelection={() => setSelectedEmployeeId(null)}
-        onToggleDashboard={() => setDashboardOpen((prev) => !prev)}
-        onToggleKanban={() => setKanbanOpen((prev) => !prev)}
-        onOpenEditor={() => setView('office-editor')}
-        onOpenStudio={handleOpenStudio}
-        activeProject={activeProject}
-        onUserMessage={handleUserMessage}
-        onboardingWelcome={chatOnboardingWelcome}
-        onboardingStarterPrompts={chatOnboardingStarters}
-        showPipelineProgress={showPipelineProgress}
-        showMeetingPanel={showMeetingPanel}
-      />
-    ),
-    [
-      activeProject,
-      chatOnboardingStarters,
-      chatOnboardingWelcome,
-      handleOpenStudio,
-      handleUserMessage,
-      selectedEmployeeId,
-      selectedEmployeeName,
-    ],
   );
 
   // ── Workspace center content via WorkspaceRouter ────────────────────
@@ -677,167 +556,59 @@ export function App({ onCompanySwitch }: AppProps) {
 
         {/* ── Office view (default) ── */}
         {shouldShowAppShell(view) && (
-          <>
-            {unfinishedThreads.length > 0 && (
-              <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
-                <ResumeBar
-                  projects={unfinishedThreads}
-                  onResume={(threadId: string) => void resumeThread(threadId)}
-                  onDismiss={dismissUnfinishedThreads}
-                />
-              </div>
-            )}
-            <CeremonyHost>
-              <AppLayout
-                header={
-                  <Header
-                    providerName={providerConfig?.model}
-                    companyName={activeCompanyName}
-                    onOpenSettings={() => setSettingsOpen(true)}
-                    onOpenOffice={() => handleWorkspaceSwitch('office')}
-                    onOpenSops={() => handleWorkspaceSwitch('sops')}
-                    onOpenMarket={() => handleWorkspaceSwitch('market')}
-                    onOpenStudio={handleOpenStudio}
-                    onOpenCompanySelect={() => setView('company-select')}
-                    onOpenCompanyEditor={companyEditor.open}
-                    onFileImport={installFlow.startFileImport}
-                    notificationSlot={
-                      <NotificationCenter
-                        onFocusEmployee={(employeeId) => {
-                          handleSelectEmployee(employeeId);
-                          setChatOpenToken((t) => t + 1);
-                        }}
-                        onOpenActivityLog={() => handleWorkspaceSwitch('activity-log')}
-                      />
-                    }
-                    projectSlot={
-                      <ProjectSelector
-                        projects={projects}
-                        activeProjectId={activeProjectId}
-                        onSelect={setActiveProjectId}
-                        onCreateProject={createProject}
-                      />
-                    }
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    needsConfig={!providerConfig}
-                    activeWorkspace={view === 'sops' || view === 'market' || view === 'activity-log' ? view : 'office'}
-                  />
-                }
-                agentPanel={
-                  <AgentPanel
-                    agents={agents}
-                    onSelectEmployee={handleSelectEmployee}
-                    selectedEmployeeId={selectedEmployeeId}
-                    onOpenCreator={() => setView('employee-creator')}
-                  />
-                }
-                sceneCanvas={
-                  <div className="h-full w-full" data-onboarding-target="scene-surface">
-                    <Suspense
-                      fallback={<div className="h-full w-full bg-ocean-deep animate-pulse" />}
-                    >
-                      <SceneCanvas
-                        active={isOfficeSceneInteractive(view)}
-                        reducedMotion={reducedMotion}
-                        viewMode={viewMode}
-                        leftInset={leftPanelWidth}
-                        rightInset={rightPanelWidth}
-                        selectedEmployeeId={selectedEmployeeId}
-                        onSelectEmployee={handleSelectEmployee}
-                        onDeselectEmployee={() => setSelectedEmployeeId(null)}
-                        onFallbackTo2D={() => {
-                          setViewMode('2D');
-                          addToast('3D rendering failed — switched to 2D view', 'error');
-                        }}
-                      />
-                    </Suspense>
-                  </div>
-                }
-                chatDrawer={
-                  <ChatDrawer requestOpen={chatOpenToken}>
-                    {({ compact }) =>
-                      renderChatPanel({
-                        compact,
-                        showPipelineProgress: true,
-                        showMeetingPanel: !compact,
-                      })
-                    }
-                  </ChatDrawer>
-                }
-                eventLog={
-                  <RightSidebar
-                    chatPanel={renderChatPanel({
-                      showPipelineProgress: false,
-                      showMeetingPanel: false,
-                    })}
-                    focusTasksToken={focusOutputsToken}
-                    requestChatToken={chatOpenToken}
-                    activeThreadId={activeProject?.thread_id ?? null}
-                  />
-                }
-                statusBar={
-                  <StatusBar
-                    modelName={providerConfig?.model}
-                    activeProjectStatus={activeProject?.status ?? null}
-                  />
-                }
-                centerContent={workspaceRouterContent}
-                chatDrawerMode="mobile-only"
-                requestRightExpandToken={chatOpenToken}
-                onLayoutMetricsChange={handleLayoutMetricsChange}
-              />
-            </CeremonyHost>
-            {dashboardOpen && (
-              <Suspense fallback={null}>
-                <DashboardOverlay
-                  open={dashboardOpen}
-                  onClose={() => setDashboardOpen(false)}
-                  activeThreadId={activeProject?.thread_id ?? null}
-                />
-              </Suspense>
-            )}
-            {kanbanOpen && (
-              <Suspense fallback={null}>
-                <KanbanOverlay
-                  open={kanbanOpen}
-                  onClose={() => setKanbanOpen(false)}
-                  requestText={lastUserRequest ?? undefined}
-                />
-              </Suspense>
-            )}
-            {marketplaceListingId && (
-              <Suspense fallback={null}>
-                <MarketplaceOverlay
-                  listingId={marketplaceListingId}
-                  onClose={() => setMarketplaceListingId(null)}
-                  onInstall={(listingId, version) => {
-                    setMarketplaceListingId(null);
-                    installFlow.startRegistryInstall(listingId, version);
-                  }}
-                />
-              </Suspense>
-            )}
-            <EmployeeInspector
-              employeeId={selectedEmployeeId}
-              agents={agents}
-              leftOffset={leftPanelWidth}
-              onClose={() => setSelectedEmployeeId(null)}
-              onOpenEditor={(id) => {
+          <Suspense fallback={null}>
+            <OfficeWorkspaceShellLazy
+              activeCompanyId={activeCompanyId}
+              anyOverlayOpen={anyOverlayOpen}
+              chatOnboardingStarterPrompts={chatOnboardingStarters}
+              chatOnboardingWelcome={chatOnboardingWelcome}
+              chatOpenToken={chatOpenToken}
+              dashboardOpen={dashboardOpen}
+              focusOutputsToken={focusOutputsToken}
+              kanbanOpen={kanbanOpen}
+              lastUserRequest={lastUserRequest}
+              leftPanelWidth={leftPanelWidth}
+              marketplaceListingId={marketplaceListingId}
+              onCloseDashboard={() => setDashboardOpen(false)}
+              onCloseKanban={() => setKanbanOpen(false)}
+              onCloseMarketplace={() => setMarketplaceListingId(null)}
+              onFileImport={(file) => installFlow.startFileImport(file)}
+              onInstallListing={(listingId, version) => {
+                setMarketplaceListingId(null);
+                installFlow.startRegistryInstall(listingId, version);
+              }}
+              onLayoutMetricsChange={handleLayoutMetricsChange}
+              onOpenCompanyEditor={companyEditor.open}
+              onOpenCompanySelect={() => setView('company-select')}
+              onOpenEmployeeCreator={() => setView('employee-creator')}
+              onOpenOfficeEditor={() => setView('office-editor')}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenStudio={handleOpenStudio}
+              onSelectEmployee={handleSelectEmployee}
+              onStartEmployeeChat={(id) => {
+                handleSelectEmployee(id);
+                setChatOpenToken((token) => token + 1);
+              }}
+              onToggleDashboard={() => setDashboardOpen((open) => !open)}
+              onToggleKanban={() => setKanbanOpen((open) => !open)}
+              onUserMessage={handleUserMessage}
+              onWorkspaceSwitch={handleWorkspaceSwitch}
+              openEmployeeEditor={(id) => {
                 void employeeEditor.openForEdit(id);
               }}
-              onStartChat={(id) => {
-                handleSelectEmployee(id);
-                setChatOpenToken((t) => t + 1);
+              providerConfig={providerConfig}
+              selectedEmployeeId={selectedEmployeeId}
+              view={view}
+              viewMode={viewMode}
+              workspaceRouterContent={workspaceRouterContent}
+              onViewModeChange={setViewMode}
+              onSceneFallbackTo2D={() => {
+                setViewMode('2D');
+                addToast('3D rendering failed — switched to 2D view', 'error');
               }}
+              rightPanelWidth={rightPanelWidth}
             />
-            <OnboardingController
-              activeCompanyId={activeCompanyId}
-              isOfficeView={view === 'office'}
-              anyOverlayOpen={anyOverlayOpen}
-              directChatActive={selectedEmployeeId !== null}
-            />
-          </>
+          </Suspense>
         )}
 
         {/* ── Global dialogs (available across all views) ── */}

@@ -1,7 +1,7 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
 import {
@@ -16,14 +16,19 @@ import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContent } from '../../runtime/use-streaming-content';
 import { EmptyState, type EmptyStateWelcome, type StarterPrompt } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
-import { MeetingPanel } from '../office/MeetingPanel';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
 import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
-import { PipelineProgress } from './PipelineProgress';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
+
+const MeetingPanel = lazy(() =>
+  import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
+);
+const PipelineProgress = lazy(() =>
+  import('./PipelineProgress').then((module) => ({ default: module.PipelineProgress })),
+);
 
 interface ChatMessage {
   id: string;
@@ -439,7 +444,9 @@ export function ChatPanel({
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
       {!compact && showMeetingPanel && (
         <div className="shrink-0">
-          <MeetingPanel agents={agents} />
+          <Suspense fallback={null}>
+            <MeetingPanel agents={agents} />
+          </Suspense>
         </div>
       )}
       {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
@@ -453,7 +460,9 @@ export function ChatPanel({
       {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
       {!compact && showPipelineProgress && (
         <div className="shrink-0">
-          <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+          <Suspense fallback={null}>
+            <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+          </Suspense>
         </div>
       )}
 

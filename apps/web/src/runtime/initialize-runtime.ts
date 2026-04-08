@@ -1,6 +1,6 @@
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { InteractionMode } from '@offisim/shared-types';
-import type { ProviderConfig } from '@offisim/ui-office';
+import type { ProviderConfig } from '@offisim/ui-office/web';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
 export async function initializeRuntimeBundle(

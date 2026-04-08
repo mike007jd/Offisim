@@ -40,8 +40,8 @@ import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
-} from '@offisim/ui-office';
-import type { ProviderConfig } from '@offisim/ui-office';
+} from '@offisim/ui-office/web';
+import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { TauriCheckpointSaver } from './tauri-checkpoint';

@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useState } from 'react';
+import { Suspense, StrictMode, lazy, useCallback, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import {
@@ -6,11 +6,12 @@ import {
   NotificationProvider,
   ThemeProvider,
   useOffisimRuntime,
-} from '@offisim/ui-office';
-import { App } from './App.js';
+} from '@offisim/ui-office/web';
 import { installThreeConsoleFilter } from './lib/three-console';
 import { BootstrapProvider } from './runtime/BootstrapProvider';
 import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
+
+const App = lazy(() => import('./App.js').then((module) => ({ default: module.App })));
 
 /** Persist active company across page reloads. */
 const STORAGE_KEY = 'offisim:active-company';
@@ -71,7 +72,9 @@ function Shell() {
       <ThemeProvider>
         <BootstrapProvider>
           <NotificationProvider>
-            <App onCompanySwitch={handleCompanySwitch} />
+            <Suspense fallback={<AppBootFallback />}>
+              <App onCompanySwitch={handleCompanySwitch} />
+            </Suspense>
           </NotificationProvider>
         </BootstrapProvider>
       </ThemeProvider>
@@ -83,12 +86,18 @@ function Shell() {
       <OffisimRuntimeProvider key={companyId} companyId={companyId}>
         <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
           <NotificationProvider>
-            <App onCompanySwitch={handleCompanySwitch} />
+            <Suspense fallback={<AppBootFallback />}>
+              <App onCompanySwitch={handleCompanySwitch} />
+            </Suspense>
           </NotificationProvider>
         </CompanyBridge>
       </OffisimRuntimeProvider>
     </ThemeProvider>
   );
+}
+
+function AppBootFallback() {
+  return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400" />;
 }
 
 const root = document.getElementById('root');

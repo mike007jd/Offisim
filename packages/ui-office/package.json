@@ -12,6 +12,10 @@
       "types": "./dist/scene.d.ts",
       "default": "./dist/scene.js"
     },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "default": "./dist/web.js"
+    },
     "./wizard": {
       "types": "./dist/components/onboarding/CompanyCreationWizard.d.ts",
       "default": "./dist/components/onboarding/CompanyCreationWizard.js"
@@ -54,7 +58,7 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json && cp src/components/install/install-animations.css dist/components/install/",
+    "build": "tsc --project tsconfig.json && mkdir -p dist/components/install dist/components/workspace && cp src/components/install/install-animations.css dist/components/install/ && cp src/components/workspace/workspace-shell.css dist/components/workspace/",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "clean": "rm -rf dist",
     "test": "vitest run"

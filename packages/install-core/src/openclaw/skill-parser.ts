@@ -1,11 +1,11 @@
 /**
  * Skill parser — parse OpenClaw SKILL.md format.
  *
- * Uses gray-matter for YAML frontmatter extraction.
+ * Uses js-yaml for YAML frontmatter extraction.
  * Normalizes OpenClaw's dot-separated metadata keys into structured types.
  */
 
-import matter from 'gray-matter';
+import { load } from 'js-yaml';
 import type { ParsedSkill, RequiredMcp, SkillMetadata, SkillRequirements } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -117,6 +117,64 @@ function extractMetadata(
 /** Maximum allowed SKILL.md size (512 KB). Prevents OOM on malicious input. */
 const MAX_SKILL_SIZE = 512 * 1024;
 
+function extractFrontmatter(content: string): { data: Record<string, unknown>; body: string } {
+  const normalizedContent = content.replace(/^\uFEFF/, '').replaceAll('\r\n', '\n');
+
+  if (!normalizedContent.startsWith('---')) {
+    throw new SkillParseError(
+      'no_frontmatter',
+      'SKILL.md must contain YAML frontmatter (--- delimited)',
+    );
+  }
+
+  const lines = normalizedContent.split('\n');
+  if (lines[0] !== '---') {
+    throw new SkillParseError(
+      'no_frontmatter',
+      'SKILL.md must contain YAML frontmatter (--- delimited)',
+    );
+  }
+
+  let closingIndex = -1;
+  for (let index = 1; index < lines.length; index += 1) {
+    if (lines[index] === '---') {
+      closingIndex = index;
+      break;
+    }
+  }
+
+  if (closingIndex === -1) {
+    throw new SkillParseError(
+      'parse_failed',
+      'Failed to parse SKILL.md frontmatter: missing closing --- delimiter',
+    );
+  }
+
+  const frontmatterSource = lines.slice(1, closingIndex).join('\n');
+  let parsedFrontmatter: unknown;
+  try {
+    parsedFrontmatter = load(frontmatterSource) ?? {};
+  } catch (err) {
+    throw new SkillParseError(
+      'parse_failed',
+      `Failed to parse SKILL.md frontmatter: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  if (typeof parsedFrontmatter !== 'object' || parsedFrontmatter === null) {
+    throw new SkillParseError(
+      'parse_failed',
+      'Failed to parse SKILL.md frontmatter: expected a YAML object',
+    );
+  }
+
+  const body = lines.slice(closingIndex + 1).join('\n');
+  return {
+    data: parsedFrontmatter as Record<string, unknown>,
+    body,
+  };
+}
+
 export function parseSkill(content: string): ParsedSkill {
   // 0. Guard against excessively large input
   if (content.length > MAX_SKILL_SIZE) {
@@ -127,19 +185,8 @@ export function parseSkill(content: string): ParsedSkill {
   }
 
   // 1. Extract frontmatter
-  let parsed: matter.GrayMatterFile<string>;
-  try {
-    parsed = matter(content);
-  } catch (err) {
-    throw new SkillParseError(
-      'parse_failed',
-      `Failed to parse SKILL.md frontmatter: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+  const { data, body } = extractFrontmatter(content);
 
-  const data = parsed.data as Record<string, unknown>;
-
-  // Check if there actually was frontmatter (gray-matter returns empty data for plain markdown)
   if (!data || Object.keys(data).length === 0) {
     throw new SkillParseError(
       'no_frontmatter',
@@ -166,7 +213,7 @@ export function parseSkill(content: string): ParsedSkill {
   return {
     name: data.name.trim(),
     description: data.description.trim(),
-    instructions: parsed.content.trim(),
+    instructions: body.trim(),
     requirements: extractRequirements(meta),
     metadata: extractMetadata(data, meta),
   };

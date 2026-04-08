@@ -47,8 +47,8 @@ import {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
-} from '@offisim/ui-office';
-import type { ProviderConfig } from '@offisim/ui-office';
+} from '@offisim/ui-office/web';
+import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {

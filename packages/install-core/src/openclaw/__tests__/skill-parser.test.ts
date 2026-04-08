@@ -79,6 +79,13 @@ body`;
     expect(skill.requirements.bins).toEqual(['curl']);
   });
 
+  it('parses frontmatter when the file starts with a UTF-8 BOM', () => {
+    const skill = parseSkill(`\uFEFF${MINIMAL_SKILL}`);
+    expect(skill.name).toBe('test-skill');
+    expect(skill.description).toBe('A test skill');
+    expect(skill.instructions).toContain('You are a test assistant.');
+  });
+
   it('throws SkillParseError when no frontmatter', () => {
     expect(() => parseSkill('Just some markdown')).toThrow(SkillParseError);
   });

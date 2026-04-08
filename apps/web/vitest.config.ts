@@ -12,6 +12,7 @@ export default defineConfig({
       '@offisim/core/browser': path.resolve(__dirname, '../../packages/core/dist/browser.js'),
       '@offisim/core': path.resolve(__dirname, '../../packages/core/dist/index.js'),
       '@offisim/shared-types': path.resolve(__dirname, '../../packages/shared-types/dist/index.js'),
+      '@offisim/ui-office/web': path.resolve(__dirname, '../../packages/ui-office/src/web.ts'),
       '@offisim/ui-office': path.resolve(__dirname, '../../packages/ui-office/src/index.ts'),
     },
   },

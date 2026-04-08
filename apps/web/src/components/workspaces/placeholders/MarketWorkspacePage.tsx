@@ -1,7 +1,7 @@
 /**
- * Re-exports the real MarketWorkspacePage from @offisim/ui-office.
+ * Re-exports the real MarketWorkspacePage from @offisim/ui-office/web.
  *
  * This file exists so the WorkspaceRouter can lazy-import via a default
  * export without pulling in the entire ui-office barrel.
  */
-export { MarketWorkspacePage as default } from '@offisim/ui-office';
+export { MarketWorkspacePage as default } from '@offisim/ui-office/web';

@@ -1,7 +1,7 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import type React from 'react';
 
-import type { MarketSortOption } from '@offisim/ui-office';
+import type { MarketSortOption } from '@offisim/ui-office/web';
 
 // ---------------------------------------------------------------------------
 // Workspace Keys

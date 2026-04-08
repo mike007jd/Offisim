@@ -1,5 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
+import './workspace-shell.css';
 
 export interface WorkspacePageShellProps {
   title: string;

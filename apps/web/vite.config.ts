@@ -27,6 +27,10 @@ function createUiOfficeAliases() {
       replacement: path.resolve(uiOfficeSrc, 'scene.ts'),
     },
     {
+      find: /^@offisim\/ui-office\/web$/,
+      replacement: path.resolve(uiOfficeSrc, 'web.ts'),
+    },
+    {
       find: /^@offisim\/ui-office\/wizard$/,
       replacement: path.resolve(uiOfficeSrc, 'components/onboarding/CompanyCreationWizard.tsx'),
     },
@@ -220,8 +224,12 @@ export default defineConfig(({ command }) => ({
     exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
   },
   build: {
-    // vendor-llm (LLM SDKs) is large but unavoidable — lazy-loaded on first chat.
-    chunkSizeWarningLimit: 1100,
+    // The remaining large lazy chunks are intentional:
+    // - vendor-llm (~1.08 MB minified) for provider SDKs
+    // - collaboration rail (~1.28 MB minified) for the full chat/task surface
+    // Both are split out of the entry path, so we set the warning budget to the
+    // audited ceiling instead of the previous lower generic threshold.
+    chunkSizeWarningLimit: 1300,
     rollupOptions: {
       external: [
         'better-sqlite3',
@@ -232,14 +240,29 @@ export default defineConfig(({ command }) => ({
       output: {
         // ---------------------------------------------------------------------------
         // Manual chunk splitting strategy:
+        // Keep manual chunking limited to third-party/vendor islands and the install
+        // toolchain. Application modules already have meaningful split points via
+        // React.lazy() and route-level dynamic imports; forcing local ui-office code
+        // into coarse manual chunks caused circular chunk warnings and oversized
+        // "foundation" bundles.
+        //
         //   vendor-react   — React core (rarely changes, long cache)
         //   vendor-llm     — LLM SDKs + LangChain + zod (lazy on first chat)
         //   vendor-3d      — Three.js + React Three Fiber (lazy on 3D view toggle)
         //   vendor-ui      — Radix primitives + lucide icons
-        //   vendor-install — fflate + ajv + gray-matter + js-yaml
-        //   vendor-drizzle — drizzle-orm (leaks via @offisim/core barrel export)
+        //   vendor-install — fflate + ajv + js-yaml
+        //   vendor-drizzle — drizzle-orm (isolated from the browser-safe core barrel)
+        //   app-install    — install-core + schema tooling
         // ---------------------------------------------------------------------------
         manualChunks(id: string) {
+          if (
+            id.includes('/packages/install-core/dist/') ||
+            id.includes('/packages/asset-schema/dist/') ||
+            id.includes('/packages/renderer/dist/')
+          ) {
+            return 'app-install';
+          }
+
           if (!id.includes('node_modules')) return;
 
           // React core — shared base, changes infrequently
@@ -282,7 +305,6 @@ export default defineConfig(({ command }) => ({
             id.includes('/fflate/') ||
             id.includes('/ajv/') ||
             id.includes('/ajv-formats/') ||
-            id.includes('/gray-matter/') ||
             id.includes('/js-yaml/')
           ) {
             return 'vendor-install';
