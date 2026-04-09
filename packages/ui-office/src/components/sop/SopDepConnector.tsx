@@ -22,15 +22,15 @@ interface SopDepConnectorProps {
 }
 
 const LINE_COLOR: Record<SopStepStatus, string> = {
-  design: 'rgba(255,255,255,0.08)',
-  pending: 'rgba(255,255,255,0.08)',
-  active: 'rgba(96,165,250,0.5)',
-  completed: 'rgba(52,211,153,0.4)',
-  failed: 'rgba(248,113,113,0.4)',
+  design: 'rgba(255,255,255,0.06)',
+  pending: 'rgba(255,255,255,0.06)',
+  active: 'rgba(34,211,238,0.45)',
+  completed: 'rgba(52,211,153,0.35)',
+  failed: 'rgba(248,113,113,0.35)',
 };
 
 const PARTICLE_COLOR: Record<string, string> = {
-  active: 'rgba(96,165,250,0.9)',
+  active: 'rgba(34,211,238,0.9)',
   completed: 'rgba(52,211,153,0.7)',
 };
 
@@ -69,7 +69,7 @@ export function SopDepConnector({
         const key = `${line.fromStepId}-${line.toStepId}`;
         return (
           <g key={key}>
-            <path d={pathD} fill="none" stroke={LINE_COLOR[line.status]} strokeWidth={1.5} />
+            <path d={pathD} fill="none" stroke={LINE_COLOR[line.status]} strokeWidth={2} />
             {line.status === 'active' && (
               <>
                 <circle r={2.5} fill={PARTICLE_COLOR.active}>

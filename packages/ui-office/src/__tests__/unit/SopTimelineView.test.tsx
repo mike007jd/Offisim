@@ -106,17 +106,14 @@ describe('SopTimelineView', () => {
     expect(screen.getByText('Review')).toBeInTheDocument();
   });
 
-  it('renders 3 batch labels for a linear SOP (one step per batch)', () => {
+  it('renders 3 phase labels for a linear SOP (one step per batch)', () => {
     render(<SopTimelineView definition={LINEAR_SOP} />);
-    expect(screen.getByText('Batch 1')).toBeInTheDocument();
-    expect(screen.getByText('Batch 2')).toBeInTheDocument();
-    expect(screen.getByText('Batch 3')).toBeInTheDocument();
+    expect(screen.getAllByText('Phase')).toHaveLength(3);
   });
 
   it('renders 2 batches for a parallel SOP (2 steps in batch 1)', () => {
     render(<SopTimelineView definition={PARALLEL_SOP} />);
-    expect(screen.getByText('Batch 1')).toBeInTheDocument();
-    expect(screen.getByText('Batch 2')).toBeInTheDocument();
+    expect(screen.getAllByText('Phase')).toHaveLength(2);
     // Batch 1 contains both Research and Design
     expect(screen.getByText('Research')).toBeInTheDocument();
     expect(screen.getByText('Design')).toBeInTheDocument();
@@ -142,19 +139,18 @@ describe('SopStepCard', () => {
     expect(screen.getByText('researcher')).toBeInTheDocument();
   });
 
-  it('shows check icon for completed status', () => {
+  it('shows emerald border for completed status', () => {
     const { container } = render(<SopStepCard label="Done" roleSlug="r" status="completed" />);
-    // emerald border indicates completion
-    expect(container.querySelector('button')).toHaveClass('border-emerald-400/60');
+    expect(container.querySelector('button')).toHaveClass('border-emerald-400/40');
   });
 
-  it('shows pulse animation for active status', () => {
+  it('shows cyan border for active status', () => {
     const { container } = render(<SopStepCard label="Active" roleSlug="r" status="active" />);
-    expect(container.querySelector('button')).toHaveClass('animate-pulse');
+    expect(container.querySelector('button')).toHaveClass('border-cyan-400/50');
   });
 
   it('shows red border for failed status', () => {
     const { container } = render(<SopStepCard label="Failed" roleSlug="r" status="failed" />);
-    expect(container.querySelector('button')).toHaveClass('border-red-400/60');
+    expect(container.querySelector('button')).toHaveClass('border-red-400/40');
   });
 });

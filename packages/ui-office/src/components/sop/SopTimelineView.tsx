@@ -34,9 +34,9 @@ function getExecutionBatches(def: SopDefinition): SopStep[][] {
 // Layout constants
 // ---------------------------------------------------------------------------
 
-const COLUMN_GAP = 56;
-const ROW_GAP = 8;
-const PADDING_Y = 8;
+const COLUMN_GAP = 72;
+const ROW_GAP = 12;
+const PADDING_Y = 12;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -129,8 +129,9 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
             className="flex flex-col shrink-0"
             style={{ gap: ROW_GAP, paddingTop: PADDING_Y }}
           >
-            <span className="text-[8px] text-slate-600 uppercase tracking-wider mb-0.5 px-0.5">
-              Batch {batchIdx + 1}
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase tracking-wider mb-1 px-0.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded bg-white/[0.06] text-[9px] font-bold text-slate-400">{batchIdx + 1}</span>
+              Phase
             </span>
             {batch.map((step) => {
               const idx = stepIndexMap.get(step.step_id) ?? 0;
