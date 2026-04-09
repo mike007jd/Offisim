@@ -212,7 +212,7 @@ export function createDefaultActivityLogState(): ActivityLogSessionState {
     search: '',
     eventTypes: [],
     actorFilters: [],
-    datePreset: 'today',
+    datePreset: '30d',
   };
 }
 

@@ -29,7 +29,16 @@ export function FullPageWorkspaceShell({
   children,
 }: FullPageWorkspaceShellProps) {
   return (
-    <div className="flex h-screen min-h-0 flex-col bg-[radial-gradient(circle_at_top,#14203d_0%,#0a1022_38%,#050814_100%)] text-slate-100">
+    <div
+      className="flex h-screen min-h-0 flex-col text-slate-100"
+      style={{
+        background: `
+          radial-gradient(circle at top, #14203d 0%, #0a1022 38%, #050814 100%),
+          radial-gradient(circle, rgba(100,200,255,0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: '100% 100%, 24px 24px',
+      }}
+    >
       <header className="border-b border-white/10 bg-slate-950/55 px-6 py-4 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -84,7 +93,7 @@ export function FullPageWorkspaceShell({
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 overflow-hidden">
+      <main className="flex min-h-0 flex-1 overflow-hidden border-t border-white/[0.04]">
         {children}
       </main>
     </div>

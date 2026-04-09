@@ -13,13 +13,20 @@ export function SurfaceCard({
   children: ReactNode;
   className?: string;
 }) {
+  const compact = !description && !icon;
   return (
     <section
-      className={`rounded-[24px] border border-white/10 bg-slate-950/45 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl ${className}`}
+      className={`rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 backdrop-blur-xl ${className}`}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className={`flex items-start justify-between gap-3 ${compact ? 'mb-3' : 'mb-4'}`}>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-400">
+          <p
+            className={
+              compact
+                ? 'text-sm font-semibold text-slate-200'
+                : 'text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-400'
+            }
+          >
             {title}
           </p>
           {description ? <p className="mt-2 text-sm text-slate-300">{description}</p> : null}
