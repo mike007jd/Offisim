@@ -309,9 +309,14 @@ export function ChatInput({
                 >
                   {cmd.category}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-xs text-slate-400">{cmd.description}</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-400">
+                  {cmd.description}
+                </span>
                 {cmd.argumentHint && (
-                  <span className="text-[10px] text-slate-500 shrink-0 truncate max-w-[120px]" title={cmd.argumentHint}>
+                  <span
+                    className="text-[10px] text-slate-500 shrink-0 truncate max-w-[120px]"
+                    title={cmd.argumentHint}
+                  >
                     {cmd.argumentHint}
                   </span>
                 )}
