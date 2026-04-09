@@ -1,9 +1,10 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { ScrollArea, ToastBanner, useToasts } from '@offisim/ui-core';
+import { ToastBanner, useToasts } from '@offisim/ui-core';
+import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
-import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
-import type { EventFilterType } from '../EventFilters';
+import { ALL_EVENT_TYPES, ALL_LEVELS } from '../EventFilters';
+import type { EventFilterType, EventLevel } from '../EventFilters';
 import { EventItem, getDisplayLabel } from '../EventItem';
 import {
   LEVEL_ROW_STYLES,
@@ -13,7 +14,6 @@ import {
 } from '../EventLog';
 import type { EventDisplayLevel } from '../EventLog';
 import { ActivityLogEventFocus } from './ActivityLogEventFocus';
-import { ActivityLogFiltersPane } from './ActivityLogFiltersPane';
 import {
   type DatePreset,
   getAvailableActorFilters,
@@ -44,6 +44,22 @@ export interface ActivityLogPageProps {
     updater: (prev: ActivityLogSessionState) => ActivityLogSessionState,
   ) => void;
 }
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const DATE_PRESETS = [
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
+] as const satisfies readonly { value: DatePreset; label: string }[];
+
+const ACTIVE_LEVEL_COLORS: Record<EventLevel, string> = {
+  Info: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+  Warning: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
+  Error: 'bg-red-500/20 text-red-400 border-red-500/40',
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -156,13 +172,6 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     [onSessionStateChange],
   );
 
-  const handleEventTypesChange = useCallback(
-    (eventTypes: string[]) => {
-      onSessionStateChange((prev) => ({ ...prev, eventTypes }));
-    },
-    [onSessionStateChange],
-  );
-
   const handleDatePresetChange = useCallback(
     (datePreset: DatePreset) => {
       onSessionStateChange((prev) => ({ ...prev, datePreset }));
@@ -177,87 +186,190 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     [onSessionStateChange],
   );
 
+  // Inline filter toggle logic (previously in ActivityLogFiltersPane)
+  function toggleEventType(type: string) {
+    if (type === 'All') {
+      onSessionStateChange((prev) => ({ ...prev, eventTypes: [] }));
+      return;
+    }
+    const next = sessionState.eventTypes.includes(type)
+      ? sessionState.eventTypes.filter((t) => t !== type)
+      : [...sessionState.eventTypes, type];
+    onSessionStateChange((prev) => ({ ...prev, eventTypes: next }));
+  }
+
+  function isTypeActive(type: EventFilterType): boolean {
+    if (type === 'All') return sessionState.eventTypes.length === 0;
+    return sessionState.eventTypes.includes(type);
+  }
+
+  function toggleActor(actor: string) {
+    const next = sessionState.actorFilters.includes(actor)
+      ? sessionState.actorFilters.filter((a) => a !== actor)
+      : [...sessionState.actorFilters, actor];
+    handleActorFiltersChange(next);
+  }
+
   // Event-focused mode
   if (sessionState.selectedEventId && focusedEvent) {
     return (
-      <WorkspacePageShell
-        title="Activity Log"
-        workspace="activity-log"
-        testId="workspace-activity-log"
-        topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
+      <div
+        className="flex h-full flex-col"
+        data-testid="workspace-activity-log"
+        data-workspace="activity-log"
       >
+        <ToastBanner toasts={toasts} onDismiss={dismissToast} />
         <div className="flex-1 min-h-0 overflow-hidden">
           <ActivityLogEventFocus event={focusedEvent} onBack={handleBackFromFocus} />
         </div>
-      </WorkspacePageShell>
+      </div>
     );
   }
 
+  // Timeline mode
   return (
-    <WorkspacePageShell
-      title="Activity Log"
-      workspace="activity-log"
-      testId="workspace-activity-log"
-      topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
+    <div
+      className="flex h-full flex-col"
+      data-testid="workspace-activity-log"
+      data-workspace="activity-log"
     >
-      <div className="activity-log-panes">
-        <aside
-          className="activity-log-filters"
-          data-testid="activity-log-filters"
-          aria-label="Activity log filters"
-        >
-          <ActivityLogFiltersPane
-            search={sessionState.search}
-            eventTypes={sessionState.eventTypes}
-            actorOptions={actorOptions}
-            actorFilters={sessionState.actorFilters}
-            datePreset={sessionState.datePreset}
-            onSearchChange={handleSearchChange}
-            onEventTypesChange={handleEventTypesChange}
-            onActorFiltersChange={handleActorFiltersChange}
-            onDatePresetChange={handleDatePresetChange}
-          />
-        </aside>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-        <main
-          className="activity-log-timeline"
-          data-testid="activity-log-timeline"
-          aria-label="Event timeline"
-        >
-          <ScrollArea className="h-full">
-            <div ref={scrollRef} className="px-4">
-              {filteredEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-80 gap-2 text-center px-8">
-                  <p className="text-sm text-slate-400">
-                    {events.length === 0 ? 'No events yet' : 'No events match filters'}
-                  </p>
-                </div>
-              ) : (
-                filteredEvents.map(({ event, level }, i) => {
-                  const rowStyle = LEVEL_ROW_STYLES[level];
-                  return (
-                    <button
-                      type="button"
-                      key={`${event.timestamp}-${i}`}
-                      className={`${rowStyle} cursor-pointer hover:bg-white/[0.04] transition-colors text-left w-full border-l-[3px] ${
-                        level === 'Error'
-                          ? 'border-l-red-400/60'
-                          : level === 'Warning'
-                            ? 'border-l-amber-400/60'
-                            : 'border-l-transparent'
-                      }`}
-                      onClick={() => handleSelectEvent(event)}
-                    >
-                      <EventItem event={event} />
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
-        </main>
+      {/* Top toolbar — inline filters */}
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-2.5 shrink-0 flex-wrap">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <input
+            type="text"
+            value={sessionState.search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search..."
+            className="bg-white/[0.04] border border-white/[0.08] rounded-lg pl-8 pr-3 py-1 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/30 w-40"
+          />
+        </div>
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-white/[0.08]" />
+
+        {/* Date presets */}
+        {DATE_PRESETS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => handleDatePresetChange(p.value)}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+              sessionState.datePreset === p.value
+                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
+                : 'text-slate-500 border border-white/[0.06] hover:text-slate-300'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        <div className="w-px h-5 bg-white/[0.08]" />
+
+        {/* Event type chips */}
+        {ALL_EVENT_TYPES.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => toggleEventType(type)}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+              isTypeActive(type)
+                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
+                : 'text-slate-500 border border-white/[0.06] hover:text-slate-300'
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+
+        <div className="w-px h-5 bg-white/[0.08]" />
+
+        {/* Level pills (display-only) */}
+        {ALL_LEVELS.map((level) => {
+          const active =
+            sessionState.eventTypes.length === 0 || sessionState.eventTypes.includes(level);
+          return (
+            <span
+              key={level}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
+                active
+                  ? ACTIVE_LEVEL_COLORS[level]
+                  : 'text-slate-600 border-white/[0.04] opacity-40'
+              }`}
+            >
+              {level}
+            </span>
+          );
+        })}
+
+        <div className="w-px h-5 bg-white/[0.08]" />
+
+        {/* Actor filters */}
+        {actorOptions.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => handleActorFiltersChange([])}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                sessionState.actorFilters.length === 0
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
+                  : 'text-slate-500 border border-white/[0.06] hover:text-slate-300'
+              }`}
+            >
+              All actors
+            </button>
+            {actorOptions.map((actor) => (
+              <button
+                key={actor}
+                type="button"
+                onClick={() => toggleActor(actor)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors truncate max-w-[120px] ${
+                  sessionState.actorFilters.includes(actor)
+                    ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
+                    : 'text-slate-500 border border-white/[0.06] hover:text-slate-300'
+                }`}
+              >
+                {actor}
+              </button>
+            ))}
+          </>
+        )}
       </div>
-    </WorkspacePageShell>
+
+      {/* Event timeline — full width */}
+      <div className="flex-1 min-h-0 overflow-y-auto" data-testid="activity-log-timeline">
+        <div ref={scrollRef} className="px-4">
+          {filteredEvents.length === 0 ? (
+            <div className="flex items-center justify-center h-80">
+              <p className="text-sm text-slate-500">
+                {events.length === 0 ? 'No events yet' : 'No events match filters'}
+              </p>
+            </div>
+          ) : (
+            filteredEvents.map(({ event, level }, i) => (
+              <button
+                type="button"
+                key={`${event.timestamp}-${i}`}
+                className={`${LEVEL_ROW_STYLES[level]} cursor-pointer hover:bg-white/[0.04] transition-colors text-left w-full border-l-[3px] ${
+                  level === 'Error'
+                    ? 'border-l-red-400/60'
+                    : level === 'Warning'
+                      ? 'border-l-amber-400/60'
+                      : 'border-l-transparent'
+                }`}
+                onClick={() => handleSelectEvent(event)}
+              >
+                <EventItem event={event} />
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

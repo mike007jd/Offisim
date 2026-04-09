@@ -83,7 +83,7 @@ export function SopStepCard({ label, roleSlug, status, onClick }: SopStepCardPro
   return (
     <button
       type="button"
-      className={`relative flex items-center gap-2.5 rounded-lg border pl-3.5 pr-3 py-2.5 text-left transition-all min-w-[160px] max-w-[220px] ${STATUS_RING[status]} ${STATUS_BG[status]} ${onClick ? 'cursor-pointer hover:bg-white/[0.05]' : 'cursor-default'}`}
+      className={`relative flex items-center gap-2.5 rounded-lg border pl-3.5 pr-3 py-2.5 text-left transition-all w-full min-w-[200px] max-w-[280px] ${STATUS_RING[status]} ${STATUS_BG[status]} ${onClick ? 'cursor-pointer hover:bg-white/[0.05]' : 'cursor-default'}`}
       onClick={onClick}
       disabled={!onClick}
     >

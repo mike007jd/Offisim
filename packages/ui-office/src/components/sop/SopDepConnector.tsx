@@ -35,12 +35,12 @@ const PARTICLE_COLOR: Record<string, string> = {
 };
 
 function buildPath(from: CardRect, to: CardRect): string {
-  const x1 = from.x + from.width;
-  const y1 = from.y + from.height / 2;
-  const x2 = to.x;
-  const y2 = to.y + to.height / 2;
-  const dx = (x2 - x1) * 0.4;
-  return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+  const x1 = from.x + from.width / 2;
+  const y1 = from.y + from.height;
+  const x2 = to.x + to.width / 2;
+  const y2 = to.y;
+  const dy = (y2 - y1) * 0.4;
+  return `M${x1},${y1} C${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2}`;
 }
 
 export function SopDepConnector({

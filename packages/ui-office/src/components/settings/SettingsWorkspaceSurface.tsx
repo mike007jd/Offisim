@@ -4,7 +4,6 @@ import type {
   RuntimePolicyConfig,
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import { Cpu, Workflow } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -534,78 +533,79 @@ interface SettingsWorkspaceSurfaceProps {
   onActiveTabChange: (tab: SettingsTab) => void;
 }
 
+const TAB_ITEMS: { key: SettingsTab; label: string; icon: typeof Cpu }[] = [
+  { key: 'provider', label: 'Provider', icon: Cpu },
+  { key: 'runtime', label: 'Runtime', icon: Workflow },
+  { key: 'mcp', label: 'MCP', icon: Cpu },
+  { key: 'openclaw', label: 'Gateway', icon: Workflow },
+];
+
 export function SettingsWorkspaceSurface({
   activeTab,
   controller,
   dismissControl: _dismissControl,
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
-
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden text-slate-100">
-      <div className="flex h-full min-h-0 flex-col">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => onActiveTabChange(value as SettingsTab)}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <div className="border-b border-white/[0.06] px-6 py-2.5">
-            <TabsList className="inline-flex rounded-lg border border-white/[0.08] bg-white/[0.02] p-0.5 gap-0.5">
-              <TabsTrigger
-                value="provider"
-                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
-              >
-                Provider
-              </TabsTrigger>
-              <TabsTrigger
-                value="runtime"
-                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
-              >
-                Runtime
-              </TabsTrigger>
-              <TabsTrigger
-                value="mcp"
-                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
-              >
-                MCP
-              </TabsTrigger>
-              <TabsTrigger
-                value="openclaw"
-                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
-              >
-                Gateway
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="provider" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <SettingsProviderTab controller={controller} />
-          </TabsContent>
-
-          <TabsContent value="runtime" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <SettingsRuntimeTab controller={controller} />
-          </TabsContent>
-
-          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <SurfaceCard
-              title="MCP servers"
-              description="Attach or reconfigure MCP endpoints without leaving the provider workspace."
-              icon={<Cpu className="h-5 w-5" />}
+    <div className="flex h-full min-h-0 overflow-hidden text-slate-100">
+      {/* Left sidebar — tab navigation */}
+      <div className="flex w-44 shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.01]">
+        <nav className="flex flex-1 flex-col gap-1 p-3">
+          {TAB_ITEMS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onActiveTabChange(key)}
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-left transition-colors ${
+                activeTab === key
+                  ? 'bg-cyan-400/10 text-cyan-200'
+                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+              }`}
             >
-              <McpConfigPanel />
-            </SurfaceCard>
-          </TabsContent>
+              <Icon className="h-4 w-4 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </nav>
 
-          <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <SurfaceCard
-              title="Gateway"
-              description="Connect Offisim to OpenClaw or other local orchestration gateways from the same new control surface."
-              icon={<Workflow className="h-5 w-5" />}
-            >
-              <OpenClawSettings />
-            </SurfaceCard>
-          </TabsContent>
-        </Tabs>
+        {/* Save button at bottom */}
+        <div className="border-t border-white/[0.06] p-3">
+          <button
+            type="button"
+            onClick={() => void controller.handleSave()}
+            disabled={controller.isSaveDisabled}
+            className="w-full rounded-lg bg-cyan-500/15 border border-cyan-400/30 px-3 py-2 text-[13px] font-medium text-cyan-200 hover:bg-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {controller.isSaving ? 'Saving\u2026' : 'Save'}
+          </button>
+          {controller.saveError && (
+            <p className="mt-2 text-[11px] text-red-400 break-words">{controller.saveError}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Right — content area */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+        {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
+        {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
+        {activeTab === 'mcp' && (
+          <SurfaceCard
+            title="MCP servers"
+            description="Attach or reconfigure MCP endpoints."
+            icon={<Cpu className="h-5 w-5" />}
+          >
+            <McpConfigPanel />
+          </SurfaceCard>
+        )}
+        {activeTab === 'openclaw' && (
+          <SurfaceCard
+            title="Gateway"
+            description="Connect to OpenClaw or local orchestration gateways."
+            icon={<Workflow className="h-5 w-5" />}
+          >
+            <OpenClawSettings />
+          </SurfaceCard>
+        )}
       </div>
     </div>
   );

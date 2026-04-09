@@ -19,10 +19,6 @@ vi.mock('@offisim/ui-core', () => ({
     </button>
   ),
   SelectValue: () => <span>Select value</span>,
-  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsContent: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
-  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 
 vi.mock('../../theme', () => ({

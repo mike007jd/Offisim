@@ -8,10 +8,6 @@ vi.mock('../../hooks/useListingDetail.js', () => ({
   useListingDetail: (...args: unknown[]) => useListingDetailMock(...args),
 }));
 
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceSidebar.js', () => ({
-  MarketWorkspaceSidebar: () => <div>sidebar</div>,
-}));
-
 vi.mock('../../components/marketplace/workspace/MarketWorkspaceExplore.js', () => ({
   MarketWorkspaceExplore: () => <div>explore</div>,
 }));
@@ -20,14 +16,14 @@ vi.mock('../../components/marketplace/workspace/MarketWorkspaceManage.js', () =>
   MarketWorkspaceManage: () => <div>manage</div>,
 }));
 
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceContextPane.js', () => ({
-  MarketWorkspaceContextPane: () => <div>context</div>,
-}));
-
 vi.mock('../../components/marketplace/workspace/MarketWorkspaceDetail.js', () => ({
   MarketWorkspaceDetail: ({ detailUnavailable }: { detailUnavailable: boolean }) => (
     <div>{detailUnavailable ? 'unavailable-detail' : 'detail'}</div>
   ),
+}));
+
+vi.mock('../../components/marketplace/PublishDialog.js', () => ({
+  PublishDialog: () => null,
 }));
 
 describe('MarketWorkspacePage', () => {
@@ -61,7 +57,7 @@ describe('MarketWorkspacePage', () => {
       />,
     );
 
-    expect(screen.getByTestId('workspace-market')).toHaveClass('workspace-shell');
+    expect(screen.getByTestId('workspace-market')).toBeInTheDocument();
     expect(screen.getByText('The selected listing is no longer available.')).toBeInTheDocument();
   });
 });

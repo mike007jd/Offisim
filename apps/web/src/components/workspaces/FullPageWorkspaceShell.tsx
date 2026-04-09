@@ -1,17 +1,6 @@
-import { Button } from '@offisim/ui-core';
-import { ArrowLeft, BriefcaseBusiness, ClipboardList, Logs, Settings } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { FullPageWorkspaceAppView } from '../../lib/app-view-layout';
-
-const WORKSPACE_META: Record<
-  FullPageWorkspaceAppView,
-  { label: string; icon: typeof ClipboardList }
-> = {
-  sops: { label: 'SOPs', icon: ClipboardList },
-  market: { label: 'Market', icon: BriefcaseBusiness },
-  'activity-log': { label: 'Activity Log', icon: Logs },
-  settings: { label: 'Settings', icon: Settings },
-};
 
 interface FullPageWorkspaceShellProps {
   activeWorkspace: FullPageWorkspaceAppView;
@@ -22,10 +11,10 @@ interface FullPageWorkspaceShellProps {
 }
 
 export function FullPageWorkspaceShell({
-  activeWorkspace,
-  companyName,
+  activeWorkspace: _activeWorkspace,
+  companyName: _companyName,
   onBackToOffice,
-  onWorkspaceSwitch,
+  onWorkspaceSwitch: _onWorkspaceSwitch,
   children,
 }: FullPageWorkspaceShellProps) {
   return (
@@ -39,63 +28,19 @@ export function FullPageWorkspaceShell({
         backgroundSize: '100% 100%, 24px 24px',
       }}
     >
-      <header className="border-b border-white/10 bg-slate-950/55 px-6 py-4 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onBackToOffice}
-              className="border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Office
-            </Button>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-slate-400">
-                Workspace
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="truncate text-base font-semibold text-white">
-                  {companyName ?? 'Offisim'}
-                </span>
-                <span className="text-slate-500">/</span>
-                <span className="text-sm text-slate-300">
-                  {WORKSPACE_META[activeWorkspace].label}
-                </span>
-              </div>
-            </div>
-          </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Back button — fixed left edge */}
+        <button
+          type="button"
+          onClick={onBackToOffice}
+          className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-[12px] text-slate-300 backdrop-blur-md hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Office
+        </button>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {(Object.keys(WORKSPACE_META) as Array<FullPageWorkspaceAppView>).map((workspace) => {
-              const meta = WORKSPACE_META[workspace];
-              const Icon = meta.icon;
-              const active = workspace === activeWorkspace;
-              return (
-                <button
-                  key={workspace}
-                  type="button"
-                  onClick={() => onWorkspaceSwitch(workspace)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition ${
-                    active
-                      ? 'border-cyan-400/60 bg-cyan-400/12 text-cyan-100'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </header>
-
-      <main className="flex min-h-0 flex-1 overflow-hidden border-t border-white/[0.04]">
         {children}
-      </main>
+      </div>
     </div>
   );
 }

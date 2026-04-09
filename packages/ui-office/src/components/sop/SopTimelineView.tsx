@@ -34,9 +34,8 @@ function getExecutionBatches(def: SopDefinition): SopStep[][] {
 // Layout constants
 // ---------------------------------------------------------------------------
 
-const COLUMN_GAP = 72;
-const ROW_GAP = 12;
-const PADDING_Y = 12;
+const ROW_GAP = 48;
+const CARD_GAP = 16;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -120,35 +119,37 @@ export function SopTimelineView({ definition, runtimeState, onStepClick }: SopTi
   }
 
   return (
-    <div ref={containerRef} className="relative overflow-x-auto px-2 pb-2">
-      <div className="flex items-start" style={{ gap: COLUMN_GAP }}>
+    <div ref={containerRef} className="relative py-4 px-6">
+      <div className="flex flex-col items-center" style={{ gap: ROW_GAP }}>
         {batches.map((batch, batchIdx) => (
           <div
             // biome-ignore lint/suspicious/noArrayIndexKey: batches are deterministic from the SOP DAG; order is stable across renders
             key={batchIdx}
-            className="flex flex-col shrink-0"
-            style={{ gap: ROW_GAP, paddingTop: PADDING_Y }}
+            className="flex flex-col items-center"
+            style={{ gap: 8 }}
           >
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase tracking-wider mb-1 px-0.5">
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase tracking-wider px-0.5">
               <span className="flex h-4 w-4 items-center justify-center rounded bg-white/[0.06] text-[9px] font-bold text-slate-400">{batchIdx + 1}</span>
               Phase
             </span>
-            {batch.map((step) => {
-              const idx = stepIndexMap.get(step.step_id) ?? 0;
-              const stepStatus: SopStepStatus = statusMap
-                ? (statusMap.get(idx) ?? 'pending')
-                : 'design';
-              return (
-                <div key={step.step_id} data-step-id={step.step_id}>
-                  <SopStepCard
-                    label={step.label}
-                    roleSlug={step.role_slug}
-                    status={stepStatus}
-                    onClick={onStepClick ? () => onStepClick(step.step_id) : undefined}
-                  />
-                </div>
-              );
-            })}
+            <div className="flex items-start justify-center flex-wrap" style={{ gap: CARD_GAP }}>
+              {batch.map((step) => {
+                const idx = stepIndexMap.get(step.step_id) ?? 0;
+                const stepStatus: SopStepStatus = statusMap
+                  ? (statusMap.get(idx) ?? 'pending')
+                  : 'design';
+                return (
+                  <div key={step.step_id} data-step-id={step.step_id}>
+                    <SopStepCard
+                      label={step.label}
+                      roleSlug={step.role_slug}
+                      status={stepStatus}
+                      onClick={onStepClick ? () => onStepClick(step.step_id) : undefined}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>
