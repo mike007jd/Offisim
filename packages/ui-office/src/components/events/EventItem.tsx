@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time.js';
+import type { EventDisplayLevel } from './EventLog';
 
 type EventCategory = 'entered' | 'error' | 'completed' | 'other';
 
@@ -57,54 +58,99 @@ function formatEventType(type: string): string {
   return type.replaceAll('.', ' / ');
 }
 
-interface EventItemProps {
-  event: RuntimeEvent;
-}
+// ---------------------------------------------------------------------------
+// Domain icon resolution
+// ---------------------------------------------------------------------------
 
 /** Pick a domain-specific icon + color for known event prefixes. */
-function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
-  if (type.startsWith('hr.')) return { Icon: UserCheck, color: 'text-rose-400' };
-  if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-blue-400' };
-  if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-emerald-400' };
-  if (type.startsWith('memory.')) return { Icon: Lightbulb, color: 'text-amber-400' };
-  if (type.startsWith('handoff.')) return { Icon: ArrowRightLeft, color: 'text-orange-400' };
+function domainIcon(type: string): { Icon: LucideIcon; color: string; bg: string } | null {
+  if (type.startsWith('hr.'))
+    return { Icon: UserCheck, color: 'text-rose-400', bg: 'bg-rose-500/20' };
+  if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-blue-400', bg: 'bg-blue-500/20' };
+  if (type.startsWith('knowledge.'))
+    return { Icon: BookOpen, color: 'text-emerald-400', bg: 'bg-emerald-500/20' };
+  if (type.startsWith('memory.'))
+    return { Icon: Lightbulb, color: 'text-amber-400', bg: 'bg-amber-500/20' };
+  if (type.startsWith('handoff.'))
+    return { Icon: ArrowRightLeft, color: 'text-orange-400', bg: 'bg-orange-500/20' };
   if (type.startsWith('meeting.') || type.startsWith('direct.chat.'))
-    return { Icon: Users, color: 'text-cyan-400' };
+    return { Icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-500/20' };
   return null;
 }
 
-export function EventItem({ event }: EventItemProps) {
+// ---------------------------------------------------------------------------
+// Level tint backgrounds
+// ---------------------------------------------------------------------------
+
+const LEVEL_TINT: Record<EventDisplayLevel, string> = {
+  Info: '',
+  Warning: 'bg-amber-500/[0.04]',
+  Error: 'bg-red-500/[0.06]',
+};
+
+const LEVEL_DOT: Record<EventDisplayLevel, string> = {
+  Info: 'bg-blue-400',
+  Warning: 'bg-amber-400',
+  Error: 'bg-red-400',
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+interface EventItemProps {
+  event: RuntimeEvent;
+  level?: EventDisplayLevel;
+}
+
+export function EventItem({ event, level = 'Info' }: EventItemProps) {
   const { category, action } = categorize(event);
   const domain = domainIcon(event.type);
+
   const Icon =
     domain?.Icon ??
     (category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle);
   const iconColor =
     domain?.color ??
     (category === 'error'
-      ? 'text-lobster-red'
+      ? 'text-red-400'
       : category === 'entered'
-        ? 'text-sea-blue'
-        : 'text-kelp-green');
+        ? 'text-sky-400'
+        : 'text-emerald-400');
+  const iconBg =
+    domain?.bg ??
+    (category === 'error'
+      ? 'bg-red-500/20'
+      : category === 'entered'
+        ? 'bg-sky-500/20'
+        : 'bg-emerald-500/20');
+
   const label = getDisplayLabel(event);
   const topicLabel = formatEventType(event.type);
 
   return (
-    <div className="flex items-start gap-2.5 px-4 py-2.5 text-sm">
-      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="break-words leading-snug text-sand">
-          <span className="font-medium">{label}</span>
-          {action && <span className="text-shell ml-1.5">{action}</span>}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-shell/60">
-          <span>{topicLabel}</span>
-          {event.entityId ? <span>ID {event.entityId}</span> : null}
-        </div>
+    <div className={`flex items-center gap-3 px-4 py-2.5 ${LEVEL_TINT[level]} transition-colors`}>
+      {/* Icon circle */}
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${iconBg}`}>
+        <Icon className={`w-4 h-4 ${iconColor}`} />
       </div>
-      <span className="text-[11px] text-shell/60 shrink-0 pt-0.5">
-        {formatTimestamp(event.timestamp)}
-      </span>
+
+      {/* Center: primary + secondary */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5 leading-snug">
+          <span className="font-semibold text-[13px] text-slate-100 truncate">{label}</span>
+          {action && (
+            <span className="text-[11px] font-medium text-slate-500 shrink-0">{action}</span>
+          )}
+        </div>
+        <div className="text-[11px] text-slate-500 truncate mt-0.5">{topicLabel}</div>
+      </div>
+
+      {/* Right: timestamp + level dot */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[11px] text-slate-500">{formatTimestamp(event.timestamp)}</span>
+        <span className={`w-2 h-2 rounded-full ${LEVEL_DOT[level]}`} />
+      </div>
     </div>
   );
 }

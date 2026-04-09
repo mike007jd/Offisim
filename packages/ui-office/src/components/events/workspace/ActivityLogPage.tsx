@@ -1,17 +1,12 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
-import { Search } from 'lucide-react';
+import { Radio, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import { ALL_EVENT_TYPES, ALL_LEVELS } from '../EventFilters';
 import type { EventFilterType, EventLevel } from '../EventFilters';
 import { EventItem, getDisplayLabel } from '../EventItem';
-import {
-  LEVEL_ROW_STYLES,
-  TYPE_PREFIX_MAP,
-  getEventLevel,
-  hydrateEventLogStore,
-} from '../EventLog';
+import { TYPE_PREFIX_MAP, getEventLevel, hydrateEventLogStore } from '../EventLog';
 import type { EventDisplayLevel } from '../EventLog';
 import { ActivityLogEventFocus } from './ActivityLogEventFocus';
 import {
@@ -23,7 +18,7 @@ import {
 } from './activity-log-utils';
 
 // ---------------------------------------------------------------------------
-// Types — mirrored from apps/web workspace types to avoid cross-package deps
+// Types -- mirrored from apps/web workspace types to avoid cross-package deps
 // ---------------------------------------------------------------------------
 
 export type ActivityLogSessionState = {
@@ -59,6 +54,29 @@ const ACTIVE_LEVEL_COLORS: Record<EventLevel, string> = {
   Info: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
   Warning: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
   Error: 'bg-red-500/20 text-red-400 border-red-500/40',
+};
+
+// ---------------------------------------------------------------------------
+// Time grouping
+// ---------------------------------------------------------------------------
+
+type TimeGroup = 'just-now' | 'minutes-ago' | 'earlier-today' | 'yesterday' | 'older';
+
+function getTimeGroup(timestamp: number, now: number): TimeGroup {
+  const diff = now - timestamp;
+  if (diff < 60_000) return 'just-now';
+  if (diff < 600_000) return 'minutes-ago';
+  if (diff < 86_400_000) return 'earlier-today';
+  if (diff < 172_800_000) return 'yesterday';
+  return 'older';
+}
+
+const TIME_GROUP_LABELS: Record<TimeGroup, string> = {
+  'just-now': 'Just now',
+  'minutes-ago': 'Minutes ago',
+  'earlier-today': 'Earlier today',
+  yesterday: 'Yesterday',
+  older: 'Older',
 };
 
 // ---------------------------------------------------------------------------
@@ -119,7 +137,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
       // Actor filter
       if (!matchesActorFilters(event, sessionState.actorFilters)) continue;
 
-      // Search filter — match against event type, display label, and entity type
+      // Search filter -- match against event type, display label, and entity type
       if (searchLower) {
         const haystack =
           `${event.type} ${getDisplayLabel(event)} ${event.entityType ?? ''}`.toLowerCase();
@@ -226,6 +244,10 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     );
   }
 
+  // Build time-grouped event list
+  const now = Date.now();
+  let lastGroup: TimeGroup | null = null;
+
   // Timeline mode
   return (
     <div
@@ -235,7 +257,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     >
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Top toolbar — inline filters */}
+      {/* Top toolbar -- inline filters */}
       <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-2.5 shrink-0 flex-wrap">
         {/* Search */}
         <div className="relative">
@@ -340,32 +362,58 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
         )}
       </div>
 
-      {/* Event timeline — full width */}
+      {/* Event timeline -- full width */}
       <div className="flex-1 min-h-0 overflow-y-auto" data-testid="activity-log-timeline">
-        <div ref={scrollRef} className="px-4">
+        <div ref={scrollRef}>
           {filteredEvents.length === 0 ? (
-            <div className="flex items-center justify-center h-80">
-              <p className="text-sm text-slate-500">
-                {events.length === 0 ? 'No events yet' : 'No events match filters'}
+            <div className="flex flex-col items-center justify-center h-80 gap-4">
+              <div className="relative">
+                <Radio className="w-10 h-10 text-slate-600 animate-pulse" />
+                <span className="absolute inset-0 rounded-full border-2 border-slate-600/30 animate-ping" />
+              </div>
+              <p className="text-sm text-slate-500 font-medium">
+                {events.length === 0 ? 'No activity detected' : 'No events match filters'}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                {events.length === 0
+                  ? 'Waiting for simulation events...'
+                  : 'Try adjusting your filters'}
               </p>
             </div>
           ) : (
-            filteredEvents.map(({ event, level }, i) => (
-              <button
-                type="button"
-                key={`${event.timestamp}-${i}`}
-                className={`${LEVEL_ROW_STYLES[level]} cursor-pointer hover:bg-white/[0.04] transition-colors text-left w-full border-l-[3px] ${
-                  level === 'Error'
-                    ? 'border-l-red-400/60'
-                    : level === 'Warning'
-                      ? 'border-l-amber-400/60'
-                      : 'border-l-transparent'
-                }`}
-                onClick={() => handleSelectEvent(event)}
-              >
-                <EventItem event={event} />
-              </button>
-            ))
+            filteredEvents.map(({ event, level }, i) => {
+              const group = getTimeGroup(event.timestamp, now);
+              const showHeader = group !== lastGroup;
+              lastGroup = group;
+
+              return (
+                <div key={`${event.timestamp}-${i}`}>
+                  {/* Time group header */}
+                  {showHeader && (
+                    <div className="flex items-center gap-3 px-5 py-2 mt-1">
+                      <div className="h-px flex-1 bg-white/[0.06]" />
+                      <span className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
+                        {TIME_GROUP_LABELS[group]}
+                      </span>
+                      <div className="h-px flex-1 bg-white/[0.06]" />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className={`cursor-pointer hover:bg-white/[0.04] transition-colors text-left w-full border-l-[3px] ${
+                      level === 'Error'
+                        ? 'border-l-red-400/60'
+                        : level === 'Warning'
+                          ? 'border-l-amber-400/60'
+                          : 'border-l-transparent'
+                    }`}
+                    onClick={() => handleSelectEvent(event)}
+                  >
+                    <EventItem event={event} level={level} />
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

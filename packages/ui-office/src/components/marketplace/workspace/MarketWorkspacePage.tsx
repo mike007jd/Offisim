@@ -13,7 +13,7 @@ import { MarketWorkspaceExplore } from './MarketWorkspaceExplore.js';
 import { MarketWorkspaceManage } from './MarketWorkspaceManage.js';
 
 // ---------------------------------------------------------------------------
-// Types — mirrored from apps/web workspace types to avoid cross-package deps
+// Types -- mirrored from apps/web workspace types to avoid cross-package deps
 // ---------------------------------------------------------------------------
 
 export type MarketSessionState = {
@@ -36,6 +36,21 @@ export interface MarketWorkspacePageProps {
 }
 
 // ---------------------------------------------------------------------------
+// Rarity-colored chip helper for kind filters
+// ---------------------------------------------------------------------------
+
+const KIND_CHIP_ACTIVE: Record<string, string> = {
+  all: 'border-white/20 bg-white/10 text-white',
+  employee: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300',
+  skill: 'border-violet-400/40 bg-violet-500/15 text-violet-300',
+  sop: 'border-amber-400/40 bg-amber-500/15 text-amber-300',
+  company_template: 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300',
+  office_layout: 'border-rose-400/40 bg-rose-500/15 text-rose-300',
+  prefab: 'border-orange-400/40 bg-orange-500/15 text-orange-300',
+  bundle: 'border-sky-400/40 bg-sky-500/15 text-sky-300',
+};
+
+// ---------------------------------------------------------------------------
 // MarketWorkspacePage
 // ---------------------------------------------------------------------------
 
@@ -47,7 +62,7 @@ export function MarketWorkspacePage({
   const { toasts, addToast, dismissToast } = useToasts();
   const [publishOpen, setPublishOpen] = useState(false);
 
-  // Single source of truth for listing detail — shared with Detail view
+  // Single source of truth for listing detail -- shared with Detail view
   const activeListingId = sessionState.mode === 'explore' ? sessionState.selectedListingId : null;
   const {
     detail,
@@ -148,30 +163,37 @@ export function MarketWorkspacePage({
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
       <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} />
 
-      {/* Top toolbar */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.06] px-5 py-2.5">
-        {/* Mode toggle */}
-        <div className="mr-2 flex items-center gap-1">
+      {/* ── Top toolbar ── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-2.5">
+        {/* Mode toggle — segmented control */}
+        <div className="mr-2 flex items-center overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02]">
           <button
             type="button"
             onClick={() => handleModeChange('explore')}
-            className={`rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+            className={`relative px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wider transition-colors ${
               sessionState.mode === 'explore'
-                ? 'border-cyan-400/30 bg-cyan-500/15 text-cyan-200'
-                : 'border-white/[0.06] text-slate-400 hover:text-slate-200'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-slate-500 hover:text-slate-300'
             }`}
           >
+            {sessionState.mode === 'explore' && (
+              <div className="absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-cyan-400" />
+            )}
             Explore
           </button>
+          <div className="h-5 w-px bg-white/[0.06]" />
           <button
             type="button"
             onClick={() => handleModeChange('manage')}
-            className={`rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+            className={`relative px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wider transition-colors ${
               sessionState.mode === 'manage'
-                ? 'border-cyan-400/30 bg-cyan-500/15 text-cyan-200'
-                : 'border-white/[0.06] text-slate-400 hover:text-slate-200'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-slate-500 hover:text-slate-300'
             }`}
           >
+            {sessionState.mode === 'manage' && (
+              <div className="absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-cyan-400" />
+            )}
             Manage
           </button>
         </div>
@@ -185,25 +207,26 @@ export function MarketWorkspacePage({
                 type="text"
                 value={sessionState.search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search..."
-                className="w-44 rounded-lg border border-white/[0.08] bg-white/[0.04] py-1 pl-8 pr-3 text-[12px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-400/30 focus:outline-none"
+                placeholder="Search items..."
+                className="w-44 rounded-lg border border-white/[0.08] bg-white/[0.04] py-1.5 pl-8 pr-3 text-[12px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-400/30 focus:outline-none"
               />
             </div>
 
-            {/* Kind chips */}
+            {/* Kind filter chips — rarity colored when active */}
             <div className="flex items-center gap-1">
               {KIND_FILTERS.map((filter) => {
                 const Icon = filter.value === 'all' ? null : KIND_ICON[filter.value];
                 const active = sessionState.kind === filter.value;
+                const activeClass = KIND_CHIP_ACTIVE[filter.value] ?? KIND_CHIP_ACTIVE.all;
                 return (
                   <button
                     key={filter.value}
                     type="button"
                     onClick={() => handleKindChange(filter.value)}
-                    className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-all ${
                       active
-                        ? 'border-cyan-400/30 bg-cyan-500/15 text-cyan-300'
-                        : 'border-white/[0.06] text-slate-500 hover:text-slate-300'
+                        ? activeClass
+                        : 'border-white/[0.06] text-slate-500 hover:border-white/[0.12] hover:text-slate-300'
                     }`}
                   >
                     {Icon && <Icon className="h-3 w-3" />}
@@ -217,7 +240,7 @@ export function MarketWorkspacePage({
             <select
               value={sessionState.sort}
               onChange={(e) => handleSortChange(e.target.value as MarketSortOption)}
-              className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 focus:outline-none"
+              className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none"
             >
               {SORT_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -235,7 +258,7 @@ export function MarketWorkspacePage({
                 key={tab}
                 type="button"
                 onClick={() => handleManageTabChange(tab)}
-                className={`rounded-lg border px-2.5 py-1 text-[12px] font-medium capitalize transition-colors ${
+                className={`rounded-lg border px-2.5 py-1 text-[12px] font-semibold capitalize transition-colors ${
                   sessionState.manageTab === tab
                     ? 'border-blue-400/30 bg-blue-500/15 text-blue-200'
                     : 'border-white/[0.06] text-slate-400 hover:text-slate-200'
@@ -252,13 +275,16 @@ export function MarketWorkspacePage({
         <button
           type="button"
           onClick={() => setPublishOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-1 text-[12px] text-cyan-200 transition-colors hover:bg-cyan-500/25"
+          className="flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-[12px] font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/20"
         >
           <Plus className="h-3.5 w-3.5" /> Publish
         </button>
       </div>
 
-      {/* Main content — full screen */}
+      {/* Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+      {/* ── Main content ── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {showExplore && (
           <MarketWorkspaceExplore

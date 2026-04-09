@@ -4,7 +4,7 @@ import type {
   RuntimePolicyConfig,
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
-import { Cpu, Workflow } from 'lucide-react';
+import { Cpu, Globe, Network, Workflow } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
@@ -484,6 +484,7 @@ export function useSettingsWorkspaceController({
     handlePresetChange,
     handleSave,
     hasStoredSecret,
+    hasUnsavedChanges,
     isSaveDisabled,
     isSaving,
     isSubscription,
@@ -534,9 +535,9 @@ interface SettingsWorkspaceSurfaceProps {
 }
 
 const TAB_ITEMS: { key: SettingsTab; label: string; icon: typeof Cpu }[] = [
-  { key: 'provider', label: 'Provider', icon: Cpu },
-  { key: 'runtime', label: 'Runtime', icon: Workflow },
-  { key: 'mcp', label: 'MCP', icon: Cpu },
+  { key: 'provider', label: 'Provider', icon: Globe },
+  { key: 'runtime', label: 'Runtime', icon: Cpu },
+  { key: 'mcp', label: 'MCP', icon: Network },
   { key: 'openclaw', label: 'Gateway', icon: Workflow },
 ];
 
@@ -547,65 +548,113 @@ export function SettingsWorkspaceSurface({
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
   return (
-    <div className="flex h-full min-h-0 overflow-hidden text-slate-100">
-      {/* Left sidebar — tab navigation */}
-      <div className="flex w-44 shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.01]">
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          {TAB_ITEMS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onActiveTabChange(key)}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-left transition-colors ${
-                activeTab === key
-                  ? 'bg-cyan-400/10 text-cyan-200'
-                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
-              }`}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </button>
-          ))}
+    <div className="flex h-full min-h-0 overflow-hidden bg-[#0a0e17] text-slate-100">
+      {/* Left sidebar — game-style tab navigation */}
+      <div className="flex w-52 shrink-0 flex-col border-r border-cyan-400/[0.07] bg-gradient-to-b from-[#0d1220] to-[#080c16]">
+        {/* Title header */}
+        <div className="px-5 pt-6 pb-4 border-b border-white/[0.04]">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400/60">
+            Options
+          </h2>
+          <p className="mt-1 text-[10px] tracking-wider text-slate-600">OFFISIM v1.6</p>
+        </div>
+
+        {/* Tab navigation */}
+        <nav className="flex flex-col gap-0.5 px-2 py-3 flex-1">
+          {TAB_ITEMS.map(({ key, label, icon: Icon }) => {
+            const isActive = activeTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onActiveTabChange(key)}
+                className={`group relative flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-left transition-all duration-150 rounded-r-lg ${
+                  isActive
+                    ? 'bg-cyan-400/[0.08] text-cyan-100'
+                    : 'text-slate-500 hover:bg-white/[0.02] hover:text-slate-300'
+                }`}
+              >
+                {/* Active accent bar */}
+                {isActive && (
+                  <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
+                )}
+                <Icon
+                  className={`h-4 w-4 shrink-0 transition-colors ${
+                    isActive ? 'text-cyan-400' : 'text-slate-600 group-hover:text-slate-400'
+                  }`}
+                />
+                <span className="tracking-wide">{label}</span>
+                {/* Subtle right chevron for active */}
+                {isActive && <span className="ml-auto text-[10px] text-cyan-400/40">&rsaquo;</span>}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Save button at bottom */}
-        <div className="border-t border-white/[0.06] p-3">
+        {/* Save section — game style */}
+        <div className="border-t border-white/[0.04] p-3 space-y-2">
+          {controller.hasUnsavedChanges && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-400/[0.06] border border-amber-400/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
+                Unsaved changes
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => void controller.handleSave()}
             disabled={controller.isSaveDisabled}
-            className="w-full rounded-lg bg-cyan-500/15 border border-cyan-400/30 px-3 py-2 text-[13px] font-medium text-cyan-200 hover:bg-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className={`w-full rounded-lg px-4 py-3 text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
+              controller.isSaveDisabled
+                ? 'bg-slate-800/40 text-slate-600 border border-slate-700/30 cursor-not-allowed'
+                : controller.hasUnsavedChanges
+                  ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.1)] hover:bg-cyan-500/30 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]'
+                  : 'bg-cyan-500/10 text-cyan-300/70 border border-cyan-400/20 hover:bg-cyan-500/20 hover:text-cyan-200'
+            }`}
           >
-            {controller.isSaving ? 'Saving\u2026' : 'Save'}
+            {controller.isSaving ? 'Saving\u2026' : 'Save Changes'}
           </button>
           {controller.saveError && (
-            <p className="mt-2 text-[11px] text-red-400 break-words">{controller.saveError}</p>
+            <p className="text-[10px] text-red-400/90 break-words px-1">{controller.saveError}</p>
           )}
         </div>
       </div>
 
-      {/* Right — content area */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-        {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
-        {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
-        {activeTab === 'mcp' && (
-          <SurfaceCard
-            title="MCP servers"
-            description="Attach or reconfigure MCP endpoints."
-            icon={<Cpu className="h-5 w-5" />}
-          >
-            <McpConfigPanel />
-          </SurfaceCard>
-        )}
-        {activeTab === 'openclaw' && (
-          <SurfaceCard
-            title="Gateway"
-            description="Connect to OpenClaw or local orchestration gateways."
-            icon={<Workflow className="h-5 w-5" />}
-          >
-            <OpenClawSettings />
-          </SurfaceCard>
-        )}
+      {/* Right — content area with subtle grid pattern */}
+      <div className="relative flex-1 min-h-0 overflow-y-auto">
+        {/* Decorative top-bar with active tab name */}
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/[0.04] bg-[#0a0e17]/90 px-8 py-4 backdrop-blur-md">
+          <div className="h-3 w-[2px] rounded-full bg-cyan-400/50" />
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">
+            {TAB_ITEMS.find((t) => t.key === activeTab)?.label ?? 'Settings'}
+          </h3>
+          <div className="flex-1" />
+          <div className="h-[1px] w-12 bg-gradient-to-r from-cyan-400/20 to-transparent" />
+        </div>
+
+        <div className="px-8 py-6">
+          {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
+          {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
+          {activeTab === 'mcp' && (
+            <SurfaceCard
+              title="MCP Servers"
+              description="Configure MCP endpoint connections."
+              icon={<Network className="h-5 w-5" />}
+            >
+              <McpConfigPanel />
+            </SurfaceCard>
+          )}
+          {activeTab === 'openclaw' && (
+            <SurfaceCard
+              title="Gateway"
+              description="Connect to orchestration gateways."
+              icon={<Workflow className="h-5 w-5" />}
+            >
+              <OpenClawSettings />
+            </SurfaceCard>
+          )}
+        </div>
       </div>
     </div>
   );
