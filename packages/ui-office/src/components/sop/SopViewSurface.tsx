@@ -6,15 +6,22 @@ import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { parseSopDefinition } from '../../lib/sop-utils';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import type { StepFormValues } from './SopAddStepPopover';
+import { SopAddStepPopover } from './SopAddStepPopover';
 import { SopDagCanvas } from './SopDagCanvas';
 import { SopEditorDialog } from './SopEditorDialog';
 import { SopEmptyState } from './SopEmptyState';
 import { SopImportDialog } from './SopImportDialog';
 import { SopLibraryBar } from './SopLibraryBar';
 import { SopNlCommandBar } from './SopNlCommandBar';
+import { SopNodeContextMenu } from './SopNodeContextMenu';
 import { SopSidebar } from './SopSidebar';
 import { formatModifyCommand, formatRunCommand, formatStepClickPrefill } from './sop-commands';
-import { computeDagLayout, getExecutionBatches } from './sop-dag-layout';
+import {
+  computeAutoLayoutPositions,
+  computeDagLayout,
+  getExecutionBatches,
+} from './sop-dag-layout';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +40,8 @@ export interface SopViewSurfaceProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const noop = () => {};
 
 function validateNoCycles(def: SopDefinition): boolean {
   try {
@@ -57,6 +66,22 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const [nlInput, setNlInput] = useState('');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+
+  // Add step popover state
+  const [addStepPopover, setAddStepPopover] = useState<{
+    screenX: number;
+    screenY: number;
+    canvasX: number;
+    canvasY: number;
+    editStepId?: string;
+  } | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    stepId: string;
+    screenX: number;
+    screenY: number;
+  } | null>(null);
 
   // Selected SOP
   const selectedSop = useMemo(
@@ -235,22 +260,161 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [updateDefinition, selectedStepId],
   );
 
-  const handleAddStep = useCallback(() => {
+  // --- Bake positions on edit mode enter (await before enabling drag) ---
+  const handleEditModeToggle = useCallback(async () => {
+    if (!editMode && definition) {
+      const needsBake = definition.steps.some((s) => s.position == null);
+      if (needsBake) {
+        const positions = computeAutoLayoutPositions(definition);
+        await updateDefinition((def) => ({
+          ...def,
+          steps: def.steps.map((s) => ({
+            ...s,
+            position: positions.get(s.step_id) ?? { x: 0, y: 0 },
+          })),
+        }));
+      }
+    }
+    setEditMode((prev) => !prev);
+  }, [editMode, definition, updateDefinition]);
+
+  // --- Move step (node drag) ---
+  const handleMoveStep = useCallback(
+    (stepId: string, x: number, y: number) => {
+      void updateDefinition((def) => ({
+        ...def,
+        steps: def.steps.map((s) => (s.step_id === stepId ? { ...s, position: { x, y } } : s)),
+      }));
+    },
+    [updateDefinition],
+  );
+
+  // --- Auto layout ---
+  const handleAutoLayout = useCallback(() => {
     if (!definition) return;
-    const id = `step-${Date.now()}`;
-    const newStep: SopStep = {
-      step_id: id,
-      label: 'New Step',
-      role_slug: 'developer' as SopStep['role_slug'],
-      instruction: '',
-      dependencies: [],
-      output_key: id,
-    };
+    const positions = computeAutoLayoutPositions(definition);
     void updateDefinition((def) => ({
       ...def,
-      steps: [...def.steps, newStep],
+      steps: def.steps.map((s) => ({
+        ...s,
+        position: positions.get(s.step_id) ?? { x: 0, y: 0 },
+      })),
     }));
   }, [definition, updateDefinition]);
+
+  // --- Add step popover submit ---
+  const handleAddStepSubmit = useCallback(
+    (values: StepFormValues) => {
+      if (!definition) return;
+      const popover = addStepPopover;
+
+      if (popover?.editStepId) {
+        void updateDefinition((def) => ({
+          ...def,
+          steps: def.steps.map((s) =>
+            s.step_id === popover.editStepId
+              ? {
+                  ...s,
+                  label: values.label,
+                  role_slug: values.roleSlug,
+                  instruction: values.instruction,
+                }
+              : s,
+          ),
+        }));
+      } else {
+        const id = `step-${Date.now()}`;
+        void updateDefinition((def) => ({
+          ...def,
+          steps: [
+            ...def.steps,
+            {
+              step_id: id,
+              label: values.label || 'New Step',
+              role_slug: values.roleSlug,
+              instruction: values.instruction,
+              dependencies: [],
+              output_key: id,
+              position: popover ? { x: popover.canvasX, y: popover.canvasY } : undefined,
+            },
+          ],
+        }));
+      }
+      setAddStepPopover(null);
+    },
+    [definition, updateDefinition, addStepPopover],
+  );
+
+  // --- Double-click canvas blank → add step at position ---
+  const handleDoubleClickCanvas = useCallback(
+    (canvasX: number, canvasY: number, screenX: number, screenY: number) => {
+      setContextMenu(null);
+      setAddStepPopover({ screenX, screenY, canvasX, canvasY });
+    },
+    [],
+  );
+
+  // --- Double-click node → edit step ---
+  const handleDoubleClickNode = useCallback(
+    (stepId: string, screenX: number, screenY: number) => {
+      const step = definition?.steps.find((s) => s.step_id === stepId);
+      if (!step) return;
+      setContextMenu(null);
+      setAddStepPopover({
+        screenX,
+        screenY,
+        canvasX: step.position?.x ?? 0,
+        canvasY: step.position?.y ?? 0,
+        editStepId: stepId,
+      });
+    },
+    [definition],
+  );
+
+  // --- Context menu open ---
+  const handleContextMenu = useCallback((stepId: string, screenX: number, screenY: number) => {
+    setAddStepPopover(null);
+    setContextMenu({ stepId, screenX, screenY });
+  }, []);
+
+  // --- Context menu: edit ---
+  const handleEditStepFromMenu = useCallback(
+    (stepId: string) => {
+      const step = definition?.steps.find((s) => s.step_id === stepId);
+      if (!step) return;
+      // contextMenu is read from closure before onClose sets it to null
+      setAddStepPopover({
+        screenX: contextMenu?.screenX ?? 0,
+        screenY: contextMenu?.screenY ?? 0,
+        canvasX: step.position?.x ?? 0,
+        canvasY: step.position?.y ?? 0,
+        editStepId: stepId,
+      });
+    },
+    [definition, contextMenu],
+  );
+
+  // --- Context menu: duplicate ---
+  const handleDuplicateStep = useCallback(
+    (stepId: string) => {
+      const step = definition?.steps.find((s) => s.step_id === stepId);
+      if (!step) return;
+      const newId = `step-${Date.now()}`;
+      const newStep: SopStep = {
+        ...step,
+        step_id: newId,
+        label: `${step.label} (copy)`,
+        output_key: newId,
+        dependencies: [...step.dependencies],
+        position: step.position ? { x: step.position.x + 40, y: step.position.y + 40 } : undefined,
+      };
+      void updateDefinition((def) => ({
+        ...def,
+        steps: [...def.steps, newStep],
+      }));
+    },
+    [definition, updateDefinition],
+  );
 
   const showEmpty = !sessionState.selectedSopId || !layout;
 
@@ -281,7 +445,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           onCreateClick={() => setEditorOpen(true)}
           onImportClick={() => setImportOpen(true)}
           editMode={editMode}
-          onEditModeToggle={() => setEditMode((prev) => !prev)}
+          onEditModeToggle={handleEditModeToggle}
+          onAutoLayout={handleAutoLayout}
         />
 
         {showEmpty ? (
@@ -301,7 +466,11 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             onAddDependency={handleAddDependency}
             onRemoveDependency={handleRemoveDependency}
             onDeleteStep={handleDeleteStep}
-            onAddStep={handleAddStep}
+            onAddStep={noop}
+            onMoveStep={handleMoveStep}
+            onContextMenu={handleContextMenu}
+            onDoubleClickCanvas={handleDoubleClickCanvas}
+            onDoubleClickNode={handleDoubleClickNode}
           />
         )}
 
@@ -318,6 +487,47 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
 
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={handleCreated} />
       <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleCreated} />
+
+      {/* Add/Edit step popover */}
+      {addStepPopover && (
+        <SopAddStepPopover
+          position={{ x: addStepPopover.screenX, y: addStepPopover.screenY }}
+          initialValues={
+            addStepPopover.editStepId
+              ? (() => {
+                  const step = definition?.steps.find(
+                    (s) => s.step_id === addStepPopover.editStepId,
+                  );
+                  return step
+                    ? {
+                        label: step.label,
+                        roleSlug: step.role_slug,
+                        instruction: step.instruction,
+                      }
+                    : undefined;
+                })()
+              : undefined
+          }
+          submitLabel={addStepPopover.editStepId ? 'Save' : 'Add'}
+          onSubmit={handleAddStepSubmit}
+          onCancel={() => setAddStepPopover(null)}
+        />
+      )}
+
+      {/* Node context menu */}
+      {contextMenu && (
+        <SopNodeContextMenu
+          stepId={contextMenu.stepId}
+          position={{ x: contextMenu.screenX, y: contextMenu.screenY }}
+          onEdit={handleEditStepFromMenu}
+          onDuplicate={handleDuplicateStep}
+          onDelete={(stepId) => {
+            handleDeleteStep(stepId);
+            setContextMenu(null);
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

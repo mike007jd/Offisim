@@ -1,16 +1,16 @@
+import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import {
-  DAG_LAYOUT,
-  getExecutionBatches,
-  computeDagLayout,
-} from '../../components/sop/sop-dag-layout';
-import {
-  formatRunCommand,
   formatModifyCommand,
+  formatRunCommand,
   formatStepClickPrefill,
 } from '../../components/sop/sop-commands';
+import {
+  computeAutoLayoutPositions,
+  computeDagLayout,
+  getExecutionBatches,
+} from '../../components/sop/sop-dag-layout';
 import { parseSopDefinition } from '../../lib/sop-utils';
 
 // ---------------------------------------------------------------------------
@@ -18,8 +18,17 @@ import { parseSopDefinition } from '../../lib/sop-utils';
 // ---------------------------------------------------------------------------
 
 const ROLE_SLUGS = [
-  'developer', 'designer', 'pm', 'qa', 'devops', 'engineer',
-  'frontend', 'backend', 'fullstack', 'writer', 'marketer',
+  'developer',
+  'designer',
+  'pm',
+  'qa',
+  'devops',
+  'engineer',
+  'frontend',
+  'backend',
+  'fullstack',
+  'writer',
+  'marketer',
 ] as const;
 
 const roleSlugArb = fc.constantFrom(...ROLE_SLUGS);
@@ -29,10 +38,9 @@ const roleSlugArb = fc.constantFrom(...ROLE_SLUGS);
  * Steps are created in order; each step's dependencies only reference
  * earlier step_ids, guaranteeing no cycles.
  */
-const validDagArb = fc
-  .integer({ min: 1, max: 15 })
-  .chain((stepCount) =>
-    fc.tuple(
+const validDagArb = fc.integer({ min: 1, max: 15 }).chain((stepCount) =>
+  fc
+    .tuple(
       fc.string({ minLength: 1, maxLength: 10 }),
       fc.array(
         fc.record({
@@ -71,7 +79,7 @@ const validDagArb = fc
         created_at: new Date().toISOString(),
       } as SopDefinition;
     }),
-  );
+);
 
 // ---------------------------------------------------------------------------
 // Property 1: DAG topological sort batch invariant
@@ -169,7 +177,6 @@ describe('Feature: sop-view-rebuild, Property 2: SOP definition serialization ro
   });
 });
 
-
 // ---------------------------------------------------------------------------
 // Property 3: SOP command message formatting
 // ---------------------------------------------------------------------------
@@ -196,9 +203,7 @@ describe('Feature: sop-view-rebuild, Property 3: SOP command message formatting'
         fc.string({ minLength: 1, maxLength: 50 }),
         fc.string({ minLength: 1, maxLength: 100 }),
         (name, text) => {
-          expect(formatModifyCommand(name, text)).toBe(
-            `Modify the SOP "${name}": ${text}`,
-          );
+          expect(formatModifyCommand(name, text)).toBe(`Modify the SOP "${name}": ${text}`);
         },
       ),
       { numRuns: 100 },
@@ -211,9 +216,7 @@ describe('Feature: sop-view-rebuild, Property 3: SOP command message formatting'
         fc.string({ minLength: 1, maxLength: 50 }),
         fc.string({ minLength: 1, maxLength: 30 }),
         (label, role) => {
-          expect(formatStepClickPrefill(label, role)).toBe(
-            `For step "${label}" (${role}): `,
-          );
+          expect(formatStepClickPrefill(label, role)).toBe(`For step "${label}" (${role}): `);
         },
       ),
       { numRuns: 100 },
@@ -392,5 +395,122 @@ describe('Feature: sop-view-rebuild, Boundary: cyclic dependency handling', () =
     expect(allScheduled).not.toContain('B');
     // Total scheduled < total steps
     expect(allScheduled.length).toBeLessThan(partialCycleDef.steps.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Property 7: computeAutoLayoutPositions matches computeDagLayout
+// ---------------------------------------------------------------------------
+
+describe('Feature: sop-dag-v2, Property 7: computeAutoLayoutPositions matches auto-layout', () => {
+  it('auto layout positions match computeDagLayout node coordinates', () => {
+    fc.assert(
+      fc.property(validDagArb, (def) => {
+        const layout = computeDagLayout(def);
+        const positions = computeAutoLayoutPositions(def);
+        expect(positions.size).toBe(def.steps.length);
+        for (const node of layout.nodes) {
+          const pos = positions.get(node.stepId);
+          expect(pos).toBeDefined();
+          expect(pos!.x).toBe(node.x);
+          expect(pos!.y).toBe(node.y);
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Property 8: manual positions are used when all steps have position
+// ---------------------------------------------------------------------------
+
+const validDagWithPositionsArb = validDagArb.chain((def) =>
+  fc
+    .array(
+      fc.record({
+        x: fc.integer({ min: 0, max: 2000 }),
+        y: fc.integer({ min: 0, max: 2000 }),
+      }),
+      { minLength: def.steps.length, maxLength: def.steps.length },
+    )
+    .map((positions) => ({
+      ...def,
+      steps: def.steps.map((s, i) => ({
+        ...s,
+        position: positions[i],
+      })),
+    })),
+);
+
+describe('Feature: sop-dag-v2, Property 8: manual positions used when all steps have position', () => {
+  it('computeDagLayout uses step.position coordinates when all steps have them', () => {
+    fc.assert(
+      fc.property(validDagWithPositionsArb, (def) => {
+        const layout = computeDagLayout(def);
+        expect(layout.nodes.length).toBe(def.steps.length);
+        for (const node of layout.nodes) {
+          const step = def.steps.find((s) => s.step_id === node.stepId);
+          expect(step).toBeDefined();
+          expect(step!.position).toBeDefined();
+          expect(node.x).toBe(step!.position!.x);
+          expect(node.y).toBe(step!.position!.y);
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it('edge endpoints match manual node positions', () => {
+    fc.assert(
+      fc.property(validDagWithPositionsArb, (def) => {
+        const layout = computeDagLayout(def);
+        const nodeMap = new Map(layout.nodes.map((n) => [n.stepId, n]));
+        for (const edge of layout.edges) {
+          const source = nodeMap.get(edge.fromStepId)!;
+          const target = nodeMap.get(edge.toStepId)!;
+          expect(source).toBeDefined();
+          expect(target).toBeDefined();
+          expect(edge.fromPoint.x).toBe(source.x + source.width);
+          expect(edge.fromPoint.y).toBe(source.y + source.height / 2);
+          expect(edge.toPoint.x).toBe(target.x);
+          expect(edge.toPoint.y).toBe(target.y + target.height / 2);
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boundary: empty definition
+// ---------------------------------------------------------------------------
+
+describe('Feature: sop-dag-v2, Boundary: empty definition', () => {
+  it('computeAutoLayoutPositions returns empty map for no steps', () => {
+    const emptyDef: SopDefinition = {
+      sop_id: 'sop-empty',
+      name: 'Empty',
+      description: '',
+      steps: [],
+      created_at: new Date().toISOString(),
+    };
+    const positions = computeAutoLayoutPositions(emptyDef);
+    expect(positions.size).toBe(0);
+  });
+
+  it('computeDagLayout returns zero dimensions for no steps', () => {
+    const emptyDef: SopDefinition = {
+      sop_id: 'sop-empty',
+      name: 'Empty',
+      description: '',
+      steps: [],
+      created_at: new Date().toISOString(),
+    };
+    const layout = computeDagLayout(emptyDef);
+    expect(layout.nodes.length).toBe(0);
+    expect(layout.edges.length).toBe(0);
+    expect(layout.totalWidth).toBe(0);
+    expect(layout.totalHeight).toBe(0);
   });
 });

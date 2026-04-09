@@ -1,5 +1,4 @@
 import { SopService, generateId } from '@offisim/core/browser';
-import { ROLE_REGISTRY } from '@offisim/shared-types';
 import type { RoleSlug, SopDefinition, SopStep } from '@offisim/shared-types';
 import {
   Button,
@@ -11,6 +10,7 @@ import {
 } from '@offisim/ui-core';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { HIREABLE_ROLES } from '../../lib/roles';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
@@ -33,8 +33,6 @@ function makeEmptyStep(index: number): StepDraft {
     output_key: `output_${index + 1}`,
   };
 }
-
-const HIREABLE_ROLES = ROLE_REGISTRY.filter((r) => !r.isSystem);
 
 interface SopEditorDialogProps {
   open: boolean;

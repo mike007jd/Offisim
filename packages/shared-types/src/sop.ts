@@ -7,6 +7,7 @@ export interface SopStep {
   readonly instruction: string;
   readonly dependencies: readonly string[];
   readonly output_key: string;
+  readonly position?: { readonly x: number; readonly y: number };
 }
 
 export interface SopDefinition {

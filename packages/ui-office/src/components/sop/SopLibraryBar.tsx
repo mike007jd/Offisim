@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Download, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, LayoutGrid, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -16,6 +16,7 @@ export interface SopLibraryBarProps {
   onImportClick: () => void;
   editMode?: boolean;
   onEditModeToggle?: () => void;
+  onAutoLayout?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ export function SopLibraryBar({
   onImportClick,
   editMode,
   onEditModeToggle,
+  onAutoLayout,
 }: SopLibraryBarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -93,6 +95,13 @@ export function SopLibraryBar({
         >
           <Pencil className="w-3 h-3" />
           {editMode ? 'Editing' : 'Edit'}
+        </Button>
+      )}
+
+      {/* Auto Layout (edit mode only) */}
+      {selectedSopId && editMode && onAutoLayout && (
+        <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onAutoLayout}>
+          <LayoutGrid className="w-3 h-3" /> Auto Layout
         </Button>
       )}
     </div>

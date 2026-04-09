@@ -45,7 +45,6 @@ export function shouldShowAppShell(view: AppView): boolean {
   return view === 'office' || view === 'employee-creator';
 }
 
-
 export function isOfficeSceneInteractive(view: AppView): boolean {
   return view === 'office';
 }

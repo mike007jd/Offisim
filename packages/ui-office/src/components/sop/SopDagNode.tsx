@@ -1,4 +1,5 @@
 import type { SopStep } from '@offisim/shared-types';
+import { memo } from 'react';
 import type { SopStepStatus } from './sop-dag-layout';
 
 // ---------------------------------------------------------------------------
@@ -38,17 +39,15 @@ export interface SopDagNodeProps {
   status: SopStepStatus;
   selected: boolean;
   editMode?: boolean;
-  onClick: () => void;
-  onDelete?: (stepId: string) => void;
+  onStepClick: (stepId: string) => void;
 }
 
-export function SopDagNode({
+export const SopDagNode = memo(function SopDagNode({
   step,
   status,
   selected,
   editMode,
-  onClick,
-  onDelete,
+  onStepClick,
 }: SopDagNodeProps) {
   const roleColor = getRoleColor(step.role_slug);
 
@@ -59,8 +58,8 @@ export function SopDagNode({
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`relative flex w-[280px] h-[140px] rounded-lg overflow-hidden bg-slate-800/80 border transition-all cursor-pointer text-left ${borderClass}`}
+      onClick={() => onStepClick(step.step_id)}
+      className={`relative flex w-[280px] h-[140px] rounded-lg overflow-hidden bg-slate-800/80 border transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} text-left ${borderClass}`}
     >
       {/* Left color bar */}
       <div className="w-1 shrink-0" style={{ backgroundColor: roleColor }} />
@@ -71,19 +70,6 @@ export function SopDagNode({
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
           <span className="text-sm font-semibold text-white truncate flex-1">{step.label}</span>
-          {editMode && selected && onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(step.step_id);
-              }}
-              className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-red-400 hover:bg-red-400/20 text-xs"
-              title="Delete step"
-            >
-              ×
-            </button>
-          )}
           <span
             className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white/80"
             style={{ backgroundColor: `${roleColor}33` }}
@@ -99,4 +85,4 @@ export function SopDagNode({
       </div>
     </button>
   );
-}
+});

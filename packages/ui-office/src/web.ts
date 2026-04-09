@@ -19,7 +19,10 @@ export type { EmptyStateWelcome, StarterPrompt } from './components/error/EmptyS
 export type { MarketSortOption } from './components/marketplace/marketplace-meta.js';
 export type { MarketSessionState } from './components/marketplace/MarketPage.js';
 export { ActivityLogPage } from './components/events/ActivityLogPage.js';
-export { MarketPage, MarketPage as MarketWorkspacePage } from './components/marketplace/MarketPage.js';
+export {
+  MarketPage,
+  MarketPage as MarketWorkspacePage,
+} from './components/marketplace/MarketPage.js';
 export { SopViewSurface } from './components/sop/SopViewSurface.js';
 export type { SopSessionState as SopViewSessionState } from './components/sop/SopViewSurface.js';
 export { SettingsPage } from './components/settings/SettingsPage.js';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { DagEdgeLayout, SopStepStatus } from './sop-dag-layout';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +35,12 @@ export interface SopDagEdgeProps {
   onDisconnect?: (fromStepId: string, toStepId: string) => void;
 }
 
-export function SopDagEdge({ edge, status, editMode, onDisconnect }: SopDagEdgeProps) {
+export const SopDagEdge = memo(function SopDagEdge({
+  edge,
+  status,
+  editMode,
+  onDisconnect,
+}: SopDagEdgeProps) {
   const d = buildBezierPath(edge.fromPoint, edge.toPoint);
   const { stroke, width } = STROKE_CONFIG[status];
   const [hovered, setHovered] = useState(false);
@@ -45,9 +50,16 @@ export function SopDagEdge({ edge, status, editMode, onDisconnect }: SopDagEdgeP
 
   return (
     <g>
-      <path d={d} fill="none" stroke={activeStroke} strokeWidth={activeWidth} strokeLinecap="round" />
+      <path
+        d={d}
+        fill="none"
+        stroke={activeStroke}
+        strokeWidth={activeWidth}
+        strokeLinecap="round"
+      />
       {/* Wider invisible hit area for easier clicking in edit mode */}
       {editMode && onDisconnect && (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: SVG path cannot have keyboard events
         <path
           d={d}
           fill="none"
@@ -92,4 +104,4 @@ export function SopDagEdge({ edge, status, editMode, onDisconnect }: SopDagEdgeP
       )}
     </g>
   );
-}
+});

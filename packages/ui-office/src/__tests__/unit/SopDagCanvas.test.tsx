@@ -103,8 +103,8 @@ describe('SopDagCanvas', () => {
       />,
     );
 
-    fireEvent.mouseDown(screen.getByLabelText('Create dependency from Start'));
-    fireEvent.mouseUp(screen.getByLabelText('Connect dependency into Review'));
+    fireEvent.pointerDown(screen.getByLabelText('Create dependency from Start'));
+    fireEvent.pointerUp(screen.getByLabelText('Connect dependency into Review'));
 
     expect(onAddDependency).toHaveBeenCalledWith('start', 'review');
   });

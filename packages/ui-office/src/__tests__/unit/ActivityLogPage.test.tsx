@@ -1,6 +1,5 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import type { Mock } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
