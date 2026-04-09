@@ -13,7 +13,7 @@ pnpm format           # Biome format
 pnpm clean            # 清除 turbo 缓存 + node_modules
 ```
 
-E2E (Playwright, 本地跑, 需要 `.env.local` 里的 `MINIMAX_API_KEY`):
+E2E (Playwright, 需要 `.env.local` 里的 `MINIMAX_API_KEY`):
 ```bash
 cd apps/web && pnpm test:e2e           # dev mode E2E (25 specs)
 cd apps/web && pnpm test:e2e:prod      # prod bundle E2E (vite build + preview)
@@ -28,10 +28,7 @@ cd apps/platform && pnpm dev            # 启动 platform API (port 4100)
 pnpm --filter @offisim/desktop dev      # 启动 Tauri 桌面应用 (复用 web port 5176)
 ```
 
-Docker:
-```bash
-docker compose -f docker/docker-compose.yml up --build  # 一键启动 web + platform + postgres
-```
+Docker: `docker compose -f docker/docker-compose.yml up --build`
 
 ## Monorepo Structure
 
@@ -57,7 +54,6 @@ apps/
 ```
 
 构建顺序: `shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps`
-Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 
 ## Code Style
 
@@ -65,297 +61,129 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - TypeScript strict mode (`noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`)
 - ESM (`"module": "ESNext"`, `"moduleResolution": "bundler"`)
 - 测试: vitest, `__tests__/` 目录, `.test.ts` 后缀
-- 不写不必要的注释和 docstring — 代码自解释
+- 不写不必要的注释和 docstring
 
 ## Environment
 
 - Node 20+, pnpm 10+
-- Desktop/Launcher 构建需要 Rust toolchain + Tauri CLI (`cargo install tauri-cli`)
+- Desktop/Launcher: Rust toolchain + Tauri CLI (`cargo install tauri-cli`)
 
-## Workspace Information Architecture (IA)
+## Workspace IA
 
-产品有 5 个 peer-level workspace surface, 通过 `WorkspaceRouter` 管理:
+5 个 peer-level workspace, `WorkspaceRouter` 管理:
 
-| Workspace | Key | 位置 | 描述 |
-|-----------|-----|------|------|
-| Office | `office` | `apps/web` + `ui-office` | 3D/2D 办公场景, 员工交互, Chat |
-| SOPs | `sops` | `ui-office/components/sop/workspace/` | 3-pane: sidebar + canvas + context |
-| Market | `market` | `ui-office/components/marketplace/workspace/` | 3-pane: filters + explore/manage + metadata |
-| Activity Log | `activity-log` | `ui-office/components/events/workspace/` | 时间线 + 过滤器 + 事件详情 |
-| Settings | `settings` | `ui-office/components/settings/SettingsPage.tsx` | Provider/Runtime/MCP 配置 |
-
-### 架构要点
+| Workspace | Key | 描述 |
+|-----------|-----|------|
+| Office | `office` | 3D/2D 办公场景, `OfficeWorkspaceShellLazy` |
+| SOPs | `sops` | 3-pane: sidebar + canvas + context |
+| Market | `market` | 3-pane: filters + explore/manage + metadata |
+| Activity Log | `activity-log` | 时间线 + 过滤器 + 事件详情 |
+| Settings | `settings` | Provider/Runtime/MCP 配置 |
 
 - `WorkspaceKey` = `'office' | 'sops' | 'market' | 'activity-log' | 'settings'`
-- `AppView` 是 `WorkspaceKey` + legacy overlay views (`employee-creator`, `office-editor`, `company-select`, `studio`)
-- `FullPageWorkspaceAppView` = 除 office 外的 4 个 workspace, 由 `FullPageWorkspaceShell` 包裹
-- Office 走 `shouldShowAppShell()` → `OfficeWorkspaceShellLazy` (含 3D/2D scene + AppLayout)
-- 非 office workspace 走 `isFullPageWorkspaceView()` → `FullPageWorkspaceShell` + `WorkspaceRouter`
-- `useWorkspaceSessionState` 保存每个 workspace 的独立 session state, 切换时保留/恢复。
-  `updateWorkspaceState(key, updater)` 是唯一的 session state 写入路径,
-  updater 函数式签名 `(prev: T) => T` 保证所有 callback 引用稳定（无 sessionState deps）
-- `useWorkspaceBackNavigation` 集成浏览器 history API, 先 unwind workspace 内部状态再切换 workspace
-- 响应式布局: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
-
-### 关键文件
-
-| 文件 | 用途 |
-|------|------|
-| `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state 类型, SessionStateKeyMap, UpdateWorkspaceStateFn, computeLayoutTier |
-| `apps/web/src/components/workspaces/WorkspaceRouter.tsx` | 根据 activeWorkspace 渲染对应 page |
-| `apps/web/src/components/workspaces/useWorkspaceSessionState.ts` | 跨 workspace 的 session state 管理 |
-| `apps/web/src/components/workspaces/useWorkspaceBackNavigation.ts` | 浏览器 back 键集成 |
-| `apps/web/src/components/workspaces/FullPageWorkspaceShell.tsx` | 非 office workspace 的外壳 (header + nav) |
-| `apps/web/src/lib/app-view-layout.ts` | AppView 分类: isWorkspaceView, isFullPageWorkspaceView, shouldShowAppShell |
+- `AppView` = `WorkspaceKey` + legacy overlays (`employee-creator`, `office-editor`, `company-select`, `studio`)
+- Office → `shouldShowAppShell()` → `OfficeWorkspaceShellLazy`; 其余 → `isFullPageWorkspaceView()` → `FullPageWorkspaceShell` + `WorkspaceRouter`
+- `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 唯一写入路径
+- `useWorkspaceBackNavigation`: 浏览器 history 集成, 先 unwind 内部状态再切 workspace
+- 响应式: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
 
 ## Key Files
 
 | Area | Entry point | Purpose |
 |------|-------------|---------|
-| Web SPA | `apps/web/src/App.tsx` | Root component, workspace routing, runtime init |
-| View classification | `apps/web/src/lib/app-view-layout.ts` | AppView/WorkspaceKey 分类, shell 显示逻辑 |
-| Workspace router | `apps/web/src/components/workspaces/WorkspaceRouter.tsx` | 非 office workspace 页面路由 |
+| Web SPA | `apps/web/src/App.tsx` | Root, workspace routing, runtime init |
+| View classification | `apps/web/src/lib/app-view-layout.ts` | AppView 分类, shell 显示逻辑 |
 | Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
-| Office shell | `apps/web/src/components/office-shell/OfficeWorkspaceShell` | Office workspace 完整外壳 (lazy) |
-| LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes, state machine |
-| Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core bridge |
+| LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes |
+| Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core |
 | Scene orchestrator | `packages/ui-office/src/hooks/useSceneOrchestrator.ts` | 3D ceremony + movement |
-| Scene routing | `packages/ui-office/src/lib/scene-behavior.ts` | Employee pathfinding with obstacle avoidance |
-| Seat allocation | `packages/ui-office/src/lib/seat-registry.ts` | Prefab-aware seat + rest positions + footprints |
-| 2D desk layout | `packages/ui-office/src/components/scene/office-2d-layout.ts` | SeatRegistry-backed SVG employee placement |
-| Prefab spatial | `packages/ui-office/src/lib/prefab-spatial.ts` | Footprint + anchor data per prefab type |
-| Chat commands | `packages/ui-office/src/lib/chat-commands.ts` | Slash command registry (runtime/client/panel) |
+| Scene routing | `packages/ui-office/src/lib/scene-behavior.ts` | Pathfinding + obstacle avoidance |
+| Seat allocation | `packages/ui-office/src/lib/seat-registry.ts` | Prefab-aware seat/rest positions |
+| Prefab spatial | `packages/ui-office/src/lib/prefab-spatial.ts` | Footprint + anchor per prefab type |
+| Chat commands | `packages/ui-office/src/lib/chat-commands.ts` | Slash command registry |
 | Ceremony visuals | `packages/ui-office/src/lib/ceremony-visuals.ts` | Phase colors, manager presence, bubble text |
-| UI utils | `packages/ui-office/src/lib/ui-utils.ts` | 共享 UI 原子 (pillClass 等), 跨 workspace 使用 |
-| Time formatting | `packages/ui-office/src/lib/format-time.ts` | formatTimestamp, formatShortDate, formatShortDateTime, truncate |
-| Activity Log utils | `packages/ui-office/src/components/events/workspace/activity-log-utils.ts` | getDateCutoff, getEventId, actor filter helpers |
-| Zone resolution | `packages/shared-types/src/zone-resolution.ts` | Employee→zone mapping by targetRoles |
-| SOP workspace | `packages/ui-office/src/components/sop/workspace/SopWorkspacePage.tsx` | SOP 3-pane workspace |
-| Market workspace | `packages/ui-office/src/components/marketplace/workspace/MarketWorkspacePage.tsx` | Market 3-pane workspace |
-| Activity Log | `packages/ui-office/src/components/events/workspace/ActivityLogPage.tsx` | Activity Log workspace |
-| Settings page | `packages/ui-office/src/components/settings/SettingsPage.tsx` | Full-page settings workspace |
-| Settings shared | `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` | Page/dialog 共享内容 |
-| Layout shell | `packages/ui-office/src/components/layout/AppLayout.tsx` | Persistent left rail + right rail + center slot |
-| Header nav | `packages/ui-office/src/components/layout/Header.tsx` | Workspace-aware primary + utility nav |
+| Zone resolution | `packages/shared-types/src/zone-resolution.ts` | Employee→zone by targetRoles |
+| Company templates | `packages/core/src/services/company-template-service.ts` | Template + zone blueprint |
+| Settings shared | `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` | Page/dialog 共享 |
 | Platform API | `apps/platform/src/routes/` | Hono route handlers |
-| Company templates | `packages/core/src/services/company-template-service.ts` | Template + zone blueprint logic |
 
 ## Gotchas
 
 ### Build & Environment
 
-- `@offisim/core` 有 browser subpath (`@offisim/core/browser`) — 浏览器代码必须用它,
-  否则会拉入 LangGraph/OpenAI SDK 等 Node-only 依赖
-- `apps/web/vite.config.ts` 的 ui-office alias 列表必须与
-  `packages/ui-office/package.json` 的 `exports` 字段保持同步
-- `subscription` provider 依赖 `node:child_process`, 只能在桌面端运行,
-  浏览器中会被 `shouldRejectSubscriptionInRenderer()` 拦截
-- Tauri 包 (`@tauri-apps/*`) 在浏览器 dev 中被 stub 为空模块
-- `gateway-factory.ts` 的 `subscription` case 用 `require()` 动态加载,
-  避免 `node:child_process` 进入浏览器 bundle
-- Dev 端口已锁定: web=5176 (`strictPort: true`), launcher=4200, platform=4100。
-  Tauri `beforeDevCommand` 会先执行 `scripts/ensure-port-free.mjs` 杀掉占用端口的旧进程,
-  防止 Vite 自动跳端口导致 Tauri `devUrl` 连到错误页面。
-  关闭 Tauri 窗口不等于 `tauri dev` 进程结束, 但下次启动会自动清理残留
-- 修改 `shared-types` 的类型后必须先 `pnpm --filter @offisim/shared-types build`,
-  否则依赖它的包 (core, ui-office 等) 看不到新类型
-- `apps/web` 的 `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物,
-  需要先 `pnpm --filter @offisim/db-local build` 或全量 `pnpm build`
-- Linux/CI 环境下构建和测试必须跳过 Tauri 包:
-  `pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' build`
-- Smoke tests (`vitest.smoke.config.ts`) 不自动加载 `.env.local`,
-  必须 `export MINIMAX_API_KEY=... && pnpm --filter @offisim/core exec vitest run --config vitest.smoke.config.ts`
-- Three.js 组件在 jsdom 测试中, `useRef<THREE.Group>` 的 `.current` 不是真正的
-  THREE.Group (没有 `.position.set()`), 需要 defensive cast + optional chaining
-- `AnthropicAdapter` 在 baseURL 非 `api.anthropic.com` 时自动启用 browser-CORS-friendly 模式：
-  用 `Authorization: Bearer` 替代 `x-api-key`，null 删除 `anthropic-version`，
-  custom `fetch` wrapper 用 `/^x-stainless-/i` 正则 strip SDK telemetry headers，
-  `doChatStream` 用 `messages.create({stream:true})` 替代 `messages.stream()` helper
-  （后者硬注入 `X-Stainless-Helper-Method` 无法通过 defaultHeaders 删除）。
-  Anthropic 官方 endpoint 保持 SDK 默认行为
-- `createCheckpointSaver()` 是 async（返回 `Promise<BaseCheckpointSaver>`）。
-  `SqliteSaver` 通过 `await import('@langchain/langgraph-checkpoint-sqlite')` 懒加载，
-  避免 browser bundle 静态拉 Node-only 依赖。`createMemoryCheckpointSaver()` 保持同步。
-  桌面代码和测试调 `createCheckpointSaver` 时必须 await
+- 浏览器代码必须用 `@offisim/core/browser`, 否则拉入 Node-only 依赖
+- `apps/web/vite.config.ts` alias 必须与 `ui-office/package.json` exports 同步
+- `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
+- Tauri 包在浏览器 dev 被 stub 为空模块
+- Dev 端口锁定: web=5176, launcher=4200, platform=4100 (strictPort)。Tauri beforeDevCommand 自动清理残留
+- 修改 `shared-types` 后必须先 `pnpm --filter @offisim/shared-types build`
+- `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物
+- Linux/CI 必须 `--filter '!@offisim/desktop' --filter '!@offisim/launcher'` 跳过 Tauri
+- Smoke tests 不加载 `.env.local`, 需手动 `export MINIMAX_API_KEY=...`
+- Three.js jsdom 测试: `useRef<THREE.Group>.current` 非真 THREE.Group, 需 defensive cast
+- `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
+- `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
 
 ### Core Runtime
 
-- `HookRegistry` 和 `EventBus` 是两个独立的 pub/sub 通道:
-  EventBus = 内部 UI 通知（同步, prefix-matching, 驱动 React hooks 和场景）;
-  HookRegistry = 外部扩展钩子（异步, 有 timeout, 面向未来的插件/instrumentation）。
-  两者监听同一领域事件但服务不同消费者, 不要合并
-- `Scratchpad` 是 per-runtime 的临时跨节点笔记本, `disposeRuntime()` 时自动 clear。
-  不要把它当持久存储用, 持久化用 `MemoryService`
-- `OffisimRuntimeProvider` 的 runtime init 是异步的, `runtimeRef` 是 ref 不触发 re-render。
-  依赖 runtime 就绪的 useEffect 必须把 `version` 放在 deps 里 —
-  init 完成后会 `setVersion(v+1)` 通知这些 effect。
-  不要用 `isInitializing` 作为信号, 它不在这些 effect 的 deps 中
-- Boss node 是 JSON 路由器（不用 tool_use）, 输出 `action` 字段路由到 delegate/direct_reply/meeting 等。
-  路由有两层防御: (1) `BOSS_SYSTEM_PROMPT` 的规则 + 决策优先级 + few-shot, (2) `TASK_KEYWORDS` 正则 heuristic
-  把弱模型误判的 `direct_reply` override 为 `delegate_manager`。
-  修改 Boss 路由行为时两层必须同步, 否则 prompt 改了但 heuristic 没跟上（或反过来）
-- `NodeContextMiddleware` 有共享 1800 字符 budget: summary block (1000) + context pack (700)。
-  构造时第三参数接受可选 `AgentContextPackService`, browser-runtime 和 tauri-runtime 已注册。
-  不要再加独立的 context middleware — 扩展现有的共享 budget
-- `InstallService.planCache` 是实例属性（非模块单例），`dispose()` 时自动清理。
-  browser-runtime 和 tauri-runtime 的 dispose 链路已接入。
-  不要在模块层面缓存 install plan
-- Employee repos (`create()`) 接受可选的 `employee_id` 字段用于 pre-generated ID。
-  在 `transact()` 同步事务中必须使用预生成 ID，不要用 `void promise.then()` 捕获返回值 —
-  Promise.then 回调是微任务，不会在当前同步代码中执行
+- `HookRegistry` (异步扩展钩子) ≠ `EventBus` (同步 UI 通知), 不要合并
+- `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
+- `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`
+- Boss node JSON 路由两层防御: (1) prompt 规则 (2) `TASK_KEYWORDS` 正则。修改时两层同步
+- `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 不要加独立 middleware
+- `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
+- Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 
 ### Workspace IA & Navigation
 
-- `App.tsx` 维护两套状态: legacy `view: AppView` 和新的 `activeWorkspace: WorkspaceKey`。
-  通过 `handleWorkspaceSwitch` 同步两者。改 workspace 导航时必须调 `handleWorkspaceSwitch`,
-  不要直接 `setView` — 否则 session state 不会保存/恢复
-- `FullPageWorkspaceShell` 包裹所有非 office workspace (sops/market/activity-log/settings),
-  提供统一的 header + workspace nav。Office 走独立的 `OfficeWorkspaceShellLazy`
-- `WorkspaceRouter` 只在 `isNonOfficeWorkspace` 时渲染, office 场景由 `OfficeWorkspaceShellLazy` 管理
-- `useWorkspaceBackNavigation` 监听 `popstate`, 先调 workspace 内部 goBack,
-  内部状态耗尽后才切换到上一个 workspace。不要绕过这个 hook 直接操作 history
-- `SopDrawer` 和 `MarketplaceDetailOverlay` 是 legacy overlay, 已被 workspace page 替代。
-  `MarketplaceDetailOverlay` 仅保留给 deep-link install 场景 (`offisim://install?listing_id=X`),
-  后续应迁移到 `MarketWorkspacePage` 内处理
-- Workspace session state 类型定义在 `apps/web/src/components/workspaces/types.ts`,
-  每个 workspace 有独立的 state shape (SopSessionState, MarketSessionState 等)
-- Workspace page 的 `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`（函数式更新），
-  不是 `(state: T) => void`（整体替换）。useCallback deps 不需要 `sessionState`，
-  只需要 `[onSessionStateChange]`（稳定引用）。不要回退到 spread 模式
-- `OfficeWorkspaceShell` props 分为 3 组: `navigation: NavigationCallbacks`,
-  `employee: EmployeeActions`, `sceneView: SceneViewProps`。组件内部立即解构使用，
-  新增 props 时先判断归属哪个分组
+- `App.tsx` 维护 `view` + `activeWorkspace` 双状态, 必须通过 `handleWorkspaceSwitch` 同步, 不要直接 `setView`
+- 不要绕过 `useWorkspaceBackNavigation` 直接操作 history
+- `MarketplaceDetailOverlay` 仅保留给 deep-link install, 其余走 workspace page
+- `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
+- `OfficeWorkspaceShell` props 三组: `navigation`, `employee`, `sceneView`
 
 ### UI / Scene / 3D
 
-- `ceremony-visuals.ts` 的 `getPhaseColor()` 是 ceremony phase 颜色的唯一真相,
-  新增 phase 相关颜色映射时必须调用它, 不要硬编码 hex 值
-- `ceremony-visuals.ts` 同时持有 `MANAGER_PRESENCE_COLORS` 和 `DEFAULT_BUBBLE_TEXT`,
-  涉及 manager 标记或 bubble 默认文本时从这里取, 不要在组件里硬编码
-- `CeremonyState` 新增字段必须同步更新 `createIdleCeremonyState()` 和导出的
-  `IDLE_CEREMONY` 常量 (`useSceneOrchestrator.ts`), 否则 SceneCanvas 的 fallback 会缺字段
-- Scene ceremony state 通过 `CeremonyHost` (App.tsx) 隔离在独立组件中,
-  不要把 `useSceneOrchestrator` 直接放在 App 里, 否则高频 ceremony 变化会级联全树 re-render
-- SceneCanvas 3D 崩溃后自动回退 2D, `crashCountRef` 记录崩溃次数,
-  ≥2 次后锁定 2D 不再允许手动切回, 防止 crash loop
-- 员工 3D 定位通过 `SeatRegistry` (`ui-office/lib/seat-registry.ts`) 从 prefab instances 解析。
-  三类座位: workspace seats (anchor-derived, 碰撞后 nudge 到 footprint 外侧),
-  rest seats (prefab anchor 优先, 不够时 circular fallback 避开家具),
-  zone fallback seats (SEAT_OFFSETS + 行扩展 + 碰撞扫描)。
-  `getObstacleFootprints()` 返回缓存的全局家具碰撞数据供路由使用。
-  不要在 `useSceneOrchestrator` 或 `office3d-employees` 里硬编码员工位置
-- 2D 和 3D 员工落位现在都必须走 `SeatRegistry`。
-  `Office2DView` 的 desk/rest/dispatched 布局通过 `office-2d-layout.ts` 和 `SeatRegistry`
-  统一生成；不要恢复成 4 象限或 `idx % 2/% 3` 的手写 SVG 偏移
-- Scene 侧的 zone fallback 不要直接用 `resolveEmployeeZoneDynamic()` 做渲染或 flow line。
-  `resolveEmployeeSceneZoneId()` 会在无有效 workstation/role 匹配时回退到首个 workspace zone，
-  避免活跃员工掉进 `UNASSIGNED_ZONE_ID` 后不可见
-- 员工移动路由在 `scene-behavior.ts`。所有 `build*Route()` 接受 `obstacleFootprints` 选项,
-  通过 `rerouteSegment()` 递归生成 L 形绕行 (MAX_DETOUR_DEPTH=6)。
-  `buildTransitRoute()` 是通用点对点路由, orchestrator 的 `moveEmployeeAlongTransit` 包装了
-  zone waypoint 查找 + 障碍物绕行。不要绕过这个函数直接 `handle.moveTo()`
-- Prefab 空间数据（footprint + anchors）在 `ui-office/lib/prefab-spatial.ts`，按 prefabId 查表。
-  新增 prefab 类型时必须在 `SPATIAL_SPECS` 数组补 footprint/anchor 数据，
-  否则 Studio 编辑器碰撞检测和员工定位都会退回 gridSize 粗略模式
-- `computeRestSeatPosition()` (seat-registry.ts) 是 rest 区确定性螺旋布局的 fallback 实现，
-  有 prefab 的 rest zone 优先用 anchor 座位。不要重复 angle/radius 公式
-- Settings 主入口现在是 full-page workspace `settings`，由 `App.tsx` + `WorkspaceRouter`
-  路由到 `packages/ui-office/src/components/settings/SettingsPage.tsx`。
-  `SettingsDialog` 仍保留给旧入口，但 page/dialog 的共享内容已经收敛到
-  `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx`。
-  后续改 Settings UI / load/save / unsaved-confirm / tabs 时优先改 shared surface，
-  不要重新把逻辑分叉回两个文件
-- Settings shared surface 已拆分为
-  `settings-primitives.tsx`、`SettingsProviderTab.tsx`、`SettingsRuntimeTab.tsx`。
-  `SettingsWorkspaceSurface.tsx` 保留 controller hook + shell layout，
-  tab 内容各自独立。改 Settings UI 时注意清掉 stale import / stale const；
-  仓库启用了 `noUnusedLocals`，残留会直接把 `@offisim/ui-office` 的 typecheck 打挂
-- Settings 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
-  否则已有的 tool permission 配置会被静默覆盖为默认值
-- Company / studio-adjacent settings 的共享 UI primitive 在
-  `packages/ui-office/src/components/company/company-editor-primitives.tsx`，
-  zone layout summary 解析在
-  `packages/ui-office/src/components/company/company-editor-layout.ts`。
-  后续改 `CompanyEditor` / `PolicyEditor` 的表单样式或 zone summary 读取时，
-  优先改共享 helper，不要把同类结构再复制回两个文件
-- Chat 命令系统集中在 `chat-commands.ts` (ui-office/lib),
-  三种类型: `runtime` (发给 AI), `client` (本地 JS), `panel` (打开 UI)。
-  新增命令只需在 `CHAT_COMMANDS` 数组添加条目, ChatInput 和 ChatPanel 自动发现。
-  @mention 只做 inline 文本插入, 不切 direct chat — 进入 direct chat 的唯一方式是 Inspector Chat 按钮
-- UI 全英文。新增面向用户的字符串必须用英文, 不要混入中文
-- `primeEventLogStore(eventBus)` 创建 20 个 EventBus 订阅（每个 EVENT_PREFIX 一个），
-  必须在 useEffect cleanup 里调 `disposeEventLogStore(eventBus)` 解绑，否则组件重 mount 会累积订阅。
-  App.tsx 和 OffisimRuntimeProvider unmount 都已调用，`disposeEventLogStore` 幂等（WeakMap 检查）
-- `EventLog` 的 `EVENT_PREFIXES` 现有 20 个前缀, `TYPE_PREFIX_MAP` 类型收窄为
-  `Record<EventFilterType, string[]>`, 新增 filter tab 时两处必须同步更新
+- `ceremony-visuals.ts`: `getPhaseColor()` 是 phase 颜色唯一真相; 同时持有 `MANAGER_PRESENCE_COLORS` + `DEFAULT_BUBBLE_TEXT`, 不要硬编码
+- `CeremonyState` 新增字段必须同步 `createIdleCeremonyState()` 和 `IDLE_CEREMONY`
+- `CeremonyHost` (App.tsx) 隔离 ceremony state, 不要把 `useSceneOrchestrator` 放 App 里
+- 3D 崩溃 ≥2 次锁定 2D (`crashCountRef`)
+- 员工定位统一走 `SeatRegistry` (3D/2D), 不要硬编码位置或恢复 4 象限布局
+- 渲染用 `resolveEmployeeSceneZoneId()`, 不要用 `resolveEmployeeZoneDynamic()` (避免掉 UNASSIGNED_ZONE)
+- 移动路由走 `scene-behavior.ts` → `buildTransitRoute()`, 不要直接 `handle.moveTo()`
+- 新增 prefab 必须在 `prefab-spatial.ts` SPATIAL_SPECS 补数据
+- Settings: page/dialog 共享在 `SettingsWorkspaceSurface.tsx` (已拆 primitives + ProviderTab + RuntimeTab)。改 UI 优先改 shared surface。保存 runtimePolicy 必须含 `toolPermissions`
+- Company 共享 primitive 在 `company-editor-primitives.tsx`, zone layout 在 `company-editor-layout.ts`
+- Chat 命令: `chat-commands.ts` 三类 (runtime/client/panel), 新增只加 `CHAT_COMMANDS`。@mention 不切 direct chat
+- UI 全英文, 不要混入中文
+- `primeEventLogStore` 创建 20 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
 
 ### Data Model & Zones
 
-- Zone ID 在 DB 中格式为 `companyId::slug` (如 `abc::zone-dev`)。
-  `templateToZone(t, companyId)` 已自动 normalize, 不会返回裸 slug。
-  从 DB ID 提取 slug 用 `extractZoneSlug()` — 不要手写 `.split('::')`。
-  `ui-office/lib/zone-config.ts` 已废弃, 不要导入
-- 员工→zone 分配必须用 `resolveZoneForRole()` (zone-resolution.ts) 按 `targetRoles` 匹配,
-  不要用 `ROLE_TO_DEPARTMENT` + `zone-${dept}` 构造 zone slug —
-  `company-template-service` 已移除此模式, 因为 `content` 部门没有对应的 `zone-content`
-- 公司模板可通过 `CompanyTemplate.zones?: TemplateZoneBlueprint[]` 自定义 zone 布局,
-  无 zones 字段时 fallback 到 `SYSTEM_ZONE_TEMPLATES` (7 zone)。
-  定义新 zone 时用 `createZoneBlueprint()` 工厂函数, archetype 默认值自动填充,
-  只需声明 slug/archetype/label/坐标/尺寸 + workspace 的 targetRoles/deskSlots
-- 每个模板的 zones 必须满足: 包含 `rest` + `meeting` archetype (REQUIRED_ARCHETYPES),
-  同一 role 不能出现在多个 workspace zone 的 targetRoles 中,
-  所有员工的 role_slug 都能匹配到某个 workspace zone
-- `companies.default_model_policy_json` 实际存储公司描述 (`{ description: "..." }`),
-  字段名有误导性但已被多处读写依赖, 不要重命名
-- Role 字段统一为 `RoleSlug` branded type (shared-types/roles.ts):
-  EmployeeRow, SopStep, CompanyTemplateEmployee, StepTaskOutput, 事件 payload。
-  不要用裸 `string` 声明 role 相关字段
-- `PrefabDefinition` 是基于 `composite` 的 discriminated union:
-  `CompositePrefabDefinition` (composite: true, 必须有 children, 无 render2D) 和
-  `AtomicPrefabDefinition` (composite: false, 必须有 render2D, 无 children)。
-  新增 prefab 时编译器会强制要求正确字段
-- SOP 可视化通过 `SopTimelineView` (ui-office/components/sop) 渲染 DAG 时间轴。
-  `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 的本地纯函数副本
-  （避免实例化 SopService 仅为调用纯方法）。两处逻辑必须保持同步
-- `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI：
-  `planCreated()` 工厂 → `pm-planner-node` 两条 SOP 路径 → `useSopRuntimeState(sopTemplateId)` 过滤。
-  新增 plan 事件字段时注意此链路完整性
-- Marketplace 安装目前只支持 `employee` 和 `skill` 类型的包,
-  `sop`/`company_template`/`office_layout` 的 materializer 尚未完成
-- `GitAutoCommitService` 仅在桌面端(Tauri)生效, 通过 `git.rs` Rust bridge 执行 git 操作。
-  浏览器端 no-op。由 HookRegistry `task.completed` hook 触发, 受 `runtimePolicy.gitAutoCommit` 开关控制
-- SOP 远程同步 (`SopSyncService`) 比较 definition 时先 `JSON.parse` 两侧再 stringify,
-  避免 key 顺序差异导致误判更新
-- `useRegistryClient` hook 是 Marketplace 和 InstallFlow 的共享 RegistryClient 入口,
-  baseUrl 从 `localStorage('offisim.registry.base-url')` → `VITE_PLATFORM_API_URL` → `localhost:4100` fallback
+- Zone ID: DB 格式 `companyId::slug`, 用 `templateToZone()` normalize, `extractZoneSlug()` 提取。`zone-config.ts` 已废弃
+- 员工→zone 用 `resolveZoneForRole()` 按 targetRoles, 不要用 `ROLE_TO_DEPARTMENT`
+- 模板 `CompanyTemplate.zones?` 自定义, 无时 fallback `SYSTEM_ZONE_TEMPLATES` (7)。用 `createZoneBlueprint()` 工厂
+- zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
+- `companies.default_model_policy_json` 实际存公司描述, 字段名误导但不可重命名
+- Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
+- `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
+- `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
+- Marketplace 安装仅支持 `employee`/`skill`, 其余 materializer 未完成
+- `GitAutoCommitService` 桌面端专用, 浏览器 no-op
+- `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
+- `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100
 
 ### Platform API
 
 - DB 连接错误返回 503, 非 500
-- listing 访问必须通过 `getVisibleListing(db, condition)` 或 `requireVisibleListingById(db, id)`,
-  它们强制 `status = 'listed'` 过滤。不要直接 `db.select().from(listings).where(eq(id, ...))` —
-  这会暴露 hidden/retired listing。受影响端点: GET listing by id/slug、versions、reviews
-- `optionalAuth` 在 email 冲突时设置 `authLinkConflict: true`（已绑定 ba_user_id 的用户被
-  不同 OAuth 账号尝试 link），`requireAuth` 返回 `AUTH_LINK_CONFLICT` 401。
-  修改 auth 流程时注意此状态通过 `PlatformEnv.Variables` 传递
-- Reviews 路由有 self-review 防护: 通过 creators JOIN 比较 `user_id`，
-  创作者不能评自己的 listing (403)
-- Rate limiter 只信任 `X-Forwarded-For` 最右第 N 个 IP (`TRUSTED_PROXY_DEPTH` 环境变量),
-  不信任 `X-Real-IP`。生产部署必须配置反向代理覆盖 XFF
-- creator 所有权校验统一走 `requireCreator` 中间件 (`middleware/auth.ts`),
-  通过 `getRequiredCreatorId(c)` 取 creator_id。共享的 creator lookup 用
-  `findCreatorIdByUserId(db, userId)`。不要在每个 handler 里手写
-  `db.select().from(creators).where(eq(creators.user_id, ...))` — 这是已淘汰的模式。
-  `/me` 是例外（非 creator 返回 null），必须注册在 `publish.use('/drafts/*', requireCreator)` 之前
-- 测试的 `createMockDb([results])` 按 callIndex 顺序消费 DB 调用结果。
-  给路由加新 middleware（如 `requireCreator`）会在 handler 之前多查一次 DB，
-  现有测试的 mock 数组必须在最前面插入 middleware 的查询结果，否则 callIndex 错位导致
-  403/400/404 语义漂移。重构中间件后必须同步更新所有相关测试的 mock 序列
+- listing 必须用 `getVisibleListing()`/`requireVisibleListingById()` (强制 `status='listed'`), 不要直接 query
+- `optionalAuth` email 冲突设 `authLinkConflict: true`, `requireAuth` 返回 `AUTH_LINK_CONFLICT` 401
+- Reviews self-review 防护: creators JOIN 比较 user_id (403)
+- Rate limiter 只信 `X-Forwarded-For` 最右第 N 个 IP (`TRUSTED_PROXY_DEPTH`), 不信 `X-Real-IP`
+- creator 所有权走 `requireCreator` 中间件, 用 `getRequiredCreatorId(c)` / `findCreatorIdByUserId()`。`/me` 例外, 注册在 requireCreator 之前
+- 测试 `createMockDb([results])` 按 callIndex 消费。加 middleware 前置 DB 查询会导致 mock 错位, 需同步调整
 
 ## License and Key Model
 
-Offisim is open source (MIT) and BYO-key — users supply their own vendor
-credentials (`anthropic`, `openai`, `openai-compat`, `minimax` via
-`openai-compat`, etc.). The browser bundle calls vendor APIs directly;
-Offisim does not host any proxy or shared key path. The `subscription`
-provider runs `claude acp` via `node:child_process` and is desktop-only.
+Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
+`subscription` provider 走 `claude acp` via `node:child_process`, 桌面端专用。
