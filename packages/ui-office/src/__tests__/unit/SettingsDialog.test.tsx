@@ -141,7 +141,6 @@ describe('SettingsDialog', () => {
   it('uses the new workspace-style settings structure instead of the legacy plain dialog copy', () => {
     render(<SettingsDialog open onOpenChange={vi.fn()} onSave={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
   });
 });

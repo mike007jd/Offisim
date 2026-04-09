@@ -537,37 +537,13 @@ interface SettingsWorkspaceSurfaceProps {
 export function SettingsWorkspaceSurface({
   activeTab,
   controller,
-  dismissControl,
+  dismissControl: _dismissControl,
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
-  const { selectedCapabilities, selectedCompatibility, selectedRegion } = controller;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden text-slate-100">
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-white/[0.06] bg-slate-950/30 px-6 py-3.5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-400/60">
-                System
-              </p>
-              <h1 className="text-base font-semibold text-white truncate">Settings</h1>
-              <div className="hidden md:flex items-center gap-2 ml-2">
-                <span className="rounded bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400 truncate max-w-[200px]">
-                  {selectedCompatibility}
-                </span>
-                <span className="rounded bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400">
-                  {selectedRegion}
-                </span>
-                <span className="rounded bg-cyan-500/[0.08] border border-cyan-400/20 px-2 py-0.5 text-[11px] text-cyan-300/80 truncate max-w-[180px]">
-                  {selectedCapabilities}
-                </span>
-              </div>
-            </div>
-            {dismissControl}
-          </div>
-        </div>
-
         <Tabs
           value={activeTab}
           onValueChange={(value) => onActiveTabChange(value as SettingsTab)}

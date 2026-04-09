@@ -69,7 +69,6 @@ describe('SopWorkspacePage', () => {
     );
 
     expect(screen.getByTestId('workspace-sops')).toHaveClass('workspace-shell');
-    expect(screen.getByText('SOPs')).toBeInTheDocument();
     expect(screen.getByText('empty-state')).toBeInTheDocument();
   });
 });

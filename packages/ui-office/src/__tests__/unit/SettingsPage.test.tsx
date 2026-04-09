@@ -136,8 +136,6 @@ describe('SettingsPage', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
   });
 });
