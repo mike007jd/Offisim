@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { computeLayoutTier, type LayoutTierConfig } from './types';
+import { type LayoutTierConfig, computeLayoutTier } from './types';
 
 /**
  * Reactively computes the current responsive layout tier based on

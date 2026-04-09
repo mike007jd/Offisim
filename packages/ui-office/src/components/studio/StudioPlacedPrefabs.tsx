@@ -273,7 +273,11 @@ export function StudioPlacedPrefabs() {
         >
           <Prefab3D definition={selectedDefinition} state="idle" />
           <mesh geometry={highlightRingGeo} material={highlightRingMat} position={[0, 0.02, 0]} />
-          <Html position={[0, 1.15, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
+          <Html
+            position={[0, 1.15, 0]}
+            center
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
             <div
               style={{
                 background: 'rgba(2, 6, 23, 0.88)',

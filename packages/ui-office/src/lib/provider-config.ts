@@ -98,7 +98,11 @@ const PROVIDER_COMPATIBILITIES = new Set<ProviderCompatibility>([
   'anthropic-compatible',
   'openai-compatible',
 ]);
-const PROVIDER_SURFACES = new Set<ProviderSurface>(['general', 'coding-plan', 'desktop-subscription']);
+const PROVIDER_SURFACES = new Set<ProviderSurface>([
+  'general',
+  'coding-plan',
+  'desktop-subscription',
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -130,9 +134,7 @@ function isProviderRegion(value: unknown): value is ProviderRegion {
 }
 
 function isProviderCompatibility(value: unknown): value is ProviderCompatibility {
-  return (
-    typeof value === 'string' && PROVIDER_COMPATIBILITIES.has(value as ProviderCompatibility)
-  );
+  return typeof value === 'string' && PROVIDER_COMPATIBILITIES.has(value as ProviderCompatibility);
 }
 
 function isProviderSurface(value: unknown): value is ProviderSurface {

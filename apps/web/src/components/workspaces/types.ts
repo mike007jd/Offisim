@@ -56,7 +56,6 @@ export type WorkspaceSessionState = {
   settings: SettingsSessionState;
 };
 
-
 // ---------------------------------------------------------------------------
 // State Machine Union Types
 // ---------------------------------------------------------------------------

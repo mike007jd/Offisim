@@ -18,7 +18,9 @@ describe('PolicyEditor', () => {
 
     expect(screen.getByLabelText('Default Model Profile')).toHaveValue('MiniMax-M1');
     expect(screen.getByLabelText('Temperature value')).toHaveValue(0.7);
-    expect(screen.getByText('These defaults apply to newly created employees only.')).toBeInTheDocument();
+    expect(
+      screen.getByText('These defaults apply to newly created employees only.'),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Temperature value'), {
       target: { value: '3' },

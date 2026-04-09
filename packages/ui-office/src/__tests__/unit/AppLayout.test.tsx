@@ -209,6 +209,8 @@ describe('AppLayout', () => {
     );
 
     // On mobile, both rails are collapsed by default and should stay collapsed
-    expect(screen.queryByRole('button', { name: /collapse collaboration/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /collapse collaboration/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,11 @@ export function buildZoneDeskEmployeeSvgPositions(
   seatRegistry: SeatRegistry,
 ): SvgPoint[] {
   return Array.from({ length: employeeCount }, (_, index) => {
-    const [worldX, , worldZ] = seatRegistry.getSeat(zone.zoneId, index)?.position ?? [zone.cx, 0, zone.cz];
+    const [worldX, , worldZ] = seatRegistry.getSeat(zone.zoneId, index)?.position ?? [
+      zone.cx,
+      0,
+      zone.cz,
+    ];
     return positionToSVG(worldX, worldZ);
   });
 }

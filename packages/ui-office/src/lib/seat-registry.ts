@@ -128,11 +128,7 @@ function buildAnchoredSeats(
     approachPosition: readonly [number, number, number],
   ) => {
     const resolvedPosition = ensureOutsideFootprint(position, footprint, base.facing);
-    let resolvedApproach = ensureOutsideFootprint(
-      approachPosition,
-      footprint,
-      approachBase.facing,
-    );
+    let resolvedApproach = ensureOutsideFootprint(approachPosition, footprint, approachBase.facing);
     if (distance2D(resolvedPosition, resolvedApproach) < MIN_APPROACH_LEAD) {
       const rawDx = approachPosition[0] - position[0];
       const rawDz = approachPosition[2] - position[2];
@@ -224,7 +220,8 @@ function buildRestFallbackSeats(
   const fallbackSeats: SeatEntry[] = [];
   for (
     let candidate = candidateStart;
-    fallbackSeats.length < targetCount && candidate < candidateStart + Math.max(targetCount * 8, 64);
+    fallbackSeats.length < targetCount &&
+    candidate < candidateStart + Math.max(targetCount * 8, 64);
     candidate++
   ) {
     const position = computeRestSeatPosition(zone.cx, zone.cz, candidate);
@@ -254,8 +251,7 @@ function buildOverflowRestSeat(
   for (let attempt = 0; attempt < 256; attempt++) {
     const candidateIndex = seedIndex + attempt;
     const ring = Math.floor(candidateIndex / 12);
-    const angle =
-      ((candidateIndex % 12) / 12) * Math.PI * 2 + (ring % 2 === 0 ? 0 : Math.PI / 12);
+    const angle = ((candidateIndex % 12) / 12) * Math.PI * 2 + (ring % 2 === 0 ? 0 : Math.PI / 12);
     const radius = 1.6 + ring * MIN_SEAT_SPACING;
     const position: [number, number, number] = [
       zone.cx + Math.cos(angle) * radius,
@@ -438,7 +434,9 @@ export class SeatRegistry {
     const seatPool = restZone ? this.restSeats.get(restZone.zoneId) : undefined;
     if (restZone && seatPool && slotIndex < seatPool.length) {
       const seat = seatPool[slotIndex];
-      return seat ? [...seat.position] : computeRestSeatPosition(restZone.cx, restZone.cz, slotIndex);
+      return seat
+        ? [...seat.position]
+        : computeRestSeatPosition(restZone.cx, restZone.cz, slotIndex);
     }
     if (restZone) {
       const overflowSeats = this.ensureOverflowRestSeats(restZone.zoneId, restZone, slotIndex + 1);

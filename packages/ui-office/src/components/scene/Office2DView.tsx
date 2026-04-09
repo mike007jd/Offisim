@@ -28,7 +28,6 @@ import { useCompany } from '../company/CompanyContext.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import { Office2DPrefab, PlantSVG } from './Office2DPrefab.js';
 import { getAvatarUri } from './office-2d-avatar-cache';
-import { buildZoneDeskEmployeeSvgPositions } from './office-2d-layout';
 import {
   ROOM_H,
   ROOM_W,
@@ -37,6 +36,7 @@ import {
   screenToSvg as screenToSvgPure,
   toSVG,
 } from './office-2d-geometry';
+import { buildZoneDeskEmployeeSvgPositions } from './office-2d-layout';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 import { useOffice2DDrag } from './useOffice2DDrag';
 
@@ -859,7 +859,10 @@ export default function Office2DView({
                   const emp = emps[i] ?? null;
                   if (!emp) return null;
                   return (
-                    <g key={`${emp.empId}:${position.x}:${position.y}`} transform={`translate(${position.x}, ${position.y})`}>
+                    <g
+                      key={`${emp.empId}:${position.x}:${position.y}`}
+                      transform={`translate(${position.x}, ${position.y})`}
+                    >
                       <rect
                         x="-28"
                         y="-22"
@@ -878,7 +881,14 @@ export default function Office2DView({
                         fill="var(--surface-light)"
                       />
                       <rect x="-14" y="-4" width="28" height="3" fill="#0ea5e9" opacity="0.5" />
-                      <circle cx="0" cy="32" r="10" fill="var(--surface-lighter)" stroke="var(--surface-mid)" strokeWidth="1" />
+                      <circle
+                        cx="0"
+                        cy="32"
+                        r="10"
+                        fill="var(--surface-lighter)"
+                        stroke="var(--surface-mid)"
+                        strokeWidth="1"
+                      />
                       {!employeeCeremonyPositions.has(emp.empId) && (
                         <EmployeeNode
                           x={0}

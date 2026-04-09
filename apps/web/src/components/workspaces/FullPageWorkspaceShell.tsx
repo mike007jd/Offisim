@@ -54,7 +54,9 @@ export function FullPageWorkspaceShell({
                   {companyName ?? 'Offisim'}
                 </span>
                 <span className="text-slate-500">/</span>
-                <span className="text-sm text-slate-300">{WORKSPACE_META[activeWorkspace].label}</span>
+                <span className="text-sm text-slate-300">
+                  {WORKSPACE_META[activeWorkspace].label}
+                </span>
               </div>
             </div>
           </div>

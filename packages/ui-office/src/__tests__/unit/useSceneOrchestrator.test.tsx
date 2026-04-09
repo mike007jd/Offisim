@@ -200,7 +200,9 @@ describe('useSceneOrchestrator', () => {
   it('ignores reasoning-only boss summary chunks when updating reporting bubble text', () => {
     vi.useFakeTimers();
     const eventBus = new TestEventBus();
-    const agents = new Map([['emp-1', { id: 'emp-1', name: 'Ava', role: 'developer', state: 'idle' }]]);
+    const agents = new Map([
+      ['emp-1', { id: 'emp-1', name: 'Ava', role: 'developer', state: 'idle' }],
+    ]);
 
     clearCompanyState(COMPANY_ID);
     registerMovementHandle(COMPANY_ID, 'emp-1', createImmediateHandle([0, 0, 0]));

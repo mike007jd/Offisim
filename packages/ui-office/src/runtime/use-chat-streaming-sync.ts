@@ -1,10 +1,10 @@
+import type { EventBus } from '@offisim/core/browser';
 import type {
   GraphNodeEnteredPayload,
   LlmStreamChunkPayload,
   RuntimeEvent,
   ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
-import type { EventBus } from '@offisim/core/browser';
 import { useEffect } from 'react';
 import { useChatSessionStore } from '../components/chat/chat-session-store.js';
 

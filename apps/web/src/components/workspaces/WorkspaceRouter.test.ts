@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceKey } from './types';
 import {
-  shouldMountOfficeScene,
-  isOfficeSceneInteractive,
   type TransitionState,
+  isOfficeSceneInteractive,
+  shouldMountOfficeScene,
 } from './WorkspaceRouter';
+import type { WorkspaceKey } from './types';
 
 // ---------------------------------------------------------------------------
 // All workspace keys and transition states for exhaustive testing

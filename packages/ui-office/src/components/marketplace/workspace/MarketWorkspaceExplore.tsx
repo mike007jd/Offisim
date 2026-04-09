@@ -2,8 +2,8 @@ import type { AssetKind } from '@offisim/asset-schema';
 import { Button } from '@offisim/ui-core';
 import { useEffect } from 'react';
 import { useMarketplace } from '../../../hooks/useMarketplace.js';
-import type { MarketSortOption } from '../marketplace-meta.js';
 import { ListingCard } from '../ListingCard.js';
+import type { MarketSortOption } from '../marketplace-meta.js';
 
 export interface MarketWorkspaceExploreProps {
   search: string;

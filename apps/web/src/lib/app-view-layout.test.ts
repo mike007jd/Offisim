@@ -3,8 +3,8 @@ import {
   FULL_PAGE_WORKSPACE_VIEWS,
   WORKSPACE_VIEWS,
   isFullPageWorkspaceView,
-  isWorkspaceView,
   isOfficeSceneInteractive,
+  isWorkspaceView,
   shouldKeepOfficeMounted,
   shouldShowEmployeeCreatorOverlay,
 } from './app-view-layout';

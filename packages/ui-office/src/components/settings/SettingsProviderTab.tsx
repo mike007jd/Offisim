@@ -1,9 +1,17 @@
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@offisim/ui-core';
 import { Bot, ShieldCheck, Sparkles } from 'lucide-react';
 import { isTauri } from '../../lib/env';
+import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { getAvailableProviderPresets } from './provider-presets';
 import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
-import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 
 const IS_DESKTOP = isTauri();
 const AVAILABLE_PRESETS = getAvailableProviderPresets({ tauri: IS_DESKTOP });
@@ -66,12 +74,12 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
         >
           <div className="space-y-3 text-sm text-slate-300">
             <p>
-              Offisim stores vendor, region, compatibility surface, and capability matrix
-              alongside the base transport.
+              Offisim stores vendor, region, compatibility surface, and capability matrix alongside
+              the base transport.
             </p>
             <p>
-              Custom mode remains available when you need a non-standard endpoint, but
-              presets should be the default path.
+              Custom mode remains available when you need a non-standard endpoint, but presets
+              should be the default path.
             </p>
           </div>
         </SurfaceCard>
@@ -105,8 +113,8 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
                   <p className="text-sm font-semibold text-blue-100">Subscription runtime</p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Use your local AI subscription runtime without storing an API key.
-                    This path is desktop-only and keeps the ACP command explicit.
+                    Use your local AI subscription runtime without storing an API key. This path is
+                    desktop-only and keeps the ACP command explicit.
                   </p>
                 </div>
                 <div className="lg:col-span-2">
@@ -128,9 +136,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                   type="password"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={
-                    hasStoredSecret ? 'Stored securely on this device' : 'sk-ant-...'
-                  }
+                  placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-ant-...'}
                   className={surfaceInputProps()}
                 />
                 {IS_DESKTOP && hasStoredSecret ? (
@@ -181,8 +187,8 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
 
           {isThinkingProvider ? (
             <div className="mt-4 rounded-[20px] border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-100">
-              Thinking-capable providers burn part of the token budget on reasoning. Keep
-              employee max tokens at 1024 or higher to avoid clipped replies.
+              Thinking-capable providers burn part of the token budget on reasoning. Keep employee
+              max tokens at 1024 or higher to avoid clipped replies.
             </div>
           ) : null}
 

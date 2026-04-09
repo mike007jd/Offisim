@@ -1,7 +1,7 @@
-import type { SopTemplate } from '../../../hooks/useSops';
-import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
-import { formatSopDateTime, SOP_STEP_STATUS, pillClass } from '../../../lib/sop-utils';
 import { ExternalLink, Link2 } from 'lucide-react';
+import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
+import type { SopTemplate } from '../../../hooks/useSops';
+import { SOP_STEP_STATUS, formatSopDateTime, pillClass } from '../../../lib/sop-utils';
 
 export interface SopWorkspaceContextPaneProps {
   sop: SopTemplate | null;
@@ -40,9 +40,7 @@ function ContextTab({ sop }: { sop: SopTemplate }) {
       )}
 
       <div className="space-y-1">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-          Details
-        </p>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Details</p>
         <div className="text-[11px] text-slate-400 space-y-0.5">
           <p>Steps: {sop.stepCount}</p>
           {sop.version && <p>Version: {sop.version}</p>}
@@ -59,9 +57,7 @@ function RunsTab({ sop }: { sop: SopTemplate }) {
   const runtimeState = useSopRuntimeState(sop.sopTemplateId);
 
   if (!runtimeState) {
-    return (
-      <p className="text-[11px] text-slate-500 italic">No active runs for this SOP.</p>
-    );
+    return <p className="text-[11px] text-slate-500 italic">No active runs for this SOP.</p>;
   }
 
   return (
@@ -72,10 +68,7 @@ function RunsTab({ sop }: { sop: SopTemplate }) {
       {runtimeState.map((step) => {
         const cfg = SOP_STEP_STATUS[step.status] ?? SOP_STEP_STATUS.pending;
         return (
-          <div
-            key={step.stepIndex}
-            className="flex items-center gap-2 text-[11px] py-0.5"
-          >
+          <div key={step.stepIndex} className="flex items-center gap-2 text-[11px] py-0.5">
             <span className="text-slate-500 font-mono w-6 text-right shrink-0">
               #{step.stepIndex + 1}
             </span>

@@ -1,10 +1,10 @@
 import type { CompanyRow, RuntimeRepositories } from '@offisim/core/browser';
-import type { OffisimRuntimeValue } from '../../runtime/offisim-runtime-context';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { CompanyProvider } from '../../components/company/CompanyContext';
 import { CompanySelectionPage } from '../../components/company/CompanySelectionPage';
+import type { OffisimRuntimeValue } from '../../runtime/offisim-runtime-context';
 import { OffisimRuntimeContext } from '../../runtime/offisim-runtime-context';
 
 const MOCK_COMPANY: CompanyRow = {

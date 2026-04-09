@@ -2,7 +2,10 @@ import type { PrefabInstanceRow, Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { SeatRegistry, computeWorkspaceFallbackSeatPosition } from '../../lib/seat-registry';
 
-function planarDistance(a: readonly [number, number, number], b: readonly [number, number, number]) {
+function planarDistance(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+) {
   const dx = a[0] - b[0];
   const dz = a[2] - b[2];
   return Math.sqrt(dx * dx + dz * dz);

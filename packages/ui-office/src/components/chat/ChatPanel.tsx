@@ -22,11 +22,7 @@ import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
-import {
-  type ChatMessage,
-  getConversationKey,
-  useChatSessionStore,
-} from './chat-session-store';
+import { type ChatMessage, getConversationKey, useChatSessionStore } from './chat-session-store';
 
 const MeetingPanel = lazy(() =>
   import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
@@ -488,7 +484,11 @@ export function ChatPanel({
       {!compact && showPipelineProgress && (
         <div className="shrink-0">
           <Suspense fallback={null}>
-            <PipelineProgress stage={pipelineStage} isRunning={isRunning} onAbort={abortExecution} />
+            <PipelineProgress
+              stage={pipelineStage}
+              isRunning={isRunning}
+              onAbort={abortExecution}
+            />
           </Suspense>
         </div>
       )}

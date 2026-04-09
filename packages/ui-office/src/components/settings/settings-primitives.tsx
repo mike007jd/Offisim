@@ -46,7 +46,9 @@ export function MetricCard({
 }) {
   return (
     <div className="rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+        {label}
+      </p>
       <p className="mt-2 text-base font-semibold text-white">{value}</p>
       <p className="mt-1 text-xs text-slate-400">{detail}</p>
     </div>

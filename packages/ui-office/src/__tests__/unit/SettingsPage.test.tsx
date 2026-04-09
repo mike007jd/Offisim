@@ -50,7 +50,9 @@ vi.mock('../../lib/provider-config', () => ({
     toolSearch: { enabled: true },
     toolPermissions: 'ask',
     gitAutoCommit: true,
-    modelPolicy: { default: { provider: 'anthropic', model: 'minimax-m1', profileName: 'runtime-default' } },
+    modelPolicy: {
+      default: { provider: 'anthropic', model: 'minimax-m1', profileName: 'runtime-default' },
+    },
   }),
   loadProviderConfig: () => null,
   normalizeRuntimePolicy: (policy: unknown) => policy,

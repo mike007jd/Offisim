@@ -68,8 +68,11 @@ describe('OpenAiAdapter', () => {
       ],
       usage: { prompt_tokens: 12, completion_tokens: 9 },
     });
-    (compatAdapter as unknown as { client: { chat: { completions: { create: typeof mockedCreate } } } })
-      .client.chat.completions.create = mockedCreate;
+    (
+      compatAdapter as unknown as {
+        client: { chat: { completions: { create: typeof mockedCreate } } };
+      }
+    ).client.chat.completions.create = mockedCreate;
 
     const response = await compatAdapter.chat({
       messages: [{ role: 'user', content: 'Hi' }],
@@ -98,8 +101,11 @@ describe('OpenAiAdapter', () => {
         };
       })(),
     );
-    (compatAdapter as unknown as { client: { chat: { completions: { create: typeof mockedCreate } } } })
-      .client.chat.completions.create = mockedCreate;
+    (
+      compatAdapter as unknown as {
+        client: { chat: { completions: { create: typeof mockedCreate } } };
+      }
+    ).client.chat.completions.create = mockedCreate;
 
     const chunks = [];
     for await (const chunk of compatAdapter.chatStream({

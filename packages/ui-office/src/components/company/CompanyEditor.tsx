@@ -4,6 +4,7 @@ import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
 import type { ZoneLayoutMap } from '../office/OfficeEditorOverlay.js';
+import { PolicyEditor } from './PolicyEditor';
 import { parseZoneLayoutMap } from './company-editor-layout';
 import {
   FieldLabel,
@@ -12,7 +13,6 @@ import {
   surfaceInputClassName,
   surfaceTextareaClassName,
 } from './company-editor-primitives';
-import { PolicyEditor } from './PolicyEditor';
 
 type Tab = 'general' | 'zones' | 'defaults';
 const COMPANY_EDITOR_TABS: Array<[Tab, string]> = [
@@ -85,10 +85,13 @@ export function CompanyEditor({
               <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-cyan-300/80">
                 Layout & Defaults
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Studio Profile</h2>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                Studio Profile
+              </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 Shape the company identity, open the zone layout workflow, and define the defaults
-                that new employees inherit. This surface now matches the rest of the new workspace UI.
+                that new employees inherit. This surface now matches the rest of the new workspace
+                UI.
               </p>
             </div>
             <button
@@ -149,7 +152,9 @@ export function CompanyEditor({
               >
                 <div className="space-y-3 text-sm text-slate-300">
                   <div className="rounded-[20px] border border-cyan-400/15 bg-cyan-400/10 px-4 py-4">
-                    <p className="font-semibold text-white">{company?.name || 'Untitled company'}</p>
+                    <p className="font-semibold text-white">
+                      {company?.name || 'Untitled company'}
+                    </p>
                     <p className="mt-2 text-xs leading-5 text-slate-300">
                       Naming, positioning, and defaults stay aligned with the active studio profile.
                     </p>
@@ -157,7 +162,8 @@ export function CompanyEditor({
                   <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Workflow</p>
                     <p className="mt-2 text-sm text-slate-300">
-                      Zone layout editing stays explicit. Select a zone first, then enter its edit mode.
+                      Zone layout editing stays explicit. Select a zone first, then enter its edit
+                      mode.
                     </p>
                   </div>
                 </div>
@@ -202,7 +208,10 @@ export function CompanyEditor({
               title="Zone Layout"
               description="Zone placement and furniture editing now live inside the dedicated studio workflow. This panel stays as the launch and summary surface."
             >
-              <ZoneSummaryTab zoneLayoutMap={zoneLayoutMap} onOpenOfficeEditor={onOpenOfficeEditor} />
+              <ZoneSummaryTab
+                zoneLayoutMap={zoneLayoutMap}
+                onOpenOfficeEditor={onOpenOfficeEditor}
+              />
             </SurfaceCard>
           )}
 
@@ -304,9 +313,7 @@ function ZoneSummaryTab({ zoneLayoutMap, onOpenOfficeEditor }: ZoneSummaryTabPro
               {seats > 0 && <span className="shrink-0 text-xs text-slate-400">{seats} seats</span>}
               <span
                 className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] ${
-                  isEnabled
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-slate-800 text-slate-500'
+                  isEnabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-500'
                 }`}
               >
                 {isEnabled ? 'On' : 'Off'}

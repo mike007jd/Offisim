@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { StudioToolbar } from '../../components/studio/StudioToolbar.js';
 import { useStudioStore } from '../../components/studio/StudioState.js';
+import { StudioToolbar } from '../../components/studio/StudioToolbar.js';
 
 describe('StudioToolbar', () => {
   beforeEach(() => {

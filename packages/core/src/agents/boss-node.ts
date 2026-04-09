@@ -297,7 +297,13 @@ export async function bossNode(
       (chunk) => {
         if (chunk.reasoning) {
           runtimeCtx.eventBus.emit(
-            llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss', chunk.reasoning, 'reasoning'),
+            llmStreamChunk(
+              runtimeCtx.companyId,
+              state.threadId,
+              'boss',
+              chunk.reasoning,
+              'reasoning',
+            ),
           );
         }
         if (chunk.content) {

@@ -1,7 +1,10 @@
 import type { RuntimeEvent as SharedRuntimeEvent } from '@offisim/shared-types';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { getConversationKey, useChatSessionStore } from '../../components/chat/chat-session-store.js';
+import {
+  getConversationKey,
+  useChatSessionStore,
+} from '../../components/chat/chat-session-store.js';
 import { useChatStreamingSync } from '../../runtime/use-chat-streaming-sync.js';
 
 type TestEvent = SharedRuntimeEvent<Record<string, unknown>>;

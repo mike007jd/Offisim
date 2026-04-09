@@ -2,33 +2,29 @@ import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceSessionState } from './types';
 import {
+  createDefaultActivityLogState,
+  createDefaultMarketState,
   createDefaultSessionState,
   createDefaultSopState,
-  createDefaultMarketState,
-  createDefaultActivityLogState,
 } from './types';
 import {
-  tryWorkspaceInternalBack,
-  hasInternalDrillIn,
   SESSION_KEY,
+  hasInternalDrillIn,
+  tryWorkspaceInternalBack,
 } from './useWorkspaceSessionState';
 
 // ---------------------------------------------------------------------------
 // Helper: build session state with overrides
 // ---------------------------------------------------------------------------
 
-function withSops(
-  overrides: Partial<WorkspaceSessionState['sops']>,
-): WorkspaceSessionState {
+function withSops(overrides: Partial<WorkspaceSessionState['sops']>): WorkspaceSessionState {
   return {
     ...createDefaultSessionState(),
     sops: { ...createDefaultSopState(), ...overrides },
   };
 }
 
-function withMarket(
-  overrides: Partial<WorkspaceSessionState['market']>,
-): WorkspaceSessionState {
+function withMarket(overrides: Partial<WorkspaceSessionState['market']>): WorkspaceSessionState {
   return {
     ...createDefaultSessionState(),
     market: { ...createDefaultMarketState(), ...overrides },
@@ -96,15 +92,15 @@ describe('hasInternalDrillIn', () => {
   });
 
   it('returns false for activity-log with no event selected', () => {
-    expect(
-      hasInternalDrillIn('activity-log', withActivityLog({ selectedEventId: null })),
-    ).toBe(false);
+    expect(hasInternalDrillIn('activity-log', withActivityLog({ selectedEventId: null }))).toBe(
+      false,
+    );
   });
 
   it('returns true for activity-log with an event selected', () => {
-    expect(
-      hasInternalDrillIn('activity-log', withActivityLog({ selectedEventId: 'e-1' })),
-    ).toBe(true);
+    expect(hasInternalDrillIn('activity-log', withActivityLog({ selectedEventId: 'e-1' }))).toBe(
+      true,
+    );
   });
 
   it('returns false for settings (no internal drill-in)', () => {

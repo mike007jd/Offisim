@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { ActivityLogPage } from '../../components/events/workspace/ActivityLogPage.js';
 import {
   OffisimRuntimeContext,
   type OffisimRuntimeValue,
 } from '../../runtime/offisim-runtime-context';
-import { ActivityLogPage } from '../../components/events/workspace/ActivityLogPage.js';
 
 class TestEventBus {
   on() {

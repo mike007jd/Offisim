@@ -1,7 +1,7 @@
 import type { Zone } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
-import { SeatRegistry } from '../../lib/seat-registry';
 import { buildZoneDeskEmployeeSvgPositions } from '../../components/scene/office-2d-layout';
+import { SeatRegistry } from '../../lib/seat-registry';
 
 const zone: Zone = {
   zoneId: 'dev',

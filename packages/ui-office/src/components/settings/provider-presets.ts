@@ -312,7 +312,9 @@ export function getProviderPreset(key: string): ProviderPreset | undefined {
   return PROVIDER_PRESETS[key];
 }
 
-export function findProviderPresetKeyByConfig(config: Partial<ProviderConfig> | null): string | null {
+export function findProviderPresetKeyByConfig(
+  config: Partial<ProviderConfig> | null,
+): string | null {
   if (!config) return null;
 
   if (config.providerVariantId && PROVIDER_PRESETS[config.providerVariantId]) {

@@ -1,12 +1,13 @@
+import type { RoleSlug, Zone } from '@offisim/shared-types';
+import { isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import type { Zone, RoleSlug } from '@offisim/shared-types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import {
-  getMovementHandle,
-  getMovementDebugInfo,
   type CeremonyState,
+  getMovementDebugInfo,
+  getMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
 import {
   buildDispatchRoute,
@@ -46,7 +47,6 @@ import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
 import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
-import { isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
 
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
@@ -218,11 +218,13 @@ export default function Office3DView({
       zone.cz - zone.d / 2 + 0.5,
     ];
     const findZoneById = (zoneId: string | null) =>
-      zoneId ? zones.find((zone) => zone.zoneId === zoneId) ?? null : null;
+      zoneId ? (zones.find((zone) => zone.zoneId === zoneId) ?? null) : null;
     const findPlacedEmployee = (employeeId: string) =>
       placed.find((entry) => entry.id === employeeId) ?? null;
     const findCurrentPosition = (employeeId: string): [number, number, number] | null => {
-      const live = activeCompanyId ? getMovementHandle(activeCompanyId, employeeId)?.getPosition() : null;
+      const live = activeCompanyId
+        ? getMovementHandle(activeCompanyId, employeeId)?.getPosition()
+        : null;
       if (live) return live;
       const employee = findPlacedEmployee(employeeId);
       return employee ? [...employee.position] : null;
@@ -297,14 +299,19 @@ export default function Office3DView({
         currentZone && currentZone.zoneId !== meetingZoneId
           ? getWorkspaceSeatTargets(currentZone).approach
           : undefined;
-      const route = buildReturnToMeetingRoute(current, [meetingZone.cx, 0, meetingZone.cz], target, {
-        departureApproach,
-        zoneWaypoints:
-          currentZone && currentZone.zoneId !== meetingZoneId
-            ? buildZoneRouteWaypoints(zones, currentZone.zoneId, meetingZoneId)
-            : [],
-        obstacleFootprints,
-      });
+      const route = buildReturnToMeetingRoute(
+        current,
+        [meetingZone.cx, 0, meetingZone.cz],
+        target,
+        {
+          departureApproach,
+          zoneWaypoints:
+            currentZone && currentZone.zoneId !== meetingZoneId
+              ? buildZoneRouteWaypoints(zones, currentZone.zoneId, meetingZoneId)
+              : [],
+          obstacleFootprints,
+        },
+      );
       rememberRoute(employeeId, 'return-to-meeting', route);
       armDebugMotion();
       moveThroughPoints(handle, route, 8);
@@ -316,7 +323,10 @@ export default function Office3DView({
         employeeIds: placed.map((employee) => employee.id),
       };
       const positionsById = new Map(
-        (activeCompanyId ? getMovementDebugInfo(activeCompanyId) : []).map((entry) => [entry.id, entry]),
+        (activeCompanyId ? getMovementDebugInfo(activeCompanyId) : []).map((entry) => [
+          entry.id,
+          entry,
+        ]),
       );
 
       return {

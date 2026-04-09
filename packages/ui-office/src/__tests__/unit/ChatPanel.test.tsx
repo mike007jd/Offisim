@@ -256,7 +256,9 @@ describe('ChatPanel — project scoping', () => {
     const user = userEvent.setup();
     mockSendMessage.mockResolvedValue('assistant reply');
 
-    const firstRender = render(<ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />);
+    const firstRender = render(
+      <ChatPanel onOpenSettings={vi.fn()} activeProject={ACTIVE_PROJECT} />,
+    );
     await user.click(screen.getByTestId('chat-input-send'));
 
     await waitFor(() => {

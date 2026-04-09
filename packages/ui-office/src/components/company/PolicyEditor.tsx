@@ -1,7 +1,4 @@
-import {
-  FieldLabel,
-  surfaceInputClassName,
-} from './company-editor-primitives';
+import { FieldLabel, surfaceInputClassName } from './company-editor-primitives';
 
 export interface CompanyPolicy {
   defaultModel: string;

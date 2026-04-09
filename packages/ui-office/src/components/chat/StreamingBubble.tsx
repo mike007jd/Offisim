@@ -26,7 +26,12 @@ interface StreamingBubbleProps {
   nodeName: string | null;
 }
 
-export function StreamingBubble({ content, reasoning, isStreaming, nodeName }: StreamingBubbleProps) {
+export function StreamingBubble({
+  content,
+  reasoning,
+  isStreaming,
+  nodeName,
+}: StreamingBubbleProps) {
   if (!isStreaming && !content && !reasoning) return null;
 
   const label = nodeName ? (NODE_DISPLAY_NAMES[nodeName] ?? nodeName) : null;

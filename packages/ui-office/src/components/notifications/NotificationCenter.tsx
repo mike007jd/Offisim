@@ -107,7 +107,9 @@ export function NotificationCenter({
           </ScrollArea>
 
           <div className="flex items-center justify-between border-t border-ocean-light px-3 py-2">
-            <p className="text-[11px] text-shell/60">Recent items live here. Full history lives in Activity Log.</p>
+            <p className="text-[11px] text-shell/60">
+              Recent items live here. Full history lives in Activity Log.
+            </p>
             <Button
               variant="ghost"
               size="sm"

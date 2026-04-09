@@ -1,7 +1,7 @@
-import type { ProviderConfig } from '../../lib/provider-config';
 import { Button, Dialog, DialogContent } from '@offisim/ui-core';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import type { ProviderConfig } from '../../lib/provider-config';
 import {
   type SettingsTab,
   SettingsWorkspaceSurface,

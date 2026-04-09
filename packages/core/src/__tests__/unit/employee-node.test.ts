@@ -240,7 +240,9 @@ describe('employeeNode', () => {
     const followUpRequest = gateway.requests[1];
     expect(followUpRequest).toBeDefined();
     const assistantTurn = followUpRequest?.messages.find((message) => message.role === 'assistant');
-    expect(assistantTurn?.reasoningContent?.trim()).toBe('I should inspect the file before replying.');
+    expect(assistantTurn?.reasoningContent?.trim()).toBe(
+      'I should inspect the file before replying.',
+    );
   });
 
   it('stops after MAX_TOOL_ROUNDS (5) even if LLM keeps requesting tools', async () => {

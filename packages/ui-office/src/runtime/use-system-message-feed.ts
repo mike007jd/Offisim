@@ -87,7 +87,9 @@ export function useSystemMessageFeed(): {
 
   useEffect(() => {
     function pushEntry(entry: SystemMessageEntry): void {
-      setEntries((prev) => [entry, ...prev.filter((existing) => existing.id !== entry.id)].slice(0, 4));
+      setEntries((prev) =>
+        [entry, ...prev.filter((existing) => existing.id !== entry.id)].slice(0, 4),
+      );
     }
 
     const unsubSynopsis = eventBus.on(

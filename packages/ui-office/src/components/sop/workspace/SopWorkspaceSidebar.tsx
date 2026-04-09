@@ -1,19 +1,10 @@
 import { SopSyncService } from '@offisim/core/browser';
-import type { SopTemplate } from '../../../hooks/useSops';
-import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
-import { formatSopDate, pillClass } from '../../../lib/sop-utils';
 import { Button } from '@offisim/ui-core';
-import {
-  Download,
-  ExternalLink,
-  Link2,
-  Play,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-} from 'lucide-react';
+import { Download, ExternalLink, Link2, Play, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
+import type { SopTemplate } from '../../../hooks/useSops';
+import { formatSopDate, pillClass } from '../../../lib/sop-utils';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 
 interface SopSidebarCardProps {

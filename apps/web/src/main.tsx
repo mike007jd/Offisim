@@ -1,4 +1,4 @@
-import { Suspense, StrictMode, lazy, useCallback, useState } from 'react';
+import { StrictMode, Suspense, lazy, useCallback, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import {
@@ -97,7 +97,9 @@ function Shell() {
 }
 
 function AppBootFallback() {
-  return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400" />;
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400" />
+  );
 }
 
 const root = document.getElementById('root');

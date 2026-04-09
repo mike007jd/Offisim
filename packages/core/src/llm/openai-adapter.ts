@@ -252,9 +252,13 @@ export class OpenAiAdapter implements LlmGateway {
     const choice = response.choices[0];
     const content = choice?.message?.content ?? '';
     const reasoningContent =
-      (choice?.message as OpenAI.Chat.Completions.ChatCompletionMessage & {
-        reasoning_content?: string | null;
-      } | undefined)?.reasoning_content ?? undefined;
+      (
+        choice?.message as
+          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
+              reasoning_content?: string | null;
+            })
+          | undefined
+      )?.reasoning_content ?? undefined;
     const toolCalls: ToolCallResult[] = [];
 
     if (choice?.message?.tool_calls) {

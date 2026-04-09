@@ -1,11 +1,11 @@
-import type { SopTemplate } from '../../../hooks/useSops';
+import { Button } from '@offisim/ui-core';
+import { Loader2, Play, Send } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
+import type { SopTemplate } from '../../../hooks/useSops';
+import { parseSopDefinition } from '../../../lib/sop-utils';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 import { SopTimelineView } from '../SopTimelineView';
-import { parseSopDefinition } from '../../../lib/sop-utils';
-import { Loader2, Play, Send } from 'lucide-react';
-import { Button } from '@offisim/ui-core';
-import { useCallback, useMemo, useRef, useState } from 'react';
 
 export interface SopWorkspaceCanvasProps {
   sop: SopTemplate | null;
@@ -20,10 +20,7 @@ export function SopWorkspaceCanvas({ sop, onRunFocus }: SopWorkspaceCanvasProps)
   const [adjusting, setAdjusting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const parsed = useMemo(
-    () => (sop ? parseSopDefinition(sop.definitionJson) : null),
-    [sop],
-  );
+  const parsed = useMemo(() => (sop ? parseSopDefinition(sop.definitionJson) : null), [sop]);
 
   const isActive = runtimeState?.some((s) => s.status === 'active') ?? false;
 

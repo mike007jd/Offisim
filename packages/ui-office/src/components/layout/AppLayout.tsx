@@ -233,9 +233,7 @@ export function AppLayout({
         </div>
 
         <main className="flex-1 min-w-0 pointer-events-none">
-          {centerContent ? (
-            <div className="pointer-events-auto h-full">{centerContent}</div>
-          ) : null}
+          {centerContent ? <div className="pointer-events-auto h-full">{centerContent}</div> : null}
         </main>
 
         {/* ══════ RIGHT PANEL ══════ */}

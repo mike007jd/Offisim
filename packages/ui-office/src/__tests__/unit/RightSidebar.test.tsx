@@ -66,16 +66,14 @@ describe('RightSidebar', () => {
   });
 
   it('returns to chat when a direct-chat request token changes', () => {
-    const { rerender } = render(<RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} />);
+    const { rerender } = render(
+      <RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} />,
+    );
 
     expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveAttribute('data-state', 'active');
 
     rerender(
-      <RightSidebar
-        chatPanel={<div>chat-panel</div>}
-        focusTasksToken={1}
-        requestChatToken={1}
-      />,
+      <RightSidebar chatPanel={<div>chat-panel</div>} focusTasksToken={1} requestChatToken={1} />,
     );
 
     expect(screen.getByText('chat-panel')).toBeInTheDocument();

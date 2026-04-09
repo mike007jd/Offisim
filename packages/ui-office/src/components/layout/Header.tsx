@@ -55,7 +55,10 @@ export function Header({
       className="flex min-h-11 items-center justify-between rounded-[18px] border border-white/10 bg-black/20 shadow-2xl backdrop-blur-md"
       style={{ paddingInline: 'var(--sp-md)', paddingBlock: '0.375rem' }}
     >
-      <div className="flex min-w-0 flex-wrap items-center" style={{ columnGap: '0.625rem', rowGap: '0.375rem' }}>
+      <div
+        className="flex min-w-0 flex-wrap items-center"
+        style={{ columnGap: '0.625rem', rowGap: '0.375rem' }}
+      >
         {/* 2D/3D View Toggle */}
         {viewMode && onViewModeChange && (
           <div className="flex h-8 items-center rounded-full border border-white/10 bg-black/35 px-1">
@@ -147,7 +150,10 @@ export function Header({
 
         {/* Provider badge */}
         {providerName && (
-          <div className="flex items-center space-x-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1" title={`Current provider: ${providerName}`}>
+          <div
+            className="flex items-center space-x-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1"
+            title={`Current provider: ${providerName}`}
+          >
             <div className="w-1 h-1 bg-emerald-500 rounded-full" />
             <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
               {providerName}
@@ -184,7 +190,9 @@ export function Header({
             aria-label="Market utility"
             className={`h-8 w-8 hover:bg-white/5 ${activeWorkspace === 'market' ? 'bg-cyan-500/15 border border-cyan-400/30' : ''}`}
           >
-            <Store className={`h-4 w-4 ${activeWorkspace === 'market' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`} />
+            <Store
+              className={`h-4 w-4 ${activeWorkspace === 'market' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`}
+            />
           </Button>
         )}
         {notificationSlot}

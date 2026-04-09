@@ -1,6 +1,5 @@
-import { ClipboardList, Download, Plus } from 'lucide-react';
 import { Button } from '@offisim/ui-core';
-
+import { ClipboardList, Download, Plus } from 'lucide-react';
 
 interface SopWorkspaceEmptyStateProps {
   /** True when the SOP library has zero SOPs at all */
@@ -36,20 +35,10 @@ export function SopWorkspaceEmptyState({
             </p>
           </div>
           <div className="flex gap-2 mt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1"
-              onClick={onCreateClick}
-            >
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={onCreateClick}>
               <Plus className="w-3 h-3" /> Create
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1"
-              onClick={onImportClick}
-            >
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={onImportClick}>
               <Download className="w-3 h-3" /> Import
             </Button>
           </div>

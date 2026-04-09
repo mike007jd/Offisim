@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 
 function deferred<T>() {
@@ -61,10 +61,9 @@ describe('useListingDetail', () => {
       return Promise.reject(new Error(`Unexpected listing id: ${listingId}`));
     });
 
-    const { result, rerender } = renderHook(
-      ({ listingId }) => useListingDetail(listingId),
-      { initialProps: { listingId: 'listing-1' } },
-    );
+    const { result, rerender } = renderHook(({ listingId }) => useListingDetail(listingId), {
+      initialProps: { listingId: 'listing-1' },
+    });
 
     firstRequest.resolve({
       listing_id: 'listing-1',
@@ -95,8 +94,8 @@ describe('useListingDetail', () => {
   });
 
   it('marks a 404 listing as unavailable without throwing', async () => {
-    registryMocks.getListingDetail.mockImplementation(
-      () => Promise.reject(new registryMocks.RegistryApiError(404, 'Not found')),
+    registryMocks.getListingDetail.mockImplementation(() =>
+      Promise.reject(new registryMocks.RegistryApiError(404, 'Not found')),
     );
 
     const { result } = renderHook(() => useListingDetail('missing-listing'));

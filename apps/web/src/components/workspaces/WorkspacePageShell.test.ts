@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import React from 'react';
+import { describe, expect, it } from 'vitest';
 import { WorkspacePageShell } from './WorkspacePageShell';
 
 // ---------------------------------------------------------------------------
@@ -19,10 +19,7 @@ function getProps(element: React.ReactElement): Record<string, unknown> {
  * Handles both plain elements and function component elements by
  * calling function components to get their rendered output.
  */
-function findByTestId(
-  element: React.ReactElement,
-  testId: string,
-): React.ReactElement | null {
+function findByTestId(element: React.ReactElement, testId: string): React.ReactElement | null {
   const props = getProps(element);
 
   // Check current element

@@ -171,11 +171,8 @@ describe('office3d flow helpers', () => {
   });
 
   it('falls back active employees without a matching workstation zone to the first workspace zone for scene rendering', () => {
-    expect(
-      resolveEmployeeSceneZoneId(
-        { role: 'designer', workstationId: null },
-        zones,
-      ),
-    ).toBe('dev');
+    expect(resolveEmployeeSceneZoneId({ role: 'designer', workstationId: null }, zones)).toBe(
+      'dev',
+    );
   });
 });

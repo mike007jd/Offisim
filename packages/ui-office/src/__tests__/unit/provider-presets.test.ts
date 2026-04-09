@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { ProviderConfig } from '../../lib/provider-config';
 import {
   DEFAULT_PRESET_KEY,
   findProviderPresetKeyByConfig,
   getAvailableProviderPresets,
   getProviderPreset,
 } from '../../components/settings/provider-presets';
+import type { ProviderConfig } from '../../lib/provider-config';
 
 describe('provider preset registry', () => {
   it('defaults web users to MiniMax anthropic-compatible coding surface', () => {

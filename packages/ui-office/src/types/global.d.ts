@@ -18,7 +18,8 @@ interface OffisimDebugFootprint {
   halfD: number;
 }
 
-interface OffisimDebugZoneInfo extends Pick<Zone, 'zoneId' | 'archetype' | 'cx' | 'cz' | 'w' | 'd'> {}
+interface OffisimDebugZoneInfo
+  extends Pick<Zone, 'zoneId' | 'archetype' | 'cx' | 'cz' | 'w' | 'd'> {}
 
 interface OffisimDebugRouteInfo {
   employeeId: string;

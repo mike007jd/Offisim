@@ -1,6 +1,9 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { getConversationKey, useChatSessionStore } from '../../components/chat/chat-session-store.js';
+import {
+  getConversationKey,
+  useChatSessionStore,
+} from '../../components/chat/chat-session-store.js';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
 
 describe('useStreamingContent', () => {

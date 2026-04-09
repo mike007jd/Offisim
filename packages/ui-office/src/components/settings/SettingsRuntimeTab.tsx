@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from '@offisim/ui-core';
 import { Bot, BrainCircuit, Cpu, Workflow } from 'lucide-react';
-import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
+import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
 
 interface SettingsRuntimeTabProps {
   controller: ReturnType<typeof useSettingsWorkspaceController>;
@@ -87,9 +87,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               <p className="text-sm font-semibold text-blue-100">Default model profile</p>
               <p className="mt-2 text-sm text-slate-300">
                 Provider:{' '}
-                <span className="font-mono text-cyan-100">
-                  {selectedPreset?.label ?? preset}
-                </span>
+                <span className="font-mono text-cyan-100">{selectedPreset?.label ?? preset}</span>
               </p>
               <p className="mt-1 text-sm text-slate-300">
                 Model:{' '}
@@ -138,10 +136,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 value={gitAutoCommit ? 'enabled' : 'disabled'}
                 onValueChange={(value) => setGitAutoCommit(value === 'enabled')}
               >
-                <SelectTrigger
-                  id="settings-git-auto-commit"
-                  className={surfaceInputProps()}
-                >
+                <SelectTrigger id="settings-git-auto-commit" className={surfaceInputProps()}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -192,10 +187,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 value={summarizationEnabled ? 'enabled' : 'disabled'}
                 onValueChange={(value) => setSummarizationEnabled(value === 'enabled')}
               >
-                <SelectTrigger
-                  id="runtime-summarization-enabled"
-                  className={surfaceInputProps()}
-                >
+                <SelectTrigger id="runtime-summarization-enabled" className={surfaceInputProps()}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,9 +210,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               />
             </div>
             <div>
-              <SectionLabel htmlFor="runtime-summarization-keep-recent">
-                Keep recent
-              </SectionLabel>
+              <SectionLabel htmlFor="runtime-summarization-keep-recent">Keep recent</SectionLabel>
               <Input
                 id="runtime-summarization-keep-recent"
                 type="number"

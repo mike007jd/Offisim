@@ -14,8 +14,8 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { formatSopDate } from '../../lib/sop-utils';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { SopDrawer } from './SopDrawer';
 import { SopEditorDialog } from './SopEditorDialog';
 import { SopImportDialog } from './SopImportDialog';

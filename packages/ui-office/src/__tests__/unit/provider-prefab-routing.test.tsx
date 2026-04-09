@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
 import type { PrefabDefinition } from '@offisim/shared-types';
+import { render } from '@testing-library/react';
 
 const bookshelfSpy = vi.fn(() => null);
 const whiteboardSpy = vi.fn(() => null);

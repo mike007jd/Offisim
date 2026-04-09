@@ -235,8 +235,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const next = { ...state.conversations };
       delete next[conversationKey];
       return {
-        activeRun:
-          state.activeRun?.conversationKey === conversationKey ? null : state.activeRun,
+        activeRun: state.activeRun?.conversationKey === conversationKey ? null : state.activeRun,
         conversations: next,
       };
     }),

@@ -688,9 +688,7 @@ export async function employeeNode(
       conversationHistory.push({
         role: 'assistant',
         content: llmResponse.content || '',
-        ...(llmResponse.reasoningContent
-          ? { reasoningContent: llmResponse.reasoningContent }
-          : {}),
+        ...(llmResponse.reasoningContent ? { reasoningContent: llmResponse.reasoningContent } : {}),
         toolCalls: llmResponse.toolCalls.map((tc) => ({
           id: tc.id,
           name: tc.name,
