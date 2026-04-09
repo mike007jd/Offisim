@@ -8,8 +8,8 @@ import {
   useReducedMotion,
   useSceneOrchestrator,
 } from '@offisim/ui-office/web';
-import React, { Suspense, useMemo } from 'react';
-import { isOfficeSceneInteractive, type AppView } from '../../lib/app-view-layout';
+import React, { Suspense, useCallback, useMemo } from 'react';
+import { type AppView, isOfficeSceneInteractive } from '../../lib/app-view-layout';
 
 const SceneCanvas = React.lazy<
   React.ComponentType<{
@@ -71,6 +71,7 @@ export function OfficeSceneSurface({
   viewMode,
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
+  const handleDeselectEmployee = useCallback(() => onSelectEmployee(null), [onSelectEmployee]);
 
   return (
     <div className="h-full w-full" data-onboarding-target="scene-surface">
@@ -84,7 +85,7 @@ export function OfficeSceneSurface({
             rightInset={rightPanelWidth}
             selectedEmployeeId={selectedEmployeeId}
             onSelectEmployee={onSelectEmployee}
-            onDeselectEmployee={() => onSelectEmployee(null)}
+            onDeselectEmployee={handleDeselectEmployee}
             onFallbackTo2D={onSceneFallbackTo2D}
           />
         </Suspense>

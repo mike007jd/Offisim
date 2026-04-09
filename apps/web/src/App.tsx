@@ -20,9 +20,9 @@ import {
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { FullPageWorkspaceShell } from './components/workspaces/FullPageWorkspaceShell';
 import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
+import type { WorkspaceKey } from './components/workspaces/types';
 import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
-import type { WorkspaceKey } from './components/workspaces/types';
 import {
   type AppView,
   type FullPageWorkspaceAppView,
@@ -132,11 +132,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const handleOpenSettings = useCallback(() => {
     handleWorkspaceSwitch('settings');
   }, [handleWorkspaceSwitch]);
-  const {
-    reinitRuntime,
-    repos,
-    eventBus,
-  } = useOffisimRuntime();
+  const { reinitRuntime, repos, eventBus } = useOffisimRuntime();
   const companyEditor = useCompanyEditor();
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
@@ -297,20 +293,6 @@ export function App({ onCompanySwitch }: AppProps) {
     });
   }, [eventBus, addToast]);
 
-  // Deep link install handler — receives offisim://install?listing_id=X&version=Y from Tauri shell
-  //
-  // Deep link → workspace flow:
-  //   1. Tauri shell intercepts the offisim:// URL and emits it to the renderer.
-  //   2. useDeepLinkInstall fires this callback with { listing_id, version }.
-  //   3. installFlow.startRegistryInstall opens the InstallDialog (a Short_Flow_Dialog).
-  //   4. InstallDialog fetches the listing from the registry and shows install options.
-  //   5. If the listing doesn't exist, InstallDialog handles the 404 gracefully and
-  //      shows an error state — the workspace loads in its default state (no crash).
-  //   6. On successful install, the user is returned to whichever workspace was active.
-  //
-  // Missing entity recovery: if listing_id no longer exists in the registry, the
-  // InstallDialog renders an error and the user can dismiss it. The active workspace
-  // (MarketWorkspacePage or Office) is unaffected. See Error Scenario 2 in design.md.
   useDeepLinkInstall(
     useCallback(
       ({ listing_id, version }) => {

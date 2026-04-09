@@ -2,7 +2,7 @@ import type { AssetKind } from '@offisim/asset-schema';
 import { Button } from '@offisim/ui-core';
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
-import { pillClass } from '../../../lib/sop-utils.js';
+import { pillClass } from '../../../lib/ui-utils.js';
 import { PublishDialog } from '../PublishDialog.js';
 import type { MarketSortOption } from '../marketplace-meta.js';
 import { KIND_FILTERS, KIND_ICON, SORT_OPTIONS } from '../marketplace-meta.js';

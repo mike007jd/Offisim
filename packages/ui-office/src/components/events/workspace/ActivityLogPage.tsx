@@ -2,6 +2,7 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 import { ScrollArea, ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import type { EventFilterType } from '../EventFilters';
 import { EventItem, getDisplayLabel } from '../EventItem';
 import {
@@ -13,10 +14,11 @@ import {
 import type { EventDisplayLevel } from '../EventLog';
 import { ActivityLogEventFocus } from './ActivityLogEventFocus';
 import { ActivityLogFiltersPane } from './ActivityLogFiltersPane';
-import type { DatePreset } from './ActivityLogFiltersPane';
-import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import {
+  type DatePreset,
   getAvailableActorFilters,
+  getDateCutoff,
+  getEventId,
   matchesActorFilters,
 } from './activity-log-utils';
 
@@ -39,28 +41,6 @@ export type ActivityLogSessionState = {
 export interface ActivityLogPageProps {
   sessionState: ActivityLogSessionState;
   onSessionStateChange: (state: ActivityLogSessionState) => void;
-}
-
-// ---------------------------------------------------------------------------
-// Date preset → cutoff timestamp
-// ---------------------------------------------------------------------------
-
-function getEventId(event: RuntimeEvent): string {
-  return `${event.timestamp}-${event.entityId ?? 'none'}`;
-}
-
-function getDateCutoff(preset: DatePreset): number {
-  const now = Date.now();
-  switch (preset) {
-    case 'today':
-      return now - 24 * 60 * 60 * 1000;
-    case '7d':
-      return now - 7 * 24 * 60 * 60 * 1000;
-    case '30d':
-      return now - 30 * 24 * 60 * 60 * 1000;
-    case 'custom':
-      return 0; // no cutoff
-  }
 }
 
 // ---------------------------------------------------------------------------

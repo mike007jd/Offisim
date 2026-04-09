@@ -1,9 +1,6 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useCallback } from 'react';
 
-import type {
-  WorkspaceKey,
-  WorkspaceRouterProps,
-} from './types';
+import type { WorkspaceKey, WorkspaceRouterProps } from './types';
 
 // ---------------------------------------------------------------------------
 // Transition state type (used by mount/interactive policy functions)
@@ -50,21 +47,13 @@ export function isOfficeSceneInteractive(
 // Placeholder workspace page components (lazy-loaded)
 // ---------------------------------------------------------------------------
 
-const SopWorkspacePage = React.lazy(
-  () => import('./placeholders/SopWorkspacePage'),
-);
+const SopWorkspacePage = React.lazy(() => import('./placeholders/SopWorkspacePage'));
 
-const MarketWorkspacePage = React.lazy(
-  () => import('./placeholders/MarketWorkspacePage'),
-);
+const MarketWorkspacePage = React.lazy(() => import('./placeholders/MarketWorkspacePage'));
 
-const ActivityLogPage = React.lazy(
-  () => import('./placeholders/ActivityLogPage'),
-);
+const ActivityLogPage = React.lazy(() => import('./placeholders/ActivityLogPage'));
 
-const SettingsPage = React.lazy(
-  () => import('./placeholders/SettingsPage'),
-);
+const SettingsPage = React.lazy(() => import('./placeholders/SettingsPage'));
 
 // ---------------------------------------------------------------------------
 // WorkspaceRouter
@@ -79,6 +68,8 @@ const SettingsPage = React.lazy(
  * - Enforces the Office scene mount/freeze policy: unmounted when not active,
  *   kept mounted only during exit animation with pointer-events disabled.
  */
+const NOOP = () => {};
+
 export function WorkspaceRouter({
   activeWorkspace,
   sessionState,
@@ -92,6 +83,24 @@ export function WorkspaceRouter({
 
   const mountOffice = shouldMountOfficeScene(activeWorkspace, transitionState);
   const officeInteractive = isOfficeSceneInteractive(activeWorkspace, transitionState);
+
+  const handleSopsChange = useCallback(
+    (s: typeof sessionState.sops) => onSessionStateChange({ ...sessionState, sops: s }),
+    [sessionState, onSessionStateChange],
+  );
+  const handleMarketChange = useCallback(
+    (s: typeof sessionState.market) => onSessionStateChange({ ...sessionState, market: s }),
+    [sessionState, onSessionStateChange],
+  );
+  const handleActivityLogChange = useCallback(
+    (s: typeof sessionState.activityLog) =>
+      onSessionStateChange({ ...sessionState, activityLog: s }),
+    [sessionState, onSessionStateChange],
+  );
+  const handleSettingsChange = useCallback(
+    (s: typeof sessionState.settings) => onSessionStateChange({ ...sessionState, settings: s }),
+    [sessionState, onSessionStateChange],
+  );
 
   return (
     <>
@@ -111,38 +120,30 @@ export function WorkspaceRouter({
         {activeWorkspace === 'sops' && (
           <SopWorkspacePage
             sessionState={sessionState.sops}
-            onSessionStateChange={(s) =>
-              onSessionStateChange({ ...sessionState, sops: s })
-            }
+            onSessionStateChange={handleSopsChange}
           />
         )}
 
         {activeWorkspace === 'market' && (
           <MarketWorkspacePage
             sessionState={sessionState.market}
-            onSessionStateChange={(s) =>
-              onSessionStateChange({ ...sessionState, market: s })
-            }
+            onSessionStateChange={handleMarketChange}
           />
         )}
 
         {activeWorkspace === 'activity-log' && (
           <ActivityLogPage
             sessionState={sessionState.activityLog}
-            onSessionStateChange={(s) =>
-              onSessionStateChange({ ...sessionState, activityLog: s })
-            }
+            onSessionStateChange={handleActivityLogChange}
           />
         )}
 
         {activeWorkspace === 'settings' && (
           <SettingsPage
             sessionState={sessionState.settings}
-            onSessionStateChange={(s) =>
-              onSessionStateChange({ ...sessionState, settings: s })
-            }
-            onBack={settingsPageProps?.onBack ?? (() => {})}
-            onSave={settingsPageProps?.onSave ?? (() => {})}
+            onSessionStateChange={handleSettingsChange}
+            onBack={settingsPageProps?.onBack ?? NOOP}
+            onSave={settingsPageProps?.onSave ?? NOOP}
             onSaveSuccess={settingsPageProps?.onSaveSuccess}
           />
         )}

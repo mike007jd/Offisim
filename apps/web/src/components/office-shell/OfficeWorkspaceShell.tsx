@@ -15,10 +15,10 @@ import {
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
+import { type AppView, isFullPageWorkspaceView } from '../../lib/app-view-layout';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 import { OnboardingController } from '../OnboardingController';
 import type { WorkspaceKey } from '../workspaces/types';
-import type { AppView } from '../../lib/app-view-layout';
 const ChatDock = React.lazy(() =>
   import('./CollaborationRail').then((module) => ({ default: module.ChatDock })),
 );
@@ -133,7 +133,9 @@ export function OfficeWorkspaceShell({
       companyId: activeCompanyId ?? '',
     });
   const agents = useAgentStates();
-  const activeCompanyName = companies.find((company) => company.company_id === activeCompanyId)?.name;
+  const activeCompanyName = companies.find(
+    (company) => company.company_id === activeCompanyId,
+  )?.name;
   const selectedEmployeeName = selectedEmployeeId
     ? (agents.get(selectedEmployeeId)?.name ?? null)
     : null;
@@ -151,114 +153,112 @@ export function OfficeWorkspaceShell({
       )}
 
       <AppLayout
-          header={
-            <Header
-              providerName={providerConfig?.model}
-              companyName={activeCompanyName}
-              onOpenSettings={onOpenSettings}
-              onOpenOffice={() => onWorkspaceSwitch('office')}
-              onOpenSops={() => onWorkspaceSwitch('sops')}
-              onOpenMarket={() => onWorkspaceSwitch('market')}
-              onOpenStudio={onOpenStudio}
-              onOpenCompanySelect={onOpenCompanySelect}
-              onOpenCompanyEditor={onOpenCompanyEditor}
-              onFileImport={onFileImport}
-              notificationSlot={
-                <NotificationCenter
-                  onFocusEmployee={(employeeId) => {
-                    onStartEmployeeChat(employeeId);
-                  }}
-                  onOpenActivityLog={() => onWorkspaceSwitch('activity-log')}
-                />
-              }
-              projectSlot={
-                <ProjectSelector
-                  projects={projects}
-                  activeProjectId={activeProjectId}
-                  onSelect={setActiveProjectId}
-                  onCreateProject={createProject}
-                />
-              }
-              viewMode={viewMode}
-              onViewModeChange={onViewModeChange}
-              needsConfig={!providerConfig}
-              activeWorkspace={
-                view === 'sops' || view === 'market' || view === 'activity-log' ? view : 'office'
-              }
-            />
-          }
-          agentPanel={
-            <AgentPanel
-              agents={agents}
+        header={
+          <Header
+            providerName={providerConfig?.model}
+            companyName={activeCompanyName}
+            onOpenSettings={onOpenSettings}
+            onOpenOffice={() => onWorkspaceSwitch('office')}
+            onOpenSops={() => onWorkspaceSwitch('sops')}
+            onOpenMarket={() => onWorkspaceSwitch('market')}
+            onOpenStudio={onOpenStudio}
+            onOpenCompanySelect={onOpenCompanySelect}
+            onOpenCompanyEditor={onOpenCompanyEditor}
+            onFileImport={onFileImport}
+            notificationSlot={
+              <NotificationCenter
+                onFocusEmployee={(employeeId) => {
+                  onStartEmployeeChat(employeeId);
+                }}
+                onOpenActivityLog={() => onWorkspaceSwitch('activity-log')}
+              />
+            }
+            projectSlot={
+              <ProjectSelector
+                projects={projects}
+                activeProjectId={activeProjectId}
+                onSelect={setActiveProjectId}
+                onCreateProject={createProject}
+              />
+            }
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+            needsConfig={!providerConfig}
+            activeWorkspace={isFullPageWorkspaceView(view) ? (view as WorkspaceKey) : 'office'}
+          />
+        }
+        agentPanel={
+          <AgentPanel
+            agents={agents}
+            onSelectEmployee={onSelectEmployee}
+            selectedEmployeeId={selectedEmployeeId}
+            onOpenCreator={onOpenEmployeeCreator}
+          />
+        }
+        sceneCanvas={
+          <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
+            <OfficeSceneSurface
+              leftPanelWidth={leftPanelWidth}
+              onSceneFallbackTo2D={onSceneFallbackTo2D}
               onSelectEmployee={onSelectEmployee}
+              rightPanelWidth={rightPanelWidth}
               selectedEmployeeId={selectedEmployeeId}
-              onOpenCreator={onOpenEmployeeCreator}
+              view={view}
+              viewMode={viewMode}
             />
-          }
-          sceneCanvas={
-            <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
-              <OfficeSceneSurface
-                leftPanelWidth={leftPanelWidth}
-                onSceneFallbackTo2D={onSceneFallbackTo2D}
-                onSelectEmployee={onSelectEmployee}
-                rightPanelWidth={rightPanelWidth}
-                selectedEmployeeId={selectedEmployeeId}
-                view={view}
-                viewMode={viewMode}
-              />
-            </Suspense>
-          }
-          chatDrawer={
-            <Suspense fallback={null}>
-              <ChatDock
-                activeProject={activeProject}
-                chatOnboardingStarterPrompts={chatOnboardingStarterPrompts}
-                chatOnboardingWelcome={chatOnboardingWelcome}
-                chatOpenToken={chatOpenToken}
-                focusOutputsToken={focusOutputsToken}
-                onOpenOfficeEditor={onOpenOfficeEditor}
-                onOpenSettings={onOpenSettings}
-                onOpenStudio={onOpenStudio}
-                onSelectEmployee={onSelectEmployee}
-                onToggleDashboard={onToggleDashboard}
-                onToggleKanban={onToggleKanban}
-                onUserMessage={onUserMessage}
-                selectedEmployeeId={selectedEmployeeId}
-                selectedEmployeeName={selectedEmployeeName}
-              />
-            </Suspense>
-          }
-          eventLog={
-            <Suspense fallback={null}>
-              <CollaborationSidebar
-                activeProject={activeProject}
-                chatOnboardingStarterPrompts={chatOnboardingStarterPrompts}
-                chatOnboardingWelcome={chatOnboardingWelcome}
-                chatOpenToken={chatOpenToken}
-                focusOutputsToken={focusOutputsToken}
-                onOpenOfficeEditor={onOpenOfficeEditor}
-                onOpenSettings={onOpenSettings}
-                onOpenStudio={onOpenStudio}
-                onSelectEmployee={onSelectEmployee}
-                onToggleDashboard={onToggleDashboard}
-                onToggleKanban={onToggleKanban}
-                onUserMessage={onUserMessage}
-                selectedEmployeeId={selectedEmployeeId}
-                selectedEmployeeName={selectedEmployeeName}
-              />
-            </Suspense>
-          }
-          statusBar={
-            <StatusBar
-              modelName={providerConfig?.model}
-              activeProjectStatus={activeProject?.status ?? null}
+          </Suspense>
+        }
+        chatDrawer={
+          <Suspense fallback={null}>
+            <ChatDock
+              activeProject={activeProject}
+              chatOnboardingStarterPrompts={chatOnboardingStarterPrompts}
+              chatOnboardingWelcome={chatOnboardingWelcome}
+              chatOpenToken={chatOpenToken}
+              focusOutputsToken={focusOutputsToken}
+              onOpenOfficeEditor={onOpenOfficeEditor}
+              onOpenSettings={onOpenSettings}
+              onOpenStudio={onOpenStudio}
+              onSelectEmployee={onSelectEmployee}
+              onToggleDashboard={onToggleDashboard}
+              onToggleKanban={onToggleKanban}
+              onUserMessage={onUserMessage}
+              selectedEmployeeId={selectedEmployeeId}
+              selectedEmployeeName={selectedEmployeeName}
             />
-          }
-          centerContent={workspaceRouterContent}
-          chatDrawerMode="mobile-only"
-          requestRightExpandToken={chatOpenToken}
-          onLayoutMetricsChange={onLayoutMetricsChange}
-        />
+          </Suspense>
+        }
+        eventLog={
+          <Suspense fallback={null}>
+            <CollaborationSidebar
+              activeProject={activeProject}
+              chatOnboardingStarterPrompts={chatOnboardingStarterPrompts}
+              chatOnboardingWelcome={chatOnboardingWelcome}
+              chatOpenToken={chatOpenToken}
+              focusOutputsToken={focusOutputsToken}
+              onOpenOfficeEditor={onOpenOfficeEditor}
+              onOpenSettings={onOpenSettings}
+              onOpenStudio={onOpenStudio}
+              onSelectEmployee={onSelectEmployee}
+              onToggleDashboard={onToggleDashboard}
+              onToggleKanban={onToggleKanban}
+              onUserMessage={onUserMessage}
+              selectedEmployeeId={selectedEmployeeId}
+              selectedEmployeeName={selectedEmployeeName}
+            />
+          </Suspense>
+        }
+        statusBar={
+          <StatusBar
+            modelName={providerConfig?.model}
+            activeProjectStatus={activeProject?.status ?? null}
+          />
+        }
+        centerContent={workspaceRouterContent}
+        chatDrawerMode="mobile-only"
+        requestRightExpandToken={chatOpenToken}
+        onLayoutMetricsChange={onLayoutMetricsChange}
+      />
 
       {dashboardOpen && (
         <Suspense fallback={null}>

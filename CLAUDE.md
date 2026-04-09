@@ -4,9 +4,9 @@
 
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
-pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → ui-office → apps)
+pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps)
 pnpm test             # 全量测试 (vitest)
-pnpm typecheck        # 全量类型检查 (27 packages)
+pnpm typecheck        # 全量类型检查 (16 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
@@ -124,6 +124,9 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 | Prefab spatial | `packages/ui-office/src/lib/prefab-spatial.ts` | Footprint + anchor data per prefab type |
 | Chat commands | `packages/ui-office/src/lib/chat-commands.ts` | Slash command registry (runtime/client/panel) |
 | Ceremony visuals | `packages/ui-office/src/lib/ceremony-visuals.ts` | Phase colors, manager presence, bubble text |
+| UI utils | `packages/ui-office/src/lib/ui-utils.ts` | 共享 UI 原子 (pillClass 等), 跨 workspace 使用 |
+| Time formatting | `packages/ui-office/src/lib/format-time.ts` | formatTimestamp, formatShortDate, formatShortDateTime, truncate |
+| Activity Log utils | `packages/ui-office/src/components/events/workspace/activity-log-utils.ts` | getDateCutoff, getEventId, actor filter helpers |
 | Zone resolution | `packages/shared-types/src/zone-resolution.ts` | Employee→zone mapping by targetRoles |
 | SOP workspace | `packages/ui-office/src/components/sop/workspace/SopWorkspacePage.tsx` | SOP 3-pane workspace |
 | Market workspace | `packages/ui-office/src/components/marketplace/workspace/MarketWorkspacePage.tsx` | Market 3-pane workspace |
@@ -158,7 +161,6 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   需要先 `pnpm --filter @offisim/db-local build` 或全量 `pnpm build`
 - Linux/CI 环境下构建和测试必须跳过 Tauri 包:
   `pnpm --filter '!@offisim/desktop' --filter '!@offisim/launcher' build`
-  CI (`.github/workflows/ci.yml`) 仅在 PR 时触发 quality job (ubuntu), 无 macOS desktop job
 - Smoke tests (`vitest.smoke.config.ts`) 不自动加载 `.env.local`,
   必须 `export MINIMAX_API_KEY=... && pnpm --filter @offisim/core exec vitest run --config vitest.smoke.config.ts`
 - Three.js 组件在 jsdom 测试中, `useRef<THREE.Group>` 的 `.current` 不是真正的
@@ -255,11 +257,11 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx`。
   后续改 Settings UI / load/save / unsaved-confirm / tabs 时优先改 shared surface，
   不要重新把逻辑分叉回两个文件
-- Settings shared surface 现在允许继续拆到
+- Settings shared surface 已拆分为
   `settings-primitives.tsx`、`SettingsProviderTab.tsx`、`SettingsRuntimeTab.tsx`。
-  做这类提取时要顺手清掉 `SettingsWorkspaceSurface` 和子组件中的 stale import /
-  stale const；仓库启用了 `noUnusedLocals`，这类残留会直接把 `@offisim/ui-office`
-  的 typecheck 打挂
+  `SettingsWorkspaceSurface.tsx` 保留 controller hook + shell layout，
+  tab 内容各自独立。改 Settings UI 时注意清掉 stale import / stale const；
+  仓库启用了 `noUnusedLocals`，残留会直接把 `@offisim/ui-office` 的 typecheck 打挂
 - Settings 保存 runtimePolicy 时必须包含 `toolPermissions` 字段,
   否则已有的 tool permission 配置会被静默覆盖为默认值
 - Company / studio-adjacent settings 的共享 UI primitive 在

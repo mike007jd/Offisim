@@ -63,9 +63,6 @@ export function MarketWorkspaceDetail({
 
         setVersions(versionResponse.versions);
         setReviews(reviewResponse.reviews);
-        if (detail?.latest_version) {
-          setSelectedVersion(detail.latest_version);
-        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Failed to load listing');
@@ -74,13 +71,19 @@ export function MarketWorkspaceDetail({
       }
     }
 
-    // Fetch versions + reviews once detail is available (or immediately if provided later)
     void load();
 
     return () => {
       cancelled = true;
     };
-  }, [client, listingId, detail?.latest_version]);
+  }, [client, listingId]);
+
+  // Sync selectedVersion when detail loads (separate from fetch effect)
+  useEffect(() => {
+    if (detail?.latest_version) {
+      setSelectedVersion(detail.latest_version);
+    }
+  }, [detail?.latest_version]);
 
   // Fetch readme separately (depends on detail which comes from parent)
   useEffect(() => {

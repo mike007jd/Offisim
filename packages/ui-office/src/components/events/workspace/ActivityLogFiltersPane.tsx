@@ -1,6 +1,9 @@
 import { Search } from 'lucide-react';
 import { ALL_EVENT_TYPES, ALL_LEVELS } from '../EventFilters';
 import type { EventFilterType, EventLevel } from '../EventFilters';
+import type { DatePreset } from './activity-log-utils';
+
+export type { DatePreset };
 
 // ---------------------------------------------------------------------------
 // Date presets
@@ -11,9 +14,7 @@ const DATE_PRESETS = [
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: 'custom', label: 'Custom' },
-] as const;
-
-export type DatePreset = (typeof DATE_PRESETS)[number]['value'];
+] as const satisfies readonly { value: DatePreset; label: string }[];
 
 // ---------------------------------------------------------------------------
 // Props

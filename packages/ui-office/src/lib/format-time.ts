@@ -19,6 +19,32 @@ export function formatFullTimestamp(ts: number): string {
   });
 }
 
+/** Format an ISO date string as a short date (e.g. "Apr 8"). */
+export function formatShortDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Format an ISO date string as a short date+time (e.g. "Apr 8, 2:30 PM"). */
+export function formatShortDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 /** Truncate a string to max length with ellipsis. */
 export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;

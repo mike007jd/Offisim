@@ -4,14 +4,9 @@ import type {
   RuntimePolicyConfig,
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@offisim/ui-core';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import { Cpu, Workflow } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
   getRuntimeSecretStatus,
@@ -28,6 +23,8 @@ import {
 import { useTheme } from '../../theme';
 import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
+import { SettingsProviderTab } from './SettingsProviderTab';
+import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 import {
   PROVIDER_PRESETS,
   findProviderPresetKeyByConfig,
@@ -35,8 +32,6 @@ import {
   getProviderPreset,
 } from './provider-presets';
 import { MetricCard, SurfaceCard } from './settings-primitives';
-import { SettingsProviderTab } from './SettingsProviderTab';
-import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 
 export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'openclaw';
 
@@ -468,7 +463,7 @@ export function useSettingsWorkspaceController({
   const selectedRegion = selectedPreset?.region?.toUpperCase() ?? 'GLOBAL';
   const selectedVendor = selectedPreset?.vendor ?? 'custom';
 
-  const requestDismiss = () => {
+  const requestDismiss = useCallback(() => {
     if (
       hasUnsavedChanges &&
       typeof window !== 'undefined' &&
@@ -477,7 +472,7 @@ export function useSettingsWorkspaceController({
       return;
     }
     onDismiss();
-  };
+  }, [hasUnsavedChanges, onDismiss]);
 
   return {
     acpCommand,
@@ -568,10 +563,10 @@ export function SettingsWorkspaceSurface({
                 Provider Workspace
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Official provider surfaces, runtime orchestration, MCP routing, and gateway
-                links now live in one unified control surface. Offisim follows vendor
-                compatibility docs first, with Anthropic-compatible transports preferred when
-                providers officially support them.
+                Official provider surfaces, runtime orchestration, MCP routing, and gateway links
+                now live in one unified control surface. Offisim follows vendor compatibility docs
+                first, with Anthropic-compatible transports preferred when providers officially
+                support them.
               </p>
             </div>
             {dismissControl}
@@ -583,7 +578,11 @@ export function SettingsWorkspaceSurface({
               value={selectedCompatibility}
               detail={`Vendor preset: ${selectedPreset?.label ?? 'Custom'}`}
             />
-            <MetricCard label="Surface" value={selectedSurface} detail={`Region: ${selectedRegion}`} />
+            <MetricCard
+              label="Surface"
+              value={selectedSurface}
+              detail={`Region: ${selectedRegion}`}
+            />
             <MetricCard
               label="Capabilities"
               value={selectedCapabilities}

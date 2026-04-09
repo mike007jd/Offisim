@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { WorkspaceKey, WorkspaceSessionState } from './types';
 import { createDefaultSessionState } from './types';
@@ -63,10 +63,7 @@ export function tryWorkspaceInternalBack(
     case 'sops': {
       const sops = sessionState.sops;
       if (sops.centerMode === 'run-focus') {
-        return [
-          true,
-          { ...sessionState, sops: { ...sops, centerMode: 'definition' } },
-        ];
+        return [true, { ...sessionState, sops: { ...sops, centerMode: 'definition' } }];
       }
       if (sops.centerMode === 'definition') {
         return [
@@ -84,10 +81,7 @@ export function tryWorkspaceInternalBack(
     case 'market': {
       const market = sessionState.market;
       if (market.mode === 'explore' && market.selectedListingId !== null) {
-        return [
-          true,
-          { ...sessionState, market: { ...market, selectedListingId: null } },
-        ];
+        return [true, { ...sessionState, market: { ...market, selectedListingId: null } }];
       }
       return [false, sessionState];
     }
@@ -96,10 +90,7 @@ export function tryWorkspaceInternalBack(
     case 'activity-log': {
       const al = sessionState.activityLog;
       if (al.selectedEventId !== null) {
-        return [
-          true,
-          { ...sessionState, activityLog: { ...al, selectedEventId: null } },
-        ];
+        return [true, { ...sessionState, activityLog: { ...al, selectedEventId: null } }];
       }
       return [false, sessionState];
     }
@@ -124,8 +115,7 @@ export function hasInternalDrillIn(
       return sessionState.sops.centerMode !== 'empty';
     case 'market':
       return (
-        sessionState.market.mode === 'explore' &&
-        sessionState.market.selectedListingId !== null
+        sessionState.market.mode === 'explore' && sessionState.market.selectedListingId !== null
       );
     case 'activity-log':
       return sessionState.activityLog.selectedEventId !== null;
@@ -191,10 +181,7 @@ export function useWorkspaceSessionState() {
       let nextSessionState = prev.sessionState;
 
       // Close Studio when leaving Office
-      if (
-        prev.activeWorkspace === 'office' &&
-        prev.sessionState.office.studioMode !== null
-      ) {
+      if (prev.activeWorkspace === 'office' && prev.sessionState.office.studioMode !== null) {
         nextSessionState = {
           ...nextSessionState,
           office: { ...nextSessionState.office, studioMode: null },
@@ -211,10 +198,7 @@ export function useWorkspaceSessionState() {
 
   // ── updateWorkspaceState ────────────────────────────────────────────
   const updateWorkspaceState = useCallback(
-    <K extends WorkspaceKey>(
-      key: K,
-      updater: (prev: StateFor<K>) => StateFor<K>,
-    ) => {
+    <K extends WorkspaceKey>(key: K, updater: (prev: StateFor<K>) => StateFor<K>) => {
       setInternal((prev) => {
         const propKey = SESSION_KEY[key] as StateKeyFor<K>;
         const current = prev.sessionState[propKey] as StateFor<K>;
@@ -245,25 +229,27 @@ export function useWorkspaceSessionState() {
   );
 
   // ── goBack ──────────────────────────────────────────────────────────
+  // Uses a ref to read the latest outcome synchronously while keeping
+  // the setState call functional (avoids stale-closure race).
+  const outcomeRef = useRef<BackNavigationOutcome>('none');
+
   const goBack = useCallback((): BackNavigationOutcome => {
-    const resolution = resolveBackNavigation(
-      internal.activeWorkspace,
-      internal.sessionState,
-      internal.historyStack,
-    );
-
-    if (resolution.outcome === 'none') {
-      return 'none';
-    }
-
-    setInternal({
-      activeWorkspace: resolution.activeWorkspace,
-      sessionState: resolution.sessionState,
-      historyStack: resolution.historyStack,
+    setInternal((prev) => {
+      const resolution = resolveBackNavigation(
+        prev.activeWorkspace,
+        prev.sessionState,
+        prev.historyStack,
+      );
+      outcomeRef.current = resolution.outcome;
+      if (resolution.outcome === 'none') return prev;
+      return {
+        activeWorkspace: resolution.activeWorkspace,
+        sessionState: resolution.sessionState,
+        historyStack: resolution.historyStack,
+      };
     });
-
-    return resolution.outcome;
-  }, [internal]);
+    return outcomeRef.current;
+  }, []);
 
   return {
     state: internal.sessionState,

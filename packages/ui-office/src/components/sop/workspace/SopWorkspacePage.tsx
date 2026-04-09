@@ -1,11 +1,11 @@
 import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
-import { useToasts, ToastBanner } from '@offisim/ui-core';
+import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSops } from '../../../hooks/useSops';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import { SopEditorDialog } from '../SopEditorDialog';
 import { SopImportDialog } from '../SopImportDialog';
-import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import { SopWorkspaceCanvas } from './SopWorkspaceCanvas';
 import { SopWorkspaceContextPane } from './SopWorkspaceContextPane';
 import { SopWorkspaceEmptyState } from './SopWorkspaceEmptyState';
@@ -36,10 +36,7 @@ export interface SopWorkspacePageProps {
 // SopWorkspacePage
 // ---------------------------------------------------------------------------
 
-export function SopWorkspacePage({
-  sessionState,
-  onSessionStateChange,
-}: SopWorkspacePageProps) {
+export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWorkspacePageProps) {
   const { sops, loading, deleteSop, refreshSops } = useSops();
   const { sendMessage, eventBus } = useOffisimRuntime();
   const { toasts, addToast, dismissToast } = useToasts();
@@ -49,7 +46,7 @@ export function SopWorkspacePage({
   const selectedSop = useMemo(
     () =>
       sessionState.selectedSopId
-        ? sops.find((s) => s.sopTemplateId === sessionState.selectedSopId) ?? null
+        ? (sops.find((s) => s.sopTemplateId === sessionState.selectedSopId) ?? null)
         : null,
     [sops, sessionState.selectedSopId],
   );
@@ -138,18 +135,25 @@ export function SopWorkspacePage({
     void refreshSops();
   }, [refreshSops]);
 
-  // Auto-switch to run-focus when the selected SOP's plan starts
+  // Auto-switch to run-focus when the selected SOP's plan starts.
+  // Refs avoid re-subscribing to EventBus on every sessionState change.
+  const sessionStateRef = useRef(sessionState);
+  sessionStateRef.current = sessionState;
+  const onSessionStateChangeRef = useRef(onSessionStateChange);
+  onSessionStateChangeRef.current = onSessionStateChange;
+
   useEffect(() => {
     return eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
-      if (e.payload.sopTemplateId && sessionState.selectedSopId === e.payload.sopTemplateId) {
-        onSessionStateChange({
-          ...sessionState,
+      const ss = sessionStateRef.current;
+      if (e.payload.sopTemplateId && ss.selectedSopId === e.payload.sopTemplateId) {
+        onSessionStateChangeRef.current({
+          ...ss,
           centerMode: 'run-focus',
           rightPaneTab: 'runs',
         });
       }
     });
-  }, [eventBus, sessionState, onSessionStateChange]);
+  }, [eventBus]);
 
   const showEmptyCenter = !sessionState.selectedSopId;
 
@@ -194,10 +198,7 @@ export function SopWorkspacePage({
               onImportClick={() => setImportOpen(true)}
             />
           ) : (
-            <SopWorkspaceCanvas
-              sop={selectedSop}
-              onRunFocus={handleRunFocus}
-            />
+            <SopWorkspaceCanvas sop={selectedSop} onRunFocus={handleRunFocus} />
           )}
         </main>
 
@@ -214,16 +215,8 @@ export function SopWorkspacePage({
         </aside>
       </div>
 
-      <SopEditorDialog
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        onCreated={handleCreated}
-      />
-      <SopImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={handleCreated}
-      />
+      <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={handleCreated} />
+      <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleCreated} />
     </WorkspacePageShell>
   );
 }
