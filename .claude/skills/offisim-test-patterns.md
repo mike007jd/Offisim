@@ -1,6 +1,6 @@
 # Offisim Test Patterns
 
-> **When to use:** Creating or editing tests under `packages/*/src/__tests__`, or adding coverage for repositories, runtime orchestration, zones, renderer layout, or UI-office hooks/components.
+> **When to use:** Creating or editing tests under `packages/*/src/__tests__`, `apps/web/src/components/workspaces/`, or adding coverage for repositories, runtime orchestration, zones, renderer layout, workspace navigation, or UI-office hooks/components.
 
 Use the repo's existing test scaffolds instead of inventing new fixtures.
 
@@ -24,6 +24,17 @@ Use the repo's existing test scaffolds instead of inventing new fixtures.
 - Use the shared jsdom setup in `packages/ui-office/src/__tests__/setup.ts`.
 - Mock `useOffisimRuntime`, `useCompanyCreation`, or context providers when the test only cares about rendering logic.
 - Keep event buses fake and synchronous unless the test explicitly covers event streaming.
+
+## Workspace IA Patterns
+
+- Workspace session state tests live in `apps/web/src/components/workspaces/`.
+- `useWorkspaceSessionState.test.ts` — tests session state preservation across workspace switches.
+- `useWorkspaceBackNavigation.test.ts` — tests browser history integration and back unwind ordering.
+- `WorkspaceRouter.test.ts` — tests workspace exclusivity (exactly one workspace mounted at a time).
+- `WorkspacePageShell.test.ts` — tests page shell rendering with header/loading/error states.
+- `computeLayoutTier.test.ts` — tests responsive tier determinism (same width → same tier).
+- For workspace state machine tests, use `createDefaultSessionState()` from `types.ts` as the baseline.
+- Property-based tests (fast-check) are optional but encouraged for state machine invariants.
 
 ## Renderer / Zone Rules
 

@@ -72,12 +72,49 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - Node 20+, pnpm 10+
 - Desktop/Launcher 构建需要 Rust toolchain + Tauri CLI (`cargo install tauri-cli`)
 
+## Workspace Information Architecture (IA)
+
+产品有 5 个 peer-level workspace surface, 通过 `WorkspaceRouter` 管理:
+
+| Workspace | Key | 位置 | 描述 |
+|-----------|-----|------|------|
+| Office | `office` | `apps/web` + `ui-office` | 3D/2D 办公场景, 员工交互, Chat |
+| SOPs | `sops` | `ui-office/components/sop/workspace/` | 3-pane: sidebar + canvas + context |
+| Market | `market` | `ui-office/components/marketplace/workspace/` | 3-pane: filters + explore/manage + metadata |
+| Activity Log | `activity-log` | `ui-office/components/events/workspace/` | 时间线 + 过滤器 + 事件详情 |
+| Settings | `settings` | `ui-office/components/settings/SettingsPage.tsx` | Provider/Runtime/MCP 配置 |
+
+### 架构要点
+
+- `WorkspaceKey` = `'office' | 'sops' | 'market' | 'activity-log' | 'settings'`
+- `AppView` 是 `WorkspaceKey` + legacy overlay views (`employee-creator`, `office-editor`, `company-select`, `studio`)
+- `FullPageWorkspaceAppView` = 除 office 外的 4 个 workspace, 由 `FullPageWorkspaceShell` 包裹
+- Office 走 `shouldShowAppShell()` → `OfficeWorkspaceShellLazy` (含 3D/2D scene + AppLayout)
+- 非 office workspace 走 `isFullPageWorkspaceView()` → `FullPageWorkspaceShell` + `WorkspaceRouter`
+- `useWorkspaceSessionState` 保存每个 workspace 的独立 session state, 切换时保留/恢复
+- `useWorkspaceBackNavigation` 集成浏览器 history API, 先 unwind workspace 内部状态再切换 workspace
+- 响应式布局: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state 类型, computeLayoutTier |
+| `apps/web/src/components/workspaces/WorkspaceRouter.tsx` | 根据 activeWorkspace 渲染对应 page |
+| `apps/web/src/components/workspaces/useWorkspaceSessionState.ts` | 跨 workspace 的 session state 管理 |
+| `apps/web/src/components/workspaces/useWorkspaceBackNavigation.ts` | 浏览器 back 键集成 |
+| `apps/web/src/components/workspaces/FullPageWorkspaceShell.tsx` | 非 office workspace 的外壳 (header + nav) |
+| `apps/web/src/lib/app-view-layout.ts` | AppView 分类: isWorkspaceView, isFullPageWorkspaceView, shouldShowAppShell |
+
 ## Key Files
 
 | Area | Entry point | Purpose |
 |------|-------------|---------|
-| Web SPA | `apps/web/src/App.tsx` | Root component, view routing, runtime init |
-| Workspace view helpers | `apps/web/src/lib/app-view-layout.ts` | Shared workspace/full-page workspace classification |
+| Web SPA | `apps/web/src/App.tsx` | Root component, workspace routing, runtime init |
+| View classification | `apps/web/src/lib/app-view-layout.ts` | AppView/WorkspaceKey 分类, shell 显示逻辑 |
+| Workspace router | `apps/web/src/components/workspaces/WorkspaceRouter.tsx` | 非 office workspace 页面路由 |
+| Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
+| Office shell | `apps/web/src/components/office-shell/OfficeWorkspaceShell` | Office workspace 完整外壳 (lazy) |
 | LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes, state machine |
 | Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core bridge |
 | Scene orchestrator | `packages/ui-office/src/hooks/useSceneOrchestrator.ts` | 3D ceremony + movement |
@@ -88,6 +125,13 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 | Chat commands | `packages/ui-office/src/lib/chat-commands.ts` | Slash command registry (runtime/client/panel) |
 | Ceremony visuals | `packages/ui-office/src/lib/ceremony-visuals.ts` | Phase colors, manager presence, bubble text |
 | Zone resolution | `packages/shared-types/src/zone-resolution.ts` | Employee→zone mapping by targetRoles |
+| SOP workspace | `packages/ui-office/src/components/sop/workspace/SopWorkspacePage.tsx` | SOP 3-pane workspace |
+| Market workspace | `packages/ui-office/src/components/marketplace/workspace/MarketWorkspacePage.tsx` | Market 3-pane workspace |
+| Activity Log | `packages/ui-office/src/components/events/workspace/ActivityLogPage.tsx` | Activity Log workspace |
+| Settings page | `packages/ui-office/src/components/settings/SettingsPage.tsx` | Full-page settings workspace |
+| Settings shared | `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` | Page/dialog 共享内容 |
+| Layout shell | `packages/ui-office/src/components/layout/AppLayout.tsx` | Persistent left rail + right rail + center slot |
+| Header nav | `packages/ui-office/src/components/layout/Header.tsx` | Workspace-aware primary + utility nav |
 | Platform API | `apps/platform/src/routes/` | Hono route handlers |
 | Company templates | `packages/core/src/services/company-template-service.ts` | Template + zone blueprint logic |
 
@@ -155,6 +199,22 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - Employee repos (`create()`) 接受可选的 `employee_id` 字段用于 pre-generated ID。
   在 `transact()` 同步事务中必须使用预生成 ID，不要用 `void promise.then()` 捕获返回值 —
   Promise.then 回调是微任务，不会在当前同步代码中执行
+
+### Workspace IA & Navigation
+
+- `App.tsx` 维护两套状态: legacy `view: AppView` 和新的 `activeWorkspace: WorkspaceKey`。
+  通过 `handleWorkspaceSwitch` 同步两者。改 workspace 导航时必须调 `handleWorkspaceSwitch`,
+  不要直接 `setView` — 否则 session state 不会保存/恢复
+- `FullPageWorkspaceShell` 包裹所有非 office workspace (sops/market/activity-log/settings),
+  提供统一的 header + workspace nav。Office 走独立的 `OfficeWorkspaceShellLazy`
+- `WorkspaceRouter` 只在 `isNonOfficeWorkspace` 时渲染, office 场景由 `OfficeWorkspaceShellLazy` 管理
+- `useWorkspaceBackNavigation` 监听 `popstate`, 先调 workspace 内部 goBack,
+  内部状态耗尽后才切换到上一个 workspace。不要绕过这个 hook 直接操作 history
+- `SopDrawer` 和 `MarketplaceDetailOverlay` 是 legacy overlay, 已被 workspace page 替代。
+  `MarketplaceDetailOverlay` 仅保留给 deep-link install 场景 (`offisim://install?listing_id=X`),
+  后续应迁移到 `MarketWorkspacePage` 内处理
+- Workspace session state 类型定义在 `apps/web/src/components/workspaces/types.ts`,
+  每个 workspace 有独立的 state shape (SopSessionState, MarketSessionState 等)
 
 ### UI / Scene / 3D
 
