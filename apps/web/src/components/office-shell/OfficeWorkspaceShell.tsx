@@ -41,6 +41,39 @@ const MarketplaceOverlay = React.lazy(() =>
   })),
 );
 
+// ---------------------------------------------------------------------------
+// Grouped prop interfaces
+// ---------------------------------------------------------------------------
+
+export interface NavigationCallbacks {
+  onOpenCompanyEditor: () => void;
+  onOpenCompanySelect: () => void;
+  onOpenEmployeeCreator: () => void;
+  onOpenOfficeEditor: () => void;
+  onOpenSettings: () => void;
+  onOpenStudio: () => void;
+  onWorkspaceSwitch: (workspace: WorkspaceKey) => void;
+  onToggleDashboard: () => void;
+  onToggleKanban: () => void;
+}
+
+export interface EmployeeActions {
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onStartChat: (id: string) => void;
+  onOpenEditor: (id: string) => void;
+}
+
+export interface SceneViewProps {
+  viewMode: '2D' | '3D';
+  onViewModeChange: (mode: '2D' | '3D') => void;
+  onSceneFallbackTo2D: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Component props
+// ---------------------------------------------------------------------------
+
 interface OfficeWorkspaceShellProps {
   activeCompanyId: string | null;
   anyOverlayOpen: boolean;
@@ -52,6 +85,7 @@ interface OfficeWorkspaceShellProps {
   kanbanOpen: boolean;
   lastUserRequest: string | null;
   leftPanelWidth: number;
+  rightPanelWidth: number;
   marketplaceListingId: string | null;
   onCloseDashboard: () => void;
   onCloseKanban: () => void;
@@ -62,27 +96,13 @@ interface OfficeWorkspaceShellProps {
     leftPanelWidth: number;
     rightPanelWidth: number;
   }) => void;
-  onOpenCompanyEditor: () => void;
-  onOpenCompanySelect: () => void;
-  onOpenEmployeeCreator: () => void;
-  onOpenOfficeEditor: () => void;
-  onOpenSettings: () => void;
-  onOpenStudio: () => void;
-  onSelectEmployee: (id: string | null) => void;
-  onStartEmployeeChat: (id: string) => void;
-  onToggleDashboard: () => void;
-  onToggleKanban: () => void;
   onUserMessage: (text: string) => void;
-  onWorkspaceSwitch: (workspace: WorkspaceKey) => void;
-  openEmployeeEditor: (id: string) => void;
   providerConfig: ProviderConfig | null;
-  selectedEmployeeId: string | null;
   view: AppView;
-  viewMode: '2D' | '3D';
   workspaceRouterContent: React.ReactNode;
-  onViewModeChange: (mode: '2D' | '3D') => void;
-  onSceneFallbackTo2D: () => void;
-  rightPanelWidth: number;
+  navigation: NavigationCallbacks;
+  employee: EmployeeActions;
+  sceneView: SceneViewProps;
 }
 
 export function OfficeWorkspaceShell({
@@ -96,6 +116,7 @@ export function OfficeWorkspaceShell({
   kanbanOpen,
   lastUserRequest,
   leftPanelWidth,
+  rightPanelWidth,
   marketplaceListingId,
   onCloseDashboard,
   onCloseKanban,
@@ -103,28 +124,32 @@ export function OfficeWorkspaceShell({
   onFileImport,
   onInstallListing,
   onLayoutMetricsChange,
-  onOpenCompanyEditor,
-  onOpenCompanySelect,
-  onOpenEmployeeCreator,
-  onOpenOfficeEditor,
-  onOpenSettings,
-  onOpenStudio,
-  onSelectEmployee,
-  onStartEmployeeChat,
-  onToggleDashboard,
-  onToggleKanban,
   onUserMessage,
-  onWorkspaceSwitch,
-  openEmployeeEditor,
   providerConfig,
-  selectedEmployeeId,
   view,
-  viewMode,
   workspaceRouterContent,
-  onViewModeChange,
-  onSceneFallbackTo2D,
-  rightPanelWidth,
+  navigation,
+  employee,
+  sceneView,
 }: OfficeWorkspaceShellProps) {
+  const {
+    onOpenCompanyEditor,
+    onOpenCompanySelect,
+    onOpenEmployeeCreator,
+    onOpenOfficeEditor,
+    onOpenSettings,
+    onOpenStudio,
+    onWorkspaceSwitch,
+    onToggleDashboard,
+    onToggleKanban,
+  } = navigation;
+  const {
+    selectedId: selectedEmployeeId,
+    onSelect: onSelectEmployee,
+    onStartChat: onStartEmployeeChat,
+    onOpenEditor: openEmployeeEditor,
+  } = employee;
+  const { viewMode, onViewModeChange, onSceneFallbackTo2D } = sceneView;
   const { unfinishedThreads, dismissUnfinishedThreads, repos, resumeThread } = useOffisimRuntime();
   const { companies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } =

@@ -2,7 +2,9 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import type { Mock } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
+import type { ActivityLogSessionState } from '../../components/events/workspace/ActivityLogPage.js';
 import { ActivityLogPage } from '../../components/events/workspace/ActivityLogPage.js';
 import {
   OffisimRuntimeContext,
@@ -71,6 +73,19 @@ function makeEvent(
   };
 }
 
+function applyUpdater(mock: Mock, prev: ActivityLogSessionState): ActivityLogSessionState {
+  const updater = mock.mock.calls[0]![0] as (p: ActivityLogSessionState) => ActivityLogSessionState;
+  return updater(prev);
+}
+
+const DEFAULT_STATE: ActivityLogSessionState = {
+  selectedEventId: null,
+  search: '',
+  eventTypes: [],
+  actorFilters: [],
+  datePreset: '30d',
+};
+
 describe('ActivityLogPage', () => {
   it('shows actor filter options derived from event history', async () => {
     const user = userEvent.setup();
@@ -108,7 +123,8 @@ describe('ActivityLogPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Aria Patel' }));
 
-    expect(onSessionStateChange).toHaveBeenCalledWith(
+    expect(onSessionStateChange).toHaveBeenCalled();
+    expect(applyUpdater(onSessionStateChange, DEFAULT_STATE)).toEqual(
       expect.objectContaining({ actorFilters: ['Aria Patel'] }),
     );
   });
@@ -135,10 +151,11 @@ describe('ActivityLogPage', () => {
     expect(screen.getByTestId('workspace-activity-log')).toHaveClass('workspace-shell');
 
     await waitFor(() => {
-      expect(onSessionStateChange).toHaveBeenCalledWith(
-        expect.objectContaining({ selectedEventId: null }),
-      );
+      expect(onSessionStateChange).toHaveBeenCalled();
     });
+    expect(
+      applyUpdater(onSessionStateChange, { ...DEFAULT_STATE, selectedEventId: 'missing-event' }),
+    ).toEqual(expect.objectContaining({ selectedEventId: null }));
 
     expect(screen.getByText('The selected event is no longer available.')).toBeInTheDocument();
   });

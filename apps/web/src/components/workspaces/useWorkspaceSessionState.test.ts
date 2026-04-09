@@ -2,16 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceSessionState } from './types';
 import {
+  SESSION_KEY,
   createDefaultActivityLogState,
   createDefaultMarketState,
   createDefaultSessionState,
   createDefaultSopState,
 } from './types';
-import {
-  SESSION_KEY,
-  hasInternalDrillIn,
-  tryWorkspaceInternalBack,
-} from './useWorkspaceSessionState';
+import { hasInternalDrillIn, tryWorkspaceInternalBack } from './useWorkspaceSessionState';
 
 // ---------------------------------------------------------------------------
 // Helper: build session state with overrides

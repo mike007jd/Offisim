@@ -10,7 +10,9 @@ interface SettingsPageProps {
   sessionState: {
     activeTab: SettingsTab;
   };
-  onSessionStateChange: (state: { activeTab: SettingsTab }) => void;
+  onSessionStateChange: (
+    updater: (prev: { activeTab: SettingsTab }) => { activeTab: SettingsTab },
+  ) => void;
   onBack: () => void;
   onSave: Parameters<typeof useSettingsWorkspaceController>[0]['onSave'];
   onSaveSuccess?: () => void;
@@ -33,7 +35,7 @@ export function SettingsPage({
   return (
     <SettingsWorkspaceSurface
       activeTab={sessionState.activeTab}
-      onActiveTabChange={(activeTab) => onSessionStateChange({ activeTab })}
+      onActiveTabChange={(activeTab) => onSessionStateChange((prev) => ({ ...prev, activeTab }))}
       controller={controller}
       dismissControl={
         <Button

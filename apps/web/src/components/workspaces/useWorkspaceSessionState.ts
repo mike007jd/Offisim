@@ -1,27 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import type { WorkspaceKey, WorkspaceSessionState } from './types';
-import { createDefaultSessionState } from './types';
+import type { SessionStateKeyMap, WorkspaceKey, WorkspaceSessionState } from './types';
+import { SESSION_KEY, createDefaultSessionState } from './types';
 
 // ---------------------------------------------------------------------------
-// Key mapping: WorkspaceKey → WorkspaceSessionState property key
+// Key mapping helpers (SessionStateKeyMap + SESSION_KEY live in types.ts)
 // ---------------------------------------------------------------------------
-
-type SessionStateKeyMap = {
-  office: 'office';
-  sops: 'sops';
-  market: 'market';
-  'activity-log': 'activityLog';
-  settings: 'settings';
-};
-
-export const SESSION_KEY: SessionStateKeyMap = {
-  office: 'office',
-  sops: 'sops',
-  market: 'market',
-  'activity-log': 'activityLog',
-  settings: 'settings',
-};
 
 type StateKeyFor<K extends WorkspaceKey> = SessionStateKeyMap[K];
 type StateFor<K extends WorkspaceKey> = WorkspaceSessionState[StateKeyFor<K>];
@@ -213,13 +197,6 @@ export function useWorkspaceSessionState() {
     [],
   );
 
-  const setSessionState = useCallback((sessionState: WorkspaceSessionState) => {
-    setInternal((prev) => {
-      if (prev.sessionState === sessionState) return prev;
-      return { ...prev, sessionState };
-    });
-  }, []);
-
   // ── canGoBack ───────────────────────────────────────────────────────
   const canGoBack = useMemo(
     () =>
@@ -256,7 +233,6 @@ export function useWorkspaceSessionState() {
     activeWorkspace: internal.activeWorkspace,
     setActiveWorkspace,
     updateWorkspaceState,
-    setSessionState,
     canGoBack,
     goBack,
   };

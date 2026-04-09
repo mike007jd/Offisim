@@ -40,7 +40,9 @@ export type ActivityLogSessionState = {
 
 export interface ActivityLogPageProps {
   sessionState: ActivityLogSessionState;
-  onSessionStateChange: (state: ActivityLogSessionState) => void;
+  onSessionStateChange: (
+    updater: (prev: ActivityLogSessionState) => ActivityLogSessionState,
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,54 +127,54 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
   useEffect(() => {
     if (sessionState.selectedEventId && !focusedEvent) {
       addToast('The selected event is no longer available.', 'info');
-      onSessionStateChange({ ...sessionState, selectedEventId: null });
+      onSessionStateChange((prev) => {
+        if (!prev.selectedEventId) return prev;
+        return { ...prev, selectedEventId: null };
+      });
     }
-  }, [sessionState, focusedEvent, onSessionStateChange, addToast]);
+  }, [sessionState.selectedEventId, focusedEvent, onSessionStateChange, addToast]);
 
   // Handlers
   const handleSelectEvent = useCallback(
     (event: RuntimeEvent) => {
-      onSessionStateChange({
-        ...sessionState,
+      onSessionStateChange((prev) => ({
+        ...prev,
         selectedEventId: getEventId(event),
-      });
+      }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleBackFromFocus = useCallback(() => {
-    onSessionStateChange({
-      ...sessionState,
-      selectedEventId: null,
-    });
-  }, [sessionState, onSessionStateChange]);
+    onSessionStateChange((prev) => ({ ...prev, selectedEventId: null }));
+  }, [onSessionStateChange]);
 
   const handleSearchChange = useCallback(
     (search: string) => {
-      onSessionStateChange({ ...sessionState, search });
+      onSessionStateChange((prev) => ({ ...prev, search }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleEventTypesChange = useCallback(
     (eventTypes: string[]) => {
-      onSessionStateChange({ ...sessionState, eventTypes });
+      onSessionStateChange((prev) => ({ ...prev, eventTypes }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleDatePresetChange = useCallback(
     (datePreset: DatePreset) => {
-      onSessionStateChange({ ...sessionState, datePreset });
+      onSessionStateChange((prev) => ({ ...prev, datePreset }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleActorFiltersChange = useCallback(
     (actorFilters: string[]) => {
-      onSessionStateChange({ ...sessionState, actorFilters });
+      onSessionStateChange((prev) => ({ ...prev, actorFilters }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   // Event-focused mode

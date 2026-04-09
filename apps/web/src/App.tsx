@@ -102,7 +102,7 @@ export function App({ onCompanySwitch }: AppProps) {
     state: workspaceSessionState,
     activeWorkspace,
     setActiveWorkspace,
-    setSessionState,
+    updateWorkspaceState,
     goBack,
   } = useWorkspaceSessionState();
 
@@ -370,7 +370,7 @@ export function App({ onCompanySwitch }: AppProps) {
     <WorkspaceRouter
       activeWorkspace={activeWorkspace}
       sessionState={workspaceSessionState}
-      onSessionStateChange={setSessionState}
+      updateWorkspaceState={updateWorkspaceState}
       settingsPageProps={{
         onBack: () => handleWorkspaceSwitch('office'),
         onSave: handleSaveConfig,
@@ -566,6 +566,7 @@ export function App({ onCompanySwitch }: AppProps) {
               kanbanOpen={kanbanOpen}
               lastUserRequest={lastUserRequest}
               leftPanelWidth={leftPanelWidth}
+              rightPanelWidth={rightPanelWidth}
               marketplaceListingId={marketplaceListingId}
               onCloseDashboard={() => setDashboardOpen(false)}
               onCloseKanban={() => setKanbanOpen(false)}
@@ -576,35 +577,40 @@ export function App({ onCompanySwitch }: AppProps) {
                 installFlow.startRegistryInstall(listingId, version);
               }}
               onLayoutMetricsChange={handleLayoutMetricsChange}
-              onOpenCompanyEditor={companyEditor.open}
-              onOpenCompanySelect={() => setView('company-select')}
-              onOpenEmployeeCreator={() => setView('employee-creator')}
-              onOpenOfficeEditor={() => setView('office-editor')}
-              onOpenSettings={handleOpenSettings}
-              onOpenStudio={handleOpenStudio}
-              onSelectEmployee={handleSelectEmployee}
-              onStartEmployeeChat={(id) => {
-                handleSelectEmployee(id);
-                setChatOpenToken((token) => token + 1);
-              }}
-              onToggleDashboard={() => setDashboardOpen((open) => !open)}
-              onToggleKanban={() => setKanbanOpen((open) => !open)}
               onUserMessage={handleUserMessage}
-              onWorkspaceSwitch={handleWorkspaceSwitch}
-              openEmployeeEditor={(id) => {
-                void employeeEditor.openForEdit(id);
-              }}
               providerConfig={providerConfig}
-              selectedEmployeeId={selectedEmployeeId}
               view={view}
-              viewMode={viewMode}
               workspaceRouterContent={workspaceRouterContent}
-              onViewModeChange={setViewMode}
-              onSceneFallbackTo2D={() => {
-                setViewMode('2D');
-                addToast('3D rendering failed — switched to 2D view', 'error');
+              navigation={{
+                onOpenCompanyEditor: companyEditor.open,
+                onOpenCompanySelect: () => setView('company-select'),
+                onOpenEmployeeCreator: () => setView('employee-creator'),
+                onOpenOfficeEditor: () => setView('office-editor'),
+                onOpenSettings: handleOpenSettings,
+                onOpenStudio: handleOpenStudio,
+                onWorkspaceSwitch: handleWorkspaceSwitch,
+                onToggleDashboard: () => setDashboardOpen((open) => !open),
+                onToggleKanban: () => setKanbanOpen((open) => !open),
               }}
-              rightPanelWidth={rightPanelWidth}
+              employee={{
+                selectedId: selectedEmployeeId,
+                onSelect: handleSelectEmployee,
+                onStartChat: (id) => {
+                  handleSelectEmployee(id);
+                  setChatOpenToken((token) => token + 1);
+                },
+                onOpenEditor: (id) => {
+                  void employeeEditor.openForEdit(id);
+                },
+              }}
+              sceneView={{
+                viewMode,
+                onViewModeChange: setViewMode,
+                onSceneFallbackTo2D: () => {
+                  setViewMode('2D');
+                  addToast('3D rendering failed — switched to 2D view', 'error');
+                },
+              }}
             />
           </Suspense>
         )}

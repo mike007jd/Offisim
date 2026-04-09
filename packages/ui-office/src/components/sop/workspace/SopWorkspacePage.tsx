@@ -29,7 +29,7 @@ export type SopSessionState = {
 
 export interface SopWorkspacePageProps {
   sessionState: SopSessionState;
-  onSessionStateChange: (state: SopSessionState) => void;
+  onSessionStateChange: (updater: (prev: SopSessionState) => SopSessionState) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,46 +67,45 @@ export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWork
       if (prevId === sessionState.selectedSopId) {
         addToast('The selected SOP was deleted.', 'info');
       }
-      onSessionStateChange({
-        ...sessionState,
-        selectedSopId: null,
-        centerMode: 'empty',
+      onSessionStateChange((prev) => {
+        if (!prev.selectedSopId) return prev;
+        return { ...prev, selectedSopId: null, centerMode: 'empty' };
       });
     }
-  }, [sops, loading, sessionState, onSessionStateChange, addToast]);
+  }, [sops, loading, sessionState.selectedSopId, onSessionStateChange, addToast]);
 
   // Callbacks
 
   const handleSelectSop = useCallback(
     (sopId: string) => {
-      onSessionStateChange({
-        ...sessionState,
+      onSessionStateChange((prev) => ({
+        ...prev,
         selectedSopId: sopId,
         centerMode: 'definition',
-      });
+      }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleSearchChange = useCallback(
     (search: string) => {
-      onSessionStateChange({ ...sessionState, search });
+      onSessionStateChange((prev) => ({ ...prev, search }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleLeftPaneModeChange = useCallback(
     (leftPaneMode: 'library' | 'active-runs') => {
-      onSessionStateChange({ ...sessionState, leftPaneMode });
+      onSessionStateChange((prev) => ({ ...prev, leftPaneMode }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleRightPaneTabChange = useCallback(
     (rightPaneTab: 'context' | 'runs' | 'history') => {
-      onSessionStateChange({ ...sessionState, rightPaneTab });
+      onSessionStateChange((prev) => ({ ...prev, rightPaneTab }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleRunSop = useCallback(
@@ -124,36 +123,29 @@ export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWork
   );
 
   const handleRunFocus = useCallback(() => {
-    onSessionStateChange({
-      ...sessionState,
+    onSessionStateChange((prev) => ({
+      ...prev,
       centerMode: 'run-focus',
       rightPaneTab: 'runs',
-    });
-  }, [sessionState, onSessionStateChange]);
+    }));
+  }, [onSessionStateChange]);
 
   const handleCreated = useCallback(() => {
     void refreshSops();
   }, [refreshSops]);
 
   // Auto-switch to run-focus when the selected SOP's plan starts.
-  // Refs avoid re-subscribing to EventBus on every sessionState change.
-  const sessionStateRef = useRef(sessionState);
-  sessionStateRef.current = sessionState;
-  const onSessionStateChangeRef = useRef(onSessionStateChange);
-  onSessionStateChangeRef.current = onSessionStateChange;
-
+  // Functional updater reads latest state via `prev` — no refs needed.
   useEffect(() => {
     return eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
-      const ss = sessionStateRef.current;
-      if (e.payload.sopTemplateId && ss.selectedSopId === e.payload.sopTemplateId) {
-        onSessionStateChangeRef.current({
-          ...ss,
-          centerMode: 'run-focus',
-          rightPaneTab: 'runs',
-        });
-      }
+      onSessionStateChange((prev) => {
+        if (e.payload.sopTemplateId && prev.selectedSopId === e.payload.sopTemplateId) {
+          return { ...prev, centerMode: 'run-focus', rightPaneTab: 'runs' };
+        }
+        return prev;
+      });
     });
-  }, [eventBus]);
+  }, [eventBus, onSessionStateChange]);
 
   const showEmptyCenter = !sessionState.selectedSopId;
 

@@ -91,7 +91,9 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 - `FullPageWorkspaceAppView` = 除 office 外的 4 个 workspace, 由 `FullPageWorkspaceShell` 包裹
 - Office 走 `shouldShowAppShell()` → `OfficeWorkspaceShellLazy` (含 3D/2D scene + AppLayout)
 - 非 office workspace 走 `isFullPageWorkspaceView()` → `FullPageWorkspaceShell` + `WorkspaceRouter`
-- `useWorkspaceSessionState` 保存每个 workspace 的独立 session state, 切换时保留/恢复
+- `useWorkspaceSessionState` 保存每个 workspace 的独立 session state, 切换时保留/恢复。
+  `updateWorkspaceState(key, updater)` 是唯一的 session state 写入路径,
+  updater 函数式签名 `(prev: T) => T` 保证所有 callback 引用稳定（无 sessionState deps）
 - `useWorkspaceBackNavigation` 集成浏览器 history API, 先 unwind workspace 内部状态再切换 workspace
 - 响应式布局: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
 
@@ -99,7 +101,7 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
 
 | 文件 | 用途 |
 |------|------|
-| `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state 类型, computeLayoutTier |
+| `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state 类型, SessionStateKeyMap, UpdateWorkspaceStateFn, computeLayoutTier |
 | `apps/web/src/components/workspaces/WorkspaceRouter.tsx` | 根据 activeWorkspace 渲染对应 page |
 | `apps/web/src/components/workspaces/useWorkspaceSessionState.ts` | 跨 workspace 的 session state 管理 |
 | `apps/web/src/components/workspaces/useWorkspaceBackNavigation.ts` | 浏览器 back 键集成 |
@@ -217,6 +219,12 @@ Turbo 自动处理依赖拓扑, 手动开发时注意 `^build` 依赖链。
   后续应迁移到 `MarketWorkspacePage` 内处理
 - Workspace session state 类型定义在 `apps/web/src/components/workspaces/types.ts`,
   每个 workspace 有独立的 state shape (SopSessionState, MarketSessionState 等)
+- Workspace page 的 `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`（函数式更新），
+  不是 `(state: T) => void`（整体替换）。useCallback deps 不需要 `sessionState`，
+  只需要 `[onSessionStateChange]`（稳定引用）。不要回退到 spread 模式
+- `OfficeWorkspaceShell` props 分为 3 组: `navigation: NavigationCallbacks`,
+  `employee: EmployeeActions`, `sceneView: SceneViewProps`。组件内部立即解构使用，
+  新增 props 时先判断归属哪个分组
 
 ### UI / Scene / 3D
 

@@ -31,7 +31,7 @@ export type MarketSessionState = {
 
 export interface MarketWorkspacePageProps {
   sessionState: MarketSessionState;
-  onSessionStateChange: (state: MarketSessionState) => void;
+  onSessionStateChange: (updater: (prev: MarketSessionState) => MarketSessionState) => void;
   onStartInstall?: (listingId: string, version: string) => void;
 }
 
@@ -69,53 +69,58 @@ export function MarketWorkspacePage({
 
   const handleModeChange = useCallback(
     (mode: 'explore' | 'manage') => {
-      onSessionStateChange({ ...sessionState, mode, selectedListingId: null });
+      onSessionStateChange((prev) => ({ ...prev, mode, selectedListingId: null }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleManageTabChange = useCallback(
     (manageTab: 'installed' | 'updates' | 'published') => {
-      onSessionStateChange({ ...sessionState, manageTab });
+      onSessionStateChange((prev) => ({ ...prev, manageTab }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleSearchChange = useCallback(
     (search: string) => {
-      onSessionStateChange({ ...sessionState, search });
+      onSessionStateChange((prev) => ({ ...prev, search }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleSortChange = useCallback(
     (sort: MarketSortOption) => {
-      onSessionStateChange({ ...sessionState, sort });
+      onSessionStateChange((prev) => ({ ...prev, sort }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleKindChange = useCallback(
     (kind: AssetKind | 'all') => {
-      onSessionStateChange({ ...sessionState, kind });
+      onSessionStateChange((prev) => ({ ...prev, kind }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleSelectListing = useCallback(
     (listingId: string) => {
-      onSessionStateChange({ ...sessionState, selectedListingId: listingId });
+      onSessionStateChange((prev) => ({ ...prev, selectedListingId: listingId }));
     },
-    [sessionState, onSessionStateChange],
+    [onSessionStateChange],
   );
 
   const handleBack = useCallback(() => {
-    onSessionStateChange({ ...sessionState, selectedListingId: null });
-  }, [sessionState, onSessionStateChange]);
+    onSessionStateChange((prev) => ({ ...prev, selectedListingId: null }));
+  }, [onSessionStateChange]);
 
   const handleResetFilters = useCallback(() => {
-    onSessionStateChange({ ...sessionState, search: '', sort: 'relevance', kind: 'all' });
-  }, [sessionState, onSessionStateChange]);
+    onSessionStateChange((prev) => ({
+      ...prev,
+      search: '',
+      sort: 'relevance',
+      kind: 'all',
+    }));
+  }, [onSessionStateChange]);
 
   const handleInstall = useCallback(
     (listingId: string, version: string) => {
@@ -125,8 +130,12 @@ export function MarketWorkspacePage({
   );
 
   const handleGoToExplore = useCallback(() => {
-    onSessionStateChange({ ...sessionState, mode: 'explore', selectedListingId: null });
-  }, [sessionState, onSessionStateChange]);
+    onSessionStateChange((prev) => ({
+      ...prev,
+      mode: 'explore',
+      selectedListingId: null,
+    }));
+  }, [onSessionStateChange]);
 
   // Determine center pane content
   const showDetail = sessionState.mode === 'explore' && sessionState.selectedListingId !== null;

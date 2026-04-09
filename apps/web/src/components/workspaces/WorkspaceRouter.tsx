@@ -1,6 +1,13 @@
 import React, { Suspense, useCallback } from 'react';
 
-import type { WorkspaceKey, WorkspaceRouterProps } from './types';
+import type {
+  ActivityLogSessionState,
+  MarketSessionState,
+  SettingsSessionState,
+  SopSessionState,
+  WorkspaceKey,
+  WorkspaceRouterProps,
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Transition state type (used by mount/interactive policy functions)
@@ -73,7 +80,7 @@ const NOOP = () => {};
 export function WorkspaceRouter({
   activeWorkspace,
   sessionState,
-  onSessionStateChange,
+  updateWorkspaceState,
   settingsPageProps,
   children,
 }: WorkspaceRouterProps) {
@@ -84,22 +91,25 @@ export function WorkspaceRouter({
   const mountOffice = shouldMountOfficeScene(activeWorkspace, transitionState);
   const officeInteractive = isOfficeSceneInteractive(activeWorkspace, transitionState);
 
+  // Stable handlers: updateWorkspaceState has empty deps → these never recreate.
   const handleSopsChange = useCallback(
-    (s: typeof sessionState.sops) => onSessionStateChange({ ...sessionState, sops: s }),
-    [sessionState, onSessionStateChange],
+    (updater: (prev: SopSessionState) => SopSessionState) => updateWorkspaceState('sops', updater),
+    [updateWorkspaceState],
   );
   const handleMarketChange = useCallback(
-    (s: typeof sessionState.market) => onSessionStateChange({ ...sessionState, market: s }),
-    [sessionState, onSessionStateChange],
+    (updater: (prev: MarketSessionState) => MarketSessionState) =>
+      updateWorkspaceState('market', updater),
+    [updateWorkspaceState],
   );
   const handleActivityLogChange = useCallback(
-    (s: typeof sessionState.activityLog) =>
-      onSessionStateChange({ ...sessionState, activityLog: s }),
-    [sessionState, onSessionStateChange],
+    (updater: (prev: ActivityLogSessionState) => ActivityLogSessionState) =>
+      updateWorkspaceState('activity-log', updater),
+    [updateWorkspaceState],
   );
   const handleSettingsChange = useCallback(
-    (s: typeof sessionState.settings) => onSessionStateChange({ ...sessionState, settings: s }),
-    [sessionState, onSessionStateChange],
+    (updater: (prev: SettingsSessionState) => SettingsSessionState) =>
+      updateWorkspaceState('settings', updater),
+    [updateWorkspaceState],
   );
 
   return (

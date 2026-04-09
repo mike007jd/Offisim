@@ -127,13 +127,44 @@ export function computeLayoutTier(viewportWidth: number): LayoutTierConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Session State Key Mapping
+// ---------------------------------------------------------------------------
+
+export type SessionStateKeyMap = {
+  office: 'office';
+  sops: 'sops';
+  market: 'market';
+  'activity-log': 'activityLog';
+  settings: 'settings';
+};
+
+export const SESSION_KEY: SessionStateKeyMap = {
+  office: 'office',
+  sops: 'sops',
+  market: 'market',
+  'activity-log': 'activityLog',
+  settings: 'settings',
+};
+
+/**
+ * Functional updater for a single workspace's session state slice.
+ * Stable reference (empty deps) — safe to use in useCallback deps.
+ */
+export type UpdateWorkspaceStateFn = <K extends WorkspaceKey>(
+  key: K,
+  updater: (
+    prev: WorkspaceSessionState[SessionStateKeyMap[K]],
+  ) => WorkspaceSessionState[SessionStateKeyMap[K]],
+) => void;
+
+// ---------------------------------------------------------------------------
 // Component Props
 // ---------------------------------------------------------------------------
 
 export interface WorkspaceRouterProps {
   activeWorkspace: WorkspaceKey;
   sessionState: WorkspaceSessionState;
-  onSessionStateChange: (state: WorkspaceSessionState) => void;
+  updateWorkspaceState: UpdateWorkspaceStateFn;
   settingsPageProps?: {
     onBack: () => void;
     onSave: (config: ProviderConfig) => void;
