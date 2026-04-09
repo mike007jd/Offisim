@@ -141,6 +141,11 @@ describe('SettingsDialog', () => {
   it('uses the new workspace-style settings structure instead of the legacy plain dialog copy', () => {
     render(<SettingsDialog open onOpenChange={vi.fn()} onSave={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Provider Workspace' })).toBeInTheDocument();
+    expect(screen.getAllByText('Official compatibility').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Runtime orchestration' })).toBeInTheDocument();
+    expect(
+      screen.queryByText('Configure your AI model provider and MCP server connections.'),
+    ).toBeNull();
   });
 });

@@ -119,7 +119,7 @@ describe('ActivityLogPage', () => {
       },
     );
 
-    expect(screen.getByTestId('workspace-activity-log')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-activity-log')).toHaveClass('workspace-shell');
 
     await user.click(screen.getByRole('button', { name: 'Aria Patel' }));
 
@@ -148,7 +148,7 @@ describe('ActivityLogPage', () => {
       },
     );
 
-    expect(screen.getByTestId('workspace-activity-log')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-activity-log')).toHaveClass('workspace-shell');
 
     await waitFor(() => {
       expect(onSessionStateChange).toHaveBeenCalled();

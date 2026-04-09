@@ -74,32 +74,40 @@ export function ActivityLogFiltersPane({
     <div className="flex flex-col gap-4 p-4 h-full overflow-y-auto">
       {/* Search */}
       <div>
+        <label
+          htmlFor="activity-log-search"
+          className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 block"
+        >
+          Search
+        </label>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
             id="activity-log-search"
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search events…"
-            className="w-full text-[12px] bg-white/[0.04] text-slate-100 border border-white/[0.08] rounded-lg pl-8 pr-3 py-1.5 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/30"
+            className="w-full text-xs bg-surface-light text-slate-100 border border-border rounded-md pl-7 pr-2 py-1.5 placeholder:text-slate-500 focus:outline-none focus:border-accent/50"
           />
         </div>
       </div>
 
       {/* Date preset */}
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Time</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+          Time range
+        </p>
         <div className="flex flex-wrap gap-1">
           {DATE_PRESETS.map((p) => (
             <button
               key={p.value}
               type="button"
               onClick={() => onDatePresetChange(p.value)}
-              className={`px-2 py-0.5 rounded text-[12px] font-medium transition-colors ${
+              className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                 datePreset === p.value
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
-                  : 'text-slate-500 border border-white/[0.06] hover:border-white/10 hover:text-slate-300'
+                  ? 'bg-accent/20 text-accent border border-accent/40'
+                  : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
               }`}
             >
               {p.label}
@@ -110,17 +118,19 @@ export function ActivityLogFiltersPane({
 
       {/* Event type filters */}
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Type</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+          Event types
+        </p>
         <div className="flex flex-wrap gap-1">
           {ALL_EVENT_TYPES.map((type) => (
             <button
               key={type}
               type="button"
               onClick={() => toggleEventType(type)}
-              className={`px-2 py-0.5 rounded text-[12px] font-medium transition-colors ${
+              className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                 isTypeActive(type)
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
-                  : 'text-slate-500 border border-white/[0.06] hover:border-white/10 hover:text-slate-300'
+                  ? 'bg-accent/20 text-accent border border-accent/40'
+                  : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
               }`}
             >
               {type}
@@ -131,7 +141,9 @@ export function ActivityLogFiltersPane({
 
       {/* Level filters (Info, Warning, Error) */}
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Level</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+          Levels
+        </p>
         <div className="flex flex-wrap gap-1">
           {ALL_LEVELS.map((level) => {
             const active = eventTypes.length === 0 || eventTypes.includes(level);
@@ -142,31 +154,33 @@ export function ActivityLogFiltersPane({
 
       {/* Actor filters */}
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Actor</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+          Actors
+        </p>
         {actorOptions.length === 0 ? (
-          <p className="text-[12px] text-slate-600 italic">No actors yet</p>
+          <p className="text-[11px] text-slate-500 italic">No actor-specific events yet.</p>
         ) : (
           <div className="flex flex-wrap gap-1">
             <button
               type="button"
               onClick={() => onActorFiltersChange([])}
-              className={`px-2 py-0.5 rounded text-[12px] font-medium transition-colors ${
+              className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                 actorFilters.length === 0
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
-                  : 'text-slate-500 border border-white/[0.06] hover:border-white/10 hover:text-slate-300'
+                  ? 'bg-accent/20 text-accent border border-accent/40'
+                  : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
               }`}
             >
-              All
+              All actors
             </button>
             {actorOptions.map((actor) => (
               <button
                 key={actor}
                 type="button"
                 onClick={() => toggleActor(actor)}
-                className={`px-2 py-0.5 rounded text-[12px] font-medium transition-colors truncate max-w-full ${
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                   actorFilters.includes(actor)
-                    ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/30'
-                    : 'text-slate-500 border border-white/[0.06] hover:border-white/10 hover:text-slate-300'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                    : 'bg-transparent text-slate-400 border border-slate-400/20 hover:border-slate-400/40'
                 }`}
               >
                 {actor}
@@ -192,8 +206,10 @@ const ACTIVE_LEVEL_COLORS: Record<EventLevel, string> = {
 function LevelPill({ level, active }: { level: EventLevel; active: boolean }) {
   return (
     <span
-      className={`px-2 py-0.5 rounded text-[12px] font-medium border ${
-        active ? ACTIVE_LEVEL_COLORS[level] : 'text-slate-600 border-white/[0.04] opacity-40'
+      className={`px-2 py-1 rounded text-[11px] font-medium border ${
+        active
+          ? ACTIVE_LEVEL_COLORS[level]
+          : 'bg-transparent text-slate-400 border-slate-400/20 opacity-40'
       }`}
     >
       {level}

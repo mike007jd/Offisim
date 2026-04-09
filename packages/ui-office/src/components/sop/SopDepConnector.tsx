@@ -22,25 +22,25 @@ interface SopDepConnectorProps {
 }
 
 const LINE_COLOR: Record<SopStepStatus, string> = {
-  design: 'rgba(255,255,255,0.06)',
-  pending: 'rgba(255,255,255,0.06)',
-  active: 'rgba(34,211,238,0.45)',
-  completed: 'rgba(52,211,153,0.35)',
-  failed: 'rgba(248,113,113,0.35)',
+  design: 'rgba(255,255,255,0.08)',
+  pending: 'rgba(255,255,255,0.08)',
+  active: 'rgba(96,165,250,0.5)',
+  completed: 'rgba(52,211,153,0.4)',
+  failed: 'rgba(248,113,113,0.4)',
 };
 
 const PARTICLE_COLOR: Record<string, string> = {
-  active: 'rgba(34,211,238,0.9)',
+  active: 'rgba(96,165,250,0.9)',
   completed: 'rgba(52,211,153,0.7)',
 };
 
 function buildPath(from: CardRect, to: CardRect): string {
-  const x1 = from.x + from.width / 2;
-  const y1 = from.y + from.height;
-  const x2 = to.x + to.width / 2;
-  const y2 = to.y;
-  const dy = (y2 - y1) * 0.4;
-  return `M${x1},${y1} C${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2}`;
+  const x1 = from.x + from.width;
+  const y1 = from.y + from.height / 2;
+  const x2 = to.x;
+  const y2 = to.y + to.height / 2;
+  const dx = (x2 - x1) * 0.4;
+  return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 }
 
 export function SopDepConnector({
@@ -69,7 +69,7 @@ export function SopDepConnector({
         const key = `${line.fromStepId}-${line.toStepId}`;
         return (
           <g key={key}>
-            <path d={pathD} fill="none" stroke={LINE_COLOR[line.status]} strokeWidth={2} />
+            <path d={pathD} fill="none" stroke={LINE_COLOR[line.status]} strokeWidth={1.5} />
             {line.status === 'active' && (
               <>
                 <circle r={2.5} fill={PARTICLE_COLOR.active}>

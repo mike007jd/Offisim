@@ -27,8 +27,16 @@ vi.mock('../../components/sop/SopImportDialog', () => ({
   SopImportDialog: () => null,
 }));
 
+vi.mock('../../components/sop/workspace/SopWorkspaceSidebar', () => ({
+  SopWorkspaceSidebar: () => <div>sidebar</div>,
+}));
+
 vi.mock('../../components/sop/workspace/SopWorkspaceCanvas', () => ({
   SopWorkspaceCanvas: () => <div>canvas</div>,
+}));
+
+vi.mock('../../components/sop/workspace/SopWorkspaceContextPane', () => ({
+  SopWorkspaceContextPane: () => <div>context</div>,
 }));
 
 vi.mock('../../components/sop/workspace/SopWorkspaceEmptyState', () => ({
@@ -46,7 +54,7 @@ describe('SopWorkspacePage', () => {
     });
   });
 
-  it('renders the full-screen page with correct testId', () => {
+  it('renders inside the shared workspace shell', () => {
     render(
       <SopWorkspacePage
         sessionState={{
@@ -60,7 +68,8 @@ describe('SopWorkspacePage', () => {
       />,
     );
 
-    expect(screen.getByTestId('workspace-sops')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-sops')).toHaveClass('workspace-shell');
+    expect(screen.getByText('SOPs')).toBeInTheDocument();
     expect(screen.getByText('empty-state')).toBeInTheDocument();
   });
 });

@@ -4,7 +4,8 @@ import type {
   RuntimePolicyConfig,
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
-import { Cpu, Globe, Network, Workflow } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
+import { Cpu, Workflow } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
@@ -30,7 +31,7 @@ import {
   getDefaultProviderPresetKey,
   getProviderPreset,
 } from './provider-presets';
-import { SurfaceCard } from './settings-primitives';
+import { MetricCard, SurfaceCard } from './settings-primitives';
 
 export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'openclaw';
 
@@ -484,7 +485,6 @@ export function useSettingsWorkspaceController({
     handlePresetChange,
     handleSave,
     hasStoredSecret,
-    hasUnsavedChanges,
     isSaveDisabled,
     isSaving,
     isSubscription,
@@ -534,127 +534,130 @@ interface SettingsWorkspaceSurfaceProps {
   onActiveTabChange: (tab: SettingsTab) => void;
 }
 
-const TAB_ITEMS: { key: SettingsTab; label: string; icon: typeof Cpu }[] = [
-  { key: 'provider', label: 'Provider', icon: Globe },
-  { key: 'runtime', label: 'Runtime', icon: Cpu },
-  { key: 'mcp', label: 'MCP', icon: Network },
-  { key: 'openclaw', label: 'Gateway', icon: Workflow },
-];
-
 export function SettingsWorkspaceSurface({
   activeTab,
   controller,
-  dismissControl: _dismissControl,
+  dismissControl,
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
+  const {
+    baseURL,
+    selectedCapabilities,
+    selectedCompatibility,
+    selectedPreset,
+    selectedRegion,
+    selectedSurface,
+    selectedVendor,
+  } = controller;
+
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-[#0a0e17] text-slate-100">
-      {/* Left sidebar — game-style tab navigation */}
-      <div className="flex w-52 shrink-0 flex-col border-r border-cyan-400/[0.07] bg-gradient-to-b from-[#0d1220] to-[#080c16]">
-        {/* Title header */}
-        <div className="px-5 pt-6 pb-4 border-b border-white/[0.04]">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400/60">
-            Options
-          </h2>
-          <p className="mt-1 text-[10px] tracking-wider text-slate-600">OFFISIM v1.6</p>
-        </div>
-
-        {/* Tab navigation */}
-        <nav className="flex flex-col gap-0.5 px-2 py-3 flex-1">
-          {TAB_ITEMS.map(({ key, label, icon: Icon }) => {
-            const isActive = activeTab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onActiveTabChange(key)}
-                className={`group relative flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-left transition-all duration-150 rounded-r-lg ${
-                  isActive
-                    ? 'bg-cyan-400/[0.08] text-cyan-100'
-                    : 'text-slate-500 hover:bg-white/[0.02] hover:text-slate-300'
-                }`}
-              >
-                {/* Active accent bar */}
-                {isActive && (
-                  <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
-                )}
-                <Icon
-                  className={`h-4 w-4 shrink-0 transition-colors ${
-                    isActive ? 'text-cyan-400' : 'text-slate-600 group-hover:text-slate-400'
-                  }`}
-                />
-                <span className="tracking-wide">{label}</span>
-                {/* Subtle right chevron for active */}
-                {isActive && <span className="ml-auto text-[10px] text-cyan-400/40">&rsaquo;</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Save section — game style */}
-        <div className="border-t border-white/[0.04] p-3 space-y-2">
-          {controller.hasUnsavedChanges && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-400/[0.06] border border-amber-400/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
-                Unsaved changes
-              </span>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#14203d_0%,#0b1121_42%,#040814_100%)] text-slate-100 shadow-[0_30px_120px_rgba(0,0,0,0.52)]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-white/10 bg-slate-950/45 px-6 py-5 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-cyan-300/80">
+                System Control
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                Provider Workspace
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Official provider surfaces, runtime orchestration, MCP routing, and gateway links
+                now live in one unified control surface. Offisim follows vendor compatibility docs
+                first, with Anthropic-compatible transports preferred when providers officially
+                support them.
+              </p>
             </div>
-          )}
-          <button
-            type="button"
-            onClick={() => void controller.handleSave()}
-            disabled={controller.isSaveDisabled}
-            className={`w-full rounded-lg px-4 py-3 text-[13px] font-bold uppercase tracking-wider transition-all duration-200 ${
-              controller.isSaveDisabled
-                ? 'bg-slate-800/40 text-slate-600 border border-slate-700/30 cursor-not-allowed'
-                : controller.hasUnsavedChanges
-                  ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.1)] hover:bg-cyan-500/30 hover:shadow-[0_0_24px_rgba(34,211,238,0.18)]'
-                  : 'bg-cyan-500/10 text-cyan-300/70 border border-cyan-400/20 hover:bg-cyan-500/20 hover:text-cyan-200'
-            }`}
-          >
-            {controller.isSaving ? 'Saving\u2026' : 'Save Changes'}
-          </button>
-          {controller.saveError && (
-            <p className="text-[10px] text-red-400/90 break-words px-1">{controller.saveError}</p>
-          )}
-        </div>
-      </div>
+            {dismissControl}
+          </div>
 
-      {/* Right — content area with subtle grid pattern */}
-      <div className="relative flex-1 min-h-0 overflow-y-auto">
-        {/* Decorative top-bar with active tab name */}
-        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/[0.04] bg-[#0a0e17]/90 px-8 py-4 backdrop-blur-md">
-          <div className="h-3 w-[2px] rounded-full bg-cyan-400/50" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">
-            {TAB_ITEMS.find((t) => t.key === activeTab)?.label ?? 'Settings'}
-          </h3>
-          <div className="flex-1" />
-          <div className="h-[1px] w-12 bg-gradient-to-r from-cyan-400/20 to-transparent" />
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Official compatibility"
+              value={selectedCompatibility}
+              detail={`Vendor preset: ${selectedPreset?.label ?? 'Custom'}`}
+            />
+            <MetricCard
+              label="Surface"
+              value={selectedSurface}
+              detail={`Region: ${selectedRegion}`}
+            />
+            <MetricCard
+              label="Capabilities"
+              value={selectedCapabilities}
+              detail="Streaming, tools, thinking, and coding-plan support are preset-aware."
+            />
+            <MetricCard
+              label="Endpoint"
+              value={baseURL || selectedPreset?.defaults.baseURL || 'Manual'}
+              detail={`Transport owner: ${selectedVendor}`}
+            />
+          </div>
         </div>
 
-        <div className="px-8 py-6">
-          {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
-          {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
-          {activeTab === 'mcp' && (
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => onActiveTabChange(value as SettingsTab)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="border-b border-white/10 bg-slate-950/25 px-6 py-4">
+            <TabsList className="grid w-full grid-cols-2 rounded-full border border-white/10 bg-white/[0.03] p-1 md:grid-cols-4">
+              <TabsTrigger
+                value="provider"
+                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+              >
+                Provider Workspace
+              </TabsTrigger>
+              <TabsTrigger
+                value="runtime"
+                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+              >
+                Runtime orchestration
+              </TabsTrigger>
+              <TabsTrigger
+                value="mcp"
+                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+              >
+                MCP servers
+              </TabsTrigger>
+              <TabsTrigger
+                value="openclaw"
+                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+              >
+                Gateway
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="provider" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <SettingsProviderTab controller={controller} />
+          </TabsContent>
+
+          <TabsContent value="runtime" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <SettingsRuntimeTab controller={controller} />
+          </TabsContent>
+
+          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             <SurfaceCard
-              title="MCP Servers"
-              description="Configure MCP endpoint connections."
-              icon={<Network className="h-5 w-5" />}
+              title="MCP servers"
+              description="Attach or reconfigure MCP endpoints without leaving the provider workspace."
+              icon={<Cpu className="h-5 w-5" />}
             >
               <McpConfigPanel />
             </SurfaceCard>
-          )}
-          {activeTab === 'openclaw' && (
+          </TabsContent>
+
+          <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             <SurfaceCard
               title="Gateway"
-              description="Connect to orchestration gateways."
+              description="Connect Offisim to OpenClaw or other local orchestration gateways from the same new control surface."
               icon={<Workflow className="h-5 w-5" />}
             >
               <OpenClawSettings />
             </SurfaceCard>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

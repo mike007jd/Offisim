@@ -1,9 +1,10 @@
 import { SopSyncService } from '@offisim/core/browser';
-import { Download, Play, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { Button } from '@offisim/ui-core';
+import { Download, ExternalLink, Link2, Play, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
 import type { SopTemplate } from '../../../hooks/useSops';
-import { pillClass } from '../../../lib/sop-utils';
+import { formatSopDate, pillClass } from '../../../lib/sop-utils';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
 
 interface SopSidebarCardProps {
@@ -31,83 +32,92 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
 
   return (
     <div
-      className={`relative rounded-lg border overflow-hidden transition-all ${
+      className={`rounded-lg border overflow-hidden transition-colors ${
         selected
-          ? 'border-cyan-400/30 bg-cyan-500/[0.06]'
+          ? 'border-blue-500/40 bg-blue-500/[0.08]'
           : isActive
-            ? 'border-blue-400/20 bg-blue-500/[0.04]'
-            : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10'
+            ? 'border-blue-500/30 bg-blue-500/[0.04]'
+            : 'border-white/5 bg-white/[0.03]'
       }`}
     >
-      <div
-        className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l transition-colors ${
-          isActive ? 'bg-cyan-400' : selected ? 'bg-blue-400' : 'bg-transparent'
-        }`}
-      />
-
       <button
         type="button"
-        className="w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 pt-2 pb-1 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-slate-200 truncate leading-snug flex items-center gap-1.5">
+          <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
             {isActive && (
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
             )}
+            {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
             {sop.name}
           </p>
+          {sop.description && (
+            <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
+              {sop.description}
+            </p>
+          )}
         </div>
-        <span className="shrink-0 text-[11px] text-slate-600 tabular-nums">{sop.stepCount}s</span>
+        <span className="shrink-0 text-[10px] text-slate-500 ml-1">
+          {sop.stepCount}s · {formatSopDate(sop.createdAt)}
+        </span>
+        <ExternalLink className="w-3 h-3 text-slate-600 shrink-0" />
       </button>
 
-      <div className="flex items-center gap-1 px-3 pb-2">
-        <button
-          type="button"
+      <div className="flex items-center gap-1 px-2 pb-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-0.5"
           onClick={() => onRun(sop.name)}
-          title="Run"
-          className="p-1 text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10 rounded transition-colors"
+          title="Run this SOP"
         >
-          <Play className="w-3 h-3" />
-        </button>
+          <Play className="w-2.5 h-2.5" />
+          Run
+        </Button>
         {sop.sourceUrl && onSync && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[10px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-0.5"
             onClick={() => onSync(sop.sopTemplateId)}
-            title="Sync"
-            className="p-1 text-blue-400/70 hover:text-blue-300 hover:bg-blue-500/10 rounded transition-colors"
+            title="Sync from remote"
           >
-            <RefreshCw className="w-3 h-3" />
-          </button>
+            <RefreshCw className="w-2.5 h-2.5" />
+            Sync
+          </Button>
         )}
         <div className="flex-1" />
         {confirming ? (
           <>
             <button
               type="button"
-              className="text-[11px] text-slate-500 hover:text-slate-300 px-1"
+              className="text-[10px] text-slate-400 hover:text-slate-300 px-1"
               onClick={() => setConfirming(false)}
             >
               Cancel
             </button>
-            <button
-              type="button"
-              className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={handleDelete}
             >
-              <Trash2 className="w-3 h-3" />
-            </button>
+              Confirm
+            </Button>
           </>
         ) : (
-          <button
-            type="button"
-            className="p-1 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1 text-[10px] text-slate-600 hover:text-red-400 hover:bg-red-500/10"
             onClick={handleDelete}
-            title="Delete"
+            title="Delete SOP"
           >
-            <Trash2 className="w-3 h-3" />
-          </button>
+            <Trash2 className="w-2.5 h-2.5" />
+          </Button>
         )}
       </div>
     </div>
@@ -170,7 +180,7 @@ export function SopWorkspaceSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-1.5 px-4 pt-3 pb-2">
+      <div className="flex items-center gap-1 px-3 pt-3 pb-1">
         <button
           type="button"
           className={pillClass(leftPaneMode === 'library')}
@@ -189,47 +199,47 @@ export function SopWorkspaceSidebar({
         <button
           type="button"
           onClick={onImportClick}
-          className="flex items-center gap-1 text-[13px] text-cyan-400 hover:text-cyan-300 p-1"
+          className="flex items-center gap-0.5 text-[10px] text-cyan-400 hover:text-cyan-300"
           title="Import SOP"
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3" />
         </button>
         <button
           type="button"
           onClick={onCreateClick}
-          className="flex items-center gap-1 text-[13px] text-blue-400 hover:text-blue-300 p-1"
+          className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
           title="Create SOP"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3 h-3" />
         </button>
       </div>
 
-      <div className="px-4 pb-2">
+      <div className="px-3 pb-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search SOPs…"
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg pl-8 pr-3 py-2 text-[13px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/30 transition-colors"
+            className="w-full bg-white/5 border border-white/10 rounded-md pl-6 pr-2 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
         {loading ? (
           <div className="flex items-center justify-center py-4">
-            <span className="text-xs text-slate-500 animate-pulse">Loading SOPs…</span>
+            <span className="text-[10px] text-slate-500 animate-pulse">Loading SOPs…</span>
           </div>
         ) : filteredSops.length === 0 ? (
           <div className="text-center py-4 px-2">
             {sops.length === 0 ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-[10px] text-slate-500">
                 No SOPs yet. Create or import one to get started.
               </p>
             ) : (
-              <p className="text-xs text-slate-500">
+              <p className="text-[10px] text-slate-500">
                 No SOPs match your search. Try a different term.
               </p>
             )}

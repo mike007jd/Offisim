@@ -1,13 +1,15 @@
 import type { PlanCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
-import { Download, Play, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSops } from '../../../hooks/useSops';
 import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context';
+import { WorkspacePageShell } from '../../workspace/WorkspacePageShell.js';
 import { SopEditorDialog } from '../SopEditorDialog';
 import { SopImportDialog } from '../SopImportDialog';
 import { SopWorkspaceCanvas } from './SopWorkspaceCanvas';
+import { SopWorkspaceContextPane } from './SopWorkspaceContextPane';
 import { SopWorkspaceEmptyState } from './SopWorkspaceEmptyState';
+import { SopWorkspaceSidebar } from './SopWorkspaceSidebar';
 
 // ---------------------------------------------------------------------------
 // Types — mirrored from apps/web workspace types to avoid cross-package deps
@@ -35,7 +37,7 @@ export interface SopWorkspacePageProps {
 // ---------------------------------------------------------------------------
 
 export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWorkspacePageProps) {
-  const { sops, loading, deleteSop: _deleteSop, refreshSops } = useSops();
+  const { sops, loading, deleteSop, refreshSops } = useSops();
   const { sendMessage, eventBus } = useOffisimRuntime();
   const { toasts, addToast, dismissToast } = useToasts();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -92,11 +94,32 @@ export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWork
     [onSessionStateChange],
   );
 
+  const handleLeftPaneModeChange = useCallback(
+    (leftPaneMode: 'library' | 'active-runs') => {
+      onSessionStateChange((prev) => ({ ...prev, leftPaneMode }));
+    },
+    [onSessionStateChange],
+  );
+
+  const handleRightPaneTabChange = useCallback(
+    (rightPaneTab: 'context' | 'runs' | 'history') => {
+      onSessionStateChange((prev) => ({ ...prev, rightPaneTab }));
+    },
+    [onSessionStateChange],
+  );
+
   const handleRunSop = useCallback(
     (name: string) => {
       void sendMessage(`Run the SOP: ${name}`);
     },
     [sendMessage],
+  );
+
+  const handleDeleteSop = useCallback(
+    async (sopTemplateId: string) => {
+      await deleteSop(sopTemplateId);
+    },
+    [deleteSop],
   );
 
   const handleRunFocus = useCallback(() => {
@@ -124,87 +147,69 @@ export function SopWorkspacePage({ sessionState, onSessionStateChange }: SopWork
     });
   }, [eventBus, onSessionStateChange]);
 
+  const showEmptyCenter = !sessionState.selectedSopId;
+
   return (
-    <div className="flex h-full flex-col" data-testid="workspace-sops" data-workspace="sops">
-      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-
-      {/* Top toolbar */}
-      <div className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-2.5 shrink-0">
-        {/* SOP selector */}
-        <div className="flex items-center gap-2 min-w-0">
-          <select
-            value={sessionState.selectedSopId ?? ''}
-            onChange={(e) =>
-              e.target.value ? handleSelectSop(e.target.value) : undefined
-            }
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-[13px] text-slate-200 focus:outline-none focus:border-cyan-400/30 min-w-[200px]"
-          >
-            <option value="">Select SOP…</option>
-            {sops.map((s) => (
-              <option key={s.sopTemplateId} value={s.sopTemplateId}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-          <input
-            type="text"
-            value={sessionState.search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search…"
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/30 w-40"
-          />
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Actions */}
-        <button
-          type="button"
-          onClick={() => setImportOpen(true)}
-          className="flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-cyan-300 transition-colors"
+    <WorkspacePageShell
+      title="SOPs"
+      workspace="sops"
+      testId="workspace-sops"
+      topSlot={<ToastBanner toasts={toasts} onDismiss={dismissToast} />}
+    >
+      <div className="sop-workspace-panes">
+        <aside
+          className="sop-workspace-sidebar"
+          data-testid="sop-workspace-sidebar"
+          aria-label="SOP library"
         >
-          <Download className="w-3.5 h-3.5" /> Import
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditorOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-400/30 px-3 py-1.5 text-[12px] text-cyan-200 hover:bg-cyan-500/25 transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" /> Create
-        </button>
-
-        {selectedSop && (
-          <button
-            type="button"
-            onClick={() => handleRunSop(selectedSop.name)}
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5 text-[12px] text-emerald-200 hover:bg-emerald-500/25 transition-colors"
-          >
-            <Play className="w-3.5 h-3.5" /> Run
-          </button>
-        )}
-      </div>
-
-      {/* Main content — full screen */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-        {!sessionState.selectedSopId ? (
-          <SopWorkspaceEmptyState
-            hasNoSops={sops.length === 0}
+          <SopWorkspaceSidebar
+            sops={sops}
+            loading={loading}
+            selectedSopId={sessionState.selectedSopId}
+            search={sessionState.search}
+            leftPaneMode={sessionState.leftPaneMode}
+            onSelectSop={handleSelectSop}
+            onSearchChange={handleSearchChange}
+            onRunSop={handleRunSop}
+            onDeleteSop={handleDeleteSop}
             onCreateClick={() => setEditorOpen(true)}
             onImportClick={() => setImportOpen(true)}
+            onLeftPaneModeChange={handleLeftPaneModeChange}
           />
-        ) : selectedSop ? (
-          <SopWorkspaceCanvas sop={selectedSop} onRunFocus={handleRunFocus} />
-        ) : null}
+        </aside>
+
+        <main
+          className="sop-workspace-canvas"
+          data-testid="sop-workspace-canvas"
+          aria-label="SOP definition"
+        >
+          {showEmptyCenter ? (
+            <SopWorkspaceEmptyState
+              hasNoSops={sops.length === 0}
+              onCreateClick={() => setEditorOpen(true)}
+              onImportClick={() => setImportOpen(true)}
+            />
+          ) : (
+            <SopWorkspaceCanvas sop={selectedSop} onRunFocus={handleRunFocus} />
+          )}
+        </main>
+
+        <aside
+          className="sop-workspace-context"
+          data-testid="sop-workspace-context"
+          aria-label="SOP context"
+        >
+          <SopWorkspaceContextPane
+            sop={selectedSop}
+            activeTab={sessionState.rightPaneTab}
+            onTabChange={handleRightPaneTabChange}
+          />
+        </aside>
       </div>
 
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={handleCreated} />
       <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleCreated} />
-    </div>
+    </WorkspacePageShell>
   );
 }
 

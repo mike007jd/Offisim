@@ -19,6 +19,10 @@ vi.mock('@offisim/ui-core', () => ({
     </button>
   ),
   SelectValue: () => <span>Select value</span>,
+  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsContent: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 
 vi.mock('../../theme', () => ({
@@ -132,6 +136,9 @@ describe('SettingsPage', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Provider Workspace' })).toBeInTheDocument();
+    expect(screen.getAllByText('Official compatibility').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Runtime orchestration' })).toBeInTheDocument();
   });
 });

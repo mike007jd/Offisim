@@ -38,7 +38,7 @@ export function MarketWorkspaceSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-1.5 px-4 pt-4 pb-2.5">
+      <div className="flex items-center gap-1 px-3 pt-3 pb-2">
         <button
           type="button"
           className={pillClass(mode === 'explore')}
@@ -62,20 +62,21 @@ export function MarketWorkspaceSidebar({
 
       {mode === 'explore' ? (
         <>
-          <div className="px-4 pb-3">
+          <div className="px-3 pb-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search packages…"
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
+                className="w-full bg-white/5 border border-white/10 rounded-md pl-6 pr-2 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
               />
             </div>
           </div>
 
-          <div className="px-4 pb-3">
+          <div className="px-3 pb-2">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-1.5">Kind</p>
             <div className="flex flex-wrap gap-1.5">
               {KIND_FILTERS.map((filter) => {
                 const Icon = filter.value === 'all' ? null : KIND_ICON[filter.value];
@@ -85,7 +86,7 @@ export function MarketWorkspaceSidebar({
                     key={filter.value}
                     type="button"
                     onClick={() => onKindChange(filter.value)}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
                       active
                         ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100'
                         : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
@@ -99,14 +100,15 @@ export function MarketWorkspaceSidebar({
             </div>
           </div>
 
-          <div className="px-4 pb-3">
+          <div className="px-3 pb-2">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-1.5">Sort</p>
             <div className="flex flex-wrap gap-1.5">
               {SORT_OPTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => onSortChange(s)}
-                  className={`rounded-full border px-2 py-0.5 text-[12px] transition-colors ${
+                  className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
                     sort === s
                       ? 'border-blue-400/40 bg-blue-500/10 text-blue-100'
                       : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
@@ -119,21 +121,18 @@ export function MarketWorkspaceSidebar({
           </div>
         </>
       ) : (
-        <div className="px-4 pb-3 flex flex-col gap-1">
+        <div className="px-3 pb-2 flex flex-col gap-1">
           {(['installed', 'updates', 'published'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
-              className={`w-full text-left pl-3 pr-3 py-1.5 rounded text-[13px] transition-colors capitalize relative ${
+              className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors capitalize ${
                 manageTab === tab
-                  ? 'bg-blue-500/[0.08] text-blue-200'
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                  ? 'bg-blue-500/10 text-blue-200 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
               }`}
               onClick={() => onManageTabChange(tab)}
             >
-              {manageTab === tab && (
-                <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-blue-400" />
-              )}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
