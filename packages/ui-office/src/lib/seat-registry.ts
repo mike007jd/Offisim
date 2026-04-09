@@ -14,7 +14,7 @@ import {
 import { SEAT_OFFSETS } from './seat-offsets';
 
 const REST_SEAT_TARGET_COUNT = 18;
-const SEAT_CLEARANCE = 0.35;
+const SEAT_CLEARANCE = 0.55;
 const MIN_SEAT_SPACING = 0.75;
 const MIN_APPROACH_LEAD = 0.35;
 

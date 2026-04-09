@@ -48,10 +48,10 @@ export function MarketWorkspaceExplore({
 
   if (error) {
     return (
-      <div className="p-4">
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs leading-relaxed text-rose-100">
+      <div className="flex items-center justify-center p-8 h-full">
+        <div className="max-w-lg rounded-2xl border border-rose-400/20 bg-rose-500/10 p-5 text-sm leading-relaxed text-rose-100">
           Marketplace is unavailable right now. Check the connection and retry.
-          <div className="mt-2 font-mono text-[10px] text-rose-200/80 break-words">{error}</div>
+          <div className="mt-3 font-mono text-xs text-rose-200/80 break-words">{error}</div>
         </div>
       </div>
     );
@@ -59,17 +59,17 @@ export function MarketWorkspaceExplore({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-slate-500">Loading marketplace…</p>
+      <div className="flex items-center justify-center py-20 h-full">
+        <p className="text-base text-slate-500">Loading marketplace…</p>
       </div>
     );
   }
 
   if (!isLoading && results.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-        <p className="text-sm font-semibold text-slate-200">No packages match this view</p>
-        <p className="text-xs leading-relaxed text-slate-500">
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center h-full">
+        <p className="text-base font-semibold text-slate-200">No packages match this view</p>
+        <p className="text-sm leading-relaxed text-slate-500">
           Try a broader search or switch the asset filter.
         </p>
         <Button type="button" variant="outline" size="sm" onClick={onResetFilters}>
@@ -80,7 +80,7 @@ export function MarketWorkspaceExplore({
   }
 
   return (
-    <div className="space-y-3 p-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 p-6">
       {results.map((listing) => (
         <ListingCard key={listing.listing_id} listing={listing} onOpen={onSelectListing} />
       ))}

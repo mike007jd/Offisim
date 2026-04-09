@@ -26,9 +26,9 @@ export interface ToastItem {
 }
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  info: 'border-ocean-light bg-ocean-mid text-sand',
-  success: 'border-kelp-green bg-kelp-green/10 text-kelp-green',
-  error: 'border-lobster-red bg-lobster-red/10 text-lobster-red',
+  info: 'border-white/15 bg-slate-900/95 text-slate-200',
+  success: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300',
+  error: 'border-red-400/40 bg-red-500/10 text-red-300',
 };
 
 const DEFAULT_DURATION_MS = 5_000;
@@ -60,7 +60,7 @@ function ToastEntry({
       role="status"
       aria-live="polite"
       className={cn(
-        'pointer-events-auto flex items-center justify-between gap-3 border-2 px-4 py-2 font-pixel-mono text-xs shadow-md rounded-lg',
+        'pointer-events-auto flex items-center justify-between gap-3 border px-4 py-2 text-xs shadow-lg rounded-lg backdrop-blur-sm',
         VARIANT_CLASSES[toast.variant],
       )}
     >

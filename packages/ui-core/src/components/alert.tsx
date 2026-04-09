@@ -3,16 +3,16 @@ import { type HTMLAttributes, forwardRef } from 'react';
 import { cn } from '../lib/utils.js';
 
 const alertVariants = cva(
-  'relative w-full border-2 px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-current [&>svg~*]:pl-7',
+  'relative w-full rounded-lg border px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-current [&>svg~*]:pl-7',
   {
     variants: {
       variant: {
-        default: 'border-ocean-light bg-ocean-mid text-sand',
+        default: 'border-white/10 bg-white/5 text-slate-200',
         destructive:
-          'border-lobster-red bg-lobster-red/10 text-lobster-red [&>svg]:text-lobster-red',
+          'border-red-400/40 bg-red-400/10 text-red-300 [&>svg]:text-red-400',
         warning:
-          'border-coral-orange bg-coral-orange/10 text-coral-orange [&>svg]:text-coral-orange',
-        success: 'border-kelp-green bg-kelp-green/10 text-kelp-green [&>svg]:text-kelp-green',
+          'border-amber-400/40 bg-amber-400/10 text-amber-300 [&>svg]:text-amber-400',
+        success: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300 [&>svg]:text-emerald-400',
       },
     },
     defaultVariants: {

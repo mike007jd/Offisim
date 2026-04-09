@@ -225,20 +225,20 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
           aria-label="Event timeline"
         >
           <ScrollArea className="h-full">
-            <div ref={scrollRef}>
+            <div ref={scrollRef} className="max-w-[1000px] mx-auto px-2">
               {filteredEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 gap-2 text-center px-6">
+                <div className="flex flex-col items-center justify-center h-80 gap-3 text-center px-8">
                   {events.length === 0 ? (
                     <>
-                      <p className="text-sm text-slate-400">No events yet</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-base text-slate-400">No events yet</p>
+                      <p className="text-sm text-slate-500">
                         Events will appear here as your company operates.
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="text-sm text-slate-400">No events match filters</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-base text-slate-400">No events match filters</p>
+                      <p className="text-sm text-slate-500">
                         Try adjusting your filters or search query.
                       </p>
                     </>

@@ -192,6 +192,38 @@ const SPATIAL_SPECS: readonly PrefabSpatialSpec[] = [
     capacity: 2,
   },
 
+  // --- Rest / Library furniture (capacity 0, need bounding for collision) ---
+  {
+    prefabId: 'coffee-table',
+    footprint: fp(0.4, 0.4, 0.15),
+    anchors: anchors(anchor([0, 0.7], Math.PI), anchor([0, 0.5], Math.PI)),
+    capacity: 0,
+  },
+  {
+    prefabId: 'reading-table',
+    footprint: fp(0.8, 0.4, 0.15),
+    anchors: anchors(anchor([0, 0.8], Math.PI), anchor([0, 0.5], Math.PI)),
+    capacity: 0,
+  },
+  {
+    prefabId: 'chair-standalone',
+    footprint: fp(0.3, 0.3, 0.1),
+    anchors: anchors(anchor([0, 0.5], Math.PI), anchor([0, 0.3], Math.PI)),
+    capacity: 0,
+  },
+  {
+    prefabId: 'filing-cabinet',
+    footprint: fp(0.4, 0.4, 0.1),
+    anchors: anchors(anchor([0, 0.7], Math.PI), anchor([0, 0.5], Math.PI)),
+    capacity: 0,
+  },
+  {
+    prefabId: 'whiteboard',
+    footprint: fp(0.8, 0.3, 0.1),
+    anchors: anchors(anchor([0, 0.6], Math.PI), anchor([0, 0.4], Math.PI)),
+    capacity: 0,
+  },
+
   // --- Decorative (capacity 0) ---
   {
     prefabId: 'plant-small',

@@ -14,7 +14,7 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-9 w-full items-center justify-between gap-2 border-2 border-ocean-light bg-ocean-mid px-3 py-2 text-sm text-sand placeholder:text-shell focus:outline-none focus:ring-2 focus:ring-lobster-red disabled:cursor-not-allowed disabled:opacity-50',
+      'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
     {...props}
@@ -35,7 +35,7 @@ const SelectContent = forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden border-2 border-ocean-light bg-ocean-mid text-sand shadow-[4px_4px_0px_0px] shadow-abyss',
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-white/15 bg-slate-900 text-slate-200 shadow-xl',
         position === 'popper' && 'translate-y-1',
         className,
       )}
@@ -63,7 +63,7 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-ocean-deep data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-white/10 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}

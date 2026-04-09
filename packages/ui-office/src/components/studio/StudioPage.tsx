@@ -22,6 +22,7 @@ import { StudioPlotSelector } from './StudioPlotSelector.js';
 import { StudioProperties } from './StudioProperties.js';
 import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
+import { StudioZoneGhost } from './StudioZoneGhost.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 // -- Props --------------------------------------------------------------------
@@ -361,8 +362,10 @@ export function StudioPage(props: StudioPageProps) {
       switch (e.key) {
         case 'r':
         case 'R':
-          if (store.placingPrefab) {
+          if (store.placingPrefab || store.placingZonePreset) {
             store.rotateGhost();
+          } else if (store.selectedZoneId && !store.selectedInstanceId) {
+            store.rotateZone(store.selectedZoneId);
           } else {
             store.rotateSelected();
           }
@@ -461,6 +464,7 @@ export function StudioPage(props: StudioPageProps) {
           <StudioCanvas focusRef={focusRef}>
             <StudioPlacedPrefabs />
             <StudioGhost />
+            <StudioZoneGhost />
           </StudioCanvas>
         )}
       </div>

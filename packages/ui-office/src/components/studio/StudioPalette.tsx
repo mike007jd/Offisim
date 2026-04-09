@@ -10,7 +10,7 @@ import type { PrefabDefinition, SemanticCategory } from '@offisim/shared-types';
 import type { ZonePreset } from '@offisim/shared-types';
 import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@offisim/shared-types';
 import { BookOpen, Cpu, Leaf, Lock, Monitor, Server, Users } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PrefabThumbnail } from './PrefabThumbnail.js';
 import { useStudioStore } from './StudioState.js';
 import {
@@ -63,9 +63,28 @@ export function StudioPalette() {
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
   const startPlacement = useStudioStore((s) => s.startPlacement);
   const tool = useStudioStore((s) => s.tool);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const focusedZone = useStudioStore((s) =>
+    s.isEditingZone && s.focusedZoneId
+      ? s.zones.find((z) => z.zoneId === s.focusedZoneId) ?? null
+      : null,
+  );
 
   const [activeTab, setActiveTab] = useState<'assets' | 'zones'>('assets');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // Auto-switch to assets tab when entering Edit Zone mode
+  useEffect(() => {
+    if (isEditingZone) setActiveTab('assets');
+  }, [isEditingZone]);
+
+  // Filter categories when in Edit Zone mode
+  const visibleCategories = useMemo(() => {
+    if (!isEditingZone || !focusedZone) return CATEGORIES;
+    if (focusedZone.allowedCategories.length === 0) return CATEGORIES;
+    const allowed = new Set([...focusedZone.allowedCategories, 'decorative' as const]);
+    return CATEGORIES.filter((cat) => allowed.has(cat.id));
+  }, [isEditingZone, focusedZone]);
 
   const grouped = useMemo(() => {
     const all = getAllBuiltinPrefabs();
@@ -89,9 +108,15 @@ export function StudioPalette() {
   return (
     <div style={panelStyle('left')}>
       {/* Header */}
-      <div style={sectionHeaderStyle()}>{activeTab === 'assets' ? 'Assets' : 'Zones'}</div>
+      <div style={sectionHeaderStyle()}>
+        {isEditingZone && focusedZone
+          ? `${focusedZone.label} — Allowed Assets`
+          : activeTab === 'assets'
+            ? 'Assets'
+            : 'Zones'}
+      </div>
 
-      {/* Tab bar */}
+      {/* Tab bar — hide Zones tab in Edit Zone mode */}
       <div
         style={{
           display: 'flex',
@@ -99,7 +124,7 @@ export function StudioPalette() {
           flexShrink: 0,
         }}
       >
-        {(['assets', 'zones'] as const).map((tab) => {
+        {(['assets', ...(isEditingZone ? [] : (['zones'] as const))] as const).map((tab) => {
           const isActive = activeTab === tab;
           return (
             <button
@@ -133,7 +158,7 @@ export function StudioPalette() {
       {/* Tab content */}
       {activeTab === 'assets' ? (
         <div style={LIST_STYLE}>
-          {CATEGORIES.map((cat) => {
+          {visibleCategories.map((cat) => {
             const items = grouped.get(cat.id) ?? [];
             const isCollapsed = collapsed[cat.id] ?? false;
             const catColor = STUDIO_COLORS[cat.colorKey];

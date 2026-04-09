@@ -545,7 +545,6 @@ export function App({ onCompanySwitch }: AppProps) {
             activeWorkspace={view as FullPageWorkspaceAppView}
             companyName={activeCompanyName}
             onBackToOffice={() => handleWorkspaceSwitch('office')}
-            onOpenSettings={handleOpenSettings}
             onWorkspaceSwitch={(workspace) => handleWorkspaceSwitch(workspace)}
           >
             {workspaceRouterContent}

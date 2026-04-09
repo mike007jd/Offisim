@@ -4,20 +4,20 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../lib/utils.js';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors pixel-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'border-2 border-lobster-red bg-lobster-red text-pearl shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-coral-orange hover:border-coral-orange',
+          'border border-cyan-400/60 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25',
         destructive:
-          'border-2 border-error bg-error text-pearl shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-error/80',
+          'border border-red-500/60 bg-red-500/15 text-red-200 hover:bg-red-500/25',
         outline:
-          'border-2 border-ocean-light bg-transparent text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-mid',
+          'border border-white/15 bg-transparent text-slate-200 hover:bg-white/8',
         secondary:
-          'border-2 border-ocean-light bg-ocean-mid text-sand shadow-[2px_2px_0px_0px] shadow-abyss hover:bg-ocean-light',
-        ghost: 'border-2 border-transparent hover:bg-ocean-mid hover:border-ocean-light',
-        link: 'text-sea-blue underline-offset-4 hover:underline border-0',
+          'border border-white/15 bg-white/8 text-slate-200 hover:bg-white/12',
+        ghost: 'border border-transparent text-slate-300 hover:bg-white/8 hover:text-slate-100',
+        link: 'text-cyan-400 underline-offset-4 hover:underline border-0',
       },
       size: {
         default: 'h-9 px-4 py-2',

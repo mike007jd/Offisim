@@ -48,21 +48,12 @@ export function RightSidebar({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-white/5 px-3 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Workspace Rail</p>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
-            {workflowLabel}
-          </span>
-        </div>
-      </div>
-
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as 'chat' | 'tasks')}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="border-b border-white/5 px-2 pt-2">
+        <div className="border-b border-white/5 px-2 pt-1">
           <TabsList className="flex w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2">
             <TabsTrigger
               value="chat"
@@ -83,6 +74,11 @@ export function RightSidebar({
               <Terminal className="h-4 w-4" />
               <span>Tasks</span>
             </TabsTrigger>
+            {workflowLabel !== 'Ready' && (
+              <span className="ml-auto shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-[0.15em] text-slate-400">
+                {workflowLabel}
+              </span>
+            )}
           </TabsList>
         </div>
 

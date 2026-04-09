@@ -17,7 +17,6 @@ interface FullPageWorkspaceShellProps {
   activeWorkspace: FullPageWorkspaceAppView;
   companyName?: string | null;
   onBackToOffice: () => void;
-  onOpenSettings: () => void;
   onWorkspaceSwitch: (workspace: FullPageWorkspaceAppView) => void;
   children: ReactNode;
 }
@@ -26,13 +25,12 @@ export function FullPageWorkspaceShell({
   activeWorkspace,
   companyName,
   onBackToOffice,
-  onOpenSettings,
   onWorkspaceSwitch,
   children,
 }: FullPageWorkspaceShellProps) {
   return (
     <div className="flex h-screen min-h-0 flex-col bg-[radial-gradient(circle_at_top,#14203d_0%,#0a1022_38%,#050814_100%)] text-slate-100">
-      <header className="border-b border-white/10 bg-slate-950/55 px-5 py-4 backdrop-blur-xl">
+      <header className="border-b border-white/10 bg-slate-950/55 px-6 py-4 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -82,24 +80,12 @@ export function FullPageWorkspaceShell({
                 </button>
               );
             })}
-            {activeWorkspace !== 'settings' ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={onOpenSettings}
-                className="border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                aria-label="Open settings"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            ) : null}
           </div>
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 px-4 py-4">
-        <div className="mx-auto flex h-full w-full max-w-[1700px] min-h-0 overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/40 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+      <main className="min-h-0 flex-1 px-5 py-4">
+        <div className="mx-auto flex h-full w-full max-w-[1700px] min-h-0 overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/40 shadow-[0_16px_48px_rgba(0,0,0,0.25)] backdrop-blur-xl">
           {children}
         </div>
       </main>

@@ -33,11 +33,11 @@ export function MarketWorkspaceContextPane({
 
   if (!detail) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-          <Package className="h-4 w-4 text-slate-500" />
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center h-full">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+          <Package className="h-5 w-5 text-slate-500" />
         </div>
-        <p className="text-xs leading-relaxed text-slate-500">Select a listing to view details</p>
+        <p className="text-sm leading-relaxed text-slate-500">Select a listing to view details</p>
       </div>
     );
   }
@@ -45,14 +45,14 @@ export function MarketWorkspaceContextPane({
   const Icon = KIND_ICON[detail.kind];
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-4">
+    <div className="flex flex-col gap-5 px-5 py-5">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-white">{detail.title}</p>
-          <p className="text-[11px] text-slate-400">@{detail.creator.handle}</p>
+          <p className="text-sm text-slate-400">@{detail.creator.handle}</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function MarketWorkspaceContextPane({
           {detail.rating.toFixed(1)}
         </span>
         <span>{formatInstallCount(detail.install_count)} installs</span>
-        <Badge variant="info" className="px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+        <Badge variant="info" className="px-1.5 py-0.5 text-xs uppercase tracking-wide">
           {detail.kind.replace('_', ' ')}
         </Badge>
       </div>
@@ -83,7 +83,7 @@ export function MarketWorkspaceContextPane({
                 {detail.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-300"
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-xs text-slate-300"
                   >
                     {tag}
                   </span>

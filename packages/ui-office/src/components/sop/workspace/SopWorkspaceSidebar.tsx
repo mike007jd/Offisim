@@ -42,50 +42,50 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
     >
       <button
         type="button"
-        className="w-full flex items-center gap-1.5 px-2 pt-2 pb-1 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
+        className="w-full flex items-center gap-2 px-4 pt-3.5 pb-2.5 text-left min-w-0 hover:bg-white/[0.03] transition-colors"
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-slate-200 truncate leading-tight flex items-center gap-1">
+          <p className="text-sm font-medium text-slate-200 truncate leading-snug flex items-center gap-1.5">
             {isActive && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
             )}
-            {sop.sourceUrl && <Link2 className="w-2.5 h-2.5 text-blue-400/60 shrink-0" />}
+            {sop.sourceUrl && <Link2 className="w-3 h-3 text-blue-400/60 shrink-0" />}
             {sop.name}
           </p>
           {sop.description && (
-            <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
+            <p className="text-[13px] text-slate-500 truncate leading-snug mt-1">
               {sop.description}
             </p>
           )}
         </div>
-        <span className="shrink-0 text-[10px] text-slate-500 ml-1">
+        <span className="shrink-0 text-[13px] text-slate-500 ml-2">
           {sop.stepCount}s · {formatSopDate(sop.createdAt)}
         </span>
-        <ExternalLink className="w-3 h-3 text-slate-600 shrink-0" />
+        <ExternalLink className="w-3.5 h-3.5 text-slate-600 shrink-0" />
       </button>
 
-      <div className="flex items-center gap-1 px-2 pb-2">
+      <div className="flex items-center gap-1.5 px-3 pb-2.5">
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 px-1.5 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-0.5"
+          className="h-6 px-2 text-[13px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1"
           onClick={() => onRun(sop.name)}
           title="Run this SOP"
         >
-          <Play className="w-2.5 h-2.5" />
+          <Play className="w-3 h-3" />
           Run
         </Button>
         {sop.sourceUrl && onSync && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-5 px-1.5 text-[10px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-0.5"
+            className="h-6 px-2 text-[13px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-1"
             onClick={() => onSync(sop.sopTemplateId)}
             title="Sync from remote"
           >
-            <RefreshCw className="w-2.5 h-2.5" />
+            <RefreshCw className="w-3 h-3" />
             Sync
           </Button>
         )}
@@ -94,7 +94,7 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
           <>
             <button
               type="button"
-              className="text-[10px] text-slate-400 hover:text-slate-300 px-1"
+              className="text-[13px] text-slate-400 hover:text-slate-300 px-1.5"
               onClick={() => setConfirming(false)}
             >
               Cancel
@@ -102,7 +102,7 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              className="h-6 px-2 text-[13px] text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={handleDelete}
             >
               Confirm
@@ -112,11 +112,11 @@ function SopSidebarCard({ sop, selected, onSelect, onRun, onDelete, onSync }: So
           <Button
             variant="ghost"
             size="sm"
-            className="h-5 px-1 text-[10px] text-slate-600 hover:text-red-400 hover:bg-red-500/10"
+            className="h-6 px-1.5 text-[13px] text-slate-600 hover:text-red-400 hover:bg-red-500/10"
             onClick={handleDelete}
             title="Delete SOP"
           >
-            <Trash2 className="w-2.5 h-2.5" />
+            <Trash2 className="w-3 h-3" />
           </Button>
         )}
       </div>
@@ -180,7 +180,7 @@ export function SopWorkspaceSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-1 px-3 pt-3 pb-1">
+      <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
         <button
           type="button"
           className={pillClass(leftPaneMode === 'library')}
@@ -199,47 +199,47 @@ export function SopWorkspaceSidebar({
         <button
           type="button"
           onClick={onImportClick}
-          className="flex items-center gap-0.5 text-[10px] text-cyan-400 hover:text-cyan-300"
+          className="flex items-center gap-1 text-[13px] text-cyan-400 hover:text-cyan-300 p-1"
           title="Import SOP"
         >
-          <Download className="w-3 h-3" />
+          <Download className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={onCreateClick}
-          className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+          className="flex items-center gap-1 text-[13px] text-blue-400 hover:text-blue-300 p-1"
           title="Create SOP"
         >
-          <Plus className="w-3 h-3" />
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div className="px-3 pb-2">
+      <div className="px-4 pb-3">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search SOPs…"
-            className="w-full bg-white/5 border border-white/10 rounded-md pl-6 pr-2 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
+            className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-[13px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
         {loading ? (
           <div className="flex items-center justify-center py-4">
-            <span className="text-[10px] text-slate-500 animate-pulse">Loading SOPs…</span>
+            <span className="text-xs text-slate-500 animate-pulse">Loading SOPs…</span>
           </div>
         ) : filteredSops.length === 0 ? (
           <div className="text-center py-4 px-2">
             {sops.length === 0 ? (
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 No SOPs yet. Create or import one to get started.
               </p>
             ) : (
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 No SOPs match your search. Try a different term.
               </p>
             )}

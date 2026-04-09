@@ -1,10 +1,10 @@
 import type { Zone } from '@offisim/shared-types';
 import { computeOverlapMap } from '@offisim/shared-types';
-import { Grid, Html, OrbitControls } from '@react-three/drei';
+import { Grid, Html, OrbitControls, TransformControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useStudioStore } from './StudioState.js';
+import { toOverlapRects, useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
 
 type OrbitControlsRef = React.ComponentRef<typeof OrbitControls>;
@@ -24,6 +24,7 @@ function pickRenderFields(s: ReturnType<typeof useStudioStore.getState>) {
     focusedZoneId: s.focusedZoneId,
     selectedZoneId: s.selectedZoneId,
     isEditingZone: s.isEditingZone,
+    placingZonePreset: s.placingZonePreset,
   };
 }
 
@@ -188,7 +189,7 @@ function ZoneOverlays() {
   const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
   const overlapMap = useMemo(
-    () => computeOverlapMap(zones.map((z) => ({ ...z, id: z.zoneId }))),
+    () => computeOverlapMap(toOverlapRects(zones)),
     [zones],
   );
   if (zones.length === 0) return null;
@@ -234,6 +235,10 @@ function ZoneFloor({
   const unfocusZone = useStudioStore((s) => s.unfocusZone);
   const isEditingZone = useStudioStore((s) => s.isEditingZone);
   const enterEditZone = useStudioStore((s) => s.enterEditZone);
+  const tool = useStudioStore((s) => s.tool);
+
+  // Ref for TransformControls target
+  const zoneGroupRef = useRef<THREE.Group | null>(null);
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
@@ -351,8 +356,25 @@ function ZoneFloor({
     invalidate();
   }, [getControls, invalidate]);
 
+  // TransformControls — visible when zone is selected and tool is move (not in edit mode)
+  const showZoneGizmo = isSelected && !isEditingZone && (tool === 'move' || tool === 'select');
+  const handleZoneTransform = useCallback(() => {
+    const group = zoneGroupRef.current;
+    if (!group) return;
+    const pos = group.position;
+    const snappedX = useStudioStore.getState().gridSnap
+      ? Math.round(pos.x / 0.5) * 0.5
+      : pos.x;
+    const snappedZ = useStudioStore.getState().gridSnap
+      ? Math.round(pos.z / 0.5) * 0.5
+      : pos.z;
+    useStudioStore.getState().moveZone(zone.zoneId, snappedX, snappedZ);
+    invalidate();
+  }, [zone.zoneId, invalidate]);
+
   return (
-    <group position={[zone.cx, groupY, zone.cz]}>
+    <>
+    <group ref={zoneGroupRef} position={[zone.cx, groupY, zone.cz]}>
       {/* Floor fill — receives drag pointer events */}
       <mesh
         rotation={_zonePlaneRotation}
@@ -458,6 +480,22 @@ function ZoneFloor({
         </div>
       </Html>
     </group>
+
+    {/* TransformControls for zone movement — gizmo visual indicator */}
+    {showZoneGizmo && (
+      <TransformControls
+        object={zoneGroupRef as React.RefObject<THREE.Object3D>}
+        mode="translate"
+        size={1.5}
+        translationSnap={0.5}
+        showX={true}
+        showY={false}
+        showZ={true}
+        space="world"
+        onObjectChange={handleZoneTransform}
+      />
+    )}
+    </>
   );
 }
 

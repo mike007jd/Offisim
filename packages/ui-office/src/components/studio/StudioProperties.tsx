@@ -27,6 +27,7 @@ import {
   LAYOUT,
   SP,
   STUDIO_COLORS,
+  kbdStyle,
   labelStyle,
   panelStyle,
   sectionHeaderStyle,
@@ -89,6 +90,7 @@ export function StudioProperties() {
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
   const updateZoneLabel = useStudioStore((s) => s.updateZoneLabel);
   const deleteZone = useStudioStore((s) => s.deleteZone);
+  const rotateZone = useStudioStore((s) => s.rotateZone);
   const swapZoneVariant = useStudioStore((s) => s.swapZoneVariant);
 
   // Instance selection
@@ -301,6 +303,34 @@ export function StudioProperties() {
                   </select>
                 </div>
               )}
+
+              {/* Rotate zone */}
+              <div style={{ padding: `0 ${SP.lg}px` }}>
+                <button
+                  type="button"
+                  onClick={() => rotateZone(selectedZone.zoneId)}
+                  aria-label="Rotate zone 90° clockwise (R)"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: SP.xs,
+                    padding: `${SP.sm}px ${SP.md}px`,
+                    background: STUDIO_COLORS.surface2,
+                    border: `1px solid ${STUDIO_COLORS.border}`,
+                    borderRadius: 6,
+                    color: STUDIO_COLORS.textSecondary,
+                    cursor: 'pointer',
+                    fontSize: FONT.sm,
+                    fontFamily: FONT.family,
+                    width: '100%',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <RotateCw size={12} />
+                  <span>Rotate +90°</span>
+                  <kbd style={{ ...kbdStyle(), marginLeft: 'auto' }}>R</kbd>
+                </button>
+              </div>
 
               {/* Spacer */}
               <div style={{ flex: 1 }} />

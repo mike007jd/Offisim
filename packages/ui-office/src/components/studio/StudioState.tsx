@@ -1,6 +1,18 @@
 import type { PrefabDefinition, Zone, ZonePreset } from '@offisim/shared-types';
-import { isRequiredArchetype, resolveZoneForPosition } from '@offisim/shared-types';
+import { findOverlaps, isRequiredArchetype, resolveZoneForPosition } from '@offisim/shared-types';
 import { create } from 'zustand';
+import { rotateLocalPoint } from '../../lib/prefab-spatial.js';
+
+const ROTATIONS: ReadonlyArray<0 | 90 | 180 | 270> = [0, 90, 180, 270];
+
+function nextRotation(current: 0 | 90 | 180 | 270): 0 | 90 | 180 | 270 {
+  return ROTATIONS[(ROTATIONS.indexOf(current) + 1) % ROTATIONS.length] ?? 0;
+}
+
+/** Map Studio zones (keyed by zoneId) to the {id, cx, cz, w, d} shape findOverlaps expects. */
+export function toOverlapRects(zones: Zone[]) {
+  return zones.map((z) => ({ id: z.zoneId, cx: z.cx, cz: z.cz, w: z.w, d: z.d }));
+}
 
 export type StudioTool = 'select' | 'move' | 'rotate' | 'place';
 
@@ -90,6 +102,8 @@ export interface StudioStore {
   ) => void;
   /** Move a zone and all its associated prefab instances by computing a dx/dz delta. */
   moveZone: (zoneId: string, newCx: number, newCz: number) => void;
+  /** Rotate a zone 90° clockwise by swapping w/d and rotating all child instances. */
+  rotateZone: (zoneId: string) => void;
   /** Delete a zone and its prefabs. Refuses if the zone archetype is required. */
   deleteZone: (zoneId: string) => void;
   /** Replace a zone's furniture with a different preset variant while keeping position. */
@@ -161,14 +175,11 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
   startPlacement: (def) =>
-    set({ tool: 'place', placingPrefab: def, ghostRotation: 0, selectedInstanceId: null }),
+    set({ tool: 'place', placingPrefab: def, placingZonePreset: null, ghostRotation: 0, selectedInstanceId: null }),
   cancelPlacement: () => set({ tool: 'select', placingPrefab: null, ghostRotation: 0 }),
 
   rotateGhost: () => {
-    const ROTATIONS: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
-    const idx = ROTATIONS.indexOf(get().ghostRotation);
-    const nextRotation = ROTATIONS[(idx + 1) % ROTATIONS.length];
-    set({ ghostRotation: nextRotation ?? 0 });
+    set({ ghostRotation: nextRotation(get().ghostRotation) });
   },
 
   placeInstance: (position) => {
@@ -227,18 +238,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   rotateSelected: () => {
     const { selectedInstanceId, instances } = get();
     if (!selectedInstanceId) return;
-    const ROTATIONS: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
     set({
-      instances: instances.map((i) => {
-        if (i.id !== selectedInstanceId) return i;
-        const idx = ROTATIONS.indexOf(i.rotation);
-        const nextRotation = ROTATIONS[(idx + 1) % ROTATIONS.length];
-        if (nextRotation === undefined) return i;
-        return {
-          ...i,
-          rotation: nextRotation,
-        };
-      }),
+      instances: instances.map((i) =>
+        i.id === selectedInstanceId ? { ...i, rotation: nextRotation(i.rotation) } : i,
+      ),
       dirty: true,
     });
   },
@@ -367,14 +370,48 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   cancelZonePlacement: () => set({ tool: 'select', placingZonePreset: null }),
 
-  placeZoneFromPreset: (position, allPrefabsMap) => {
-    const { placingZonePreset } = get();
+  placeZoneFromPreset: (position, _allPrefabsMap) => {
+    const { placingZonePreset, zones } = get();
     if (!placingZonePreset) return;
-    void allPrefabsMap;
+
+    const candidate = { id: '__candidate__', cx: position[0], cz: position[2], w: placingZonePreset.w, d: placingZonePreset.d };
+    if (findOverlaps(candidate, toOverlapRects(zones)).length > 0) return;
+
     get().addZoneFromPreset(placingZonePreset, position);
   },
 
   moveZone: (zoneId, newCx, newCz) => get().updateZonePosition(zoneId, newCx, newCz),
+
+  rotateZone: (zoneId) => {
+    const { zones, instances } = get();
+    const zone = zones.find((z) => z.zoneId === zoneId);
+    if (!zone) return;
+
+    const updatedInstances = instances.map((inst) => {
+      if (inst.zoneId !== zoneId) return inst;
+      const [newRelX, newRelZ] = rotateLocalPoint(
+        [inst.position[0] - zone.cx, inst.position[2] - zone.cz],
+        90,
+      );
+      return {
+        ...inst,
+        position: [zone.cx + newRelX, inst.position[1], zone.cz + newRelZ] as [
+          number,
+          number,
+          number,
+        ],
+        rotation: nextRotation(inst.rotation),
+      };
+    });
+
+    set({
+      zones: zones.map((z) =>
+        z.zoneId === zoneId ? { ...z, w: zone.d, d: zone.w } : z,
+      ),
+      instances: updatedInstances,
+      dirty: true,
+    });
+  },
 
   removeZone: (zoneId) => {
     const { zones, instances } = get();

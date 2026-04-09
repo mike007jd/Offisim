@@ -44,12 +44,11 @@ describe('RightSidebar', () => {
     expect(screen.queryByRole('tab', { name: 'Library' })).not.toBeInTheDocument();
   });
 
-  it('shows the Collaboration label and workflow status', () => {
+  it('hides workflow badge when status is Ready', () => {
     render(<RightSidebar chatPanel={<div>chat-panel</div>} />);
 
-    expect(screen.getByText('Workspace Rail')).toBeInTheDocument();
-    expect(screen.getByText('Ready')).toBeInTheDocument();
-    expect(screen.queryByText(/Idle\. Collaboration happens here\./)).not.toBeInTheDocument();
+    expect(screen.queryByText('Workspace Rail')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
   });
 
   it('shows outputs inside the tasks context instead of as a top-level destination', () => {

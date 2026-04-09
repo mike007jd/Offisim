@@ -21,32 +21,32 @@ export function SopWorkspaceEmptyState({
   onImportClick,
 }: SopWorkspaceEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
-      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-        <ClipboardList className="w-5 h-5 text-slate-500" />
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+        <ClipboardList className="w-6 h-6 text-slate-500" />
       </div>
 
       {hasNoSops ? (
         <>
           <div>
-            <p className="text-sm text-slate-300 font-medium">No SOPs yet</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-xs">
+            <p className="text-base text-slate-300 font-medium">No SOPs yet</p>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-sm">
               Create your first SOP or import one from a URL to get started.
             </p>
           </div>
-          <div className="flex gap-2 mt-1">
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={onCreateClick}>
-              <Plus className="w-3 h-3" /> Create
+          <div className="flex gap-2.5 mt-2">
+            <Button variant="outline" size="sm" className="text-sm gap-1.5" onClick={onCreateClick}>
+              <Plus className="w-3.5 h-3.5" /> Create
             </Button>
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={onImportClick}>
-              <Download className="w-3 h-3" /> Import
+            <Button variant="outline" size="sm" className="text-sm gap-1.5" onClick={onImportClick}>
+              <Download className="w-3.5 h-3.5" /> Import
             </Button>
           </div>
         </>
       ) : (
         <div>
-          <p className="text-sm text-slate-400">No SOP selected</p>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-base text-slate-400">No SOP selected</p>
+          <p className="text-sm text-slate-500 mt-1.5">
             Select an SOP from the library to view its definition.
           </p>
         </div>

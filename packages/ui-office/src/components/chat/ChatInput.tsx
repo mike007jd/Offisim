@@ -291,12 +291,13 @@ export function ChatInput({
           ref={menuRef}
           className="absolute bottom-full left-3 right-3 mb-1 bg-slate-900 border border-white/10 rounded-lg shadow-xl overflow-hidden z-50"
         >
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div className="max-h-[320px] overflow-y-auto overflow-x-hidden py-1">
             {filteredSlash.map((cmd, i) => (
               <button
                 key={cmd.name}
                 type="button"
-                className={`w-full flex items-center gap-2.5 px-3 h-8 text-left transition-colors ${
+                title={`/${cmd.name}${cmd.argumentHint ? ` ${cmd.argumentHint}` : ''} — ${cmd.description}`}
+                className={`w-full flex items-center gap-2 px-3 min-h-8 py-1 text-left transition-colors min-w-0 ${
                   i === slashIndex ? 'bg-blue-500/20 text-white' : 'text-slate-300 hover:bg-white/5'
                 }`}
                 onMouseEnter={() => setSlashIndex(i)}
@@ -304,13 +305,13 @@ export function ChatInput({
               >
                 <span className="text-xs font-mono text-blue-400 shrink-0">/{cmd.name}</span>
                 <span
-                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
+                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
                 >
                   {cmd.category}
                 </span>
-                <span className="text-xs text-slate-400 truncate">{cmd.description}</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-400">{cmd.description}</span>
                 {cmd.argumentHint && (
-                  <span className="text-[10px] text-slate-500 truncate ml-auto shrink-0">
+                  <span className="text-[10px] text-slate-500 shrink-0 truncate max-w-[120px]" title={cmd.argumentHint}>
                     {cmd.argumentHint}
                   </span>
                 )}
