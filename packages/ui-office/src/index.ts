@@ -65,7 +65,7 @@ export * from './components/layout/Header.js';
 export * from './components/layout/RightSidebar.js';
 export * from './components/layout/StatusBar.js';
 export * from './components/library/Library.js';
-export * from './components/marketplace/MarketplacePanel.js';
+export * from './components/marketplace/index.js';
 export * from './components/office/MeetingControls.js';
 export { MeetingPanel } from './components/office/MeetingPanel.js';
 export type { MeetingPanelProps } from './components/office/MeetingPanel.js';
@@ -80,12 +80,11 @@ export * from './components/scene/useScene.js';
 export * from './components/server-room/ServerRoom.js';
 export * from './components/settings/McpConfigPanel.js';
 export * from './components/settings/provider-presets.js';
-export * from './components/sop/SopPanel.js';
-export * from './components/sop/SopTimelineView.js';
-export * from './components/sop/SopStepCard.js';
-export * from './components/sop/workspace/SopWorkspacePage.js';
-export * from './components/marketplace/workspace/MarketWorkspacePage.js';
-export * from './components/events/workspace/ActivityLogPage.js';
+export * from './components/sop/SopViewSurface.js';
+export * from './components/sop/sop-dag-layout.js';
+export * from './components/sop/sop-commands.js';
+export * from './components/marketplace/MarketPage.js';
+export * from './components/events/ActivityLogPage.js';
 
 // Hooks
 export * from './hooks/use-reduced-motion.js';

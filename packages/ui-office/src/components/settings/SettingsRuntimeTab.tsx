@@ -53,50 +53,20 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   return (
     <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
       <div className="space-y-4">
-        <SurfaceCard
-          title="Runtime orchestration"
-          description="Execution trust, memory retention, summarization, density, and tool search are tuned here without letting the runtime drift away from the active provider preset."
-          icon={<Workflow className="h-5 w-5" />}
-        >
-          <div className="space-y-3">
-            <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bound model</p>
-              <p className="mt-2 font-mono text-sm text-cyan-100">
-                {isSubscription ? 'default' : model || 'Unset'}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">{selectedPreset?.label ?? preset}</p>
-            </div>
-            <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Persistence</p>
-              <p className="mt-2 text-sm text-slate-300">
-                Runtime policy and provider metadata save through the same pipeline.
-              </p>
-            </div>
+        <SurfaceCard title="Runtime orchestration" icon={<Workflow className="h-5 w-5" />}>
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bound model</p>
+            <p className="mt-2 font-mono text-sm text-cyan-100">
+              {isSubscription ? 'default' : model || 'Unset'}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">{selectedPreset?.label ?? preset}</p>
           </div>
         </SurfaceCard>
       </div>
 
       <div className="space-y-4">
-        <SurfaceCard
-          title="Runtime controls"
-          description="Tune orchestration behavior for the local runtime, while keeping the active provider surface pinned."
-          icon={<Cpu className="h-5 w-5" />}
-        >
+        <SurfaceCard title="Runtime controls" icon={<Cpu className="h-5 w-5" />}>
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
-              <p className="text-sm font-semibold text-blue-100">Default model profile</p>
-              <p className="mt-2 text-sm text-slate-300">
-                Provider:{' '}
-                <span className="font-mono text-cyan-100">{selectedPreset?.label ?? preset}</span>
-              </p>
-              <p className="mt-1 text-sm text-slate-300">
-                Model:{' '}
-                <span className="font-mono text-cyan-100">
-                  {isSubscription ? 'default' : model || 'Unset'}
-                </span>
-              </p>
-            </div>
-
             <div>
               <SectionLabel htmlFor="settings-execution-mode">Execution mode</SectionLabel>
               <Select
@@ -177,7 +147,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
 
         <SurfaceCard
           title="Summarization"
-          description="Control when long-running conversations compress themselves."
+          description="Auto-compress long conversations."
           icon={<BrainCircuit className="h-5 w-5" />}
         >
           <div className="grid gap-4 md:grid-cols-3">
@@ -223,11 +193,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           </div>
         </SurfaceCard>
 
-        <SurfaceCard
-          title="Memory"
-          description="Tune fact retention and memory injection thresholds."
-          icon={<Bot className="h-5 w-5" />}
-        >
+        <SurfaceCard title="Memory" icon={<Bot className="h-5 w-5" />}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
               <SectionLabel htmlFor="runtime-memory-enabled">Enabled</SectionLabel>

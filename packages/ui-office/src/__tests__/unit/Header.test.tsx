@@ -44,14 +44,15 @@ describe('Header', () => {
     expect(screen.getByRole('button', { name: 'Studio utility' })).toBeInTheDocument();
   });
 
-  it('visually indicates the active workspace in primary nav', () => {
+  it('visually indicates the active workspace in primary nav and utility area', () => {
     const { rerender } = render(<Header {...baseProps} activeWorkspace="office" />);
 
     const officeBtn = screen.getByRole('button', { name: 'Office workspace' });
     expect(officeBtn.className).toContain('bg-blue-500/15');
 
+    // SOPs is now an icon button in the utility area — uses cyan highlight
     const sopsBtn = screen.getByRole('button', { name: 'SOPs workspace' });
-    expect(sopsBtn.className).not.toContain('bg-blue-500/15');
+    expect(sopsBtn.className).not.toContain('bg-cyan-500/15');
 
     rerender(<Header {...baseProps} activeWorkspace="sops" />);
 
@@ -59,6 +60,6 @@ describe('Header', () => {
     expect(officeBtn2.className).not.toContain('bg-blue-500/15');
 
     const sopsBtn2 = screen.getByRole('button', { name: 'SOPs workspace' });
-    expect(sopsBtn2.className).toContain('bg-blue-500/15');
+    expect(sopsBtn2.className).toContain('bg-cyan-500/15');
   });
 });

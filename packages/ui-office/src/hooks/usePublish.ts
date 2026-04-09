@@ -31,6 +31,11 @@ export function usePublish(authToken?: string | null): UsePublishResult {
   const [error, setError] = useState<string | null>(null);
 
   const refreshDrafts = useCallback(async () => {
+    if (!client.hasAuthToken) {
+      setDrafts([]);
+      setCreator(null);
+      return;
+    }
     setIsLoading(true);
     setError(null);
 
@@ -49,6 +54,12 @@ export function usePublish(authToken?: string | null): UsePublishResult {
   }, [client]);
 
   useEffect(() => {
+    if (!client.hasAuthToken) {
+      setDrafts([]);
+      setCreator(null);
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       setIsLoading(true);

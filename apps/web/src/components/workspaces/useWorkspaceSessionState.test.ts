@@ -60,16 +60,12 @@ describe('hasInternalDrillIn', () => {
     expect(hasInternalDrillIn('office', createDefaultSessionState())).toBe(false);
   });
 
-  it('returns false for sops at empty center mode', () => {
-    expect(hasInternalDrillIn('sops', withSops({ centerMode: 'empty' }))).toBe(false);
+  it('returns false for sops with no selection', () => {
+    expect(hasInternalDrillIn('sops', withSops({ selectedSopId: null }))).toBe(false);
   });
 
-  it('returns true for sops at definition center mode', () => {
-    expect(hasInternalDrillIn('sops', withSops({ centerMode: 'definition' }))).toBe(true);
-  });
-
-  it('returns true for sops at run-focus center mode', () => {
-    expect(hasInternalDrillIn('sops', withSops({ centerMode: 'run-focus' }))).toBe(true);
+  it('returns true for sops with a selected SOP', () => {
+    expect(hasInternalDrillIn('sops', withSops({ selectedSopId: 'sop-1' }))).toBe(true);
   });
 
   it('returns false for market in manage mode', () => {
@@ -120,42 +116,17 @@ describe('tryWorkspaceInternalBack', () => {
   });
 
   describe('sops', () => {
-    it('unwinds run-focus → definition', () => {
-      const state = withSops({
-        centerMode: 'run-focus',
-        selectedSopId: 'sop-1',
-      });
+    it('unwinds selected → deselected', () => {
+      const state = withSops({ selectedSopId: 'sop-1' });
       const [consumed, next] = tryWorkspaceInternalBack('sops', state);
       expect(consumed).toBe(true);
-      expect(next.sops.centerMode).toBe('definition');
-      expect(next.sops.selectedSopId).toBe('sop-1'); // preserved
-    });
-
-    it('unwinds definition → empty and clears selectedSopId', () => {
-      const state = withSops({
-        centerMode: 'definition',
-        selectedSopId: 'sop-1',
-      });
-      const [consumed, next] = tryWorkspaceInternalBack('sops', state);
-      expect(consumed).toBe(true);
-      expect(next.sops.centerMode).toBe('empty');
       expect(next.sops.selectedSopId).toBeNull();
     });
 
-    it('returns not consumed at empty', () => {
-      const state = withSops({ centerMode: 'empty' });
+    it('returns not consumed with no selection', () => {
+      const state = withSops({ selectedSopId: null });
       const [consumed] = tryWorkspaceInternalBack('sops', state);
       expect(consumed).toBe(false);
-    });
-
-    it('preserves search during unwind', () => {
-      const state = withSops({
-        centerMode: 'definition',
-        selectedSopId: 'sop-1',
-        search: 'onboarding',
-      });
-      const [, next] = tryWorkspaceInternalBack('sops', state);
-      expect(next.sops.search).toBe('onboarding');
     });
   });
 
@@ -240,20 +211,19 @@ describe('tryWorkspaceInternalBack', () => {
 
 describe('immutability', () => {
   it('tryWorkspaceInternalBack produces a new state object when consumed', () => {
-    const state = withSops({ centerMode: 'definition', selectedSopId: 'sop-1' });
-    const [consumed, next] = tryWorkspaceInternalBack('sops', state);
+    const state = withMarket({ mode: 'explore', selectedListingId: 'listing-1' });
+    const [consumed, next] = tryWorkspaceInternalBack('market', state);
     expect(consumed).toBe(true);
     expect(next).not.toBe(state);
-    expect(next.sops).not.toBe(state.sops);
+    expect(next.market).not.toBe(state.market);
     // Other workspace states should be the same reference
     expect(next.office).toBe(state.office);
-    expect(next.market).toBe(state.market);
     expect(next.activityLog).toBe(state.activityLog);
   });
 
   it('tryWorkspaceInternalBack returns same reference when not consumed', () => {
-    const state = withSops({ centerMode: 'empty' });
-    const [consumed, next] = tryWorkspaceInternalBack('sops', state);
+    const state = withMarket({ mode: 'explore', selectedListingId: null });
+    const [consumed, next] = tryWorkspaceInternalBack('market', state);
     expect(consumed).toBe(false);
     expect(next).toBe(state);
   });

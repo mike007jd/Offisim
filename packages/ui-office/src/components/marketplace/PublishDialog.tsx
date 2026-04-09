@@ -79,7 +79,9 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const [form, setForm] = useState<PublishFormState>(DEFAULT_FORM);
   const [status, setStatus] = useState<string | null>(null);
   const [isPackaging, setIsPackaging] = useState(false);
-  const { drafts, creator, isLoading, isSubmitting, error, submitDraft } = usePublish(authToken);
+  const effectiveToken = authToken.trim() || null;
+  const { drafts, creator, isLoading, isSubmitting, error, submitDraft } =
+    usePublish(effectiveToken);
 
   const selectedCompany = useMemo<CompanyRow | null>(
     () => companies.find((company) => company.company_id === activeCompanyId) ?? null,
@@ -297,7 +299,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-white/10 bg-slate-950/95">
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto border-white/10 bg-slate-950/95">
         <DialogHeader>
           <DialogTitle>Publish To Market</DialogTitle>
           <DialogDescription>

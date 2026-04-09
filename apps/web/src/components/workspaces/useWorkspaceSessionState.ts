@@ -43,20 +43,11 @@ export function tryWorkspaceInternalBack(
   sessionState: WorkspaceSessionState,
 ): [consumed: boolean, next: WorkspaceSessionState] {
   switch (key) {
-    // SOPs: run-focus → definition → empty → (switch workspace)
+    // SOPs: selected → deselect → (switch workspace)
     case 'sops': {
       const sops = sessionState.sops;
-      if (sops.centerMode === 'run-focus') {
-        return [true, { ...sessionState, sops: { ...sops, centerMode: 'definition' } }];
-      }
-      if (sops.centerMode === 'definition') {
-        return [
-          true,
-          {
-            ...sessionState,
-            sops: { ...sops, selectedSopId: null, centerMode: 'empty' },
-          },
-        ];
+      if (sops.selectedSopId !== null) {
+        return [true, { ...sessionState, sops: { ...sops, selectedSopId: null } }];
       }
       return [false, sessionState];
     }
@@ -96,7 +87,7 @@ export function hasInternalDrillIn(
 ): boolean {
   switch (key) {
     case 'sops':
-      return sessionState.sops.centerMode !== 'empty';
+      return sessionState.sops.selectedSopId !== null;
     case 'market':
       return (
         sessionState.market.mode === 'explore' && sessionState.market.selectedListingId !== null

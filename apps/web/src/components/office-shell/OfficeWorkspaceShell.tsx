@@ -15,7 +15,11 @@ import {
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
-import { type AppView, isFullPageWorkspaceView } from '../../lib/app-view-layout';
+import {
+  type AppView,
+  type OfficeViewMode,
+  isFullPageWorkspaceView,
+} from '../../lib/app-view-layout';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 import { OnboardingController } from '../OnboardingController';
 import type { WorkspaceKey } from '../workspaces/types';
@@ -28,7 +32,6 @@ const CollaborationSidebar = React.lazy(() =>
 const OfficeSceneSurface = React.lazy(() =>
   import('./OfficeSceneSurface').then((module) => ({ default: module.OfficeSceneSurface })),
 );
-
 const DashboardOverlay = React.lazy(() =>
   import('@offisim/ui-office/dashboard').then((module) => ({ default: module.DashboardOverlay })),
 );
@@ -65,8 +68,8 @@ export interface EmployeeActions {
 }
 
 export interface SceneViewProps {
-  viewMode: '2D' | '3D';
-  onViewModeChange: (mode: '2D' | '3D') => void;
+  viewMode: OfficeViewMode;
+  onViewModeChange: (mode: OfficeViewMode) => void;
   onSceneFallbackTo2D: () => void;
 }
 
@@ -99,7 +102,6 @@ interface OfficeWorkspaceShellProps {
   onUserMessage: (text: string) => void;
   providerConfig: ProviderConfig | null;
   view: AppView;
-  workspaceRouterContent: React.ReactNode;
   navigation: NavigationCallbacks;
   employee: EmployeeActions;
   sceneView: SceneViewProps;
@@ -127,7 +129,6 @@ export function OfficeWorkspaceShell({
   onUserMessage,
   providerConfig,
   view,
-  workspaceRouterContent,
   navigation,
   employee,
   sceneView,
@@ -279,7 +280,6 @@ export function OfficeWorkspaceShell({
             activeProjectStatus={activeProject?.status ?? null}
           />
         }
-        centerContent={workspaceRouterContent}
         chatDrawerMode="mobile-only"
         requestRightExpandToken={chatOpenToken}
         onLayoutMetricsChange={onLayoutMetricsChange}

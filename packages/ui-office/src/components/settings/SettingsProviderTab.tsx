@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { Bot, ShieldCheck, Sparkles } from 'lucide-react';
+import { Bot, ShieldCheck } from 'lucide-react';
 import { isTauri } from '../../lib/env';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { getAvailableProviderPresets } from './provider-presets';
@@ -51,11 +51,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   return (
     <div className="grid min-h-0 gap-6 xl:grid-cols-[340px,minmax(0,1fr)]">
       <div className="space-y-4">
-        <SurfaceCard
-          title="Official compatibility"
-          description="Pick the vendor preset first. Transport, headers, endpoint, and capability hints are derived from the provider's own documentation, not Anthropic or OpenAI marketing copy."
-          icon={<ShieldCheck className="h-5 w-5" />}
-        >
+        <SurfaceCard title="Official compatibility" icon={<ShieldCheck className="h-5 w-5" />}>
           <div className="rounded-[20px] border border-cyan-400/15 bg-cyan-400/10 px-4 py-4">
             <p className="text-sm font-semibold text-white">
               {selectedPreset?.label ?? 'Custom provider'}
@@ -66,31 +62,10 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             <p className="mt-3 text-xs leading-5 text-slate-400">{selectedCapabilities}</p>
           </div>
         </SurfaceCard>
-
-        <SurfaceCard
-          title="Preset notes"
-          description="Anthropic-compatible surfaces are preferred whenever the provider officially supports Claude Code style integration."
-          icon={<Sparkles className="h-5 w-5" />}
-        >
-          <div className="space-y-3 text-sm text-slate-300">
-            <p>
-              Offisim stores vendor, region, compatibility surface, and capability matrix alongside
-              the base transport.
-            </p>
-            <p>
-              Custom mode remains available when you need a non-standard endpoint, but presets
-              should be the default path.
-            </p>
-          </div>
-        </SurfaceCard>
       </div>
 
       <div className="space-y-4">
-        <SurfaceCard
-          title="Models & Access"
-          description="Configure the active provider surface, credentials, endpoint, and model profile."
-          icon={<Bot className="h-5 w-5" />}
-        >
+        <SurfaceCard title="Models & Access" icon={<Bot className="h-5 w-5" />}>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="lg:col-span-2">
               <SectionLabel htmlFor="settings-provider">Official vendor preset</SectionLabel>
@@ -112,10 +87,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               <>
                 <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
                   <p className="text-sm font-semibold text-blue-100">Subscription runtime</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Use your local AI subscription runtime without storing an API key. This path is
-                    desktop-only and keeps the ACP command explicit.
-                  </p>
+                  <p className="mt-2 text-sm text-slate-300">Desktop-only. No API key required.</p>
                 </div>
                 <div className="lg:col-span-2">
                   <SectionLabel htmlFor="settings-acp-command">ACP command</SectionLabel>
@@ -157,9 +129,6 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                   placeholder="https://api.example.com/v1"
                   className={surfaceInputProps('font-mono text-sm')}
                 />
-                <p className="mt-2 text-xs text-slate-400">
-                  Keep this aligned with the provider's official endpoint surface.
-                </p>
               </div>
             ) : null}
 
@@ -186,9 +155,8 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           </div>
 
           {isThinkingProvider ? (
-            <div className="mt-4 rounded-[20px] border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm leading-6 text-amber-100">
-              Thinking-capable providers burn part of the token budget on reasoning. Keep employee
-              max tokens at 1024 or higher to avoid clipped replies.
+            <div className="mt-4 rounded-[20px] border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+              Thinking model — keep max tokens at 1024+ to avoid clipped replies.
             </div>
           ) : null}
 

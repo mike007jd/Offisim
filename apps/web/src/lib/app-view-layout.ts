@@ -11,6 +11,7 @@ export type AppView =
 
 export type WorkspaceAppView = (typeof WORKSPACE_VIEWS)[number];
 export type FullPageWorkspaceAppView = (typeof FULL_PAGE_WORKSPACE_VIEWS)[number];
+export type OfficeViewMode = '2D' | '3D';
 
 export const WORKSPACE_VIEWS = [
   'office',
@@ -37,22 +38,13 @@ export function isFullPageWorkspaceView(view: AppView): view is FullPageWorkspac
 
 /**
  * Whether the main app shell (header + left rail + center + right rail) should
- * be mounted. This is true for all views that live inside the shell — Office
- * and the non-office workspaces routed by WorkspaceRouter.
- *
- * Previously named `shouldKeepOfficeMounted`, this kept the Office scene
- * rendered behind non-office workspaces. Now the WorkspaceRouter handles
- * center-surface switching and the Office scene is only mounted when active.
+ * be mounted. True for Office and the employee-creator overlay (which renders
+ * on top of the Office shell).
  */
 export function shouldShowAppShell(view: AppView): boolean {
   return view === 'office' || view === 'employee-creator';
 }
 
-/**
- * @deprecated Use `shouldShowAppShell` instead. Kept temporarily for
- * backward compatibility during the workspace IA migration.
- */
-export const shouldKeepOfficeMounted = shouldShowAppShell;
 
 export function isOfficeSceneInteractive(view: AppView): boolean {
   return view === 'office';

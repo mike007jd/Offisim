@@ -70,13 +70,13 @@ apps/
 
 ## Workspace IA
 
-5 个 peer-level workspace, `WorkspaceRouter` 管理:
+5 个 peer-level workspace, `WorkspaceRouter` 管理。非 Office workspace 渲染在 `FullPageWorkspaceShell`（含 `WorkspacePageHeader` 顶栏: ← Back + 页面标题）:
 
 | Workspace | Key | 描述 |
 |-----------|-----|------|
 | Office | `office` | 3D/2D 办公场景, `OfficeWorkspaceShellLazy` |
-| SOPs | `sops` | 3-pane: sidebar + canvas + context |
-| Market | `market` | 3-pane: filters + explore/manage + metadata |
+| SOPs | `sops` | sidebar(SOP list) + DAG canvas(Bezier, drag-to-connect) + NL command bar |
+| Market | `market` | explore(card grid + detail) / manage(installed + published) |
 | Activity Log | `activity-log` | 时间线 + 过滤器 + 事件详情 |
 | Settings | `settings` | Provider/Runtime/MCP 配置 |
 
@@ -105,6 +105,9 @@ apps/
 | Zone resolution | `packages/shared-types/src/zone-resolution.ts` | Employee→zone by targetRoles |
 | Company templates | `packages/core/src/services/company-template-service.ts` | Template + zone blueprint |
 | Settings shared | `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` | Page/dialog 共享 |
+| SOP DAG editor | `packages/ui-office/src/components/sop/SopDagCanvas.tsx` | Canvas: pan/zoom, drag-to-connect, dot grid |
+| SOP sidebar | `packages/ui-office/src/components/sop/SopSidebar.tsx` | SOP list sidebar |
+| SOP layout algo | `packages/ui-office/src/components/sop/sop-dag-layout.ts` | Topo-sort batch layout, port positions |
 | Platform API | `apps/platform/src/routes/` | Hono route handlers |
 
 ## Gotchas
@@ -112,7 +115,7 @@ apps/
 ### Build & Environment
 
 - 浏览器代码必须用 `@offisim/core/browser`, 否则拉入 Node-only 依赖
-- `apps/web/vite.config.ts` alias 必须与 `ui-office/package.json` exports 同步
+- `apps/web/vite.config.ts` alias 必须与 `ui-office/package.json` exports 同步。新增 subpath export 时必须同时加 vite alias, 否则 dev mode 动态 import 会 404（dist 可能不存在）
 - `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
 - Tauri 包在浏览器 dev 被 stub 为空模块
 - Dev 端口锁定: web=5176, launcher=4200, platform=4100 (strictPort)。Tauri beforeDevCommand 自动清理残留
@@ -139,6 +142,8 @@ apps/
 - `App.tsx` 维护 `view` + `activeWorkspace` 双状态, 必须通过 `handleWorkspaceSwitch` 同步, 不要直接 `setView`
 - 不要绕过 `useWorkspaceBackNavigation` 直接操作 history
 - `MarketplaceDetailOverlay` 仅保留给 deep-link install, 其余走 workspace page
+- `RegistryClient.hasAuthToken`: 调用认证端点（`/me`, `/drafts`）前必须检查, 无 token 时跳过请求
+- `INSTALLABLE_KINDS` (marketplace-meta.tsx): Install 按钮只对 `employee`/`skill` 显示, 其余 kind 渲染 disabled 提示
 - `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
 - `OfficeWorkspaceShell` props 三组: `navigation`, `employee`, `sceneView`
 
@@ -152,7 +157,8 @@ apps/
 - 渲染用 `resolveEmployeeSceneZoneId()`, 不要用 `resolveEmployeeZoneDynamic()` (避免掉 UNASSIGNED_ZONE)
 - 移动路由走 `scene-behavior.ts` → `buildTransitRoute()`, 不要直接 `handle.moveTo()`
 - 新增 prefab 必须在 `prefab-spatial.ts` SPATIAL_SPECS 补数据
-- Settings: page/dialog 共享在 `SettingsWorkspaceSurface.tsx` (已拆 primitives + ProviderTab + RuntimeTab)。改 UI 优先改 shared surface。保存 runtimePolicy 必须含 `toolPermissions`
+- Settings: `SettingsWorkspaceSurface.tsx` 拆出 primitives + ProviderTab + RuntimeTab。`SettingsPage` 用 capture-phase Escape handler 调 `controller.requestDismiss()` 拦截未保存更改。保存 runtimePolicy 必须含 `toolPermissions`
+- UI 文案密度: 副标题仅在标题本身有歧义时使用, 不要每个 section 都加描述段落。删除营销文案、不要重复展示同一信息（如 provider name 只显示一处）
 - Company 共享 primitive 在 `company-editor-primitives.tsx`, zone layout 在 `company-editor-layout.ts`
 - Chat 命令: `chat-commands.ts` 三类 (runtime/client/panel), 新增只加 `CHAT_COMMANDS`。@mention 不切 direct chat
 - UI 全英文, 不要混入中文

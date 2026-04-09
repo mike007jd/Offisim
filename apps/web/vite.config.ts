@@ -47,10 +47,6 @@ function createUiOfficeAliases() {
       replacement: path.resolve(uiOfficeSrc, 'components/office/OfficeEditorOverlay.tsx'),
     },
     {
-      find: /^@offisim\/ui-office\/settings$/,
-      replacement: path.resolve(uiOfficeSrc, 'components/settings/SettingsDialog.tsx'),
-    },
-    {
       find: /^@offisim\/ui-office\/company-editor$/,
       replacement: path.resolve(uiOfficeSrc, 'components/company/CompanyEditor.tsx'),
     },
@@ -65,6 +61,14 @@ function createUiOfficeAliases() {
     {
       find: /^@offisim\/ui-office\/kanban$/,
       replacement: path.resolve(uiOfficeSrc, 'components/kanban/index.ts'),
+    },
+    {
+      find: /^@offisim\/ui-office\/marketplace$/,
+      replacement: path.resolve(uiOfficeSrc, 'components/marketplace/index.ts'),
+    },
+    {
+      find: /^@offisim\/ui-office\/sop-view$/,
+      replacement: path.resolve(uiOfficeSrc, 'sop-view.ts'),
     },
   ];
 }

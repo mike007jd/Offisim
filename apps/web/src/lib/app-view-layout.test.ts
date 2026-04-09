@@ -5,7 +5,7 @@ import {
   isFullPageWorkspaceView,
   isOfficeSceneInteractive,
   isWorkspaceView,
-  shouldKeepOfficeMounted,
+  shouldShowAppShell,
   shouldShowEmployeeCreatorOverlay,
 } from './app-view-layout';
 
@@ -20,15 +20,15 @@ describe('app view layout helpers', () => {
   });
 
   it('keeps the office scaffold mounted while the employee creator is open', () => {
-    expect(shouldKeepOfficeMounted('office')).toBe(true);
-    expect(shouldKeepOfficeMounted('employee-creator')).toBe(true);
-    expect(shouldKeepOfficeMounted('sops')).toBe(false);
-    expect(shouldKeepOfficeMounted('market')).toBe(false);
-    expect(shouldKeepOfficeMounted('activity-log')).toBe(false);
-    expect(shouldKeepOfficeMounted('settings')).toBe(false);
-    expect(shouldKeepOfficeMounted('office-editor')).toBe(false);
-    expect(shouldKeepOfficeMounted('company-select')).toBe(false);
-    expect(shouldKeepOfficeMounted('studio')).toBe(false);
+    expect(shouldShowAppShell('office')).toBe(true);
+    expect(shouldShowAppShell('employee-creator')).toBe(true);
+    expect(shouldShowAppShell('sops')).toBe(false);
+    expect(shouldShowAppShell('market')).toBe(false);
+    expect(shouldShowAppShell('activity-log')).toBe(false);
+    expect(shouldShowAppShell('settings')).toBe(false);
+    expect(shouldShowAppShell('office-editor')).toBe(false);
+    expect(shouldShowAppShell('company-select')).toBe(false);
+    expect(shouldShowAppShell('studio')).toBe(false);
   });
 
   it('freezes the office scene while a fullscreen overlay is active', () => {

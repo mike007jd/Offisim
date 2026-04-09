@@ -1,10 +1,7 @@
-import { Button } from '@offisim/ui-core';
-import { ArrowLeft } from 'lucide-react';
-import {
-  type SettingsTab,
-  SettingsWorkspaceSurface,
-  useSettingsWorkspaceController,
-} from './SettingsWorkspaceSurface';
+import { useEffect, useRef } from 'react';
+import { SettingsContentArea } from './SettingsContentArea';
+import { SettingsTabNav } from './SettingsTabNav';
+import { type SettingsTab, useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 
 interface SettingsPageProps {
   sessionState: {
@@ -32,22 +29,32 @@ export function SettingsPage({
     onSaveSuccess,
   });
 
-  return (
-    <SettingsWorkspaceSurface
-      activeTab={sessionState.activeTab}
-      onActiveTabChange={(activeTab) => onSessionStateChange((prev) => ({ ...prev, activeTab }))}
-      controller={controller}
-      dismissControl={
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={controller.requestDismiss}
-          className="h-11 rounded-2xl border border-white/10 bg-white/5 px-4 text-slate-300 transition hover:bg-white/10 hover:text-white"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+  // Keep latest requestDismiss in a ref so the keydown listener never re-registers.
+  const dismissRef = useRef(controller.requestDismiss);
+  useEffect(() => {
+    dismissRef.current = controller.requestDismiss;
+  });
+
+  // Capture-phase Escape handler — intercepts before App.tsx's bubble-phase
+  // handler so unsaved-changes confirmation fires instead of direct navigation.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        dismissRef.current();
       }
-    />
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
+
+  return (
+    <div className="flex h-full">
+      <SettingsTabNav
+        activeTab={sessionState.activeTab}
+        onTabChange={(tab) => onSessionStateChange((prev) => ({ ...prev, activeTab: tab }))}
+      />
+      <SettingsContentArea activeTab={sessionState.activeTab} controller={controller} />
+    </div>
   );
 }

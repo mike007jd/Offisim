@@ -54,7 +54,9 @@ export function isOfficeSceneInteractive(
 // Placeholder workspace page components (lazy-loaded)
 // ---------------------------------------------------------------------------
 
-const SopWorkspacePage = React.lazy(() => import('./placeholders/SopWorkspacePage'));
+const SopViewSurface = React.lazy(() =>
+  import('@offisim/ui-office/sop-view').then((m) => ({ default: m.SopViewSurface })),
+);
 
 const MarketWorkspacePage = React.lazy(() => import('./placeholders/MarketWorkspacePage'));
 
@@ -128,7 +130,7 @@ export function WorkspaceRouter({
       {/* Non-office workspaces: mutually exclusive */}
       <Suspense fallback={<WorkspaceLoadingFallback />}>
         {activeWorkspace === 'sops' && (
-          <SopWorkspacePage
+          <SopViewSurface
             sessionState={sessionState.sops}
             onSessionStateChange={handleSopsChange}
           />

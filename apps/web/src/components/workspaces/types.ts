@@ -21,9 +21,6 @@ export type OfficeSessionState = {
 
 export type SopSessionState = {
   selectedSopId: string | null;
-  leftPaneMode: 'library' | 'active-runs';
-  centerMode: 'empty' | 'definition' | 'run-focus';
-  rightPaneTab: 'context' | 'runs' | 'history';
   search: string;
 };
 
@@ -188,9 +185,6 @@ export function createDefaultOfficeState(): OfficeSessionState {
 export function createDefaultSopState(): SopSessionState {
   return {
     selectedSopId: null,
-    leftPaneMode: 'library',
-    centerMode: 'empty',
-    rightPaneTab: 'context',
     search: '',
   };
 }

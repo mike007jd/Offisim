@@ -78,7 +78,14 @@ export function useMarketplace(): UseMarketplaceResult {
         setTotal(response.total);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Marketplace unavailable');
+        const status = (err as { status?: number }).status;
+        if (status === 401) {
+          setError('Authentication required — browse is still available');
+        } else if (status === 503) {
+          setError('Marketplace service unavailable — is the platform running?');
+        } else {
+          setError(err instanceof Error ? err.message : 'Marketplace unavailable');
+        }
         if (page === 1) {
           setResults([]);
           setTotal(0);

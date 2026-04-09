@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Building2, ChevronDown, PenTool, Pencil, Settings, Store } from 'lucide-react';
+import { Building2, ChevronDown, PenTool, Pencil, Settings, Store, Workflow } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
@@ -45,10 +45,7 @@ export function Header({
   needsConfig,
   activeWorkspace = 'office',
 }: HeaderProps) {
-  const primaryNav = [
-    { key: 'office' as const, label: 'Office', onClick: onOpenOffice },
-    { key: 'sops' as const, label: 'SOPs', onClick: onOpenSops },
-  ];
+  const primaryNav = [{ key: 'office' as const, label: 'Office', onClick: onOpenOffice }];
 
   return (
     <header
@@ -181,6 +178,20 @@ export function Header({
 
       <div className="flex items-center shrink-0" style={{ columnGap: 'var(--sp-sm)' }}>
         <FileImportTrigger onFileSelect={onFileImport} />
+        {onOpenSops && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenSops}
+            title="SOPs"
+            aria-label="SOPs workspace"
+            className={`h-8 w-8 hover:bg-white/5 ${activeWorkspace === 'sops' ? 'bg-cyan-500/15 border border-cyan-400/30' : ''}`}
+          >
+            <Workflow
+              className={`h-4 w-4 ${activeWorkspace === 'sops' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`}
+            />
+          </Button>
+        )}
         {onOpenMarket && (
           <Button
             variant="ghost"

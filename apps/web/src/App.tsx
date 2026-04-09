@@ -25,7 +25,7 @@ import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspace
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import {
   type AppView,
-  type FullPageWorkspaceAppView,
+  type OfficeViewMode,
   isFullPageWorkspaceView,
   isWorkspaceView,
   shouldShowAppShell,
@@ -35,6 +35,13 @@ import { getOnboardingCopy } from './lib/onboarding-prompts';
 import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboarding-store';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
+
+const WORKSPACE_TITLES: Record<string, string> = {
+  sops: 'SOPs',
+  market: 'Market',
+  'activity-log': 'Activity Log',
+  settings: 'Settings',
+};
 
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
@@ -78,7 +85,7 @@ interface AppProps {
 export function App({ onCompanySwitch }: AppProps) {
   const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
   const [view, setView] = useState<AppView>(() => (activeCompanyId ? 'office' : 'company-select'));
-  const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
+  const [viewMode, setViewMode] = useState<OfficeViewMode>('3D');
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [kanbanOpen, setKanbanOpen] = useState(false);
   const [marketplaceListingId, setMarketplaceListingId] = useState<string | null>(null);
@@ -132,13 +139,14 @@ export function App({ onCompanySwitch }: AppProps) {
   const handleOpenSettings = useCallback(() => {
     handleWorkspaceSwitch('settings');
   }, [handleWorkspaceSwitch]);
+  const handleBackToOffice = useCallback(() => {
+    handleWorkspaceSwitch('office');
+  }, [handleWorkspaceSwitch]);
   const { reinitRuntime, repos, eventBus } = useOffisimRuntime();
   const companyEditor = useCompanyEditor();
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
   const { toasts, addToast, dismissToast } = useToasts();
-  const activeCompanyName =
-    companies.find((company) => company.company_id === activeCompanyId)?.name ?? null;
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -239,23 +247,10 @@ export function App({ onCompanySwitch }: AppProps) {
           setSelectedEmployeeId(null);
           return;
         }
-        if (
-          view === 'employee-creator' ||
-          view === 'office-editor' ||
-          view === 'studio' ||
-          view === 'sops' ||
-          view === 'market' ||
-          view === 'activity-log' ||
-          view === 'settings'
-        ) {
-          // For workspace views, use handleWorkspaceSwitch to update session state.
-          // For non-workspace views (employee-creator, office-editor, studio),
-          // just set the view directly.
-          if (isFullPageWorkspaceView(view)) {
-            handleWorkspaceSwitch('office');
-          } else {
-            setView('office');
-          }
+        if (isFullPageWorkspaceView(view)) {
+          handleWorkspaceSwitch('office');
+        } else if (view !== 'office') {
+          setView('office');
         }
       }
     }
@@ -270,6 +265,7 @@ export function App({ onCompanySwitch }: AppProps) {
     selectedEmployeeId,
     shortcutHelpOpen,
     view,
+    viewMode,
   ]);
 
   useEffect(() => {
@@ -542,11 +538,8 @@ export function App({ onCompanySwitch }: AppProps) {
 
         {isNonOfficeWorkspace && (
           <FullPageWorkspaceShell
-            activeWorkspace={view as FullPageWorkspaceAppView}
-            companyName={activeCompanyName}
-            onBackToOffice={() => handleWorkspaceSwitch('office')}
-            onOpenSettings={handleOpenSettings}
-            onWorkspaceSwitch={(workspace) => handleWorkspaceSwitch(workspace)}
+            title={WORKSPACE_TITLES[activeWorkspace] ?? activeWorkspace}
+            onBackToOffice={handleBackToOffice}
           >
             {workspaceRouterContent}
           </FullPageWorkspaceShell>
@@ -580,7 +573,6 @@ export function App({ onCompanySwitch }: AppProps) {
               onUserMessage={handleUserMessage}
               providerConfig={providerConfig}
               view={view}
-              workspaceRouterContent={workspaceRouterContent}
               navigation={{
                 onOpenCompanyEditor: companyEditor.open,
                 onOpenCompanySelect: () => setView('company-select'),

@@ -48,6 +48,11 @@ export class RegistryClient {
     this.fetch = config.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
+  /** Whether an auth token is configured on this client instance. */
+  get hasAuthToken(): boolean {
+    return !!this.authToken;
+  }
+
   // ── Public reads ──
 
   async searchListings(params: SearchParams = {}): Promise<SearchResponse> {

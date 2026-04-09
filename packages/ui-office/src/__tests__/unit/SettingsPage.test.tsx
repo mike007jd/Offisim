@@ -22,7 +22,9 @@ vi.mock('@offisim/ui-core', () => ({
   Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TabsContent: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
   TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  TabsTrigger: ({ children }: { children: React.ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
 }));
 
 vi.mock('../../theme', () => ({
@@ -126,7 +128,7 @@ vi.mock('../../components/settings/provider-presets', () => ({
 import { SettingsPage } from '../../components/settings/SettingsPage.js';
 
 describe('SettingsPage', () => {
-  it('renders settings as a full-page workspace surface with the same new control language', () => {
+  it('renders the new two-column layout with tab nav and content area', () => {
     render(
       <SettingsPage
         sessionState={{ activeTab: 'provider' }}
@@ -136,9 +138,13 @@ describe('SettingsPage', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Provider Workspace' })).toBeInTheDocument();
-    expect(screen.getAllByText('Official compatibility').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Runtime orchestration' })).toBeInTheDocument();
+    // Verify tab navigation buttons are rendered
+    expect(screen.getByRole('button', { name: 'Provider' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'MCP' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gateway' })).toBeInTheDocument();
+
+    // Verify Save button is present
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeInTheDocument();
   });
 });

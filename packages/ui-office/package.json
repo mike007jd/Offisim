@@ -32,10 +32,6 @@
       "types": "./dist/components/office/OfficeEditorOverlay.d.ts",
       "default": "./dist/components/office/OfficeEditorOverlay.js"
     },
-    "./settings": {
-      "types": "./dist/components/settings/SettingsDialog.d.ts",
-      "default": "./dist/components/settings/SettingsDialog.js"
-    },
     "./company-editor": {
       "types": "./dist/components/company/CompanyEditor.d.ts",
       "default": "./dist/components/company/CompanyEditor.js"
@@ -55,6 +51,10 @@
     "./marketplace": {
       "types": "./dist/components/marketplace/index.d.ts",
       "default": "./dist/components/marketplace/index.js"
+    },
+    "./sop-view": {
+      "types": "./dist/sop-view.d.ts",
+      "default": "./dist/sop-view.js"
     }
   },
   "scripts": {
@@ -64,6 +64,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.2",
     "@offisim/asset-schema": "workspace:*",
     "@offisim/core": "workspace:*",
     "@offisim/doc-engine": "workspace:*",
@@ -72,11 +74,9 @@
     "@offisim/renderer": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "@offisim/ui-core": "workspace:*",
-    "@dicebear/collection": "^9.4.2",
-    "@dicebear/core": "^9.4.2",
-    "fflate": "^0.8.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "fflate": "^0.8.2",
     "lucide-react": "^0.577.0",
     "three": "^0.183.2",
     "zustand": "^5.0.12"
@@ -95,6 +95,7 @@
     "@types/react": "^19.0.0",
     "@types/three": "^0.183.1",
     "@vitest/coverage-v8": "3.2.4",
+    "fast-check": "^4.6.0",
     "jsdom": "^26.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

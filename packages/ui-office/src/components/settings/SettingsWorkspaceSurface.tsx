@@ -485,6 +485,7 @@ export function useSettingsWorkspaceController({
     handlePresetChange,
     handleSave,
     hasStoredSecret,
+    hasUnsavedChanges,
     isSaveDisabled,
     isSaving,
     isSubscription,
@@ -562,12 +563,6 @@ export function SettingsWorkspaceSurface({
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
                 Provider Workspace
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Official provider surfaces, runtime orchestration, MCP routing, and gateway links
-                now live in one unified control surface. Offisim follows vendor compatibility docs
-                first, with Anthropic-compatible transports preferred when providers officially
-                support them.
-              </p>
             </div>
             {dismissControl}
           </div>
@@ -576,22 +571,18 @@ export function SettingsWorkspaceSurface({
             <MetricCard
               label="Official compatibility"
               value={selectedCompatibility}
-              detail={`Vendor preset: ${selectedPreset?.label ?? 'Custom'}`}
+              detail={selectedPreset?.label ?? 'Custom'}
             />
             <MetricCard
               label="Surface"
               value={selectedSurface}
               detail={`Region: ${selectedRegion}`}
             />
-            <MetricCard
-              label="Capabilities"
-              value={selectedCapabilities}
-              detail="Streaming, tools, thinking, and coding-plan support are preset-aware."
-            />
+            <MetricCard label="Capabilities" value={selectedCapabilities} detail="Preset-aware" />
             <MetricCard
               label="Endpoint"
               value={baseURL || selectedPreset?.defaults.baseURL || 'Manual'}
-              detail={`Transport owner: ${selectedVendor}`}
+              detail={selectedVendor}
             />
           </div>
         </div>
@@ -639,21 +630,13 @@ export function SettingsWorkspaceSurface({
           </TabsContent>
 
           <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <SurfaceCard
-              title="MCP servers"
-              description="Attach or reconfigure MCP endpoints without leaving the provider workspace."
-              icon={<Cpu className="h-5 w-5" />}
-            >
+            <SurfaceCard title="MCP servers" icon={<Cpu className="h-5 w-5" />}>
               <McpConfigPanel />
             </SurfaceCard>
           </TabsContent>
 
           <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <SurfaceCard
-              title="Gateway"
-              description="Connect Offisim to OpenClaw or other local orchestration gateways from the same new control surface."
-              icon={<Workflow className="h-5 w-5" />}
-            >
+            <SurfaceCard title="Gateway" icon={<Workflow className="h-5 w-5" />}>
               <OpenClawSettings />
             </SurfaceCard>
           </TabsContent>

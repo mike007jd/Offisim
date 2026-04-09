@@ -62,7 +62,7 @@ interface EventItemProps {
 }
 
 /** Pick a domain-specific icon + color for known event prefixes. */
-function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
+export function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
   if (type.startsWith('hr.')) return { Icon: UserCheck, color: 'text-rose-400' };
   if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-blue-400' };
   if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-emerald-400' };

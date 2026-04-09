@@ -10,7 +10,8 @@
     "declaration": false,
     "declarationMap": false,
     "paths": {
-      "@offisim/ui-office/web": ["../../packages/ui-office/src/web.ts"]
+      "@offisim/ui-office/web": ["../../packages/ui-office/src/web.ts"],
+      "@offisim/ui-office/sop-view": ["../../packages/ui-office/src/sop-view.ts"]
     }
   },
   "include": ["src", "vite-env.d.ts"]

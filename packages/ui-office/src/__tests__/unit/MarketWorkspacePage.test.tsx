@@ -1,54 +1,57 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketWorkspacePage } from '../../components/marketplace/workspace/MarketWorkspacePage.js';
+import { MarketPage } from '../../components/marketplace/MarketPage.js';
 
 const useListingDetailMock = vi.fn();
+const useMarketplaceMock = vi.fn();
 
 vi.mock('../../hooks/useListingDetail.js', () => ({
   useListingDetail: (...args: unknown[]) => useListingDetailMock(...args),
 }));
 
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceSidebar.js', () => ({
-  MarketWorkspaceSidebar: () => <div>sidebar</div>,
+vi.mock('../../hooks/useMarketplace.js', () => ({
+  useMarketplace: () => useMarketplaceMock(),
 }));
 
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceExplore.js', () => ({
-  MarketWorkspaceExplore: () => <div>explore</div>,
+vi.mock('../../components/marketplace/PublishDialog.js', () => ({
+  PublishDialog: () => null,
 }));
 
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceManage.js', () => ({
-  MarketWorkspaceManage: () => <div>manage</div>,
-}));
-
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceContextPane.js', () => ({
-  MarketWorkspaceContextPane: () => <div>context</div>,
-}));
-
-vi.mock('../../components/marketplace/workspace/MarketWorkspaceDetail.js', () => ({
-  MarketWorkspaceDetail: ({ detailUnavailable }: { detailUnavailable: boolean }) => (
-    <div>{detailUnavailable ? 'unavailable-detail' : 'detail'}</div>
-  ),
-}));
-
-describe('MarketWorkspacePage', () => {
+describe('MarketPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useListingDetailMock.mockReturnValue({
       detail: null,
       loading: false,
+      error: null,
       unavailable: false,
+    });
+    useMarketplaceMock.mockReturnValue({
+      results: [],
+      query: '',
+      setQuery: vi.fn(),
+      filters: { kind: 'all', sort: 'relevance' },
+      setKind: vi.fn(),
+      setSort: vi.fn(),
+      isLoading: false,
+      isLoadingMore: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      refresh: vi.fn(),
     });
   });
 
-  it('shows a non-blocking toast when the selected listing becomes unavailable', () => {
+  it('shows a toast when the selected listing becomes unavailable', () => {
     useListingDetailMock.mockReturnValue({
       detail: null,
       loading: false,
+      error: null,
       unavailable: true,
     });
 
     render(
-      <MarketWorkspacePage
+      <MarketPage
         sessionState={{
           mode: 'explore',
           selectedListingId: 'missing-listing',
@@ -61,7 +64,6 @@ describe('MarketWorkspacePage', () => {
       />,
     );
 
-    expect(screen.getByTestId('workspace-market')).toHaveClass('workspace-shell');
-    expect(screen.getByText('The selected listing is no longer available.')).toBeInTheDocument();
+    expect(screen.getAllByText('Listing unavailable').length).toBeGreaterThanOrEqual(1);
   });
 });
