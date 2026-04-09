@@ -31,7 +31,7 @@ import {
   getDefaultProviderPresetKey,
   getProviderPreset,
 } from './provider-presets';
-import { MetricCard, SurfaceCard } from './settings-primitives';
+import { SurfaceCard } from './settings-primitives';
 
 export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'openclaw';
 
@@ -540,59 +540,31 @@ export function SettingsWorkspaceSurface({
   dismissControl,
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
-  const {
-    baseURL,
-    selectedCapabilities,
-    selectedCompatibility,
-    selectedPreset,
-    selectedRegion,
-    selectedSurface,
-    selectedVendor,
-  } = controller;
+  const { selectedCapabilities, selectedCompatibility, selectedRegion } = controller;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden text-slate-100">
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-white/10 bg-slate-950/45 px-8 py-6 backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-cyan-300/80">
-                System Control
+        <div className="border-b border-white/[0.06] bg-slate-950/30 px-6 py-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-400/60">
+                System
               </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-                Provider Workspace
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Official provider surfaces, runtime orchestration, MCP routing, and gateway links
-                now live in one unified control surface. Offisim follows vendor compatibility docs
-                first, with Anthropic-compatible transports preferred when providers officially
-                support them.
-              </p>
+              <h1 className="text-base font-semibold text-white truncate">Settings</h1>
+              <div className="hidden md:flex items-center gap-2 ml-2">
+                <span className="rounded bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400 truncate max-w-[200px]">
+                  {selectedCompatibility}
+                </span>
+                <span className="rounded bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400">
+                  {selectedRegion}
+                </span>
+                <span className="rounded bg-cyan-500/[0.08] border border-cyan-400/20 px-2 py-0.5 text-[11px] text-cyan-300/80 truncate max-w-[180px]">
+                  {selectedCapabilities}
+                </span>
+              </div>
             </div>
             {dismissControl}
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Official compatibility"
-              value={selectedCompatibility}
-              detail={`Vendor preset: ${selectedPreset?.label ?? 'Custom'}`}
-            />
-            <MetricCard
-              label="Surface"
-              value={selectedSurface}
-              detail={`Region: ${selectedRegion}`}
-            />
-            <MetricCard
-              label="Capabilities"
-              value={selectedCapabilities}
-              detail="Streaming, tools, thinking, and coding-plan support are preset-aware."
-            />
-            <MetricCard
-              label="Endpoint"
-              value={baseURL || selectedPreset?.defaults.baseURL || 'Manual'}
-              detail={`Transport owner: ${selectedVendor}`}
-            />
           </div>
         </div>
 
@@ -601,44 +573,44 @@ export function SettingsWorkspaceSurface({
           onValueChange={(value) => onActiveTabChange(value as SettingsTab)}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="border-b border-white/10 bg-slate-950/25 px-8 py-4">
-            <TabsList className="grid w-full max-w-2xl grid-cols-2 rounded-full border border-white/10 bg-white/[0.03] p-1 md:grid-cols-4">
+          <div className="border-b border-white/[0.06] px-6 py-2.5">
+            <TabsList className="inline-flex rounded-lg border border-white/[0.08] bg-white/[0.02] p-0.5 gap-0.5">
               <TabsTrigger
                 value="provider"
-                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
               >
-                Provider Workspace
+                Provider
               </TabsTrigger>
               <TabsTrigger
                 value="runtime"
-                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
               >
-                Runtime orchestration
+                Runtime
               </TabsTrigger>
               <TabsTrigger
                 value="mcp"
-                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
               >
-                MCP servers
+                MCP
               </TabsTrigger>
               <TabsTrigger
                 value="openclaw"
-                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+                className="rounded-md px-3 py-1.5 text-[13px] text-slate-400 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-200 transition-colors"
               >
                 Gateway
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="provider" className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+          <TabsContent value="provider" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <SettingsProviderTab controller={controller} />
           </TabsContent>
 
-          <TabsContent value="runtime" className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+          <TabsContent value="runtime" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <SettingsRuntimeTab controller={controller} />
           </TabsContent>
 
-          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <SurfaceCard
               title="MCP servers"
               description="Attach or reconfigure MCP endpoints without leaving the provider workspace."
@@ -648,7 +620,7 @@ export function SettingsWorkspaceSurface({
             </SurfaceCard>
           </TabsContent>
 
-          <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+          <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <SurfaceCard
               title="Gateway"
               description="Connect Offisim to OpenClaw or other local orchestration gateways from the same new control surface."

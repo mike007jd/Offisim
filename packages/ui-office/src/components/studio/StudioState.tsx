@@ -175,7 +175,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
 
   startPlacement: (def) =>
-    set({ tool: 'place', placingPrefab: def, placingZonePreset: null, ghostRotation: 0, selectedInstanceId: null }),
+    set({
+      tool: 'place',
+      placingPrefab: def,
+      placingZonePreset: null,
+      ghostRotation: 0,
+      selectedInstanceId: null,
+    }),
   cancelPlacement: () => set({ tool: 'select', placingPrefab: null, ghostRotation: 0 }),
 
   rotateGhost: () => {
@@ -374,7 +380,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const { placingZonePreset, zones } = get();
     if (!placingZonePreset) return;
 
-    const candidate = { id: '__candidate__', cx: position[0], cz: position[2], w: placingZonePreset.w, d: placingZonePreset.d };
+    const candidate = {
+      id: '__candidate__',
+      cx: position[0],
+      cz: position[2],
+      w: placingZonePreset.w,
+      d: placingZonePreset.d,
+    };
     if (findOverlaps(candidate, toOverlapRects(zones)).length > 0) return;
 
     get().addZoneFromPreset(placingZonePreset, position);
@@ -405,9 +417,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
 
     set({
-      zones: zones.map((z) =>
-        z.zoneId === zoneId ? { ...z, w: zone.d, d: zone.w } : z,
-      ),
+      zones: zones.map((z) => (z.zoneId === zoneId ? { ...z, w: zone.d, d: zone.w } : z)),
       instances: updatedInstances,
       dirty: true,
     });

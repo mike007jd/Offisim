@@ -70,15 +70,12 @@ export function MarketWorkspaceSidebar({
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search packages…"
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-[13px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
+                className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
               />
             </div>
           </div>
 
           <div className="px-4 pb-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-semibold mb-2">
-              Kind
-            </p>
             <div className="flex flex-wrap gap-1.5">
               {KIND_FILTERS.map((filter) => {
                 const Icon = filter.value === 'all' ? null : KIND_ICON[filter.value];
@@ -88,13 +85,13 @@ export function MarketWorkspaceSidebar({
                     key={filter.value}
                     type="button"
                     onClick={() => onKindChange(filter.value)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] transition-colors ${
                       active
                         ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100'
                         : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
                     }`}
                   >
-                    {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                    {Icon ? <Icon className="h-3 w-3" /> : null}
                     {filter.label}
                   </button>
                 );
@@ -103,16 +100,13 @@ export function MarketWorkspaceSidebar({
           </div>
 
           <div className="px-4 pb-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-semibold mb-2">
-              Sort
-            </p>
             <div className="flex flex-wrap gap-1.5">
               {SORT_OPTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => onSortChange(s)}
-                  className={`rounded-full border px-2.5 py-1 text-[13px] transition-colors ${
+                  className={`rounded-full border px-2 py-0.5 text-[12px] transition-colors ${
                     sort === s
                       ? 'border-blue-400/40 bg-blue-500/10 text-blue-100'
                       : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
@@ -125,18 +119,21 @@ export function MarketWorkspaceSidebar({
           </div>
         </>
       ) : (
-        <div className="px-4 pb-3 flex flex-col gap-1.5">
+        <div className="px-4 pb-3 flex flex-col gap-1">
           {(['installed', 'updates', 'published'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
-              className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-colors capitalize ${
+              className={`w-full text-left pl-3 pr-3 py-1.5 rounded text-[13px] transition-colors capitalize relative ${
                 manageTab === tab
-                  ? 'bg-blue-500/10 text-blue-200 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                  ? 'bg-blue-500/[0.08] text-blue-200'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
               }`}
               onClick={() => onManageTabChange(tab)}
             >
+              {manageTab === tab && (
+                <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-blue-400" />
+              )}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}

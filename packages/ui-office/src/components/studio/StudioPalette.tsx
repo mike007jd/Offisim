@@ -66,7 +66,7 @@ export function StudioPalette() {
   const isEditingZone = useStudioStore((s) => s.isEditingZone);
   const focusedZone = useStudioStore((s) =>
     s.isEditingZone && s.focusedZoneId
-      ? s.zones.find((z) => z.zoneId === s.focusedZoneId) ?? null
+      ? (s.zones.find((z) => z.zoneId === s.focusedZoneId) ?? null)
       : null,
   );
 

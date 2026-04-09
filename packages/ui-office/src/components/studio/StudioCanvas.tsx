@@ -188,10 +188,7 @@ function ZoneOverlays() {
   const zones = useStudioStore((s) => s.zones);
   const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
-  const overlapMap = useMemo(
-    () => computeOverlapMap(toOverlapRects(zones)),
-    [zones],
-  );
+  const overlapMap = useMemo(() => computeOverlapMap(toOverlapRects(zones)), [zones]);
   if (zones.length === 0) return null;
   return (
     <>
@@ -362,139 +359,135 @@ function ZoneFloor({
     const group = zoneGroupRef.current;
     if (!group) return;
     const pos = group.position;
-    const snappedX = useStudioStore.getState().gridSnap
-      ? Math.round(pos.x / 0.5) * 0.5
-      : pos.x;
-    const snappedZ = useStudioStore.getState().gridSnap
-      ? Math.round(pos.z / 0.5) * 0.5
-      : pos.z;
+    const snappedX = useStudioStore.getState().gridSnap ? Math.round(pos.x / 0.5) * 0.5 : pos.x;
+    const snappedZ = useStudioStore.getState().gridSnap ? Math.round(pos.z / 0.5) * 0.5 : pos.z;
     useStudioStore.getState().moveZone(zone.zoneId, snappedX, snappedZ);
     invalidate();
   }, [zone.zoneId, invalidate]);
 
   return (
     <>
-    <group ref={zoneGroupRef} position={[zone.cx, groupY, zone.cz]}>
-      {/* Floor fill — receives drag pointer events */}
-      <mesh
-        rotation={_zonePlaneRotation}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
-        <planeGeometry args={[zone.w, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={fillOpacity} depthWrite={false} />
-      </mesh>
-
-      {/* Overlap warning tint */}
-      {hasOverlap && (
-        <mesh position={[0, 0.005, 0]} rotation={_zonePlaneRotation}>
-          <planeGeometry args={[zone.w, zone.d]} />
-          <meshBasicMaterial color="#ef4444" transparent opacity={0.1} depthWrite={false} />
-        </mesh>
-      )}
-
-      {/* Invisible drag surface — larger than the zone, only visible during drag.
-          Ensures pointer events continue even if the cursor leaves the zone floor. */}
-      {isDragging && (
+      <group ref={zoneGroupRef} position={[zone.cx, groupY, zone.cz]}>
+        {/* Floor fill — receives drag pointer events */}
         <mesh
           rotation={_zonePlaneRotation}
-          position={[0, -0.001, 0]}
+          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
         >
-          <planeGeometry args={[zone.w * 10, zone.d * 10]} />
-          <meshBasicMaterial visible={false} />
+          <planeGeometry args={[zone.w, zone.d]} />
+          <meshBasicMaterial color={color} transparent opacity={fillOpacity} depthWrite={false} />
         </mesh>
-      )}
 
-      {/* Border edges */}
-      <mesh position={[0, bh / 2, -zone.d / 2]}>
-        <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
-      </mesh>
-      <mesh position={[0, bh / 2, zone.d / 2]}>
-        <boxGeometry args={[zone.w, bh, borderThickness]} />
-        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
-      </mesh>
-      <mesh position={[-zone.w / 2, bh / 2, 0]}>
-        <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
-      </mesh>
-      <mesh position={[zone.w / 2, bh / 2, 0]}>
-        <boxGeometry args={[borderThickness, bh, zone.d]} />
-        <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
-      </mesh>
+        {/* Overlap warning tint */}
+        {hasOverlap && (
+          <mesh position={[0, 0.005, 0]} rotation={_zonePlaneRotation}>
+            <planeGeometry args={[zone.w, zone.d]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.1} depthWrite={false} />
+          </mesh>
+        )}
 
-      {/* Zone label pill — clickable to focus/unfocus */}
-      <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="studio-zone-label"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
-              if (isFocused) unfocusZone();
-              else focusZone(zone.zoneId);
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter' && e.key !== ' ') return;
-              e.preventDefault();
-              e.stopPropagation();
-              if (isFocused) unfocusZone();
-              else focusZone(zone.zoneId);
-            }}
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              color: '#fff',
-              background: zone.accentColor,
-              padding: isFocused ? '3px 10px' : '2px 8px',
-              borderRadius: 4,
-              border: isFocused ? '2px solid #fff' : '2px solid transparent',
-              opacity: labelOpacity,
-              whiteSpace: 'nowrap',
-              cursor: isDragging ? 'grabbing' : 'pointer',
-              userSelect: 'none',
-              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s ease',
-            }}
+        {/* Invisible drag surface — larger than the zone, only visible during drag.
+          Ensures pointer events continue even if the cursor leaves the zone floor. */}
+        {isDragging && (
+          <mesh
+            rotation={_zonePlaneRotation}
+            position={[0, -0.001, 0]}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
           >
-            {isFocused ? `✦ ${zone.label}` : zone.label}
-          </button>
-          {isSelected && !isEditingZone ? (
+            <planeGeometry args={[zone.w * 10, zone.d * 10]} />
+            <meshBasicMaterial visible={false} />
+          </mesh>
+        )}
+
+        {/* Border edges */}
+        <mesh position={[0, bh / 2, -zone.d / 2]}>
+          <boxGeometry args={[zone.w, bh, borderThickness]} />
+          <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
+        </mesh>
+        <mesh position={[0, bh / 2, zone.d / 2]}>
+          <boxGeometry args={[zone.w, bh, borderThickness]} />
+          <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
+        </mesh>
+        <mesh position={[-zone.w / 2, bh / 2, 0]}>
+          <boxGeometry args={[borderThickness, bh, zone.d]} />
+          <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
+        </mesh>
+        <mesh position={[zone.w / 2, bh / 2, 0]}>
+          <boxGeometry args={[borderThickness, bh, zone.d]} />
+          <meshBasicMaterial color={color} transparent opacity={effectiveBorderOpacity} />
+        </mesh>
+
+        {/* Zone label pill — clickable to focus/unfocus */}
+        <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
+          <div className="flex items-center gap-2">
             <button
               type="button"
+              className="studio-zone-label"
               onClick={(e) => {
+                e.stopPropagation(); // Prevent Canvas onPointerMissed from clearing selection
+                if (isFocused) unfocusZone();
+                else focusZone(zone.zoneId);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
                 e.preventDefault();
                 e.stopPropagation();
-                enterEditZone(zone.zoneId);
+                if (isFocused) unfocusZone();
+                else focusZone(zone.zoneId);
               }}
-              className="rounded-full border border-cyan-300/30 bg-slate-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100"
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                color: '#fff',
+                background: zone.accentColor,
+                padding: isFocused ? '3px 10px' : '2px 8px',
+                borderRadius: 4,
+                border: isFocused ? '2px solid #fff' : '2px solid transparent',
+                opacity: labelOpacity,
+                whiteSpace: 'nowrap',
+                cursor: isDragging ? 'grabbing' : 'pointer',
+                userSelect: 'none',
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                transition: 'all 0.15s ease',
+              }}
             >
-              Edit
+              {isFocused ? `✦ ${zone.label}` : zone.label}
             </button>
-          ) : null}
-        </div>
-      </Html>
-    </group>
+            {isSelected && !isEditingZone ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  enterEditZone(zone.zoneId);
+                }}
+                className="rounded-full border border-cyan-300/30 bg-slate-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100"
+              >
+                Edit
+              </button>
+            ) : null}
+          </div>
+        </Html>
+      </group>
 
-    {/* TransformControls for zone movement — gizmo visual indicator */}
-    {showZoneGizmo && (
-      <TransformControls
-        object={zoneGroupRef as React.RefObject<THREE.Object3D>}
-        mode="translate"
-        size={1.5}
-        translationSnap={0.5}
-        showX={true}
-        showY={false}
-        showZ={true}
-        space="world"
-        onObjectChange={handleZoneTransform}
-      />
-    )}
+      {/* TransformControls for zone movement — gizmo visual indicator */}
+      {showZoneGizmo && (
+        <TransformControls
+          object={zoneGroupRef as React.RefObject<THREE.Object3D>}
+          mode="translate"
+          size={1.5}
+          translationSnap={0.5}
+          showX={true}
+          showY={false}
+          showZ={true}
+          space="world"
+          onObjectChange={handleZoneTransform}
+        />
+      )}
     </>
   );
 }

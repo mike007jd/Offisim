@@ -90,19 +90,19 @@ export function EventItem({ event }: EventItemProps) {
   const topicLabel = formatEventType(event.type);
 
   return (
-    <div className="flex items-start gap-3 px-5 py-3 text-sm">
-      <Icon className={`h-4.5 w-4.5 mt-0.5 shrink-0 ${iconColor}`} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="break-words leading-relaxed text-sand">
+    <div className="flex items-start gap-2.5 px-4 py-2.5 text-sm">
+      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="break-words leading-snug text-sand">
           <span className="font-medium">{label}</span>
           {action && <span className="text-shell ml-1.5">{action}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-shell/80">
-          <span className="font-mono">{topicLabel}</span>
-          {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-shell/60">
+          <span>{topicLabel}</span>
+          {event.entityId ? <span>ID {event.entityId}</span> : null}
         </div>
       </div>
-      <span className="text-[13px] text-shell shrink-0 pt-0.5">
+      <span className="text-[11px] text-shell/60 shrink-0 pt-0.5">
         {formatTimestamp(event.timestamp)}
       </span>
     </div>

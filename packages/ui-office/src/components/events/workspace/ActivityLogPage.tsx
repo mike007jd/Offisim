@@ -225,24 +225,12 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
           aria-label="Event timeline"
         >
           <ScrollArea className="h-full">
-            <div ref={scrollRef} className="max-w-[1000px] mx-auto px-2">
+            <div ref={scrollRef} className="px-4">
               {filteredEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-80 gap-3 text-center px-8">
-                  {events.length === 0 ? (
-                    <>
-                      <p className="text-base text-slate-400">No events yet</p>
-                      <p className="text-sm text-slate-500">
-                        Events will appear here as your company operates.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-base text-slate-400">No events match filters</p>
-                      <p className="text-sm text-slate-500">
-                        Try adjusting your filters or search query.
-                      </p>
-                    </>
-                  )}
+                <div className="flex flex-col items-center justify-center h-80 gap-2 text-center px-8">
+                  <p className="text-sm text-slate-400">
+                    {events.length === 0 ? 'No events yet' : 'No events match filters'}
+                  </p>
                 </div>
               ) : (
                 filteredEvents.map(({ event, level }, i) => {
@@ -251,7 +239,13 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
                     <button
                       type="button"
                       key={`${event.timestamp}-${i}`}
-                      className={`${rowStyle} cursor-pointer hover:bg-white/5 transition-colors text-left w-full`}
+                      className={`${rowStyle} cursor-pointer hover:bg-white/[0.04] transition-colors text-left w-full border-l-[3px] ${
+                        level === 'Error'
+                          ? 'border-l-red-400/60'
+                          : level === 'Warning'
+                            ? 'border-l-amber-400/60'
+                            : 'border-l-transparent'
+                      }`}
                       onClick={() => handleSelectEvent(event)}
                     >
                       <EventItem event={event} />

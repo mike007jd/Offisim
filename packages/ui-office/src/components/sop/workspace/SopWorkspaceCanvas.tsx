@@ -1,4 +1,3 @@
-import { Button } from '@offisim/ui-core';
 import { Loader2, Play, Send } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useSopRuntimeState } from '../../../hooks/useSopRuntimeState';
@@ -71,47 +70,45 @@ export function SopWorkspaceCanvas({ sop, onRunFocus }: SopWorkspaceCanvasProps)
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-white/5 shrink-0">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-slate-200 truncate">{sop.name}</h2>
-          <p className="text-[13px] text-slate-500 mt-0.5">
-            {parsed ? `${parsed.steps.length} steps` : 'No steps'}
-            {sop.description && ` · ${sop.description}`}
-            {isActive && ' · Running'}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-3 text-[13px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1.5"
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-white/[0.06] border-l-[3px] border-l-cyan-400/40 shrink-0">
+        <h2 className="text-base font-semibold text-white truncate">{sop.name}</h2>
+        <span className="shrink-0 rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+          {parsed ? `${parsed.steps.length} steps` : '\u2014'}
+        </span>
+        {isActive && (
+          <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 px-2.5 py-0.5 text-[11px] font-medium text-cyan-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            Running
+          </span>
+        )}
+        <div className="flex-1" />
+        <button
+          type="button"
           onClick={handleRun}
+          className="flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-400/30 px-3 py-1.5 text-[12px] font-medium text-cyan-200 hover:bg-cyan-500/25 transition-colors"
         >
-          <Play className="w-3.5 h-3.5" />
-          Run
-        </Button>
+          <Play className="w-3 h-3" /> Run
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar p-5">
-        <div className="max-w-[960px] mx-auto">
-          {adjusting ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-8">
-              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-              <p className="text-xs text-slate-400">Adjusting…</p>
-            </div>
-          ) : parsed ? (
-            <SopTimelineView
-              definition={parsed}
-              runtimeState={runtimeState}
-              onStepClick={handleStepClick}
-            />
-          ) : (
-            <p className="text-xs text-slate-500 italic px-2">No steps defined.</p>
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar p-6">
+        {adjusting ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-8">
+            <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
+            <p className="text-xs text-slate-500">Adjusting…</p>
+          </div>
+        ) : parsed ? (
+          <SopTimelineView
+            definition={parsed}
+            runtimeState={runtimeState}
+            onStepClick={handleStepClick}
+          />
+        ) : (
+          <p className="text-xs text-slate-500 italic px-2">No steps defined.</p>
+        )}
       </div>
 
-      <div className="border-t border-white/5 px-5 py-3.5 shrink-0">
-        <p className="text-[13px] text-slate-600 mb-2">Describe changes in natural language</p>
+      <div className="border-t border-white/[0.06] px-5 py-2.5 shrink-0">
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
@@ -119,15 +116,15 @@ export function SopWorkspaceCanvas({ sop, onRunFocus }: SopWorkspaceCanvasProps)
             value={nlInput}
             onChange={(e) => setNlInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="e.g. Add a review step after design…"
+            placeholder="Describe changes…"
             disabled={adjusting}
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[13px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40 disabled:opacity-50"
+            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-[13px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/40 focus:shadow-[0_0_12px_rgba(34,211,238,0.08)] disabled:opacity-40 transition-all"
           />
           <button
             type="button"
             onClick={() => void handleSend()}
             disabled={!nlInput.trim() || adjusting}
-            className="shrink-0 p-2 rounded-lg text-blue-400 hover:bg-blue-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="shrink-0 p-2 rounded-lg text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
             aria-label="Send"
           >
             <Send className="w-4 h-4" />
