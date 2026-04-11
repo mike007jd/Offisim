@@ -165,7 +165,7 @@ apps/
 
 ### Data Model & Zones
 
-- Zone ID: DB 格式 `companyId::slug`, 用 `templateToZone(t, companyId)` normalize, `extractZoneSlug()` 提取。`companyId` 必填, preview/create 模式传 `STUDIO_PREVIEW_COMPANY_ID` / `WIZARD_PREVIEW_COMPANY_ID` sentinel (shared-types/zone.ts)。跨 company 重写用 `reparentZoneId(companyId, zoneId)` —— 注意 `normalizeZoneId` 对已含 `::` 的输入是 pass-through, 不能用来重锚。`saveZonesToDb` 用 `reparentZoneId` 强制按真实 companyId 重写 sentinel 前缀, DB 永远看不到 sentinel。`zone-config.ts` 已废弃
+- Zone ID: DB 格式 `companyId::slug`, 用 `templateToZone(t, companyId)` normalize, `extractZoneSlug()` 提取。`companyId` 必填, preview/create 模式传 `STUDIO_PREVIEW_COMPANY_ID` / `WIZARD_PREVIEW_COMPANY_ID` sentinel (shared-types/zone.ts)。跨 company 重写用 `reparentZoneId(companyId, zoneId)` —— 注意 `normalizeZoneId` 对已含 `::` 的输入是 pass-through, 不能用来重锚。`saveZonesToDb` 用 `reparentZoneId` 强制按真实 companyId 重写 sentinel 前缀, DB 永远看不到 sentinel
 - Render layer zone 查找 (Office3DView / Office2DView / office3d-shared / scene-nav / useSceneOrchestrator / StudioState.updateZoneId) 有意保持 strict `z.zoneId === zoneId` ——  Track A (2026-04-11) 杀了 drift 源头 (StudioPage 两处 bare-slug fallback + templateToZone 空 guard), 所有流到 render 的 zone 都是 prefixed, 无需 fuzzy 比较。**例外**: `StudioState.addZoneFromPreset` 用 `crypto.randomUUID()` 作 zoneId (raw UUID, 无 `::`), Studio 内部 zone+instance 自洽, 保存时 `reparentZoneId` 重写成 `${companyId}::${uuid}`, 不会泄漏到 render layer。不要为了"一致性"把 raw UUID 改成 prefixed —— Studio 未保存状态没有真实 companyId, 跟 saveZonesToDb 的重写是互补的
 - 员工→zone 用 `resolveZoneForRole()` 按 targetRoles, 不要用 `ROLE_TO_DEPARTMENT`
 - 模板 `CompanyTemplate.zones?` 自定义, 无时 fallback `SYSTEM_ZONE_TEMPLATES` (7)。用 `createZoneBlueprint()` 工厂
