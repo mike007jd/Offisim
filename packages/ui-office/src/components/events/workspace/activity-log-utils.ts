@@ -3,10 +3,7 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 export type DatePreset = 'today' | '7d' | '30d' | 'custom';
 
 export function getEventId(event: RuntimeEvent): string {
-  // `event.type` is load-bearing: paired emits like `llm.call.completed` +
-  // `llm.usage.recorded` (see packages/core/src/llm/recorded-call.ts) share
-  // the same entityId (llmCallId) and land on the same Date.now() ms, so
-  // (timestamp, entityId) alone is not a unique identity.
+  // `type` is load-bearing: paired llm.call.completed + llm.usage.recorded share (ts, entityId).
   return `${event.timestamp}-${event.type}-${event.entityId ?? 'none'}`;
 }
 

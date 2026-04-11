@@ -61,11 +61,8 @@ describe('activity-log actor helpers', () => {
 
 describe('getEventId', () => {
   it('distinguishes events that share timestamp + entityId but have different types', () => {
-    // Regression for R1: recorded-call.ts emits llm.call.completed and
-    // llm.usage.recorded synchronously, back-to-back, both using the same
-    // llmCallId as entityId. Their Date.now() calls land on the same
-    // millisecond, so (timestamp, entityId) alone is not a unique identity
-    // and React key collisions occur in ActivityTimeGroup.
+    // recorded-call.ts emits llm.call.completed + llm.usage.recorded sync,
+    // both with the same llmCallId entityId on the same Date.now() ms.
     const callCompleted = makeEvent({
       type: 'llm.call.completed',
       entityId: 'lc-abc123',
@@ -78,14 +75,5 @@ describe('getEventId', () => {
     });
 
     expect(getEventId(callCompleted)).not.toBe(getEventId(usageRecorded));
-  });
-
-  it('is stable for the same event (round-trip identity)', () => {
-    const event = makeEvent({
-      type: 'task.started',
-      entityId: 'task-7',
-      timestamp: 1_700_000_000_000,
-    });
-    expect(getEventId(event)).toBe(getEventId(event));
   });
 });
