@@ -11,8 +11,8 @@ This folder contains migration packs and migration snapshots used by different p
 
 ## Current boundary
 
-- Desktop currently wires local migrations `001` through `019` from `offisim_migrations_local_v0.1/` in `apps/desktop/src-tauri/src/lib.rs`.
+- Desktop currently wires local migrations `001` through `021` from `offisim_migrations_local_v0.1/` in `apps/desktop/src-tauri/src/lib.rs`.
 - Structured thread synopsis persistence now lives in the package-local chain at `packages/db-local/src/migrations/014_memory_and_thread_synopsis.sql`.
-- Platform currently uses migrations `001` through `005`, including `005_better_auth.sql`.
+- Platform currently uses migrations `001` through `006`, including `005_better_auth.sql` and `006_user_library_unique.sql`.
 
-When these packs drift, the mounted app code and package migration directories win.
+This README is an overview only — the authoritative migration list is the `tauri_plugin_sql::Migration` array in `apps/desktop/src-tauri/src/lib.rs` (local) and the file list under `packages/db-platform/src/migrations/` (platform). When these packs drift, the mounted app code and package migration directories win.

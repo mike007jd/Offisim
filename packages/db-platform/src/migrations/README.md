@@ -7,5 +7,6 @@ Apply in lexical order.
 3. `003_publish_and_lineage.sql`
 4. `004_reviews_library_and_moderation.sql`
 5. `005_better_auth.sql`
+6. `006_user_library_unique.sql`
 
-These migrations target Postgres and reflect the marketplace/control-plane model.
+These migrations target Postgres and reflect the marketplace/control-plane model. The authoritative list is the file set in this directory — when this README drifts, the `.sql` files win.
