@@ -19,6 +19,3 @@ export const SOP_STEP_STATUS: Record<SopStepStatus, { label: string; color: stri
   failed: { label: '✗ Failed', color: 'text-red-400' },
   pending: { label: '○ Pending', color: 'text-slate-500' },
 };
-
-// pillClass moved to ui-utils.ts — re-export for backward compat
-export { pillClass } from './ui-utils';

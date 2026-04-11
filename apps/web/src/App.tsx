@@ -69,11 +69,13 @@ const OfficeWorkspaceShellLazy = React.lazy(() =>
     default: module.OfficeWorkspaceShell,
   })),
 );
-// TODO(Phase 7): MarketplaceDetailOverlay is a legacy overlay path. Primary market
-// inspection now happens inside MarketWorkspacePage (the full 3-pane workspace).
-// The `marketplaceListingId` state and this overlay are kept for deep-link installs
-// (offisim://install?listing_id=X) that may open a listing before the workspace
-// is navigated to. Remove once deep-link installs are routed through MarketWorkspacePage.
+// MarketplaceDetailOverlay is a legacy overlay path, intentionally kept.
+// Primary market inspection happens inside MarketWorkspacePage (the full 3-pane
+// workspace). This overlay + `marketplaceListingId` state exist only to handle
+// deep-link installs (offisim://install?listing_id=X) that open a listing before
+// the workspace is navigated to. No near-term plan to unify — routing deep-link
+// installs through MarketWorkspacePage would require a deep-link spec that
+// currently has no owner.
 
 interface AppProps {
   /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
@@ -265,7 +267,6 @@ export function App({ onCompanySwitch }: AppProps) {
     selectedEmployeeId,
     shortcutHelpOpen,
     view,
-    viewMode,
   ]);
 
   useEffect(() => {
