@@ -8,6 +8,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // drizzle-repositories.ts uses a `@offisim/db-local/dist/schema.js` subpath
+      // import; this must come BEFORE the generic `@offisim/db-local` alias so
+      // the longer prefix wins during vitest resolution.
+      '@offisim/db-local/dist/schema.js': path.resolve(
+        __dirname,
+        '../../packages/db-local/dist/schema.js',
+      ),
       '@offisim/db-local': path.resolve(__dirname, '../../packages/db-local/dist/index.js'),
       '@offisim/core/browser': path.resolve(__dirname, '../../packages/core/dist/browser.js'),
       '@offisim/core': path.resolve(__dirname, '../../packages/core/dist/index.js'),
