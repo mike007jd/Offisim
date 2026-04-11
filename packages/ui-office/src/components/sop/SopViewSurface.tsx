@@ -108,20 +108,25 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const stepIds = useMemo(() => definition?.steps.map((s) => s.step_id) ?? [], [definition]);
 
   // --- Deleted SOP recovery ---
-  const prevSelectedIdRef = useRef(sessionState.selectedSopId);
+  // Only treat "selectedSopId not in sops" as deletion if we have previously
+  // observed it *existing* in sops. Otherwise the first render after mount
+  // (sops=[] before useSops finishes loading, or StrictMode's double-run)
+  // would incorrectly fire a "deleted" toast for a SOP that is still loading.
+  const confirmedSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const prevId = prevSelectedIdRef.current;
-    prevSelectedIdRef.current = sessionState.selectedSopId;
+    const id = sessionState.selectedSopId;
+    if (!id || loading) return;
 
-    if (
-      sessionState.selectedSopId &&
-      !loading &&
-      !sops.find((s) => s.sopTemplateId === sessionState.selectedSopId)
-    ) {
-      if (prevId === sessionState.selectedSopId) {
-        addToast('The selected SOP was deleted.', 'info');
-      }
+    const existsInStore = sops.some((s) => s.sopTemplateId === id);
+    if (existsInStore) {
+      confirmedSelectedIdRef.current = id;
+      return;
+    }
+
+    if (confirmedSelectedIdRef.current === id) {
+      addToast('The selected SOP was deleted.', 'info');
+      confirmedSelectedIdRef.current = null;
       onSessionStateChange((prev) => {
         if (!prev.selectedSopId) return prev;
         return { ...prev, selectedSopId: null };
