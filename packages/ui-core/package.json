@@ -10,8 +10,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./styles": "./src/styles/tokens.css"
+    }
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",

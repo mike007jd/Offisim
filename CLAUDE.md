@@ -199,7 +199,6 @@ These are non-obvious code truths surfaced by the 5-agent source-level audit. Au
 - **platform fork 谱系**用 WITH RECURSIVE CTE 上下追 10 层 (`routes/market.ts:421-520`)
 - **scene 第二次崩溃硬锁 2D**: 之后即使用户手动切回也无效 (`SceneCanvas.tsx:81-134`)
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
-- **ui-core `./styles` export 悬空**: `package.json` 导出 `src/styles/tokens.css` 但**该文件不存在**。当前没人 import, 一旦 import 就炸
 - **doc-engine 的 xlsx** 来自 `cdn.sheetjs.com` (运行时拉, 不是 npm) — SheetJS 许可原因
 - **renderer 与 ui-office 的 prefab**: `renderer/prefab/builtin-catalog.ts` 是**目录定义**(190+ frozen 对象), `ui-office/lib/prefab-spatial.ts` 是**空间 spec** (footprint/anchor/rotation), 两者通过 prefabId 关联但互不依赖。新增 prefab 必须在两边各加一份
 - **CI gate 只有本地 husky**: 无 `.github/workflows/`。`.husky/pre-commit` 跑 `biome check --staged`（依赖 biome.json 的 `vcs` 块解析 staged 文件）。typecheck / test 不在 hook 里跑（太慢），仍靠开发者自觉。`--staged` 模式只检查本次改动，避免 legacy lint debt 阻塞新 commit。需要跳过时 `git commit --no-verify`
