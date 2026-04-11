@@ -108,10 +108,10 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     setSelectedSourceId(employee.employee_id);
     setForm((prev) => ({
       ...prev,
-      title: prev.title || employee.name,
-      summary: prev.summary || `Employee package for ${employee.name}.`,
-      description: prev.description || `Reusable employee configuration for ${employee.name}.`,
-      tags: prev.tags || employee.role_slug,
+      title: employee.name,
+      summary: `Employee package for ${employee.name}.`,
+      description: `Reusable employee configuration for ${employee.name}.`,
+      tags: employee.role_slug,
       riskClass: 'data_asset',
     }));
   }, [employees, open, selectedSourceId]);
@@ -431,10 +431,6 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-sm font-semibold text-white">Current draft preview</p>
               <dl className="mt-3 space-y-2 text-xs text-slate-400">
-                <div>
-                  <dt className="text-slate-500">Kind</dt>
-                  <dd className="text-slate-200">employee</dd>
-                </div>
                 <div>
                   <dt className="text-slate-500">Title</dt>
                   <dd className="text-slate-200">{form.title || 'Untitled package'}</dd>

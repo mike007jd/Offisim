@@ -15,10 +15,9 @@ function nextRotation(current: 0 | 90 | 180 | 270): 0 | 90 | 180 | 270 {
 }
 
 /**
- * Zone IDs can drift between DB format (`companyId::slug`) and slug-only when
- * the store is populated from mixed sources. Return a predicate that matches
- * a candidate id against the target — slug is pre-split once so hot-path
- * mutators (60fps drag) don't re-parse every iteration.
+ * Zone IDs drift between DB format (`companyId::slug`) and slug-only when the
+ * store is populated from mixed sources. Pre-splits the target slug once so
+ * hot-path mutators (60fps drag) don't re-parse on every iteration.
  */
 function matchZoneId(targetId: string): (otherId: string) => boolean {
   const targetSlug = extractZoneSlug(targetId);

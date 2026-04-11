@@ -91,7 +91,7 @@ function isBlockedByFootprint(
   x: number,
   z: number,
   footprints: readonly ZoneFootprint[],
-  ignoreInstanceId?: string | null,
+  ignoreInstanceId?: string,
 ) {
   return footprints.some((footprint) => {
     if (ignoreInstanceId && footprint.instanceId === ignoreInstanceId) {
