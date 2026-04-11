@@ -45,7 +45,6 @@ packages/
   install-core    — 安装状态机 + planner + materializer
   asset-schema    — Manifest 校验 (AJV)
   registry-client — Marketplace API 客户端
-  channels        — 通信渠道抽象
 apps/
   web             — Vite + React 19 SPA (浏览器版)
   desktop         — Tauri 2 桌面应用
@@ -129,11 +128,11 @@ apps/
 
 ### Core Runtime
 
-- `HookRegistry` (异步扩展钩子) ≠ `EventBus` (同步 UI 通知), 不要合并
+- `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。图节点常常两个都 emit
 - `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
-- `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`
-- Boss node JSON 路由两层防御: (1) prompt 规则 (2) `TASK_KEYWORDS` 正则。修改时两层同步
-- `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 不要加独立 middleware
+- `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`。**原因**: runtime 拆双 Context (`OffisimRuntimeContext` 稳定 + `OffisimRuntimeStatusContext` 易变), `version` 是后者的 bump 计数器, 不放 deps 闭包会陈旧
+- Boss node JSON 路由 **三层** 防御: (1) `BOSS_SYSTEM_PROMPT` 规则 (boss-node.ts:35-76) (2) `TASK_KEYWORDS` 正则兜底 (208-218) (3) `targetEmployeeId` / `sopTemplateId` 有效性校验 (221-236)。修改时三层同步
+- `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 
@@ -143,7 +142,7 @@ apps/
 - 不要绕过 `useWorkspaceBackNavigation` 直接操作 history
 - `MarketplaceDetailOverlay` 仅保留给 deep-link install, 其余走 workspace page
 - `RegistryClient.hasAuthToken`: 调用认证端点（`/me`, `/drafts`）前必须检查, 无 token 时跳过请求
-- `INSTALLABLE_KINDS` (marketplace-meta.tsx): Install 按钮只对 `employee`/`skill` 显示, 其余 kind 渲染 disabled 提示
+- `INSTALLABLE_KINDS` (marketplace-meta.tsx): 只有 `employee`。Skill 是 `employee.config_json.capabilityIndex` 的嵌入能力包, 不是独立可装实体。`PublishDialog` 只发布 employee, `KIND_FILTERS` 只有 `all`/`employee` 两项。sop / company_template / office_layout / prefab / bundle 的 publish / install 路径都不存在
 - `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
 - `OfficeWorkspaceShell` props 三组: `navigation`, `employee`, `sceneView`
 
@@ -174,7 +173,7 @@ apps/
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
 - `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
-- Marketplace 安装仅支持 `employee`/`skill`, 其余 materializer 未完成
+- Marketplace 安装**实际只有 employee 物化路径** (`materializer.ts:195-207` 唯一分支)。Skill 不是独立实体, 是嵌入到 employee `config_json.capabilityIndex` 的能力包 (L74-98)。CLAUDE.md 早期"支持 employee/skill"措辞误导。sop / company_template / office_layout / prefab 全部未完成
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 - `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
 - `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100
@@ -188,6 +187,23 @@ apps/
 - Rate limiter 只信 `X-Forwarded-For` 最右第 N 个 IP (`TRUSTED_PROXY_DEPTH`), 不信 `X-Real-IP`
 - creator 所有权走 `requireCreator` 中间件, 用 `getRequiredCreatorId(c)` / `findCreatorIdByUserId()`。`/me` 例外, 注册在 requireCreator 之前
 - 测试 `createMockDb([results])` 按 callIndex 消费。加 middleware 前置 DB 查询会导致 mock 错位, 需同步调整
+
+### Source-Verified Facts (2026-04-11 audit)
+
+These are non-obvious code truths surfaced by the 5-agent source-level audit. Authoritative when in conflict with prose elsewhere.
+
+- **desktop 内置 MCP bridge**: `apps/desktop/src-tauri/src/lib.rs:155` 注册 `mcp_bridge::init()` 插件 — desktop 有 web 没有的 MCP 能力。21 条 SQLite 迁移列在 lib.rs:6-137
+- **desktop 是纯 Tauri 壳**: 零 npm deps, frontendDist 直接指 `../../web/dist`, 无独立前端
+- **platform 没有后台队列**: `routes/publish.ts:251-309` Submit 同步调 `processModerationJob()` 立即返 202
+- **platform 用 SHA-256 哈希存 API token** (不是明文); Better Auth 自动 upsert Offisim user; email 冲突设 `authLinkConflict=true`
+- **platform fork 谱系**用 WITH RECURSIVE CTE 上下追 10 层 (`routes/market.ts:421-520`)
+- **scene 第二次崩溃硬锁 2D**: 之后即使用户手动切回也无效 (`SceneCanvas.tsx:81-134`)
+- **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
+- **ui-core `./styles` export 悬空**: `package.json` 导出 `src/styles/tokens.css` 但**该文件不存在**。当前没人 import, 一旦 import 就炸
+- **doc-engine 的 xlsx** 来自 `cdn.sheetjs.com` (运行时拉, 不是 npm) — SheetJS 许可原因
+- **renderer 与 ui-office 的 prefab**: `renderer/prefab/builtin-catalog.ts` 是**目录定义**(190+ frozen 对象), `ui-office/lib/prefab-spatial.ts` 是**空间 spec** (footprint/anchor/rotation), 两者通过 prefabId 关联但互不依赖。新增 prefab 必须在两边各加一份
+- **CI gate 只有本地 husky**: 无 `.github/workflows/`。`.husky/pre-commit` 跑 `biome check --staged`（依赖 biome.json 的 `vcs` 块解析 staged 文件）。typecheck / test 不在 hook 里跑（太慢），仍靠开发者自觉。`--staged` 模式只检查本次改动，避免 legacy lint debt 阻塞新 commit。需要跳过时 `git commit --no-verify`
+- **Repository 三套手写副本** (drizzle 1714L / memory 1508L / tauri 1657L) — 任何 repo 接口变更必须三处同步。`apps/web/src/__tests__/unit/repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等，memory 必须是超集（class 实现 helper 如 `snapshot`/`key`/`setActive` 允许）。使用时直接 `import from '../../../../../packages/core/dist/...'` 绕过 vitest 的 `@offisim/core` alias 前缀吞噬子路径
 
 ## License and Key Model
 

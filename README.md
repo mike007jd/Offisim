@@ -75,7 +75,7 @@ Current application/package shape:
 - `packages/renderer` — scene tokens, layout engine, prefab/state logic
 - `packages/ui-office` — office shell and scene views (`Three.js` 3D + `SVG` 2D)
 - `packages/ui-core` — shared DOM primitives
-- `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `channels` / `doc-engine` — contracts and support layers
+- `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `doc-engine` — contracts and support layers
 
 ## Document map
 
