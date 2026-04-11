@@ -1,5 +1,4 @@
 import type { SopDefinition } from '@offisim/shared-types';
-import { formatShortDate, formatShortDateTime } from './format-time';
 
 /** Parse a SopDefinition JSON string, returning null if invalid or empty. */
 export function parseSopDefinition(json: string): SopDefinition | null {
@@ -10,12 +9,6 @@ export function parseSopDefinition(json: string): SopDefinition | null {
     return null;
   }
 }
-
-/** @deprecated Use `formatShortDate` from `format-time.ts` */
-export const formatSopDate = formatShortDate;
-
-/** @deprecated Use `formatShortDateTime` from `format-time.ts` */
-export const formatSopDateTime = formatShortDateTime;
 
 export type SopStepStatus = 'pending' | 'active' | 'completed' | 'failed';
 
