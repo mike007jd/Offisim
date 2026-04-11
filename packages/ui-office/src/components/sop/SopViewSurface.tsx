@@ -43,6 +43,29 @@ export interface SopViewSurfaceProps {
 
 const noop = () => {};
 
+/**
+ * Pure decision for the "SOP deleted" recovery effect. Extracted for unit
+ * testing — the effect wraps this with refs + side-effects.
+ *
+ * Contract: a SOP is only treated as "deleted" after we have observed it
+ * existing in `sopIds` at least once (`confirmedId === selectedId`). First
+ * render / StrictMode double-run paths land in `'noop'`.
+ */
+export type SopSelectionAction = 'noop' | 'confirm' | 'toast-and-reset';
+
+export function decideSopSelectionAction(input: {
+  selectedId: string | null;
+  loading: boolean;
+  sopIds: readonly string[];
+  confirmedId: string | null;
+}): SopSelectionAction {
+  const { selectedId, loading, sopIds, confirmedId } = input;
+  if (!selectedId || loading) return 'noop';
+  if (sopIds.includes(selectedId)) return 'confirm';
+  if (confirmedId === selectedId) return 'toast-and-reset';
+  return 'noop';
+}
+
 function validateNoCycles(def: SopDefinition): boolean {
   try {
     const batches = getExecutionBatches(def);
@@ -108,30 +131,29 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const stepIds = useMemo(() => definition?.steps.map((s) => s.step_id) ?? [], [definition]);
 
   // --- Deleted SOP recovery ---
-  // Only treat "selectedSopId not in sops" as deletion if we have previously
-  // observed it *existing* in sops. Otherwise the first render after mount
-  // (sops=[] before useSops finishes loading, or StrictMode's double-run)
-  // would incorrectly fire a "deleted" toast for a SOP that is still loading.
+  // Only fire "deleted" after observing the id existing in sops — guards
+  // against first-frame empty sops and StrictMode effect double-runs.
   const confirmedSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const id = sessionState.selectedSopId;
-    if (!id || loading) return;
+    const action = decideSopSelectionAction({
+      selectedId: sessionState.selectedSopId,
+      loading,
+      sopIds: sops.map((s) => s.sopTemplateId),
+      confirmedId: confirmedSelectedIdRef.current,
+    });
 
-    const existsInStore = sops.some((s) => s.sopTemplateId === id);
-    if (existsInStore) {
-      confirmedSelectedIdRef.current = id;
+    if (action === 'noop') return;
+    if (action === 'confirm') {
+      confirmedSelectedIdRef.current = sessionState.selectedSopId;
       return;
     }
-
-    if (confirmedSelectedIdRef.current === id) {
-      addToast('The selected SOP was deleted.', 'info');
-      confirmedSelectedIdRef.current = null;
-      onSessionStateChange((prev) => {
-        if (!prev.selectedSopId) return prev;
-        return { ...prev, selectedSopId: null };
-      });
-    }
+    addToast('The selected SOP was deleted.', 'info');
+    confirmedSelectedIdRef.current = null;
+    onSessionStateChange((prev) => {
+      if (!prev.selectedSopId) return prev;
+      return { ...prev, selectedSopId: null };
+    });
   }, [sops, loading, sessionState.selectedSopId, onSessionStateChange, addToast]);
 
   // --- Mutation helper: update definition and persist ---
