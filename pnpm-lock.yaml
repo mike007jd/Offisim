@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.0
         version: 1.9.4
+      husky:
+        specifier: ^9.1.7
+        version: 9.1.7
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
@@ -218,19 +221,6 @@ importers:
       ajv:
         specifier: ^8.17.0
         version: 8.18.0
-    devDependencies:
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      vitest:
-        specifier: ^3.0.0
-        version: 3.2.4(@types/node@25.3.5)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(tsx@4.21.0)
-
-  packages/channels:
-    dependencies:
-      '@offisim/core':
-        specifier: workspace:*
-        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.7.0
@@ -3453,6 +3443,11 @@ packages:
 
   https@1.0.0:
     resolution: {integrity: sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==}
+
+  husky@9.1.7:
+    resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -7178,6 +7173,8 @@ snapshots:
       - supports-color
 
   https@1.0.0: {}
+
+  husky@9.1.7: {}
 
   iconv-lite@0.6.3:
     dependencies:

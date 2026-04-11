@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# --staged only: the repo carries legacy lint debt in files unrelated to most
+# commits, and a full-repo check would block every commit on it. Typecheck and
+# tests stay in the dev loop because a slow hook just teaches people --no-verify.
+
+pnpm exec biome check --staged --no-errors-on-unmatched
