@@ -16,6 +16,14 @@ export type ActivityType = 'work' | 'collaborate' | 'rest' | 'compute' | 'learn'
 /** Sentinel zone_id for instances not yet assigned to a real zone. */
 export const UNASSIGNED_ZONE_ID = 'unassigned';
 
+/**
+ * Sentinel companyIds for preview/create contexts that don't yet have a real
+ * company UUID. Zones produced with these prefixes stay internally consistent
+ * and get rewritten to the real companyId at save time via `reparentZoneId`.
+ */
+export const STUDIO_PREVIEW_COMPANY_ID = 'studio-preview';
+export const WIZARD_PREVIEW_COMPANY_ID = 'wizard-preview';
+
 // ── DB row shape ───────────────────────────────────────────────────
 
 /** Mirrors the `zones` table in db-local. */

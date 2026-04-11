@@ -184,7 +184,11 @@ export type {
   Zone,
   SystemZoneTemplate,
 } from './zone.js';
-export { UNASSIGNED_ZONE_ID } from './zone.js';
+export {
+  UNASSIGNED_ZONE_ID,
+  STUDIO_PREVIEW_COMPANY_ID,
+  WIZARD_PREVIEW_COMPANY_ID,
+} from './zone.js';
 
 export {
   SYSTEM_ZONE_TEMPLATES,
@@ -225,6 +229,7 @@ export type { ZoneMatch } from './zone-resolution.js';
 export {
   normalizeZoneId,
   extractZoneSlug,
+  reparentZoneId,
   isInsideZone,
   resolveZoneForPosition,
   resolveZoneForRole,

@@ -213,11 +213,13 @@ export function findSystemTemplate(slug: string): SystemZoneTemplate | undefined
   return SYSTEM_ZONE_TEMPLATES.find((t) => t.slug === slug);
 }
 
-/** Convert a SystemZoneTemplate to a Zone object. */
+/**
+ * Convert a SystemZoneTemplate to a Zone object. `companyId` must be
+ * non-empty; preview callers pass a sentinel (see `STUDIO_PREVIEW_COMPANY_ID`
+ * / `WIZARD_PREVIEW_COMPANY_ID`).
+ */
 export function templateToZone(t: SystemZoneTemplate, companyId: string): Zone {
-  // Guard: empty companyId (preview/wizard mode) returns bare slug instead of
-  // malformed '::slug' that normalizeZoneId would produce.
-  const zoneId = companyId ? normalizeZoneId(companyId, t.slug) : t.slug;
+  const zoneId = normalizeZoneId(companyId, t.slug);
   return {
     zoneId,
     companyId,

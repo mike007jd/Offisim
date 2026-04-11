@@ -12,7 +12,13 @@ import { UNASSIGNED_ZONE_ID } from './zone.js';
 
 // ── Zone ID helpers ───────────────────────────────────────────────
 
-/** Ensure a zone ID has the `companyId::slug` format used in the DB. */
+/**
+ * Ensure a zone ID has the `companyId::slug` format.
+ *
+ * Note: if `zoneId` already contains `::`, it is returned verbatim — even if
+ * the prefix is a foreign companyId. For reparenting (e.g. sentinel →
+ * real UUID at save time), use `reparentZoneId` instead.
+ */
 export function normalizeZoneId(companyId: string, zoneId: string): string {
   return zoneId.includes('::') ? zoneId : `${companyId}::${zoneId}`;
 }
@@ -21,6 +27,15 @@ export function normalizeZoneId(companyId: string, zoneId: string): string {
 export function extractZoneSlug(zoneId: string): string {
   const parts = zoneId.split('::');
   return parts[parts.length - 1] ?? zoneId;
+}
+
+/**
+ * Re-anchor a zone ID onto `companyId`, stripping any existing prefix first.
+ * Use when absorbing zones from a foreign source (sentinel preview, fork,
+ * import) and persisting them to the current company.
+ */
+export function reparentZoneId(companyId: string, zoneId: string): string {
+  return normalizeZoneId(companyId, extractZoneSlug(zoneId));
 }
 
 // ── Zone matching ─────────────────────────────────────────────────

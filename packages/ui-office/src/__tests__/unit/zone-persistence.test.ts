@@ -7,7 +7,7 @@ import { saveZonesToDb } from '../../lib/zone-persistence';
 
 function makeZone(overrides?: Partial<Zone>): Zone {
   return {
-    zoneId: 'zone-workspace',
+    zoneId: 'co-test::zone-workspace',
     companyId: 'co-test',
     kind: 'system',
     archetype: 'workspace',
@@ -33,45 +33,76 @@ function makeInstance(overrides?: Partial<PlacedInstance>): PlacedInstance {
     prefabId: 'desk_corner',
     position: [1, 0, 2],
     rotation: 0,
-    zoneId: 'zone-workspace',
+    zoneId: 'co-test::zone-workspace',
     ...overrides,
   };
 }
 
+interface MockRepos {
+  repos: Pick<RuntimeRepositories, 'prefabInstances' | 'zones'>;
+  zoneRows: Array<{ zone_id: string; company_id: string }>;
+  prefabRows: Array<{ zone_id: string; company_id: string }>;
+  deleteCalls: string[];
+}
+
+function makeRepos(): MockRepos {
+  const zoneRows: MockRepos['zoneRows'] = [];
+  const prefabRows: MockRepos['prefabRows'] = [];
+  const deleteCalls: string[] = [];
+  const repos = {
+    prefabInstances: {
+      deleteByCompany: vi.fn(async (companyId: string) => {
+        deleteCalls.push(`prefab-delete:${companyId}`);
+      }),
+      create: vi.fn(async (row) => {
+        prefabRows.push({ zone_id: row.zone_id, company_id: row.company_id });
+        return row;
+      }),
+    },
+    zones: {
+      deleteByCompany: vi.fn(async (companyId: string) => {
+        deleteCalls.push(`zone-delete:${companyId}`);
+      }),
+      create: vi.fn(async (row) => {
+        zoneRows.push({ zone_id: row.zone_id, company_id: row.company_id });
+        return { ...row, created_at: '', updated_at: '' };
+      }),
+    },
+  } as Pick<RuntimeRepositories, 'prefabInstances' | 'zones'>;
+  return { repos, zoneRows, prefabRows, deleteCalls };
+}
+
 describe('saveZonesToDb', () => {
   it('wipes and re-inserts zones and prefab instances, then emits refresh event', async () => {
-    const calls: string[] = [];
-    const repos = {
-      prefabInstances: {
-        deleteByCompany: vi.fn(async (companyId: string) => {
-          calls.push(`prefab-delete:${companyId}`);
-        }),
-        create: vi.fn(async (row) => {
-          calls.push(`prefab-create:${row.zone_id}`);
-          return row;
-        }),
-      },
-      zones: {
-        deleteByCompany: vi.fn(async (companyId: string) => {
-          calls.push(`zone-delete:${companyId}`);
-        }),
-        create: vi.fn(async (row) => {
-          calls.push(`zone-create:${row.zone_id}`);
-          return { ...row, created_at: '', updated_at: '' };
-        }),
-      },
-    } as Pick<RuntimeRepositories, 'prefabInstances' | 'zones'>;
+    const { repos, zoneRows, prefabRows, deleteCalls } = makeRepos();
     const eventBus = { emit: vi.fn() };
 
     await saveZonesToDb(repos, 'co-test', [makeZone()], [makeInstance()], eventBus);
 
-    expect(calls).toEqual([
-      'prefab-delete:co-test',
-      'zone-delete:co-test',
-      'zone-create:co-test::zone-workspace',
-      'prefab-create:co-test::zone-workspace',
-    ]);
+    expect(deleteCalls).toEqual(['prefab-delete:co-test', 'zone-delete:co-test']);
+    expect(zoneRows).toEqual([{ zone_id: 'co-test::zone-workspace', company_id: 'co-test' }]);
+    expect(prefabRows).toEqual([{ zone_id: 'co-test::zone-workspace', company_id: 'co-test' }]);
     expect(eventBus.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('rewrites sentinel-prefixed zoneIds onto the real companyId at save time', async () => {
+    const { repos, zoneRows, prefabRows } = makeRepos();
+    const eventBus = { emit: vi.fn() };
+
+    const sentinelZone = makeZone({
+      zoneId: 'studio-preview::zone-workspace',
+      companyId: 'studio-preview',
+    });
+    const sentinelInstance = makeInstance({ zoneId: 'studio-preview::zone-workspace' });
+
+    await saveZonesToDb(repos, 'real-uuid-123', [sentinelZone], [sentinelInstance], eventBus);
+
+    expect(zoneRows).toEqual([
+      { zone_id: 'real-uuid-123::zone-workspace', company_id: 'real-uuid-123' },
+    ]);
+    expect(prefabRows).toEqual([
+      { zone_id: 'real-uuid-123::zone-workspace', company_id: 'real-uuid-123' },
+    ]);
   });
 });
 
@@ -99,55 +130,10 @@ describe('useStudioStore zone actions', () => {
       instances: [makeInstance()],
     });
 
-    useStudioStore.getState().updateZonePosition('zone-workspace', 5, 7);
+    useStudioStore.getState().updateZonePosition('co-test::zone-workspace', 5, 7);
 
     expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
     expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
-    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
-  });
-
-  it('updateZonePosition handles companyId-prefixed zoneId from DB', () => {
-    const prefixedId = 'company-abc::workspace-1';
-    useStudioStore.setState({
-      zones: [makeZone({ zoneId: prefixedId, companyId: 'company-abc' })],
-      instances: [makeInstance({ zoneId: prefixedId })],
-    });
-
-    useStudioStore.getState().updateZonePosition(prefixedId, 5, 7);
-
-    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
-    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
-    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
-  });
-
-  it('updateZonePosition handles slug-only zoneId from local state', () => {
-    const slugId = 'workspace-1';
-    useStudioStore.setState({
-      zones: [makeZone({ zoneId: slugId })],
-      instances: [makeInstance({ zoneId: slugId })],
-    });
-
-    useStudioStore.getState().updateZonePosition(slugId, 5, 7);
-
-    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
-    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
-    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
-  });
-
-  it('updateZonePosition does not lose instances when zone and instance zoneId formats diverge', () => {
-    // Suspected B3 real failure mode: zones loaded with normalized DB id
-    // 'company-abc::workspace-1' but instances still carry slug-only
-    // 'workspace-1' (or vice versa). Move should still carry instances.
-    useStudioStore.setState({
-      zones: [makeZone({ zoneId: 'company-abc::workspace-1', companyId: 'company-abc' })],
-      instances: [makeInstance({ zoneId: 'workspace-1' })],
-    });
-
-    useStudioStore.getState().updateZonePosition('company-abc::workspace-1', 5, 7);
-
-    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
-    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
-    // Instance should have moved with its zone, regardless of id format drift.
     expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
   });
 

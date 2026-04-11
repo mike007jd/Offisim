@@ -9,7 +9,11 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { hydrateZone } from '@offisim/core/browser';
 
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
+import {
+  STUDIO_PREVIEW_COMPANY_ID,
+  SYSTEM_ZONE_TEMPLATES,
+  templateToZone,
+} from '@offisim/shared-types';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
@@ -200,7 +204,7 @@ export function StudioPage(props: StudioPageProps) {
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [loading, setLoading] = useState(mode === 'edit');
+  const [loading, setLoading] = useState(mode === 'edit' || !props.repos);
 
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
@@ -239,12 +243,9 @@ export function StudioPage(props: StudioPageProps) {
     async function loadStudioState() {
       const store = useStudioStore.getState();
 
-      if (!repos) {
-        store.loadZonesFromDb(SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, '')));
-        store.setInstances([]);
-        setLoading(false);
-        return;
-      }
+      // Runtime not ready: initial loading state is already true; wait for
+      // the effect to re-run once repos arrives.
+      if (!repos) return;
 
       if (companyId) {
         setLoading(true);
@@ -273,8 +274,10 @@ export function StudioPage(props: StudioPageProps) {
         return;
       }
 
-      // Truly blank create mode: populate default templates so placement can resolve.
-      store.loadZonesFromDb(SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, '')));
+      // Blank create mode: sentinel prefix; saveZonesToDb rewrites to real UUID.
+      store.loadZonesFromDb(
+        SYSTEM_ZONE_TEMPLATES.map((t) => templateToZone(t, STUDIO_PREVIEW_COMPANY_ID)),
+      );
       store.setInstances([]);
       setLoading(false);
     }

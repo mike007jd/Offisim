@@ -1,6 +1,6 @@
 import { type RuntimeRepositories, dehydrateZone } from '@offisim/core/browser';
 import type { PrefabStateChangedPayload, RuntimeEvent, Zone } from '@offisim/shared-types';
-import { normalizeZoneId } from '@offisim/shared-types';
+import { reparentZoneId } from '@offisim/shared-types';
 import type { PlacedInstance } from '../components/studio/StudioState.js';
 
 const STUDIO_TEMP_PREFIX = 'sp-';
@@ -21,12 +21,12 @@ export async function saveZonesToDb(
 
   const zoneIdMap = new Map<string, string>();
   for (const [index, zone] of zones.entries()) {
-    const normalizedZoneId = normalizeZoneId(companyId, zone.zoneId);
-    zoneIdMap.set(zone.zoneId, normalizedZoneId);
+    const reparentedZoneId = reparentZoneId(companyId, zone.zoneId);
+    zoneIdMap.set(zone.zoneId, reparentedZoneId);
     await repos.zones.create(
       dehydrateZone({
         ...zone,
-        zoneId: normalizedZoneId,
+        zoneId: reparentedZoneId,
         companyId,
         sortOrder: index,
       }),
@@ -39,7 +39,7 @@ export async function saveZonesToDb(
       instance_id: instance.id.startsWith(STUDIO_TEMP_PREFIX) ? crypto.randomUUID() : instance.id,
       company_id: companyId,
       prefab_id: instance.prefabId,
-      zone_id: zoneIdMap.get(instance.zoneId) ?? normalizeZoneId(companyId, instance.zoneId),
+      zone_id: zoneIdMap.get(instance.zoneId) ?? reparentZoneId(companyId, instance.zoneId),
       position_x: Number.parseFloat(instance.position[0].toFixed(4)),
       position_y: Number.parseFloat(instance.position[2].toFixed(4)),
       rotation: instance.rotation,

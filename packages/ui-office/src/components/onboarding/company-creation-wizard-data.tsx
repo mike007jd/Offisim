@@ -2,13 +2,19 @@ import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
 import type { CompanyTemplate } from '@offisim/core/browser';
 import type { Zone } from '@offisim/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
+import {
+  SYSTEM_ZONE_TEMPLATES,
+  WIZARD_PREVIEW_COMPANY_ID,
+  templateToZone,
+} from '@offisim/shared-types';
 import { Brain, Briefcase, FlaskConical, PenTool, Rocket, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function getTemplatePreviewZones(template?: CompanyTemplate | null): Zone[] {
   const zoneTemplates = template?.zones ?? SYSTEM_ZONE_TEMPLATES;
-  return zoneTemplates.map((zoneTemplate) => templateToZone(zoneTemplate, ''));
+  return zoneTemplates.map((zoneTemplate) =>
+    templateToZone(zoneTemplate, WIZARD_PREVIEW_COMPANY_ID),
+  );
 }
 
 export function getTemplateZoneSummary(template: CompanyTemplate): string[] {

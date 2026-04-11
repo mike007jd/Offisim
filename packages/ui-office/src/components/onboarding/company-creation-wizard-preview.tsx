@@ -1,6 +1,6 @@
 import type { CompanyTemplate } from '@offisim/core/browser';
 import type { RoleSlug } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, extractZoneSlug, resolveZoneForRole } from '@offisim/shared-types';
 import { useMemo, useState } from 'react';
 import {
   ROLE_DOT,
@@ -372,11 +372,12 @@ function computeTemplateZones(template: CompanyTemplate) {
   const layoutZones = getTemplatePreviewZones(template);
   if (layoutZones.length === 0) return [];
 
+  // ZONE_TOOLTIPS and TEMPLATE_META.highlightZones key by bare slug.
   const employeeCounts = new Map<string, number>();
   for (const employee of template.employees) {
     const matched = resolveZoneForRole(employee.role_slug as RoleSlug, layoutZones);
-    const zoneId = matched?.zoneId ?? UNASSIGNED_ZONE_ID;
-    employeeCounts.set(zoneId, (employeeCounts.get(zoneId) ?? 0) + 1);
+    const slug = matched ? extractZoneSlug(matched.zoneId) : UNASSIGNED_ZONE_ID;
+    employeeCounts.set(slug, (employeeCounts.get(slug) ?? 0) + 1);
   }
 
   const minX = Math.min(...layoutZones.map((zone) => zone.cx - zone.w / 2));
@@ -386,18 +387,21 @@ function computeTemplateZones(template: CompanyTemplate) {
   const scale = Math.min((W - PAD * 2) / (maxX - minX || 1), (H - PAD * 2) / (maxZ - minZ || 1));
 
   return layoutZones
-    .map((zone, index) => ({
-      id: zone.zoneId,
-      label: zone.label,
-      accent: zone.accentColor,
-      archetype: zone.archetype,
-      x: PAD + (zone.cx - zone.w / 2 - minX) * scale,
-      y: PAD + (zone.cz - zone.d / 2 - minZ) * scale,
-      w: zone.w * scale,
-      h: zone.d * scale,
-      empCount: employeeCounts.get(zone.zoneId) ?? 0,
-      sortOrder: zone.sortOrder ?? index,
-    }))
+    .map((zone, index) => {
+      const slug = extractZoneSlug(zone.zoneId);
+      return {
+        id: slug,
+        label: zone.label,
+        accent: zone.accentColor,
+        archetype: zone.archetype,
+        x: PAD + (zone.cx - zone.w / 2 - minX) * scale,
+        y: PAD + (zone.cz - zone.d / 2 - minZ) * scale,
+        w: zone.w * scale,
+        h: zone.d * scale,
+        empCount: employeeCounts.get(slug) ?? 0,
+        sortOrder: zone.sortOrder ?? index,
+      };
+    })
     .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
@@ -423,10 +427,10 @@ export function Office2DPreview({
     const map = new Map<string, typeof template.employees>();
     for (const employee of template.employees) {
       const matched = resolveZoneForRole(employee.role_slug as RoleSlug, previewZones);
-      const zoneId = matched?.zoneId ?? UNASSIGNED_ZONE_ID;
-      const list = map.get(zoneId) ?? [];
+      const slug = matched ? extractZoneSlug(matched.zoneId) : UNASSIGNED_ZONE_ID;
+      const list = map.get(slug) ?? [];
       list.push(employee);
-      map.set(zoneId, list);
+      map.set(slug, list);
     }
     return map;
   }, [template]);
