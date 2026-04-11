@@ -232,7 +232,6 @@ That document defines:
 - procedural art boundaries
 - motion intensity and performance budgets
 
-For concrete scene-state mappings and animation task breakdowns, also use:
+For concrete scene-state mappings, also use:
 
 - `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
-- `/Docs/04_runtime_experience/ANIMATION_BACKLOG.md`

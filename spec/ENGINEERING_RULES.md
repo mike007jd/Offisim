@@ -175,7 +175,6 @@ Engineering rule:
 - avoid hidden animation logic that invents business state on the client
 - keep theatrical presentation data-driven and degradable under performance pressure
 
-If implementation work needs exact scene-state mapping or animation task sequencing, also read:
+If implementation work needs exact scene-state mapping, also read:
 
 - `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
-- `/Docs/04_runtime_experience/ANIMATION_BACKLOG.md`

@@ -221,7 +221,6 @@ or install/import review flows inside the runtime shell, read `/Docs/04_runtime_
 That file is the source of truth for the richer game-feel layer of the product.
 It does not add gameplay systems; it defines presentation systems.
 
-For explicit runtime-state rendering and concrete animation work items, also use:
+For explicit runtime-state rendering, also use:
 
 - `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
-- `/Docs/04_runtime_experience/ANIMATION_BACKLOG.md`

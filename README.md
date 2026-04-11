@@ -17,8 +17,6 @@ Recommended Docker flow:
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-Release assets such as screenshots and GIFs can live under `docs/assets/screenshots/` as they are produced.
-
 ## Quick Start
 
 If you are pulling this repo onto a new machine, start here:
@@ -112,7 +110,6 @@ Implementation truth still lives in the mounted route files and Drizzle schema/m
 
 - `Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`
 - `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
-- `Docs/04_runtime_experience/ANIMATION_BACKLOG.md`
 
 ## Recommended reading order for AI agents
 
@@ -141,7 +138,7 @@ If a task is about...
 - **runtime behavior, orchestration, local state, installs** → start with `ENGINEERING_RULES`, contracts, and schemas
 - **visual language or marketplace presentation** → start with `DESIGN_RULES`
 - **user flows, trust, readability, accessibility** → start with `UX_RULES`
-- **office scene animation or rich feedback** → start with the GDD, then `SCENE_STATE_MATRIX`, then `ANIMATION_BACKLOG`
+- **office scene animation or rich feedback** → start with the GDD, then `SCENE_STATE_MATRIX`
 - **platform publish / listing / versions / reviews** → start with OpenAPI and platform schema
 
 ## Important guardrails

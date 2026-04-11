@@ -102,4 +102,3 @@ It does not override constitution-level rules or machine-readable contracts.
 Additional runtime-experience implementation companions live in:
 
 - `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
-- `Docs/04_runtime_experience/ANIMATION_BACKLOG.md`
