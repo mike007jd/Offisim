@@ -171,7 +171,14 @@ export function useDashboardMetrics(): DashboardMetrics {
   useEffect(() => {
     if (isRunning) {
       activeTasksRef.current.clear();
-      employeeStatesRef.current.clear();
+      // Keep the employee roster — a run's start doesn't remove employees
+      // from the company, it just returns everyone to idle. Clearing the
+      // map would make the footer show "0/participants-in-run" instead of
+      // "0/company-total".
+      const employeeStates = employeeStatesRef.current;
+      for (const employeeId of employeeStates.keys()) {
+        employeeStates.set(employeeId, 'idle');
+      }
       costAccRef.current = { totalCost: 0 };
       costByTaskRef.current.clear();
       completedTasksRef.current = 0;
@@ -179,10 +186,11 @@ export function useDashboardMetrics(): DashboardMetrics {
       bossMessagesRef.current = 0;
       startTimeRef.current = Date.now();
 
-      setMetrics({
+      setMetrics((prev) => ({
         ...INITIAL_METRICS,
         elapsedMs: 0,
-      });
+        employeeUtilization: { active: 0, total: prev.employeeUtilization.total },
+      }));
 
       // Start elapsed timer
       timerRef.current = setInterval(() => {
