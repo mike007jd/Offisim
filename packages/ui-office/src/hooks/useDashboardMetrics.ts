@@ -1,6 +1,7 @@
 import type {
   EmployeeCreatedPayload,
   EmployeeDeletedPayload,
+  EmployeeState,
   EmployeeStatePayload,
   LlmCallCompletedPayload,
   LlmUsageRecordedPayload,
@@ -120,7 +121,7 @@ export function useDashboardMetrics(): DashboardMetrics {
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
   const activeTasksRef = useRef<Set<string>>(new Set());
-  const employeeStatesRef = useRef<Map<string, string>>(new Map());
+  const employeeStatesRef = useRef<Map<string, EmployeeState>>(new Map());
   const costAccRef = useRef<CostAccumulator>({ totalCost: 0 });
   const costByTaskRef = useRef(new Map<string, number>());
   const completedTasksRef = useRef(0);
@@ -171,10 +172,7 @@ export function useDashboardMetrics(): DashboardMetrics {
   useEffect(() => {
     if (isRunning) {
       activeTasksRef.current.clear();
-      // Keep the employee roster — a run's start doesn't remove employees
-      // from the company, it just returns everyone to idle. Clearing the
-      // map would make the footer show "0/participants-in-run" instead of
-      // "0/company-total".
+      // Reset employee states to 'idle' without clearing — roster is company-scoped, not run-scoped.
       const employeeStates = employeeStatesRef.current;
       for (const employeeId of employeeStates.keys()) {
         employeeStates.set(employeeId, 'idle');
@@ -223,7 +221,11 @@ export function useDashboardMetrics(): DashboardMetrics {
   }, []);
 
   useEffect(() => {
-    // Reset accumulators on company switch so data doesn't bleed across companies
+    // Reset accumulators on company switch so data doesn't bleed across companies.
+    // Unlike the run-start reset above, this path *must* clear employeeStatesRef
+    // (new company = new roster) and seed `total` from `bootstrapEmployeeCount` —
+    // not `prev.total` — because the ref was just wiped and the roster-reload
+    // effect (line ~136) hasn't fired yet. Do not "unify" the two reset blocks.
     activeTasksRef.current.clear();
     employeeStatesRef.current.clear();
     costAccRef.current = { totalCost: 0 };
