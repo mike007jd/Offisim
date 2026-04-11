@@ -1,4 +1,4 @@
-import type { CompanyRow, EmployeeRow, SopTemplateRow } from '@offisim/core/browser';
+import type { EmployeeRow } from '@offisim/core/browser';
 import {
   Button,
   Dialog,
@@ -16,19 +16,11 @@ import {
 } from '@offisim/ui-core';
 import { CloudUpload, Download, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePublish } from '../../hooks/usePublish.js';
 import { loadRegistryAuthToken, saveRegistryAuthToken } from '../../hooks/useRegistryClient.js';
-import {
-  type PublishMeta,
-  buildCompanyPackage,
-  buildEmployeePackage,
-  buildSopPackage,
-} from '../../lib/export-to-manifest.js';
+import { type PublishMeta, buildEmployeePackage } from '../../lib/export-to-manifest.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
-
-type PublishSourceKind = 'employee' | 'sop' | 'company_template';
 
 interface PublishDialogProps {
   readonly open: boolean;
@@ -69,13 +61,10 @@ function downloadBytes(fileName: string, bytes: Uint8Array): void {
 
 export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const { repos } = useOffisimRuntime();
-  const { activeCompanyId, companies } = useCompany();
-  const { zones } = useCompanyZones();
+  const { activeCompanyId } = useCompany();
   const [authToken, setAuthToken] = useState<string>(loadRegistryAuthToken() ?? '');
-  const [sourceKind, setSourceKind] = useState<PublishSourceKind>('employee');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-  const [sops, setSops] = useState<SopTemplateRow[]>([]);
   const [form, setForm] = useState<PublishFormState>(DEFAULT_FORM);
   const [status, setStatus] = useState<string | null>(null);
   const [isPackaging, setIsPackaging] = useState(false);
@@ -83,18 +72,9 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const { drafts, creator, isLoading, isSubmitting, error, submitDraft } =
     usePublish(effectiveToken);
 
-  const selectedCompany = useMemo<CompanyRow | null>(
-    () => companies.find((company) => company.company_id === activeCompanyId) ?? null,
-    [activeCompanyId, companies],
-  );
-
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.employee_id === selectedSourceId) ?? null,
     [employees, selectedSourceId],
-  );
-  const selectedSop = useMemo(
-    () => sops.find((sop) => sop.sop_template_id === selectedSourceId) ?? null,
-    [selectedSourceId, sops],
   );
 
   useEffect(() => {
@@ -109,14 +89,9 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     const companyId = activeCompanyId;
 
     async function loadSources() {
-      const [employeeRows, sopRows] = await Promise.all([
-        activeRepos.employees.findByCompany(companyId),
-        activeRepos.sopTemplates.findByCompany(companyId),
-      ]);
-
+      const employeeRows = await activeRepos.employees.findByCompany(companyId);
       if (cancelled) return;
       setEmployees(employeeRows);
-      setSops(sopRows);
     }
 
     void loadSources();
@@ -127,56 +102,24 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
 
   useEffect(() => {
     if (!open) return;
+    if (!employees[0] || selectedSourceId) return;
 
-    if (sourceKind === 'company_template' && selectedCompany) {
-      setSelectedSourceId(selectedCompany.company_id);
-      setForm((prev) => ({
-        ...prev,
-        title: prev.title || `${selectedCompany.name} Template`,
-        summary: prev.summary || `Reusable company template from ${selectedCompany.name}.`,
-        description:
-          prev.description ||
-          `Snapshot of ${selectedCompany.name} including employees, SOPs, and workspace zones.`,
-        tags: prev.tags || 'company,template',
-        riskClass: 'logic_asset',
-      }));
-      return;
-    }
-
-    if (sourceKind === 'employee' && employees[0] && !selectedSourceId) {
-      const employee = employees[0];
-      setSelectedSourceId(employee.employee_id);
-      setForm((prev) => ({
-        ...prev,
-        title: prev.title || employee.name,
-        summary: prev.summary || `Employee package for ${employee.name}.`,
-        description: prev.description || `Reusable employee configuration for ${employee.name}.`,
-        tags: prev.tags || employee.role_slug,
-        riskClass: 'data_asset',
-      }));
-      return;
-    }
-
-    if (sourceKind === 'sop' && sops[0] && !selectedSourceId) {
-      const sop = sops[0];
-      setSelectedSourceId(sop.sop_template_id);
-      setForm((prev) => ({
-        ...prev,
-        title: prev.title || sop.name,
-        summary: prev.summary || sop.description || `SOP package for ${sop.name}.`,
-        description:
-          prev.description || sop.description || `Reusable SOP template for ${sop.name}.`,
-        tags: prev.tags || 'sop,workflow',
-        riskClass: 'logic_asset',
-      }));
-    }
-  }, [employees, open, selectedCompany, selectedSourceId, sops, sourceKind]);
+    const employee = employees[0];
+    setSelectedSourceId(employee.employee_id);
+    setForm((prev) => ({
+      ...prev,
+      title: prev.title || employee.name,
+      summary: prev.summary || `Employee package for ${employee.name}.`,
+      description: prev.description || `Reusable employee configuration for ${employee.name}.`,
+      tags: prev.tags || employee.role_slug,
+      riskClass: 'data_asset',
+    }));
+  }, [employees, open, selectedSourceId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers — reset status when any form field changes
   useEffect(() => {
     setStatus(null);
   }, [
-    sourceKind,
     selectedSourceId,
     form.artifactUrl,
     form.description,
@@ -213,26 +156,11 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   );
 
   const buildBundle = useCallback(async () => {
-    if (sourceKind === 'employee' && selectedEmployee) {
-      return buildEmployeePackage(selectedEmployee, publishMeta);
+    if (!selectedEmployee) {
+      throw new Error('Select an employee before publishing.');
     }
-    if (sourceKind === 'sop' && selectedSop) {
-      return buildSopPackage(selectedSop, publishMeta);
-    }
-    if (sourceKind === 'company_template' && selectedCompany) {
-      return buildCompanyPackage(selectedCompany, employees, sops, zones, publishMeta);
-    }
-    throw new Error('Select a source asset before publishing.');
-  }, [
-    employees,
-    publishMeta,
-    selectedCompany,
-    selectedEmployee,
-    selectedSop,
-    sops,
-    sourceKind,
-    zones,
-  ]);
+    return buildEmployeePackage(selectedEmployee, publishMeta);
+  }, [publishMeta, selectedEmployee]);
 
   const handleDownload = useCallback(async () => {
     setIsPackaging(true);
@@ -277,34 +205,23 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     }
   }, [buildBundle, publishMeta.artifactUrl, submitDraft]);
 
-  const sourceOptions = useMemo(() => {
-    if (sourceKind === 'employee') {
-      return employees.map((employee) => ({
+  const sourceOptions = useMemo(
+    () =>
+      employees.map((employee) => ({
         value: employee.employee_id,
         label: `${employee.name} (${employee.role_slug})`,
-      }));
-    }
-
-    if (sourceKind === 'sop') {
-      return sops.map((sop) => ({
-        value: sop.sop_template_id,
-        label: sop.name,
-      }));
-    }
-
-    return selectedCompany
-      ? [{ value: selectedCompany.company_id, label: `${selectedCompany.name} (current company)` }]
-      : [];
-  }, [employees, selectedCompany, sops, sourceKind]);
+      })),
+    [employees],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto border-white/10 bg-slate-950/95">
         <DialogHeader>
-          <DialogTitle>Publish To Market</DialogTitle>
+          <DialogTitle>Publish Employee To Market</DialogTitle>
           <DialogDescription>
-            Build a package from your current Offisim data, download the archive, and submit a
-            registry draft that points at an external artifact URL.
+            Build a package from an employee in your current company, download the archive, and
+            submit a registry draft that points at an external artifact URL.
           </DialogDescription>
         </DialogHeader>
 
@@ -338,52 +255,25 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="publish-source-kind"
-                    className="text-xs font-medium text-slate-300"
-                  >
-                    Source kind
-                  </label>
-                  <Select
-                    value={sourceKind}
-                    onValueChange={(value) => {
-                      setSourceKind(value as PublishSourceKind);
-                      setSelectedSourceId('');
-                    }}
-                  >
-                    <SelectTrigger id="publish-source-kind" className="mt-2">
-                      <SelectValue placeholder="Choose what to publish" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="sop">SOP</SelectItem>
-                      <SelectItem value="company_template">Company template</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="publish-source-asset"
-                    className="text-xs font-medium text-slate-300"
-                  >
-                    Source asset
-                  </label>
-                  <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                    <SelectTrigger id="publish-source-asset" className="mt-2">
-                      <SelectValue placeholder="Select a local asset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sourceOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label
+                  htmlFor="publish-source-asset"
+                  className="text-xs font-medium text-slate-300"
+                >
+                  Employee
+                </label>
+                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                  <SelectTrigger id="publish-source-asset" className="mt-2">
+                    <SelectValue placeholder="Select an employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sourceOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -543,7 +433,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               <dl className="mt-3 space-y-2 text-xs text-slate-400">
                 <div>
                   <dt className="text-slate-500">Kind</dt>
-                  <dd className="text-slate-200">{sourceKind}</dd>
+                  <dd className="text-slate-200">employee</dd>
                 </div>
                 <div>
                   <dt className="text-slate-500">Title</dt>
