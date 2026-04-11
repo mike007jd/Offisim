@@ -1,5 +1,10 @@
 import type { PrefabDefinition, Zone, ZonePreset } from '@offisim/shared-types';
-import { findOverlaps, isRequiredArchetype, resolveZoneForPosition } from '@offisim/shared-types';
+import {
+  extractZoneSlug,
+  findOverlaps,
+  isRequiredArchetype,
+  resolveZoneForPosition,
+} from '@offisim/shared-types';
 import { create } from 'zustand';
 import { rotateLocalPoint } from '../../lib/prefab-spatial.js';
 
@@ -7,6 +12,17 @@ const ROTATIONS: ReadonlyArray<0 | 90 | 180 | 270> = [0, 90, 180, 270];
 
 function nextRotation(current: 0 | 90 | 180 | 270): 0 | 90 | 180 | 270 {
   return ROTATIONS[(ROTATIONS.indexOf(current) + 1) % ROTATIONS.length] ?? 0;
+}
+
+/**
+ * Zone IDs can drift between DB format (`companyId::slug`) and slug-only when
+ * the store is populated from mixed sources. Return a predicate that matches
+ * a candidate id against the target — slug is pre-split once so hot-path
+ * mutators (60fps drag) don't re-parse every iteration.
+ */
+function matchZoneId(targetId: string): (otherId: string) => boolean {
+  const targetSlug = extractZoneSlug(targetId);
+  return (otherId) => otherId === targetId || extractZoneSlug(otherId) === targetSlug;
 }
 
 /** Map Studio zones (keyed by zoneId) to the {id, cx, cz, w, d} shape findOverlaps expects. */
@@ -276,15 +292,16 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }),
   updateZonePosition: (zoneId, newCx, newCz) => {
     const { zones, instances } = get();
-    const zone = zones.find((z) => z.zoneId === zoneId);
+    const matches = matchZoneId(zoneId);
+    const zone = zones.find((z) => matches(z.zoneId));
     if (!zone) return;
     if (zone.cx === newCx && zone.cz === newCz) return;
     const dx = newCx - zone.cx;
     const dz = newCz - zone.cz;
     set({
-      zones: zones.map((z) => (z.zoneId === zoneId ? { ...z, cx: newCx, cz: newCz } : z)),
+      zones: zones.map((z) => (matches(z.zoneId) ? { ...z, cx: newCx, cz: newCz } : z)),
       instances: instances.map((i) =>
-        i.zoneId === zoneId
+        matches(i.zoneId)
           ? {
               ...i,
               position: [i.position[0] + dx, i.position[1], i.position[2] + dz] as [
@@ -299,10 +316,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
   updateZoneSize: (zoneId, w, d) =>
-    set((s) => ({
-      zones: s.zones.map((z) => (z.zoneId === zoneId ? { ...z, w, d } : z)),
-      dirty: true,
-    })),
+    set((s) => {
+      const matches = matchZoneId(zoneId);
+      return {
+        zones: s.zones.map((z) => (matches(z.zoneId) ? { ...z, w, d } : z)),
+        dirty: true,
+      };
+    }),
   addZoneFromPreset: (preset, position) => {
     const { instances, zones } = get();
     const [x, , z] = position;
@@ -396,11 +416,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   rotateZone: (zoneId) => {
     const { zones, instances } = get();
-    const zone = zones.find((z) => z.zoneId === zoneId);
+    const matches = matchZoneId(zoneId);
+    const zone = zones.find((z) => matches(z.zoneId));
     if (!zone) return;
 
     const updatedInstances = instances.map((inst) => {
-      if (inst.zoneId !== zoneId) return inst;
+      if (!matches(inst.zoneId)) return inst;
       const [newRelX, newRelZ] = rotateLocalPoint(
         [inst.position[0] - zone.cx, inst.position[2] - zone.cz],
         90,
@@ -417,7 +438,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
 
     set({
-      zones: zones.map((z) => (z.zoneId === zoneId ? { ...z, w: zone.d, d: zone.w } : z)),
+      zones: zones.map((z) => (matches(z.zoneId) ? { ...z, w: zone.d, d: zone.w } : z)),
       instances: updatedInstances,
       dirty: true,
     });
@@ -425,12 +446,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   removeZone: (zoneId) => {
     const { zones, instances } = get();
-    const zone = zones.find((z) => z.zoneId === zoneId);
+    const matches = matchZoneId(zoneId);
+    const zone = zones.find((z) => matches(z.zoneId));
     if (!zone) return;
     if (isRequiredArchetype(zone.archetype)) return;
     set({
-      zones: zones.filter((z) => z.zoneId !== zoneId),
-      instances: instances.filter((i) => i.zoneId !== zoneId),
+      zones: zones.filter((z) => !matches(z.zoneId)),
+      instances: instances.filter((i) => !matches(i.zoneId)),
       selectedZoneId: null,
       dirty: true,
     });
@@ -439,9 +461,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   swapZoneVariant: (zoneId, preset, allPrefabsMap) => {
     const { zones, instances } = get();
-    const zone = zones.find((z) => z.zoneId === zoneId);
+    const matches = matchZoneId(zoneId);
+    const zone = zones.find((z) => matches(z.zoneId));
     if (!zone) return;
-    const { cx, cz } = zone;
+    const { cx, cz, zoneId: canonicalZoneId } = zone;
     const newInstances: PlacedInstance[] = preset.prefabs
       .filter((p) => allPrefabsMap.has(p.prefabId))
       .map((p) => ({
@@ -449,11 +472,11 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         prefabId: p.prefabId,
         position: [cx + p.offsetX, 0, cz + p.offsetZ] as [number, number, number],
         rotation: p.rotation ?? 0,
-        zoneId,
+        zoneId: canonicalZoneId,
       }));
     set({
       zones: zones.map((z) =>
-        z.zoneId === zoneId
+        matches(z.zoneId)
           ? {
               ...z,
               archetype: preset.archetype,
@@ -469,16 +492,19 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             }
           : z,
       ),
-      instances: [...instances.filter((i) => i.zoneId !== zoneId), ...newInstances],
+      instances: [...instances.filter((i) => !matches(i.zoneId)), ...newInstances],
       dirty: true,
     });
   },
 
   updateZoneLabel: (zoneId, label) =>
-    set((s) => ({
-      zones: s.zones.map((z) => (z.zoneId === zoneId ? { ...z, label } : z)),
-      dirty: true,
-    })),
+    set((s) => {
+      const matches = matchZoneId(zoneId);
+      return {
+        zones: s.zones.map((z) => (matches(z.zoneId) ? { ...z, label } : z)),
+        dirty: true,
+      };
+    }),
 
   markClean: () => set({ dirty: false }),
 }));

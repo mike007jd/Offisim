@@ -63,7 +63,7 @@ export function RightSidebar({
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="border-b border-white/5 px-2 pt-2">
-          <TabsList className="flex w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2">
             <TabsTrigger
               value="chat"
               title="Chat"

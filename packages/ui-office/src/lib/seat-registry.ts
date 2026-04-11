@@ -83,10 +83,14 @@ function distance2D(a: readonly [number, number, number], b: readonly [number, n
   return Math.sqrt(dx * dx + dz * dz);
 }
 
+interface ZoneFootprint extends WorldFootprint {
+  readonly instanceId: string;
+}
+
 function isBlockedByFootprint(
   x: number,
   z: number,
-  footprints: readonly (WorldFootprint & { readonly instanceId?: string })[],
+  footprints: readonly ZoneFootprint[],
   ignoreInstanceId?: string | null,
 ) {
   return footprints.some((footprint) => {
@@ -116,6 +120,7 @@ function buildAnchoredSeats(
   inst: PrefabInstanceRow,
   anchor: PrefabAnchor,
   approachAnchor: PrefabAnchor,
+  zoneFootprints: readonly ZoneFootprint[] = [],
 ): SeatEntry[] {
   const worldOrigin: readonly [number, number] = [inst.position_x, inst.position_y];
   const footprint = toWorldFootprint(spec.footprint, worldOrigin, inst.rotation);
@@ -145,6 +150,19 @@ function buildAnchoredSeats(
         footprint,
         approachBase.facing,
       );
+    }
+
+    // Drop seats that land inside another furniture instance's footprint in
+    // the same zone. Fallback / overflow seat builders will fill the slot.
+    if (
+      isBlockedByFootprint(
+        resolvedPosition[0],
+        resolvedPosition[2],
+        zoneFootprints,
+        inst.instance_id,
+      )
+    ) {
+      return;
     }
 
     seats.push({
@@ -180,7 +198,7 @@ function buildAnchoredSeats(
 function buildFallbackZoneSeat(
   zone: Zone,
   slotIndex: number,
-  footprints: readonly WorldFootprint[],
+  footprints: readonly ZoneFootprint[],
   existingSeats: readonly SeatEntry[],
 ): SeatEntry {
   let position = computeWorkspaceFallbackSeatPosition(zone.cx, zone.cz, slotIndex);
@@ -213,7 +231,7 @@ function buildFallbackZoneSeat(
 function buildRestFallbackSeats(
   zone: Zone,
   targetCount: number,
-  footprints: readonly WorldFootprint[],
+  footprints: readonly ZoneFootprint[],
   existingSeats: readonly SeatEntry[],
   candidateStart = 0,
 ): SeatEntry[] {
@@ -245,7 +263,7 @@ function buildRestFallbackSeats(
 function buildOverflowRestSeat(
   zone: Zone,
   seedIndex: number,
-  footprints: readonly WorldFootprint[],
+  footprints: readonly ZoneFootprint[],
   existingSeats: readonly SeatEntry[],
 ): SeatEntry {
   for (let attempt = 0; attempt < 256; attempt++) {
@@ -283,10 +301,6 @@ function buildOverflowRestSeat(
     instanceId: null,
     isFallback: true,
   };
-}
-
-interface ZoneFootprint extends WorldFootprint {
-  readonly instanceId: string;
 }
 
 export class SeatRegistry {
@@ -341,7 +355,8 @@ export class SeatRegistry {
       return next;
     };
 
-    // Phase 1: collect footprints and anchor-derived seats from prefab instances.
+    // Phase 1a: collect every footprint first, so Phase 1b can see all
+    // neighbors when deciding whether to keep an anchored seat.
     for (const inst of instances) {
       if (!inst.enabled) continue;
 
@@ -353,15 +368,28 @@ export class SeatRegistry {
         ...toWorldFootprint(spec.footprint, worldOrigin, inst.rotation),
         instanceId: inst.instance_id,
       });
+    }
 
+    // Phase 1b: build anchored seats with full neighbor footprint awareness.
+    // Seats inside another furniture's footprint are dropped here; the rest
+    // of the pipeline (workspace fallback / rest fallback / overflow) will
+    // refill the missing slots.
+    for (const inst of instances) {
+      if (!inst.enabled) continue;
+
+      const spec = getSpatialSpec(inst.prefab_id);
+      if (!spec) continue;
       if (spec.capacity === 0) continue;
 
       const zone = zoneById.get(inst.zone_id);
+      const zoneFootprintList = getZoneFootprints(inst.zone_id);
       const targetSeats =
         zone?.archetype === 'rest' ? getRestZoneSeats(inst.zone_id) : getZoneSeats(inst.zone_id);
       if (zone?.archetype === 'rest') {
         const restAnchor = spec.anchors.stand ?? spec.anchors.approach ?? spec.anchors.work;
-        targetSeats.push(...buildAnchoredSeats(spec, inst, restAnchor, restAnchor));
+        targetSeats.push(
+          ...buildAnchoredSeats(spec, inst, restAnchor, restAnchor, zoneFootprintList),
+        );
       } else {
         targetSeats.push(
           ...buildAnchoredSeats(
@@ -369,6 +397,7 @@ export class SeatRegistry {
             inst,
             spec.anchors.work,
             spec.anchors.approach ?? spec.anchors.work,
+            zoneFootprintList,
           ),
         );
       }

@@ -106,6 +106,51 @@ describe('useStudioStore zone actions', () => {
     expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
   });
 
+  it('updateZonePosition handles companyId-prefixed zoneId from DB', () => {
+    const prefixedId = 'company-abc::workspace-1';
+    useStudioStore.setState({
+      zones: [makeZone({ zoneId: prefixedId, companyId: 'company-abc' })],
+      instances: [makeInstance({ zoneId: prefixedId })],
+    });
+
+    useStudioStore.getState().updateZonePosition(prefixedId, 5, 7);
+
+    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
+    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
+    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
+  });
+
+  it('updateZonePosition handles slug-only zoneId from local state', () => {
+    const slugId = 'workspace-1';
+    useStudioStore.setState({
+      zones: [makeZone({ zoneId: slugId })],
+      instances: [makeInstance({ zoneId: slugId })],
+    });
+
+    useStudioStore.getState().updateZonePosition(slugId, 5, 7);
+
+    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
+    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
+    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
+  });
+
+  it('updateZonePosition does not lose instances when zone and instance zoneId formats diverge', () => {
+    // Suspected B3 real failure mode: zones loaded with normalized DB id
+    // 'company-abc::workspace-1' but instances still carry slug-only
+    // 'workspace-1' (or vice versa). Move should still carry instances.
+    useStudioStore.setState({
+      zones: [makeZone({ zoneId: 'company-abc::workspace-1', companyId: 'company-abc' })],
+      instances: [makeInstance({ zoneId: 'workspace-1' })],
+    });
+
+    useStudioStore.getState().updateZonePosition('company-abc::workspace-1', 5, 7);
+
+    expect(useStudioStore.getState().zones[0]?.cx).toBe(5);
+    expect(useStudioStore.getState().zones[0]?.cz).toBe(7);
+    // Instance should have moved with its zone, regardless of id format drift.
+    expect(useStudioStore.getState().instances[0]?.position).toEqual([6, 0, 9]);
+  });
+
   it('addZoneFromPreset and removeZone add editable zones but keep required zones protected', () => {
     const preset = getPresetsForArchetype('workspace')[0];
     if (!preset) {

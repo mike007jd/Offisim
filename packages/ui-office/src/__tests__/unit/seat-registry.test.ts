@@ -271,6 +271,62 @@ describe('SeatRegistry', () => {
     expect(pos1).not.toEqual(pos2);
   });
 
+  it('does not place rest seats inside neighboring furniture footprints (B1 regression)', () => {
+    // Two sofa-sets placed close along the z-axis so their world footprints
+    // overlap — sofa1's rest anchor gets pushed to sofa1's +z edge and lands
+    // inside sofa2. Before the fix, all 3 anchored seats landed inside sofa2.
+    const restZone = makeZone({
+      zoneId: 'rest1',
+      archetype: 'rest',
+      cx: 10,
+      cz: 11,
+      deskSlots: 0,
+    });
+    const sofa1 = makeInstance({
+      instance_id: 'sofa1',
+      prefab_id: 'sofa-set',
+      zone_id: 'rest1',
+      position_x: 10,
+      position_y: 10,
+    });
+    const sofa2 = makeInstance({
+      instance_id: 'sofa2',
+      prefab_id: 'sofa-set',
+      zone_id: 'rest1',
+      position_x: 10,
+      position_y: 12,
+    });
+    const reg = SeatRegistry.build([sofa1, sofa2], [restZone]);
+
+    const footprints = reg.getObstacleFootprints('rest1');
+    expect(footprints).toHaveLength(2);
+    const [fp1, fp2] = footprints;
+    if (!fp1 || !fp2) throw new Error('missing footprints');
+
+    // Precondition: the two sofa footprints must still overlap in z for this
+    // regression case to be meaningful. If sofa-set spec ever shrinks enough
+    // to break the overlap, fail loudly — the test must be re-fixtured.
+    const sofa1TopEdge = fp1.cz + fp1.halfD;
+    const sofa2BottomEdge = fp2.cz - fp2.halfD;
+    expect(
+      sofa1TopEdge > sofa2BottomEdge,
+      'sofa-set footprint geometry no longer overlaps — re-fixture this test',
+    ).toBe(true);
+
+    // First 6 rest slots cover both sofas' anchored seats.
+    for (let slotIndex = 0; slotIndex < 6; slotIndex++) {
+      const seat = reg.getRestSeat([restZone], slotIndex);
+      for (const fp of footprints) {
+        const dx = Math.abs(seat[0] - fp.cx);
+        const dz = Math.abs(seat[2] - fp.cz);
+        expect(
+          dx < fp.halfW && dz < fp.halfD,
+          `seat ${slotIndex} at (${seat[0]}, ${seat[2]}) is inside footprint at (${fp.cx}, ${fp.cz})`,
+        ).toBe(false);
+      }
+    }
+  });
+
   it('returns distinct overflow rest seats instead of reusing the same rest slot', () => {
     const restZone = makeZone({
       zoneId: 'rest1',
