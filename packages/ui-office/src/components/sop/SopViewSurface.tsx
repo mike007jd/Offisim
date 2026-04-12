@@ -89,6 +89,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const [nlInput, setNlInput] = useState('');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Add step popover state
   const [addStepPopover, setAddStepPopover] = useState<{
@@ -165,17 +166,27 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
         addToast('Cannot create a cycle in the workflow', 'error');
         return;
       }
+      setSaveStatus('saving');
       try {
         await repos.sopTemplates.update(selectedSop.sopTemplateId, {
           definition_json: JSON.stringify(next),
         });
         await refreshSops();
+        setSaveStatus('saved');
       } catch {
+        setSaveStatus('error');
         addToast('Failed to update SOP', 'error');
       }
     },
     [selectedSop, definition, repos, refreshSops, addToast],
   );
+
+  // Auto-fade the 'saved' indicator back to idle after 1.5s
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+    const timer = window.setTimeout(() => setSaveStatus('idle'), 1500);
+    return () => window.clearTimeout(timer);
+  }, [saveStatus]);
 
   // --- Callbacks ---
 
@@ -462,7 +473,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       />
 
       {/* Right panel — toolbar + canvas + command bar */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="relative flex-1 flex flex-col min-w-0">
         <SopLibraryBar
           selectedSopId={sessionState.selectedSopId}
           hasSourceUrl={!!selectedSop?.sourceUrl}
@@ -475,6 +486,26 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           onEditModeToggle={handleEditModeToggle}
           onAutoLayout={handleAutoLayout}
         />
+
+        {saveStatus !== 'idle' && (
+          <div className="pointer-events-none absolute right-4 top-14 z-10">
+            <span
+              className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider ${
+                saveStatus === 'saving'
+                  ? 'bg-slate-800/80 text-slate-300'
+                  : saveStatus === 'saved'
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-red-500/20 text-red-300'
+              }`}
+            >
+              {saveStatus === 'saving'
+                ? 'Saving…'
+                : saveStatus === 'saved'
+                  ? 'All changes saved'
+                  : 'Save failed'}
+            </span>
+          </div>
+        )}
 
         {showEmpty ? (
           <SopEmptyState
