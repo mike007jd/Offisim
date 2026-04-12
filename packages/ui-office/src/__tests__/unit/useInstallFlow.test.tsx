@@ -36,6 +36,31 @@ vi.mock('@offisim/registry-client', () => ({
   })),
 }));
 
+function createMockInstallService(
+  overrides: Partial<NonNullable<OffisimRuntimeValue['installService']>> = {},
+): OffisimRuntimeValue['installService'] {
+  return {
+    importFile: vi.fn().mockResolvedValue({
+      installTxnId: 'txn-mock',
+      plan: {
+        manifest: {
+          package: { id: 'pkg.mock', title: 'Mock', version: '1.0.0' },
+        },
+        compatibility: { compatible: true, errors: [] },
+        bindings: [],
+        needsConfirmation: false,
+        confirmationReasons: [],
+        packageHash: '0'.repeat(64),
+        manifestHash: '0'.repeat(64),
+      },
+    }),
+    importSkill: vi.fn(),
+    confirmBindings: vi.fn(),
+    cancel: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as OffisimRuntimeValue['installService'];
+}
+
 function createRuntimeValue(overrides: Partial<OffisimRuntimeValue> = {}): OffisimRuntimeValue {
   return {
     eventBus: {
@@ -49,7 +74,7 @@ function createRuntimeValue(overrides: Partial<OffisimRuntimeValue> = {}): Offis
     retryLastMessage: vi.fn(),
     clearError: vi.fn(),
     reinitRuntime: vi.fn(),
-    installService: null,
+    installService: createMockInstallService(),
     repos: null,
     employeeVersionService: null,
     connectMcpServer: vi.fn(),
@@ -202,11 +227,9 @@ describe('useInstallFlow', () => {
     );
   });
 
-  it('clears mock import timers when cancel is called', async () => {
-    vi.useFakeTimers();
-
+  it('fails fast when dropping a package without a configured LLM provider', () => {
     const { result } = renderHook(() => useInstallFlow(), {
-      wrapper: createWrapper(createRuntimeValue()),
+      wrapper: createWrapper(createRuntimeValue({ installService: null })),
     });
 
     const file = new File(['package'], 'example.offisimpkg', {
@@ -217,11 +240,32 @@ describe('useInstallFlow', () => {
       result.current.startFileImport(file);
     });
 
-    expect(result.current.step).toBe('loading');
+    // Early-guard at top of startFileImport short-circuits to error without
+    // reading bytes (no loading state, no async work).
+    expect(result.current.isOpen).toBe(true);
+    expect(result.current.step).toBe('error');
+    expect(result.current.error).toContain('LLM provider');
+  });
+
+  it('cancel resets state from any non-idle step', async () => {
+    const { result } = renderHook(() => useInstallFlow(), {
+      wrapper: createWrapper(createRuntimeValue()),
+    });
+
+    const file = new File(['package-bytes'], 'example.offisimpkg', {
+      type: 'application/octet-stream',
+    });
+
+    act(() => {
+      result.current.startFileImport(file);
+    });
+
+    await waitFor(() => {
+      expect(result.current.step).not.toBe('idle');
+    });
 
     act(() => {
       result.current.cancel();
-      vi.runAllTimers();
     });
 
     expect(result.current.isOpen).toBe(false);

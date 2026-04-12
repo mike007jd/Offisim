@@ -92,16 +92,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     };
   }, []);
 
-  // Track pending timers so we can clean them up on cancel (mock fallback)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
   /**
    * After a successful install, emit employeeInstalled events so
    * scene views can add the new employees to the display.
@@ -127,6 +117,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const beginPackageImport = useCallback(
     async (bytes: Uint8Array, options?: InstallImportOptions) => {
       if (!installService) {
+        // Defensive — entrypoints fail fast before reaching here.
         setStep('error');
         setError('Install requires an LLM provider. Configure a provider in Settings first.');
         return;
@@ -166,6 +157,14 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         return;
       }
 
+      // Fail fast before reading file bytes if no provider is configured.
+      if (!installService) {
+        setIsOpen(true);
+        setStep('error');
+        setError('Install requires an LLM provider. Configure a provider in Settings first.');
+        return;
+      }
+
       setIsOpen(true);
       setStep('loading');
       setPlan(null);
@@ -177,12 +176,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
       // --- SKILL.md import path ---
       if (ext.endsWith('.md')) {
-        if (!installService) {
-          setStep('error');
-          setError('Install requires an LLM provider. Configure a provider in Settings first.');
-          return;
-        }
-
         (async () => {
           try {
             const text = await file.text();
@@ -305,6 +298,14 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    */
   const startRegistryInstall = useCallback(
     (listingId: string, version: string) => {
+      // Fail fast before any network work if no provider is configured.
+      if (!installService) {
+        setIsOpen(true);
+        setStep('error');
+        setError('Install requires an LLM provider. Configure a provider in Settings first.');
+        return;
+      }
+
       setIsOpen(true);
       setStep('loading');
       setPlan(null);
@@ -382,12 +383,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             },
           };
 
-          if (!installService) {
-            // Mock/runtime-less path still goes through the file-based helper.
-            startFileImport(file, options);
-            return;
-          }
-
           const bytes = await readPackageFile(file);
           if (!mountedRef.current) return;
           await beginPackageImport(bytes, options);
@@ -411,7 +406,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         }
       })();
     },
-    [beginPackageImport, installService, registryClient, startFileImport],
+    [beginPackageImport, installService, registryClient],
   );
 
   const confirmInstall = useCallback(() => {
@@ -424,12 +419,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
     // No bindings needed — proceed to install directly
     if (!installService || !txnIdRef.current) {
-      // Mock fallback
-      setStep('installing');
-      timerRef.current = setTimeout(() => {
-        setStep('done');
-        timerRef.current = null;
-      }, 1000);
+      setStep('error');
+      setError('Install runtime disconnected — please retry after the runtime reloads');
       return;
     }
 
@@ -453,12 +444,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   const submitBindings = useCallback(() => {
     if (!installService || !txnIdRef.current || !plan) {
-      // Mock fallback
-      setStep('installing');
-      timerRef.current = setTimeout(() => {
-        setStep('done');
-        timerRef.current = null;
-      }, 1000);
+      setStep('error');
+      setError('Install runtime disconnected — please retry after the runtime reloads');
       return;
     }
 
@@ -501,8 +488,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   }, []);
 
   const cancel = useCallback(() => {
-    clearTimer();
-
     // If there's an active transaction and a real service, cancel it
     if (installService && txnIdRef.current) {
       const txnId = txnIdRef.current;
@@ -521,10 +506,9 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setIsSkillImport(false);
     setSkillValidation(null);
     setUpgradeDiff(null);
-  }, [clearTimer, installService]);
+  }, [installService]);
 
   const close = useCallback(() => {
-    clearTimer();
     txnIdRef.current = null;
     currentManifestRef.current = null;
     setIsOpen(false);
@@ -535,7 +519,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setIsSkillImport(false);
     setSkillValidation(null);
     setUpgradeDiff(null);
-  }, [clearTimer]);
+  }, []);
 
   return {
     isOpen,
