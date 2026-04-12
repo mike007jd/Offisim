@@ -208,6 +208,7 @@ export function StudioPage(props: StudioPageProps) {
 
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
+  const savingRef = useRef(false);
 
   // Camera focus callback — assigned by StudioCanvas, called on F/Home key
   const focusRef = useRef<((pos: [number, number, number]) => void) | null>(null);
@@ -290,7 +291,8 @@ export function StudioPage(props: StudioPageProps) {
   // -- Save flow --------------------------------------------------------------
 
   const handleSave = useCallback(async () => {
-    if (!repos) return;
+    if (!repos || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const state = useStudioStore.getState();
@@ -304,10 +306,7 @@ export function StudioPage(props: StudioPageProps) {
         });
         pendingSaveRef.current = null;
 
-        if (!name) {
-          setSaving(false);
-          return;
-        }
+        if (!name) return;
 
         targetCompanyId = crypto.randomUUID();
         const now = new Date().toISOString();
@@ -347,6 +346,7 @@ export function StudioPage(props: StudioPageProps) {
       }
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   }, [repos, companyId, eventBus, mode, onCompanyCreated]);
 
