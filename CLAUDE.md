@@ -113,6 +113,7 @@ apps/
 
 ### Build & Environment
 
+- `packages/core/src/a2a/` 和 `packages/core/src/gateway/openclaw-client.ts` 是外派 agent 接入的扩展点代码（未来接外部 agent 用），当前未启用也无 UI 入口。核心员工 runtime 是 `anthropic-adapter` / `openai-adapter` / `subscription-adapter (ACP)`，不要混淆
 - 浏览器代码必须用 `@offisim/core/browser`, 否则拉入 Node-only 依赖
 - `apps/web/vite.config.ts` alias 必须与 `ui-office/package.json` exports 同步。新增 subpath export 时必须同时加 vite alias, 否则 dev mode 动态 import 会 404（dist 可能不存在）
 - `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
