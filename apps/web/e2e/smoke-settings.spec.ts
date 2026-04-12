@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { clearAllTestState, seedTestCompanyAndProvider, waitForRuntime } from './helpers/setup';
 
-test.describe('Smoke: Settings Dialog', () => {
+test.describe('Smoke: Settings Page', () => {
   test.beforeEach(async ({ page }) => {
     await clearAllTestState(page);
     await seedTestCompanyAndProvider(page);
@@ -22,19 +22,19 @@ test.describe('Smoke: Settings Dialog', () => {
     await expect(page.getByPlaceholder('model-name')).toBeVisible();
   });
 
-  test('switches between LLM Provider and MCP Servers tabs', async ({ page }) => {
+  test('switches between Provider and MCP tabs', async ({ page }) => {
     const header = page.locator('header');
     await header.locator('button').last().click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-    // Switch to MCP Servers tab
-    await page.getByRole('tab', { name: /MCP Servers/i }).click();
+    // Switch to MCP tab via sidebar nav button
+    await page.getByRole('button', { name: /^MCP$/i }).click();
 
     // LLM fields should be hidden now
     await expect(page.getByPlaceholder('model-name')).not.toBeVisible();
 
-    // Switch back to LLM Provider
-    await page.getByRole('tab', { name: /LLM Provider/i }).click();
+    // Switch back to Provider
+    await page.getByRole('button', { name: /^Provider$/i }).click();
     await expect(page.getByPlaceholder('model-name')).toBeVisible();
   });
 
@@ -47,21 +47,24 @@ test.describe('Smoke: Settings Dialog', () => {
     await modelInput.clear();
     await modelInput.fill('test-model-name');
 
-    // Click save
-    await page.getByRole('button', { name: /Save Configuration/i }).click();
+    // Click save — Settings is a workspace page, stays open after save.
+    // Saving triggers a runtime reinit which may briefly remount the page.
+    await page.getByRole('button', { name: /Save settings/i }).click();
 
-    // Dialog should close
-    await expect(page.getByRole('heading', { name: 'Settings' })).not.toBeVisible({
-      timeout: 5_000,
-    });
-
-    // Verify localStorage was updated
-    const stored = await page.evaluate(() => localStorage.getItem('offisim-provider-config'));
-    expect(stored).toBeTruthy();
-    if (!stored) {
-      throw new Error('Expected offisim-provider-config to be present in localStorage');
-    }
-    const parsed = JSON.parse(stored);
-    expect(parsed.model).toBe('test-model-name');
+    // Poll localStorage until the model name appears (save is async + reinit)
+    await expect
+      .poll(
+        async () => {
+          const stored = await page.evaluate(() => localStorage.getItem('offisim-provider-config'));
+          if (!stored) return null;
+          try {
+            return JSON.parse(stored).model;
+          } catch {
+            return null;
+          }
+        },
+        { timeout: 10_000 },
+      )
+      .toBe('test-model-name');
   });
 });

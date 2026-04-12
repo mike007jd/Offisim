@@ -5,6 +5,8 @@ const STORAGE_KEY = 'offisim-provider-config';
 const RUNTIME_SNAPSHOT_KEY = 'offisim:browser-runtime-snapshot:v1';
 const ACTIVE_COMPANY_KEY = 'offisim:active-company';
 const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
+// Panel state is no longer persisted to localStorage — kept in-memory only.
+// These keys are retained for cleanup in case stale entries exist.
 const PANEL_LEFT_KEY = 'offisim.panel.left';
 const PANEL_RIGHT_KEY = 'offisim.panel.right';
 
@@ -184,6 +186,24 @@ export async function waitForRuntime(page: Page): Promise<void> {
   await page.waitForFunction(() => (window as any).__OFFISIM_DEBUG__ !== undefined, {
     timeout: 15_000,
   });
+  // Wait for the chat textarea to be enabled — signals that the runtime's
+  // orchestration service is fully initialized (isReady = true). Without this,
+  // sendChat may fire before the input accepts keystrokes.
+  const chatInput = page.getByPlaceholder('Message your team...');
+  try {
+    await chatInput.waitFor({ state: 'visible', timeout: 15_000 });
+    // Poll until the textarea is no longer disabled
+    await page.waitForFunction(
+      (placeholder) => {
+        const el = document.querySelector(`textarea[placeholder="${placeholder}"]`);
+        return el !== null && !(el as HTMLTextAreaElement).disabled;
+      },
+      'Message your team...',
+      { timeout: 15_000 },
+    );
+  } catch {
+    // Chat input may not be visible in non-office workspaces — that's OK
+  }
 }
 
 // Drawer defaults to open on desktop (>768px viewport). Only click toggle on the
@@ -202,7 +222,10 @@ export async function openChat(page: Page): Promise<void> {
 export async function sendChat(page: Page, message: string): Promise<void> {
   const input = page.getByPlaceholder('Message your team...');
   await input.fill(message);
-  await page.getByRole('button', { name: 'Send message' }).click();
+  // Press Enter to send — the textarea's keyDown handler calls handleSend().
+  // Using keyboard avoids flaky locator matching on the send button when its
+  // aria-label is not computed correctly by the accessibility tree snapshot.
+  await input.press('Enter');
 }
 
 export async function waitForResponse(page: Page, timeout = 45_000): Promise<string> {

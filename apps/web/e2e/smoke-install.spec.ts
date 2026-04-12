@@ -9,17 +9,12 @@ test.describe('Smoke: Install Flow', () => {
   });
 
   test('file import triggers install dialog', async ({ page }) => {
-    // Trigger file import with a fake .aicspkg file via the hidden file input
-    await page.evaluate(() => {
-      const blob = new Blob(['fake-package-data'], { type: 'application/octet-stream' });
-      const file = new File([blob], 'test-package.aicspkg', { type: 'application/octet-stream' });
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (fileInput) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+    // Use Playwright's setInputFiles to trigger file import via the hidden input.
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: 'test-package.offisimpkg',
+      mimeType: 'application/octet-stream',
+      buffer: Buffer.from('fake-package-data'),
     });
 
     // InstallDialog should open — wait for any dialog heading
@@ -30,16 +25,11 @@ test.describe('Smoke: Install Flow', () => {
 
   test('install dialog shows error for invalid package', async ({ page }) => {
     // Import a fake file that can't be parsed as a zip
-    await page.evaluate(() => {
-      const blob = new Blob(['not-a-real-zip'], { type: 'application/octet-stream' });
-      const file = new File([blob], 'bad-package.aicspkg');
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (fileInput) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: 'bad-package.offisimpkg',
+      mimeType: 'application/octet-stream',
+      buffer: Buffer.from('not-a-real-zip'),
     });
 
     // Should eventually show the "Installation Failed" heading inside the error content.
@@ -52,16 +42,11 @@ test.describe('Smoke: Install Flow', () => {
 
   test('cancel closes dialog cleanly', async ({ page }) => {
     // Trigger import
-    await page.evaluate(() => {
-      const blob = new Blob(['fake'], { type: 'application/octet-stream' });
-      const file = new File([blob], 'test.aicspkg');
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (fileInput) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: 'test.offisimpkg',
+      mimeType: 'application/octet-stream',
+      buffer: Buffer.from('fake'),
     });
 
     // Wait for dialog to appear
