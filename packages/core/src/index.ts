@@ -132,7 +132,6 @@ export type { BuildGraphOptions } from './graph/main-graph.js';
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { ExecutionTrace, ExecutionTraceService } from './services/execution-trace-service.js';
-export type { ThreadForkService } from './services/thread-fork-service.js';
 export type { SerializedExecutionState } from './services/orchestration-service.js';
 
 // --- Factories ---
@@ -278,7 +277,6 @@ export type { LogLevel, LogEntry } from './services/logger.js';
 
 // --- Services ---
 export { ExecutionTraceServiceImpl } from './services/execution-trace-service.js';
-export { ThreadForkServiceStub } from './services/thread-fork-service.js';
 export { OrchestrationService } from './services/orchestration-service.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';

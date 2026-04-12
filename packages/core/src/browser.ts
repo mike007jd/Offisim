@@ -145,7 +145,6 @@ export type {
 export type { RetryConfig } from './llm/retry.js';
 export type { TeeResult } from './llm/stream-tee.js';
 export type { ExecutionTrace, ExecutionTraceService } from './services/execution-trace-service.js';
-export type { ThreadForkService } from './services/thread-fork-service.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export type { CostAggregate, DashboardSummary } from './runtime/cost-calculation-service.js';
 export type {
