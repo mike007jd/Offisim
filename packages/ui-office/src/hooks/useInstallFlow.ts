@@ -1,6 +1,5 @@
 /**
  * useInstallFlow — manages install dialog state machine.
- * Wired to real InstallService when available; falls back to mock data otherwise.
  *
  * After successful install, emits `employee.installed` events for each new employee
  * so scene views can add them to the display.
@@ -18,7 +17,6 @@ import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
 import { RegistryApiError } from '@offisim/registry-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { MOCK_INSTALL_PLAN } from '../lib/install-mock.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 import { useRegistryClient } from './useRegistryClient.js';
 
@@ -129,11 +127,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const beginPackageImport = useCallback(
     async (bytes: Uint8Array, options?: InstallImportOptions) => {
       if (!installService) {
-        timerRef.current = setTimeout(() => {
-          setPlan(MOCK_INSTALL_PLAN);
-          setStep('review');
-          timerRef.current = null;
-        }, 500);
+        setStep('error');
+        setError('Install service not ready — retry once runtime is loaded');
         return;
       }
 
@@ -183,13 +178,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       // --- SKILL.md import path ---
       if (ext.endsWith('.md')) {
         if (!installService) {
-          // Mock fallback — no real service available
-          timerRef.current = setTimeout(() => {
-            setPlan(MOCK_INSTALL_PLAN);
-            setIsSkillImport(true);
-            setStep('review');
-            timerRef.current = null;
-          }, 500);
+          setStep('error');
+          setError('Install service not ready — retry once runtime is loaded');
           return;
         }
 
@@ -273,14 +263,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         txnIdRef.current = null;
 
         if (!installService) {
-          // Mock fallback
-          timerRef.current = setTimeout(() => {
-            const mockPlan = MOCK_INSTALL_PLAN;
-            setPlan(mockPlan);
-            setUpgradeDiff(computeUpgradeDiff(currentManifest, mockPlan.manifest));
-            setStep('review');
-            timerRef.current = null;
-          }, 500);
+          setStep('error');
+          setError('Install service not ready — retry once runtime is loaded');
           return;
         }
 
