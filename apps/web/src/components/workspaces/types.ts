@@ -42,7 +42,7 @@ export type ActivityLogSessionState = {
 };
 
 export type SettingsSessionState = {
-  activeTab: 'provider' | 'runtime' | 'mcp' | 'openclaw';
+  activeTab: 'provider' | 'runtime' | 'mcp';
 };
 
 export type WorkspaceSessionState = {

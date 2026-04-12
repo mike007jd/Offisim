@@ -1,4 +1,3 @@
-import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsProviderTab } from './SettingsProviderTab';
 import { SettingsRuntimeTab } from './SettingsRuntimeTab';
@@ -19,7 +18,6 @@ export function SettingsContentArea({ activeTab, controller }: SettingsContentAr
         {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
         {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
         {activeTab === 'mcp' && <McpConfigPanel />}
-        {activeTab === 'openclaw' && <OpenClawSettings />}
       </div>
 
       <div className="sticky bottom-0 border-t border-white/10 bg-slate-950/80 backdrop-blur-sm px-8 py-4">

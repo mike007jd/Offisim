@@ -8,14 +8,13 @@ import { describe, expect, it } from 'vitest';
 
 // --- Shared constants mirroring production code ---
 
-const SETTINGS_TABS = ['provider', 'runtime', 'mcp', 'openclaw'] as const;
+const SETTINGS_TABS = ['provider', 'runtime', 'mcp'] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 const TAB_COMPONENT_MAP: Record<SettingsTab, string> = {
   provider: 'SettingsProviderTab',
   runtime: 'SettingsRuntimeTab',
   mcp: 'McpConfigPanel',
-  openclaw: 'OpenClawSettings',
 };
 
 // --- Property 1 ---
@@ -38,7 +37,6 @@ describe('Feature: settings-page-rebuild, Property 1: Tab navigation renders cor
         //   activeTab === 'provider' → SettingsProviderTab
         //   activeTab === 'runtime' → SettingsRuntimeTab
         //   activeTab === 'mcp'     → McpConfigPanel
-        //   activeTab === 'openclaw' → OpenClawSettings
         // We verify the mapping is defined and unique.
         const component = TAB_COMPONENT_MAP[tab];
         expect(component).toBeDefined();
@@ -56,7 +54,7 @@ describe('Feature: settings-page-rebuild, Property 1: Tab navigation renders cor
     );
   });
 
-  it('tab set is exhaustive — all 4 tabs have routing entries', () => {
+  it('tab set is exhaustive — all 3 tabs have routing entries', () => {
     fc.assert(
       fc.property(fc.constantFrom(...SETTINGS_TABS), (tab) => {
         expect(tab in TAB_COMPONENT_MAP).toBe(true);

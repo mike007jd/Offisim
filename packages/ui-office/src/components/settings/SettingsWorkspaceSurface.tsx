@@ -5,7 +5,7 @@ import type {
   RuntimeToolPermissionsPolicy,
 } from '@offisim/shared-types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
-import { Cpu, Workflow } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearRuntimeSecret,
@@ -21,7 +21,6 @@ import {
   saveProviderConfig,
 } from '../../lib/provider-config';
 import { useTheme } from '../../theme';
-import { OpenClawSettings } from '../openclaw/OpenClawSettings';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsProviderTab } from './SettingsProviderTab';
 import { SettingsRuntimeTab } from './SettingsRuntimeTab';
@@ -33,7 +32,7 @@ import {
 } from './provider-presets';
 import { MetricCard, SurfaceCard } from './settings-primitives';
 
-export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'openclaw';
+export type SettingsTab = 'provider' | 'runtime' | 'mcp';
 
 interface SettingsWorkspaceControllerOptions {
   isActive: boolean;
@@ -612,12 +611,6 @@ export function SettingsWorkspaceSurface({
               >
                 MCP servers
               </TabsTrigger>
-              <TabsTrigger
-                value="openclaw"
-                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
-              >
-                Gateway
-              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -632,12 +625,6 @@ export function SettingsWorkspaceSurface({
           <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             <SurfaceCard title="MCP servers" icon={<Cpu className="h-5 w-5" />}>
               <McpConfigPanel />
-            </SurfaceCard>
-          </TabsContent>
-
-          <TabsContent value="openclaw" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <SurfaceCard title="Gateway" icon={<Workflow className="h-5 w-5" />}>
-              <OpenClawSettings />
             </SurfaceCard>
           </TabsContent>
         </Tabs>

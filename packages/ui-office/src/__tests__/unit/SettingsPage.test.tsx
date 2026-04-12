@@ -61,10 +61,6 @@ vi.mock('../../lib/provider-config', () => ({
   saveProviderConfig: vi.fn(),
 }));
 
-vi.mock('../../components/openclaw/OpenClawSettings', () => ({
-  OpenClawSettings: () => <div>OpenClaw panel</div>,
-}));
-
 vi.mock('../../components/settings/McpConfigPanel', () => ({
   McpConfigPanel: () => <div>MCP panel</div>,
 }));
@@ -142,7 +138,6 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'Provider' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Runtime' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'MCP' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Gateway' })).toBeInTheDocument();
 
     // Verify Save button is present
     expect(screen.getByRole('button', { name: 'Save settings' })).toBeInTheDocument();
