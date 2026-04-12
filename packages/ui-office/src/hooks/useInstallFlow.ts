@@ -63,6 +63,47 @@ export interface InstallFlowActions {
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const PENDING_INSTALL_INTENT_KEY = 'offisim:pending-install-intent:v1';
+/** Drop persisted intents older than 10 minutes — user has moved on. */
+const PENDING_INSTALL_INTENT_TTL_MS = 10 * 60 * 1000;
+
+interface PendingInstallIntent {
+  listingId: string;
+  version: string;
+  storedAt: number;
+}
+
+function readPendingInstallIntent(): PendingInstallIntent | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_INSTALL_INTENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingInstallIntent>;
+    if (
+      typeof parsed.listingId !== 'string' ||
+      typeof parsed.version !== 'string' ||
+      typeof parsed.storedAt !== 'number'
+    ) {
+      return null;
+    }
+    if (Date.now() - parsed.storedAt > PENDING_INSTALL_INTENT_TTL_MS) {
+      window.sessionStorage.removeItem(PENDING_INSTALL_INTENT_KEY);
+      return null;
+    }
+    return parsed as PendingInstallIntent;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingInstallIntent(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(PENDING_INSTALL_INTENT_KEY);
+  } catch {
+    /* noop */
+  }
+}
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const { installService, eventBus } = useOffisimRuntime();
@@ -299,10 +340,25 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const startRegistryInstall = useCallback(
     (listingId: string, version: string) => {
       // Fail fast before any network work if no provider is configured.
+      // Persist the pending intent so that once the user configures a
+      // provider the runtime reinit can replay it automatically (see
+      // consumePendingInstallIntent below).
       if (!installService) {
+        try {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem(
+              PENDING_INSTALL_INTENT_KEY,
+              JSON.stringify({ listingId, version, storedAt: Date.now() }),
+            );
+          }
+        } catch {
+          /* sessionStorage unavailable — intent is lost, user sees error below */
+        }
         setIsOpen(true);
         setStep('error');
-        setError('Install requires an LLM provider. Configure a provider in Settings first.');
+        setError(
+          'Install requires an LLM provider. Configure a provider in Settings — the install will resume automatically.',
+        );
         return;
       }
 
@@ -386,6 +442,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           const bytes = await readPackageFile(file);
           if (!mountedRef.current) return;
           await beginPackageImport(bytes, options);
+          clearPendingInstallIntent();
         } catch (err) {
           if (!mountedRef.current) return;
           if (err instanceof RegistryApiError) {
@@ -408,6 +465,17 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     },
     [beginPackageImport, installService, registryClient],
   );
+
+  // When installService flips from null → non-null (user configured a
+  // provider and the runtime reinitialized), replay any pending deep-link
+  // install intent stored in sessionStorage.
+  useEffect(() => {
+    if (!installService) return;
+    const pending = readPendingInstallIntent();
+    if (!pending) return;
+    clearPendingInstallIntent();
+    startRegistryInstall(pending.listingId, pending.version);
+  }, [installService, startRegistryInstall]);
 
   const confirmInstall = useCallback(() => {
     if (!plan) return;
