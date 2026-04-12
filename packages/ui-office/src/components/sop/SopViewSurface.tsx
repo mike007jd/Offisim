@@ -6,6 +6,7 @@ import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { parseSopDefinition } from '../../lib/sop-utils';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useCompany } from '../company/CompanyContext';
 import type { StepFormValues } from './SopAddStepPopover';
 import { SopAddStepPopover } from './SopAddStepPopover';
 import { SopDagCanvas } from './SopDagCanvas';
@@ -82,6 +83,7 @@ function validateNoCycles(def: SopDefinition): boolean {
 export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSurfaceProps) {
   const { sops, loading, deleteSop, refreshSops } = useSops();
   const { sendMessage, repos } = useOffisimRuntime();
+  const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -206,10 +208,22 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [onSessionStateChange],
   );
 
-  const handleRun = useCallback(() => {
-    if (!selectedSop) return;
+  const handleRun = useCallback(async () => {
+    if (!selectedSop || !definition || !repos || !activeCompanyId) return;
+    const employees = await repos.employees.findByCompany(activeCompanyId);
+    const employeeRoles = new Set(employees.map((e) => e.role_slug));
+    const missingRoles = definition.steps
+      .map((s) => s.role_slug)
+      .filter((r) => r && !employeeRoles.has(r));
+    if (missingRoles.length > 0) {
+      const unique = [...new Set(missingRoles)];
+      addToast(
+        `Missing roles: ${unique.join(', ')}. Steps will fall back to any available employee.`,
+        'error',
+      );
+    }
     void sendMessage(formatRunCommand(selectedSop.name));
-  }, [selectedSop, sendMessage]);
+  }, [selectedSop, definition, repos, activeCompanyId, sendMessage, addToast]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedSop) return;

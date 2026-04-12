@@ -14,6 +14,7 @@ import {
   SYSTEM_ZONE_TEMPLATES,
   templateToZone,
 } from '@offisim/shared-types';
+import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
@@ -201,6 +202,7 @@ export function StudioPage(props: StudioPageProps) {
   const { mode, repos, onBack, onCompanyCreated } = props;
   const companyId = props.mode === 'edit' ? props.companyId : undefined;
   const { eventBus } = useOffisimRuntime();
+  const { toasts, addToast, dismissToast } = useToasts();
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -324,13 +326,18 @@ export function StudioPage(props: StudioPageProps) {
       }
 
       if (targetCompanyId) {
-        await saveZonesToDb(
-          { prefabInstances: repos.prefabInstances, zones: repos.zones },
-          targetCompanyId,
-          state.zones,
-          state.instances,
-          eventBus,
-        );
+        try {
+          await saveZonesToDb(
+            { prefabInstances: repos.prefabInstances, zones: repos.zones },
+            targetCompanyId,
+            state.zones,
+            state.instances,
+            eventBus,
+          );
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Save failed', 'error');
+          return;
+        }
       }
 
       useStudioStore.getState().markClean();
@@ -348,7 +355,7 @@ export function StudioPage(props: StudioPageProps) {
       setSaving(false);
       savingRef.current = false;
     }
-  }, [repos, companyId, eventBus, mode, onCompanyCreated]);
+  }, [repos, companyId, eventBus, mode, onCompanyCreated, addToast]);
 
   // -- Keyboard shortcuts (non-tool shortcuts) --------------------------------
   // Tool shortcuts (1-4, G) are handled by StudioToolbar.
@@ -433,6 +440,8 @@ export function StudioPage(props: StudioPageProps) {
     <div style={ROOT_STYLE}>
       {/* Top toolbar: tools, grid toggle, save, back */}
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
+
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
       {/* Left palette: prefab catalog */}
       <StudioPalette />

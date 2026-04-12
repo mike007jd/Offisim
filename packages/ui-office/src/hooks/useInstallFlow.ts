@@ -339,6 +339,9 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    */
   const startRegistryInstall = useCallback(
     (listingId: string, version: string) => {
+      // Prevent concurrent installs — if a transaction is already active, ignore.
+      if (txnIdRef.current) return;
+
       // Fail fast before any network work if no provider is configured.
       // Persist the pending intent so that once the user configures a
       // provider the runtime reinit can replay it automatically (see

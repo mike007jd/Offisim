@@ -168,6 +168,18 @@ export function useSettingsWorkspaceController({
     }
   }, [runtimeVersion, isReinitializing]);
 
+  // Separate timeout: fires once when isReinitializing becomes true,
+  // not reset by intermediate runtimeVersion bumps.
+  useEffect(() => {
+    if (!isReinitializing) return;
+    const timer = window.setTimeout(() => {
+      setIsReinitializing(false);
+      reinitBaseVersionRef.current = null;
+      setSaveError('Runtime failed to reinitialize. Check your provider settings and try again.');
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [isReinitializing]);
+
   const currentSnapshot = useMemo(
     () =>
       JSON.stringify({
