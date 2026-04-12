@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { ArrowLeft, Box, Dices, Monitor, Rocket } from 'lucide-react';
+import { ArrowLeft, Dices, Rocket } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROLE_OPTIONS } from '../../lib/roles';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
@@ -39,15 +39,12 @@ const PRESET_SEEDS = [
 
 const STEPS = ['IDENTITY', 'VISUAL'] as const;
 
-type PreviewMode = '2d' | '3d';
-
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCreatorOverlayProps) {
   const [name, setName] = useState('');
   const [role, setRole] = useState<RoleSlug>('developer');
   const [seed, setSeed] = useState('');
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('2d');
   const [activeStep, setActiveStep] = useState(0);
 
   // Auto-generate seed from name (only when user hasn't manually edited the seed)
@@ -65,7 +62,6 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       setName('');
       setRole('developer');
       setSeed('');
-      setPreviewMode('2d');
       setSeedManuallyEdited(false);
       setActiveStep(0);
     }
@@ -164,20 +160,9 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           <div className="flex flex-col items-center gap-6">
             {/* Avatar Preview */}
             <div className="relative">
-              {previewMode === '2d' ? (
-                <div className="rounded-full border-2 border-blue-500/30 shadow-[0_0_60px_rgba(59,130,246,0.12)] p-1.5">
-                  <DicebearAvatar seed={effectiveSeed} size={300} className="rounded-full" />
-                </div>
-              ) : (
-                <div className="flex h-[300px] w-[300px] items-center justify-center rounded-full border-2 border-white/10 bg-white/[0.02]">
-                  <div className="text-center">
-                    <Box className="mx-auto mb-3 h-12 w-12 text-white/20" />
-                    <span className="font-mono text-xs uppercase tracking-wider text-white/30">
-                      Coming Soon
-                    </span>
-                  </div>
-                </div>
-              )}
+              <div className="rounded-full border-2 border-blue-500/30 shadow-[0_0_60px_rgba(59,130,246,0.12)] p-1.5">
+                <DicebearAvatar seed={effectiveSeed} size={300} className="rounded-full" />
+              </div>
             </div>
 
             {/* Character Name */}
@@ -190,34 +175,6 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                   {roleLabel}
                 </span>
               </div>
-            </div>
-
-            {/* 2D / 3D Toggle */}
-            <div className="flex overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
-              <button
-                type="button"
-                onClick={() => setPreviewMode('2d')}
-                className={`flex items-center gap-1.5 px-4 py-2 font-mono text-xs tracking-wider transition-colors ${
-                  previewMode === '2d'
-                    ? 'bg-blue-500/20 text-blue-400 border-r border-blue-500/30'
-                    : 'text-white/40 hover:text-white/60 border-r border-white/10'
-                }`}
-              >
-                <Monitor className="h-3.5 w-3.5" />
-                2D
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewMode('3d')}
-                className={`flex items-center gap-1.5 px-4 py-2 font-mono text-xs tracking-wider transition-colors ${
-                  previewMode === '3d'
-                    ? 'bg-blue-500/20 text-blue-400'
-                    : 'text-white/40 hover:text-white/60'
-                }`}
-              >
-                <Box className="h-3.5 w-3.5" />
-                3D
-              </button>
             </div>
 
             {/* Randomize Button */}
