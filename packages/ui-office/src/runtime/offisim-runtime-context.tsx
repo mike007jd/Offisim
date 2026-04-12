@@ -39,7 +39,7 @@ export interface OffisimRuntimeValue {
   clearError: () => void;
   /** Re-create runtime from current localStorage config. */
   reinitRuntime: () => void;
-  /** Install service — null in Tauri mode or when runtime is not yet ready. */
+  /** Install service — null only during bootstrap / in tauri-runtime-lite mode. */
   installService: InstallService | null;
   /** Runtime repositories — null when runtime is not yet ready. */
   repos: RuntimeRepositories | null;
