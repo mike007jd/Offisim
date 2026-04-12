@@ -62,7 +62,10 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
           max={100000}
           step={256}
           value={formData.maxTokens}
-          onChange={(e) => updateField('maxTokens', Number.parseInt(e.target.value, 10) || 4096)}
+          onChange={(e) => {
+            const n = Number.parseInt(e.target.value, 10);
+            updateField('maxTokens', Number.isFinite(n) && n > 0 ? n : 4096);
+          }}
         />
         {formData.maxTokens < 1024 && (
           <p className="mt-1 text-[10px] text-amber-400">
