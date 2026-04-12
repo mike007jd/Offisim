@@ -28,6 +28,7 @@ const EVENT_PREFIXES = [
   'binding.',
   'memory.',
   'git.',
+  'execution.',
 ] as const;
 const MAX_EVENTS = 200;
 
@@ -139,7 +140,12 @@ export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
   if (topic.includes('failed') || topic.includes('error') || topic.includes('rolled_back')) {
     return 'Error';
   }
-  if (topic.includes('blocked') || topic.includes('warning') || topic.includes('rejected')) {
+  if (
+    topic.includes('blocked') ||
+    topic.includes('warning') ||
+    topic.includes('rejected') ||
+    topic.includes('aborted')
+  ) {
     return 'Warning';
   }
   return 'Info';
