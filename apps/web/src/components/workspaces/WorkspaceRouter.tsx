@@ -51,18 +51,18 @@ export function isOfficeSceneInteractive(
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder workspace page components (lazy-loaded)
+// Lazy-loaded workspace page wrappers (default-export shims for React.lazy)
 // ---------------------------------------------------------------------------
 
 const SopViewSurface = React.lazy(() =>
   import('@offisim/ui-office/sop-view').then((m) => ({ default: m.SopViewSurface })),
 );
 
-const MarketWorkspacePage = React.lazy(() => import('./placeholders/MarketWorkspacePage'));
+const MarketWorkspacePage = React.lazy(() => import('./lazy-wrappers/MarketWorkspacePage'));
 
-const ActivityLogPage = React.lazy(() => import('./placeholders/ActivityLogPage'));
+const ActivityLogPage = React.lazy(() => import('./lazy-wrappers/ActivityLogPage'));
 
-const SettingsPage = React.lazy(() => import('./placeholders/SettingsPage'));
+const SettingsPage = React.lazy(() => import('./lazy-wrappers/SettingsPage'));
 
 // ---------------------------------------------------------------------------
 // WorkspaceRouter
