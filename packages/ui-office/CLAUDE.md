@@ -17,7 +17,7 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 
 - `ceremony-visuals.ts`: `getPhaseColor()` 是 phase 颜色唯一真相; 同时持有 `MANAGER_PRESENCE_COLORS` + `DEFAULT_BUBBLE_TEXT`, 不要硬编码
 - `CeremonyState` 新增字段必须同步 `createIdleCeremonyState()` 和 `IDLE_CEREMONY`
-- `CeremonyHost` (App.tsx) 隔离 ceremony state, 不要把 `useSceneOrchestrator` 放 App 里
+- `CeremonyHost` (`apps/web/src/components/office-shell/OfficeSceneSurface.tsx`) 隔离 ceremony state, 不要把 `useSceneOrchestrator` 上提到 App
 - 3D 崩溃 ≥2 次锁定 2D (`crashCountRef`)
 - 员工定位统一走 `SeatRegistry` (3D/2D), 不要硬编码位置或恢复 4 象限布局
 - 渲染用 `resolveEmployeeSceneZoneId()`, 不要用 `resolveEmployeeZoneDynamic()` (避免掉 UNASSIGNED_ZONE)
@@ -31,7 +31,7 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - Company 共享 primitive 在 `company-editor-primitives.tsx`, zone layout 在 `company-editor-layout.ts`
 - Chat 命令: `chat-commands.ts` 三类 (runtime/client/panel), 新增只加 `CHAT_COMMANDS`。@mention 不切 direct chat
 - UI 全英文, 不要混入中文
-- `primeEventLogStore` 创建 20 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
+- `primeEventLogStore` 按 `EVENT_PREFIXES` 创建 per-prefix 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
 - `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100
 
 ## Prefab 双文件

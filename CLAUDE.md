@@ -134,7 +134,7 @@ apps/
 - **desktop 内置 MCP bridge**: `lib.rs` 注册 `mcp_bridge::init()` — desktop 有 web 没有的 MCP 能力。21 条 SQLite 迁移在 `fn migrations()`
 - **desktop 是纯 Tauri 壳**: 零 npm deps, frontendDist 直接指 `../../web/dist`
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
-- **doc-engine 的 xlsx** 来自 `cdn.sheetjs.com` (运行时拉, 不是 npm) — SheetJS 许可原因
+- **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
 - **CI gate 只有本地 husky**: `.husky/pre-commit` 跑 `biome check --staged`。typecheck / test 不在 hook 里。需要跳过时 `git commit --no-verify`
 
 ## Ground Truth

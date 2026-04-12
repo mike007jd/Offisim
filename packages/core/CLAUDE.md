@@ -32,4 +32,4 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 
 ## Repository 三套副本
 
-drizzle 1714L / memory 1508L / tauri 1657L — 任何 repo 接口变更必须三处同步。`repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等, memory 必须是超集。
+`packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/web/src/lib/tauri-repos.ts` 三份各 1500-1700 行左右, 任何 repo 接口变更必须三处同步。`apps/web/src/__tests__/unit/repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等, memory 必须是超集。
