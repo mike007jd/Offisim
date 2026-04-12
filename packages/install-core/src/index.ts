@@ -112,5 +112,4 @@ export type {
   SkillRequirements,
   SkillMetadata,
   SkillValidationResult,
-  SkillValidationWarning,
 } from './openclaw/index.js';

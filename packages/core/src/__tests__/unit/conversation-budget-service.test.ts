@@ -1,13 +1,13 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryEventBus } from '../../events/event-bus.js';
+import type { CompactBaselineState } from '../../graph/state.js';
 import type { LlmGateway, LlmRequest, LlmStreamChunk } from '../../llm/gateway.js';
 import { ModelResolver } from '../../llm/model-resolver.js';
 import { createMemoryRepositories } from '../../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../../runtime/runtime-context.js';
 import { MockToolExecutor } from '../../runtime/tool-executor.js';
 import {
-  type CompactBaselineRecord,
   ConversationBudgetService,
   type ThreadSynopsisRecord,
 } from '../../services/conversation-budget-service.js';
@@ -443,7 +443,7 @@ describe('ConversationBudgetService', () => {
   it('uses an active compact baseline to replace the historical message prefix', async () => {
     const repos = createMemoryRepositories();
     repos.seed.companies([TEST_COMPANY]);
-    const compactBaseline: CompactBaselineRecord = {
+    const compactBaseline: CompactBaselineState = {
       compactId: 'fcb-1',
       compactVersion: 1,
       compactedAt: new Date().toISOString(),
@@ -748,7 +748,7 @@ describe('ConversationBudgetService', () => {
     const thread = await repos.threads.findById(TEST_THREAD_ID);
     const baseline = JSON.parse(
       thread?.compact_baseline_json ?? 'null',
-    ) as CompactBaselineRecord | null;
+    ) as CompactBaselineState | null;
     expect(baseline?.summaryText).toContain('earlier rollout constraints');
     expect(baseline?.compactedNonSystemMessageCount).toBe(4);
     expect(baseline?.keptTailNonSystemMessageCount).toBe(4);
@@ -868,7 +868,7 @@ describe('ConversationBudgetService', () => {
         summaryText: 'Initial compact baseline summary.',
         compactedNonSystemMessageCount: 4,
         keptTailNonSystemMessageCount: 4,
-      } satisfies CompactBaselineRecord),
+      } satisfies CompactBaselineState),
     });
 
     const gateway = new MockLlmGateway();
@@ -930,7 +930,7 @@ describe('ConversationBudgetService', () => {
     const thread = await repos.threads.findById(TEST_THREAD_ID);
     const refreshedBaseline = JSON.parse(
       thread?.compact_baseline_json ?? 'null',
-    ) as CompactBaselineRecord | null;
+    ) as CompactBaselineState | null;
     expect(refreshedBaseline?.compactVersion).toBe(2);
     expect(refreshedBaseline?.summaryText).toContain('latest rollout state');
     expect(refreshedBaseline?.compactedNonSystemMessageCount).toBe(8);

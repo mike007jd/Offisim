@@ -180,7 +180,6 @@ export type { ModelRegistryConfig, ModelRegistryEntry } from './llm/model-regist
 export { DEFAULT_RETRY_CONFIG, withRetry } from './llm/retry.js';
 export { teeStream } from './llm/stream-tee.js';
 export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
-export type { RecordedCallMeta } from './llm/recorded-call.js';
 export { RecordedSystemLlmCaller } from './llm/recorded-system-caller.js';
 export type { SystemLlmCallerDeps } from './llm/recorded-system-caller.js';
 

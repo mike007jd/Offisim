@@ -1,0 +1,35 @@
+# @offisim/core
+
+LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@offisim/core/browser` subpath。
+
+## Gotchas
+
+- `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。图节点常常两个都 emit
+- `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
+- Boss node JSON 路由 **三层** 防御: (1) `BOSS_SYSTEM_PROMPT` 常量 (2) `TASK_KEYWORDS` 正则兜底 (3) `targetEmployeeId` / `sopTemplateId` 有效性校验。修改时三层同步
+- `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
+- `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
+- Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
+- `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
+- `packages/core/src/a2a/` 和 `gateway/openclaw-client.ts` 是外派 agent 扩展点, 当前未启用。核心员工 runtime 是 `anthropic-adapter` / `openai-adapter` / `subscription-adapter (ACP)`
+- `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
+- `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
+
+## Data Model & Zones
+
+- Zone ID: DB 格式 `companyId::slug`, 用 `templateToZone(t, companyId)` normalize, `extractZoneSlug()` 提取。`companyId` 必填, preview/create 模式传 `STUDIO_PREVIEW_COMPANY_ID` / `WIZARD_PREVIEW_COMPANY_ID` sentinel (shared-types/zone.ts)。跨 company 重写用 `reparentZoneId(companyId, zoneId)` —— 注意 `normalizeZoneId` 对已含 `::` 的输入是 pass-through, 不能用来重锚。`saveZonesToDb` 用 `reparentZoneId` 强制按真实 companyId 重写 sentinel 前缀, DB 永远看不到 sentinel
+- Render layer zone 查找有意保持 strict `z.zoneId === zoneId`。**例外**: `StudioState.addZoneFromPreset` 用 `crypto.randomUUID()` 作 zoneId (raw UUID, 无 `::`), Studio 内部自洽, 保存时 `reparentZoneId` 重写。不要为了"一致性"把 raw UUID 改成 prefixed
+- 员工→zone 用 `resolveZoneForRole()` 按 targetRoles, 不要用 `ROLE_TO_DEPARTMENT`
+- 模板 `CompanyTemplate.zones?` 自定义, 无时 fallback `SYSTEM_ZONE_TEMPLATES` (7)。用 `createZoneBlueprint()` 工厂
+- zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
+- `companies.default_model_policy_json` 实际存公司描述, 字段名误导但不可重命名
+- Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
+- `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
+- `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
+- Marketplace 安装**实际只有 employee 物化路径** (`if (asset.kind === 'employee')` 唯一分支)。Skill 不是独立实体, 是 `buildInstalledEmployeeConfig()` 嵌入到 `config_json.capabilityIndex` 的能力包。sop / company_template / office_layout / prefab 全部未完成
+- `GitAutoCommitService` 桌面端专用, 浏览器 no-op
+- `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
+
+## Repository 三套副本
+
+drizzle 1714L / memory 1508L / tauri 1657L — 任何 repo 接口变更必须三处同步。`repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等, memory 必须是超集。

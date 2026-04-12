@@ -97,6 +97,3 @@ export interface SkillValidationResult {
   /** Index-first capability summary for progressive loading / review. */
   readonly capabilityIndex?: SkillCapabilityIndex;
 }
-
-/** @deprecated Use SkillValidationIssue instead */
-export type SkillValidationWarning = SkillValidationIssue;

@@ -328,7 +328,7 @@ sequenceDiagram
 
 **当前限制**：
 - 只能装 employee，不能装 SOP / Layout / Prefab 包
-- 没有卸载/降级路径 —— 装了就装了
+- 只有软删（EmployeeInspector 的 Dismiss/Re-enable）—— 不出现在场景但记忆保留；无硬卸载
 - 没有 upgrade 路径（manifest 里有 lineage 字段但 UI 未实现）
 
 ---
@@ -389,36 +389,7 @@ sequenceDiagram
 | 多人协作 / 服务端运行 | 本地优先 BYO key |
 | 代理 LLM 请求 | 浏览器直调 vendor API |
 | 装 SOP / Layout / Prefab 包 | 只装 employee |
-| 卸载 / 降级已安装员工 | 未实现 |
+| 硬卸载已安装员工 | 有软删（Dismiss），不做硬卸载 |
 | 自建 Zone 类型 | Studio 只有预设 |
 | Bundle size / Scene V2 / CI | Known Debt |
 
----
-
-## 17. 制作人审核意见和疑问
-
-以下是站在游戏制作人 / 产品经理角度对当前业务系统的审核意见。
-
-### 确认正确的部分
-
-1. **核心循环闭合**：指令 → 路由 → 执行 → 交付 → 记忆 → 下次更好。四条路径（delegate / direct / meeting / SOP）都闭环。
-2. **SOP = 工作流**：定义准确，DAG 编辑 + 拓扑执行 + 暂停/回滚是差异化卖点。
-3. **记忆系统构成飞轮**：员工不是无状态工具，而是会成长的"人"，这是模拟器核心体验。
-4. **原子性保障到位**：公司创建、员工安装、所有写操作都有事务保障。
-5. **中断路径完整**：Stop 从任意 ceremony 阶段立刻复位，Activity Log 有记录。
-
-### 需要产品决策的疑问（附 2026-04-12 源码验证结论）
-
-| # | 疑问 | 源码验证结论 | 建议 |
-|---|---|---|---|
-| **Q1** | **HR 说"建议招人"但不执行** | **确认：HR 不调任何 repo.create**（`hr-node.ts:66-170`）。输出 `[HR Assessment]` 前缀，无"这只是建议"的明确提示。`hrRecommendation` 事件是后台事件，玩家看不到 | HR 回复末尾加引导语："To hire, use the + button or say 'create a designer'" |
-| **Q2** | **Meeting 产出** | **原描述不准确，已更新。** Meeting 有 `extractMeetingActionItems()` 提取 action items 并创建 taskRun 记录（`meeting-subgraph.ts:425-544`），但 `pendingAssignments: []`（`meeting-subgraph.ts:606-615`）表示不自动派发。`bossSummaryNode` 只展示不触发 | 会议 summary 后加 "Convert to tasks?" 按钮 |
-| **Q3** | **Project 前端入口** | **有 UI 入口。** `ProjectSelector.tsx:113-169` 提供 "New Project" 按钮 + 内联创建。`useProjects.ts:45-76` 创建 project + thread。无 `/project` 命令，只有 `/kanban` | 功能可发现性足够，可选加 `/project` 命令 |
-| **Q4** | **路由透明度** | **部分透明。** `PipelineProgress` 展示 5 阶段管道（`usePipelineStage.ts:18`），但不显示具体路由决策（为什么选 delegate 而不是 meeting） | 在 manager 阶段短暂显示决策标签 |
-| **Q5** | **员工记忆可见性** | **完全不可见。** `EmployeeInspector.tsx` 无 MemoryEntry 展示。`useEmployeeMemories.ts` 存在但未被 UI 引用 | Employee 详情加 Memories tab（**高优先级**——飞轮可见化） |
-| **Q6** | **卸载缺失** | **无卸载 UI，后端支持。** `InstalledList.tsx:143-204` 只有 update 操作。`useEmployeeEditor.ts:465` 有 `repos.employees.delete()`，`repositories.ts:228` 定义了 delete 方法 | InstalledList 加 Uninstall 按钮（**高优先级**） |
-| **Q7** | **切公司时 thread 命运** | **完整 abort + dispose + 新 runtime。** `main.tsx:86` 用 `key={companyId}` 强制 unmount。`OffisimRuntimeProvider.tsx:264-279` 完整 dispose。旧 thread 数据持久化，回来时可见历史。正在执行的 graph 被 abort，发 `execution.aborted` 事件 | 已闭合，无需改动 |
-
-### 总评
-
-**业务逻辑层面系统完整度 85% → 经源码验证修正为 88%。** Q2 原以为是 gap，实际已有 action-item 提取；Q3 原以为缺入口，实际有 ProjectSelector UI；Q7 完整 abort + persist。剩余 gap 集中在**玩家感知层**：HR 建议不明确（Q1）、action items 不自动派发（Q2）、Memory 不可见（Q5）、无卸载 UI（Q6）。这些是 UX 课题，不是架构 bug。

@@ -21,9 +21,6 @@ export interface ThreadSynopsisRecord {
   updatedAt: string;
 }
 
-/** @deprecated Use CompactBaselineState from graph/state.ts */
-export type CompactBaselineRecord = CompactBaselineState;
-
 export interface ConversationBudgetServiceOptions {
   maxNonSystemMessages?: number;
   tailNonSystemMessages?: number;
@@ -339,7 +336,7 @@ export class ConversationBudgetService {
 
   private buildRequestMessages(
     systemMessages: readonly LlmRequest['messages'][number][],
-    compactBaseline: CompactBaselineRecord | null,
+    compactBaseline: CompactBaselineState | null,
     nonSystemMessages: readonly LlmRequest['messages'][number][],
     synopsisMessage?: LlmRequest['messages'][number] | null,
   ): LlmRequest['messages'] {
@@ -551,7 +548,7 @@ export class ConversationBudgetService {
     priorCompactedNonSystemMessageCount = 0,
     priorCompactVersion = 0,
     cachedTokenCount?: number,
-  ): Promise<CompactBaselineRecord> {
+  ): Promise<CompactBaselineState> {
     const effectiveKeepTailNonSystemMessages = Math.min(
       Math.max(0, keepTailNonSystemMessages),
       nonSystemMessages.length,
@@ -569,7 +566,7 @@ export class ConversationBudgetService {
       ).filter((row) => row.compact_kind === 'full_thread').length + 1,
     );
     const tokenCount = cachedTokenCount ?? this.estimateTokens(nonSystemMessages);
-    const baseline: CompactBaselineRecord = {
+    const baseline: CompactBaselineState = {
       compactId: generateId('fcb'),
       compactVersion,
       compactedAt,
@@ -685,7 +682,7 @@ export class ConversationBudgetService {
 
   private makeCompactCompletedEvent(
     ctx: RuntimeContext,
-    baseline: CompactBaselineRecord,
+    baseline: CompactBaselineState,
     preCompactMessageCount: number,
     preCompactTokenCount: number,
   ) {

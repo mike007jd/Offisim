@@ -10,13 +10,10 @@ import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
 
-/** @deprecated Use `LlmCallMeta` from `middleware/types.ts` instead. */
-export type RecordedCallMeta = LlmCallMeta;
-
 export async function recordedLlmCall(
   ctx: RuntimeContext,
   request: LlmRequest,
-  meta: RecordedCallMeta,
+  meta: LlmCallMeta,
 ): Promise<LlmResponse> {
   const llmCallId = generateId('lc');
   const startedAt = Date.now();
@@ -135,7 +132,7 @@ export async function recordedLlmCall(
 export async function recordedLlmStream(
   ctx: RuntimeContext,
   request: LlmRequest,
-  meta: RecordedCallMeta,
+  meta: LlmCallMeta,
   onChunk: (chunk: LlmStreamChunk) => void,
 ): Promise<TeeResult> {
   const llmCallId = generateId('lc');

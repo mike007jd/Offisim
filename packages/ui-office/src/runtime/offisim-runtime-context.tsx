@@ -24,7 +24,7 @@ export interface OffisimRuntimeValue {
   eventBus: EventBus;
   sceneIntentBus?: SceneIntentBus;
   isReady: boolean;
-  /** @deprecated Use `useOffisimRuntimeStatus().isRunning` for re-render optimization. */
+  /** For re-render optimization prefer `useOffisimRuntimeStatus().isRunning` (dedicated volatile context). */
   isRunning: boolean;
   error: string | null;
   sendMessage: (
