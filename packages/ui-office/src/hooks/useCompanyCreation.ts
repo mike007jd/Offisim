@@ -97,70 +97,65 @@ export function useCompanyCreation({
   const create = useCallback(async () => {
     if (!selectedTemplateId || creatingRef.current) return null;
     creatingRef.current = true;
-    if (!repos) {
-      creatingRef.current = false;
-      setError('Runtime is still initializing. Please wait a moment and try again.');
-      return null;
-    }
-    if (mode === 'populate-existing' && !targetCompanyId) {
-      creatingRef.current = false;
-      setError('No active company. Please wait a moment and try again.');
-      return null;
-    }
-
-    const selectedTemplate =
-      templates.find((template) => template.id === selectedTemplateId) ?? null;
-    if (!selectedTemplate) {
-      creatingRef.current = false;
-      setError('Selected template not found.');
-      return null;
-    }
-
-    const resolvedCompanyId =
-      mode === 'create-new' ? await createCompanyRecord(selectedTemplate) : targetCompanyId;
-    if (!resolvedCompanyId) {
-      creatingRef.current = false;
-      return null;
-    }
-
-    if (mode === 'populate-existing') {
-      try {
-        const existing = await repos.employees.findByCompany(resolvedCompanyId);
-        if (existing.length > 0) {
-          creatingRef.current = false;
-          setStep('ready');
-          return resolvedCompanyId;
-        }
-      } catch {
-        /* proceed with creation */
-      }
-    }
-
-    setStep('creating');
-    setError(null);
     try {
-      const service = new CompanyTemplateService(
-        repos.employees,
-        repos.sopTemplates,
-        repos.officeLayouts,
-        eventBus,
-        repos.prefabInstances,
-        repos.transact,
-        repos.zones,
-      );
-      await service.materializeTemplate(selectedTemplateId, resolvedCompanyId);
-      if (mode === 'populate-existing') {
-        await repos.companies.update(resolvedCompanyId, {
-          template_id: selectedTemplate.id,
-          template_label: selectedTemplate.name,
-        });
+      if (!repos) {
+        setError('Runtime is still initializing. Please wait a moment and try again.');
+        return null;
       }
-      setStep('ready');
-      return resolvedCompanyId;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create company');
-      setStep('first-run');
-      return null;
+      if (mode === 'populate-existing' && !targetCompanyId) {
+        setError('No active company. Please wait a moment and try again.');
+        return null;
+      }
+
+      const selectedTemplate =
+        templates.find((template) => template.id === selectedTemplateId) ?? null;
+      if (!selectedTemplate) {
+        setError('Selected template not found.');
+        return null;
+      }
+
+      const resolvedCompanyId =
+        mode === 'create-new' ? await createCompanyRecord(selectedTemplate) : targetCompanyId;
+      if (!resolvedCompanyId) return null;
+
+      if (mode === 'populate-existing') {
+        try {
+          const existing = await repos.employees.findByCompany(resolvedCompanyId);
+          if (existing.length > 0) {
+            setStep('ready');
+            return resolvedCompanyId;
+          }
+        } catch {
+          /* proceed with creation */
+        }
+      }
+
+      setStep('creating');
+      setError(null);
+      try {
+        const service = new CompanyTemplateService(
+          repos.employees,
+          repos.sopTemplates,
+          repos.officeLayouts,
+          eventBus,
+          repos.prefabInstances,
+          repos.transact,
+          repos.zones,
+        );
+        await service.materializeTemplate(selectedTemplateId, resolvedCompanyId);
+        if (mode === 'populate-existing') {
+          await repos.companies.update(resolvedCompanyId, {
+            template_id: selectedTemplate.id,
+            template_label: selectedTemplate.name,
+          });
+        }
+        setStep('ready');
+        return resolvedCompanyId;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create company');
+        setStep('first-run');
+        return null;
+      }
     } finally {
       creatingRef.current = false;
     }

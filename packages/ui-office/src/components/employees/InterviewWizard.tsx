@@ -1,4 +1,12 @@
-import { Button, Dialog, DialogContent, DialogTitle, Progress } from '@offisim/ui-core';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Progress,
+} from '@offisim/ui-core';
 import { cn } from '@offisim/ui-core';
 import { ArrowLeft, ArrowRight, SkipForward, UserPlus } from 'lucide-react';
 import { type UseInterviewWizardReturn, WIZARD_STEPS } from '../../hooks/useInterviewWizard';
@@ -145,8 +153,11 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
 
         {/* Error banner — pinned above footer */}
         {error && (
-          <div className="shrink-0 mt-4 flex items-start justify-between gap-3 rounded border border-red-500/40 bg-red-500/10 p-3">
-            <p className="text-xs text-red-300">{error}</p>
+          <Alert
+            variant="destructive"
+            className="shrink-0 mt-4 flex items-start justify-between gap-3"
+          >
+            <AlertDescription className="flex-1 text-xs">{error}</AlertDescription>
             <button
               type="button"
               onClick={clearError}
@@ -154,7 +165,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
             >
               Dismiss
             </button>
-          </div>
+          </Alert>
         )}
 
         {/* Footer Navigation — pinned */}
