@@ -402,7 +402,12 @@ export function StudioPage(props: StudioPageProps) {
           else if (store.placingZonePreset) store.cancelZonePlacement();
           else if (store.placingPrefab) store.cancelPlacement();
           else if (store.selectedZoneId) store.selectZone(null);
-          else store.selectInstance(null);
+          else if (store.selectedInstanceId) store.selectInstance(null);
+          else if (useStudioStore.getState().dirty) {
+            if (!window.confirm('You have unsaved changes. Discard and leave?')) break;
+            useStudioStore.getState().markClean();
+            onBack();
+          }
           break;
         // Number keys 1-7: focus zones by sort order
         case '1':
@@ -432,7 +437,7 @@ export function StudioPage(props: StudioPageProps) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave]);
+  }, [handleSave, onBack]);
 
   // -- Render -----------------------------------------------------------------
 

@@ -100,6 +100,7 @@ export * from './hooks/useEmployeeEditor.js';
 export * from './hooks/useEmployeeMemories.js';
 export * from './hooks/useEmployeeVersions.js';
 export * from './hooks/useErrorTracking.js';
+export * from './hooks/useFirstRunGuidance.js';
 export * from './hooks/useInstallFlow.js';
 export * from './hooks/useInterviewWizard.js';
 export * from './hooks/useLibrary.js';

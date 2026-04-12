@@ -1,4 +1,9 @@
-import type { GraphNodeEnteredPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
+import type {
+  BossRouteDecidedPayload,
+  GraphNodeEnteredPayload,
+  RoleSlug,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import { SYSTEM_ROLES } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
@@ -113,21 +118,41 @@ function nodeToPipelineStage(nodeName: string): NonNullable<PipelineStage> {
   return 'executing';
 }
 
+/** Human-readable labels for boss routing decisions. */
+const ROUTE_LABELS: Record<BossRouteDecidedPayload['action'], string> = {
+  delegate: 'Delegating task',
+  meeting: 'Starting meeting',
+  direct_delegate: 'Direct assignment',
+  hire_or_assess: 'HR assessment',
+  use_sop: 'Running SOP',
+  direct_reply: 'Thinking…',
+};
+
+export interface PipelineStageInfo {
+  stage: PipelineStage;
+  routeLabel: string | null;
+}
+
 /**
- * Returns the current pipeline stage derived from graph.node.entered events.
+ * Returns the current pipeline stage derived from graph.node.entered events,
+ * plus a human-readable route label from boss.route.decided.
  * Clears automatically 3s after the runtime stops running.
  */
-export function usePipelineStage(): PipelineStage {
+export function usePipelineStage(): PipelineStageInfo {
   const { eventBus } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const [stage, setStage] = useState<PipelineStage>(null);
+  const [routeLabel, setRouteLabel] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear stage when run ends
   useEffect(() => {
     if (!isRunning) {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setStage(null), 3000);
+      timerRef.current = setTimeout(() => {
+        setStage(null);
+        setRouteLabel(null);
+      }, 3000);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -135,12 +160,24 @@ export function usePipelineStage(): PipelineStage {
   }, [isRunning]);
 
   useEffect(() => {
-    const off = eventBus.on('graph.node.entered', (e: RuntimeEvent<GraphNodeEnteredPayload>) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setStage(nodeToPipelineStage(e.payload.nodeName));
-    });
-    return off;
+    const offNode = eventBus.on(
+      'graph.node.entered',
+      (e: RuntimeEvent<GraphNodeEnteredPayload>) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        setStage(nodeToPipelineStage(e.payload.nodeName));
+      },
+    );
+    const offRoute = eventBus.on(
+      'boss.route.decided',
+      (e: RuntimeEvent<BossRouteDecidedPayload>) => {
+        setRouteLabel(ROUTE_LABELS[e.payload.action] ?? null);
+      },
+    );
+    return () => {
+      offNode();
+      offRoute();
+    };
   }, [eventBus]);
 
-  return stage;
+  return { stage, routeLabel };
 }

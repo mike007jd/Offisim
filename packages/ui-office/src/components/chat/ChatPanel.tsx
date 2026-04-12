@@ -3,12 +3,14 @@ import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
+import { useMeeting } from '../../hooks/useMeeting.js';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
 import {
   type ChatCommand,
   type ClientCommandContext,
   type PanelCommandContext,
   buildHelpText,
+  extractAtFragments,
   extractMentionHints,
 } from '../../lib/chat-commands.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -26,6 +28,9 @@ import { type ChatMessage, getConversationKey, useChatSessionStore } from './cha
 
 const MeetingPanel = lazy(() =>
   import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
+);
+const MeetingActionItems = lazy(() =>
+  import('./MeetingActionItems.js').then((module) => ({ default: module.MeetingActionItems })),
 );
 const PipelineProgress = lazy(() =>
   import('./PipelineProgress').then((module) => ({ default: module.PipelineProgress })),
@@ -93,7 +98,8 @@ export function ChatPanel({
   const { pendingInteraction, respondToInteraction } = useOffisimRuntime();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
-  const pipelineStage = usePipelineStage();
+  const { meetingState } = useMeeting();
+  const { stage: pipelineStage, routeLabel } = usePipelineStage();
   const appendMessage = useChatSessionStore((state) => state.appendMessage);
   const startRun = useChatSessionStore((state) => state.startRun);
   const finalizeActiveRun = useChatSessionStore((state) => state.finalizeActiveRun);
@@ -201,6 +207,14 @@ export function ChatPanel({
 
     // Extract @mention hints — if exactly one mention and no explicit target, use as hint
     const mentionHints = agents ? extractMentionHints(text, agents) : [];
+    const atFragments = extractAtFragments(text);
+    if (atFragments.length > 0 && mentionHints.length === 0) {
+      addMessage(targetKey, {
+        id: genMsgId(),
+        role: 'system',
+        content: `No employee matches: @${atFragments.join(', @')}. Check the name and try again.`,
+      });
+    }
     const targetHint =
       mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
     const resolvedTargetEmployeeId = selectedEmployeeId ?? targetHint ?? null;
@@ -472,6 +486,17 @@ export function ChatPanel({
           </Suspense>
         </div>
       )}
+      {!compact && meetingState.status === 'idle' && meetingState.actions.length > 0 && (
+        <div className="shrink-0">
+          <Suspense fallback={null}>
+            <MeetingActionItems
+              actions={meetingState.actions}
+              agents={agents}
+              onDelegate={(text) => void handleSend(text)}
+            />
+          </Suspense>
+        </div>
+      )}
       {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
         <InteractionPrompt
           request={pendingInteraction}
@@ -486,6 +511,7 @@ export function ChatPanel({
           <Suspense fallback={null}>
             <PipelineProgress
               stage={pipelineStage}
+              routeLabel={routeLabel}
               isRunning={isRunning}
               onAbort={abortExecution}
             />

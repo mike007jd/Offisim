@@ -6,7 +6,7 @@ vi.mock('../../runtime/use-agent-states', () => ({
 }));
 
 vi.mock('../../hooks/usePipelineStage', () => ({
-  usePipelineStage: () => null,
+  usePipelineStage: () => ({ stage: null, routeLabel: null }),
   STAGE_META: {},
 }));
 

@@ -31,6 +31,7 @@ export { useCompanyEditor } from './hooks/useCompanyEditor.js';
 export { useCompanyZones } from './hooks/useCompanyZones.js';
 export { useDeepLinkInstall } from './hooks/useDeepLinkInstall.js';
 export { useEmployeeEditor } from './hooks/useEmployeeEditor.js';
+export { useFirstRunGuidance } from './hooks/useFirstRunGuidance.js';
 export { useInstallFlow } from './hooks/useInstallFlow.js';
 export { usePrefabInstances } from './hooks/usePrefabInstances.js';
 export { useProjects } from './hooks/useProjects.js';

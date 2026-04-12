@@ -1,7 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { AGENT_QUESTION_REQUIRED } from '@offisim/shared-types';
-import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
+import { AGENT_QUESTION_REQUIRED, type BossRouteAction } from '@offisim/shared-types';
+import { bossRouteDecided, graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
@@ -268,6 +268,23 @@ export async function bossNode(
   if (needsClarification) {
     route = 'direct_reply';
   }
+
+  const resolvedRoute = route ?? 'delegate_manager';
+  // Derive the display action from the resolved route, not the original decision,
+  // so the UI label matches actual execution when fallbacks override the decision.
+  const resolvedAction: BossRouteAction =
+    resolvedRoute === 'delegate_manager'
+      ? 'delegate'
+      : resolvedRoute === 'direct_reply'
+        ? 'direct_reply'
+        : resolvedRoute === 'start_meeting'
+          ? 'meeting'
+          : resolvedRoute === 'direct_delegate'
+            ? 'direct_delegate'
+            : 'delegate';
+  runtimeCtx.eventBus.emit(
+    bossRouteDecided(runtimeCtx.companyId, state.threadId, resolvedAction, resolvedRoute),
+  );
 
   const replyContent =
     needsClarification && decision?.clarificationQuestion

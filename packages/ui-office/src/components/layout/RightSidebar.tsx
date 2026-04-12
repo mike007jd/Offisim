@@ -23,7 +23,7 @@ export function RightSidebar({
   activeThreadId,
 }: RightSidebarProps) {
   const agents = useAgentStates();
-  const stage = usePipelineStage();
+  const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
 

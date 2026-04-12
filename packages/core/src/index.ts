@@ -228,6 +228,7 @@ export {
   llmCallCompleted,
   llmUsageRecorded,
   costSessionUpdated,
+  bossRouteDecided,
   graphNodeEntered,
   graphNodeExited,
   llmStreamChunk,

@@ -2,6 +2,8 @@
  * Orchestration event factories — meeting, graph node, and plan lifecycle events.
  */
 import type {
+  BossRouteAction,
+  BossRouteDecidedPayload,
   ExecutionAbortedPayload,
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
@@ -52,6 +54,23 @@ export function meetingActionCreated(
     companyId,
     timestamp: Date.now(),
     payload: { meetingId, actionItemId, description, assigneeEmployeeId, priority, dependsOn },
+  };
+}
+
+export function bossRouteDecided(
+  companyId: string,
+  threadId: string,
+  action: BossRouteAction,
+  route: BossRouteDecidedPayload['route'],
+): RuntimeEvent<BossRouteDecidedPayload> {
+  return {
+    type: 'boss.route.decided',
+    entityId: 'boss',
+    entityType: 'graph',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { action, route },
   };
 }
 

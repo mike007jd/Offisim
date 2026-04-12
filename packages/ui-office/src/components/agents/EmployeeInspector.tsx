@@ -1,8 +1,21 @@
+import type { EmployeeRow, MemoryEntryRow } from '@offisim/core/browser';
 import { Badge, Button } from '@offisim/ui-core';
-import { BriefcaseBusiness, ListChecks, MessageSquare, Pencil, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import {
+  Brain,
+  BriefcaseBusiness,
+  ListChecks,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEmployeeMemories } from '../../hooks/useEmployeeMemories';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 
@@ -12,6 +25,7 @@ import { DicebearAvatar } from '../shared/DicebearAvatar';
 
 export interface EmployeeInspectorProps {
   employeeId: string | null;
+  companyId: string;
   agents: Map<string, AgentState>;
   onClose: () => void;
   onOpenEditor?: (id: string) => void;
@@ -23,8 +37,125 @@ export interface EmployeeInspectorProps {
 // Component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Category badge colors
+// ---------------------------------------------------------------------------
+
+const CATEGORY_COLORS: Record<MemoryEntryRow['category'], string> = {
+  experience: 'text-amber-400',
+  decision: 'text-blue-400',
+  knowledge: 'text-emerald-400',
+  preference: 'text-purple-400',
+};
+
+// ---------------------------------------------------------------------------
+// MemoriesSection — collapsible, top-5 by importance, Forget per entry
+// ---------------------------------------------------------------------------
+
+function MemoriesSection({
+  employeeId,
+  companyId,
+}: {
+  employeeId: string;
+  companyId: string;
+}) {
+  const { memories, isLoading, deleteMemory } = useEmployeeMemories(employeeId, companyId);
+  const [expanded, setExpanded] = useState(false);
+
+  const sorted = useMemo(
+    () => [...memories].sort((a, b) => b.importance - a.importance),
+    [memories],
+  );
+  const visible = expanded ? sorted : sorted.slice(0, 5);
+  const total = memories.length;
+
+  const handleForget = useCallback(
+    (memoryId: string) => {
+      void deleteMemory(memoryId);
+    },
+    [deleteMemory],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+          <Brain className="h-3 w-3" />
+          Memories
+        </div>
+        <p className="mt-2 text-xs text-slate-500">Loading…</p>
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+          <Brain className="h-3 w-3" />
+          Memories
+        </div>
+        <p className="mt-2 text-xs text-slate-400">No memories yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+          <Brain className="h-3 w-3" />
+          Memories ({total})
+        </div>
+        <span className="text-[10px] text-slate-500">{expanded ? '▾' : '▸'}</span>
+      </button>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {visible.map((m) => (
+          <div key={m.memory_id} className="group flex items-start gap-1.5">
+            <span className="mt-0.5 text-[10px] text-slate-600">★</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs leading-relaxed text-slate-200 break-words">{m.content}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`text-[9px] ${CATEGORY_COLORS[m.category]}`}>{m.category}</span>
+                <span className="text-[9px] text-slate-600">{m.importance.toFixed(2)}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleForget(m.memory_id)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-600 hover:text-red-400 p-0.5"
+              title="Forget this memory"
+              aria-label={`Forget memory: ${m.content.slice(0, 30)}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {total > 5 && !expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-1.5 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Show all {total} memories
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function EmployeeInspector({
   employeeId,
+  companyId,
   agents,
   onClose,
   onOpenEditor,
@@ -32,6 +163,9 @@ export function EmployeeInspector({
   leftOffset = 280,
 }: EmployeeInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { repos } = useOffisimRuntime();
+  const [employee, setEmployee] = useState<EmployeeRow | null>(null);
+  const [isUpdatingEnabled, setIsUpdatingEnabled] = useState(false);
 
   // Close on Escape
   useEffect(() => {
@@ -56,11 +190,37 @@ export function EmployeeInspector({
     return () => document.removeEventListener('pointerdown', handlePointerDown, true);
   }, [employeeId, onClose]);
 
-  if (!employeeId) return null;
+  useEffect(() => {
+    if (!employeeId || !repos?.employees) {
+      setEmployee(null);
+      return;
+    }
+    let cancelled = false;
+    repos.employees
+      .findById(employeeId)
+      .then((row) => {
+        if (!cancelled) {
+          setEmployee(row);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEmployee(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, repos]);
 
-  const agent = agents.get(employeeId);
+  if (!employeeId) return null;
+  const resolvedEmployeeId = employeeId;
+
+  const agent = agents.get(resolvedEmployeeId);
   if (!agent) return null;
 
+  const enabled = employee?.enabled ?? 1;
+  const isDismissed = enabled === 0;
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
   const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
   const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
@@ -73,6 +233,36 @@ export function EmployeeInspector({
     agent.currentTask != null
       ? `Step ${agent.currentTask.stepIndex + 1} of ${agent.currentTask.totalSteps}`
       : null;
+
+  async function updateEnabled(nextEnabled: 0 | 1) {
+    if (!repos?.employees || isUpdatingEnabled) return;
+    const targetId = resolvedEmployeeId;
+    setIsUpdatingEnabled(true);
+    try {
+      await repos.employees.update(targetId, { enabled: nextEnabled });
+      // Only update local state if still viewing the same employee
+      setEmployee((prev) =>
+        prev && prev.employee_id === targetId ? { ...prev, enabled: nextEnabled } : prev,
+      );
+    } finally {
+      setIsUpdatingEnabled(false);
+    }
+  }
+
+  function handleDismiss() {
+    if (
+      !window.confirm(
+        "Dismiss this employee? They won't appear in the office but their memories are preserved. You can re-enable them later.",
+      )
+    ) {
+      return;
+    }
+    void updateEnabled(0);
+  }
+
+  function handleReenable() {
+    void updateEnabled(1);
+  }
 
   return (
     <div
@@ -132,6 +322,15 @@ export function EmployeeInspector({
           className="flex flex-col gap-1"
           style={{ paddingInline: 'var(--sp-lg)', paddingBottom: 'var(--sp-md)' }}
         >
+          {isDismissed ? (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-rose-300">Dismissed</div>
+              <p className="mt-2 text-sm text-rose-100">
+                This employee is hidden from the office. Their memories are preserved.
+              </p>
+            </div>
+          ) : null}
+
           {currentTaskLabel ? (
             <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
@@ -169,6 +368,8 @@ export function EmployeeInspector({
             </div>
           ) : null}
 
+          <MemoriesSection employeeId={employeeId} companyId={companyId} />
+
           {agent.taskRunId && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Task ID</span>
@@ -194,7 +395,7 @@ export function EmployeeInspector({
             variant="outline"
             size="sm"
             className="flex-1 gap-1.5 text-xs"
-            onClick={() => onStartChat?.(employeeId)}
+            onClick={() => onStartChat?.(resolvedEmployeeId)}
           >
             <MessageSquare className="h-3 w-3" />
             Message
@@ -203,11 +404,34 @@ export function EmployeeInspector({
             variant="outline"
             size="sm"
             className="flex-1 gap-1.5 text-xs"
-            onClick={() => onOpenEditor?.(employeeId)}
+            onClick={() => onOpenEditor?.(resolvedEmployeeId)}
           >
             <Pencil className="h-3 w-3" />
             Edit Details
           </Button>
+          {isDismissed ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs text-emerald-400 hover:text-emerald-300"
+              disabled={isUpdatingEnabled}
+              onClick={handleReenable}
+            >
+              <UserPlus className="h-3 w-3" />
+              Re-enable
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+              disabled={isUpdatingEnabled}
+              onClick={handleDismiss}
+            >
+              <UserMinus className="h-3 w-3" />
+              Dismiss
+            </Button>
+          )}
         </div>
       </div>
     </div>

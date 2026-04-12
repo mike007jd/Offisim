@@ -38,7 +38,8 @@ Rules:
 - For team assessment: analyze current team strengths/weaknesses, identify skill gaps
 - For onboarding: provide context about team dynamics and working patterns
 - Be specific and actionable in your recommendations
-- suggestedRoles MUST use canonical role_slug values: ${HIREABLE_SLUGS.join(', ')}`;
+- suggestedRoles MUST use canonical role_slug values: ${HIREABLE_SLUGS.join(', ')}
+- When recommending new hires, always end your assessment with: "To create this role, click the + button or say 'hire a [role name]'."`;
 
 function parseHrAssessment(content: string): HrAssessmentResult | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;

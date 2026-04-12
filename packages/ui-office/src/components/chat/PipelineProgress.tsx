@@ -29,6 +29,8 @@ type NodeState = 'completed' | 'active' | 'pending' | 'error';
 interface PipelineProgressProps {
   /** Current pipeline stage from usePipelineStage() — null hides the bar. */
   stage: PipelineStage;
+  /** Human-readable boss routing label from boss.route.decided. */
+  routeLabel?: string | null;
   /** Whether the runtime is currently running (used for stop button). */
   isRunning: boolean;
   /** Callback to abort execution. */
@@ -128,7 +130,7 @@ function Connector({ state }: { state: 'done' | 'pending' }) {
   );
 }
 
-export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgressProps) {
+export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: PipelineProgressProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ceremony = useSceneCeremony();
 
@@ -192,9 +194,9 @@ export function PipelineProgress({ stage, isRunning, onAbort }: PipelineProgress
             </div>
           )}
         </div>
-        {activeCeremonyLabel && (
+        {(routeLabel || activeCeremonyLabel) && (
           <div className="mt-1 text-[10px] text-slate-500 tracking-wide text-center">
-            {activeCeremonyLabel}
+            {activeCeremonyLabel ?? routeLabel}
           </div>
         )}
       </div>

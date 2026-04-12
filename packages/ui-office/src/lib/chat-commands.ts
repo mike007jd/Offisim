@@ -272,16 +272,21 @@ export interface MentionHint {
   name: string;
 }
 
+const AT_MENTION_PATTERN = /@(\S+)/g;
+
+/** Extract raw @fragments from text (e.g. "@Alex" → ["Alex"]). */
+export function extractAtFragments(text: string): string[] {
+  return [...text.matchAll(AT_MENTION_PATTERN)].map((m) => m[1] ?? '').filter(Boolean);
+}
+
 export function extractMentionHints(
   text: string,
   agents: ReadonlyMap<string, { name: string }>,
 ): MentionHint[] {
   const mentions: MentionHint[] = [];
   const seen = new Set<string>();
-  const pattern = /@(\S+)/g;
 
-  for (const match of text.matchAll(pattern)) {
-    const fragment = match[1] ?? '';
+  for (const fragment of extractAtFragments(text)) {
     for (const [id, agent] of agents) {
       if (!seen.has(id) && agent.name.toLowerCase().startsWith(fragment.toLowerCase())) {
         mentions.push({ employeeId: id, name: agent.name });

@@ -39,6 +39,8 @@ export type {
   LlmUsageRecordedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
+  BossRouteAction,
+  BossRouteDecidedPayload,
   LlmStreamChunkPayload,
   ConversationSynopsisUpdatedPayload,
   ConversationCompactCompletedPayload,

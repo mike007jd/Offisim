@@ -4,7 +4,7 @@ import type {
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 /** Meeting runtime status — mirrors MeetingControls.MeetingStatus but scoped to this hook. */
 export type MeetingRunStatus = 'idle' | 'running' | 'paused';
@@ -103,13 +103,15 @@ export function useMeeting(): UseMeetingReturn {
           else if (next === 'completed' || next === 'cancelled') newStatus = 'idle';
 
           const nowIdle = newStatus === 'idle';
+          const shouldResetActions =
+            !nowIdle && (prev.status === 'idle' || prev.meetingId !== meetingId);
+
           return {
             ...prev,
             meetingId: nowIdle ? null : meetingId,
             status: newStatus,
             participantIds: nowIdle ? [] : [...participantIds],
-            // Reset transcript + actions when meeting ends
-            actions: nowIdle ? [] : prev.actions,
+            actions: shouldResetActions ? [] : prev.actions,
             transcript: nowIdle ? [] : prev.transcript,
             startTime:
               newStatus === 'running' && prev.status !== 'running'

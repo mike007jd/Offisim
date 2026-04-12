@@ -72,7 +72,7 @@ vi.mock('../../hooks/useErrorTracking.js', () => ({
 }));
 
 vi.mock('../../hooks/usePipelineStage.js', () => ({
-  usePipelineStage: () => null,
+  usePipelineStage: () => ({ stage: null, routeLabel: null }),
   STAGE_META: {},
   PIPELINE_STEPS: ['boss', 'manager', 'planning', 'executing', 'summary'],
 }));

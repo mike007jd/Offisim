@@ -3,7 +3,11 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { buildEmployeePrompt } from '../agents/employee-builder.js';
 import { GraphError } from '../errors.js';
-import { meetingActionCreated, meetingStateChanged } from '../events/event-factories.js';
+import {
+  meetingActionCreated,
+  meetingStateChanged,
+  notificationCreated,
+} from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -50,6 +54,19 @@ export async function meetingStartNode(
   // Get all enabled employees for the meeting
   const employees = await repos.employees.findByCompany(companyId);
   const participants = employees.filter((e) => e.enabled);
+  if (participants.length === 1 && participants[0]) {
+    eventBus.emit(
+      notificationCreated(
+        companyId,
+        `meeting-solo-warn-${Date.now()}`,
+        'warning',
+        'Solo meeting',
+        `Only ${participants[0].name} is available — consider hiring more team members for productive meetings.`,
+        'runtime',
+        { employeeId: participants[0].employee_id },
+      ),
+    );
+  }
 
   if (participants.length === 0) {
     throw new GraphError('No participants available for meeting', 'meeting_start');

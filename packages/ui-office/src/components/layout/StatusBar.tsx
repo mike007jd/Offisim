@@ -42,7 +42,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
   const { error, interactionMode, setInteractionMode, pendingInteraction } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
-  const pipelineStage = usePipelineStage();
+  const { stage: pipelineStage } = usePipelineStage();
   const { headline, activeTools } = useRuntimeActivityFeed({ maxEntries: 0 });
   const runStatus = isRunning ? 'running' : error ? 'error' : 'idle';
 

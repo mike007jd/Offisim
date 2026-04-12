@@ -157,7 +157,10 @@ apps/
 - 渲染用 `resolveEmployeeSceneZoneId()`, 不要用 `resolveEmployeeZoneDynamic()` (避免掉 UNASSIGNED_ZONE)
 - 移动路由走 `scene-behavior.ts` → `buildTransitRoute()`, 不要直接 `handle.moveTo()`
 - 新增 prefab 必须在 `prefab-spatial.ts` SPATIAL_SPECS 补数据
-- Settings: `SettingsWorkspaceSurface.tsx` 拆出 primitives + ProviderTab + RuntimeTab。`SettingsPage` 用 capture-phase Escape handler 调 `controller.requestDismiss()` 拦截未保存更改。保存 runtimePolicy 必须含 `toolPermissions`
+- Settings: `SettingsWorkspaceSurface.tsx` 拆出 primitives + ProviderTab + RuntimeTab。`SettingsPage` 用 capture-phase Escape handler 调 `controller.requestDismiss()` 拦截未保存更改。保存 runtimePolicy 必须含 `toolPermissions`。reinit 超时用独立 effect（只依赖 `isReinitializing`），版本检测 effect 独立（依赖 `runtimeVersion`），不要合并——否则中间 version bump 会无限推迟超时
+- Studio: 保存错误用 `useToasts` + `<ToastBanner>`（与 SopViewSurface/MarketPage 一致），不要写内联 error banner
+- Install: `startRegistryInstall` 开头有 `txnIdRef.current` 并发守卫，不要删除
+- SOP: `handleRun` 执行前校验 role_slug 存在性（查 `repos.employees.findByCompany`），缺失角色时 warning toast
 - UI 文案密度: 副标题仅在标题本身有歧义时使用, 不要每个 section 都加描述段落。删除营销文案、不要重复展示同一信息（如 provider name 只显示一处）
 - Company 共享 primitive 在 `company-editor-primitives.tsx`, zone layout 在 `company-editor-layout.ts`
 - Chat 命令: `chat-commands.ts` 三类 (runtime/client/panel), 新增只加 `CHAT_COMMANDS`。@mention 不切 direct chat
@@ -205,6 +208,16 @@ These are non-obvious code truths surfaced by the 5-agent source-level audit. Au
 - **renderer 与 ui-office 的 prefab**: `renderer/prefab/builtin-catalog.ts` 是**目录定义**(190+ frozen 对象), `ui-office/lib/prefab-spatial.ts` 是**空间 spec** (footprint/anchor/rotation), 两者通过 prefabId 关联但互不依赖。新增 prefab 必须在两边各加一份
 - **CI gate 只有本地 husky**: 无 `.github/workflows/`。`.husky/pre-commit` 跑 `biome check --staged`（依赖 biome.json 的 `vcs` 块解析 staged 文件）。typecheck / test 不在 hook 里跑（太慢），仍靠开发者自觉。`--staged` 模式只检查本次改动，避免 legacy lint debt 阻塞新 commit。需要跳过时 `git commit --no-verify`
 - **Repository 三套手写副本** (drizzle 1714L / memory 1508L / tauri 1657L) — 任何 repo 接口变更必须三处同步。`apps/web/src/__tests__/unit/repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等，memory 必须是超集（class 实现 helper 如 `snapshot`/`key`/`setActive` 允许）。使用时直接 `import from '../../../../../packages/core/dist/...'` 绕过 vitest 的 `@offisim/core` alias 前缀吞噬子路径
+
+## Active Spec
+
+- `Docs/ux-transparency-spec-2026-04-12.md` — UX Transparency & Safety, T0-T3
+- 产品方向："过程即价值"——凡是系统做了的事，玩家必须能看到、理解、干预
+- T0 (4 CRITICAL) 已落地 commit `3e8e11d`
+- T1-T3 待实现：Memories panel + Forget / Route labels / Meeting action items delegate / Dismiss button / Guidance toasts / HR prompt / Memory pruning
+- `Docs/business-logic-map.md` 是 ground truth（Q2 已修正：Meeting 有 action-item 提取）
+- `Docs/audit/ux_edge_case_audit_2026-04-12.md` — 完整 edge case 清单
+- Phase 1-6 审计文档全部归档到 `Docs/archive/2026-04/`，不要当作 active artifact
 
 ## License and Key Model
 

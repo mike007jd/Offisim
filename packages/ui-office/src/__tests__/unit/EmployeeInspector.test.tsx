@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EmployeeInspector } from '../../components/agents/EmployeeInspector';
 
+vi.mock('../../runtime/offisim-runtime-context', () => ({
+  useOffisimRuntime: () => ({ repos: null }),
+}));
+
 describe('EmployeeInspector', () => {
   it('shows quick-inspect task context and action labels', () => {
     const onClose = vi.fn();
@@ -32,6 +36,7 @@ describe('EmployeeInspector', () => {
     render(
       <EmployeeInspector
         employeeId="emp-1"
+        companyId="company-1"
         agents={agents}
         onClose={onClose}
         onOpenEditor={onOpenEditor}

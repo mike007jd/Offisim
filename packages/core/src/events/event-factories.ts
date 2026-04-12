@@ -38,6 +38,7 @@ export {
 } from './task-events.js';
 
 export {
+  bossRouteDecided,
   meetingStateChanged,
   meetingActionCreated,
   graphNodeEntered,

@@ -37,7 +37,7 @@ vi.mock('../../hooks/useDashboardMetrics', () => ({
 }));
 
 vi.mock('../../hooks/usePipelineStage', () => ({
-  usePipelineStage: () => null,
+  usePipelineStage: () => ({ stage: null, routeLabel: null }),
   STAGE_META: {},
 }));
 

@@ -208,6 +208,15 @@ export class MemoryService {
       ),
     );
 
+    // Prune least important memories when over limit
+    const maxFacts = 50;
+    const allMemories = await this.memoryRepo.findByOwner(ownerId);
+    if (allMemories.length > maxFacts) {
+      const sorted = [...allMemories].sort((a, b) => a.importance - b.importance);
+      const toDelete = sorted.slice(0, allMemories.length - maxFacts);
+      await Promise.all(toDelete.map((mem) => this.memoryRepo.delete(mem.memory_id)));
+    }
+
     return memoryId;
   }
 

@@ -1,3 +1,4 @@
+import { ToastBanner } from '@offisim/ui-core';
 import type { EmptyStateWelcome } from '@offisim/ui-office';
 import {
   AgentPanel,
@@ -10,6 +11,7 @@ import {
   StatusBar,
   useAgentStates,
   useCompany,
+  useFirstRunGuidance,
   useOffisimRuntime,
   useProjects,
 } from '@offisim/ui-office/web';
@@ -152,6 +154,7 @@ export function OfficeWorkspaceShell({
   } = employee;
   const { viewMode, onViewModeChange, onSceneFallbackTo2D } = sceneView;
   const { unfinishedThreads, dismissUnfinishedThreads, repos, resumeThread } = useOffisimRuntime();
+  const { toasts: guidanceToasts, dismissToast: dismissGuidanceToast } = useFirstRunGuidance();
   const { companies } = useCompany();
   const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } =
     useProjects({
@@ -168,6 +171,8 @@ export function OfficeWorkspaceShell({
 
   return (
     <>
+      <ToastBanner toasts={guidanceToasts} onDismiss={dismissGuidanceToast} />
+
       {unfinishedThreads.length > 0 && (
         <div className="fixed top-2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 px-4">
           <ResumeBar
@@ -317,6 +322,7 @@ export function OfficeWorkspaceShell({
 
       <EmployeeInspector
         employeeId={selectedEmployeeId}
+        companyId={activeCompanyId ?? ''}
         agents={agents}
         leftOffset={leftPanelWidth}
         onClose={() => onSelectEmployee(null)}
