@@ -154,6 +154,7 @@ export function useSettingsWorkspaceController({
   const [saveError, setSaveError] = useState('');
   const loadedSnapshotRef = useRef('');
   const pendingSnapshotCaptureRef = useRef(false);
+  const savingRef = useRef(false);
 
   const currentSnapshot = useMemo(
     () =>
@@ -337,6 +338,8 @@ export function useSettingsWorkspaceController({
   const isSubscription = preset === 'subscription';
 
   async function handleSave() {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaveError('');
     try {
       setIsSaving(true);
@@ -448,6 +451,7 @@ export function useSettingsWorkspaceController({
       setSaveError(message);
     } finally {
       setIsSaving(false);
+      savingRef.current = false;
     }
   }
 

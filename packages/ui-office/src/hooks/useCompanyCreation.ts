@@ -1,6 +1,6 @@
 import { CompanyTemplateService, listTemplates } from '@offisim/core/browser';
 import type { CompanyTemplate } from '@offisim/core/browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
@@ -68,6 +68,7 @@ export function useCompanyCreation({
 
   // Guard against double-submit (e.g. Settings dialog opens during creation)
   const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   const createCompanyRecord = useCallback(
     async (template: CompanyTemplate | null, templateLabelOverride?: string) => {
@@ -95,12 +96,15 @@ export function useCompanyCreation({
   );
 
   const create = useCallback(async () => {
-    if (!selectedTemplateId || isCreating) return null;
+    if (!selectedTemplateId || creatingRef.current) return null;
+    creatingRef.current = true;
     if (!repos) {
+      creatingRef.current = false;
       setError('Runtime is still initializing. Please wait a moment and try again.');
       return null;
     }
     if (mode === 'populate-existing' && !targetCompanyId) {
+      creatingRef.current = false;
       setError('No active company. Please wait a moment and try again.');
       return null;
     }
@@ -108,18 +112,23 @@ export function useCompanyCreation({
     const selectedTemplate =
       templates.find((template) => template.id === selectedTemplateId) ?? null;
     if (!selectedTemplate) {
+      creatingRef.current = false;
       setError('Selected template not found.');
       return null;
     }
 
     const resolvedCompanyId =
       mode === 'create-new' ? await createCompanyRecord(selectedTemplate) : targetCompanyId;
-    if (!resolvedCompanyId) return null;
+    if (!resolvedCompanyId) {
+      creatingRef.current = false;
+      return null;
+    }
 
     if (mode === 'populate-existing') {
       try {
         const existing = await repos.employees.findByCompany(resolvedCompanyId);
         if (existing.length > 0) {
+          creatingRef.current = false;
           setStep('ready');
           return resolvedCompanyId;
         }
@@ -156,17 +165,9 @@ export function useCompanyCreation({
       return null;
     } finally {
       setIsCreating(false);
+      creatingRef.current = false;
     }
-  }, [
-    repos,
-    selectedTemplateId,
-    eventBus,
-    targetCompanyId,
-    isCreating,
-    mode,
-    templates,
-    createCompanyRecord,
-  ]);
+  }, [repos, selectedTemplateId, eventBus, targetCompanyId, mode, templates, createCompanyRecord]);
 
   const createCustomCompany = useCallback(async () => {
     if (isCreating) return null;
