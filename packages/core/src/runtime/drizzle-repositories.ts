@@ -521,9 +521,13 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const installedPackages: InstalledPackageRepository = {
-    async create(pkg) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale. Install
+    // materializer runs all 4 create calls inside a sync transact() callback;
+    // an async wrapper would capture sync throws into rejected promises that
+    // void silently discards, defeating rollback.
+    create(pkg) {
       db.insert(schema.installedPackages).values(pkg).run();
-      return pkg as InstalledPackageRow;
+      return Promise.resolve(pkg as InstalledPackageRow);
     },
     async findByPackageId(companyId, packageId) {
       return db
@@ -552,9 +556,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const installedAssets: InstalledAssetRepository = {
-    async create(asset) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    create(asset) {
       db.insert(schema.installedAssets).values(asset).run();
-      return asset as InstalledAssetRow;
+      return Promise.resolve(asset as InstalledAssetRow);
     },
     async delete(id) {
       db.delete(schema.installedAssets)
@@ -564,9 +569,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const assetBindings: AssetBindingRepository = {
-    async create(binding) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    create(binding) {
       db.insert(schema.assetBindings).values(binding).run();
-      return binding as AssetBindingRow;
+      return Promise.resolve(binding as AssetBindingRow);
     },
     async findByTransaction(txnId) {
       return db

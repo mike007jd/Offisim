@@ -16,6 +16,7 @@ const EVENT_PREFIXES = [
   'deliverable.',
   'employee.',
   'install.',
+  'execution.',
 ] as const;
 
 type MemoryRepos = ReturnType<typeof createMemoryRepositories>;

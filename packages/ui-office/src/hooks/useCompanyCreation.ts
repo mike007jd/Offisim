@@ -24,6 +24,8 @@ export interface UseCompanyCreationReturn {
   createCustomCompany: () => Promise<string | null>;
   error: string | null;
   runtimeReady: boolean;
+  /** True while any create flow is in flight (template or custom). */
+  isCreating: boolean;
 }
 
 export function useCompanyCreation({
@@ -66,8 +68,12 @@ export function useCompanyCreation({
 
   const runtimeReady = repos !== null;
 
-  // Guard against double-submit (e.g. Settings dialog opens during creation)
+  // Guard against double-submit (e.g. Settings dialog opens during creation).
+  // creatingRef is the synchronous source of truth; isCreating is the
+  // mirrored React state exposed to consumers that need to render/gate on it
+  // (e.g. CompanyCreationWizard's Back/Escape dismissal).
   const creatingRef = useRef(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const createCompanyRecord = useCallback(
     async (template: CompanyTemplate | null, templateLabelOverride?: string) => {
@@ -97,6 +103,7 @@ export function useCompanyCreation({
   const create = useCallback(async () => {
     if (!selectedTemplateId || creatingRef.current) return null;
     creatingRef.current = true;
+    setIsCreating(true);
     try {
       if (!repos) {
         setError('Runtime is still initializing. Please wait a moment and try again.');
@@ -158,6 +165,7 @@ export function useCompanyCreation({
       }
     } finally {
       creatingRef.current = false;
+      setIsCreating(false);
     }
   }, [repos, selectedTemplateId, eventBus, targetCompanyId, mode, templates, createCompanyRecord]);
 
@@ -168,11 +176,13 @@ export function useCompanyCreation({
       return null;
     }
     creatingRef.current = true;
+    setIsCreating(true);
     setError(null);
     try {
       return await createCompanyRecord(null, 'Custom');
     } finally {
       creatingRef.current = false;
+      setIsCreating(false);
     }
   }, [companyName, createCompanyRecord]);
 
@@ -187,5 +197,6 @@ export function useCompanyCreation({
     createCustomCompany,
     error,
     runtimeReady,
+    isCreating,
   };
 }

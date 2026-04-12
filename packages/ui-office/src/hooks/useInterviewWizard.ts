@@ -1,6 +1,6 @@
 import { employeeCreated } from '@offisim/core/browser';
 import type { RoleSlug } from '@offisim/shared-types';
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useReducer, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
@@ -167,6 +167,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
   const { activeCompanyId } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const currentStepName = WIZARD_STEPS[state.currentStep] as WizardStep;
   const canProceed = isStepValid(state.currentStep, state.formData);
@@ -208,10 +209,15 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
+    // Synchronous re-entry guard — isSubmitting state lags a render, so a
+    // same-tick double Enter / double click would otherwise slip through and
+    // create duplicate employees.
+    if (submittingRef.current) return false;
     if (!repos) {
       setError('Runtime not ready — please wait and retry');
       return false;
     }
+    submittingRef.current = true;
     setIsSubmitting(true);
     setError(null);
     try {
@@ -251,6 +257,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
       return false;
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   }, [repos, eventBus, versionService, state, activeCompanyId]);
 

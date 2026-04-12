@@ -41,6 +41,7 @@ export function CompanyCreationWizard({
     createCustomCompany,
     error,
     runtimeReady,
+    isCreating,
   } = useCompanyCreation({ mode, companyId });
 
   const templates = useMemo(() => [...coreTemplates, CREATE_YOUR_OWN_TEMPLATE], [coreTemplates]);
@@ -75,8 +76,10 @@ export function CompanyCreationWizard({
 
   useEffect(() => {
     // Gate: no dismiss during in-flight creation — the pending create() promise
-    // would still resolve after unmount and bounce the user into the new company.
-    if (!onDismiss || step === 'creating') return;
+    // would still resolve after unmount and bounce the user into the new
+    // company. Use `isCreating` instead of step === 'creating' because the
+    // custom-company path flips `isCreating` without transitioning step.
+    if (!onDismiss || isCreating) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // Capture-phase + stopImmediatePropagation so App.tsx's global Escape
@@ -89,7 +92,7 @@ export function CompanyCreationWizard({
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [onDismiss, step]);
+  }, [onDismiss, isCreating]);
 
   const currentTemplateIdx = useMemo(
     () => templates.findIndex((template) => template.id === selectedTemplateId),
@@ -155,7 +158,7 @@ export function CompanyCreationWizard({
         }}
       />
 
-      {onDismiss && step !== 'creating' && (
+      {onDismiss && !isCreating && (
         <button
           type="button"
           onClick={onDismiss}
