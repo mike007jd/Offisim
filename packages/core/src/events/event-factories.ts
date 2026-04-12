@@ -44,6 +44,7 @@ export {
   graphNodeExited,
   workspaceStalenessDetected,
   executionResumed,
+  executionAborted,
   planCreated,
   planStepStarted,
   planStepCompleted,

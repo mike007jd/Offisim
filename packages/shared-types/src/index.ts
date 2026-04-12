@@ -44,6 +44,7 @@ export type {
   ConversationCompactCompletedPayload,
   WorkspaceStalenessDetectedPayload,
   ExecutionResumedPayload,
+  ExecutionAbortedPayload,
   InteractionRequestedPayload,
   InteractionRestoredPayload,
   InteractionResolvedPayload,

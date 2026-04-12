@@ -1,6 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import {
+  executionAborted,
   executionResumed,
   graphNodeExited,
   workspaceStalenessDetected,
@@ -82,10 +83,15 @@ export class OrchestrationService {
 
   /**
    * Abort the currently-running execution on the given thread.
-   * No-op if no execution is in progress for that thread.
+   * No-op if no execution is in progress for that thread. Emits
+   * `execution.aborted` via EventBus so scene orchestrator + other
+   * consumers can return to idle.
    */
   abortExecution(threadId: string): void {
-    this.currentAborts.get(threadId)?.abort();
+    const controller = this.currentAborts.get(threadId);
+    if (!controller) return;
+    controller.abort();
+    this.runtimeCtx.eventBus.emit(executionAborted(this.runtimeCtx.companyId, threadId, 'user'));
   }
 
   /**

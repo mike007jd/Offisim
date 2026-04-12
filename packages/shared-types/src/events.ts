@@ -88,6 +88,7 @@ export type EventFamily =
   | 'tool.execution.telemetry'
   | 'workspace.staleness.detected'
   | 'execution.resumed'
+  | 'execution.aborted'
   | 'interaction.requested'
   | 'interaction.restored'
   | 'interaction.resolved'
@@ -223,6 +224,12 @@ export interface ExecutionResumedPayload {
   readonly rewoundFromStepIndex: number | null;
   readonly skippedCompletedSteps: boolean;
   readonly updatedPlan: boolean;
+}
+
+export interface ExecutionAbortedPayload {
+  readonly threadId: string;
+  /** 'user' for a user-initiated stop, 'system' for programmatic aborts. */
+  readonly reason: 'user' | 'system';
 }
 
 export interface InteractionRequestedPayload {

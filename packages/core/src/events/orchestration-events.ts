@@ -2,6 +2,7 @@
  * Orchestration event factories — meeting, graph node, and plan lifecycle events.
  */
 import type {
+  ExecutionAbortedPayload,
   ExecutionResumedPayload,
   GraphNodeEnteredPayload,
   GraphNodeExitedPayload,
@@ -187,5 +188,21 @@ export function executionResumed(
     threadId,
     timestamp: Date.now(),
     payload,
+  };
+}
+
+export function executionAborted(
+  companyId: string,
+  threadId: string,
+  reason: ExecutionAbortedPayload['reason'] = 'user',
+): RuntimeEvent<ExecutionAbortedPayload> {
+  return {
+    type: 'execution.aborted',
+    entityId: threadId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { threadId, reason },
   };
 }

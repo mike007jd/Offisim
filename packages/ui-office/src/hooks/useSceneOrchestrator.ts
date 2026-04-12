@@ -1221,6 +1221,17 @@ export function useSceneOrchestrator({
           });
         });
 
+    // Abort → return ceremony to idle. Graph execution does not emit any
+    // terminal node events when user cancels, so without this subscription the
+    // 3D scene would freeze on whatever phase it was in (FS3 from Phase 4).
+    const unsubAborted = eventBus.on('execution.aborted', () => {
+      ceremonyVersionRef.current += 1;
+      timerRefs.current.forEach(clearTimeout);
+      timerRefs.current.clear();
+      setCeremony(createIdleCeremonyState());
+      clearAssignedSceneState();
+    });
+
     return () => {
       unsubNode();
       unsubDispatch();
@@ -1232,11 +1243,20 @@ export function useSceneOrchestrator({
       unsubEmployeeState();
       unsubHandoffInitiated();
       unsubHandoffCompleted();
+      unsubAborted();
       // Clear all pending ceremony timeouts on effect teardown
       timerRefs.current.forEach(clearTimeout);
       timerRefs.current.clear();
     };
-  }, [eventBus, sceneIntentBus, gatherAll, dispatchEmployee, startEndCeremony, safeTimeout]);
+  }, [
+    eventBus,
+    sceneIntentBus,
+    gatherAll,
+    dispatchEmployee,
+    startEndCeremony,
+    safeTimeout,
+    clearAssignedSceneState,
+  ]);
 
   return ceremony;
 }
