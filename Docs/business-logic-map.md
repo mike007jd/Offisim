@@ -6,14 +6,15 @@
 
 ## 1. 产品一句话
 
-> **Offisim 是一个 "AI 办公室模拟器"：你在 3D 场景里当老板，LLM 驱动的员工按你的指令干活，过程以仪式化的 3D 动作呈现，结果沉淀成可复用的 SOP / 可交付物 / 已安装的员工包。**
+> **Offisim 是一个 "AI 办公室模拟器"：你在 3D 场景里当老板，LLM 驱动的员工按你的指令干活，过程以仪式化的 3D 动作呈现，结果沉淀成可复用的工作流 / 可交付物 / 员工记忆。**
 
-三个并列的 "游戏循环"：
+四个并列的 "游戏循环"：
 
 | 循环 | 输入 | 过程 | 产出 |
 |---|---|---|---|
-| **对话循环** | 老板消息 | Boss 路由 → Manager 或 Employee 分派 → 执行 → 报告 | 消息历史、事件流、交付物 |
-| **编排循环** | SOP (步骤 DAG) | 按拓扑序自动派给角色 → 员工按步骤做 → 可中断/续跑 | 结构化执行记录 |
+| **指令循环** | 老板消息 | Boss 6 路路由 → 分派 → 执行 → 报告 | 消息历史、事件流、交付物 |
+| **工作流循环** | SOP (步骤 DAG) | 按拓扑序自动派给角色 → 可中断/续跑/回滚 | 结构化执行记录 |
+| **讨论循环** | "开个会" | 多人 10 轮讨论 → transcript → summary | 会议纪要（无任务产出） |
 | **扩展循环** | 市集安装包 / 新建员工 | 物化到 DB → 场景刷新 | 多了一个可指挥的员工 |
 
 ---
@@ -26,6 +27,7 @@ graph LR
   subgraph World[Offisim 世界]
     UI[3D 办公场景 + 对话 + 工作台]
     Engine[业务引擎 LangGraph + 员工节点]
+    Memory[(员工记忆层)]
     Store[(本地状态 公司/员工/SOP/消息/事件)]
   end
   subgraph External[外部依赖]
@@ -37,6 +39,7 @@ graph LR
   User -->|聊天 / 拖文件 / 配置| UI
   UI --> Engine
   Engine <--> Store
+  Engine <--> Memory
   Engine -->|BYO Key 直调| LLM
   Engine -->|工具调用| MCP
   UI -->|浏览 / 安装| Market
@@ -63,15 +66,19 @@ erDiagram
   Company ||--|| OfficeLayout : "有一"
   Company ||--o{ PrefabInstance : "摆放"
   Company ||--o{ GraphThread : "历史"
+  Company ||--o{ Project : "管理"
+  Employee ||--o{ MemoryEntry : "积累记忆"
   Employee ||--o{ RuntimeState : "产生"
   GraphThread ||--o{ Message : "包含"
   GraphThread ||--o{ Plan : "生成"
+  GraphThread ||--o{ MeetingSession : "讨论"
   Plan ||--o{ PlanStep : "拆分为"
   PlanStep ||--o{ TaskRun : "对应"
   TaskRun ||--|| Employee : "指派给"
   TaskRun ||--o{ LlmCall : "驱动"
   TaskRun ||--o{ ToolCall : "消耗"
   TaskRun ||--o{ Deliverable : "产出"
+  Project ||--|| GraphThread : "独立线程"
   SopTemplate ||--o{ SopStep : "步骤"
   SopStep }o--|| Zone : "关联角色-区域"
   InstalledPackage ||--o{ InstalledAsset : "解出"
@@ -79,18 +86,29 @@ erDiagram
   InstalledPackage ||--o{ AssetBinding : "配置"
 ```
 
-**产品层面最重要的 3 个实体**：
-- **Employee** — 可指挥的 "人"，有角色、人格、Skill 绑定、所在 Zone
-- **Plan / TaskRun** — 每次你发话就生成一次规划 + 执行，可在事后追溯谁做了什么
-- **Deliverable** — 员工真正产出的文件/文档/代码片段，有所属 thread 和员工
+**产品层面最重要的 5 个实体**：
+- **Employee** — 可指挥的 "人"，有角色、人格、Skill 绑定、所在 Zone，会积累记忆
+- **Plan / TaskRun** — 每次发话生成规划 + 执行，可追溯谁做了什么
+- **Deliverable** — 员工真正产出的文件/文档/代码片段
+- **MemoryEntry** — 员工从执行中提炼的经验/决策/知识/偏好，影响未来行为
+- **Project** — 有 scope 的工作容器，所有子任务归到同一线程
 
 Zone 是 3D 场景的业务锚点：员工按角色自动落座，执行任务时走到工位，开会时走到 meeting zone。
 
 ---
 
-## 4. 对话 → 交付物（主流程）
+## 4. Boss 路由：老板说话后发生什么
 
-这是用户每次发话最核心的闭环。
+Boss 路由是整个游戏的**中枢决策点**。老板每条消息经过 3 层防御（规则 → 关键词 → ID 校验）后被分成 **6 种动作**：
+
+| # | 动作 | 玩家体验 | 走的路径 | 有交付物？ |
+|---|---|---|---|---|
+| 1 | `delegate` | "帮我做 X" → 多步规划 + 多人执行 | boss → manager → pm-planner → step-dispatcher → employees | 有 |
+| 2 | `direct_delegate` | "@Alex 做 X" → 跳过规划，单人直派 | boss → employee-node（绕过 manager + planner） | 有 |
+| 3 | `direct_reply` | Boss 自己回答（不干活） | boss 直接输出，不经过任何员工 | 无 |
+| 4 | `meeting` | "开个会讨论 X" → 多人讨论 | boss → meeting-subgraph（10 轮讨论 + summary） | 无（只有会议纪要） |
+| 5 | `use_sop` | "/run 发布流程" → 跑预设工作流 | boss → SOP → plan → step-dispatcher → employees | 有 |
+| 6 | `hire_or_assess` | "团队够不够" → HR 出建议 | boss → hr-node（**只出建议，不执行任何东西**） | 无 |
 
 ```mermaid
 sequenceDiagram
@@ -98,249 +116,308 @@ sequenceDiagram
   actor U as 老板
   participant Chat as ChatPanel
   participant Boss as boss-node
-  participant Mgr as manager-node
-  participant Plan as pm-planner-node
+  participant Mgr as manager
+  participant Plan as pm-planner
   participant Disp as step-dispatcher
   participant Emp as employee-node
-  participant Scene as 3D 场景编排
-  participant Bus as EventBus
-  participant Log as Activity Log
+  participant Meet as meeting-subgraph
+  participant HR as hr-node
+  participant Scene as 3D 场景
 
-  U->>Chat: "Alex, 帮我起草发布稿"
+  U->>Chat: 消息
   Chat->>Boss: sendMessage
-  Boss->>Boss: 3 层路由防御 (规则 / 关键词 / ID 校验)
-  alt 直接聊天
-    Boss->>Emp: direct chat
-  else SOP 模板匹配
-    Boss->>Plan: 生成 Plan(step, targetRole)
+  Boss->>Boss: 3 层路由防御
+
+  alt delegate (多步规划)
+    Boss->>Mgr: 分析任务
+    Mgr->>Plan: 生成 Plan
     Plan->>Disp: 按 targetRole 挑员工
-  else 混乱/拒绝
-    Boss->>U: 请你澄清
+    Disp->>Emp: taskRun assigned
+    Emp-->>Scene: employee.state → 触发仪式
+    Emp->>Chat: deliverable.created
+  else direct_delegate (@mention 单人)
+    Boss->>Emp: 直派，跳过规划
+    Emp->>Chat: deliverable.created
+  else direct_reply (Boss 自答)
+    Boss->>Chat: 直接回复
+  else meeting (团队讨论)
+    Boss->>Meet: 召集参会者
+    Meet->>Meet: 10 轮讨论 + transcript
+    Meet->>Chat: 会议 summary
+  else use_sop (跑工作流)
+    Boss->>Plan: SOP 步骤 → Plan
+    Plan->>Disp: 按拓扑序派
+    Disp->>Emp: 逐步执行
+  else hire_or_assess (HR 建议)
+    Boss->>HR: 分析 roster
+    HR->>Chat: 建议 (不执行任何东西)
   end
-  Disp->>Emp: taskRun assigned
-  Emp->>Emp: 执行：LLM 多轮对话 + 工具调用
-  Emp->>Bus: employee.state.changed / handoff / tool.*
-  Bus-->>Scene: 订阅 → 触发仪式阶段
-  Scene->>U: 3D: 角色走位 / 对话气泡 / 阶段色
-  Emp->>Chat: deliverable.created
-  Bus-->>Log: 所有事件沉淀
-  Emp->>U: 报告 + 可查看的交付物
 ```
 
-**每条消息的产品语义**：
-| 业务动作 | 事件签名 | 在哪能看到 |
-|---|---|---|
-| 老板发话 | `chat.sent` | ChatPanel 历史 |
-| 路由决策 | `plan.created` / `direct.chat.dispatched` | Scene 气泡、Activity Log |
-| 员工状态变化 | `employee.state.changed` | Scene 上色、Activity Rail |
-| 工具调用 | `tool.execution.started/completed` | Scene 工具图标、Cost 面板 |
-| 交付物就绪 | `deliverable.created` | Chat 气泡 + 工作台 |
-| 执行中断 | `execution.aborted` | Scene 复位、Activity Log |
+**关键产品语义**：
+- 玩家**不需要手动选**路由类型 —— boss-node 自动判断。唯一主动选择是 `@mention`（触发 direct_delegate）和 `/run SOP名`（触发 use_sop）
+- **Meeting 没有任务产出** —— 纯讨论，产出只有 summary。如果想"开会然后分活"，需要再发一条 delegate 消息
+- **HR 只建议不执行** —— 说"帮我招个设计师"，HR 会说"建议招一个"但**不会真的创建员工**
 
 ---
 
 ## 5. 3D 仪式状态机（Ceremony）
 
-这是 Offisim 的视觉特色。业务事件会触发场景的 8 阶段仪式：
+业务事件触发场景的 8 阶段仪式：
 
 ```mermaid
 stateDiagram-v2
   [*] --> idle
-  idle --> gathering : plan.created
-  gathering --> analyzing : 老板+manager 就位
+  idle --> gathering : plan.created / meeting.start
+  gathering --> analyzing : 参与者就位
   analyzing --> planning : boss 同意方案
   planning --> dispatching : plan 分步
   dispatching --> working : employee.state = working
   working --> reporting : task 完成
   reporting --> dismissing : deliverable emit
   dismissing --> idle : 1.5s 延迟
-  working --> idle : execution.aborted (FS3)
-  dispatching --> idle : execution.aborted
+
   planning --> idle : execution.aborted
+  dispatching --> idle : execution.aborted
+  working --> idle : execution.aborted
 ```
 
-**产品意义**：用户看的不是一行行日志，而是角色在场景里**走**出来的流程 —— 你告诉某某"帮我做 X"，他真的从工位起身、走到会议室、再回工位干活、最后回到会议室汇报。这个仪式**必须**随真实业务事件同步，不能 hardcode 动画时长。FS3 修复就是补了 "Stop 时立刻复位" 的路径。
+**产品意义**：用户看的不是日志行，而是角色在场景里**走出来**的流程 —— 从工位起身 → 走到会议室 → 回工位干活 → 走回会议室汇报。Stop 时从任意阶段立刻复位到 idle（FS3 修复）。
 
 ---
 
-## 6. SOP（标准流程）循环
+## 6. 记忆系统
 
-SOP = 把重复的老板话术固化成一个可执行 DAG。
+员工不是无状态的 —— 每次任务完成后，系统自动跑 LLM reflection，从执行结果中提炼记忆。
+
+| 维度 | 说明 |
+|---|---|
+| **记忆类型** | experience（经历）/ decision（决策）/ knowledge（知识）/ preference（偏好） |
+| **作用域** | employee（个人）/ team（团队）/ company（公司级） |
+| **重要度** | 0-1 浮点，影响注入优先级 |
+| **上限** | 每次提取 0-3 条；每员工最多 maxFacts（默认 50）条 |
+| **注入时机** | 下次该员工执行任务时，系统从记忆池中按重要度 + 相关性选取注入 context |
+
+**玩家感知**：员工会"记住"上次怎么做的、踩过什么坑、老板偏好什么风格，行为随时间演化。这是 AI 办公模拟器跟普通 chatbot 最大的差异。
+
+---
+
+## 7. SOP = 工作流
+
+SOP（Standard Operating Procedure）= 把重复的老板指令固化成一个可执行 DAG。**SOP 就是工作流，不是别的东西。**
 
 ```mermaid
 graph TB
   subgraph Author[创作]
-    A1[老板用自然语言描述]
-    A2[NL → SopDefinition]
-    A3[DAG 编辑: 节点 + 依赖]
+    A1[老板用自然语言描述] --> A2[NL → SopDefinition]
+    A2 --> A3[DAG 编辑: 拖节点 + 画依赖]
   end
   subgraph Run[执行]
-    R1[老板 run &lt;SOP&gt;]
-    R2[生成 Plan = SOP 步骤]
-    R3[step-dispatcher 按拓扑序派]
-    R4[每步指派给角色匹配的员工]
-    R5[失败/中断 → 可从任意步续跑]
+    R1["老板 /run SOP名"] --> R2[生成 Plan = SOP 步骤]
+    R2 --> R3[step-dispatcher 按拓扑序派]
+    R3 --> R4[每步指派给角色匹配的员工]
+    R4 --> R5["失败/中断 → 可从任意步续跑"]
   end
-  subgraph Reuse[复用]
-    S1[保存为 SopTemplate]
-    S2[跨 thread 引用]
-    S3[URL 同步/拉取]
-  end
-
-  A1 --> A2 --> A3 --> S1
-  S1 --> R1 --> R2 --> R3 --> R4 --> R5
-  R5 -->|归档| S2
-  S1 -. 可选 .-> S3
+  A3 --> R1
 ```
 
-**SOP vs 直接对话的差别**：
-- 直接对话：每次老板消息 → boss 路由 → 单步或 ad-hoc plan
-- SOP 执行：每次 run → plan = 预设步骤 → 自动按顺序跑 → **可以暂停/恢复/回滚到某步重跑**
+**SOP vs 直接对话**：
+| | 直接对话 | SOP 工作流 |
+|---|---|---|
+| 规划 | boss 临时 ad-hoc plan | 预编排好的步骤 DAG |
+| 可复用 | 不可（每次重新路由） | 保存为模板，反复跑 |
+| 暂停/续跑 | 只能 abort | 可以暂停、回滚到某步、换人重跑 |
+| 版本化 | 无 | SopTemplate 有 version，可 URL 同步拉取 |
 
-SOP 的 "状态" 不在 DB 里，在 LangGraph 的 checkpoint 里 —— 可以 `rewind to step N` 这种玩法。
+SOP 的运行状态在 LangGraph checkpoint 里 —— 支持 rewind to step N。
 
 ---
 
-## 7. Onboarding / 建公司流程
+## 8. Meeting 讨论系统
 
-第一次进来 or 切公司的业务路径：
+Meeting 是独立于任务执行的**第一公民玩法**，不只是 ceremony 里的一个 zone。
+
+| 阶段 | 说明 |
+|---|---|
+| **召集** | boss 指定参会者（或自动按角色选），员工走到 meeting zone |
+| **讨论** | 最多 10 轮发言，每轮一个员工基于上下文 + transcript 发言 |
+| **中断** | boss 可随时 pause / inject（插话）/ end |
+| **总结** | 讨论结束后自动生成 summary，写入 chat |
+
+**关键区别**：Meeting **不产出 deliverable、不执行任务、不调工具**。它是纯讨论。如果想让会议结论变成行动，需要再发一条 delegate / use_sop 消息。
+
+---
+
+## 9. Project 项目容器
+
+Project = 有 scope 的工作单元。
+
+| 属性 | 说明 |
+|---|---|
+| 生命周期 | planning → active |
+| 线程 | 每个 project 绑定一个独立 GraphThread |
+| 员工指派 | ProjectAssignment 关联 employee → project |
+| 玩家操作 | "创建一个项目" / "把 Alex 加到这个项目" / "跑这个项目" |
+
+**产品意义**：Project 让工作有边界 —— 不是所有对话混在一条 thread 里，而是按项目分线程。执行历史、员工分配、交付物都归属到项目。
+
+---
+
+## 10. 权限门控（Interaction 系统）
+
+员工执行任务时可能需要老板批准，这通过 Interaction 系统实现。
+
+| 场景 | 弹框内容 | 批准粒度 |
+|---|---|---|
+| MCP 工具调用 | "Alex 想调用 file_write 工具，允许吗？" | once / thread / session |
+| Plan 审核 | "规划好了，确认执行吗？" | 逐次 |
+
+老板可在 Settings 配置 toolPermissions 策略（ask / allow / deny），控制员工的自主权。
+
+---
+
+## 11. Onboarding / 建公司流程
 
 ```mermaid
 stateDiagram-v2
   [*] --> bootstrap: 无 provider 配置
   bootstrap --> settings : 用户配 LLM Provider
-  settings --> company_select : Provider 就绪 → 读公司列表
-  company_select --> wizard_new : "创建新公司"
-  company_select --> wizard_populate : "让模板填充"
+  settings --> company_select : Provider 就绪
+  company_select --> wizard_new : 创建新公司
   company_select --> office : 选已有公司
-
   wizard_new --> creating : 选模板
-  wizard_populate --> creating : 选模板
-  creating --> office : materializeTemplate 成功
-  creating --> wizard_new : 失败 (错误 + 可重试)
-  wizard_new --> bootstrap : Back / Escape (FS7)
-  wizard_populate --> bootstrap : Back / Escape (FS7)
+  creating --> office : 物化成功 (原子)
+  creating --> wizard_new : 失败 + 可重试
+  wizard_new --> company_select : Back / Escape
 ```
 
-**业务不变式**（**R1 + FS4 + FS7 都在保这些**）：
-1. 公司物化是**原子的** —— employees + SOPs + layout + zones + prefabs 全部成功或全部回滚。半成品公司是 bug。
-2. 创建过程不可重入 —— 双击 Create 不能产出两个公司。
-3. 创建过程中不能被 Escape 悄悄打断 —— 要么完成要么取消，不存在 "我以为我取消了结果后台还是建出来了"。
+**业务不变式**：
+1. 物化原子 —— employees + SOPs + layout + zones + prefabs 全成功或全回滚
+2. 不可重入 —— 双击不建两个公司
+3. 创建中不能偷偷取消又偷偷完成
 
 ---
 
-## 8. Marketplace 安装流程
+## 12. Marketplace 安装流程
 
 ```mermaid
 sequenceDiagram
   autonumber
   actor U as 老板
-  participant UI as MarketPage
-  participant Flow as useInstallFlow
+  participant Flow as InstallFlow
   participant Reg as Registry
-  participant IS as InstallService
   participant Mat as Materializer
   participant DB as 本地 DB
+  participant Scene as 3D 场景
 
-  alt 浏览 → 装
-    U->>UI: 点 Install
-    UI->>Flow: startRegistryInstall(listingId, version)
-  else 深链 (offisim://install)
-    U->>Flow: URL 触发
+  U->>Flow: 点 Install / 深链
+  Flow->>Flow: installService 就绪?
+  alt 无 Provider
+    Flow-->>Flow: 存 intent 到 sessionStorage
+    Flow-->>U: 先去 Settings 配 provider
+    Note over U: 配好后自动重放
   end
-
-  Flow->>Flow: 检查 installService 是否就绪
-  alt 无 LLM Provider
-    Flow-->>Flow: 把 intent 存 sessionStorage (M4)
-    Flow-->>U: "先去 Settings 配 provider, 装好会自动续上"
-    Note over U: 用户去配 Provider
-    Flow->>Flow: Runtime reinit → installService 就绪
-    Flow-->>Flow: 读回 intent → 自动重放 startRegistryInstall
-  end
-  Flow->>Reg: 拉 listing / version / artifact
-  Reg->>Flow: .offisimpkg bytes
-  Flow->>IS: importFile(bytes)
-  IS->>Flow: plan (manifest + bindings)
-  Flow->>U: 显示 Review + Bindings UI
+  Flow->>Reg: 拉 listing + artifact
+  Flow->>U: 显示 Review + Bindings
   U->>Flow: 确认
-  Flow->>IS: confirmBindings()
-  IS->>Mat: materialize (单 transact)
-  Mat->>DB: installedPackages + installedAssets + employees + bindings
-  Note over Mat,DB: R1 HIGH修复后是真原子的
-  DB->>Flow: 物化成功
-  Flow-->>Bus: employeeInstalled 事件
-  Bus-->>场景: 新员工出现在他的 Zone
+  Flow->>Mat: materialize (单 transact)
+  Mat->>DB: package + asset + employee + binding (原子)
+  DB-->>Scene: 新员工出现
 ```
 
-**产品不变式**：
-- 装一次 = 要么整个员工和所有绑定都活了、要么都没活 (R1 + C2-materializer 修复)
-- 装到一半被掐（关 tab / refresh）不会留半成品 (transact 单事务)
-- 没配 Provider 时点 Install 不再丢意图 (M4 sessionStorage)
+**当前限制**：
+- 只能装 employee，不能装 SOP / Layout / Prefab 包
+- 没有卸载/降级路径 —— 装了就装了
+- 没有 upgrade 路径（manifest 里有 lineage 字段但 UI 未实现）
 
 ---
 
-## 9. 状态 / 数据所在位置
+## 13. Studio 办公室编辑器
 
-这是一张 "到底我数据放在哪" 的速查表。修 bug 找状态先看这里。
-
-| 状态类别 | 例子 | 存储位置 | 生命周期 |
-|---|---|---|---|
-| 公司 / 员工 / SOP / Zone / Layout | 公司组成 | Drizzle SQLite (desktop) / memory repos (web) | 持久 |
-| Thread / Message / Plan / TaskRun / Deliverable | 对话 + 执行历史 | 同上 + LangGraph checkpoint | 持久 (可回退) |
-| LlmCall / ToolCall / Cost | 执行明细 | 同上 | 持久 |
-| Event 流 | 所有业务事件 | In-memory EventBus + 近 200 条 persisted snapshot | 会话内 + 最近 |
-| Runtime 配置 | LLM provider / base URL / model | localStorage (web) / secret-store (desktop) | 持久 |
-| Runtime policy | execution mode / memory / toolPermissions | localStorage | 持久 |
-| Studio 编辑中态 | 拖放的 prefab / zone 改动 | Zustand `StudioState` (内存) | 保存前都是脏 |
-| Interview wizard 表单 | 新员工各字段 | hook useReducer | dialog 打开期间 |
-| Install flow 状态机 | step / plan / bindings | hook useState | 对话框打开期间 |
-| Ceremony state | 阶段 / 颜色 / 气泡 | useSceneOrchestrator 内部 | 一次对话 |
-| Pending install intent (M4) | 深链 listingId/version | sessionStorage (10 min TTL) | 跨 Provider 配置 |
-| Company 切换状态 | activeCompanyId | CompanyContext + localStorage | 持久 |
-| Workspace 会话 | 当前 tab / 侧栏状态 | sessionStorage | 会话内 |
-
----
-
-## 10. 业务稳定性承诺（Phase 5 闭合后）
-
-这几条是 "产品一定要这样工作否则就是 bug" 的不变式。任何后续修改都不能破坏它们。
-
-| 承诺 | 为什么 | 保障机制 |
-|---|---|---|
-| 公司模板物化原子 | 半成品公司会导致场景、scene-behavior 找不到 zone 等级联崩溃 | drizzle create 同步 + transact 内联 zone seeding (R1) |
-| 员工安装物化原子 | 半成品员工会被 scene 渲染但 bindings 缺失 → tool call 失败 | drizzle install repo 同步化 (codex adversarial HIGH) |
-| 重入保护一次到位 | 双击 Create 会建两个公司；双击 Save 会覆盖自己；双击 Create Employee 会建两个员工 | useRef + try/finally (FS4/FS6/FS1 + codex MED1) |
-| Dispatch 可中断 | 老板点 Stop 必须立刻看到场景复位 | `execution.aborted` 事件 + useSceneOrchestrator 订阅 (FS3) |
-| Dispatch 可审计 | 每个事件都进 Activity Log，含 execution.aborted | EventLog EVENT_PREFIXES + 持久化列表都含 `execution.` (codex MED2) |
-| 用户操作不被静默吞掉 | InterviewWizard 失败不显示错误；safety: 所有 submit 必须有 error 出口 | catch + 错误 banner (FS1) + ui-core `<Alert>` 复用 |
-| Wizard 取消即取消 | 创建期间 Back/Escape 不能悄悄完成创建 | isCreating gate + 异步 gate + 取消不计入 onComplete (FS7 + codex MED3) |
-| Install 深链不丢意图 | 用户点击"安装这个员工"到真正装上不能丢路径 | sessionStorage intent + Provider 就绪自动 replay (M4) |
-| 输入边界 | maxTokens / temperature / Chat 长度都有防御 | NaN guard + maxLength (R3/R4) |
-| 异步错误不被 `void` 吃掉 | 所有 `.then()` 都有 `.catch()` | useProjectAssignments 等 (R2) |
-| 核心 LLM runtime 稳定 | 三个 adapter 是产品根基，不能乱动 | Locked framing F1 |
-
----
-
-## 11. 业务上暂不做 / 明确边界
-
-| 非目标 | 为什么 |
+| 能力 | 说明 |
 |---|---|
-| 外部 agent 接入 (A2A / OpenClaw) | 扩展点保留，1.0 不开 (F2 sleeping asset) |
-| 多人协作 / 服务端运行 | 本地优先，BYO key，不做后端 |
-| 代理 LLM 请求 | 浏览器直调 vendor API，任何代理都不能动 |
-| 装 SOP / Layout / Prefab 包 | 只装 employee，其他 kind 走 `INSTALLABLE_KINDS` gate |
-| Bundle size / Scene V2 / Repo dedup / CI | Known Debt，非 goal |
+| 创建模式 | 从空白开始，选 zone 预设放置 |
+| 编辑模式 | 打开已有公司的 layout，调整 zone + prefab |
+| Zone 来源 | **只能放 SYSTEM_ZONE_TEMPLATES 预设**，不能自建 zone 类型 |
+| Prefab | 从 builtin-catalog（190+ frozen 对象）里拖放，有位置/旋转 |
+| 保存 | deleteByCompany → 重建（幂等），有 savingRef 重入守卫 |
+| beforeunload | dirty 时拦截页面关闭 |
 
 ---
 
-## 12. 一句话回答 "这游戏要怎么稳"
+## 14. 状态 / 数据所在位置
 
-**数据原子 + 事件可中断 + 输入有边界 + 非目标不越线。**
+| 状态类别 | 存储位置 | 生命周期 |
+|---|---|---|
+| 公司 / 员工 / SOP / Zone / Layout / Project | SQLite (desktop) / memory repos (web) | 持久 |
+| Thread / Message / Plan / TaskRun / Deliverable | 同上 + LangGraph checkpoint | 持久，可回退 |
+| 员工记忆（MemoryEntry） | 同上 | 持久，有 maxFacts 上限 |
+| Meeting transcript / summary | 同上（MeetingSession 表） | 持久 |
+| LlmCall / ToolCall / Cost | 同上 | 持久 |
+| Event 流 | In-memory EventBus + 近 200 条 persisted | 会话 + 最近 |
+| Runtime 配置 | localStorage / secret-store | 持久 |
+| Studio 编辑中态 | Zustand 内存 | 保存前都是脏 |
+| Ceremony 状态 | useSceneOrchestrator | 一次对话 |
+| Pending install intent | sessionStorage (10min TTL) | 跨 Provider 配置 |
+| 多公司 | 一次只激活一个，切换时清空 ceremony / thread 内存态 | 持久选择 |
 
-- 任何写 DB 的业务都必须能 rollback（R1 + materializer HIGH）
-- 任何长跑的业务都必须能 stop 且 UI 立即复位（FS3）
-- 任何用户输入都必须有下界上界和 catch（R2/R3/R4 + FS1）
-- 任何扩展意图都不丢（M4）
-- 任何超出 "1.0 ship" 的东西都明确写进 "非目标" 不触碰（F1/F2/F4/F5）
+---
 
-Phase 5 做完之后，上面这 5 条都有具体代码保障了。剩下的开放项（deep-link intent 的 UX 优化 / SOP DAG 视图持久化 / Scene V2）都是增强，不是正确性 bug。
+## 15. 业务稳定性承诺
+
+| 承诺 | 保障机制 |
+|---|---|
+| 公司物化原子 | drizzle create 同步 + transact 内联 zone seeding (R1) |
+| 员工安装物化原子 | drizzle install repo 同步化 (codex adversarial HIGH) |
+| 重入保护 | useRef + try/finally 全覆盖 |
+| Dispatch 可中断 | `execution.aborted` 事件 + scene 订阅 (FS3) |
+| 事件可审计 | EVENT_PREFIXES + 持久化都含 `execution.` |
+| 提交失败必须显示 | catch + Alert error banner |
+| Wizard 取消即取消 | isCreating gate |
+| Install 深链不丢意图 | sessionStorage intent + 自动 replay (M4) |
+| 输入有边界 | NaN guard + maxLength |
+| 核心 LLM runtime 稳定 | Locked framing F1 |
+
+---
+
+## 16. 非目标（明确不做）
+
+| 非目标 | 原因 |
+|---|---|
+| 外部 agent 接入 (A2A / OpenClaw) | sleeping asset，1.0 不开 |
+| 多人协作 / 服务端运行 | 本地优先 BYO key |
+| 代理 LLM 请求 | 浏览器直调 vendor API |
+| 装 SOP / Layout / Prefab 包 | 只装 employee |
+| 卸载 / 降级已安装员工 | 未实现 |
+| 自建 Zone 类型 | Studio 只有预设 |
+| Bundle size / Scene V2 / CI | Known Debt |
+
+---
+
+## 17. 制作人审核意见和疑问
+
+以下是站在游戏制作人 / 产品经理角度对当前业务系统的审核意见。
+
+### 确认正确的部分
+
+1. **核心循环闭合**：指令 → 路由 → 执行 → 交付 → 记忆 → 下次更好。四条路径（delegate / direct / meeting / SOP）都闭环。
+2. **SOP = 工作流**：定义准确，DAG 编辑 + 拓扑执行 + 暂停/回滚是差异化卖点。
+3. **记忆系统构成飞轮**：员工不是无状态工具，而是会成长的"人"，这是模拟器核心体验。
+4. **原子性保障到位**：公司创建、员工安装、所有写操作都有事务保障。
+5. **中断路径完整**：Stop 从任意 ceremony 阶段立刻复位，Activity Log 有记录。
+
+### 需要产品决策的疑问
+
+| # | 疑问 | 影响 | 建议 |
+|---|---|---|---|
+| **Q1** | **HR 说"建议招人"但不执行 —— 玩家期望是什么？** 如果老板说"帮我招个设计师"，HR 只返回建议文本。玩家是否会困惑为什么没有真的招到人？ | 第一印象 | 要么让 HR 调用 InterviewWizard 自动开始招聘流程，要么在 HR 回复里明确写"如需创建，请点击右上角 + 按钮"引导到手动创建 |
+| **Q2** | **Meeting 无产出 —— 是 feature 还是 gap？** 开完会只有 summary，不自动触发后续任务。如果这是有意设计（"讨论归讨论，干活归干活"），需要在 UI 上让玩家明白。如果是 gap，应该加 "会后自动 delegate summary 中的 action items" | 核心循环完整度 | 先确认意图：如果是 feature，在会议结束后的 UI 里加一个"将 action items 转为任务"的按钮；如果是 gap，在 meeting-subgraph 结束时自动提取 action items 并弹出确认框 |
+| **Q3** | **Project 的玩家操作路径是什么？** 代码里有 ProjectService + ProjectAssignment，但**前端在哪创建/管理 Project？** 如果只有 CLI 命令没有 UI，玩家可能根本不知道这个系统存在 | 功能可发现性 | 确认 Project UI 入口（可能在 Chat 的 /project 命令里？），如果没有 UI 入口，1.0 要么加按钮要么不宣传这个能力 |
+| **Q4** | **6 条路由对玩家是透明还是黑箱？** Boss 自动判断路由类型，玩家不需要手动选。但如果 boss 判断错了（比如用户想开会但被当成 delegate），玩家怎么纠正？ | 可控感 | 考虑在 ChatPanel 增加轻量路由提示："正在为你规划任务…" / "正在召集会议…"，让玩家知道 boss 做了什么决策，并可在前 2 秒内取消/纠正 |
+| **Q5** | **员工记忆对玩家可见吗？** MemoryService 在后台积累记忆，但玩家能看到"Alex 记住了什么"吗？如果完全不可见，玩家无法理解为什么员工行为在变化 | 系统透明度 | 建议在 Employee 详情面板加一个"记忆"tab，展示该员工积累的 top memories，让飞轮效果可感知 |
+| **Q6** | **卸载/降级缺失是否影响 1.0？** 装了市集员工后不能卸载。如果安装了一个有 bug 的员工包，唯一办法是手动操作 DB | 用户安全感 | 1.0 至少需要一个"解雇已安装员工"的 UI 按钮（软删除），不需要完整的版本管理 |
+| **Q7** | **多公司切换时进行中的任务怎么办？** 切公司会清空 ceremony 内存态，但如果公司 A 有一个正在执行的 thread，切到公司 B 再切回来，那个 thread 还在吗？ | 数据安全 | 需要确认：切公司时正在执行的 graph 是 abort 还是 pause？回来时能否 resume？如果是 abort，Activity Log 里应该有记录 |
+
+### 总评
+
+**业务逻辑层面系统完整度 85%。** 四个循环都闭合，原子性和中断性经过审计保障，记忆系统是差异化亮点。主要的产品 gap 不是"逻辑不对"而是"玩家能不能感知到这些逻辑在工作" —— HR 的建议性质、Meeting 无后续、Memory 不可见、Project 入口不明。这些是 UX 层面的课题，不是架构 bug。
