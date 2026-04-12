@@ -74,16 +74,22 @@ export function CompanyCreationWizard({
   }, []);
 
   useEffect(() => {
-    if (!onDismiss) return;
+    // Gate: no dismiss during in-flight creation — the pending create() promise
+    // would still resolve after unmount and bounce the user into the new company.
+    if (!onDismiss || step === 'creating') return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Capture-phase + stopImmediatePropagation so App.tsx's global Escape
+        // handler (registered first, bubble phase) does not also fire and
+        // inadvertently flip view back to 'office'.
         e.preventDefault();
+        e.stopImmediatePropagation();
         onDismiss();
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onDismiss]);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [onDismiss, step]);
 
   const currentTemplateIdx = useMemo(
     () => templates.findIndex((template) => template.id === selectedTemplateId),
@@ -149,7 +155,7 @@ export function CompanyCreationWizard({
         }}
       />
 
-      {onDismiss && (
+      {onDismiss && step !== 'creating' && (
         <button
           type="button"
           onClick={onDismiss}

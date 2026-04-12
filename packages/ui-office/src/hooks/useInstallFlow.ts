@@ -128,7 +128,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     async (bytes: Uint8Array, options?: InstallImportOptions) => {
       if (!installService) {
         setStep('error');
-        setError('Install service not ready — retry once runtime is loaded');
+        setError('Install requires an LLM provider. Configure a provider in Settings first.');
         return;
       }
 
@@ -179,7 +179,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       if (ext.endsWith('.md')) {
         if (!installService) {
           setStep('error');
-          setError('Install service not ready — retry once runtime is loaded');
+          setError('Install requires an LLM provider. Configure a provider in Settings first.');
           return;
         }
 
@@ -264,7 +264,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
         if (!installService) {
           setStep('error');
-          setError('Install service not ready — retry once runtime is loaded');
+          setError('Install requires an LLM provider. Configure a provider in Settings first.');
           return;
         }
 
