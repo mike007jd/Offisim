@@ -7,6 +7,7 @@ import {
   resolveZoneForRole,
   templateToZone,
 } from '@offisim/shared-types';
+import { dehydrateZone } from './zone-service.js';
 
 import type { EventBus } from '../events/event-bus.js';
 import { employeeCreated } from '../events/event-factories.js';
@@ -291,6 +292,7 @@ function validateTemplateZones(template: CompanyTemplate): void {
 
 export class CompanyTemplateService {
   private readonly zoneService: ZoneService | null;
+  private readonly zoneRepo: ZoneRepository | null;
 
   constructor(
     private readonly employeeRepo: EmployeeRepository,
@@ -301,6 +303,7 @@ export class CompanyTemplateService {
     private readonly transact?: <T>(fn: () => T) => T,
     zoneRepo?: ZoneRepository,
   ) {
+    this.zoneRepo = zoneRepo ?? null;
     this.zoneService = zoneRepo ? new ZoneService(zoneRepo) : null;
   }
 
@@ -413,9 +416,16 @@ export class CompanyTemplateService {
           is_active: 1,
         });
 
-        // Zones — seed system zones from SYSTEM_ZONE_TEMPLATES
-        if (this.zoneService) {
-          void this.zoneService.seedSystemZones(companyId, zoneTemplates);
+        // Zones — seed system zones inline (NOT via zoneService.seedSystemZones
+        // because its `await this.repo.create(...)` would suspend as a microtask
+        // and leak zones 2..N outside the transaction). Since transact is sync
+        // and the drizzle repo create is sync-bodied, a direct loop keeps every
+        // write inside the same BEGIN...COMMIT span.
+        if (this.zoneRepo) {
+          const templatesToSeed = zoneTemplates ?? SYSTEM_ZONE_TEMPLATES;
+          for (const t of templatesToSeed) {
+            void this.zoneRepo.create(dehydrateZone(templateToZone(t, companyId)));
+          }
         }
 
         // Prefabs

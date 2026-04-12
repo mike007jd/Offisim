@@ -311,7 +311,11 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const employees: EmployeeRepository = {
-    async create(emp: NewEmployee) {
+    // NOTE: not `async` — lets synchronous throws from better-sqlite3 escape to
+    // the caller's transact() callback so the transaction rolls back instead of
+    // committing partial state (an async wrapper would capture the throw into a
+    // rejected promise that `void repo.create(...)` silently discards).
+    create(emp: NewEmployee) {
       const employee_id = emp.employee_id ?? crypto.randomUUID();
       const ts = now();
       db.insert(schema.employees)
@@ -322,7 +326,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
           updated_at: ts,
         })
         .run();
-      return { employee_id };
+      return Promise.resolve({ employee_id });
     },
     async findById(id) {
       const rows = db
@@ -1032,11 +1036,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const sopTemplates: RuntimeRepositories['sopTemplates'] = {
-    async create(template: NewSopTemplate) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    create(template: NewSopTemplate) {
       const ts = now();
       const row: SopTemplateRow = { ...template, created_at: ts, updated_at: ts };
       db.insert(schema.sopTemplates).values(row).run();
-      return row;
+      return Promise.resolve(row);
     },
     async findById(sopTemplateId) {
       const rows = db
@@ -1199,9 +1204,10 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
 
   // ── Prefab instances ──────────────────────────────────────────────
   const prefabInstances: RuntimeRepositories['prefabInstances'] = {
-    async create(instance) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    create(instance) {
       db.insert(schema.prefabInstances).values(instance).run();
-      return instance;
+      return Promise.resolve(instance);
     },
     async findById(instanceId) {
       const rows = db
@@ -1256,11 +1262,12 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   };
 
   const officeLayouts: RuntimeRepositories['officeLayouts'] = {
-    async create(layout: NewOfficeLayout) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale.
+    create(layout: NewOfficeLayout) {
       const ts = now();
       const row: OfficeLayoutRow = { ...layout, created_at: ts, updated_at: ts };
       db.insert(schema.officeLayouts).values(row).run();
-      return row;
+      return Promise.resolve(row);
     },
     async findById(layoutId) {
       const rows = db
@@ -1324,11 +1331,15 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
 
   // ── Zones ───────────────────────────────────────────────────────
   const zones: RuntimeRepositories['zones'] = {
-    async create(zone: NewZone) {
+    // NOTE: not `async` — see EmployeeRepository.create for rationale. Relevant
+    // here because company-template-service inlines zone seeding inside a
+    // sync transact() callback; an async create would suspend as microtask
+    // and write zones 2..N outside the transaction.
+    create(zone: NewZone) {
       const ts = now();
       const row: ZoneRow = { ...zone, created_at: ts, updated_at: ts };
       db.insert(schema.zones).values(row).run();
-      return row;
+      return Promise.resolve(row);
     },
     async findById(zoneId) {
       const rows = db.select().from(schema.zones).where(eq(schema.zones.zone_id, zoneId)).all();
