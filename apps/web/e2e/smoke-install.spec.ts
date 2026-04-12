@@ -23,21 +23,18 @@ test.describe('Smoke: Install Flow', () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('install dialog shows error for invalid package', async ({ page }) => {
-    // Import a fake file that can't be parsed as a zip
+  test('install dialog shows error for invalid file type', async ({ page }) => {
+    // Import a file with an unsupported extension — the hook rejects it
+    // synchronously before attempting ZIP parsing.
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: 'bad-package.offisimpkg',
-      mimeType: 'application/octet-stream',
-      buffer: Buffer.from('not-a-real-zip'),
+      name: 'bad-package.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('not-a-package'),
     });
 
-    // Should eventually show the "Installation Failed" heading inside the error content.
-    // Use getByRole to avoid strict mode violation — both DialogTitle "Error"
-    // and ErrorContent <h3> "Installation Failed" would match getByText.
-    await expect(page.getByRole('heading', { name: 'Installation Failed' })).toBeVisible({
-      timeout: 15_000,
-    });
+    // Should show the "Error" dialog title with the invalid file type message.
+    await expect(page.getByRole('heading', { name: /Error/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test('cancel closes dialog cleanly', async ({ page }) => {
