@@ -23,6 +23,27 @@ function makeMinimalRuntimeCtx(threadId: string): RuntimeContext {
   } as unknown as RuntimeContext;
 }
 
+function makeRuntimeCtxWithEmitSpy(threadId: string): {
+  ctx: RuntimeContext;
+  emitted: Array<{ type: string; payload: unknown }>;
+} {
+  const emitted: Array<{ type: string; payload: unknown }> = [];
+  return {
+    ctx: {
+      threadId,
+      companyId: 'company-test',
+      eventBus: {
+        emit: (event: { type: string; payload: unknown }) => {
+          emitted.push({ type: event.type, payload: event.payload });
+        },
+        on: () => () => {},
+      },
+      meetingInterruptBox: { pending: null },
+    } as unknown as RuntimeContext,
+    emitted,
+  };
+}
+
 type StubGraph = ConstructorParameters<typeof OrchestrationService>[0];
 
 function makeInput(threadId: string) {
@@ -170,5 +191,55 @@ describe('OrchestrationService abort integration', () => {
 
     // After completion, abortExecution should be a no-op (not throw)
     expect(() => orch.abortExecution('thread-cleanup')).not.toThrow();
+  });
+
+  it('abortExecution emits execution.aborted when a run is in flight (FS3)', async () => {
+    const graph: StubGraph = {
+      async stream(input: Record<string, unknown>, cfg: Record<string, unknown>) {
+        const signal = (cfg as { configurable?: { signal?: AbortSignal } }).configurable?.signal;
+        const tid = String(input.threadId ?? '');
+        async function* gen() {
+          yield { stubNode: { threadId: tid, messages: [] } };
+          await new Promise<void>((resolve) => {
+            if (signal) signal.addEventListener('abort', () => resolve());
+            else setTimeout(resolve, 5000);
+          });
+        }
+        return gen();
+      },
+    };
+
+    const { ctx, emitted } = makeRuntimeCtxWithEmitSpy('thread-fs3');
+    const orch = new OrchestrationService(graph, ctx);
+
+    const executePromise = orch.execute(makeInput('thread-fs3'));
+    await new Promise((r) => setTimeout(r, 20));
+    orch.abortExecution('thread-fs3');
+    await executePromise;
+
+    const abortedEvents = emitted.filter((e) => e.type === 'execution.aborted');
+    expect(abortedEvents).toHaveLength(1);
+    expect(abortedEvents[0]?.payload).toMatchObject({
+      threadId: 'thread-fs3',
+      reason: 'user',
+    });
+  });
+
+  it('abortExecution on a non-running thread does NOT emit execution.aborted', () => {
+    const graph: StubGraph = {
+      async stream() {
+        async function* gen(): AsyncGenerator<Record<string, unknown>> {
+          yield {};
+        }
+        return gen();
+      },
+    };
+
+    const { ctx, emitted } = makeRuntimeCtxWithEmitSpy('thread-no-run');
+    const orch = new OrchestrationService(graph, ctx);
+
+    orch.abortExecution('thread-no-run');
+
+    expect(emitted.filter((e) => e.type === 'execution.aborted')).toHaveLength(0);
   });
 });
