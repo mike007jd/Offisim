@@ -362,6 +362,7 @@ export function ChatInput({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          maxLength={8000}
           className="flex-1 min-h-[32px] max-h-[72px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white leading-snug resize-none focus:outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-600 disabled:opacity-40"
         />
         <button
