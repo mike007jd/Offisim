@@ -23,6 +23,7 @@ tmp/
 .claude/settings.local.json
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/inject-git-state.sh
 
 # Playwright test artifacts
 test-results/
@@ -32,5 +33,6 @@ blob-report/
 # Test/debug screenshots and artifacts
 screenshots/
 audit-*.png
+smoke-*.png
 [0-9]*-*.png
 /icon.png
