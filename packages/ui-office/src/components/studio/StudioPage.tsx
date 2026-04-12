@@ -233,8 +233,6 @@ export function StudioPage(props: StudioPageProps) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // TODO: place success scale bounce + delete fade animations — see Skill §14 timings
-
   // -- Load existing data (edit mode) -----------------------------------------
 
   useEffect(() => {

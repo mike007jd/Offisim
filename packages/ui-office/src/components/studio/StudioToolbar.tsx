@@ -257,7 +257,6 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
             }}
           />
         )}
-        {/* TODO: save success scale bounce animation — see Skill §14 timings */}
       </div>
     </div>
   );
