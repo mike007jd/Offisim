@@ -19,6 +19,8 @@ interface Props {
   companyId?: string | null;
   onComplete?: (companyId: string) => void;
   onCreateYourOwn?: (companyId: string) => void;
+  /** Optional dismiss callback. When provided, enables Escape-to-close and a back button. */
+  onDismiss?: () => void;
 }
 
 export function CompanyCreationWizard({
@@ -26,6 +28,7 @@ export function CompanyCreationWizard({
   companyId,
   onComplete,
   onCreateYourOwn,
+  onDismiss,
 }: Props) {
   const {
     step,
@@ -69,6 +72,18 @@ export function CompanyCreationWizard({
   useEffect(() => {
     ensureCompanyCreationWizardKeyframes();
   }, []);
+
+  useEffect(() => {
+    if (!onDismiss) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onDismiss();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onDismiss]);
 
   const currentTemplateIdx = useMemo(
     () => templates.findIndex((template) => template.id === selectedTemplateId),
@@ -133,6 +148,18 @@ export function CompanyCreationWizard({
           backgroundSize: '24px 24px',
         }}
       />
+
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Back"
+          className="absolute left-4 top-4 z-20 flex h-9 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 text-xs font-mono uppercase tracking-wider text-slate-400 transition-colors hover:border-white/20 hover:text-white"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+      )}
 
       <div className="relative z-10 flex min-h-0 flex-1 overflow-hidden">
         {selected && meta ? (

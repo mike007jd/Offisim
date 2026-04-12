@@ -633,6 +633,7 @@ export function App({ onCompanySwitch }: AppProps) {
               mode="create-new"
               onComplete={handleWizardComplete}
               onCreateYourOwn={handleCreateYourOwn}
+              onDismiss={() => setCompanyWizardMode(null)}
             />
           </Suspense>
         )}
