@@ -148,7 +148,10 @@ export interface UseInterviewWizardReturn {
   isFirstStep: boolean;
   progress: number;
   isSubmitting: boolean;
-  submit: () => Promise<void>;
+  /** Returns true on success, false on failure (check `error` for the reason). */
+  submit: () => Promise<boolean>;
+  error: string | null;
+  clearError: () => void;
   next: () => void;
   back: () => void;
   skip: () => void;
@@ -163,6 +166,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
   const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const currentStepName = WIZARD_STEPS[state.currentStep] as WizardStep;
   const canProceed = isStepValid(state.currentStep, state.formData);
@@ -196,11 +200,20 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
 
   const reset = useCallback(() => {
     dispatch({ type: 'reset' });
+    setError(null);
   }, []);
 
-  const submit = useCallback(async () => {
-    if (!repos) return;
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const submit = useCallback(async (): Promise<boolean> => {
+    if (!repos) {
+      setError('Runtime not ready — please wait and retry');
+      return false;
+    }
     setIsSubmitting(true);
+    setError(null);
     try {
       const { formData } = state;
       const personaJson = JSON.stringify({
@@ -232,6 +245,10 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
       await versionService?.createVersion(result.employee_id, 'create');
 
       dispatch({ type: 'reset' });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create employee');
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -246,6 +263,8 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
     progress,
     isSubmitting,
     submit,
+    error,
+    clearError,
     next,
     back,
     skip,

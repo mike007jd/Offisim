@@ -40,6 +40,8 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
     progress,
     isSubmitting,
     submit,
+    error,
+    clearError,
     next,
     back,
     skip,
@@ -54,8 +56,8 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
   };
 
   const handleSubmit = async () => {
-    await submit();
-    onClose();
+    const ok = await submit();
+    if (ok) onClose();
   };
 
   return (
@@ -140,6 +142,20 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           </div>
         </div>
         {/* end scrollable area */}
+
+        {/* Error banner — pinned above footer */}
+        {error && (
+          <div className="shrink-0 mt-4 flex items-start justify-between gap-3 rounded border border-red-500/40 bg-red-500/10 p-3">
+            <p className="text-xs text-red-300">{error}</p>
+            <button
+              type="button"
+              onClick={clearError}
+              className="text-[10px] font-mono uppercase tracking-wider text-red-300/70 hover:text-red-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Footer Navigation — pinned */}
         <div className="shrink-0 flex items-center justify-between pt-4 border-t border-slate-700 mt-4">
