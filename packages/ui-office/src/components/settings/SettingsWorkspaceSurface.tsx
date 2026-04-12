@@ -20,6 +20,7 @@ import {
   normalizeRuntimePolicy,
   saveProviderConfig,
 } from '../../lib/provider-config';
+import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useTheme } from '../../theme';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsProviderTab } from './SettingsProviderTab';
@@ -151,10 +152,21 @@ export function useSettingsWorkspaceController({
   >(undefined);
   const [hasStoredSecret, setHasStoredSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReinitializing, setIsReinitializing] = useState(false);
   const [saveError, setSaveError] = useState('');
   const loadedSnapshotRef = useRef('');
   const pendingSnapshotCaptureRef = useRef(false);
   const savingRef = useRef(false);
+  const reinitBaseVersionRef = useRef<number | null>(null);
+  const { version: runtimeVersion } = useOffisimRuntimeStatus();
+
+  useEffect(() => {
+    if (!isReinitializing || reinitBaseVersionRef.current === null) return;
+    if (runtimeVersion > reinitBaseVersionRef.current) {
+      setIsReinitializing(false);
+      reinitBaseVersionRef.current = null;
+    }
+  }, [runtimeVersion, isReinitializing]);
 
   const currentSnapshot = useMemo(
     () =>
@@ -440,6 +452,8 @@ export function useSettingsWorkspaceController({
       };
 
       saveProviderConfig(config);
+      reinitBaseVersionRef.current = runtimeVersion;
+      setIsReinitializing(true);
       onSave(loadProviderConfig() ?? config);
       loadedSnapshotRef.current = currentSnapshot;
       if (closeOnSave) {
@@ -459,7 +473,8 @@ export function useSettingsWorkspaceController({
     preset === 'custom' || PROVIDER_PRESETS[preset]?.defaults.baseURL !== undefined;
   const selectedPreset = PROVIDER_PRESETS[preset];
   const isThinkingProvider = selectedPreset?.hasThinking === true;
-  const isSaveDisabled = isSaving || !model || (!isSubscription && !apiKey && !hasStoredSecret);
+  const isSaveDisabled =
+    isSaving || isReinitializing || !model || (!isSubscription && !apiKey && !hasStoredSecret);
   const selectedCompatibility = formatCompatibilityLabel(selectedPreset?.compatibility);
   const selectedSurface = formatSurfaceLabel(selectedPreset?.surface);
   const selectedCapabilities = capabilitySummary(selectedPreset?.capabilities);
@@ -490,7 +505,7 @@ export function useSettingsWorkspaceController({
     hasStoredSecret,
     hasUnsavedChanges,
     isSaveDisabled,
-    isSaving,
+    isSaving: isSaving || isReinitializing,
     isSubscription,
     isThinkingProvider,
     memoryConfidenceThreshold,
