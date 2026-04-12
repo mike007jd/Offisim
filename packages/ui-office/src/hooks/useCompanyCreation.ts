@@ -67,7 +67,6 @@ export function useCompanyCreation({
   const runtimeReady = repos !== null;
 
   // Guard against double-submit (e.g. Settings dialog opens during creation)
-  const [isCreating, setIsCreating] = useState(false);
   const creatingRef = useRef(false);
 
   const createCompanyRecord = useCallback(
@@ -137,7 +136,6 @@ export function useCompanyCreation({
       }
     }
 
-    setIsCreating(true);
     setStep('creating');
     setError(null);
     try {
@@ -164,20 +162,24 @@ export function useCompanyCreation({
       setStep('first-run');
       return null;
     } finally {
-      setIsCreating(false);
       creatingRef.current = false;
     }
   }, [repos, selectedTemplateId, eventBus, targetCompanyId, mode, templates, createCompanyRecord]);
 
   const createCustomCompany = useCallback(async () => {
-    if (isCreating) return null;
+    if (creatingRef.current) return null;
     if (!companyName.trim()) {
       setError('Please enter a company name.');
       return null;
     }
+    creatingRef.current = true;
     setError(null);
-    return createCompanyRecord(null, 'Custom');
-  }, [companyName, createCompanyRecord, isCreating]);
+    try {
+      return await createCompanyRecord(null, 'Custom');
+    } finally {
+      creatingRef.current = false;
+    }
+  }, [companyName, createCompanyRecord]);
 
   return {
     step,
