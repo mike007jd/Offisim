@@ -22,11 +22,18 @@ export function useProjectAssignments(
     let cancelled = false;
     setAssignments([]);
 
-    void repos.projectAssignments.findByProject(projectId).then((nextAssignments) => {
-      if (!cancelled) {
-        setAssignments(nextAssignments);
-      }
-    });
+    void repos.projectAssignments
+      .findByProject(projectId)
+      .then((nextAssignments) => {
+        if (!cancelled) {
+          setAssignments(nextAssignments);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('[useProjectAssignments] failed to load assignments', err);
+        }
+      });
 
     return () => {
       cancelled = true;
