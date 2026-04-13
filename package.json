@@ -12,6 +12,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "turbo run test",
+    "test:ai": "pnpm --filter @offisim/core exec vitest run src/__tests__/ai --config vitest.config.ts && pnpm --filter @offisim/web exec playwright test --config=playwright.config.ai.ts",
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "launcher": "pnpm --filter @offisim/launcher dev",

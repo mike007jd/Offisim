@@ -35,6 +35,32 @@ Common local entrypoints:
 - Platform API: `pnpm --filter @offisim/platform dev`
 - Docker stack: `docker compose -f docker/docker-compose.yml up --build`
 
+## AI Behavior Testing
+
+Run the Phase 0 AI behavior suites from the repo root with:
+
+```bash
+pnpm test:ai
+```
+
+The command runs two live MiniMax-backed suites:
+
+- `packages/core/src/__tests__/ai/` for pure Node runtime tests with Vitest
+- `apps/web/e2e-ai/` for browser runtime tests with Playwright
+
+Rules for these suites:
+
+- Never mock the LLM. These tests are for real provider behavior only.
+- If `MINIMAX_API_KEY` is missing from `.env.local`, both suites skip cleanly instead of failing.
+- Keep Vitest AI tests at `>= 60_000ms`.
+- Keep Playwright AI tests at `>= 120_000ms`.
+
+To add a new AI test:
+
+1. Put pure runtime tests in `packages/core/src/__tests__/ai/`.
+2. Put browser/UI behavior tests in `apps/web/e2e-ai/`.
+3. Reuse each directory's `harness.ts` so key loading, seeding, runtime readiness, and skip behavior stay consistent.
+
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 Deployment-specific guidance lives in `Docs/00_start_here/DEPLOYMENT.md`.
 
