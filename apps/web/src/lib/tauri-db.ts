@@ -1,4 +1,5 @@
 import type Database from '@tauri-apps/plugin-sql';
+type TauriSqlModule = typeof import('@tauri-apps/plugin-sql');
 
 /**
  * Shared singleton for tauri-plugin-sql Database connection.
@@ -9,9 +10,8 @@ let dbPromise: Promise<Database> | null = null;
 export function getTauriDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
-      const { default: Database } = (await import('@tauri-apps/plugin-sql')) as typeof import(
-        '@tauri-apps/plugin-sql',
-      );
+      const tauriSqlModule: TauriSqlModule = await import('@tauri-apps/plugin-sql');
+      const { default: Database } = tauriSqlModule;
       const db = await Database.load('sqlite:offisim.db');
       // Enable WAL for concurrent read/write safety
       await db.execute('PRAGMA journal_mode=WAL', []);

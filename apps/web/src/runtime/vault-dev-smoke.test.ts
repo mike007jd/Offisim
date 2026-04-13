@@ -53,7 +53,7 @@ describe('runVaultDevSmoke', () => {
         slugFactory: () => 'vault-smoke-dev-employee',
         sleep: async () => {},
       },
-    } as VaultDevSmokeParams);
+    } as unknown as VaultDevSmokeParams);
 
     expect(flush).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
@@ -99,7 +99,7 @@ describe('runVaultDevSmoke', () => {
         employeeIdFactory: () => 'requested-employee-id',
         slugFactory: (_name: string, employeeId: string) => `slug-${employeeId}`,
       },
-    } as VaultDevSmokeParams);
+    } as unknown as VaultDevSmokeParams);
 
     expect(emittedIds).toEqual(['persisted-employee-id']);
     expect(result).toMatchObject({
