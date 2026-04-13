@@ -11,9 +11,11 @@ import type { RuntimeBundle } from './browser-runtime';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
+import { tryActivateTauriVault } from './vault-tauri-activation';
 
 export async function createTauriRuntimeReposOnly(
   eventBus: InMemoryEventBus,
+  companyId?: string,
 ): Promise<RuntimeBundle> {
   await seedTauriDb();
   const db = createTauriDrizzleDb();
@@ -35,6 +37,12 @@ export async function createTauriRuntimeReposOnly(
     }
   }
 
+  // Vault is LLM-independent; activate it so employee markdown lands on disk
+  // even without a provider key. Skipped in the pre-company Bootstrap stage.
+  const vaultActivation = companyId
+    ? await tryActivateTauriVault({ eventBus, repos, companyId })
+    : null;
+
   return {
     eventBus,
     graph: null as unknown as RuntimeBundle['graph'],
@@ -43,5 +51,7 @@ export async function createTauriRuntimeReposOnly(
     installService: null,
     mcpToolExecutor: null,
     repos,
+    vaultActivation: vaultActivation ?? undefined,
+    dispose: vaultActivation ? () => vaultActivation.dispose() : undefined,
   };
 }

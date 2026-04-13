@@ -13,7 +13,7 @@ export async function initializeRuntimeBundle(
   if (tauri) {
     if (!config) {
       const { createTauriRuntimeReposOnly } = await import('../lib/tauri-runtime-lite');
-      return createTauriRuntimeReposOnly(eventBus);
+      return createTauriRuntimeReposOnly(eventBus, companyId);
     }
     const { createTauriRuntime } = await import('../lib/tauri-runtime');
     return createTauriRuntime(config, eventBus, companyId, opts);

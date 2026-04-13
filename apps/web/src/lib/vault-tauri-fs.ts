@@ -1,13 +1,28 @@
 import type { VaultFileSystem } from '@offisim/core/browser';
-import {
-  exists,
-  mkdir,
-  readDir,
-  readTextFile,
-  remove,
-  stat,
-  writeTextFile,
-} from '@tauri-apps/plugin-fs';
+
+// `@tauri-apps/plugin-fs` is aliased to an empty stub in Vite dev to keep
+// browser bundles clean (see apps/web/vite.config.ts alias /^@tauri-apps\//).
+// Use a dynamic import with @vite-ignore so Tauri webviews resolve it at
+// runtime — same pattern used for `@tauri-apps/api/path` and other Tauri
+// plugins in the codebase.
+export type TauriFsModule = {
+  exists: (p: string) => Promise<boolean>;
+  mkdir: (p: string, opts?: { recursive?: boolean }) => Promise<void>;
+  readDir: (p: string) => Promise<Array<{ name: string }>>;
+  readTextFile: (p: string) => Promise<string>;
+  remove: (p: string, opts?: { recursive?: boolean }) => Promise<void>;
+  stat: (p: string) => Promise<{ mtime: string | null; size: number }>;
+  writeTextFile: (p: string, content: string) => Promise<void>;
+};
+
+let fsPromise: Promise<TauriFsModule> | null = null;
+function fs(): Promise<TauriFsModule> {
+  if (!fsPromise) {
+    const moduleId = '@tauri-apps' + '/plugin-fs';
+    fsPromise = import(/* @vite-ignore */ moduleId) as Promise<TauriFsModule>;
+  }
+  return fsPromise;
+}
 
 function join(root: string, rel: string): string {
   if (!rel || rel === '.' || rel === './') return root;
@@ -33,18 +48,21 @@ export class TauriVaultFileSystem implements VaultFileSystem {
   }
 
   async readFile(relPath: string): Promise<string> {
-    return readTextFile(join(this.root, relPath));
+    const m = await fs();
+    return m.readTextFile(join(this.root, relPath));
   }
 
   async writeFile(relPath: string, content: string): Promise<void> {
+    const m = await fs();
     const full = join(this.root, relPath);
-    await mkdir(dirname(full), { recursive: true });
-    await writeTextFile(full, content);
+    await m.mkdir(dirname(full), { recursive: true });
+    await m.writeTextFile(full, content);
   }
 
   async listDir(relPath: string): Promise<string[]> {
+    const m = await fs();
     try {
-      const entries = await readDir(join(this.root, relPath));
+      const entries = await m.readDir(join(this.root, relPath));
       return entries.map((entry) => entry.name);
     } catch (err) {
       if (isNotFound(err)) return [];
@@ -53,8 +71,9 @@ export class TauriVaultFileSystem implements VaultFileSystem {
   }
 
   async stat(relPath: string): Promise<{ mtimeMs: number; size: number } | null> {
+    const m = await fs();
     try {
-      const info = await stat(join(this.root, relPath));
+      const info = await m.stat(join(this.root, relPath));
       const mtime = info.mtime ? new Date(info.mtime).getTime() : 0;
       return { mtimeMs: mtime, size: info.size };
     } catch (err) {
@@ -64,19 +83,22 @@ export class TauriVaultFileSystem implements VaultFileSystem {
   }
 
   async remove(relPath: string): Promise<void> {
+    const m = await fs();
     try {
-      await remove(join(this.root, relPath), { recursive: true });
+      await m.remove(join(this.root, relPath), { recursive: true });
     } catch (err) {
       if (!isNotFound(err)) throw err;
     }
   }
 
   async mkdir(relPath: string): Promise<void> {
-    await mkdir(join(this.root, relPath), { recursive: true });
+    const m = await fs();
+    await m.mkdir(join(this.root, relPath), { recursive: true });
   }
 
   async exists(relPath: string): Promise<boolean> {
-    return exists(join(this.root, relPath));
+    const m = await fs();
+    return m.exists(join(this.root, relPath));
   }
 }
 

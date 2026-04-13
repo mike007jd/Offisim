@@ -152,6 +152,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_cors_fetch::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(mcp_bridge::init())
         .setup(|app| {
             // Register deep link scheme on platforms that need runtime registration

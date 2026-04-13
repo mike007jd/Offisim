@@ -35,7 +35,7 @@ describe('initializeRuntimeBundle', () => {
 
     const runtime = await initializeRuntimeBundle(null, eventBus, true, TEST_COMPANY_ID);
 
-    expect(createTauriRuntimeReposOnly).toHaveBeenCalledWith(eventBus);
+    expect(createTauriRuntimeReposOnly).toHaveBeenCalledWith(eventBus, TEST_COMPANY_ID);
     expect(createTauriRuntime).not.toHaveBeenCalled();
     expect(runtime).toBe(reposOnlyRuntime);
   });

@@ -50,8 +50,7 @@ import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
-import { type VaultActivation, activateVaultSync } from './vault-activation';
-import { TauriVaultFileSystem } from './vault-tauri-fs';
+import { tryActivateTauriVault } from './vault-tauri-activation';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -322,36 +321,6 @@ export async function createTauriRuntime(
       vaultActivation?.dispose();
     },
   };
-}
-
-async function tryActivateTauriVault(deps: {
-  eventBus: InMemoryEventBus;
-  repos: RuntimeRepositories;
-  companyId: string;
-}): Promise<VaultActivation | null> {
-  try {
-    const pathModule = '@tauri-apps' + '/api/path';
-    const { appDataDir } = (await import(/* @vite-ignore */ pathModule)) as {
-      appDataDir: () => Promise<string>;
-    };
-    const root = `${(await appDataDir()).replace(/\/+$/u, '')}/vault`;
-    const fs = new TauriVaultFileSystem(root);
-    const activation = activateVaultSync({
-      fs,
-      eventBus: deps.eventBus,
-      repos: deps.repos,
-      companyId: deps.companyId,
-    });
-    // Fire-and-forget hydrate so any operator-edited md files get imported
-    // before runtime writes start flowing. Errors surface via vault.sync.failed.
-    void activation.hydrate().catch((err) => {
-      console.warn('[vault] hydrate failed; vault may drift from DB until next boot', err);
-    });
-    return activation;
-  } catch (err) {
-    console.warn('[vault] activation skipped (not a Tauri environment or path unavailable)', err);
-    return null;
-  }
 }
 
 /**

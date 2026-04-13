@@ -300,7 +300,13 @@ export function App({ onCompanySwitch }: AppProps) {
   useEffect(() => {
     return eventBus.on('vault.sync.failed', (e: RuntimeEvent<VaultSyncFailedPayload>) => {
       const verb =
-        e.payload.target === 'import' ? 'read' : e.payload.target === 'delete' ? 'delete' : 'write';
+        e.payload.target === 'import'
+          ? 'read'
+          : e.payload.target === 'delete'
+            ? 'delete'
+            : e.payload.target === 'activate'
+              ? 'activation'
+              : 'write';
       addToast(`Vault ${verb} failed: ${e.payload.reason}`, 'error', { durationMs: 8_000 });
     });
   }, [eventBus, addToast]);
