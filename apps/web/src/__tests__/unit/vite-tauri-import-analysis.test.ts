@@ -1,52 +1,121 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { UserConfig } from 'vite';
 import { describe, expect, it } from 'vitest';
+import viteConfig from '../../../vite.config';
 
 const hookModulePath = path.resolve(
   __dirname,
-  '../../../../../packages/ui-office/dist/hooks/useDeepLinkInstall.js',
+  '../../../../../packages/ui-office/src/hooks/useDeepLinkInstall.ts',
 );
 const desktopRegistrySourcePath = path.resolve(__dirname, '../../lib/desktop-mcp-registry.ts');
-const desktopRegistryModulePath = path.resolve(
+const desktopProviderSecretsSourcePath = path.resolve(
   __dirname,
-  '../../../../../packages/ui-office/dist/lib/desktop-mcp-registry.js',
+  '../../../../../packages/ui-office/src/lib/desktop-provider-secrets.ts',
 );
-const desktopProviderSecretsModulePath = path.resolve(
+const vaultActivationSourcePath = path.resolve(__dirname, '../../lib/vault-tauri-activation.ts');
+const vaultFsSourcePath = path.resolve(__dirname, '../../lib/vault-tauri-fs.ts');
+const tauriDbSourcePath = path.resolve(__dirname, '../../lib/tauri-db.ts');
+const runtimeProviderSourcePath = path.resolve(
   __dirname,
-  '../../../../../packages/ui-office/dist/lib/desktop-provider-secrets.js',
+  '../../runtime/OffisimRuntimeProvider.tsx',
 );
+
+async function resolveViteConfig(env: Record<string, string | undefined>) {
+  const previous = {
+    TAURI_ENV_PLATFORM: process.env.TAURI_ENV_PLATFORM,
+    TAURI_ENV_DEBUG: process.env.TAURI_ENV_DEBUG,
+  };
+
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    const configFactory = typeof viteConfig === 'function' ? viteConfig : () => viteConfig;
+    return (await configFactory({
+      command: 'serve',
+      mode: 'development',
+      isSsrBuild: false,
+      isPreview: false,
+    })) as UserConfig;
+  } finally {
+    if (previous.TAURI_ENV_PLATFORM === undefined) {
+      process.env.TAURI_ENV_PLATFORM = undefined;
+    } else {
+      process.env.TAURI_ENV_PLATFORM = previous.TAURI_ENV_PLATFORM;
+    }
+
+    if (previous.TAURI_ENV_DEBUG === undefined) {
+      process.env.TAURI_ENV_DEBUG = undefined;
+    } else {
+      process.env.TAURI_ENV_DEBUG = previous.TAURI_ENV_DEBUG;
+    }
+  }
+}
 
 describe('Vite dev server Tauri import handling', () => {
-  it('build output does not contain bare @tauri-apps event imports', async () => {
-    const builtHook = await fs.readFile(hookModulePath, 'utf8');
+  it('browser frontend aliases Tauri packages to browser-safe stubs', async () => {
+    const config = await resolveViteConfig({
+      TAURI_ENV_PLATFORM: undefined,
+      TAURI_ENV_DEBUG: undefined,
+    });
+    const aliases = Array.isArray(config.resolve?.alias) ? config.resolve.alias : [];
+    const tauriAliases = aliases.filter(
+      (entry: unknown): entry is { find: string | RegExp; replacement: string } =>
+        typeof entry === 'object' && entry != null && 'replacement' in entry,
+    );
 
-    expect(builtHook).not.toContain('@tauri-apps/api/event');
-    expect(builtHook).toContain("const tauriEventModule = '@tauri-apps' + '/api/event';");
-    expect(builtHook).toContain('import(/* @vite-ignore */ tauriEventModule)');
+    expect(
+      tauriAliases.find((entry) => entry.find === '@tauri-apps/api/core')?.replacement,
+    ).toContain('src/polyfills/tauri-api-core.ts');
+    expect(
+      tauriAliases.find((entry) => entry.find === '@tauri-apps/api/path')?.replacement,
+    ).toContain('src/polyfills/tauri-api-path.ts');
+    expect(
+      tauriAliases.find((entry) => entry.find === '@tauri-apps/plugin-fs')?.replacement,
+    ).toContain('src/polyfills/tauri-plugin-fs.ts');
+    expect(
+      tauriAliases.find((entry) => entry.find === '@tauri-apps/plugin-sql')?.replacement,
+    ).toContain('src/polyfills/tauri-plugin-sql.ts');
   });
 
-  it('app source avoids bare @tauri-apps core imports in dynamic imports', async () => {
-    const source = await fs.readFile(desktopRegistrySourcePath, 'utf8');
+  it('tauri frontend does not alias Tauri packages away', async () => {
+    const config = await resolveViteConfig({
+      TAURI_ENV_PLATFORM: 'darwin',
+      TAURI_ENV_DEBUG: 'true',
+    });
+    const aliases = Array.isArray(config.resolve?.alias) ? config.resolve.alias : [];
 
-    expect(source).not.toContain("await import('@tauri-apps/api/core')");
-    expect(source).toContain("const tauriCoreModule = '@tauri-apps' + '/api/core';");
-    expect(source).toContain('import(/* @vite-ignore */ tauriCoreModule)');
+    expect(
+      aliases.some(
+        (entry: unknown) =>
+          typeof entry === 'object' &&
+          entry != null &&
+          'find' in entry &&
+          String(entry.find).startsWith('@tauri-apps/'),
+      ),
+    ).toBe(false);
   });
 
-  it('ui-office build output avoids bare @tauri-apps core imports', async () => {
-    const [desktopRegistryModule, desktopProviderSecretsModule] = await Promise.all([
-      fs.readFile(desktopRegistryModulePath, 'utf8'),
-      fs.readFile(desktopProviderSecretsModulePath, 'utf8'),
+  it('source avoids vite-ignore bare-specifier hacks for Tauri packages', async () => {
+    const sources = await Promise.all([
+      fs.readFile(hookModulePath, 'utf8'),
+      fs.readFile(desktopRegistrySourcePath, 'utf8'),
+      fs.readFile(desktopProviderSecretsSourcePath, 'utf8'),
+      fs.readFile(vaultActivationSourcePath, 'utf8'),
+      fs.readFile(vaultFsSourcePath, 'utf8'),
+      fs.readFile(tauriDbSourcePath, 'utf8'),
+      fs.readFile(runtimeProviderSourcePath, 'utf8'),
     ]);
 
-    expect(desktopRegistryModule).not.toContain('@tauri-apps/api/core');
-    expect(desktopRegistryModule).toContain("const tauriCoreModule = '@tauri-apps' + '/api/core';");
-    expect(desktopRegistryModule).toContain('import(/* @vite-ignore */ tauriCoreModule)');
-
-    expect(desktopProviderSecretsModule).not.toContain('@tauri-apps/api/core');
-    expect(desktopProviderSecretsModule).toContain(
-      "const tauriCoreModule = '@tauri-apps' + '/api/core';",
-    );
-    expect(desktopProviderSecretsModule).toContain('import(/* @vite-ignore */ tauriCoreModule)');
+    for (const source of sources) {
+      expect(source).not.toContain('@vite-ignore');
+      expect(source).not.toContain("'@tauri-apps' +");
+    }
   });
 });

@@ -37,8 +37,7 @@ interface StoredBrowserMcpServerRecord {
 type DesktopInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
 async function invokeDesktop<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const tauriCoreModule = '@tauri-apps' + '/api/core';
-  const tauriCore = (await import(/* @vite-ignore */ tauriCoreModule)) as {
+  const tauriCore = (await import('@tauri-apps/api/core')) as {
     invoke: DesktopInvoke;
   };
   const { invoke } = tauriCore;

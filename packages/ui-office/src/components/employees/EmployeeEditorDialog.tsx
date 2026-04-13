@@ -148,13 +148,18 @@ export function EmployeeEditorDialog({
     PROVIDER_OPTIONS.find((p) => p.value === selectedProvider)?.models ?? [];
 
   const workstationOptions = useMemo(() => {
-    if (companyZones.length === 0) {
+    const validZones = companyZones.filter(
+      (zone): zone is (typeof companyZones)[number] & { zoneId: string } =>
+        typeof zone.zoneId === 'string' && zone.zoneId.trim() !== '',
+    );
+
+    if (validZones.length === 0) {
       return [];
     }
 
-    const plan = computeFloorPlan(companyZones, new Map());
+    const plan = computeFloorPlan(validZones, new Map());
     const zoneLabels = new Map<string, string>();
-    for (const zone of companyZones) {
+    for (const zone of validZones) {
       zoneLabels.set(zone.zoneId, zone.label);
       const slug = extractZoneSlug(zone.zoneId);
       if (slug) {

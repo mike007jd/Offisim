@@ -40,10 +40,8 @@ export function useDeepLinkInstall(onInstallRequest: DeepLinkHandler): void {
     let mounted = true;
     const unlistenRef: { current: (() => void) | undefined } = { current: undefined };
 
-    // Dynamically import Tauri event API (tree-shaken in browser builds)
-    // Use string concat to prevent Vite's import-analysis from statically rejecting this
-    const tauriEventModule = '@tauri-apps' + '/api/event';
-    import(/* @vite-ignore */ tauriEventModule)
+    // Dynamically import Tauri event API so browser builds keep it off the main path.
+    import('@tauri-apps/api/event')
       .then(({ listen }) => {
         return (
           listen as (

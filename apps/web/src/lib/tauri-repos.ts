@@ -786,7 +786,27 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       return (await db.select().from(schema.modelCostRates)) as ModelCostRateRow[];
     },
     async upsert(rate: NewModelCostRate) {
-      const existing = (await db
+      const values: ModelCostRateRow = {
+        rate_id: crypto.randomUUID(),
+        ...rate,
+        created_at: now(),
+      };
+      await db
+        .insert(schema.modelCostRates)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [
+            schema.modelCostRates.provider,
+            schema.modelCostRates.model_pattern,
+            schema.modelCostRates.effective_from,
+          ],
+          set: {
+            input_cost_per_mtok: rate.input_cost_per_mtok,
+            output_cost_per_mtok: rate.output_cost_per_mtok,
+            effective_until: rate.effective_until,
+          },
+        });
+      const persisted = (await db
         .select()
         .from(schema.modelCostRates)
         .where(
@@ -796,22 +816,11 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
             eq(schema.modelCostRates.effective_from, rate.effective_from),
           ),
         )) as ModelCostRateRow[];
-      if (existing.length > 0) {
-        const row = existing[0];
-        if (!row) {
-          throw new Error('Expected existing model cost rate row to be present.');
-        }
-        await db
-          .update(schema.modelCostRates)
-          .set({
-            input_cost_per_mtok: rate.input_cost_per_mtok,
-            output_cost_per_mtok: rate.output_cost_per_mtok,
-            effective_until: rate.effective_until,
-          })
-          .where(eq(schema.modelCostRates.rate_id, row.rate_id));
-        return { ...row, ...rate };
+      const [row] = persisted;
+      if (!row) {
+        throw new Error('Expected upserted model cost rate row to be present.');
       }
-      return this.create(rate);
+      return row;
     },
   };
 

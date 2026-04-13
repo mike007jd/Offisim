@@ -297,7 +297,7 @@ export class VaultSyncService {
     try {
       return await this.fs.readFile(relPath);
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isMissingFileError(err)) {
         return undefined;
       }
       throw err;
@@ -363,4 +363,23 @@ export class VaultSyncService {
   rememberSlug(employeeId: string, companyId: string, slug: string): void {
     this.slugByEmployee.set(employeeId, { companyId, slug });
   }
+}
+
+function isMissingFileError(err: unknown): boolean {
+  const errorCode =
+    err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+  if (errorCode === 'ENOENT') {
+    return true;
+  }
+  if (!(err instanceof Error)) {
+    return false;
+  }
+  const message = err.message.toLowerCase();
+  return (
+    message.includes('no such file') ||
+    message.includes('not found') ||
+    message.includes('cannot find') ||
+    message.includes('enoent') ||
+    message.includes('os error 2')
+  );
 }

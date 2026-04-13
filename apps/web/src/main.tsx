@@ -10,6 +10,12 @@ import {
 import { installThreeConsoleFilter } from './lib/three-console';
 import { BootstrapProvider } from './runtime/BootstrapProvider';
 import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
+import { DevAutoSmokeBootstrap } from './runtime/dev-auto-smoke';
+import { installVaultSmokePlaceholder } from './runtime/install-vault-smoke-placeholder';
+import {
+  isTauriDevEphemeralEnabled,
+  useTauriDevEphemeralReset,
+} from './runtime/tauri-dev-ephemeral';
 
 const App = lazy(() => import('./App.js').then((module) => ({ default: module.App })));
 
@@ -17,6 +23,9 @@ const App = lazy(() => import('./App.js').then((module) => ({ default: module.Ap
 const STORAGE_KEY = 'offisim:active-company';
 
 function readStoredCompany(): string | null {
+  if (isTauriDevEphemeralEnabled()) {
+    return null;
+  }
   return localStorage.getItem(STORAGE_KEY);
 }
 
@@ -60,6 +69,7 @@ function CompanyBridge({
  * teardown + re-init when the user switches companies.
  */
 function Shell() {
+  const isResettingDevData = useTauriDevEphemeralReset();
   const [companyId, setCompanyId] = useState(readStoredCompany);
 
   const handleCompanySwitch = useCallback((id: string | null) => {
@@ -67,10 +77,19 @@ function Shell() {
     setCompanyId(id);
   }, []);
 
+  if (isResettingDevData) {
+    return (
+      <ThemeProvider>
+        <AppBootFallback />
+      </ThemeProvider>
+    );
+  }
+
   if (!companyId) {
     return (
       <ThemeProvider>
         <BootstrapProvider>
+          <DevAutoSmokeBootstrap onCompanyCreated={handleCompanySwitch} />
           <NotificationProvider>
             <Suspense fallback={<AppBootFallback />}>
               <App onCompanySwitch={handleCompanySwitch} />
@@ -106,6 +125,7 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
 installThreeConsoleFilter();
+installVaultSmokePlaceholder();
 
 createRoot(root).render(
   <StrictMode>

@@ -2,6 +2,7 @@ import type { CompanyTemplate } from '@offisim/core/browser';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import {
   CREATE_YOUR_OWN_TEMPLATE,
   EMPLOYEE_BIOS,
@@ -30,6 +31,7 @@ export function CompanyCreationWizard({
   onCreateYourOwn,
   onDismiss,
 }: Props) {
+  const { error: runtimeError, isReady, reinitRuntime } = useOffisimRuntime();
   const {
     step,
     templates: coreTemplates,
@@ -40,12 +42,15 @@ export function CompanyCreationWizard({
     create,
     createCustomCompany,
     error,
-    runtimeReady,
+    runtimeReady: hookRuntimeReady,
     isCreating,
   } = useCompanyCreation({ mode, companyId });
+  const runtimeReady = hookRuntimeReady && isReady;
 
   const templates = useMemo(() => [...coreTemplates, CREATE_YOUR_OWN_TEMPLATE], [coreTemplates]);
   const isCreateYourOwn = selectedTemplateId === 'create-your-own';
+  const displayedError = error ?? runtimeError;
+  const shouldRetryRuntime = !isCreateYourOwn && !runtimeReady && !!runtimeError;
 
   const prevStepRef = useRef(step);
   const [infoTab, setInfoTab] = useState<'team' | 'workflows'>('team');
@@ -115,6 +120,18 @@ export function CompanyCreationWizard({
   );
 
   const handlePrimaryAction = useCallback(async () => {
+    if (shouldRetryRuntime) {
+      reinitRuntime();
+      return;
+    }
+
+    if (!isCreateYourOwn && !runtimeReady) {
+      if (runtimeError) {
+        reinitRuntime();
+      }
+      return;
+    }
+
     if (isCreateYourOwn) {
       const newCompanyId = await createCustomCompany();
       if (newCompanyId) {
@@ -127,7 +144,17 @@ export function CompanyCreationWizard({
     if (createdCompanyId) {
       onComplete?.(createdCompanyId);
     }
-  }, [create, createCustomCompany, isCreateYourOwn, onComplete, onCreateYourOwn]);
+  }, [
+    create,
+    createCustomCompany,
+    isCreateYourOwn,
+    onComplete,
+    onCreateYourOwn,
+    reinitRuntime,
+    runtimeError,
+    runtimeReady,
+    shouldRetryRuntime,
+  ]);
 
   if (step === 'checking') {
     return (
@@ -146,6 +173,8 @@ export function CompanyCreationWizard({
   const selected = templates.find((template) => template.id === selectedTemplateId);
   const meta = selected ? TEMPLATE_META[selected.id] : null;
   const zoneSummary = selected && !isCreateYourOwn ? getTemplateZoneSummary(selected) : [];
+  const primaryDisabled =
+    !selectedTemplateId || (!isCreateYourOwn && !runtimeReady) || !companyName.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface">
@@ -348,9 +377,7 @@ export function CompanyCreationWizard({
               onClick={() => {
                 void handlePrimaryAction();
               }}
-              disabled={
-                !selectedTemplateId || (!isCreateYourOwn && !runtimeReady) || !companyName.trim()
-              }
+              disabled={primaryDisabled}
               className="mt-5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-30"
               style={
                 (isCreateYourOwn || runtimeReady) && selectedTemplateId
@@ -360,6 +387,8 @@ export function CompanyCreationWizard({
             >
               {isCreateYourOwn ? (
                 'Open Studio Editor'
+              ) : shouldRetryRuntime ? (
+                'Retry Runtime'
               ) : !runtimeReady ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" /> Initializing...
@@ -370,7 +399,9 @@ export function CompanyCreationWizard({
             </button>
           </div>
         )}
-        {error && <p className="mt-2 text-center text-xs text-red-400">{error}</p>}
+        {displayedError && (
+          <p className="mt-2 text-center text-xs text-red-400">{displayedError}</p>
+        )}
       </div>
     </div>
   );

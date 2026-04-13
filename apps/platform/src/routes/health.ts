@@ -9,8 +9,7 @@ health.get('/health', async (c) => {
   try {
     await db.execute(sql`SELECT 1`);
     return c.json({ status: 'ok' });
-  } catch (err) {
-    console.error('[health] DB check failed:', err);
+  } catch {
     return c.json({ status: 'degraded', db: 'unreachable' }, 503);
   }
 });

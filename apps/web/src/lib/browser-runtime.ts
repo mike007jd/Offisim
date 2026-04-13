@@ -9,7 +9,6 @@
 // Browser-safe imports — lightweight, no LLM/graph deps
 import {
   AgentContextPackService,
-  DEFAULT_COST_RATES,
   MemoryUserPreferenceRepository,
   bindingStateChanged,
   createMemoryRepositories,
@@ -55,6 +54,7 @@ import {
   createBrowserRuntimePersistence,
   loadBrowserRuntimeSnapshot,
 } from './browser-runtime-storage';
+import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import type { VaultActivation } from './vault-activation';
 
 // ---------------------------------------------------------------------------
@@ -85,20 +85,7 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
 }
 
 async function ensureCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
-  const existing = await repos.costRates.findAll();
-  if (existing.length > 0) return;
-
-  const now = new Date().toISOString().slice(0, 10);
-  for (const rate of DEFAULT_COST_RATES) {
-    await repos.costRates.create({
-      provider: rate.provider,
-      model_pattern: rate.model_pattern,
-      input_cost_per_mtok: rate.input_cost_per_mtok,
-      output_cost_per_mtok: rate.output_cost_per_mtok,
-      effective_from: now,
-      effective_until: null,
-    });
-  }
+  await seedDefaultCostRatesIfEmpty(repos);
 }
 
 const IS_DEV = import.meta.env.DEV;

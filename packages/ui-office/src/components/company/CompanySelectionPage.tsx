@@ -153,7 +153,7 @@ function CompanyPortalPreview({
         </defs>
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="rgba(2,6,23,0.72)" />
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="url(#company-preview-grid)" />
-        {zones.map((zone) => {
+        {zones.map((zone, index) => {
           const x0 = mapValue(
             zone.cx - zone.w / 2,
             bounds.minX,
@@ -183,7 +183,7 @@ function CompanyPortalPreview({
             viewBox.h - viewBox.pad,
           );
           return (
-            <g key={zone.zone_id}>
+            <g key={zone.zone_id || `${company.company_id}:zone:${index}`}>
               <rect
                 x={x0}
                 y={y0}
@@ -210,7 +210,7 @@ function CompanyPortalPreview({
             </g>
           );
         })}
-        {prefabs.map((prefab) => {
+        {prefabs.map((prefab, index) => {
           const x = mapValue(
             prefab.position_x,
             bounds.minX,
@@ -227,7 +227,9 @@ function CompanyPortalPreview({
           );
           return (
             <circle
-              key={prefab.instance_id}
+              key={
+                prefab.instance_id || `${company.company_id}:prefab:${prefab.prefab_id}:${index}`
+              }
               cx={x}
               cy={y}
               r="4.5"
@@ -301,7 +303,7 @@ export function CompanySelectionPage({
               No companies yet. Create one to start building your workspace.
             </div>
           ) : (
-            visibleCompanies.map((company) => {
+            visibleCompanies.map((company, index) => {
               const summary = summaries[company.company_id] ?? {
                 employeeCount: 0,
                 projectCount: 0,
@@ -310,7 +312,7 @@ export function CompanySelectionPage({
               const isActive = company.company_id === activeCompanyId;
               return (
                 <button
-                  key={company.company_id}
+                  key={company.company_id || `company:${company.name}:${index}`}
                   type="button"
                   onClick={() => onPreviewCompany(company.company_id)}
                   className={`w-full rounded-2xl border p-4 text-left transition ${

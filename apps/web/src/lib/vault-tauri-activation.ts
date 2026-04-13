@@ -23,8 +23,7 @@ export async function tryActivateTauriVault(deps: {
 
   let root: string | null = null;
   try {
-    const pathModule = '@tauri-apps' + '/api/path';
-    const { appDataDir } = (await import(/* @vite-ignore */ pathModule)) as {
+    const { appDataDir } = (await import('@tauri-apps/api/path')) as {
       appDataDir: () => Promise<string>;
     };
     root = `${(await appDataDir()).replace(/\/+$/u, '')}/vault`;

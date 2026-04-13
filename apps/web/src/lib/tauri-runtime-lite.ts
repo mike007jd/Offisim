@@ -5,9 +5,9 @@
  * and editing without requiring an API key. Data persists to SQLite so it
  * survives reinitRuntime() calls.
  */
-import { DEFAULT_COST_RATES } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { RuntimeBundle } from './browser-runtime';
+import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
@@ -21,21 +21,7 @@ export async function createTauriRuntimeReposOnly(
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
 
-  // Seed default cost rates (idempotent)
-  const existing = await repos.costRates.findAll();
-  if (existing.length === 0) {
-    const today = new Date().toISOString().slice(0, 10);
-    for (const rate of DEFAULT_COST_RATES) {
-      await repos.costRates.create({
-        provider: rate.provider,
-        model_pattern: rate.model_pattern,
-        input_cost_per_mtok: rate.input_cost_per_mtok,
-        output_cost_per_mtok: rate.output_cost_per_mtok,
-        effective_from: today,
-        effective_until: null,
-      });
-    }
-  }
+  await seedDefaultCostRatesIfEmpty(repos);
 
   // Vault is LLM-independent; activate it so employee markdown lands on disk
   // even without a provider key. Skipped in the pre-company Bootstrap stage.

@@ -99,4 +99,90 @@ describe('CompanySelectionPage', () => {
 
     expect(onArchiveCompany).toHaveBeenCalledWith('co-1');
   });
+
+  it('does not emit React key warnings when preview data is missing ids', async () => {
+    const malformedCompany = {
+      ...MOCK_COMPANY,
+      company_id: '',
+      name: 'Broken Co',
+    } as CompanyRow;
+    const repos = {
+      ...makeRepos(),
+      companies: {
+        findAll: vi.fn().mockResolvedValue([malformedCompany]),
+        findById: vi.fn().mockResolvedValue(malformedCompany),
+      },
+      zones: {
+        findByCompany: vi.fn().mockResolvedValue([
+          {
+            zone_id: '',
+            company_id: '',
+            kind: 'system',
+            archetype: 'workspace',
+            label: 'DEV',
+            accent_color: '#3b82f6',
+            floor_color: 0x2a3a5c,
+            cx: 0,
+            cz: 0,
+            w: 10,
+            d: 8,
+            target_roles_json: null,
+            allowed_categories_json: null,
+            activity_types_json: null,
+            desk_slots: 4,
+            sort_order: 0,
+            created_at: '2026-04-06T00:00:00.000Z',
+            updated_at: '2026-04-06T00:00:00.000Z',
+          },
+        ]),
+      },
+      prefabInstances: {
+        findByCompany: vi.fn().mockResolvedValue([
+          {
+            instance_id: '',
+            company_id: '',
+            prefab_id: 'workstation-standard',
+            zone_id: '',
+            position_x: 0,
+            position_y: 0,
+            rotation: 0,
+            bindings_json: null,
+            config_json: null,
+            enabled: 1,
+            created_at: '2026-04-06T00:00:00.000Z',
+            updated_at: '2026-04-06T00:00:00.000Z',
+          },
+        ]),
+      },
+    } as RuntimeRepositories;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const BrokenWrapper = ({ children }: { children: ReactNode }) => (
+      <OffisimRuntimeContext.Provider value={makeRuntime(repos)}>
+        <CompanyProvider repos={repos} activeCompanyId="">
+          {children}
+        </CompanyProvider>
+      </OffisimRuntimeContext.Provider>
+    );
+
+    render(
+      <CompanySelectionPage
+        previewCompanyId=""
+        onPreviewCompany={vi.fn()}
+        onEnterCompany={vi.fn()}
+        onCreateNew={vi.fn()}
+        onArchiveCompany={vi.fn()}
+      />,
+      { wrapper: BrokenWrapper },
+    );
+
+    await screen.findByRole('button', { name: /enter company/i });
+    expect(
+      consoleError.mock.calls.some((call) =>
+        String(call[0]).includes('Each child in a list should have a unique "key" prop'),
+      ),
+    ).toBe(false);
+
+    consoleError.mockRestore();
+  });
 });

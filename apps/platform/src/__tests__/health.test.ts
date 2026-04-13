@@ -33,6 +33,7 @@ describe('Health Route', () => {
   });
 
   it('returns degraded when the database probe fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const mockDb = {
       execute: vi.fn().mockRejectedValue(new Error('db down')),
     } as unknown as MockDb;
@@ -43,5 +44,7 @@ describe('Health Route', () => {
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ status: 'degraded', db: 'unreachable' });
     expect(mockDb.execute).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

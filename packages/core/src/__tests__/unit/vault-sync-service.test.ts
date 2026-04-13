@@ -204,6 +204,53 @@ describe('VaultSyncService', () => {
     expect(fm.persona.decisionStyle).toBe('directive');
   });
 
+  it('treats tauri-style missing-file errors as absent vault files during hydrate', async () => {
+    const writes = new Map<string, string>();
+    const tauriLikeFs = {
+      root,
+      async readFile(relPath: string) {
+        throw new Error(
+          `failed to open file at path: ${path.join(root, relPath)} with error: No such file or directory (os error 2)`,
+        );
+      },
+      async writeFile(relPath: string, content: string) {
+        writes.set(relPath, content);
+      },
+      async listDir() {
+        return [];
+      },
+      async stat() {
+        return null;
+      },
+      async remove() {
+        /* noop */
+      },
+      async mkdir() {
+        /* noop */
+      },
+      async exists() {
+        return false;
+      },
+    };
+
+    const tauriLikeService = new VaultSyncService({
+      fs: tauriLikeFs,
+      eventBus,
+      employees: repos.employees,
+      memories: repos.memories,
+      debounceMs: 20,
+      onError: (err) => errors.push(err),
+    });
+
+    const outcome = await tauriLikeService.hydrateCompany(COMPANY_ID);
+
+    expect(outcome.diagnostics).toEqual([]);
+    expect(outcome.importedEmployees).toBe(0);
+    expect(outcome.rendered).toBe(1);
+    expect(writes.has(`${EMPLOYEE_DIR}/employee.md`)).toBe(true);
+    tauriLikeService.dispose();
+  });
+
   it('surfaces a VaultSyncError through onError when FS writes fail', async () => {
     const failingFs = {
       root,

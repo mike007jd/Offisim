@@ -93,6 +93,11 @@ pub struct DatabaseInfo {
     pub can_start_with_docker: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct PlatformHealthResponse {
+    status: String,
+}
+
 /// Global auto-incrementing ID for log lines (stable React keys).
 static LOG_LINE_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -252,7 +257,14 @@ impl LauncherState {
             .get(format!("http://localhost:{}/health", PLATFORM_PORT))
             .send()
             .await?;
-        if resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.json::<PlatformHealthResponse>().await.ok();
+        if body
+            .as_ref()
+            .is_some_and(|payload| payload.status == "ok" || payload.status == "degraded")
+        {
+            Ok(())
+        } else if status.is_success() {
             Ok(())
         } else {
             Err(LauncherError::PlatformNotOffisim(PLATFORM_PORT))

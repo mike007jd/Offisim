@@ -1,10 +1,8 @@
 import type { VaultFileSystem } from '@offisim/core/browser';
 
-// `@tauri-apps/plugin-fs` is aliased to an empty stub in Vite dev to keep
-// browser bundles clean (see apps/web/vite.config.ts alias /^@tauri-apps\//).
-// Use a dynamic import with @vite-ignore so Tauri webviews resolve it at
-// runtime — same pattern used for `@tauri-apps/api/path` and other Tauri
-// plugins in the codebase.
+// Browser builds alias Tauri packages to a stub module, while Tauri dev/build
+// let Vite resolve the real package. Keep the fs bridge lazy so it stays off
+// the browser entry path entirely.
 export type TauriFsModule = {
   exists: (p: string) => Promise<boolean>;
   mkdir: (p: string, opts?: { recursive?: boolean }) => Promise<void>;
@@ -18,8 +16,7 @@ export type TauriFsModule = {
 let fsPromise: Promise<TauriFsModule> | null = null;
 function fs(): Promise<TauriFsModule> {
   if (!fsPromise) {
-    const moduleId = '@tauri-apps' + '/plugin-fs';
-    fsPromise = import(/* @vite-ignore */ moduleId) as Promise<TauriFsModule>;
+    fsPromise = import('@tauri-apps/plugin-fs') as Promise<TauriFsModule>;
   }
   return fsPromise;
 }

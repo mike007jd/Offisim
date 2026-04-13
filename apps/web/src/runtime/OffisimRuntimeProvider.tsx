@@ -17,7 +17,6 @@ import type {
   InteractionRequest,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
-  RoleSlug,
 } from '@offisim/shared-types';
 import {
   InMemorySceneIntentBus,
@@ -39,10 +38,11 @@ import {
   loadBrowserRuntimeSnapshot,
 } from '../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
-import type { TauriFsModule } from '../lib/vault-tauri-fs';
+import { useDevAutoSmokeRunner } from './dev-auto-smoke';
 import { initializeRuntimeBundle } from './initialize-runtime';
 import { getInteractionFollowUp } from './interaction-follow-up';
 import { isRuntimeReadyForInteraction } from './runtime-readiness';
+import { runVaultDevSmoke } from './vault-dev-smoke';
 
 export interface UnfinishedThread {
   threadId: string;
@@ -114,6 +114,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   interactionModeRef.current = interactionMode;
   const pendingInteractionRef = useRef(pendingInteraction);
   pendingInteractionRef.current = pendingInteraction;
+  const currentRuntime = runtimeRef.current;
 
   // ---------------------------------------------------------------------------
   // Stable EventBus — created once, shared across runtime reinitializations.
@@ -132,6 +133,11 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const notificationBridgeRef = useRef<NotificationBridge | null>(null);
 
   useChatStreamingSync(eventBusRef.current);
+  useDevAutoSmokeRunner({
+    companyId,
+    eventBus: eventBusRef.current,
+    runtime: currentRuntime,
+  });
 
   // Activate NotificationBridge once — subscribes to runtime events on the
   // stable EventBus and emits `notification.created` for the UI.
@@ -723,125 +729,13 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       const smokeWindow = window as unknown as {
         __VAULT_SMOKE__?: () => Promise<unknown>;
       };
-      if (!smokeWindow.__VAULT_SMOKE__) {
-        smokeWindow.__VAULT_SMOKE__ = async () => {
-          const probe = {
-            has_TAURI: '__TAURI__' in window,
-            has_TAURI_INTERNALS: '__TAURI_INTERNALS__' in window,
-            runtimeReady: !!runtime,
-            runtimeHasVaultActivation: !!runtime?.vaultActivation,
-            runtimeReposEmployees: typeof runtime?.repos?.employees?.create === 'function',
-          };
-          let appDataDirFn: (() => Promise<string>) | null = null;
-          let fsMod: TauriFsModule | null = null;
-          let loadErr: string | null = null;
-          try {
-            const pathId = '@tauri-apps' + '/api/path';
-            const fsId = '@tauri-apps' + '/plugin-fs';
-            const [p, f] = await Promise.all([
-              import(/* @vite-ignore */ pathId),
-              import(/* @vite-ignore */ fsId),
-            ]);
-            appDataDirFn = (p as { appDataDir: () => Promise<string> }).appDataDir;
-            fsMod = f as TauriFsModule;
-          } catch (err) {
-            loadErr = err instanceof Error ? err.message : String(err);
-          }
-          if (!appDataDirFn || !fsMod) {
-            return {
-              ok: false as const,
-              reason: 'failed to load @tauri-apps/api/path or /plugin-fs at runtime',
-              loadErr,
-              probe,
-            };
-          }
-          let root: string;
-          try {
-            root = `${(await appDataDirFn()).replace(/\/+$/u, '')}/vault`;
-          } catch (err) {
-            return {
-              ok: false as const,
-              reason: 'appDataDir() threw',
-              err: err instanceof Error ? err.message : String(err),
-              probe,
-            };
-          }
-          try {
-            await fsMod.mkdir(`${root}/__smoke_probe__`, { recursive: true });
-          } catch (err) {
-            return {
-              ok: false as const,
-              reason: 'fs.mkdir probe failed — capability / plugin-fs not reachable',
-              err: err instanceof Error ? err.message : String(err),
-              root,
-              probe,
-            };
-          }
-          if (!runtime) {
-            return {
-              ok: false as const,
-              reason: 'runtime not ready, but fs capability IS working',
-              root,
-              probe,
-            };
-          }
-          const [{ employeeCreated }, { employeeSlug }, vaultMod, fsLibMod] = await Promise.all([
-            import('@offisim/core/browser'),
-            import('@offisim/core/dist/vault/slug.js'),
-            import('../lib/vault-activation'),
-            import('../lib/vault-tauri-fs'),
-          ]);
-          // If runtime.vaultActivation is null (activation failed silently),
-          // spin up a local subscriber just for this call so md files land.
-          const tempActivation = runtime.vaultActivation
-            ? null
-            : vaultMod.activateVaultSync({
-                fs: new fsLibMod.TauriVaultFileSystem(root),
-                eventBus,
-                repos: runtime.repos,
-                companyId,
-              });
-          const employeeId = crypto.randomUUID();
-          const name = `Vault Smoke ${Date.now()}`;
-          const roleSlug: RoleSlug = 'engineer' as RoleSlug;
-          await runtime.repos.employees.create({
-            employee_id: employeeId,
-            company_id: companyId,
-            source_asset_id: null,
-            source_package_id: null,
-            name,
-            role_slug: roleSlug,
-          });
-          eventBus.emit(employeeCreated(companyId, employeeId, name, roleSlug));
-          await new Promise((r) => setTimeout(r, 900));
-          tempActivation?.dispose();
-          const slug = employeeSlug(name, employeeId);
-          const base = `${root}/companies/${companyId}/employees/${slug}`;
-          const fileNames = ['employee.md', 'soul.md', 'memory.md', 'relationships.md'];
-          const files: Record<string, { exists: boolean; bytes: number; head: string }> = {};
-          for (const f of fileNames) {
-            const full = `${base}/${f}`;
-            try {
-              const exists = await fsMod.exists(full);
-              if (exists) {
-                const content = await fsMod.readTextFile(full);
-                files[f] = { exists: true, bytes: content.length, head: content.slice(0, 80) };
-              } else {
-                files[f] = { exists: false, bytes: 0, head: '' };
-              }
-            } catch (err) {
-              files[f] = {
-                exists: false,
-                bytes: 0,
-                head: `ERR: ${err instanceof Error ? err.message : String(err)}`,
-              };
-            }
-          }
-          const allOk = fileNames.every((f) => files[f]?.exists);
-          return { ok: allOk, root, employeeId, slug, base, files };
-        };
-        console.info('[vault] dev smoke hook installed — run `await __VAULT_SMOKE__()`');
-      }
+      smokeWindow.__VAULT_SMOKE__ = async () =>
+        runVaultDevSmoke({
+          companyId,
+          eventBus,
+          runtime,
+        });
+      console.info('[vault] dev smoke hook installed — run `await __VAULT_SMOKE__()`');
     }
 
     return {

@@ -1,5 +1,4 @@
 import {
-  DEFAULT_COST_RATES,
   MemoryUserPreferenceRepository,
   bindingStateChanged,
   installStateChanged,
@@ -44,6 +43,7 @@ import {
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
+import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
@@ -248,8 +248,7 @@ export async function createTauriRuntime(
 
   // Git auto-commit service (desktop only — uses Tauri git_exec bridge)
   const tauriGitExec: GitExec = async (args, cwd) => {
-    const tauriCoreModule = '@tauri-apps' + '/api/core';
-    const { invoke } = (await import(/* @vite-ignore */ tauriCoreModule)) as {
+    const { invoke } = (await import('@tauri-apps/api/core')) as {
       invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
     };
     return invoke<{ ok: boolean; stdout: string; stderr: string }>('git_exec', { args, cwd });
@@ -328,18 +327,5 @@ export async function createTauriRuntime(
  * Idempotent: skips if rates already exist.
  */
 async function seedCostRates(repos: RuntimeRepositories): Promise<void> {
-  const existing = await repos.costRates.findAll();
-  if (existing.length > 0) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  for (const rate of DEFAULT_COST_RATES) {
-    await repos.costRates.create({
-      provider: rate.provider,
-      model_pattern: rate.model_pattern,
-      input_cost_per_mtok: rate.input_cost_per_mtok,
-      output_cost_per_mtok: rate.output_cost_per_mtok,
-      effective_from: today,
-      effective_until: null,
-    });
-  }
+  await seedDefaultCostRatesIfEmpty(repos);
 }

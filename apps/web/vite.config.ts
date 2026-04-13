@@ -73,6 +73,31 @@ function createUiOfficeAliases() {
   ];
 }
 
+function createBrowserTauriAliases() {
+  return [
+    {
+      find: '@tauri-apps/api/core',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-core.ts'),
+    },
+    {
+      find: '@tauri-apps/api/event',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-event.ts'),
+    },
+    {
+      find: '@tauri-apps/api/path',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-path.ts'),
+    },
+    {
+      find: '@tauri-apps/plugin-fs',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-plugin-fs.ts'),
+    },
+    {
+      find: '@tauri-apps/plugin-sql',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-plugin-sql.ts'),
+    },
+  ];
+}
+
 /**
  * Vite config for apps/web — browser SPA.
  *
@@ -82,247 +107,246 @@ function createUiOfficeAliases() {
  * 3. Pre-bundle @offisim/core so CJS transitive deps get ESM conversion
  * 4. LLM proxy middleware to avoid CORS during development
  */
-export default defineConfig(({ command }) => ({
-  plugins: [
-    tailwindcss(),
-    react(),
-    // Custom LLM proxy middleware for dev server
-    {
-      name: 'llm-proxy',
-      configureServer(server) {
-        // Allowlist of known LLM provider hostnames to prevent SSRF
-        const ALLOWED_HOSTS = new Set([
-          'generativelanguage.googleapis.com',
-          'openrouter.ai',
-          'api.kimi.com',
-          'api.moonshot.ai',
-          'api.moonshot.cn',
-          'api.minimax.io',
-          'api.minimaxi.com',
-          'api.z.ai',
-          'api.openai.com',
-          'api.anthropic.com',
-          'localhost',
-          '127.0.0.1',
-        ]);
+export default defineConfig(({ command }) => {
+  const isTauriFrontend = Boolean(process.env.TAURI_ENV_PLATFORM);
 
-        server.middlewares.use(
-          '/api/llm-proxy',
-          async (req: IncomingMessage, res: ServerResponse) => {
-            const targetBase = req.headers['x-llm-base-url'] as string;
-            if (!targetBase) {
-              res.writeHead(400, { 'Content-Type': 'text/plain' });
-              res.end('Missing X-LLM-Base-URL header');
-              return;
-            }
+  return {
+    plugins: [
+      tailwindcss(),
+      react(),
+      // Custom LLM proxy middleware for dev server
+      {
+        name: 'llm-proxy',
+        configureServer(server) {
+          // Allowlist of known LLM provider hostnames to prevent SSRF
+          const ALLOWED_HOSTS = new Set([
+            'generativelanguage.googleapis.com',
+            'openrouter.ai',
+            'api.kimi.com',
+            'api.moonshot.ai',
+            'api.moonshot.cn',
+            'api.minimax.io',
+            'api.minimaxi.com',
+            'api.z.ai',
+            'api.openai.com',
+            'api.anthropic.com',
+            'localhost',
+            '127.0.0.1',
+          ]);
 
-            // Validate target against allowlist to prevent SSRF
-            try {
-              const targetHost = new URL(targetBase).hostname;
-              if (!ALLOWED_HOSTS.has(targetHost)) {
-                res.writeHead(403, { 'Content-Type': 'text/plain' });
-                res.end(
-                  `Proxy target not allowed: ${targetHost}. Add it to ALLOWED_HOSTS in vite.config.ts`,
-                );
+          server.middlewares.use(
+            '/api/llm-proxy',
+            async (req: IncomingMessage, res: ServerResponse) => {
+              const targetBase = req.headers['x-llm-base-url'] as string;
+              if (!targetBase) {
+                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.end('Missing X-LLM-Base-URL header');
                 return;
               }
-            } catch {
-              res.writeHead(400, { 'Content-Type': 'text/plain' });
-              res.end('Invalid X-LLM-Base-URL header');
-              return;
-            }
 
-            // Build target URL
-            const targetURL = targetBase + (req.url ?? '');
-
-            // Forward headers (except host and the custom one)
-            const forwardHeaders: Record<string, string> = {};
-            for (const [key, value] of Object.entries(req.headers)) {
-              if (key === 'host' || key === 'x-llm-base-url' || !value) continue;
-              forwardHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
-            }
-
-            try {
-              // Collect request body
-              const chunks: Buffer[] = [];
-              for await (const chunk of req) {
-                chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-              }
-              const body = Buffer.concat(chunks);
-
-              const response = await fetch(targetURL, {
-                method: req.method ?? 'POST',
-                headers: forwardHeaders,
-                body: body.length > 0 ? body : undefined,
-              });
-
-              // Forward response status and headers
-              const responseHeaders: Record<string, string> = {};
-              response.headers.forEach((value, key) => {
-                // Don't forward problematic headers
-                if (key !== 'content-encoding' && key !== 'transfer-encoding') {
-                  responseHeaders[key] = value;
+              // Validate target against allowlist to prevent SSRF
+              try {
+                const targetHost = new URL(targetBase).hostname;
+                if (!ALLOWED_HOSTS.has(targetHost)) {
+                  res.writeHead(403, { 'Content-Type': 'text/plain' });
+                  res.end(
+                    `Proxy target not allowed: ${targetHost}. Add it to ALLOWED_HOSTS in vite.config.ts`,
+                  );
+                  return;
                 }
-              });
-              res.writeHead(response.status, responseHeaders);
-
-              // Stream response body
-              if (response.body) {
-                const reader = response.body.getReader();
-                const pump = async () => {
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                      res.end();
-                      return;
-                    }
-                    res.write(value);
-                  }
-                };
-                await pump();
-              } else {
-                res.end(await response.text());
+              } catch {
+                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.end('Invalid X-LLM-Base-URL header');
+                return;
               }
-            } catch (err) {
-              res.writeHead(502, { 'Content-Type': 'text/plain' });
-              res.end(`LLM Proxy Error: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          },
-        );
-      },
-    },
-  ],
-  server: {
-    port: 5176,
-    strictPort: true,
-    hmr: { overlay: false },
-  },
-  resolve: {
-    alias: [
-      ...(command === 'serve' ? createUiOfficeAliases() : []),
-      {
-        find: 'node:async_hooks',
-        replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
-      },
-      {
-        find: 'better-sqlite3',
-        replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
-      },
-      // Tauri packages — stub them in browser dev mode (external only works at build time)
-      {
-        find: /^@tauri-apps\//,
-        replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
-      },
-      // Redirect bare `@offisim/core` imports (from @offisim/ui-office compiled output)
-      // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
-      // from being pulled into the initial bundle via ui-office's static imports.
-      // Heavy runtime modules (graph, LLM, MCP) use direct @offisim/core/dist/ path
-      // imports in browser-runtime.ts and tauri-runtime.ts to bypass this alias.
-      // Uses regex with exact match ($ anchor) so @offisim/core/browser, @offisim/core/dist/...
-      // are NOT affected.
-      {
-        find: /^@offisim\/core$/,
-        replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js'),
+
+              // Build target URL
+              const targetURL = targetBase + (req.url ?? '');
+
+              // Forward headers (except host and the custom one)
+              const forwardHeaders: Record<string, string> = {};
+              for (const [key, value] of Object.entries(req.headers)) {
+                if (key === 'host' || key === 'x-llm-base-url' || !value) continue;
+                forwardHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
+              }
+
+              try {
+                // Collect request body
+                const chunks: Buffer[] = [];
+                for await (const chunk of req) {
+                  chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+                }
+                const body = Buffer.concat(chunks);
+
+                const response = await fetch(targetURL, {
+                  method: req.method ?? 'POST',
+                  headers: forwardHeaders,
+                  body: body.length > 0 ? body : undefined,
+                });
+
+                // Forward response status and headers
+                const responseHeaders: Record<string, string> = {};
+                response.headers.forEach((value, key) => {
+                  // Don't forward problematic headers
+                  if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+                    responseHeaders[key] = value;
+                  }
+                });
+                res.writeHead(response.status, responseHeaders);
+
+                // Stream response body
+                if (response.body) {
+                  const reader = response.body.getReader();
+                  const pump = async () => {
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) {
+                        res.end();
+                        return;
+                      }
+                      res.write(value);
+                    }
+                  };
+                  await pump();
+                } else {
+                  res.end(await response.text());
+                }
+              } catch (err) {
+                res.writeHead(502, { 'Content-Type': 'text/plain' });
+                res.end(`LLM Proxy Error: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            },
+          );
+        },
       },
     ],
-  },
-  optimizeDeps: {
-    include: ['@offisim/core', '@offisim/core/browser', '@offisim/shared-types'],
-    exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
-  },
-  build: {
-    // The remaining large lazy chunks are intentional:
-    // - vendor-llm (~1.08 MB minified) for provider SDKs
-    // - collaboration rail (~1.28 MB minified) for the full chat/task surface
-    // Both are split out of the entry path, so we set the warning budget to the
-    // audited ceiling instead of the previous lower generic threshold.
-    chunkSizeWarningLimit: 1300,
-    rollupOptions: {
-      external: [
-        'better-sqlite3',
-        '@langchain/langgraph-checkpoint-sqlite',
-        // Tauri packages — only available in Tauri webview, not browser
-        /^@tauri-apps\//,
+    server: {
+      port: 5176,
+      strictPort: true,
+      hmr: { overlay: false },
+    },
+    resolve: {
+      alias: [
+        ...(command === 'serve' ? createUiOfficeAliases() : []),
+        {
+          find: 'node:async_hooks',
+          replacement: path.resolve(__dirname, 'src/polyfills/async-local-storage.ts'),
+        },
+        {
+          find: 'better-sqlite3',
+          replacement: path.resolve(__dirname, 'src/polyfills/empty-module.ts'),
+        },
+        ...(!isTauriFrontend ? createBrowserTauriAliases() : []),
+        // Redirect bare `@offisim/core` imports (from @offisim/ui-office compiled output)
+        // to the browser-safe barrel. This prevents LangGraph / OpenAI SDK / Anthropic SDK
+        // from being pulled into the initial bundle via ui-office's static imports.
+        // Heavy runtime modules (graph, LLM, MCP) use direct @offisim/core/dist/ path
+        // imports in browser-runtime.ts and tauri-runtime.ts to bypass this alias.
+        // Uses regex with exact match ($ anchor) so @offisim/core/browser, @offisim/core/dist/...
+        // are NOT affected.
+        {
+          find: /^@offisim\/core$/,
+          replacement: path.resolve(__dirname, '../../packages/core/dist/browser.js'),
+        },
       ],
-      output: {
-        // ---------------------------------------------------------------------------
-        // Manual chunk splitting strategy:
-        // Keep manual chunking limited to third-party/vendor islands and the install
-        // toolchain. Application modules already have meaningful split points via
-        // React.lazy() and route-level dynamic imports; forcing local ui-office code
-        // into coarse manual chunks caused circular chunk warnings and oversized
-        // "foundation" bundles.
-        //
-        //   vendor-react   — React core (rarely changes, long cache)
-        //   vendor-llm     — LLM SDKs + LangChain + zod (lazy on first chat)
-        //   vendor-3d      — Three.js + React Three Fiber (lazy on 3D view toggle)
-        //   vendor-ui      — Radix primitives + lucide icons
-        //   vendor-install — fflate + ajv + js-yaml
-        //   vendor-drizzle — drizzle-orm (isolated from the browser-safe core barrel)
-        //   app-install    — install-core + schema tooling
-        // ---------------------------------------------------------------------------
-        manualChunks(id: string) {
-          if (
-            id.includes('/packages/install-core/dist/') ||
-            id.includes('/packages/asset-schema/dist/') ||
-            id.includes('/packages/renderer/dist/')
-          ) {
-            return 'app-install';
-          }
+    },
+    optimizeDeps: {
+      include: ['@offisim/core', '@offisim/core/browser', '@offisim/shared-types'],
+      exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
+    },
+    build: {
+      // The remaining large lazy chunks are intentional:
+      // - vendor-llm (~1.08 MB minified) for provider SDKs
+      // - collaboration rail (~1.28 MB minified) for the full chat/task surface
+      // Both are split out of the entry path, so we set the warning budget to the
+      // audited ceiling instead of the previous lower generic threshold.
+      chunkSizeWarningLimit: 1300,
+      rollupOptions: {
+        external: ['better-sqlite3', '@langchain/langgraph-checkpoint-sqlite'],
+        output: {
+          // ---------------------------------------------------------------------------
+          // Manual chunk splitting strategy:
+          // Keep manual chunking limited to third-party/vendor islands and the install
+          // toolchain. Application modules already have meaningful split points via
+          // React.lazy() and route-level dynamic imports; forcing local ui-office code
+          // into coarse manual chunks caused circular chunk warnings and oversized
+          // "foundation" bundles.
+          //
+          //   vendor-react   — React core (rarely changes, long cache)
+          //   vendor-llm     — LLM SDKs + LangChain + zod (lazy on first chat)
+          //   vendor-3d      — Three.js + React Three Fiber (lazy on 3D view toggle)
+          //   vendor-ui      — Radix primitives + lucide icons
+          //   vendor-install — fflate + ajv + js-yaml
+          //   vendor-drizzle — drizzle-orm (isolated from the browser-safe core barrel)
+          //   app-install    — install-core + schema tooling
+          // ---------------------------------------------------------------------------
+          manualChunks(id: string) {
+            if (
+              id.includes('/packages/install-core/dist/') ||
+              id.includes('/packages/asset-schema/dist/') ||
+              id.includes('/packages/renderer/dist/')
+            ) {
+              return 'app-install';
+            }
 
-          if (!id.includes('node_modules')) return;
+            if (!id.includes('node_modules')) return;
 
-          // React core — shared base, changes infrequently
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
-            return 'vendor-react';
-          }
+            // React core — shared base, changes infrequently
+            if (
+              id.includes('/react/') ||
+              id.includes('/react-dom/') ||
+              id.includes('/scheduler/')
+            ) {
+              return 'vendor-react';
+            }
 
-          // LLM stack — OpenAI SDK, LangChain, zod, Anthropic SDK
-          if (
-            id.includes('/openai/') ||
-            id.includes('/@langchain/') ||
-            id.includes('/langsmith/') ||
-            id.includes('/zod/') ||
-            id.includes('/@anthropic-ai/') ||
-            id.includes('/langchain/') ||
-            id.includes('/@modelcontextprotocol/')
-          ) {
-            return 'vendor-llm';
-          }
+            // LLM stack — OpenAI SDK, LangChain, zod, Anthropic SDK
+            if (
+              id.includes('/openai/') ||
+              id.includes('/@langchain/') ||
+              id.includes('/langsmith/') ||
+              id.includes('/zod/') ||
+              id.includes('/@anthropic-ai/') ||
+              id.includes('/langchain/') ||
+              id.includes('/@modelcontextprotocol/')
+            ) {
+              return 'vendor-llm';
+            }
 
-          // Three.js + React Three Fiber (lazy on 3D view toggle)
-          if (id.includes('/three/') || id.includes('/@react-three/')) {
-            return 'vendor-3d';
-          }
+            // Three.js + React Three Fiber (lazy on 3D view toggle)
+            if (id.includes('/three/') || id.includes('/@react-three/')) {
+              return 'vendor-3d';
+            }
 
-          // UI stack — icons, Radix primitives, scroll-lock
-          if (
-            id.includes('/lucide-react/') ||
-            id.includes('/@radix-ui/') ||
-            id.includes('/react-remove-scroll') ||
-            id.includes('/use-callback-ref/') ||
-            id.includes('/use-sidecar/') ||
-            id.includes('/react-style-singleton/')
-          ) {
-            return 'vendor-ui';
-          }
+            // UI stack — icons, Radix primitives, scroll-lock
+            if (
+              id.includes('/lucide-react/') ||
+              id.includes('/@radix-ui/') ||
+              id.includes('/react-remove-scroll') ||
+              id.includes('/use-callback-ref/') ||
+              id.includes('/use-sidecar/') ||
+              id.includes('/react-style-singleton/')
+            ) {
+              return 'vendor-ui';
+            }
 
-          // Install stack — ZIP + JSON Schema + frontmatter
-          if (
-            id.includes('/fflate/') ||
-            id.includes('/ajv/') ||
-            id.includes('/ajv-formats/') ||
-            id.includes('/js-yaml/')
-          ) {
-            return 'vendor-install';
-          }
+            // Install stack — ZIP + JSON Schema + frontmatter
+            if (
+              id.includes('/fflate/') ||
+              id.includes('/ajv/') ||
+              id.includes('/ajv-formats/') ||
+              id.includes('/js-yaml/')
+            ) {
+              return 'vendor-install';
+            }
 
-          // Drizzle ORM — leaks via @offisim/core barrel export, isolate it
-          if (id.includes('/drizzle-orm/')) {
-            return 'vendor-drizzle';
-          }
+            // Drizzle ORM — leaks via @offisim/core barrel export, isolate it
+            if (id.includes('/drizzle-orm/')) {
+              return 'vendor-drizzle';
+            }
+          },
         },
       },
     },
-  },
-}));
+  };
+});

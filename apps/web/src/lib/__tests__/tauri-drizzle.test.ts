@@ -53,6 +53,39 @@ describe('convertPlaceholders (via proxy callback)', () => {
     expect(params).toEqual(['emp-alice']);
   });
 
+  it('normalizes plugin-sql object rows so Drizzle field mapping survives real SELECTs', async () => {
+    const { createTauriDrizzleDb } = await import('../tauri-drizzle');
+    const db = createTauriDrizzleDb();
+
+    const { employees } = await import('@offisim/db-local');
+    const { eq } = await import('drizzle-orm');
+
+    mockSelect.mockResolvedValue([
+      {
+        employee_id: 'emp-alice',
+        company_id: 'co-1',
+        source_asset_id: null,
+        source_package_id: null,
+        name: 'Alice',
+        role_slug: 'developer',
+        workstation_id: null,
+        persona_json: null,
+        config_json: null,
+        enabled: 1,
+        created_at: '2026-04-14T00:00:00.000Z',
+        updated_at: '2026-04-14T00:00:00.000Z',
+      },
+    ]);
+
+    const rows = await db.select().from(employees).where(eq(employees.employee_id, 'emp-alice'));
+
+    expect(rows[0]).toMatchObject({
+      employee_id: 'emp-alice',
+      name: 'Alice',
+      role_slug: 'developer',
+    });
+  });
+
   it('converts multiple ? placeholders correctly', async () => {
     const { createTauriDrizzleDb } = await import('../tauri-drizzle');
     const db = createTauriDrizzleDb();

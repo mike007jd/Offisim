@@ -109,11 +109,6 @@ export function useCompanyCreation({
         setError('Runtime is still initializing. Please wait a moment and try again.');
         return null;
       }
-      if (mode === 'populate-existing' && !targetCompanyId) {
-        setError('No active company. Please wait a moment and try again.');
-        return null;
-      }
-
       const selectedTemplate =
         templates.find((template) => template.id === selectedTemplateId) ?? null;
       if (!selectedTemplate) {
@@ -121,11 +116,13 @@ export function useCompanyCreation({
         return null;
       }
 
-      const resolvedCompanyId =
-        mode === 'create-new' ? await createCompanyRecord(selectedTemplate) : targetCompanyId;
+      const creatingNewCompany = mode === 'create-new' || !targetCompanyId;
+      const resolvedCompanyId = creatingNewCompany
+        ? await createCompanyRecord(selectedTemplate)
+        : targetCompanyId;
       if (!resolvedCompanyId) return null;
 
-      if (mode === 'populate-existing') {
+      if (!creatingNewCompany) {
         try {
           const existing = await repos.employees.findByCompany(resolvedCompanyId);
           if (existing.length > 0) {
@@ -150,7 +147,7 @@ export function useCompanyCreation({
           repos.zones,
         );
         await service.materializeTemplate(selectedTemplateId, resolvedCompanyId);
-        if (mode === 'populate-existing') {
+        if (!creatingNewCompany) {
           await repos.companies.update(resolvedCompanyId, {
             template_id: selectedTemplate.id,
             template_label: selectedTemplate.name,

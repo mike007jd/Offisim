@@ -58,9 +58,9 @@ export function Office3DZoneLayer({
 }) {
   return (
     <>
-      {zones3D.map((zone) => (
+      {zones3D.map((zone, index) => (
         <ZoneLabel
-          key={zone.zoneId}
+          key={zone.zoneId || `zone-${index}`}
           position={zone.position}
           size={zone.size}
           color={zone.accentColor}
@@ -90,9 +90,9 @@ export function Office3DFurnitureLayer({
   if (hasPrefabData) {
     return (
       <>
-        {prefabInstances.map(({ instance, definition }) => (
+        {prefabInstances.map(({ instance, definition }, index) => (
           <Prefab3D
-            key={instance.instance_id}
+            key={instance.instance_id || `${instance.prefab_id}-${index}`}
             definition={definition}
             position={[instance.position_x, 0, instance.position_y]}
             rotation={instance.rotation}
@@ -132,9 +132,9 @@ export function Office3DEmployeeLayer({
 }) {
   return (
     <>
-      {placed.map((employee) => (
+      {placed.map((employee, index) => (
         <EmployeeMarker
-          key={employee.id}
+          key={employee.id || `employee-${index}`}
           emp={employee}
           isSelected={selectedEmployeeId === employee.id}
           isDragSource={isDragging && dragState?.employeeId === employee.id}
@@ -173,11 +173,11 @@ export function Office3DFlowLayer({
 }) {
   return (
     <>
-      {flowLines.map((line) => {
+      {flowLines.map((line, index) => {
         const label = getFlowLineVariantLabel(line.variant);
         const labelPoint = getFlowLineLabelPoint(line.points);
         return (
-          <group key={line.id}>
+          <group key={line.id || `flow-${index}`}>
             <TaskFlowLine
               points={line.points}
               color={getFlowLineColor(line.variant)}

@@ -133,6 +133,48 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/021_installed_packages_provenance.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 22,
+            description: "file history",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/022_file_history.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 23,
+            description: "thread compact baseline",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/023_thread_compact_baseline.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 24,
+            description: "durable interactions",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/024_durable_interactions.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 25,
+            description: "mcp audit fk fix",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/025_fix_mcp_audit_fk.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 26,
+            description: "company template metadata",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/026_company_template_metadata.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 27,
+            description: "zones",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/027_zones.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 28,
+            description: "memory entries v2",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/028_memory_entries_v2.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
