@@ -14,7 +14,7 @@ import {
   memoryFrontmatterSchema,
   soulFrontmatterSchema,
 } from '../../vault/frontmatter.js';
-import { NodeFileSystem } from '../../vault/fs.js';
+import { NodeFileSystem } from '../../vault/node-fs.js';
 import { employeeSlug } from '../../vault/slug.js';
 import { type VaultSyncError, VaultSyncService } from '../../vault/sync-service.js';
 import { describeIfMinimax, requireMinimaxKey } from './harness.js';

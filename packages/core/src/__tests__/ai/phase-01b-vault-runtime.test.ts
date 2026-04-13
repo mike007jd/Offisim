@@ -5,7 +5,7 @@ import type { RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { parseDocument } from '../../vault/codec.js';
 import { memoryFrontmatterSchema } from '../../vault/frontmatter.js';
-import { NodeFileSystem } from '../../vault/fs.js';
+import { NodeFileSystem } from '../../vault/node-fs.js';
 import { employeeSlug } from '../../vault/slug.js';
 import { VaultSyncService } from '../../vault/sync-service.js';
 import { createAiRuntime, describeIfMinimax, requireMinimaxKey } from './harness.js';

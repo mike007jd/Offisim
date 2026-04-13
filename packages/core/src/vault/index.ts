@@ -36,7 +36,8 @@ export {
   type ImportOutcome,
 } from './importer.js';
 
-export { NodeFileSystem, type VaultFileSystem, type NodeFileSystemOptions } from './fs.js';
+export type { VaultFileSystem } from './fs.js';
+export { NodeFileSystem, type NodeFileSystemOptions } from './node-fs.js';
 
 export { employeeSlug } from './slug.js';
 

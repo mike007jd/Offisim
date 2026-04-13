@@ -10,7 +10,7 @@ import { parseDocument } from '../../vault/codec.js';
 import { serializeDocument } from '../../vault/codec.js';
 import { employeeFrontmatterSchema, soulFrontmatterSchema } from '../../vault/frontmatter.js';
 import { VAULT_SCHEMA_VERSION } from '../../vault/frontmatter.js';
-import { NodeFileSystem } from '../../vault/fs.js';
+import { NodeFileSystem } from '../../vault/node-fs.js';
 import { employeeSlug } from '../../vault/slug.js';
 import { VaultSyncError, VaultSyncService } from '../../vault/sync-service.js';
 

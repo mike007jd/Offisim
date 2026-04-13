@@ -303,3 +303,44 @@ export type {
   A2ATaskState,
   A2ASkill,
 } from './a2a/index.js';
+
+// --- Vault (Obsidian-style employee markdown mirror) ---
+// NodeFileSystem is NOT exported from the browser barrel — it imports node:fs.
+// Import directly from sub-files (not ./vault/index.js) so the browser bundle
+// never evaluates the Node-only sibling module.
+export { VaultSyncService, VaultSyncError } from './vault/sync-service.js';
+export type { VaultSyncServiceOptions, VaultTarget } from './vault/sync-service.js';
+export type { VaultFileSystem } from './vault/fs.js';
+export {
+  VAULT_FILENAMES,
+  VAULT_SCHEMA_VERSION,
+  employeeFrontmatterSchema,
+  soulFrontmatterSchema,
+  memoryFrontmatterSchema,
+  relationshipsFrontmatterSchema,
+  memoryCategoryEnum,
+} from './vault/frontmatter.js';
+export type {
+  VaultFile,
+  EmployeeFrontmatter,
+  SoulFrontmatter,
+  MemoryFrontmatter,
+  MemoryCategory,
+  RelationshipsFrontmatter,
+} from './vault/frontmatter.js';
+export { parseDocument, serializeDocument, VaultParseError } from './vault/codec.js';
+export type { ParsedDocument } from './vault/codec.js';
+export {
+  renderEmployeeMd,
+  renderSoulMd,
+  renderMemoryMd,
+  renderRelationshipsMd,
+} from './vault/render.js';
+export { importEmployeeBundle } from './vault/importer.js';
+export type {
+  EmployeeSourceFile,
+  EmployeeVaultFiles,
+  ImportDiagnostic,
+  ImportOutcome,
+} from './vault/importer.js';
+export { employeeSlug } from './vault/slug.js';

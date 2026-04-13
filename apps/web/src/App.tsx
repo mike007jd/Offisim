@@ -1,5 +1,10 @@
 import { employeeCreated } from '@offisim/core/browser';
-import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
+import type {
+  DeliverableCreatedPayload,
+  RoleSlug,
+  RuntimeEvent,
+  VaultSyncFailedPayload,
+} from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   CompanySelectionPage,
@@ -287,6 +292,16 @@ export function App({ onCompanySwitch }: AppProps) {
       if (e.companyId) {
         markCompany(e.companyId, 'first_deliverable_seen');
       }
+    });
+  }, [eventBus, addToast]);
+
+  // Vault sync failures surface here so operators see disk / permission
+  // problems instead of the vault silently falling behind.
+  useEffect(() => {
+    return eventBus.on('vault.sync.failed', (e: RuntimeEvent<VaultSyncFailedPayload>) => {
+      const verb =
+        e.payload.target === 'import' ? 'read' : e.payload.target === 'delete' ? 'delete' : 'write';
+      addToast(`Vault ${verb} failed: ${e.payload.reason}`, 'error', { durationMs: 8_000 });
     });
   }, [eventBus, addToast]);
 

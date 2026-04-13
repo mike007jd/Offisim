@@ -55,6 +55,7 @@ import {
   createBrowserRuntimePersistence,
   loadBrowserRuntimeSnapshot,
 } from './browser-runtime-storage';
+import type { VaultActivation } from './vault-activation';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -120,6 +121,7 @@ export type RuntimeBundle = {
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
+  vaultActivation?: VaultActivation;
   dispose?: () => void;
 };
 

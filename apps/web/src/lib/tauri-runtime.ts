@@ -50,6 +50,8 @@ import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import { seedTauriDb } from './tauri-seed';
+import { type VaultActivation, activateVaultSync } from './vault-activation';
+import { TauriVaultFileSystem } from './vault-tauri-fs';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -298,6 +300,8 @@ export async function createTauriRuntime(
     checkpointSaver: checkpointer,
   });
 
+  const vaultActivation = await tryActivateTauriVault({ eventBus, repos, companyId });
+
   return {
     eventBus,
     graph,
@@ -310,12 +314,41 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    vaultActivation: vaultActivation ?? undefined,
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
       installService.dispose();
+      vaultActivation?.dispose();
     },
   };
+}
+
+async function tryActivateTauriVault(deps: {
+  eventBus: InMemoryEventBus;
+  repos: RuntimeRepositories;
+  companyId: string;
+}): Promise<VaultActivation | null> {
+  try {
+    const pathModule = '@tauri-apps' + '/api/path';
+    const { appDataDir } = (await import(/* @vite-ignore */ pathModule)) as {
+      appDataDir: () => Promise<string>;
+    };
+    const root = `${(await appDataDir()).replace(/\/+$/u, '')}/vault`;
+    const fs = new TauriVaultFileSystem(root);
+    const activation = activateVaultSync({
+      fs,
+      eventBus: deps.eventBus,
+      repos: deps.repos,
+      companyId: deps.companyId,
+    });
+    // Fire-and-forget hydrate so any operator-edited md files get imported
+    // before runtime writes start flowing. Errors surface via vault.sync.failed.
+    void activation.hydrate().catch(() => undefined);
+    return activation;
+  } catch {
+    return null;
+  }
 }
 
 /**
