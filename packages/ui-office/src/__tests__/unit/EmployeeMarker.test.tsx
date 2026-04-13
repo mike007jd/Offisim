@@ -34,10 +34,6 @@ vi.mock('../../components/company/CompanyContext.js', () => ({
   }),
 }));
 
-vi.mock('../../components/scene/Lobster3D.js', () => ({
-  Lobster3D: () => null,
-}));
-
 function makeEmployee(overrides?: Partial<PlacedEmployee>): PlacedEmployee {
   return {
     id: 'emp-1',
@@ -53,7 +49,7 @@ function makeEmployee(overrides?: Partial<PlacedEmployee>): PlacedEmployee {
 }
 
 describe('EmployeeMarker', () => {
-  it('shows a selected employee name pill for non-openclaw employees', () => {
+  it('shows a selected employee name pill', () => {
     render(<EmployeeMarker emp={makeEmployee()} isSelected onSelect={vi.fn()} />);
 
     expect(screen.getByText('Alice')).toBeInTheDocument();

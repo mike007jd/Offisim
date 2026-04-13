@@ -1,7 +1,11 @@
-# Offisim Runtime Experience GDD
+# Offisim Runtime Experience GDD (archived 2026-04-14)
+
+> **Historical — not live.** Archived with the OpenClaw interop removal.
+> Live interop口径是 A2A-only；本文档中的 OpenClaw / lobster puppet 角色体系
+> 已从代码中移除。保留仅供设计语言参考，不要据此规划实现。
 
 **Version:** v0.1  
-**Status:** Working design document  
+**Status:** Archived historical design document  
 **Audience:** product, design, rendering, runtime, AI coding agents  
 **Scope:** office runtime, editor-adjacent runtime feedback, install/import presentation  
 

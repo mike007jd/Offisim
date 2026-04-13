@@ -5,10 +5,8 @@
  * Discovery: GET /.well-known/agent-card.json
  * RPC endpoint: POST /a2a/jsonrpc
  *
- * This is the PREFERRED communication method between Offisim employees and
- * external OpenClaw lobster agents. The WebSocket-based OpenClaw Gateway
- * Protocol (see ../gateway/) remains available for real-time event streaming
- * but A2A is the standard cross-agent interop layer.
+ * Standard cross-agent interop layer between Offisim employees and any
+ * external A2A-compatible agent.
  */
 
 // ---------------------------------------------------------------------------
@@ -120,7 +118,7 @@ export interface A2AConfig {
   serverPort: number;
   /** Token that incoming A2A requests must provide. */
   serverToken: string;
-  /** Connected peers (OpenClaw instances, other Offisim instances, etc.). */
+  /** Connected peers (other Offisim instances, external A2A agents, etc.). */
   peers: A2APeer[];
 }
 

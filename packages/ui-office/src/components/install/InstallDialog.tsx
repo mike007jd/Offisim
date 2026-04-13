@@ -20,7 +20,6 @@ import type { InstallFlowActions, InstallFlowState } from '../../hooks/useInstal
 import { BindingForm } from './BindingForm.js';
 import { InstallProgress } from './InstallProgress.js';
 import { ManifestReview } from './ManifestReview.js';
-import { SkillReview } from './SkillReview.js';
 import { UpgradePreview } from './UpgradePreview.js';
 
 type InstallDialogProps = InstallFlowState & InstallFlowActions;
@@ -67,20 +66,12 @@ function ErrorContent({ error, onCancel }: { error: string; onCancel: () => void
 }
 
 /** Map step to dialog title */
-function getDialogTitle(
-  step: InstallDialogProps['step'],
-  isSkillImport: boolean,
-  isUpgrade: boolean,
-): string {
+function getDialogTitle(step: InstallDialogProps['step'], isUpgrade: boolean): string {
   switch (step) {
     case 'loading':
-      return isSkillImport ? 'Loading Skill' : isUpgrade ? 'Loading Upgrade' : 'Loading Package';
+      return isUpgrade ? 'Loading Upgrade' : 'Loading Package';
     case 'review':
-      return isSkillImport
-        ? 'Import OpenClaw Skill'
-        : isUpgrade
-          ? 'Review Upgrade'
-          : 'Review Package';
+      return isUpgrade ? 'Review Upgrade' : 'Review Package';
     case 'bindings':
       return 'Configure Bindings';
     case 'installing':
@@ -101,8 +92,6 @@ export function InstallDialog(props: InstallDialogProps) {
     plan,
     error,
     bindingValues,
-    isSkillImport,
-    skillValidation,
     upgradeDiff,
     confirmInstall,
     submitBindings,
@@ -121,16 +110,6 @@ export function InstallDialog(props: InstallDialogProps) {
 
       case 'review':
         if (!plan) return <LoadingContent />;
-        if (isSkillImport) {
-          return (
-            <SkillReview
-              plan={plan}
-              skillValidation={skillValidation}
-              onApprove={confirmInstall}
-              onCancel={cancel}
-            />
-          );
-        }
         if (upgradeDiff) {
           return (
             <UpgradePreview
@@ -178,14 +157,12 @@ export function InstallDialog(props: InstallDialogProps) {
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{getDialogTitle(step, isSkillImport, !!upgradeDiff)}</DialogTitle>
+          <DialogTitle>{getDialogTitle(step, !!upgradeDiff)}</DialogTitle>
           {step === 'review' && plan && (
             <DialogDescription>
-              {isSkillImport
-                ? 'Review the skill details before importing as a new employee.'
-                : upgradeDiff
-                  ? 'Review the changes before upgrading.'
-                  : 'Review the package details before installing.'}
+              {upgradeDiff
+                ? 'Review the changes before upgrading.'
+                : 'Review the package details before installing.'}
             </DialogDescription>
           )}
           {step === 'bindings' && (

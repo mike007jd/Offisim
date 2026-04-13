@@ -70,7 +70,7 @@ export { createInstallPlan } from './install-planner.js';
 // Install service (D.1)
 // ---------------------------------------------------------------------------
 export { InstallService, InstallServiceError } from './install-service.js';
-export type { InstallServiceDeps, ImportResult, SkillImportResult } from './install-service.js';
+export type { InstallServiceDeps, ImportResult } from './install-service.js';
 
 // ---------------------------------------------------------------------------
 // Materializer (D.2)
@@ -98,18 +98,3 @@ export type {
 // File importer (D.4)
 // ---------------------------------------------------------------------------
 export { readPackageFile, FileImportError } from './file-importer.js';
-
-// ---------------------------------------------------------------------------
-// OpenClaw skill integration
-// ---------------------------------------------------------------------------
-export { parseSkill, SkillParseError } from './openclaw/index.js';
-export { validateSkill } from './openclaw/index.js';
-export { skillToManifest } from './openclaw/index.js';
-export type {
-  ParsedSkill,
-  SkillCapabilityDescriptor,
-  SkillCapabilityIndex,
-  SkillRequirements,
-  SkillMetadata,
-  SkillValidationResult,
-} from './openclaw/index.js';

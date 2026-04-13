@@ -282,16 +282,7 @@ export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
 
-// --- OpenClaw Gateway (WebSocket — real-time event streaming) ---
-export { OpenClawClient } from './gateway/index.js';
-export type {
-  OpenClawConfig,
-  OpenClawAgent,
-  OpenClawChatResponse,
-  ConnectionState,
-} from './gateway/index.js';
-
-// --- A2A Protocol (HTTP JSON-RPC — preferred cross-agent communication) ---
+// --- A2A Protocol (HTTP JSON-RPC — cross-agent communication) ---
 export { A2AClient } from './a2a/index.js';
 export type {
   A2APeer,

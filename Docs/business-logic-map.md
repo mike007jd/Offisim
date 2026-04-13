@@ -52,7 +52,7 @@ graph LR
 - OpenAI SDK 直连
 - 订阅模式 ACP（桌面端，调 `claude` CLI subprocess）
 
-外部 agent 接入统一走 A2A。OpenClaw 不属于当前 live runtime 路径，**不是**核心 runtime 的一部分。
+外部 agent 接入统一走 A2A (HTTP JSON-RPC, `packages/core/src/a2a/`)。
 
 ---
 

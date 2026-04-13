@@ -1,11 +1,11 @@
 /**
  * A2AClient — HTTP JSON-RPC client for the A2A Protocol v0.3.0.
  *
- * Sends tasks to external A2A-compatible agents (e.g. OpenClaw lobsters).
+ * Sends tasks to external A2A-compatible agents.
  * Supports both blocking (wait for response) and non-blocking (poll) modes.
  *
  * Usage:
- *   const client = new A2AClient({ name: 'OpenClaw', url: 'http://...', token: '...' });
+ *   const client = new A2AClient({ name: 'Remote Agent', url: 'http://...', token: '...' });
  *   const card = await client.getAgentCard();
  *   const task = await client.sendBlocking('Summarize this document');
  */

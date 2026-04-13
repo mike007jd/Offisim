@@ -1,7 +1,7 @@
 /**
  * A2ARequestHandler — HTTP request handler for the A2A Protocol v0.3.0 (server side).
  *
- * Lets external agents (e.g. OpenClaw lobsters) send tasks TO Offisim employees.
+ * Lets external A2A-compatible agents send tasks TO Offisim employees.
  *
  * This handler is transport-agnostic: it processes a normalized request object
  * and returns a normalized response object. It can be mounted on:

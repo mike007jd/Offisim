@@ -17,7 +17,6 @@ import { STATE_LABELS } from '../../lib/state-labels';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
-import { Lobster3D } from './Lobster3D.js';
 import type { Zone3D } from './office3d-shared.js';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
@@ -308,9 +307,6 @@ export function EmployeeMarker({
   const outfit = OUTFIT_COLORS[emp.globalIndex % OUTFIT_COLORS.length] ?? '#3b82f6';
   const skin = SKIN_TONES[emp.globalIndex % SKIN_TONES.length] ?? '#fce7f3';
 
-  const isOpenClaw = emp.agent.role === 'openclaw';
-  const openClawBrandColor = '#e74c3c';
-
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
@@ -327,7 +323,7 @@ export function EmployeeMarker({
 
   const groupRef = useRef<THREE.Group>(null);
   const seededPositionRef = useRef(false);
-  const movementHandle = useCharacterMovement(groupRef, isOpenClaw ? null : limbRefs);
+  const movementHandle = useCharacterMovement(groupRef, limbRefs);
 
   const { activeCompanyId: markerCompanyId } = useCompany();
   useEffect(() => {
@@ -394,46 +390,35 @@ export function EmployeeMarker({
       }}
     >
       <group scale={isDragSource ? [0.85, 0.85, 0.85] : [1, 1, 1]}>
-        {isOpenClaw ? (
-          <Lobster3D
-            brandColor={openClawBrandColor}
-            state={emp.agent.state}
-            name={emp.agent.name ?? emp.id}
-            isSelected={isSelected}
-          />
-        ) : (
+        {isSelected && (
           <>
-            {isSelected && (
-              <>
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-                  <ringGeometry args={[0.6, 0.75, 32]} />
-                  <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
-                </mesh>
-                <Html position={[0, 1.85, 0]} center style={{ pointerEvents: 'none' }}>
-                  <div
-                    style={{
-                      background: 'rgba(59,130,246,0.85)',
-                      color: '#ffffff',
-                      fontSize: '9px',
-                      padding: '2px 8px',
-                      borderRadius: '10px',
-                      whiteSpace: 'nowrap',
-                      fontFamily: 'system-ui, sans-serif',
-                    }}
-                  >
-                    {emp.agent.name ?? emp.id}
-                  </div>
-                </Html>
-              </>
-            )}
-            <LowPolyCharacter
-              outfitColor={outfit}
-              skinTone={skin}
-              state={emp.agent.state}
-              limbRefs={limbRefs}
-            />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+              <ringGeometry args={[0.6, 0.75, 32]} />
+              <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
+            </mesh>
+            <Html position={[0, 1.85, 0]} center style={{ pointerEvents: 'none' }}>
+              <div
+                style={{
+                  background: 'rgba(59,130,246,0.85)',
+                  color: '#ffffff',
+                  fontSize: '9px',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'system-ui, sans-serif',
+                }}
+              >
+                {emp.agent.name ?? emp.id}
+              </div>
+            </Html>
           </>
         )}
+        <LowPolyCharacter
+          outfitColor={outfit}
+          skinTone={skin}
+          state={emp.agent.state}
+          limbRefs={limbRefs}
+        />
       </group>
       {isDragSource && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>

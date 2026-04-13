@@ -54,7 +54,6 @@ function createMockInstallService(
         manifestHash: '0'.repeat(64),
       },
     }),
-    importSkill: vi.fn(),
     confirmBindings: vi.fn(),
     cancel: vi.fn().mockResolvedValue(undefined),
     ...overrides,

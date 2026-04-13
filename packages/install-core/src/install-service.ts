@@ -6,15 +6,9 @@
  */
 
 import type { InstallState } from '@offisim/shared-types';
-import { resolveBindings } from './binding-resolver.js';
-import { checkCompatibility } from './compatibility-checker.js';
 import { createInstallPlan } from './install-planner.js';
 import { materialize } from './materializer.js';
 import type { MaterializeResult } from './materializer.js';
-import { SkillParseError, parseSkill } from './openclaw/skill-parser.js';
-import { skillToManifest } from './openclaw/skill-to-manifest.js';
-import { validateSkill } from './openclaw/skill-validator.js';
-import type { ParsedSkill, SkillValidationResult } from './openclaw/types.js';
 import { isTerminalState, validateTransition } from './state-machine.js';
 import type {
   BindingConfirmation,
@@ -64,13 +58,6 @@ export interface InstallServiceDeps {
 export interface ImportResult {
   readonly installTxnId: string;
   readonly plan?: InstallPlan;
-  readonly error?: string;
-}
-
-export interface SkillImportResult {
-  readonly installTxnId: string;
-  readonly plan?: InstallPlan;
-  readonly skillValidation?: SkillValidationResult;
   readonly error?: string;
 }
 
@@ -202,131 +189,6 @@ export class InstallService {
     this.planCache.set(installTxnId, plan);
 
     return { installTxnId, plan };
-  }
-
-  // -------------------------------------------------------------------------
-  // importSkill
-  // -------------------------------------------------------------------------
-
-  /**
-   * Import an OpenClaw SKILL.md and run the pre-install pipeline.
-   *
-   * Unlike importFile (which extracts a ZIP archive), importSkill:
-   * 1. Parses SKILL.md YAML frontmatter + body
-   * 2. Validates requirements against environment (soft check)
-   * 3. Synthesizes a PackageManifest from the skill
-   * 4. Runs compatibility check + binding resolution
-   * 5. Follows the same state machine path as importFile
-   *
-   * @param content - Raw content of a SKILL.md file.
-   * @returns SkillImportResult with txnId, plan, validation, or error.
-   */
-  async importSkill(content: string): Promise<SkillImportResult> {
-    // 1. Create transaction row
-    const installTxnId = globalThis.crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    const txnRow: Omit<InstallTransactionRow, 'finished_at'> = {
-      install_txn_id: installTxnId,
-      company_id: this.companyId,
-      source_type: 'file',
-      source_ref: 'openclaw-skill',
-      target_package_id: null,
-      target_version: null,
-      state: 'created',
-      error_code: null,
-      error_detail: null,
-      descriptor_json: null,
-      actor_type: 'user',
-      started_at: now,
-    };
-
-    await this.repos.installTransactions.create(txnRow);
-
-    // 2. Parse SKILL.md
-    let skill: ParsedSkill;
-    try {
-      skill = parseSkill(content);
-    } catch (err) {
-      const msg = err instanceof SkillParseError ? err.message : String(err);
-      await this.tryTransitionAndFail(
-        installTxnId,
-        'created',
-        'created',
-        'skill_parse_failed',
-        msg,
-      );
-      return { installTxnId, error: msg };
-    }
-
-    // 3. Validate requirements (soft check — warnings only)
-    const skillValidation = validateSkill(skill, this.environment.environment);
-
-    // 4. Synthesize PackageManifest
-    const manifest = skillToManifest(skill, this.environment.schemaVersion);
-
-    // 5. Transition: created -> manifest_loaded (skill parse = manifest load)
-    await this.transition(installTxnId, 'created', 'manifest_loaded');
-
-    // 6. Skip integrity check (synthetic package — no archive)
-    //    Transition: manifest_loaded -> integrity_checked
-    await this.transition(installTxnId, 'manifest_loaded', 'integrity_checked');
-
-    // 7. Compatibility check
-    const compatibility = checkCompatibility(manifest, this.environment);
-    if (!compatibility.compatible) {
-      const messages = compatibility.errors.map((e) => e.message).join('; ');
-      await this.tryTransitionAndFail(
-        installTxnId,
-        'integrity_checked',
-        'integrity_checked',
-        'compatibility_unsupported',
-        `Compatibility check failed: ${messages}`,
-      );
-      return { installTxnId, skillValidation, error: `Compatibility check failed: ${messages}` };
-    }
-
-    // integrity_checked -> compatibility_checked
-    await this.transition(installTxnId, 'integrity_checked', 'compatibility_checked');
-
-    // 8. Resolve bindings
-    const bindings = resolveBindings(manifest);
-
-    // compatibility_checked -> dependency_planned
-    await this.transition(installTxnId, 'compatibility_checked', 'dependency_planned');
-
-    // 9. Build plan
-    const plan: InstallPlan = {
-      manifest,
-      compatibility,
-      bindings,
-      needsConfirmation: false, // skills are data_asset, no confirmation needed
-      confirmationReasons: [],
-      packageHash: '0'.repeat(64),
-      manifestHash: '0'.repeat(64),
-    };
-
-    // 10. Route to next state (same logic as importFile, minus needsConfirmation)
-    if (plan.bindings.length > 0) {
-      await this.transition(
-        installTxnId,
-        'dependency_planned',
-        'awaiting_bindings',
-        manifest.package.id,
-      );
-    } else {
-      await this.transition(
-        installTxnId,
-        'dependency_planned',
-        'ready_to_install',
-        manifest.package.id,
-      );
-    }
-
-    // Cache plan for confirmBindings
-    this.planCache.set(installTxnId, plan);
-
-    return { installTxnId, plan, skillValidation };
   }
 
   // -------------------------------------------------------------------------

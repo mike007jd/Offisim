@@ -10,7 +10,6 @@ import type {
   BindingConfirmation,
   InstallImportOptions,
   InstallPlan,
-  SkillValidationResult,
   UpgradeDiff,
 } from '@offisim/install-core';
 import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
@@ -35,10 +34,6 @@ export interface InstallFlowState {
   plan: InstallPlan | null;
   error: string | null;
   bindingValues: Map<string, string>;
-  /** True when importing a SKILL.md (vs .offisimpkg) — affects review UI */
-  isSkillImport: boolean;
-  /** Soft validation warnings from skill validator */
-  skillValidation: SkillValidationResult | null;
   /** Non-null when this is an upgrade — contains the diff for UpgradePreview */
   upgradeDiff: UpgradeDiff | null;
 }
@@ -115,8 +110,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const [plan, setPlan] = useState<InstallPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bindingValues, setBindingValues] = useState<Map<string, string>>(new Map());
-  const [isSkillImport, setIsSkillImport] = useState(false);
-  const [skillValidation, setSkillValidation] = useState<SkillValidationResult | null>(null);
   const [upgradeDiff, setUpgradeDiff] = useState<UpgradeDiff | null>(null);
 
   // Ref for the current manifest (used during upgrade to compute diff after plan is ready)
@@ -191,10 +184,10 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
       // Validate file extension
       const ext = file.name.toLowerCase();
-      if (!ext.endsWith('.offisimpkg') && !ext.endsWith('.zip') && !ext.endsWith('.md')) {
+      if (!ext.endsWith('.offisimpkg') && !ext.endsWith('.zip')) {
         setIsOpen(true);
         setStep('error');
-        setError('Invalid file type. Expected .offisimpkg, .zip, or .md');
+        setError('Invalid file type. Expected .offisimpkg or .zip');
         return;
       }
 
@@ -211,38 +204,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       setPlan(null);
       setError(null);
       setBindingValues(new Map());
-      setIsSkillImport(false);
-      setSkillValidation(null);
       txnIdRef.current = null;
-
-      // --- SKILL.md import path ---
-      if (ext.endsWith('.md')) {
-        (async () => {
-          try {
-            const text = await file.text();
-            if (!mountedRef.current) return;
-            const result = await installService.importSkill(text);
-            if (!mountedRef.current) return;
-
-            if (result.error || !result.plan) {
-              setStep('error');
-              setError(result.error ?? 'Skill import failed: no plan returned');
-              return;
-            }
-
-            txnIdRef.current = result.installTxnId;
-            setPlan(result.plan);
-            setIsSkillImport(true);
-            setSkillValidation(result.skillValidation ?? null);
-            setStep('review');
-          } catch (err) {
-            if (!mountedRef.current) return;
-            setStep('error');
-            setError(err instanceof Error ? err.message : String(err));
-          }
-        })();
-        return;
-      }
 
       // --- Package import path (.offisimpkg / .zip) ---
       (async () => {
@@ -292,8 +254,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         setPlan(null);
         setError(null);
         setBindingValues(new Map());
-        setIsSkillImport(false);
-        setSkillValidation(null);
         txnIdRef.current = null;
 
         if (!installService) {
@@ -370,8 +330,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
       setPlan(null);
       setError(null);
       setBindingValues(new Map());
-      setIsSkillImport(false);
-      setSkillValidation(null);
       txnIdRef.current = null;
 
       (async () => {
@@ -574,8 +532,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
-    setIsSkillImport(false);
-    setSkillValidation(null);
     setUpgradeDiff(null);
   }, [installService]);
 
@@ -587,8 +543,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setPlan(null);
     setError(null);
     setBindingValues(new Map());
-    setIsSkillImport(false);
-    setSkillValidation(null);
     setUpgradeDiff(null);
   }, []);
 
@@ -598,8 +552,6 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     plan,
     error,
     bindingValues,
-    isSkillImport,
-    skillValidation,
     upgradeDiff,
     startFileImport,
     startRegistryInstall,

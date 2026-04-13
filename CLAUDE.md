@@ -161,3 +161,8 @@ apps/
 
 Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 `subscription` provider 走 `claude acp` via `node:child_process`, 桌面端专用。
+
+## Interop
+
+外部 agent 接入 = **A2A only** (HTTP JSON-RPC, `packages/core/src/a2a/`)。
+OpenClaw 旧 gateway / SKILL.md 文件导入 / Lobster3D 场景分支已于 2026-04-14 全量移除, 对应 GDD 归档到 `Docs/archive/2026-04/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`。未来若要接入带品牌外观的外包员工, 按 A2A agent card 元数据路由, 不要复活旧 role string 分支。
