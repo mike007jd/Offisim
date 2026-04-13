@@ -50,4 +50,4 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `memory.md` 是 read-only view: md → DB 不 import memory (content 结构复杂), 玩家用 UI Forget/Edit 按钮, 不手编 md body
 - `renderMemoryMd` 按 4 类别 (`experience` / `decision` / `knowledge` / `preference`) 分段, 每类内按 `last_reinforced_at` 倒序 + `importance` tie-break
 - `employeeSlug(name, id)` 生成 FS-safe 目录名, 纯非 ASCII fallback 到 `employee-{id前8字符}`
-- `VaultSyncError` 经 `onError` callback surface, runtime 不崩; UI 层需订阅并转 Toast (Phase 1 vault 本身不直挂 UI)
+- `VaultSyncError` 经 `onError` callback 和 EventBus `vault.sync.failed` 事件双通道 surface, runtime 不崩; UI 层订阅 `vault.` 前缀转 Toast (runtime/app 接入在 Phase 1c, core 层完成)

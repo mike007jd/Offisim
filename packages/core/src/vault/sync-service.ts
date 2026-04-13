@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { EmployeeRepository, EmployeeRow, MemoryRepository } from '../runtime/repositories.js';
 import { Logger } from '../services/logger.js';
@@ -130,6 +130,9 @@ export class VaultSyncService {
         if (outcome.applied > 0) {
           importedEmployees += 1;
         }
+        for (const diag of outcome.diagnostics) {
+          this.emitFailure(new VaultSyncError(diag.reason, diag.employeeId, diag.cause), 'import');
+        }
         diagnostics.push(...outcome.diagnostics);
       }
 
@@ -237,6 +240,7 @@ export class VaultSyncService {
         const wrapped =
           err instanceof VaultSyncError ? err : new VaultSyncError(String(err), employeeId, err);
         logger.error(`Vault write failed for ${employeeId}`, wrapped);
+        this.emitFailure(wrapped, 'write');
         this.onError?.(wrapped);
       })
       .finally(() => {
@@ -292,7 +296,29 @@ export class VaultSyncService {
     } catch (err) {
       const wrapped = new VaultSyncError('Failed to delete vault directory', employeeId, err);
       logger.error(wrapped.message, wrapped);
+      this.emitFailure(wrapped, 'delete');
       this.onError?.(wrapped);
+    }
+  }
+
+  private emitFailure(err: VaultSyncError, target: VaultSyncFailedPayload['target']): void {
+    const payload: VaultSyncFailedPayload = {
+      employeeId: err.employeeId,
+      reason: err.message,
+      target,
+    };
+    const event: RuntimeEvent<VaultSyncFailedPayload> = {
+      type: 'vault.sync.failed',
+      entityId: err.employeeId,
+      entityType: 'employee',
+      companyId: this.slugByEmployee.get(err.employeeId)?.companyId ?? 'unknown',
+      timestamp: Date.now(),
+      payload,
+    };
+    try {
+      this.eventBus.emit(event);
+    } catch (emitErr) {
+      logger.warn('Failed to emit vault.sync.failed event', { err: emitErr });
     }
   }
 

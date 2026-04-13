@@ -124,6 +124,9 @@ export function createAiRuntime() {
   return {
     companyId,
     threadId,
+    eventBus,
+    repos,
+    employeeId: 'e-ai-dev-1',
     async runSmokeTask(prompt: string): Promise<string> {
       const result = await graph.invoke(
         {

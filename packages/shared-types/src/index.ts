@@ -102,6 +102,7 @@ export type {
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
   ToolExecutionTelemetryPayload,
+  VaultSyncFailedPayload,
 } from './events.js';
 
 export type {

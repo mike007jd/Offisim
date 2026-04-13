@@ -93,7 +93,8 @@ export type EventFamily =
   | 'interaction.restored'
   | 'interaction.resolved'
   | 'interaction.mode.changed'
-  | 'boss.route.decided';
+  | 'boss.route.decided'
+  | 'vault.sync.failed';
 
 // --- Typed event payloads ---
 
@@ -650,6 +651,14 @@ export interface GitAutoCommittedPayload {
   readonly stepIndex: number;
   readonly fileCount: number;
   readonly commitMessage: string;
+}
+
+// ── Vault Events ───────────────────────────────────────────────
+
+export interface VaultSyncFailedPayload {
+  readonly employeeId: string;
+  readonly reason: string;
+  readonly target: 'write' | 'import' | 'delete';
 }
 
 // ── Prefab Events ──────────────────────────────────────────────
