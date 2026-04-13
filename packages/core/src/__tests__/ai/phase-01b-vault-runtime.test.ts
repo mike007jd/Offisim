@@ -3,6 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import type { RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { employeeCreated } from '../../events/employee-events.js';
+import { memoryCreated } from '../../events/operational-events.js';
 import { parseDocument } from '../../vault/codec.js';
 import { memoryFrontmatterSchema } from '../../vault/frontmatter.js';
 import { NodeFileSystem } from '../../vault/node-fs.js';
@@ -62,7 +64,6 @@ describeIfMinimax('Phase 1b - Vault attached to real AI runtime [AI]', () => {
       importance: 0.7,
     });
 
-    const { memoryCreated } = await import('../../events/operational-events.js');
     runtime.eventBus.emit(
       memoryCreated(
         runtime.companyId,
@@ -76,7 +77,6 @@ describeIfMinimax('Phase 1b - Vault attached to real AI runtime [AI]', () => {
     );
 
     // Seed employee.created so vault writes the full bundle too.
-    const { employeeCreated } = await import('../../events/employee-events.js');
     runtime.eventBus.emit(
       employeeCreated(runtime.companyId, runtime.employeeId, 'Runtime Smoke Dev', 'developer'),
     );
@@ -136,7 +136,6 @@ describeIfMinimax('Phase 1b - Vault attached to real AI runtime [AI]', () => {
     });
     service.subscribe();
 
-    const { employeeCreated } = await import('../../events/employee-events.js');
     runtime.eventBus.emit(
       employeeCreated(runtime.companyId, runtime.employeeId, 'Runtime Smoke Dev', 'developer'),
     );

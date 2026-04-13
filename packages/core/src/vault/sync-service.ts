@@ -287,7 +287,7 @@ export class VaultSyncService {
       writes.push(this.fs.writeFile(`${dir}/relationships.md`, renderRelationshipsMd(row)));
     }
     if (targets.has('memory')) {
-      const memories = await this.memories.findByOwner(row.employee_id, { limit: 500 });
+      const memories = await this.memories.findByOwner(row.employee_id, { limit: 50 });
       writes.push(this.fs.writeFile(`${dir}/memory.md`, renderMemoryMd(row, memories)));
     }
     await Promise.all(writes);

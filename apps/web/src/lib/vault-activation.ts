@@ -1,4 +1,9 @@
-import type { EventBus, RuntimeRepositories, VaultFileSystem } from '@offisim/core/browser';
+import type {
+  EventBus,
+  ImportDiagnostic,
+  RuntimeRepositories,
+  VaultFileSystem,
+} from '@offisim/core/browser';
 import { VaultSyncService } from '@offisim/core/browser';
 
 export interface VaultActivationOptions {
@@ -8,10 +13,16 @@ export interface VaultActivationOptions {
   companyId: string;
 }
 
+export interface VaultHydrateOutcome {
+  rendered: number;
+  importedEmployees: number;
+  diagnostics: readonly ImportDiagnostic[];
+}
+
 export interface VaultActivation {
   service: VaultSyncService;
   /** Re-scan the on-disk vault for newer md files and sync to DB. */
-  hydrate(): Promise<{ rendered: number; importedEmployees: number }>;
+  hydrate(): Promise<VaultHydrateOutcome>;
   dispose(): void;
 }
 
@@ -28,7 +39,11 @@ export function activateVaultSync(opts: VaultActivationOptions): VaultActivation
     service,
     async hydrate() {
       const outcome = await service.hydrateCompany(opts.companyId);
-      return { rendered: outcome.rendered, importedEmployees: outcome.importedEmployees };
+      return {
+        rendered: outcome.rendered,
+        importedEmployees: outcome.importedEmployees,
+        diagnostics: outcome.diagnostics,
+      };
     },
     dispose() {
       service.dispose();

@@ -143,6 +143,7 @@ describe('activateVaultSync', () => {
       const result = await activation.hydrate();
       expect(result.rendered).toBe(1);
       expect(result.importedEmployees).toBe(0);
+      expect(result.diagnostics).toEqual([]);
     } finally {
       activation.dispose();
     }

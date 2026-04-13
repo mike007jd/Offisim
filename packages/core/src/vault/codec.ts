@@ -1,4 +1,5 @@
 import { dump, load } from 'js-yaml';
+import { OffisimError } from '../errors.js';
 
 const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*(?:\n([\s\S]*))?$/u;
 
@@ -7,12 +8,12 @@ export interface ParsedDocument<T> {
   readonly body: string;
 }
 
-export class VaultParseError extends Error {
+export class VaultParseError extends OffisimError {
   constructor(
     message: string,
     public readonly cause?: unknown,
   ) {
-    super(message);
+    super(message, 'VAULT_PARSE_ERROR', true);
     this.name = 'VaultParseError';
   }
 }

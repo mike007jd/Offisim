@@ -344,9 +344,12 @@ async function tryActivateTauriVault(deps: {
     });
     // Fire-and-forget hydrate so any operator-edited md files get imported
     // before runtime writes start flowing. Errors surface via vault.sync.failed.
-    void activation.hydrate().catch(() => undefined);
+    void activation.hydrate().catch((err) => {
+      console.warn('[vault] hydrate failed; vault may drift from DB until next boot', err);
+    });
     return activation;
-  } catch {
+  } catch (err) {
+    console.warn('[vault] activation skipped (not a Tauri environment or path unavailable)', err);
     return null;
   }
 }
