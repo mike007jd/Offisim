@@ -1,4 +1,5 @@
 import type { RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types';
+import { OffisimError } from '../errors.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { EmployeeRepository, EmployeeRow, MemoryRepository } from '../runtime/repositories.js';
 import { Logger } from '../services/logger.js';
@@ -18,18 +19,25 @@ export interface VaultSyncServiceOptions {
   readonly onError?: (err: VaultSyncError) => void;
 }
 
-export class VaultSyncError extends Error {
+export class VaultSyncError extends OffisimError {
   constructor(
     message: string,
     public readonly employeeId: string,
     public readonly cause?: unknown,
   ) {
-    super(message);
+    super(message, 'VAULT_SYNC_ERROR', true);
     this.name = 'VaultSyncError';
   }
 }
 
 export type VaultTarget = 'employee' | 'soul' | 'memory' | 'relationships';
+
+const ALL_TARGETS: ReadonlySet<VaultTarget> = new Set<VaultTarget>([
+  'employee',
+  'soul',
+  'memory',
+  'relationships',
+]);
 
 interface PendingRender {
   readonly employeeId: string;
@@ -80,11 +88,6 @@ export class VaultSyncService {
     );
   }
 
-  /** Force the vault to re-render one employee. Useful from non-event callers. */
-  requestSync(employeeId: string, targets: readonly VaultTarget[]): void {
-    this.schedule(employeeId, new Set(targets));
-  }
-
   /** Flush every pending debounce timer and await the resulting writes. */
   async flush(): Promise<void> {
     for (const [employeeId, pending] of this.pending) {
@@ -105,43 +108,47 @@ export class VaultSyncService {
     diagnostics: ImportDiagnostic[];
   }> {
     const rows = await this.employees.findByCompany(companyId);
-    let rendered = 0;
-    let importedEmployees = 0;
     const diagnostics: ImportDiagnostic[] = [];
+    let importedEmployees = 0;
 
-    for (const row of rows) {
-      const record = this.slugRecordFor(row);
-      const employeeDir = this.employeeDir(record);
+    const outcomes = await Promise.all(
+      rows.map(async (row) => {
+        const record = this.slugRecordFor(row);
+        const dir = this.employeeDir(record);
+        const [existingEmployee, existingSoul] = await Promise.all([
+          this.readIfExists(`${dir}/employee.md`),
+          this.readIfExists(`${dir}/soul.md`),
+        ]);
 
-      const existingEmployee = (await this.fs.exists(`${employeeDir}/employee.md`))
-        ? await this.fs.readFile(`${employeeDir}/employee.md`)
-        : undefined;
-      const existingSoul = (await this.fs.exists(`${employeeDir}/soul.md`))
-        ? await this.fs.readFile(`${employeeDir}/soul.md`)
-        : undefined;
-
-      if (existingEmployee || existingSoul) {
-        const outcome = await importEmployeeBundle(this.employees, row, {
-          ...(existingEmployee
-            ? { employee: { content: existingEmployee, mtime: row.updated_at } }
-            : {}),
-          ...(existingSoul ? { soul: { content: existingSoul, mtime: row.updated_at } } : {}),
-        });
-        if (outcome.applied > 0) {
-          importedEmployees += 1;
+        let imported = false;
+        const rowDiagnostics: ImportDiagnostic[] = [];
+        if (existingEmployee || existingSoul) {
+          const outcome = await importEmployeeBundle(this.employees, row, {
+            ...(existingEmployee
+              ? { employee: { content: existingEmployee, mtime: row.updated_at } }
+              : {}),
+            ...(existingSoul ? { soul: { content: existingSoul, mtime: row.updated_at } } : {}),
+          });
+          imported = outcome.applied > 0;
+          rowDiagnostics.push(...outcome.diagnostics);
         }
-        for (const diag of outcome.diagnostics) {
-          this.emitFailure(new VaultSyncError(diag.reason, diag.employeeId, diag.cause), 'import');
-        }
-        diagnostics.push(...outcome.diagnostics);
+        const refreshed = (await this.employees.findById(row.employee_id)) ?? row;
+        await this.writeVaultFiles(refreshed, ALL_TARGETS);
+        return { imported, diagnostics: rowDiagnostics };
+      }),
+    );
+
+    for (const o of outcomes) {
+      if (o.imported) {
+        importedEmployees += 1;
       }
-
-      const refreshed = (await this.employees.findById(row.employee_id)) ?? row;
-      await this.renderAllForEmployee(refreshed);
-      rendered += 1;
+      for (const diag of o.diagnostics) {
+        this.emitFailure(new VaultSyncError(diag.reason, diag.employeeId, diag.cause), 'import');
+      }
+      diagnostics.push(...o.diagnostics);
     }
 
-    return { rendered, importedEmployees, diagnostics };
+    return { rendered: rows.length, importedEmployees, diagnostics };
   }
 
   dispose(): void {
@@ -180,13 +187,16 @@ export class VaultSyncService {
   }
 
   private handleMemoryEvent(event: RuntimeEvent): void {
+    // memory.accessed / memory.referenced only bump access_count in the DB —
+    // they don't change the md content, so we skip the render to avoid
+    // flooding vault writes during tool calls that hit memory frequently.
+    if (event.type === 'memory.accessed' || event.type === 'memory.referenced') {
+      return;
+    }
     const payload = event.payload as
       | { employeeId?: string; ownerId?: string; scope?: string }
       | undefined;
-    if (!payload) {
-      return;
-    }
-    if (payload.scope && payload.scope !== 'employee') {
+    if (!payload || (payload.scope && payload.scope !== 'employee')) {
       return;
     }
     const employeeId = payload.employeeId ?? payload.ownerId;
@@ -256,32 +266,42 @@ export class VaultSyncService {
     if (!row) {
       return;
     }
-    const record = this.slugRecordFor(row);
-    const dir = this.employeeDir(record);
-
-    if (targets.has('employee')) {
-      await this.fs.writeFile(`${dir}/employee.md`, renderEmployeeMd(row));
-    }
-    if (targets.has('soul')) {
-      await this.fs.writeFile(`${dir}/soul.md`, renderSoulMd(row));
-    }
-    if (targets.has('memory')) {
-      const memories = await this.memories.findByOwner(employeeId, { limit: 500 });
-      await this.fs.writeFile(`${dir}/memory.md`, renderMemoryMd(row, memories));
-    }
-    if (targets.has('relationships')) {
-      await this.fs.writeFile(`${dir}/relationships.md`, renderRelationshipsMd(row));
-    }
+    await this.writeVaultFiles(row, targets);
   }
 
-  private async renderAllForEmployee(row: EmployeeRow): Promise<void> {
+  private async writeVaultFiles(
+    row: EmployeeRow,
+    targets: ReadonlySet<VaultTarget>,
+  ): Promise<void> {
     const record = this.slugRecordFor(row);
     const dir = this.employeeDir(record);
-    await this.fs.writeFile(`${dir}/employee.md`, renderEmployeeMd(row));
-    await this.fs.writeFile(`${dir}/soul.md`, renderSoulMd(row));
-    const memories = await this.memories.findByOwner(row.employee_id, { limit: 500 });
-    await this.fs.writeFile(`${dir}/memory.md`, renderMemoryMd(row, memories));
-    await this.fs.writeFile(`${dir}/relationships.md`, renderRelationshipsMd(row));
+    const writes: Promise<void>[] = [];
+
+    if (targets.has('employee')) {
+      writes.push(this.fs.writeFile(`${dir}/employee.md`, renderEmployeeMd(row)));
+    }
+    if (targets.has('soul')) {
+      writes.push(this.fs.writeFile(`${dir}/soul.md`, renderSoulMd(row)));
+    }
+    if (targets.has('relationships')) {
+      writes.push(this.fs.writeFile(`${dir}/relationships.md`, renderRelationshipsMd(row)));
+    }
+    if (targets.has('memory')) {
+      const memories = await this.memories.findByOwner(row.employee_id, { limit: 500 });
+      writes.push(this.fs.writeFile(`${dir}/memory.md`, renderMemoryMd(row, memories)));
+    }
+    await Promise.all(writes);
+  }
+
+  private async readIfExists(relPath: string): Promise<string | undefined> {
+    try {
+      return await this.fs.readFile(relPath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   private async handleDeletion(employeeId: string): Promise<void> {
