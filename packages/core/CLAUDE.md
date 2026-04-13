@@ -11,7 +11,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
-- `packages/core/src/a2a/` 和 `gateway/openclaw-client.ts` 是外派 agent 扩展点, 当前未启用。核心员工 runtime 是 `anthropic-adapter` / `openai-adapter` / `subscription-adapter (ACP)`
+- 外部 agent 接入统一走 A2A。`gateway/openclaw-client.ts` 不属于当前 live 接入路径, 不要把新工作继续建在它上面。核心员工 runtime 仍是 `anthropic-adapter` / `openai-adapter` / `subscription-adapter (ACP)`
 - `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
 - `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
 

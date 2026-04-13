@@ -52,7 +52,7 @@ graph LR
 - OpenAI SDK 直连
 - 订阅模式 ACP（桌面端，调 `claude` CLI subprocess）
 
-A2A + OpenClaw 代码是 sleeping asset，给未来外派 agent 预留的扩展点，**不是**核心 runtime 的一部分。
+外部 agent 接入统一走 A2A。OpenClaw 不属于当前 live runtime 路径，**不是**核心 runtime 的一部分。
 
 ---
 
@@ -385,11 +385,10 @@ sequenceDiagram
 
 | 非目标 | 原因 |
 |---|---|
-| 外部 agent 接入 (A2A / OpenClaw) | sleeping asset，1.0 不开 |
+| 外部 agent 接入 (A2A) | 当前统一方向；1.0 仍不开 |
 | 多人协作 / 服务端运行 | 本地优先 BYO key |
 | 代理 LLM 请求 | 浏览器直调 vendor API |
 | 装 SOP / Layout / Prefab 包 | 只装 employee |
 | 硬卸载已安装员工 | 有软删（Dismiss），不做硬卸载 |
 | 自建 Zone 类型 | Studio 只有预设 |
 | Bundle size / Scene V2 / CI | Known Debt |
-

@@ -78,7 +78,7 @@ Each non-office workspace follows a 3-pane pattern:
 - Files: `ui-office/components/settings/`
 - `SettingsPage.tsx` is the workspace entry point
 - `SettingsWorkspaceSurface.tsx` is the shared content (also used by legacy `SettingsDialog`)
-- Tabs: Provider, Runtime, MCP, OpenClaw
+- Tabs: Provider, Runtime, MCP
 
 ## Legacy Overlays
 
