@@ -33,3 +33,21 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 ## Repository 三套副本
 
 `packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/web/src/lib/tauri-repos.ts` 三份各 1500-1700 行左右, 任何 repo 接口变更必须三处同步。`apps/web/src/__tests__/unit/repository-parity.test.ts` 通过 runtime reflect 守护: drizzle/tauri 严格相等, memory 必须是超集。
+
+## Employee Vault (Obsidian-style, Phase 1)
+
+`packages/core/src/vault/` — 员工状态的 markdown 视图, 4 个文件/员工:
+`companies/{companyId}/employees/{slug}/{employee,soul,memory,relationships}.md`
+
+不变量 (写错了测试立挂):
+- **md = source of truth for human-editable fields** (persona / soul body / relationship 叙述); **DB = source of truth for runtime state** (taskRun / llmCall / checkpoint)
+- 冲突: `md.updated_at > db.updated_at` 时 md 赢, `hydrateCompany()` 启动时解决一次, runtime 内仅 DB→md 单向
+- `VaultSyncService` 订阅 EventBus `employee.` / `memory.` / `relationship.` 前缀 + per-employee 500ms debounce + per-employee serial writer queue (无全局锁)
+- `employee.*` 任何事件都 re-render **全部 4 个文件** (新员工一次到位); `memory.*` 只触发 `memory.md`; `relationship.*` 只触发 `relationships.md`
+- 软删除 Dismiss 员工: `employee.md` 标 `dismissed: true`, 文件夹保留; 硬删 `employee.deleted` 才 `fs.remove` 整个员工目录
+- frontmatter YAML 必须 stable key 排序 (`dump({sortKeys: true})`), 否则 git diff 全乱
+- web 端无 FSAccess API 时: vault 是 export-only, 不持久 (避免 localStorage 污染)
+- `memory.md` 是 read-only view: md → DB 不 import memory (content 结构复杂), 玩家用 UI Forget/Edit 按钮, 不手编 md body
+- `renderMemoryMd` 按 4 类别 (`experience` / `decision` / `knowledge` / `preference`) 分段, 每类内按 `last_reinforced_at` 倒序 + `importance` tie-break
+- `employeeSlug(name, id)` 生成 FS-safe 目录名, 纯非 ASCII fallback 到 `employee-{id前8字符}`
+- `VaultSyncError` 经 `onError` callback surface, runtime 不崩; UI 层需订阅并转 Toast (Phase 1 vault 本身不直挂 UI)
