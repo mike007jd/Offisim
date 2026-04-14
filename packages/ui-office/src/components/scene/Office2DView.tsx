@@ -1,3 +1,4 @@
+/** @deprecated Pending removal. Use Office2DCanvasView instead. Retained as feature-flagged fallback (VITE_OFFISIM_SVG_FALLBACK=true). */
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 /**
  * SVG-based 2D office top-down view.

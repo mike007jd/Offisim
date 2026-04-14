@@ -5,7 +5,12 @@ import { PerformanceHUD } from './PerformanceHUD';
 import { useScene } from './useScene';
 
 const Office3DView = lazy(() => import('./Office3DView'));
-const Office2DView = lazy(() => import('./Office2DView'));
+
+// Default: canvas-based 2D renderer. SVG fallback gated behind VITE_OFFISIM_SVG_FALLBACK.
+const Office2DCanvasView =
+  import.meta.env.VITE_OFFISIM_SVG_FALLBACK === 'true'
+    ? lazy(() => import('./Office2DView'))
+    : lazy(() => import('./Office2DCanvasView'));
 
 // ── Error boundary for Three.js / SVG scene crashes ─────────────
 
@@ -115,7 +120,7 @@ export function SceneCanvas({
                 </div>
               }
             >
-              <Office2DView
+              <Office2DCanvasView
                 ceremony={ceremony}
                 selectedEmployeeId={selectedEmployeeId}
                 onSelectEmployee={onSelectEmployee}

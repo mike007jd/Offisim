@@ -1,3 +1,4 @@
+/** @deprecated Pending removal. Canvas renderer uses office-2d-render-registry.ts instead. */
 /**
  * Office2DPrefab — Data-driven SVG renderer for prefab instances in the 2D office view.
  *

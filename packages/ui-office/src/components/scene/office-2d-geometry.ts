@@ -1,3 +1,4 @@
+/** @deprecated Pending removal. Canvas renderer uses office-2d-canvas-geometry.ts instead. */
 /**
  * Pure geometry helpers for the 2D office SVG view.
  * No React, no side effects — just math.
