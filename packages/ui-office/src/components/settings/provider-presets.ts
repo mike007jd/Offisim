@@ -75,7 +75,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
       toolCalls: true,
     }),
   }),
-  'minimax-intl-anthropic-coding': createPreset('MiniMax Intl · Claude Code', {
+  'minimax-intl-anthropic-coding': createPreset('MiniMax Global', {
     vendor: 'minimax',
     region: 'intl',
     compatibility: 'anthropic-compatible',
@@ -92,7 +92,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
     }),
     recommendedModels: ['MiniMax-M2.7', 'MiniMax-M2.7-highspeed'],
   }),
-  'minimax-cn-anthropic-coding': createPreset('MiniMax CN · Claude Code', {
+  'minimax-cn-anthropic-coding': createPreset('MiniMax CN', {
     vendor: 'minimax',
     region: 'cn',
     compatibility: 'anthropic-compatible',

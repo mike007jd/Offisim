@@ -14,7 +14,7 @@ import { activateVaultSync } from './vault-activation';
 
 export interface BrowserVaultController {
   getStatus(): Promise<BrowserVaultDirectoryStatus>;
-  mount(): Promise<BrowserVaultDirectoryStatus>;
+  mount(handle?: FileSystemDirectoryHandle): Promise<BrowserVaultDirectoryStatus>;
   unmount(): Promise<BrowserVaultDirectoryStatus>;
   dispose(): void;
   readonly activation: VaultActivation | null;
@@ -46,8 +46,26 @@ export interface BrowserVaultControllerDependencies {
   };
 }
 
+function isBrowserVaultHandleError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === 'NotAllowedError' ||
+      err.name === 'AbortError' ||
+      err.name === 'NotFoundError' ||
+      err.name === 'InvalidStateError' ||
+      err.message.toLowerCase().includes('permission') ||
+      err.message.toLowerCase().includes('handle'))
+  );
+}
+
 function unsupportedStatus(): BrowserVaultDirectoryStatus {
-  return { supported: false, mode: 'unsupported', directoryName: null, root: null };
+  return {
+    supported: false,
+    mode: 'unsupported',
+    directoryName: null,
+    root: null,
+    errorMessage: null,
+  };
 }
 
 function disconnectedStatus(
@@ -59,6 +77,20 @@ function disconnectedStatus(
     mode,
     directoryName: handle?.name ?? null,
     root: null,
+    errorMessage: null,
+  };
+}
+
+function errorStatus(
+  handle: FileSystemDirectoryHandle | null,
+  errorMessage: string,
+): BrowserVaultDirectoryStatus {
+  return {
+    supported: true,
+    mode: 'error',
+    directoryName: handle?.name ?? null,
+    root: null,
+    errorMessage,
   };
 }
 
@@ -71,6 +103,7 @@ function mountedStatus(
     mode: 'mounted',
     directoryName: handle.name,
     root: fs.root,
+    errorMessage: null,
   };
 }
 
@@ -105,10 +138,26 @@ function createDefaultDependencies(
   };
 }
 
+function emitActivationFailure(eventBus: EventBus, companyId: string, reason: string): void {
+  try {
+    eventBus.emit({
+      type: 'vault.sync.failed',
+      entityId: '',
+      entityType: 'employee',
+      companyId,
+      timestamp: Date.now(),
+      payload: { employeeId: '', reason, target: 'activate' },
+    });
+  } catch (emitErr) {
+    console.warn('[vault] failed to emit browser activation failure', emitErr);
+  }
+}
+
 export async function createBrowserVaultController(
   deps: BrowserVaultControllerDependencies,
 ): Promise<BrowserVaultController> {
   let activation: VaultActivation | null = null;
+  let currentHandle: FileSystemDirectoryHandle | null = null;
   let status: BrowserVaultDirectoryStatus = deps.support.isSupported()
     ? disconnectedStatus('unmounted')
     : unsupportedStatus();
@@ -120,27 +169,52 @@ export async function createBrowserVaultController(
 
   const activateHandle = async (handle: FileSystemDirectoryHandle) => {
     resetActivation();
-    const fs = deps.support.createFileSystem(handle);
-    const nextActivation = deps.activation.activate({
-      fs,
-      eventBus: deps.eventBus,
-      repos: deps.repos,
-      companyId: deps.companyId,
-    });
-    await nextActivation.hydrate();
-    activation = nextActivation;
-    status = mountedStatus(fs, handle);
-    return status;
+    currentHandle = handle;
+    try {
+      const fs = deps.support.createFileSystem(handle);
+      const nextActivation = deps.activation.activate({
+        fs,
+        eventBus: deps.eventBus,
+        repos: deps.repos,
+        companyId: deps.companyId,
+      });
+      await nextActivation.hydrate();
+      activation = nextActivation;
+      status = mountedStatus(fs, handle);
+      return status;
+    } catch (err) {
+      resetActivation();
+      if (isBrowserVaultHandleError(err)) {
+        currentHandle = null;
+        await deps.support.clearStoredHandle();
+        status = disconnectedStatus('unmounted');
+        return status;
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      emitActivationFailure(deps.eventBus, deps.companyId, reason);
+      status = errorStatus(handle, reason);
+      return status;
+    }
   };
 
   if (deps.support.isSupported()) {
     const storedHandle = await deps.support.loadStoredHandle();
     if (storedHandle) {
-      const permission = await deps.support.getPermission(storedHandle);
-      if (permission === 'granted') {
-        await activateHandle(storedHandle);
-      } else {
-        status = disconnectedStatus('needs-permission', storedHandle);
+      currentHandle = storedHandle;
+      try {
+        const permission = await deps.support.getPermission(storedHandle);
+        if (permission === 'granted') {
+          await activateHandle(storedHandle);
+        } else {
+          status = disconnectedStatus('needs-permission', storedHandle);
+        }
+      } catch (err) {
+        if (!isBrowserVaultHandleError(err)) {
+          throw err;
+        }
+        currentHandle = null;
+        await deps.support.clearStoredHandle();
+        status = disconnectedStatus('unmounted');
       }
     }
   }
@@ -149,14 +223,40 @@ export async function createBrowserVaultController(
     async getStatus() {
       return status;
     },
-    async mount() {
+    async mount(providedHandle?: FileSystemDirectoryHandle) {
       if (!deps.support.isSupported()) {
         status = unsupportedStatus();
         return status;
       }
-      const handle = await deps.support.showDirectoryPicker();
+      if (status.mode === 'needs-permission' && currentHandle) {
+        let permission: PermissionState | 'unsupported';
+        try {
+          permission = await deps.support.requestPermission(currentHandle);
+        } catch (err) {
+          if (!isBrowserVaultHandleError(err)) {
+            throw err;
+          }
+          currentHandle = null;
+          await deps.support.clearStoredHandle();
+          status = disconnectedStatus('unmounted');
+          return status;
+        }
+        if (permission !== 'granted') {
+          status = disconnectedStatus('needs-permission', currentHandle);
+          return status;
+        }
+        await deps.support.persistHandle(currentHandle);
+        return activateHandle(currentHandle);
+      }
+
+      if (status.mode === 'error' && currentHandle && !providedHandle) {
+        return activateHandle(currentHandle);
+      }
+
+      const handle = providedHandle ?? (await deps.support.showDirectoryPicker());
       const permission = await deps.support.requestPermission(handle);
       if (permission !== 'granted') {
+        currentHandle = handle;
         status = disconnectedStatus('needs-permission', handle);
         return status;
       }
@@ -165,6 +265,7 @@ export async function createBrowserVaultController(
     },
     async unmount() {
       resetActivation();
+      currentHandle = null;
       await deps.support.clearStoredHandle();
       status = deps.support.isSupported() ? disconnectedStatus('unmounted') : unsupportedStatus();
       return status;

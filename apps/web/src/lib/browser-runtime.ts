@@ -111,6 +111,7 @@ export type RuntimeBundle = {
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
   vaultActivation?: VaultActivation;
+  desktopVaultRoot?: string | null;
   browserVault?: BrowserVaultController;
   dispose?: () => void;
 };
@@ -299,6 +300,7 @@ export async function createBrowserRuntime(
     interactionService,
     packService,
     vaultActivation: browserVault.activation ?? undefined,
+    desktopVaultRoot: null,
     browserVault,
     dispose: () => {
       browserVault.dispose();
@@ -369,6 +371,7 @@ export async function createBrowserRuntimeReposOnly(
     toolTelemetryService: undefined,
     interactionService,
     vaultActivation: browserVault.activation ?? undefined,
+    desktopVaultRoot: null,
     browserVault,
     dispose: () => {
       browserVault.dispose();

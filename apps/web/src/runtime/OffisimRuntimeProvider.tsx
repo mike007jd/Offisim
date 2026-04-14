@@ -743,11 +743,13 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       pendingInteraction,
       setInteractionMode,
       respondToInteraction,
+      desktopVaultRoot: runtime?.desktopVaultRoot ?? null,
       getVaultDirectoryStatus: runtime?.browserVault
         ? () => runtime.browserVault!.getStatus() as Promise<VaultDirectoryStatus>
         : undefined,
       mountVaultDirectory: runtime?.browserVault
-        ? () => runtime.browserVault!.mount() as Promise<VaultDirectoryStatus>
+        ? (handle?: FileSystemDirectoryHandle) =>
+            runtime.browserVault!.mount(handle) as Promise<VaultDirectoryStatus>
         : undefined,
       unmountVaultDirectory: runtime?.browserVault
         ? () => runtime.browserVault!.unmount() as Promise<VaultDirectoryStatus>

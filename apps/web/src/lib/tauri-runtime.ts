@@ -313,6 +313,7 @@ export async function createTauriRuntime(
     toolTelemetryService,
     interactionService,
     vaultActivation: vaultActivation ?? undefined,
+    desktopVaultRoot: vaultActivation?.root ?? null,
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();

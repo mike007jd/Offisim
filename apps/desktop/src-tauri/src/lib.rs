@@ -1,5 +1,6 @@
 mod deep_link;
 mod git;
+mod local_paths;
 mod mcp_bridge;
 mod runtime_secrets;
 
@@ -186,6 +187,7 @@ pub fn run() {
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
             git::git_exec,
+            local_paths::open_local_path,
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()

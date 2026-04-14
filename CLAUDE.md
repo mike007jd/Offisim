@@ -59,6 +59,7 @@ apps/
 - **验证统一用 live agent 手测**：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
 - 绿 typecheck / build 只代表代码能编，不代表功能完成。功能完成必须有 live runtime 证据。
 - 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补自动测试。
+- **验证层级不能越界**：web 页面问题只用浏览器层工具（snapshot / screenshot / console / network）。不要为 web 流程调用 AppleScript、系统级前台切换或原生窗口自动化。AppleScript 只允许用于 Tauri / macOS 原生壳验证。
 
 ## Environment
 
@@ -136,6 +137,7 @@ apps/
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
 - **仓库已无自动 gate**: 不再保留 husky / typecheck / test / smoke 自动校验链。验证统一走 live agent。
 - **2026-04-14 起自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。以后遇到 runtime / UI / vault / Tauri 问题，直接 live agent 验证，不要重建自动 smoke。
+- **2D office 方向已改判**: 当前 `Office2DView` 仍是 SVG 路线, 视觉质量和结构可维护性都差。后续不要继续扩 SVG scene grammar；2D 场景主渲染应转 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
 
 ## Ground Truth
 

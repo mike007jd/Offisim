@@ -47,6 +47,15 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     setRuntimeModelDefault,
     showBaseURL,
   } = controller;
+  const apiKeyPlaceholder = hasStoredSecret
+    ? 'Stored securely on this device'
+    : selectedPreset?.vendor === 'minimax'
+      ? 'sk-cp-...'
+      : 'sk-...';
+  const compatibilitySummary =
+    selectedPreset?.vendor === 'minimax'
+      ? `${selectedSurface} • ${selectedRegion}`
+      : `${selectedCompatibility} • ${selectedSurface} • ${selectedRegion}`;
 
   return (
     <div className="grid min-h-0 gap-6 xl:grid-cols-[340px,minmax(0,1fr)]">
@@ -57,7 +66,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               {selectedPreset?.label ?? 'Custom provider'}
             </p>
             <p className="mt-2 text-sm text-slate-300">
-              {selectedCompatibility} • {selectedSurface} • {selectedRegion}
+              {compatibilitySummary}
             </p>
             <p className="mt-3 text-xs leading-5 text-slate-400">{selectedCapabilities}</p>
           </div>
@@ -108,7 +117,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                   type="password"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={hasStoredSecret ? 'Stored securely on this device' : 'sk-ant-...'}
+                  placeholder={apiKeyPlaceholder}
                   className={surfaceInputProps()}
                 />
                 {IS_DESKTOP && hasStoredSecret ? (

@@ -38,6 +38,7 @@ export async function createTauriRuntimeReposOnly(
     mcpToolExecutor: null,
     repos,
     vaultActivation: vaultActivation ?? undefined,
+    desktopVaultRoot: vaultActivation?.root ?? null,
     dispose: vaultActivation ? () => vaultActivation.dispose() : undefined,
   };
 }

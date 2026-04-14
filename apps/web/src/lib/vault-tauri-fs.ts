@@ -104,8 +104,11 @@ function isNotFound(err: unknown): boolean {
   const msg = err.message.toLowerCase();
   return (
     msg.includes('no such file') ||
+    msg.includes('no such file or directory') ||
     msg.includes('not found') ||
     msg.includes('cannot find') ||
-    msg.includes('enoent')
+    msg.includes('enoent') ||
+    msg.includes('os error 2') ||
+    msg.includes('failed to open file')
   );
 }

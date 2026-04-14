@@ -1,8 +1,11 @@
+import { pickBrowserVaultDirectory } from '@offisim/core/browser';
 import { Button } from '@offisim/ui-core';
 import { FolderOpen, Link2Off, PackageOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCompany } from '../company/CompanyContext';
+import { openDesktopLocalPath } from '../../lib/desktop-local-paths';
 import { exportVaultSnapshotZip } from '../../lib/vault-export';
+import { isTauri } from '../../lib/env';
 import { type VaultDirectoryStatus, useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { SurfaceCard } from './settings-primitives';
 
@@ -16,10 +19,12 @@ const UNSUPPORTED_MESSAGE =
 export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
   const { activeCompanyId } = useCompany();
   const runtime = useOffisimRuntime();
+  const desktopMode = isTauri();
   const [status, setStatus] = useState<VaultDirectoryStatus>({
     supported: false,
     mode: 'unsupported',
     directoryName: null,
+    errorMessage: null,
   });
   const [busy, setBusy] = useState<'mount' | 'unmount' | 'export' | null>(null);
 
@@ -40,15 +45,22 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
     if (!runtime.mountVaultDirectory) return;
     setBusy('mount');
     try {
-      const nextStatus = await runtime.mountVaultDirectory();
+      const pickedHandle =
+        status.mode === 'unmounted' && status.supported
+          ? await pickBrowserVaultDirectory()
+          : undefined;
+      const nextStatus = await runtime.mountVaultDirectory(pickedHandle);
       setStatus(nextStatus);
       if (nextStatus.mode === 'mounted') {
         notify(`Vault directory mounted: ${nextStatus.directoryName}`, 'success');
-      } else {
-        notify('Vault directory requires permission before live sync can resume.', 'info');
       }
     } catch (err) {
-      notify(err instanceof Error ? err.message : String(err), 'error');
+      if (err instanceof Error) {
+        const detail = err.message ? `${err.name}: ${err.message}` : err.name;
+        notify(`Mount directory failed: ${detail}`, 'error');
+      } else {
+        notify(`Mount directory failed: ${String(err)}`, 'error');
+      }
     } finally {
       setBusy(null);
     }
@@ -92,11 +104,66 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
   const statusText =
     status.mode === 'mounted'
       ? `Live sync mounted to ${status.directoryName}`
+      : status.mode === 'error'
+        ? status.errorMessage
+          ? `Live sync failed for ${status.directoryName ?? 'the selected directory'}: ${status.errorMessage}`
+          : `Live sync failed for ${status.directoryName ?? 'the selected directory'}.`
       : status.mode === 'needs-permission'
         ? `Saved handle found for ${status.directoryName}. Re-mount to renew permission.`
         : status.supported
           ? 'Live sync is currently off. Mount a local directory to mirror the vault.'
           : UNSUPPORTED_MESSAGE;
+
+  const mountLabel =
+    status.mode === 'needs-permission'
+      ? 'Reconnect directory'
+      : status.mode === 'error'
+        ? 'Retry mount'
+      : busy === 'mount'
+        ? 'Mounting…'
+        : 'Mount directory';
+
+  if (desktopMode) {
+    const desktopVaultRoot = runtime.desktopVaultRoot ?? null;
+    const statusText = desktopVaultRoot
+      ? 'Desktop stores vault markdown locally and syncs it automatically.'
+      : 'Desktop vault sync activates automatically after the workspace runtime is ready.';
+
+    return (
+      <SurfaceCard
+        title="Local vault"
+        description="Desktop mode mirrors employee markdown into Offisim’s local vault folder automatically."
+        icon={<FolderOpen className="h-5 w-5" />}
+      >
+        <div className="space-y-4">
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
+            <p className="text-sm text-slate-200">{statusText}</p>
+            {desktopVaultRoot ? (
+              <p className="mt-2 font-mono text-xs text-slate-400">{desktopVaultRoot}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                if (!desktopVaultRoot) return;
+                try {
+                  await openDesktopLocalPath(desktopVaultRoot);
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : String(err), 'error');
+                }
+              }}
+              disabled={!desktopVaultRoot}
+            >
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Open folder
+            </Button>
+          </div>
+        </div>
+      </SurfaceCard>
+    );
+  }
 
   return (
     <SurfaceCard
@@ -115,16 +182,26 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
         <div className="flex flex-wrap gap-3">
           {status.supported ? (
             <>
-              <Button onClick={handleMount} disabled={busy !== null}>
-                {busy === 'mount' ? 'Mounting…' : 'Mount directory'}
+              <Button type="button" onClick={handleMount} disabled={busy !== null}>
+                {mountLabel}
               </Button>
-              <Button variant="secondary" onClick={handleUnmount} disabled={busy !== null}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleUnmount}
+                disabled={busy !== null}
+              >
                 <Link2Off className="mr-2 h-4 w-4" />
                 {busy === 'unmount' ? 'Unmounting…' : 'Unmount'}
               </Button>
             </>
           ) : null}
-          <Button variant="secondary" onClick={handleExport} disabled={busy !== null}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleExport}
+            disabled={busy !== null}
+          >
             <PackageOpen className="mr-2 h-4 w-4" />
             {busy === 'export' ? 'Exporting…' : 'Export zip'}
           </Button>
