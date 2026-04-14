@@ -104,6 +104,39 @@ const PROVIDER_SURFACES = new Set<ProviderSurface>([
   'desktop-subscription',
 ]);
 
+function trimEnvString(value: string | boolean | undefined): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function loadEnvBackedProviderConfig(): ProviderConfig | null {
+  const apiKey = trimEnvString(import.meta.env.VITE_MINIMAX_API_KEY);
+  if (!apiKey) return null;
+
+  const baseURL =
+    trimEnvString(import.meta.env.VITE_MINIMAX_BASE_URL) ?? 'https://api.minimax.io/anthropic';
+  const model = trimEnvString(import.meta.env.VITE_MINIMAX_MODEL) ?? 'MiniMax-M2.7-highspeed';
+
+  return {
+    provider: 'anthropic',
+    providerVariantId: 'minimax-intl-anthropic-coding',
+    vendor: 'minimax',
+    region: 'intl',
+    compatibility: 'anthropic-compatible',
+    surface: 'coding-plan',
+    capabilities: {
+      streaming: true,
+      thinking: true,
+      toolCalls: true,
+      toolStreaming: false,
+      codingPlan: true,
+    },
+    apiKey,
+    baseURL,
+    model,
+    runtimePolicy: createDefaultRuntimePolicy('anthropic', model),
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -407,9 +440,9 @@ function toPersistedConfig(config: ProviderConfig): ProviderConfig {
 export function loadProviderConfig(): ProviderConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) return loadEnvBackedProviderConfig();
     const parsed = normalizeProviderConfig(JSON.parse(raw));
-    if (!parsed) return null;
+    if (!parsed) return loadEnvBackedProviderConfig();
 
     // subscription adapter runs `claude acp` via node:child_process and cannot run
     // in a browser renderer. Drop any such saved config when we're not in Tauri.
@@ -417,7 +450,7 @@ export function loadProviderConfig(): ProviderConfig | null {
       console.warn(
         '[Offisim] Saved provider "subscription" requires the desktop app. Ignoring saved config in browser.',
       );
-      return null;
+      return loadEnvBackedProviderConfig();
     }
 
     if (isTauri() && parsed.provider === 'subscription') {
@@ -426,7 +459,7 @@ export function loadProviderConfig(): ProviderConfig | null {
     }
     return parsed;
   } catch {
-    return null;
+    return loadEnvBackedProviderConfig();
   }
 }
 

@@ -161,6 +161,20 @@ apps/
 Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 `subscription` provider 走 `claude acp` via `node:child_process`, 桌面端专用。
 
+### Web Provider Defaults
+
+- `apps/web/vite.config.ts` dev 模式会从 **repo root `.env.local`** 读取 `MINIMAX_*`，并注入成 `VITE_MINIMAX_*`
+- `packages/ui-office/src/lib/provider-config.ts` 在 **没有本地已保存 ProviderConfig** 时，会自动用 env 起一个 `MiniMax Global` 默认配置
+- 这条能力的目标是 **web live AI 验证 / 演示 / 轻量入口**，不是替代 Tauri 的正式本地工作流
+- 若 UI 没显示 key，不要先假设 env 没读到：浏览器侧优先看当前 provider label / model / live request 是否真走 MiniMax；桌面侧 secure key 可能被 secret store 掩码
+
+### Live Product Findings (2026-04-14 audit)
+
+- `web` live 审计已确认：真实 MiniMax 请求能跑通，底部 token / cost / latency 都是真值
+- chat 当前 **不是强感知 streaming UX**：用户常先看到 placeholder（如 `Working through the request...`），再一次性落完整答案。后续若修 chat，目标应是“正文 chunk 真正在气泡里增长”
+- 3D 员工外观当前与 2D DiceBear 头像 **不是同一来源**：3D 走 `office3d-employees.tsx` 的硬编码 `OUTFIT_COLORS / SKIN_TONES`，2D 走 DiceBear seed。不要假设 2D/3D 已经视觉对齐
+- A2A 的产品抽象已定向为 **external department / 外包部门**，不是外部员工 avatar。未来接入先做部门卡、能力、路由和结果归属，不要先塞进办公室座位语义
+
 ## Interop
 
 外部 agent 接入 = **A2A only** (HTTP JSON-RPC, `packages/core/src/a2a/`)。

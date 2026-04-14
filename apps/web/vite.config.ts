@@ -2,9 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
 const uiOfficeSrc = path.resolve(__dirname, '../../packages/ui-office/src');
+const repoRoot = path.resolve(__dirname, '../..');
 
 /**
  * Dev-mode aliases: resolve @offisim/ui-office imports to source (.ts/.tsx) instead of
@@ -107,10 +108,19 @@ function createBrowserTauriAliases() {
  * 3. Pre-bundle @offisim/core so CJS transitive deps get ESM conversion
  * 4. LLM proxy middleware to avoid CORS during development
  */
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   const isTauriFrontend = Boolean(process.env.TAURI_ENV_PLATFORM);
+  const env = loadEnv(mode, repoRoot, '');
+  const minimaxApiKey = command === 'serve' ? (env.MINIMAX_API_KEY ?? env.VITE_MINIMAX_API_KEY ?? '') : '';
+  const minimaxBaseUrl = env.MINIMAX_BASE_URL ?? env.VITE_MINIMAX_BASE_URL ?? 'https://api.minimax.io/anthropic';
+  const minimaxModel = env.MINIMAX_MODEL ?? env.VITE_MINIMAX_MODEL ?? 'MiniMax-M2.7-highspeed';
 
   return {
+    define: {
+      'import.meta.env.VITE_MINIMAX_API_KEY': JSON.stringify(minimaxApiKey),
+      'import.meta.env.VITE_MINIMAX_BASE_URL': JSON.stringify(minimaxBaseUrl),
+      'import.meta.env.VITE_MINIMAX_MODEL': JSON.stringify(minimaxModel),
+    },
     plugins: [
       tailwindcss(),
       react(),
