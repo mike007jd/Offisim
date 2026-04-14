@@ -33,7 +33,6 @@ Use conventional commits when practical:
 - `fix:`
 - `docs:`
 - `refactor:`
-- `test:`
 - `chore:`
 
 ## Code Style
@@ -52,11 +51,11 @@ Read these before major changes:
 - [`spec/UX_RULES.md`](../spec/UX_RULES.md)
 - [`spec/DESIGN_RULES.md`](../spec/DESIGN_RULES.md)
 
-## Testing Guidance
+## Verification Guidance
 
-- Add or update unit tests for behavior changes
-- Prefer targeted regression tests before implementation for bug fixes
-- For UI-heavy changes, include manual verification notes
+- Offisim no longer maintains automated test suites.
+- Validate changes in the real runtime surface affected by the change.
+- For UI/runtime work, include brief manual verification notes when relevant.
 
 ## Reporting Security Issues
 

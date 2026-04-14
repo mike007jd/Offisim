@@ -5,7 +5,6 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps)
-pnpm test             # 全量测试 (vitest)
 pnpm typecheck        # 全量类型检查 (16 packages)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
@@ -13,15 +12,8 @@ pnpm format           # Biome format
 pnpm clean            # 清除 turbo 缓存 + node_modules
 ```
 
-E2E (Playwright, 需要 `.env.local` 里的 `MINIMAX_API_KEY`):
-```bash
-cd apps/web && pnpm test:e2e           # dev mode E2E (25 specs)
-cd apps/web && pnpm test:e2e:prod      # prod bundle E2E (vite build + preview)
-```
-
 单包操作:
 ```bash
-pnpm --filter @offisim/core test        # 跑单包测试
 pnpm --filter @offisim/core build       # 构建单包
 cd apps/web && pnpm dev                 # 启动 web SPA (port 5176)
 cd apps/platform && pnpm dev            # 启动 platform API (port 4100)
@@ -59,8 +51,14 @@ apps/
 - Biome: 2-space indent, single quotes, trailing commas, semicolons, 100 char line width
 - TypeScript strict mode (`noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`)
 - ESM (`"module": "ESNext"`, `"moduleResolution": "bundler"`)
-- 测试: vitest, `__tests__/` 目录, `.test.ts` 后缀
 - 不写不必要的注释和 docstring
+
+## Validation Policy
+
+- **仓库已移除自动化测试**。不要再引入 vitest / playwright / smoke / AI test / `test` 脚本。
+- **验证统一用 live agent 手测**：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
+- 绿 typecheck / build 只代表代码能编，不代表功能完成。功能完成必须有 live runtime 证据。
+- 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补自动测试。
 
 ## Environment
 
@@ -119,8 +117,7 @@ apps/
 - 修改 `shared-types` 后必须先 `pnpm --filter @offisim/shared-types build`
 - `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物
 - Linux/CI 必须 `--filter '!@offisim/desktop' --filter '!@offisim/launcher'` 跳过 Tauri
-- Smoke tests 不加载 `.env.local`, 需手动 `export MINIMAX_API_KEY=...`
-- Three.js jsdom 测试: `useRef<THREE.Group>.current` 非真 THREE.Group, 需 defensive cast
+- Three.js 非真实运行时对象可能不完整, 代码里要做 defensive cast / null guard, 不要假设测试环境会替你兜底
 
 ### Package-Specific Gotchas
 
@@ -137,8 +134,8 @@ apps/
 - **`isTauri()` 统一认 `__TAURI_INTERNALS__`**: Tauri 2 默认 `withGlobalTauri:false` 不注入 `__TAURI__`。新代码不要再依赖 `window.__TAURI__`
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
-- **CI gate 只有本地 husky**: `.husky/pre-commit` 跑 `biome check --staged`。typecheck / test 不在 hook 里。需要跳过时 `git commit --no-verify`
-- **dev-only `window.__VAULT_SMOKE__()` 诊断钩子**: `OffisimRuntimeProvider.tsx` 挂出, Tauri webview devtools console 敲一下, 返回 `{ok, probe, files}` 验 vault 端到端。runtime 未 ready 或 vault activation null 时 fallback 临时起 subscriber。唯一能在真 Tauri webview 验 Phase 1c 的工具
+- **仓库已无自动 gate**: 不再保留 husky / typecheck / test / smoke 自动校验链。验证统一走 live agent。
+- **2026-04-14 起自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。以后遇到 runtime / UI / vault / Tauri 问题，直接 live agent 验证，不要重建自动 smoke。
 
 ## Ground Truth
 

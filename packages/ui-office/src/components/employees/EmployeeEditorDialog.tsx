@@ -19,7 +19,7 @@ import {
   TabsTrigger,
   Textarea,
 } from '@offisim/ui-core';
-import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import type { UseEmployeeEditorReturn } from '../../hooks/useEmployeeEditor';
@@ -29,7 +29,6 @@ import { useCompany } from '../company/CompanyContext.js';
 import { AvatarCustomizer } from './AvatarCustomizer';
 import { MemoryPanel } from './MemoryPanel';
 import { SkillBindingList } from './SkillBindingList';
-import { TestChatTab } from './TestChatTab';
 import { ToolPermissionEditor } from './ToolPermissionEditor';
 import { VersionHistoryTab } from './VersionHistoryTab';
 
@@ -211,12 +210,6 @@ export function EmployeeEditorDialog({
             <TabsTrigger value="config" className="flex-1">
               Config
             </TabsTrigger>
-            {import.meta.env.DEV && isEditMode && (
-              <TabsTrigger value="test" className="flex-1">
-                <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                Test
-              </TabsTrigger>
-            )}
             {isEditMode && (
               <TabsTrigger value="memory" className="flex-1">
                 Memory
@@ -578,13 +571,6 @@ export function EmployeeEditorDialog({
               </div>
             </div>
           </TabsContent>
-
-          {/* Test Chat Tab — dev-only, bypasses runtime pipeline (AI Runtime Policy) */}
-          {import.meta.env.DEV && isEditMode && employeeId && (
-            <TabsContent value="test" className="flex-1 overflow-y-auto min-h-0">
-              <TestChatTab formData={formData} employeeName={formData.name} />
-            </TabsContent>
-          )}
 
           {isEditMode && employeeId && activeCompanyId && (
             <TabsContent value="memory" className="flex-1 overflow-y-auto min-h-0">

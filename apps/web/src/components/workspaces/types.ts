@@ -166,6 +166,7 @@ export interface WorkspaceRouterProps {
     onBack: () => void;
     onSave: (config: ProviderConfig) => void;
     onSaveSuccess?: () => void;
+    onToast?: (message: string, variant?: 'info' | 'success' | 'error') => void;
   };
   children?: React.ReactNode;
 }

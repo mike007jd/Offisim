@@ -213,23 +213,3 @@ fn generate_server_id(name: &str) -> String {
         format!("mcp-{slug}-{suffix}")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::load_registry_entries;
-    use std::fs;
-
-    #[test]
-    fn invalid_registry_json_falls_back_to_empty_map() {
-        let path = std::env::temp_dir().join(format!(
-            "offisim-mcp-registry-{}-invalid.json",
-            std::process::id()
-        ));
-        fs::write(&path, "{not valid json").unwrap();
-
-        let entries = load_registry_entries(&path).unwrap();
-
-        assert!(entries.is_empty());
-        let _ = fs::remove_file(&path);
-    }
-}

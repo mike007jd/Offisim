@@ -303,6 +303,24 @@ export { VaultSyncService, VaultSyncError } from './vault/sync-service.js';
 export type { VaultSyncServiceOptions, VaultTarget } from './vault/sync-service.js';
 export type { VaultFileSystem } from './vault/fs.js';
 export {
+  BrowserFsAccessFileSystem,
+  browserFsAccessSupported,
+  clearStoredBrowserVaultDirectoryHandle,
+  createIndexedDbBrowserVaultHandleStore,
+  createInMemoryBrowserVaultHandleStore,
+  loadStoredBrowserVaultDirectoryHandle,
+  persistBrowserVaultDirectoryHandle,
+  pickBrowserVaultDirectory,
+  queryBrowserVaultPermission,
+  requestBrowserVaultPermission,
+} from './vault/browser-fs.js';
+export type {
+  BrowserVaultDirectoryStatus,
+  BrowserVaultHandleStore,
+  BrowserVaultMode,
+  BrowserVaultPermissionState,
+} from './vault/browser-fs.js';
+export {
   VAULT_FILENAMES,
   VAULT_SCHEMA_VERSION,
   employeeFrontmatterSchema,

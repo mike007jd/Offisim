@@ -14,7 +14,7 @@ export function InstructionsStep({ formData, updateField }: InstructionsStepProp
         onChange={(e) => updateField('customInstructions', e.target.value)}
         placeholder={
           'Examples:\n' +
-          '- Always write unit tests for new code\n' +
+          '- Always verify changed flows in the live runtime\n' +
           '- Prefer functional programming patterns\n' +
           '- Keep responses concise and actionable\n' +
           '- Communicate in Chinese when interacting with the team'

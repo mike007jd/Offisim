@@ -37,6 +37,24 @@ export {
 } from './importer.js';
 
 export type { VaultFileSystem } from './fs.js';
+export {
+  BrowserFsAccessFileSystem,
+  browserFsAccessSupported,
+  clearStoredBrowserVaultDirectoryHandle,
+  createIndexedDbBrowserVaultHandleStore,
+  createInMemoryBrowserVaultHandleStore,
+  loadStoredBrowserVaultDirectoryHandle,
+  persistBrowserVaultDirectoryHandle,
+  pickBrowserVaultDirectory,
+  queryBrowserVaultPermission,
+  requestBrowserVaultPermission,
+} from './browser-fs.js';
+export type {
+  BrowserVaultDirectoryStatus,
+  BrowserVaultHandleStore,
+  BrowserVaultMode,
+  BrowserVaultPermissionState,
+} from './browser-fs.js';
 export { NodeFileSystem, type NodeFileSystemOptions } from './node-fs.js';
 
 export { employeeSlug } from './slug.js';

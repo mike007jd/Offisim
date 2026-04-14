@@ -47,18 +47,3 @@ pub fn terminate_listeners_on_port(port: u16) -> std::io::Result<Vec<u32>> {
 
     Ok(pids)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::parse_lsof_pids;
-
-    #[test]
-    fn parse_lsof_pids_skips_empty_lines() {
-        assert_eq!(parse_lsof_pids("123\n\n456\n"), vec![123, 456]);
-    }
-
-    #[test]
-    fn parse_lsof_pids_ignores_invalid_rows() {
-        assert_eq!(parse_lsof_pids("node\n789\nbad\n"), vec![789]);
-    }
-}

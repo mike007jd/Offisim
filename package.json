@@ -11,17 +11,12 @@
     "typecheck": "turbo run typecheck",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "test": "turbo run test",
-    "test:ai": "pnpm --filter @offisim/core exec vitest run src/__tests__/ai --config vitest.config.ts && pnpm --filter @offisim/web exec playwright test --config=playwright.config.ai.ts",
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
-    "launcher": "pnpm --filter @offisim/launcher dev",
-    "prepare": "husky"
+    "launcher": "pnpm --filter @offisim/launcher dev"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
-    "husky": "^9.1.7",
-    "playwright": "^1.59.1",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

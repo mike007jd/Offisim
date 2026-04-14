@@ -3,13 +3,13 @@
 **Version:** v0.1  
 **Status:** Implementation-facing support document  
 **Audience:** rendering, runtime, UX, AI coding agents  
-**Depends on:** `OFFISIM_RUNTIME_EXPERIENCE_GDD.md`, contracts in `Docs/02_contracts_and_schemas/`
+**Depends on:** contracts in `Docs/02_contracts_and_schemas/`
 
 ---
 
 ## 1. Purpose
 
-This document converts the Runtime Experience GDD into a more implementation-friendly matrix.
+This document is the live implementation-facing matrix for runtime presentation and scene feedback.
 
 It answers four practical questions:
 

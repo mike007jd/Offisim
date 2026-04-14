@@ -10,6 +10,7 @@ import {
 } from '@offisim/ui-core';
 import { Bot, BrainCircuit, Cpu, Workflow } from 'lucide-react';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
+import { VaultDirectorySection } from './VaultDirectorySection';
 import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
 
 interface SettingsRuntimeTabProps {
@@ -271,6 +272,8 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
             </Button>
           </div>
         </SurfaceCard>
+
+        <VaultDirectorySection notify={controller.notify} />
       </div>
     </div>
   );

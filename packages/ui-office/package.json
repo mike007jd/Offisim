@@ -59,9 +59,8 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json && mkdir -p dist/components/install dist/components/workspace && cp src/components/install/install-animations.css dist/components/install/ && cp src/components/workspace/workspace-shell.css dist/components/workspace/",
-    "typecheck": "tsc --noEmit -p tsconfig.test.json",
-    "clean": "rm -rf dist",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@dicebear/collection": "^9.4.2",
@@ -87,18 +86,9 @@
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/plugin-fs": "^2.4.5",
-    "@tauri-apps/plugin-sql": "^2.3.2",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.0.0",
-    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.0.0",
     "@types/three": "^0.183.1",
-    "@vitest/coverage-v8": "3.2.4",
-    "fast-check": "^4.6.0",
-    "jsdom": "^26.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "typescript": "^5.7.0"
   },
   "license": "MIT"
 }

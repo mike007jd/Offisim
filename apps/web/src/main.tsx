@@ -10,8 +10,6 @@ import {
 import { installThreeConsoleFilter } from './lib/three-console';
 import { BootstrapProvider } from './runtime/BootstrapProvider';
 import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
-import { DevAutoSmokeBootstrap } from './runtime/dev-auto-smoke';
-import { installVaultSmokePlaceholder } from './runtime/install-vault-smoke-placeholder';
 import {
   isTauriDevEphemeralEnabled,
   useTauriDevEphemeralReset,
@@ -89,7 +87,6 @@ function Shell() {
     return (
       <ThemeProvider>
         <BootstrapProvider>
-          <DevAutoSmokeBootstrap onCompanyCreated={handleCompanySwitch} />
           <NotificationProvider>
             <Suspense fallback={<AppBootFallback />}>
               <App onCompanySwitch={handleCompanySwitch} />
@@ -125,7 +122,6 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
 installThreeConsoleFilter();
-installVaultSmokePlaceholder();
 
 createRoot(root).render(
   <StrictMode>

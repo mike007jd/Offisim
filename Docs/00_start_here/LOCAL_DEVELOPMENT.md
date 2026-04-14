@@ -13,7 +13,6 @@ Additional prerequisites depend on what you want to run:
 
 - Desktop app: `Rust` / `cargo` plus the Tauri system dependencies for your OS
 - Platform API: `PostgreSQL`
-- Browser E2E tests: Playwright browser install if you intend to run them
 
 ## Install
 
@@ -40,7 +39,6 @@ cp .env.example .env.local
 
 Important caveat:
 
-- The root `.env.local` is the shared template used by repo tooling such as web Playwright smoke tests.
 - `apps/platform` reads from the shell environment when you run it. Export the variables in your shell before starting it.
 Minimum useful variables by surface:
 
@@ -51,8 +49,6 @@ Minimum useful variables by surface:
   - `BETTER_AUTH_URL=http://localhost:4100`
   - `BETTER_AUTH_SECRET=<32+ char secret>`
   - Recommended for local multi-app work: `CORS_ORIGINS=http://localhost:3000,http://localhost:5176,http://localhost:1420`
-- LLM-backed smoke tests:
-  - one provider key such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENROUTER_API_KEY`
 
 ## Start Commands
 
@@ -125,8 +121,14 @@ Useful repo-level checks:
 ```bash
 pnpm typecheck
 pnpm lint
-pnpm test
 ```
+
+Behavior verification follows the live-agent policy:
+
+- use the real browser / desktop runtime
+- validate the actual user flow you changed
+- record the observed result in handoff or memory
+- do not reintroduce automated smoke or E2E flows
 
 ## Troubleshooting
 

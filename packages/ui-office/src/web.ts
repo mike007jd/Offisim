@@ -50,6 +50,8 @@ export { NotificationProvider } from './runtime/notification-provider.js';
 export {
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
+  type VaultDirectoryMode,
+  type VaultDirectoryStatus,
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
   useOffisimRuntime,

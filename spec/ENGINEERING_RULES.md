@@ -125,7 +125,7 @@ For runtime execution state:
 - prefer repository + LangGraph persistence + explicit event streams
 - do not introduce a global client store as a shadow runtime database
 
-## Testing and validation rules
+## Validation rules
 
 Before declaring work complete, run the checks relevant to the touched scope.
 
@@ -134,15 +134,15 @@ Expected minimum:
 - lint
 - typecheck
 - build for affected targets
-- tests for changed logic
+- live runtime verification for the changed flow
 
 Add these when relevant:
 
-- manifest validator tests
-- install planner / rollback tests
+- manifest validator
+- install planner / rollback verification
 - migration dry run
 - OpenAPI/schema validation
-- renderer/runtime smoke checks
+- renderer/runtime hand verification
 
 If validation fails, fix it or explicitly surface the failure.
 
@@ -167,7 +167,7 @@ Add it only if one of these becomes true:
 ## Scene feedback and event mapping
 
 If a change affects runtime events, employee states, task lifecycle, install lifecycle,
-or office-scene choreography, also read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`.
+or office-scene choreography, also read `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`.
 
 Engineering rule:
 
@@ -175,6 +175,4 @@ Engineering rule:
 - avoid hidden animation logic that invents business state on the client
 - keep theatrical presentation data-driven and degradable under performance pressure
 
-If implementation work needs exact scene-state mapping, also read:
-
-- `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
+Use that matrix as the live reference for exact scene-state mapping.

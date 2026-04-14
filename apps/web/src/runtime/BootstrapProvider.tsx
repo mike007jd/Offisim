@@ -4,6 +4,7 @@ import {
   InMemorySceneIntentBus,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
+  type VaultDirectoryStatus,
   type OffisimRuntimeValue,
   isTauri,
 } from '@offisim/ui-office/web';
@@ -136,6 +137,15 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       dismissUnfinishedThreads: () => {},
       resumeThread: async () => {},
       bootstrapState: bootstrapStateRef.current,
+      getVaultDirectoryStatus: async () =>
+        ({
+          supported: false,
+          mode: 'unsupported',
+          directoryName: null,
+        }) satisfies VaultDirectoryStatus,
+      mountVaultDirectory: undefined,
+      unmountVaultDirectory: undefined,
+      exportVaultSnapshotZip: undefined,
     }),
     [error, runtime],
   );

@@ -56,6 +56,8 @@ import {
 } from './browser-runtime-storage';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import type { VaultActivation } from './vault-activation';
+import type { BrowserVaultController } from './vault-browser-activation';
+import { createDefaultBrowserVaultController } from './vault-browser-activation';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -109,6 +111,7 @@ export type RuntimeBundle = {
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
   vaultActivation?: VaultActivation;
+  browserVault?: BrowserVaultController;
   dispose?: () => void;
 };
 
@@ -130,6 +133,7 @@ export async function createBrowserRuntime(
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
+  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
 
   const proxyBaseURL =
     IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -294,7 +298,10 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     packService,
+    vaultActivation: browserVault.activation ?? undefined,
+    browserVault,
     dispose: () => {
+      browserVault.dispose();
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
       persistence.dispose();
@@ -317,6 +324,7 @@ export async function createBrowserRuntimeReposOnly(
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
+  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();
@@ -360,7 +368,12 @@ export async function createBrowserRuntimeReposOnly(
     sessionCostTracker: undefined,
     toolTelemetryService: undefined,
     interactionService,
-    dispose: persistence.dispose,
+    vaultActivation: browserVault.activation ?? undefined,
+    browserVault,
+    dispose: () => {
+      browserVault.dispose();
+      persistence.dispose();
+    },
   };
 }
 

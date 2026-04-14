@@ -216,11 +216,6 @@ Do not add motion or stylistic flourish unless it improves at least one of:
 ## Runtime experience reference
 
 If work touches office-scene choreography, employee state feedback, task presentation,
-or install/import review flows inside the runtime shell, read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`.
+or install/import review flows inside the runtime shell, read `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`.
 
-That file is the source of truth for the richer game-feel layer of the product.
-It does not add gameplay systems; it defines presentation systems.
-
-For explicit runtime-state rendering, also use:
-
-- `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
+Use that matrix as the live reference for explicit runtime-state rendering.

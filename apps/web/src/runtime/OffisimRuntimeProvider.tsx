@@ -23,6 +23,7 @@ import {
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
   type OffisimRuntimeStatusValue,
+  type VaultDirectoryStatus,
   type OffisimRuntimeValue,
   SceneIntentDispatcher,
   disposeEventLogStore,
@@ -38,11 +39,9 @@ import {
   loadBrowserRuntimeSnapshot,
 } from '../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
-import { useDevAutoSmokeRunner } from './dev-auto-smoke';
 import { initializeRuntimeBundle } from './initialize-runtime';
 import { getInteractionFollowUp } from './interaction-follow-up';
 import { isRuntimeReadyForInteraction } from './runtime-readiness';
-import { runVaultDevSmoke } from './vault-dev-smoke';
 
 export interface UnfinishedThread {
   threadId: string;
@@ -114,7 +113,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   interactionModeRef.current = interactionMode;
   const pendingInteractionRef = useRef(pendingInteraction);
   pendingInteractionRef.current = pendingInteraction;
-  const currentRuntime = runtimeRef.current;
 
   // ---------------------------------------------------------------------------
   // Stable EventBus — created once, shared across runtime reinitializations.
@@ -133,11 +131,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const notificationBridgeRef = useRef<NotificationBridge | null>(null);
 
   useChatStreamingSync(eventBusRef.current);
-  useDevAutoSmokeRunner({
-    companyId,
-    eventBus: eventBusRef.current,
-    runtime: currentRuntime,
-  });
 
   // Activate NotificationBridge once — subscribes to runtime events on the
   // stable EventBus and emits `notification.created` for the UI.
@@ -699,13 +692,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     const eventBus = eventBusRef.current;
     const sceneIntentBus = sceneIntentBusRef.current;
 
-    // Expose debug bridge in dev mode (E2E smoke tests).
-    // Always set — even before runtime is ready — so tests can access the
-    // EventBus for subscription-based assertions during async init.
-    // `getSceneState` reads the persisted memory-repos snapshot filtered by
-    // the active company. Persistence debounces writes every 300ms / 5s so
-    // this stays in sync with live runtime state. Preserve any getSceneState
-    // a downstream component (e.g. SceneManager) may have registered first.
+    // Expose debug bridge in dev mode.
+    // Preserve any getSceneState a downstream component may have registered first.
     if (import.meta.env.DEV) {
       const existingGetSceneState = window.__OFFISIM_DEBUG__?.getSceneState;
       window.__OFFISIM_DEBUG__ = {
@@ -723,19 +711,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
             };
           }),
       };
-
-      // Install once per session — survives HMR and runtime reinit because
-      // window is a stable reference; later re-renders are no-ops.
-      const smokeWindow = window as unknown as {
-        __VAULT_SMOKE__?: () => Promise<unknown>;
-      };
-      smokeWindow.__VAULT_SMOKE__ = async () =>
-        runVaultDevSmoke({
-          companyId,
-          eventBus,
-          runtime,
-        });
-      console.info('[vault] dev smoke hook installed — run `await __VAULT_SMOKE__()`');
     }
 
     return {
@@ -768,6 +743,16 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       pendingInteraction,
       setInteractionMode,
       respondToInteraction,
+      getVaultDirectoryStatus: runtime?.browserVault
+        ? () => runtime.browserVault!.getStatus() as Promise<VaultDirectoryStatus>
+        : undefined,
+      mountVaultDirectory: runtime?.browserVault
+        ? () => runtime.browserVault!.mount() as Promise<VaultDirectoryStatus>
+        : undefined,
+      unmountVaultDirectory: runtime?.browserVault
+        ? () => runtime.browserVault!.unmount() as Promise<VaultDirectoryStatus>
+        : undefined,
+      exportVaultSnapshotZip: undefined,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [

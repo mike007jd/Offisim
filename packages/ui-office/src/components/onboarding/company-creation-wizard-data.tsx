@@ -266,10 +266,10 @@ export const EMPLOYEE_BIOS: Record<string, EmployeeBio> = {
     helpsWith: 'Technical architecture, data modeling, and scalable API design.',
   },
   'Elena Volkov': {
-    bio: 'Ships clean code with tests on day one',
-    expertise: ['React', 'Testing', 'TypeScript'],
+    bio: 'Ships clean code with real runtime verification on day one',
+    expertise: ['React', 'Verification', 'TypeScript'],
     style: 'Disciplined',
-    helpsWith: 'Production-grade implementation with comprehensive test coverage.',
+    helpsWith: 'Production-grade implementation with strong live-runtime verification.',
   },
   'Raj Patel': {
     bio: 'Reviews code like a security auditor',

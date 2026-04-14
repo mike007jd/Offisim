@@ -35,31 +35,17 @@ Common local entrypoints:
 - Platform API: `pnpm --filter @offisim/platform dev`
 - Docker stack: `docker compose -f docker/docker-compose.yml up --build`
 
-## AI Behavior Testing
+## Validation Policy
 
-Run the Phase 0 AI behavior suites from the repo root with:
+The repository no longer keeps automated test suites or scripted smoke flows.
 
-```bash
-pnpm test:ai
-```
+Validation now happens in live runtime:
 
-The command runs two live MiniMax-backed suites:
+- run the affected app/package directly
+- verify the exact UI/runtime behavior by hand
+- keep evidence in commit notes or handoff notes when a phase is closed
 
-- `packages/core/src/__tests__/ai/` for pure Node runtime tests with Vitest
-- `apps/web/e2e-ai/` for browser runtime tests with Playwright
-
-Rules for these suites:
-
-- Never mock the LLM. These tests are for real provider behavior only.
-- If `MINIMAX_API_KEY` is missing from `.env.local`, both suites skip cleanly instead of failing.
-- Keep Vitest AI tests at `>= 60_000ms`.
-- Keep Playwright AI tests at `>= 120_000ms`.
-
-To add a new AI test:
-
-1. Put pure runtime tests in `packages/core/src/__tests__/ai/`.
-2. Put browser/UI behavior tests in `apps/web/e2e-ai/`.
-3. Reuse each directory's `harness.ts` so key loading, seeding, runtime readiness, and skip behavior stay consistent.
+Do not reintroduce `vitest`, `playwright`, `pnpm test`, `test:ai`, or ad-hoc smoke scripts.
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 Deployment-specific guidance lives in `Docs/00_start_here/DEPLOYMENT.md`.
@@ -134,7 +120,6 @@ Implementation truth still lives in the mounted route files and Drizzle schema/m
 
 ### Runtime experience / game-grade presentation docs
 
-- `Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`
 - `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
 
 ## Recommended reading order for AI agents
@@ -143,7 +128,7 @@ Implementation truth still lives in the mounted route files and Drizzle schema/m
 2. `spec/PROJECT_CONSTITUTION.md`
 3. the rest of `/spec`
 4. relevant files under `Docs/02_contracts_and_schemas/`
-5. `Docs/04_runtime_experience/` when the task touches scene, animation, install trust presentation, or runtime feedback
+5. `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md` when the task touches scene, animation, install trust presentation, or runtime feedback
 6. `Docs/03_migrations/` when the task touches persistence
 
 ## Document precedence

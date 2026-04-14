@@ -393,6 +393,7 @@ export function App({ onCompanySwitch }: AppProps) {
         onBack: () => handleWorkspaceSwitch('office'),
         onSave: handleSaveConfig,
         onSaveSuccess: () => addToast('Provider configuration saved', 'success'),
+        onToast: (message, variant = 'info') => addToast(message, variant),
       }}
     />
   ) : null;

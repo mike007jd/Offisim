@@ -77,7 +77,7 @@ export function createGateway(config: GatewayConfig): LlmGateway {
       try {
         subscriptionModule = require('./subscription-adapter.js');
       } catch {
-        // Vitest executes the TS sources directly, so the .ts path exists before build output.
+        // In direct TypeScript execution, the .ts path exists before build output.
         subscriptionModule = require('./subscription-adapter.ts') as SubscriptionModule;
       }
       const { SubscriptionAdapter } = subscriptionModule;

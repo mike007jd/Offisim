@@ -93,10 +93,7 @@ When multiple repository docs apply, use this order:
 3. `spec/ENGINEERING_RULES.md`
 4. `spec/UX_RULES.md`
 5. `spec/DESIGN_RULES.md`
-6. `Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`
-
-The GDD is a presentation-system source of truth.
-It does not override constitution-level rules or machine-readable contracts.
+6. `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
 
 
 Additional runtime-experience implementation companions live in:

@@ -34,7 +34,6 @@ export * from './components/employees/MemoryPanel.js';
 export * from './components/employees/SkillBindingList.js';
 export * from './components/employees/ToolPermissionEditor.js';
 export * from './components/employees/VersionDiffTable.js';
-export * from './components/employees/TestChatTab.js';
 export * from './components/employees/VersionHistoryTab.js';
 export * from './components/employees/interview-steps/ExpertiseStep.js';
 export * from './components/employees/interview-steps/HRPrompt.js';
@@ -78,6 +77,7 @@ export * from './components/scene/SceneCanvas.js';
 export * from './components/scene/useScene.js';
 export * from './components/server-room/ServerRoom.js';
 export * from './components/settings/McpConfigPanel.js';
+export * from './components/settings/VaultDirectorySection.js';
 export * from './components/settings/provider-presets.js';
 export * from './components/sop/SopViewSurface.js';
 export * from './components/sop/sop-dag-layout.js';
@@ -123,6 +123,7 @@ export * from './lib/desktop-mcp-registry.js';
 export * from './lib/desktop-provider-secrets.js';
 export * from './lib/provider-config.js';
 export * from './lib/export-to-manifest.js';
+export * from './lib/vault-export.js';
 
 // Runtime
 export * from './runtime/offisim-runtime-context.js';

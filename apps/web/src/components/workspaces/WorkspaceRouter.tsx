@@ -157,6 +157,7 @@ export function WorkspaceRouter({
             onBack={settingsPageProps?.onBack ?? NOOP}
             onSave={settingsPageProps?.onSave ?? NOOP}
             onSaveSuccess={settingsPageProps?.onSaveSuccess}
+            onToast={settingsPageProps?.onToast}
           />
         )}
       </Suspense>

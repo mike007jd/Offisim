@@ -20,6 +20,15 @@ export interface OffisimRuntimeBootstrapState {
   eventHistory: RuntimeEvent[];
 }
 
+export type VaultDirectoryMode = 'unsupported' | 'unmounted' | 'needs-permission' | 'mounted';
+
+export interface VaultDirectoryStatus {
+  supported: boolean;
+  mode: VaultDirectoryMode;
+  directoryName: string | null;
+  root?: string | null;
+}
+
 export interface OffisimRuntimeValue {
   eventBus: EventBus;
   sceneIntentBus?: SceneIntentBus;
@@ -80,6 +89,11 @@ export interface OffisimRuntimeValue {
     selectedOptionId: string,
     freeformResponse?: string,
   ) => Promise<string | undefined>;
+  /** Browser-only live vault status / controls. Undefined in desktop mode. */
+  getVaultDirectoryStatus?: () => Promise<VaultDirectoryStatus>;
+  mountVaultDirectory?: () => Promise<VaultDirectoryStatus>;
+  unmountVaultDirectory?: () => Promise<VaultDirectoryStatus>;
+  exportVaultSnapshotZip?: () => Promise<void>;
 }
 
 export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);

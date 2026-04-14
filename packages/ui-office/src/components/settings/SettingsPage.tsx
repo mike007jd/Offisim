@@ -13,6 +13,7 @@ interface SettingsPageProps {
   onBack: () => void;
   onSave: Parameters<typeof useSettingsWorkspaceController>[0]['onSave'];
   onSaveSuccess?: () => void;
+  onToast?: Parameters<typeof useSettingsWorkspaceController>[0]['onToast'];
 }
 
 export function SettingsPage({
@@ -21,12 +22,14 @@ export function SettingsPage({
   onBack,
   onSave,
   onSaveSuccess,
+  onToast,
 }: SettingsPageProps) {
   const controller = useSettingsWorkspaceController({
     isActive: true,
     onDismiss: onBack,
     onSave,
     onSaveSuccess,
+    onToast,
   });
 
   // Keep latest requestDismiss in a ref so the keydown listener never re-registers.

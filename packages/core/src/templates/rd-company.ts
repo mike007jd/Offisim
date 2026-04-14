@@ -247,7 +247,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
           label: 'Development',
           role_slug: 'developer',
           instruction:
-            'Implement the feature following the architecture_doc and design_assets precisely. Write production-quality code with: (1) Clear module structure matching the architecture document, (2) Comprehensive error handling for every failure mode identified in requirements, (3) Unit tests covering core logic with >80% branch coverage, (4) Inline documentation for non-obvious decisions referencing the architecture doc, (5) TypeScript strict mode compliance with no type assertions unless documented. Output the complete implementation with a summary of files changed.',
+            'Implement the feature following the architecture_doc and design_assets precisely. Write production-quality code with: (1) Clear module structure matching the architecture document, (2) Comprehensive error handling for every failure mode identified in requirements, (3) Live-runtime verification of the changed flow with exact steps and observed results, (4) Inline documentation for non-obvious decisions referencing the architecture doc, (5) TypeScript strict mode compliance with no type assertions unless documented. Output the complete implementation with a summary of files changed.',
           output_key: 'code_changes',
           dependencies: ['architecture'],
         },
@@ -256,7 +256,7 @@ export const rdCompanyTemplate: CompanyTemplate = {
           label: 'Code Review & QA',
           role_slug: 'qa',
           instruction:
-            'Perform a thorough review of code_changes against requirements_doc, design_assets, and architecture_doc. Evaluate: (1) Correctness — does the implementation satisfy every acceptance criterion? (2) Code quality — naming, structure, DRY compliance, SOLID principles, (3) Security — input validation, authorization checks, data sanitization, (4) Performance — unnecessary re-renders, N+1 queries, bundle size impact, (5) Test coverage — are edge cases from requirements tested? Rate each area on a 1-5 scale. Categorize issues as critical (must fix), major (should fix), or minor (nice to fix). Provide specific fix instructions for each issue.',
+            'Perform a thorough review of code_changes against requirements_doc, design_assets, and architecture_doc. Evaluate: (1) Correctness — does the implementation satisfy every acceptance criterion? (2) Code quality — naming, structure, DRY compliance, SOLID principles, (3) Security — input validation, authorization checks, data sanitization, (4) Performance — unnecessary re-renders, N+1 queries, bundle size impact, (5) Live verification quality — are edge cases from requirements actually exercised in the runtime and surfaced clearly? Rate each area on a 1-5 scale. Categorize issues as critical (must fix), major (should fix), or minor (nice to fix). Provide specific fix instructions for each issue.',
           output_key: 'review_report',
           dependencies: ['implementation'],
         },

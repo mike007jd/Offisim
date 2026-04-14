@@ -223,15 +223,6 @@ Rules:
 ## Runtime experience reference
 
 If work touches the office scene, runtime feedback, procedural art, or animation choreography,
-read `/Docs/04_runtime_experience/OFFISIM_RUNTIME_EXPERIENCE_GDD.md` before making changes.
+read `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md` before making changes.
 
-That document defines:
-
-- what is a real system vs. a theatrical presentation layer
-- scene feedback grammar for employee/task/install states
-- procedural art boundaries
-- motion intensity and performance budgets
-
-For concrete scene-state mappings, also use:
-
-- `/Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
+Use that matrix as the live reference for concrete scene-state mappings.

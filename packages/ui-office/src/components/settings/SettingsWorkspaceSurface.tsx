@@ -41,6 +41,7 @@ interface SettingsWorkspaceControllerOptions {
   onDismiss: () => void;
   onSave: (config: ProviderConfig) => void;
   onSaveSuccess?: () => void;
+  onToast?: (message: string, variant?: 'info' | 'success' | 'error') => void;
 }
 
 const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
@@ -115,6 +116,7 @@ export function useSettingsWorkspaceController({
   onDismiss,
   onSave,
   onSaveSuccess,
+  onToast,
 }: SettingsWorkspaceControllerOptions) {
   const { density, setDensity } = useTheme();
   const [preset, setPreset] = useState<string>(DEFAULT_PRESET_KEY);
@@ -525,6 +527,8 @@ export function useSettingsWorkspaceController({
     memoryInjectionEnabled,
     memoryMaxFacts,
     model,
+    notify: (message: string, variant: 'info' | 'success' | 'error' = 'info') =>
+      onToast?.(message, variant),
     preset,
     requestDismiss,
     saveError,
