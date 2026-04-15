@@ -15,6 +15,7 @@ import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
@@ -154,6 +155,7 @@ export async function bossSummaryNode(
       roleSlug: o.roleSlug,
     }));
     const title = state.taskPlan?.summary ?? stripLegacySpeakerPrefix(finalContent).slice(0, 80);
+    const inferredFile = inferDeliverableFile(title, finalContent);
     runtimeCtx.eventBus.emit(
       deliverableCreated(
         runtimeCtx.companyId,
@@ -162,6 +164,7 @@ export async function bossSummaryNode(
         title,
         finalContent,
         contributingEmployees,
+        inferredFile ?? undefined,
       ),
     );
   };
@@ -176,7 +179,11 @@ export async function bossSummaryNode(
       throw new Error('Expected a single employee result for boss summary fast path');
     }
     const content = firstEmployeeResult + actionItemsSuffix;
-    emitDeliverable(content);
+    const existingArtifact = state.currentStepOutputs[0]?.artifact;
+    const inferredFile = inferDeliverableFile(state.taskPlan?.summary ?? '', content);
+    if (!existingArtifact && !inferredFile) {
+      emitDeliverable(content);
+    }
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }

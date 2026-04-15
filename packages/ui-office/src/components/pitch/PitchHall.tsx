@@ -21,6 +21,12 @@ import {
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
+import { canPreviewDeliverable } from '../../lib/deliverable-artifacts';
+import {
+  openDesktopLocalPath,
+  saveDesktopDeliverable,
+} from '../../lib/desktop-local-paths';
+import { isTauri } from '../../lib/env';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
@@ -67,6 +73,16 @@ function triggerDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+function triggerTextDownload(content: string, filename: string, mimeType = 'text/plain'): void {
+  triggerDownload(new Blob([content], { type: `${mimeType};charset=utf-8` }), filename);
+}
+
+function previewTextArtifact(content: string, mimeType: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
+  window.open(url, '_blank', 'noopener,noreferrer');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 // ---------------------------------------------------------------------------
 // DeliverableCard
 // ---------------------------------------------------------------------------
@@ -74,16 +90,22 @@ function triggerDownload(blob: Blob, filename: string): void {
 interface DeliverableCardProps {
   item: Deliverable;
   onSaveAsSop: (item: Deliverable) => Promise<void>;
+  desktopVaultRoot: string | null;
   /** When true, briefly flash a highlight ring then fade */
   isNew?: boolean;
 }
 
-function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
+function DeliverableCard({ item, onSaveAsSop, desktopVaultRoot, isNew }: DeliverableCardProps) {
   const [copied, setCopied] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [exporting, setExporting] = useState(false);
   const [savingSop, setSavingSop] = useState(false);
   const [sopSaved, setSopSaved] = useState(false);
+  const [localPath, setLocalPath] = useState<string | null>(null);
+  const [savingLocal, setSavingLocal] = useState(false);
+  const desktopMode = isTauri();
+  const isFileArtifact = item.artifact.kind === 'file' && !!item.artifact.fileName;
+  const canPreview = canPreviewDeliverable(item.artifact);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -96,11 +118,19 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
   }, [item.content]);
 
   const handleDownload = useCallback(async () => {
+    if (isFileArtifact && item.artifact.fileName) {
+      triggerTextDownload(
+        item.artifact.content,
+        item.artifact.fileName,
+        item.artifact.mimeType ?? 'text/plain',
+      );
+      return;
+    }
     setExporting(true);
     try {
       const doc: ExportableDocument = {
         title: item.title,
-        content: item.content,
+        content: item.artifact.content,
         contributors: item.contributingEmployees.map((e) => ({
           name: e.employeeName,
         })),
@@ -113,7 +143,29 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
     } finally {
       setExporting(false);
     }
-  }, [item, selectedFormat]);
+  }, [isFileArtifact, item, selectedFormat]);
+
+  const handlePreview = useCallback(() => {
+    if (!canPreview) return;
+    previewTextArtifact(item.artifact.content, item.artifact.mimeType ?? 'text/plain');
+  }, [canPreview, item.artifact.content, item.artifact.mimeType]);
+
+  const handleSaveLocal = useCallback(async () => {
+    if (!desktopMode || !desktopVaultRoot || !item.artifact.fileName) return;
+    setSavingLocal(true);
+    try {
+      const path = await saveDesktopDeliverable(
+        desktopVaultRoot,
+        item.artifact.fileName,
+        item.artifact.content,
+      );
+      setLocalPath(path);
+    } catch (err) {
+      console.error('[PitchHall] Save locally failed:', err);
+    } finally {
+      setSavingLocal(false);
+    }
+  }, [desktopMode, desktopVaultRoot, item.artifact.content, item.artifact.fileName]);
 
   const handleSaveAsSop = useCallback(async () => {
     if (savingSop || sopSaved) return;
@@ -153,8 +205,18 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
         )}
       </CardHeader>
       <CardContent className="p-3 pt-1">
+        {item.artifact.fileName && (
+          <div className="mb-2 flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              {item.artifact.fileName}
+            </Badge>
+            {item.artifact.mimeType && (
+              <span className="text-[10px] text-slate-500">{item.artifact.mimeType}</span>
+            )}
+          </div>
+        )}
         <p className="font-mono text-[11px] text-slate-400/80 leading-relaxed whitespace-pre-wrap break-words">
-          {truncate(item.content, 200)}
+          {truncate(item.artifact.content, 200)}
         </p>
         {/* Actions — wrap-friendly for 280px */}
         <div className="flex flex-wrap items-center gap-1 mt-2">
@@ -166,21 +228,33 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
           >
             {copied ? 'Copied!' : 'Copy'}
           </Button>
-          <Select
-            value={selectedFormat}
-            onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
-          >
-            <SelectTrigger className="h-6 w-[64px] text-[10px] text-slate-400/70 border-shell/20 bg-transparent">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FORMAT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-[10px]">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!isFileArtifact && (
+            <Select
+              value={selectedFormat}
+              onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
+            >
+              <SelectTrigger className="h-6 w-[64px] text-[10px] text-slate-400/70 border-shell/20 bg-transparent">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMAT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-[10px]">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {canPreview && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+              onClick={handlePreview}
+            >
+              Preview
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -188,8 +262,29 @@ function DeliverableCard({ item, onSaveAsSop, isNew }: DeliverableCardProps) {
             onClick={handleDownload}
             disabled={exporting}
           >
-            {exporting ? '...' : 'Export'}
+            {exporting ? '...' : isFileArtifact ? 'Download' : 'Export'}
           </Button>
+          {desktopMode && isFileArtifact && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+              onClick={() => (localPath ? void openDesktopLocalPath(localPath) : void handleSaveLocal())}
+              disabled={savingLocal || !desktopVaultRoot}
+            >
+              {savingLocal ? '...' : localPath ? 'Open file' : 'Save locally'}
+            </Button>
+          )}
+          {desktopMode && desktopVaultRoot && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+              onClick={() => void openDesktopLocalPath(`${desktopVaultRoot}/deliverables`)}
+            >
+              Open folder
+            </Button>
+          )}
           <Button
             variant={item.contributingEmployees.length >= 2 && !sopSaved ? 'default' : 'ghost'}
             size="sm"
@@ -223,7 +318,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         : allDeliverables,
     [allDeliverables, activeThreadId],
   );
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus, desktopVaultRoot } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);
 
@@ -345,6 +440,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
           key={item.id}
           item={item}
           onSaveAsSop={handleSaveAsSop}
+          desktopVaultRoot={desktopVaultRoot ?? null}
           isNew={item.id === newestId}
         />
       ))}

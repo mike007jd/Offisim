@@ -97,6 +97,11 @@ export function deliverableCreated(
   title: string,
   content: string,
   contributingEmployees: DeliverableCreatedPayload['contributingEmployees'],
+  options?: {
+    kind?: DeliverableCreatedPayload['kind'];
+    fileName?: string | null;
+    mimeType?: string | null;
+  },
 ): RuntimeEvent<DeliverableCreatedPayload> {
   const now = Date.now();
   return {
@@ -111,6 +116,9 @@ export function deliverableCreated(
       threadId,
       title,
       content,
+      kind: options?.kind,
+      fileName: options?.fileName,
+      mimeType: options?.mimeType,
       contributingEmployees,
       createdAt: now,
     },

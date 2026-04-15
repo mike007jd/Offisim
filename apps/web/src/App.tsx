@@ -40,6 +40,7 @@ import { getOnboardingCopy } from './lib/onboarding-prompts';
 import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboarding-store';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
+const DELIVERABLE_FILE_NAME_RE = /\.(html|js|ts|json|md|css|txt|csv|ya?ml|xml)$/i;
 
 const WORKSPACE_TITLES: Record<string, string> = {
   sops: 'SOPs',
@@ -52,11 +53,21 @@ function stripLegacySpeakerPrefix(text: string): string {
   return text.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
 }
 
-function formatDeliverableToastTitle(title: string): string {
-  const cleaned = stripLegacySpeakerPrefix(title)
+function formatDeliverableToastTitle(payload: Pick<DeliverableCreatedPayload, 'title' | 'kind' | 'fileName'>): string {
+  if (payload.kind === 'file' && payload.fileName?.trim()) {
+    return `${payload.fileName.trim()} ready`;
+  }
+
+  const cleaned = stripLegacySpeakerPrefix(payload.title)
     .replace(/^#+\s*/, '')
     .replace(/\s+/g, ' ')
     .trim();
+  if (DELIVERABLE_FILE_NAME_RE.test(cleaned)) {
+    return `${cleaned} ready`;
+  }
+  if (cleaned.startsWith('```') || /^<!doctype html/i.test(cleaned) || /^<html[\s>]/i.test(cleaned)) {
+    return 'Deliverable ready';
+  }
   if (!cleaned) return 'Deliverable ready';
   if (cleaned.length <= 36) return `${cleaned} ready`;
   return 'Deliverable ready';
@@ -297,8 +308,7 @@ export function App({ onCompanySwitch }: AppProps) {
   // Subscribe to deliverable.created — show toast with View or SOP action.
   useEffect(() => {
     return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-      const title = stripLegacySpeakerPrefix(e.payload.title || 'Output');
-      addToast(formatDeliverableToastTitle(title), 'success', {
+      addToast(formatDeliverableToastTitle(e.payload), 'success', {
         actionLabel: 'Open Tasks',
         onAction: () => setFocusOutputsToken((t) => t + 1),
         durationMs: 10_000,

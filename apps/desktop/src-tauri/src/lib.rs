@@ -188,6 +188,7 @@ pub fn run() {
             runtime_secrets::runtime_secret_clear,
             git::git_exec,
             local_paths::open_local_path,
+            local_paths::save_deliverable_to_local,
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()

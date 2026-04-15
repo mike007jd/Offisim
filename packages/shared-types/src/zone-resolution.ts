@@ -106,7 +106,7 @@ export function resolveZoneForRole(role: RoleSlug, zones: readonly Zone[]): Zone
 /**
  * Resolve which zone an employee belongs to.
  * Uses role-based matching via `resolveZoneForRole()`.
- * Replaces the duplicated logic in Office2DView and Office3DView.
+ * Replaces the old duplicated 2D/3D zone resolution logic.
  */
 export function resolveEmployeeZone(
   agent: { role: RoleSlug; workstationId?: string | null },

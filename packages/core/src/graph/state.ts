@@ -57,6 +57,14 @@ export interface StepTaskOutput {
   roleSlug: RoleSlug;
   content: string;
   taskRunId: string;
+  artifact?:
+    | {
+        kind: 'file';
+        fileName: string | null;
+        mimeType: string | null;
+        content: string;
+      }
+    | undefined;
   /** Library document citations used in this response (empty array if none). */
   citations?: CitationRef[];
 }
