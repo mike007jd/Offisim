@@ -43,6 +43,8 @@ import { listDesktopMcpServers } from '../lib/desktop-mcp-registry';
 import { initializeRuntimeBundle } from './initialize-runtime';
 import { getInteractionFollowUp } from './interaction-follow-up';
 import { isRuntimeReadyForInteraction } from './runtime-readiness';
+import { useRuntimeMeetingBridge } from './useRuntimeMeetingBridge';
+import { useUnfinishedThreadDetection } from './useUnfinishedThreadDetection';
 
 export interface UnfinishedThread {
   threadId: string;
@@ -154,85 +156,12 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     };
   }, []);
 
-  // Bridge meeting control UI events onto the orchestration service.
-  // Running meetings consume pause/end/inject via interruptMeeting();
-  // paused meetings need an explicit resume/end invocation because no graph is active.
-  useEffect(() => {
-    const eventBus = eventBusRef.current;
-
-    const unsubPause = eventBus.on('meeting.interrupt.pause', () => {
-      runtimeRef.current?.orch?.interruptMeeting('pause');
-    });
-
-    const unsubInject = eventBus.on('meeting.interrupt.inject', (event) => {
-      const payload = event.payload as { comment?: string } | undefined;
-      runtimeRef.current?.orch?.interruptMeeting('inject', payload?.comment);
-    });
-
-    const unsubResume = eventBus.on('meeting.interrupt.resume', (event) => {
-      const runtime = runtimeRef.current;
-      const orch = runtime?.orch;
-      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
-      if (!orch || !meetingId) return;
-
-      void (async () => {
-        const meeting = await runtime.repos?.meetings.findById(meetingId);
-        if (!meeting || meeting.status !== 'paused') return;
-
-        setIsRunning(true);
-        try {
-          const { HumanMessage } = await import('@langchain/core/messages');
-          await orch.resumeMeeting(
-            meetingId,
-            [new HumanMessage('Resume meeting')],
-            meeting.thread_id ?? undefined,
-          );
-        } catch (err) {
-          setError(err instanceof Error ? err.message : String(err));
-        } finally {
-          setIsRunning(false);
-        }
-      })();
-    });
-
-    const unsubEnd = eventBus.on('meeting.interrupt.end', (event) => {
-      const runtime = runtimeRef.current;
-      const orch = runtime?.orch;
-      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
-      if (!orch || !meetingId) return;
-
-      void (async () => {
-        const meeting = await runtime.repos?.meetings.findById(meetingId);
-        if (!meeting) return;
-
-        if (meeting.status === 'paused') {
-          setIsRunning(true);
-          try {
-            const { HumanMessage } = await import('@langchain/core/messages');
-            await orch.endPausedMeeting(
-              meetingId,
-              [new HumanMessage('End meeting')],
-              meeting.thread_id ?? undefined,
-            );
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setIsRunning(false);
-          }
-          return;
-        }
-
-        orch.interruptMeeting('end');
-      })();
-    });
-
-    return () => {
-      unsubPause();
-      unsubInject();
-      unsubResume();
-      unsubEnd();
-    };
-  }, []);
+  useRuntimeMeetingBridge({
+    eventBusRef,
+    runtimeRef,
+    setIsRunning,
+    setError,
+  });
 
   useEffect(() => {
     const eventBus = eventBusRef.current;
@@ -616,38 +545,13 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     void connectSavedServers();
   }, [version]);
 
-  // Startup detection — find threads that were left in 'running' status
-  // (e.g. app crashed or was closed mid-execution). Runs once per init cycle.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: version ensures re-run after async runtime init completes
-  useEffect(() => {
-    if (detectionDoneRef.current) return;
-    const runtime = runtimeRef.current;
-    if (!runtime?.repos) return;
-
-    detectionDoneRef.current = true;
-
-    (async () => {
-      try {
-        const threads = await runtime.repos.threads.findByCompany(companyId, { status: 'running' });
-        if (threads.length === 0) {
-          setUnfinishedThreads([]);
-          return;
-        }
-        // Enrich with project names — single query, no N+1.
-        const allProjects = await runtime.repos.projects.findByCompany(companyId);
-        const enriched: UnfinishedThread[] = threads.map((t) => {
-          const project = allProjects.find((p) => p.thread_id === t.thread_id);
-          return {
-            threadId: t.thread_id,
-            projectName: project?.name ?? t.thread_id,
-          };
-        });
-        setUnfinishedThreads(enriched);
-      } catch {
-        // Silent fail — startup detection must never block the UI
-      }
-    })();
-  }, [companyId, version]);
+  useUnfinishedThreadDetection({
+    companyId,
+    version,
+    detectionDoneRef,
+    runtimeRef,
+    setUnfinishedThreads,
+  });
 
   // ---------------------------------------------------------------------------
   // EmployeeVersionService — only recreated when runtime changes (version bump).

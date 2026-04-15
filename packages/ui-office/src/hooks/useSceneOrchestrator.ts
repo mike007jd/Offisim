@@ -26,9 +26,8 @@ import type {
   RuntimeEvent,
   TaskAssignmentDispatchedPayload,
   ToolExecutionTelemetryPayload,
-  Zone,
 } from '@offisim/shared-types';
-import { UNASSIGNED_ZONE_ID, isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
+import { UNASSIGNED_ZONE_ID, resolveZoneForRole, type Zone } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addWaitingRelationship, removeWaitingRelationship } from '../lib/ceremony-visuals';
 import { truncate } from '../lib/format-time';
@@ -48,7 +47,6 @@ import { buildZoneRouteWaypoints, getMeetingZoneId } from '../lib/scene-nav';
 import {
   SeatRegistry,
   computeRestSeatPosition,
-  computeWorkspaceFallbackSeatPosition,
 } from '../lib/seat-registry';
 import { categorizeTool } from '../lib/tool-category';
 import type {
@@ -62,76 +60,17 @@ import type {
 } from '../runtime/scene-intents';
 import type { AgentState } from '../runtime/use-agent-states';
 import type { CharacterMovementHandle } from './useCharacterMovement';
+import {
+  computeMtgPositions,
+  getObstacleFootprints,
+  getWorkstationApproachPos,
+  getWorkstationPos,
+  getZoneCenter,
+  getZoneCenterById,
+  resolveZoneIdForPosition,
+} from './scene-orchestrator-positions';
 
 // ── Zone-aware coordinate helpers ────────────────────────────────
-
-const MTG_RADIUS = 2.5;
-const MTG_RING_SPACING = 1.2;
-
-/** Fallback center if zone not found. */
-const ORIGIN: [number, number, number] = [0, 0, 0];
-
-function getZoneCenter(zones: readonly Zone[], archetype: string): [number, number, number] {
-  const z = zones.find((zone) => zone.archetype === archetype);
-  return z ? [z.cx, 0, z.cz] : ORIGIN;
-}
-
-function getZoneCenterById(zones: readonly Zone[], zoneId: string): [number, number, number] {
-  const z = zones.find((zone) => zone.zoneId === zoneId);
-  return z ? [z.cx, 0, z.cz] : ORIGIN;
-}
-
-function computeMtgPositions(
-  mtgCenter: [number, number, number],
-  participantCount = 8,
-): [number, number, number][] {
-  const total = Math.max(participantCount, 0);
-  const positions: [number, number, number][] = [];
-  let ring = 0;
-
-  while (positions.length < total) {
-    const slotsInRing = 8 + ring * 4;
-    const radius = MTG_RADIUS + ring * MTG_RING_SPACING;
-    for (let i = 0; i < slotsInRing && positions.length < total; i++) {
-      const angle = (Math.PI * (i + 1)) / (slotsInRing + 1);
-      positions.push([
-        mtgCenter[0] + Math.cos(angle) * radius,
-        0,
-        mtgCenter[2] + Math.sin(angle) * radius,
-      ]);
-    }
-    ring++;
-  }
-
-  return positions;
-}
-
-function getWorkstationPos(
-  registry: SeatRegistry | null,
-  zones: readonly Zone[],
-  zoneId: string,
-  slotIdx: number,
-): [number, number, number] {
-  if (registry) {
-    const seat = registry.getSeat(zoneId, slotIdx);
-    if (seat) return [...seat.position];
-  }
-  const center = getZoneCenterById(zones, zoneId);
-  return computeWorkspaceFallbackSeatPosition(center[0], center[2], slotIdx);
-}
-
-function getWorkstationApproachPos(
-  registry: SeatRegistry | null,
-  zones: readonly Zone[],
-  zoneId: string,
-  slotIdx: number,
-): [number, number, number] {
-  if (registry) {
-    const seat = registry.getSeat(zoneId, slotIdx);
-    if (seat) return [...seat.approachPosition];
-  }
-  return getWorkstationPos(registry, zones, zoneId, slotIdx);
-}
 
 function getRestSlotKey(companyId: string): string {
   return `${companyId}:rest-counter`;
@@ -150,17 +89,6 @@ function getRestPos(
   }
   const restCenter = getZoneCenter(zones, 'rest');
   return computeRestSeatPosition(restCenter[0], restCenter[2], idx);
-}
-
-function getObstacleFootprints(registry: SeatRegistry | null) {
-  return registry?.getObstacleFootprints() ?? [];
-}
-
-function resolveZoneIdForPosition(
-  position: readonly [number, number, number],
-  zones: readonly Zone[],
-): string | null {
-  return zones.find((zone) => isInsideZone(position[0], position[2], zone))?.zoneId ?? null;
 }
 
 export function createIdleCeremonyState(): CeremonyState {

@@ -1,9 +1,6 @@
 import { employeeCreated } from '@offisim/core/browser';
 import type {
-  DeliverableCreatedPayload,
   RoleSlug,
-  RuntimeEvent,
-  VaultSyncFailedPayload,
 } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
@@ -28,6 +25,7 @@ import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
 import type { WorkspaceKey } from './components/workspaces/types';
 import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
+import { useAppRuntimeToasts } from './hooks/useAppRuntimeToasts';
 import {
   type AppView,
   type OfficeViewMode,
@@ -40,7 +38,6 @@ import { getOnboardingCopy } from './lib/onboarding-prompts';
 import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboarding-store';
 
 const PENDING_VIEW_KEY = 'offisim:pending-view';
-const DELIVERABLE_FILE_NAME_RE = /\.(html|js|ts|json|md|css|txt|csv|ya?ml|xml)$/i;
 
 const WORKSPACE_TITLES: Record<string, string> = {
   sops: 'SOPs',
@@ -48,30 +45,6 @@ const WORKSPACE_TITLES: Record<string, string> = {
   'activity-log': 'Activity Log',
   settings: 'Settings',
 };
-
-function stripLegacySpeakerPrefix(text: string): string {
-  return text.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
-}
-
-function formatDeliverableToastTitle(payload: Pick<DeliverableCreatedPayload, 'title' | 'kind' | 'fileName'>): string {
-  if (payload.kind === 'file' && payload.fileName?.trim()) {
-    return `${payload.fileName.trim()} ready`;
-  }
-
-  const cleaned = stripLegacySpeakerPrefix(payload.title)
-    .replace(/^#+\s*/, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (DELIVERABLE_FILE_NAME_RE.test(cleaned)) {
-    return `${cleaned} ready`;
-  }
-  if (cleaned.startsWith('```') || /^<!doctype html/i.test(cleaned) || /^<html[\s>]/i.test(cleaned)) {
-    return 'Deliverable ready';
-  }
-  if (!cleaned) return 'Deliverable ready';
-  if (cleaned.length <= 36) return `${cleaned} ready`;
-  return 'Deliverable ready';
-}
 
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
@@ -179,6 +152,11 @@ export function App({ onCompanySwitch }: AppProps) {
   const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
   const { toasts, addToast, dismissToast } = useToasts();
+  useAppRuntimeToasts({
+    eventBus,
+    addToast,
+    onOpenTasks: () => setFocusOutputsToken((token) => token + 1),
+  });
 
   useEffect(() => {
     setView(activeCompanyId ? 'office' : 'company-select');
@@ -304,36 +282,6 @@ export function App({ onCompanySwitch }: AppProps) {
       markAccount('provider_configured');
     }
   }, [providerConfig]);
-
-  // Subscribe to deliverable.created — show toast with View or SOP action.
-  useEffect(() => {
-    return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-      addToast(formatDeliverableToastTitle(e.payload), 'success', {
-        actionLabel: 'Open Tasks',
-        onAction: () => setFocusOutputsToken((t) => t + 1),
-        durationMs: 10_000,
-      });
-      if (e.companyId) {
-        markCompany(e.companyId, 'first_deliverable_seen');
-      }
-    });
-  }, [eventBus, addToast]);
-
-  // Vault sync failures surface here so operators see disk / permission
-  // problems instead of the vault silently falling behind.
-  useEffect(() => {
-    return eventBus.on('vault.sync.failed', (e: RuntimeEvent<VaultSyncFailedPayload>) => {
-      const verb =
-        e.payload.target === 'import'
-          ? 'read'
-          : e.payload.target === 'delete'
-            ? 'delete'
-            : e.payload.target === 'activate'
-              ? 'activation'
-              : 'write';
-      addToast(`Vault ${verb} failed: ${e.payload.reason}`, 'error', { durationMs: 8_000 });
-    });
-  }, [eventBus, addToast]);
 
   useDeepLinkInstall(
     useCallback(
