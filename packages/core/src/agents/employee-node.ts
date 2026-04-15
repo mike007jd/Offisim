@@ -209,7 +209,7 @@ export async function employeeNode(
     return { pendingAssignments: [], completed: true };
   }
   const isDirectChatTask = assignment.taskType === 'direct_chat';
-  const streamEmployeeReplies = isDirectChatTask;
+  const streamEmployeeReplies = true;
 
   const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
     | string
@@ -824,7 +824,7 @@ export async function employeeNode(
       currentEmployeeId: employee.employee_id,
       currentTaskRunId: taskRunId ?? null,
       pendingAssignments: remaining,
-      messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
+      messages: [new AIMessage({ content: llmResponse.content })],
       currentStepOutputs: [
         ...state.currentStepOutputs,
         {
@@ -921,7 +921,7 @@ export async function employeeNode(
         currentEmployeeId: employee.employee_id,
         currentTaskRunId: taskRunId ?? null,
         pendingAssignments: remaining,
-        messages: [new AIMessage({ content: `[${employee.name}]: ${recovered.content}` })],
+        messages: [new AIMessage({ content: recovered.content })],
         currentStepOutputs: [
           ...state.currentStepOutputs,
           {

@@ -358,10 +358,7 @@ export async function bossNode(
     },
   });
 
-  // Prefix direct_reply messages with [Boss]: so the UI can display agent identity.
-  // Non-direct-reply messages are consumed by downstream graph nodes and don't need the prefix.
-  const messageContent =
-    route === 'direct_reply' ? `[Boss]: ${finalReplyContent}` : finalReplyContent;
+  const messageContent = finalReplyContent;
 
   return {
     routeDecision: route,

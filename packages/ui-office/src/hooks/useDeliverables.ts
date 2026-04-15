@@ -1,5 +1,6 @@
 import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
+import { stripLegacySpeakerPrefix } from '../lib/legacy-speaker-prefix';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface Deliverable {
@@ -27,7 +28,14 @@ export function useDeliverables(): Deliverable[] {
         e.payload;
       setDeliverables((prev) => [
         ...prev,
-        { id: deliverableId, threadId, title, content, contributingEmployees, createdAt },
+        {
+          id: deliverableId,
+          threadId,
+          title: stripLegacySpeakerPrefix(title),
+          content: stripLegacySpeakerPrefix(content),
+          contributingEmployees,
+          createdAt,
+        },
       ]);
     });
     return off;

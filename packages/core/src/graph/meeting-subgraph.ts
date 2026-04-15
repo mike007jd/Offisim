@@ -236,7 +236,7 @@ export async function participantTurnNode(
         inputJson: updatedTurnState as unknown as Record<string, unknown>,
       },
     ],
-    messages: [new AIMessage({ content: `[${employee.name}]: ${llmResponse.content}` })],
+    messages: [new AIMessage({ content: llmResponse.content })],
   };
 }
 
@@ -410,7 +410,7 @@ export async function meetingInjectNode(
     ],
     messages: [
       new AIMessage({
-        content: `[Boss]: ${bossComment}`,
+        content: bossComment,
       }),
     ],
   };

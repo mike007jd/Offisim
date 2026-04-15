@@ -30,6 +30,7 @@ import {
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
+  terminateRunWithError,
   useChatStreamingSync,
 } from '@offisim/ui-office/web';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -431,6 +432,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           setError(null);
           return undefined;
         }
+        terminateRunWithError();
         setError(msg);
         return undefined;
       } finally {

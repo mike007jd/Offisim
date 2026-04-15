@@ -256,8 +256,10 @@ export function Office3DSceneHud({
             <span>{ceremonyLabel.label}</span>
           </div>
         )}
-        <div>{activeCount} active</div>
-        {blockedCount > 0 && <div style={{ color: '#fbbf24' }}>{blockedCount} blocked</div>}
+        <div>{activeCount} employees active</div>
+        {blockedCount > 0 && (
+          <div style={{ color: '#fbbf24' }}>{blockedCount} employees blocked</div>
+        )}
       </div>
     </Html>
   );

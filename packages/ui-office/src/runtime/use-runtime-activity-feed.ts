@@ -29,6 +29,7 @@ import type {
 } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeNodeName } from '../lib/agent-display';
+import { stripLegacySpeakerPrefix } from '../lib/legacy-speaker-prefix';
 import { type ToolCategory, categorizeTool } from '../lib/tool-category';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
@@ -605,7 +606,7 @@ export function useRuntimeActivityFeed(opts?: {
       (event: RuntimeEvent<DeliverableCreatedPayload>) => {
         const payload = event.payload;
         const empCount = payload.contributingEmployees.length;
-        const title = truncate(payload.title, 50);
+        const title = truncate(stripLegacySpeakerPrefix(payload.title), 50);
         setEntries((prev) =>
           pushEntry(
             prev,

@@ -1,10 +1,21 @@
 import { cn } from '@offisim/ui-core';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { getBadgeColorForDisplayName } from '../../lib/agent-display';
+import {
+  DEFAULT_BADGE_COLOR,
+  NODE_BADGE_COLORS,
+  getBadgeColorForDisplayName,
+  humanizeNodeName,
+} from '../../lib/agent-display';
+import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
+import type { MessageStatus } from './chat-session-store';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  status?: MessageStatus;
+  nodeName?: string | null;
+  reasoning?: string;
 }
 
 // ── Agent identity extraction ──────────────────────────────────────
@@ -57,7 +68,15 @@ function renderWithCitations(text: string): ReactNode {
 
 // ── Component ──────────────────────────────────────────────────────
 
-export function MessageBubble({ role, content }: MessageBubbleProps) {
+export function MessageBubble({
+  role,
+  content,
+  status,
+  nodeName,
+  reasoning,
+}: MessageBubbleProps) {
+  const [reasoningOpen, setReasoningOpen] = useState(false);
+
   // System messages: full-width, monospace, no avatar
   if (role === 'system') {
     return (
@@ -70,29 +89,82 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
   }
 
   const isUser = role === 'user';
-  const agent = !isUser ? parseAgentIdentity(content) : null;
-  const displayContent = agent ? agent.body : content;
+
+  // Speaker identity: prefer structured nodeName, fall back to legacy regex parsing
+  let badgeLabel: string | null = null;
+  let badgeColor: string = DEFAULT_BADGE_COLOR;
+  let displayContent = content;
+
+  if (!isUser && nodeName) {
+    badgeLabel = humanizeNodeName(nodeName);
+    badgeColor = NODE_BADGE_COLORS[nodeName] ?? DEFAULT_BADGE_COLOR;
+    displayContent = stripLegacySpeakerPrefix(content);
+  } else if (!isUser) {
+    const agent = parseAgentIdentity(content);
+    if (agent) {
+      badgeLabel = agent.name;
+      badgeColor = badgeColorFor(agent.name);
+      displayContent = agent.body;
+    }
+  }
+
+  // Status-based border styling
+  const statusBorder =
+    status === 'failed'
+      ? 'border-l-2 border-red-400/40'
+      : status === 'interrupted'
+        ? 'border-l-2 border-amber-400/40'
+        : '';
 
   return (
     <div data-role={role} className={cn('flex flex-col', isUser ? 'items-end' : 'items-start')}>
       {/* Agent identity badge */}
-      {agent && (
+      {badgeLabel && (
         <span
           className={cn(
             'inline-block mb-0.5 px-1.5 py-px rounded text-[10px] font-medium leading-tight',
-            badgeColorFor(agent.name),
+            badgeColor,
           )}
         >
-          {agent.name}
+          {badgeLabel}
         </span>
+      )}
+      {/* Reasoning collapsible section */}
+      {reasoning && (
+        <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100">
+          <button
+            type="button"
+            className="mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80 cursor-pointer"
+            onClick={() => setReasoningOpen((o) => !o)}
+          >
+            <span
+              className={cn(
+                'inline-block transition-transform text-[8px]',
+                reasoningOpen ? 'rotate-90' : '',
+              )}
+            >
+              ▶
+            </span>
+            Reasoning
+          </button>
+          {reasoningOpen && <div className="whitespace-pre-wrap">{reasoning}</div>}
+        </div>
       )}
       <div
         className={cn(
-          'max-w-[80%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
+          'max-w-[94%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
           isUser ? 'bg-blue-600/20 text-slate-100' : 'bg-white/5 text-slate-200',
+          statusBorder,
         )}
       >
         {isUser ? displayContent : renderWithCitations(displayContent)}
+        {/* Status label */}
+        {status === 'failed' && (
+          <div className="mt-1 text-[10px] font-medium text-red-400/70">Failed</div>
+        )}
+        {status === 'interrupted' && (
+          <div className="mt-1 text-[10px] font-medium text-amber-400/70">Interrupted</div>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,8 @@
-import type { GraphNodeEnteredPayload, RuntimeEvent } from '@offisim/shared-types';
+import type {
+  DeliverableCreatedPayload,
+  GraphNodeEnteredPayload,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import { useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef } from 'react';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
@@ -52,6 +56,7 @@ export function useFirstRunGuidance() {
   const lastShownAtRef = useRef(0);
   const pendingQueueRef = useRef<GuidanceToast[]>([]);
   const pendingTimerRef = useRef<number | null>(null);
+  const marketTimerRef = useRef<number | null>(null);
 
   const clearPendingTimer = useCallback(() => {
     if (pendingTimerRef.current === null || typeof window === 'undefined') {
@@ -59,6 +64,14 @@ export function useFirstRunGuidance() {
     }
     window.clearTimeout(pendingTimerRef.current);
     pendingTimerRef.current = null;
+  }, []);
+
+  const clearMarketTimer = useCallback(() => {
+    if (marketTimerRef.current === null || typeof window === 'undefined') {
+      return;
+    }
+    window.clearTimeout(marketTimerRef.current);
+    marketTimerRef.current = null;
   }, []);
 
   const showToast = useCallback(
@@ -155,24 +168,24 @@ export function useFirstRunGuidance() {
   }, [enqueueGuidance, eventBus]);
 
   useEffect(() => {
-    if (isDismissed(MARKET_GUIDANCE.key) || typeof window === 'undefined') {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      enqueueGuidance(MARKET_GUIDANCE);
-    }, MARKET_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [enqueueGuidance]);
+    return eventBus.on('deliverable.created', (_event: RuntimeEvent<DeliverableCreatedPayload>) => {
+      if (isDismissed(MARKET_GUIDANCE.key) || typeof window === 'undefined') {
+        return;
+      }
+      clearMarketTimer();
+      marketTimerRef.current = window.setTimeout(() => {
+        marketTimerRef.current = null;
+        enqueueGuidance(MARKET_GUIDANCE);
+      }, MARKET_DELAY_MS);
+    });
+  }, [clearMarketTimer, enqueueGuidance, eventBus]);
 
   useEffect(() => {
     return () => {
       clearPendingTimer();
+      clearMarketTimer();
     };
-  }, [clearPendingTimer]);
+  }, [clearMarketTimer, clearPendingTimer]);
 
   return {
     toasts,

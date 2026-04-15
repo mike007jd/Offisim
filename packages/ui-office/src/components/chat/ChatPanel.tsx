@@ -107,6 +107,8 @@ export function ChatPanel({
   const getMessages = useChatSessionStore((state) => state.getMessages);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const SCROLL_THRESHOLD = 80;
 
   // Track which target the last error occurred on
   const errorTargetRef = useRef<string | null>(null);
@@ -153,13 +155,33 @@ export function ChatPanel({
     interactionTargetRef.current = null;
   }, [pendingInteraction, targetKey]);
 
-  // Auto-scroll
+  const getScrollViewport = useCallback((): HTMLDivElement | null => {
+    const viewport = scrollRef.current?.parentElement;
+    return viewport instanceof HTMLDivElement ? viewport : null;
+  }, []);
+
+  useEffect(() => {
+    const viewport = getScrollViewport();
+    if (!viewport) return;
+
+    const updateNearBottom = () => {
+      isNearBottomRef.current =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < SCROLL_THRESHOLD;
+    };
+
+    updateNearBottom();
+    viewport.addEventListener('scroll', updateNearBottom, { passive: true });
+    return () => viewport.removeEventListener('scroll', updateNearBottom);
+  });
+
+  // Auto-scroll — only when user is near the bottom
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const viewport = getScrollViewport();
+    if (isNearBottomRef.current && viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
-  }, [messages, streamContent]);
+  }, [messages, streamContent, streamReasoning, getScrollViewport]);
 
   function addMessage(targetEmployeeId: string | null, msg: ChatMessage) {
     appendMessage(
@@ -424,6 +446,7 @@ export function ChatPanel({
                   <ActivityRail
                     focusedEmployeeId={selectedEmployeeId}
                     focusedEmployeeName={selectedEmployeeName}
+                    variant="compact"
                   />
                   <SystemMessageFeed />
                 </div>
@@ -452,6 +475,7 @@ export function ChatPanel({
                 <ActivityRail
                   focusedEmployeeId={selectedEmployeeId}
                   focusedEmployeeName={selectedEmployeeName}
+                  variant="compact"
                 />
                 <SystemMessageFeed />
                 {pendingInteraction?.severity !== 'high' &&
@@ -464,7 +488,14 @@ export function ChatPanel({
                     />
                   )}
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+                  <MessageBubble
+                    key={msg.id}
+                    role={msg.role}
+                    content={msg.content}
+                    status={msg.status}
+                    nodeName={msg.nodeName}
+                    reasoning={msg.reasoning}
+                  />
                 ))}
                 <StreamingBubble
                   content={streamContent}

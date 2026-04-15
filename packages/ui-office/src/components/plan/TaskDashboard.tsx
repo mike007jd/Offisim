@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
+import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
 import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 import { TaskStepCard } from './TaskStepCard';
@@ -10,6 +11,8 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
   const { eventBus } = useOffisimRuntime();
+  const { isRunning } = useOffisimRuntimeStatus();
+  const { stage, routeLabel } = usePipelineStage();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [stepFilter, setStepFilter] = useState<number | null>(null);
   /** Ref to the scroll container for programmatic scrolling on scene.employee.selected */
@@ -126,6 +129,20 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
   );
 
   if (!dashboard.planId) {
+    if (isRunning) {
+      const stageLabel = stage ? STAGE_META[stage].chatLabel : 'Runtime active';
+      return (
+        <div className="p-3">
+          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-cyan-100">{stageLabel}</p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              {routeLabel ??
+                'The boss is routing the request and the manager is building the first executable plan.'}
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="p-3">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center">

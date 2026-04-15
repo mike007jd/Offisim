@@ -75,14 +75,14 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
                 title={`Runtime status: ${runStatus}`}
               />
               <span
-                className={`uppercase tracking-[0.2em] font-black ${runStatus === 'running' ? 'text-emerald-500/90' : runStatus === 'error' ? 'text-red-500/90' : 'text-slate-500'}`}
+                className={`font-black ${runStatus === 'running' ? 'text-emerald-500/90 tracking-[0.12em]' : runStatus === 'error' ? 'text-red-500/90 tracking-[0.12em]' : 'text-slate-400 tracking-[0.08em]'}`}
                 title={`Runtime status: ${runStatus}`}
               >
                 {runStatus === 'running'
-                  ? 'System Online'
+                  ? 'Running'
                   : runStatus === 'error'
                     ? 'Error'
-                    : 'Standby'}
+                    : 'Ready'}
               </span>
             </>
           )}
@@ -138,7 +138,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
           >
             <Database className="w-3 h-3 text-purple-400/50" />
             <span className="font-mono">
-              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} agents
+              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} employees active
             </span>
           </div>
         </div>

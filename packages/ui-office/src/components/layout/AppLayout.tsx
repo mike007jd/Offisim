@@ -90,6 +90,9 @@ const PANEL_SHADOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8)]';
 const PANEL_SHADOW_GLOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]';
 const MOBILE_BREAKPOINT = '(max-width: 768px)';
 const TABLET_BREAKPOINT = '(max-width: 1280px)';
+const LEFT_PANEL_WIDTH = 280;
+const RIGHT_PANEL_WIDTH = 440;
+const COLLAPSED_PANEL_WIDTH = 44;
 
 /* ── Main layout ── */
 
@@ -172,8 +175,8 @@ export function AppLayout({
       isNarrow,
       leftOpen,
       rightOpen,
-      leftPanelWidth: leftOpen ? 280 : 44,
-      rightPanelWidth: rightOpen ? 280 : 44,
+      leftPanelWidth: leftOpen ? LEFT_PANEL_WIDTH : COLLAPSED_PANEL_WIDTH,
+      rightPanelWidth: rightOpen ? RIGHT_PANEL_WIDTH : COLLAPSED_PANEL_WIDTH,
     }),
     [isNarrow, leftOpen, rightOpen],
   );
@@ -203,7 +206,10 @@ export function AppLayout({
         {/* ══════ LEFT PANEL ══════ */}
         <div
           className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-          style={{ width: leftOpen ? '280px' : '44px', marginBlock: 'var(--sp-lg)' }}
+          style={{
+            width: leftOpen ? `${LEFT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
+            marginBlock: 'var(--sp-lg)',
+          }}
         >
           <div
             className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
@@ -239,7 +245,10 @@ export function AppLayout({
         {/* ══════ RIGHT PANEL ══════ */}
         <div
           className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-          style={{ width: rightOpen ? '280px' : '44px', marginBlock: 'var(--sp-lg)' }}
+          style={{
+            width: rightOpen ? `${RIGHT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
+            marginBlock: 'var(--sp-lg)',
+          }}
         >
           <div
             className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}

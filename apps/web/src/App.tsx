@@ -48,6 +48,20 @@ const WORKSPACE_TITLES: Record<string, string> = {
   settings: 'Settings',
 };
 
+function stripLegacySpeakerPrefix(text: string): string {
+  return text.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
+}
+
+function formatDeliverableToastTitle(title: string): string {
+  const cleaned = stripLegacySpeakerPrefix(title)
+    .replace(/^#+\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return 'Deliverable ready';
+  if (cleaned.length <= 36) return `${cleaned} ready`;
+  return 'Deliverable ready';
+}
+
 /** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
   import('@offisim/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
@@ -283,8 +297,8 @@ export function App({ onCompanySwitch }: AppProps) {
   // Subscribe to deliverable.created — show toast with View or SOP action.
   useEffect(() => {
     return eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-      const title = e.payload.title || 'Output';
-      addToast(`Output ready: ${title}`, 'success', {
+      const title = stripLegacySpeakerPrefix(e.payload.title || 'Output');
+      addToast(formatDeliverableToastTitle(title), 'success', {
         actionLabel: 'Open Tasks',
         onAction: () => setFocusOutputsToken((t) => t + 1),
         durationMs: 10_000,

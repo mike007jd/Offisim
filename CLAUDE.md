@@ -61,6 +61,20 @@ apps/
 - 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补自动测试。
 - **验证层级不能越界**：web 页面问题只用浏览器层工具（snapshot / screenshot / console / network）。不要为 web 流程调用 AppleScript、系统级前台切换或原生窗口自动化。AppleScript 只允许用于 Tauri / macOS 原生壳验证。
 
+## Product Closure Bar
+
+- **功能完成的标准不是“能跑”，而是“用户真能用”**。新功能必须在 live runtime 里完整走通主路径，不能停在 transport / event / placeholder 层。
+- **UX 必须优雅简洁**。默认优先减少层级、噪声、重复状态、营销文案、解释型空话；不要把内部过程日志顶到主内容位。
+- **同一功能的多块表面必须讲同一个故事**。chat、scene、status bar、tasks、deliverable、onboarding 之间如果状态不一致，视为未完成。
+- **不要靠 fallback 假装完成**。placeholder、legacy prefix、隐藏的兼容分支、只在特定模式可用的半闭环，不算关单。
+
+## Repository Hygiene
+
+- **仓库必须持续做卫生**：死文档、测试残留、历史截图、调试输出、生成产物、临时脚本，不要长期留在版本库里。
+- **提交前优先删垃圾，而不是解释垃圾**。`output/`、`screenshots/`、`.playwright-mcp/`、局部 debug 脚本、失效 spec/sample 图，默认不应进仓。
+- **deprecated 代码不是常驻资产**。如果 fallback 已无产品 owner，优先列入删除计划；不要无限保留 `Pending removal` 路径。
+- **警惕屎山热点**：超长文件、双状态源、跨层事件拼装、巨型组件/服务默认视为风险面，开工前先判断是不是该拆。
+
 ## Environment
 
 - Node 20+, pnpm 10+

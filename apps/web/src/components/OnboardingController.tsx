@@ -17,7 +17,6 @@ interface OnboardingControllerProps {
 
 type HintSlot =
   | 'provider_configured'
-  | 'first_employee_clicked'
   | 'first_task_sent'
   | 'first_deliverable_seen';
 
@@ -40,7 +39,6 @@ function pickActiveHint(
   account: AccountOnboardingState,
   company: CompanyOnboardingState,
   companyId: string | null,
-  directChatActive: boolean,
 ): HintDescriptor | null {
   if (!account.provider_configured) {
     return {
@@ -51,21 +49,12 @@ function pickActiveHint(
       dismiss: () => markAccount('provider_configured'),
     };
   }
-  if (!account.first_employee_clicked && !directChatActive) {
-    return {
-      slot: 'first_employee_clicked',
-      selector: '[data-onboarding-target="scene-surface"]',
-      title: 'Meet your team',
-      body: 'Click any employee in the office to see their details and start a direct chat.',
-      dismiss: () => markAccount('first_employee_clicked'),
-    };
-  }
   if (!company.first_task_sent && companyId) {
     return {
       slot: 'first_task_sent',
       selector: '[data-onboarding-target="chat-input"]',
       title: 'Send your first task',
-      body: 'Describe what you need — the boss will route it to the right team members.',
+      body: 'Describe the outcome you want. The team will route and execute it from Chat.',
       dismiss: () => markCompany(companyId, 'first_task_sent'),
     };
   }
@@ -73,8 +62,8 @@ function pickActiveHint(
     return {
       slot: 'first_deliverable_seen',
       selector: '[data-onboarding-target="tasks-tab"]',
-      title: 'Results stay with the work',
-      body: 'Completed work now appears inside the task context on the collaboration rail.',
+      title: 'Open Tasks for outputs',
+      body: 'Tasks holds runtime activity and finished outputs.',
       dismiss: () => markCompany(companyId, 'first_deliverable_seen'),
     };
   }
@@ -187,7 +176,7 @@ function OnboardingControllerImpl({
 
   const hint =
     isOfficeView && !anyOverlayOpen
-      ? pickActiveHint(state.account, companyState, activeCompanyId, directChatActive)
+      ? pickActiveHint(state.account, companyState, activeCompanyId)
       : null;
 
   const targetRect = useTargetRect(hint?.selector ?? null);

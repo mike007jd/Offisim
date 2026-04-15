@@ -30,6 +30,10 @@ tmp/
 test-results/
 playwright-report/
 blob-report/
+output/
+apps/web/output/
+apps/*/dist/
+packages/*/dist/
 
 # Test/debug screenshots and artifacts
 screenshots/

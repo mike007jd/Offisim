@@ -38,6 +38,7 @@ export { useProjects } from './hooks/useProjects.js';
 export { useReducedMotion } from './hooks/use-reduced-motion.js';
 export { useSceneOrchestrator } from './hooks/useSceneOrchestrator.js';
 export { isTauri } from './lib/env.js';
+export { stripLegacySpeakerPrefix } from './lib/legacy-speaker-prefix.js';
 export {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
@@ -60,5 +61,5 @@ export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';
 export { InMemorySceneIntentBus } from './runtime/scene-intents.js';
 export { useAgentStates } from './runtime/use-agent-states.js';
-export { useChatStreamingSync } from './runtime/use-chat-streaming-sync.js';
+export { terminateRunWithError, useChatStreamingSync } from './runtime/use-chat-streaming-sync.js';
 export { ThemeProvider, type Theme, useTheme } from './theme/index.js';

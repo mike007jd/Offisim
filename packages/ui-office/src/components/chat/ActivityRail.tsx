@@ -16,16 +16,18 @@ function formatCost(totalCostUsd: number | null): string | null {
 interface ActivityRailProps {
   focusedEmployeeId?: string | null;
   focusedEmployeeName?: string | null;
+  variant?: 'compact' | 'full';
 }
 
 export function ActivityRail({
   focusedEmployeeId = null,
   focusedEmployeeName = null,
+  variant = 'full',
 }: ActivityRailProps) {
   const { headline, entries, activeTools, totalCostUsd, hasActivity } = useRuntimeActivityFeed();
 
   if (!hasActivity) {
-    return (
+    return variant === 'compact' ? null : (
       <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
         Waiting for a task to start…
       </div>
@@ -36,6 +38,34 @@ export function ActivityRail({
   const visibleEntries = focusedEmployeeId
     ? entries.filter((entry) => entry.employeeId == null || entry.employeeId === focusedEmployeeId)
     : entries;
+  const latestEntry = visibleEntries[0] ?? null;
+
+  if (variant === 'compact') {
+    return (
+      <div className="mb-2 rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
+          <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-100">
+            <Activity className="h-3 w-3 animate-pulse" />
+            <span className="font-medium">{headline ?? 'Runtime active'}</span>
+          </span>
+          {costLabel && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-violet-100">
+              <Sparkles className="h-3 w-3" />
+              <span>{costLabel}</span>
+            </span>
+          )}
+          {focusedEmployeeId && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-blue-100">
+              <span className="font-medium">Focus: {focusedEmployeeName ?? focusedEmployeeId}</span>
+            </span>
+          )}
+        </div>
+        {latestEntry && (
+          <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mb-2 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_16px_40px_rgba(2,6,23,0.18)]">

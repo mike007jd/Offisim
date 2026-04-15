@@ -41,7 +41,8 @@ export function StreamingBubble({
   const placeholder = nodeName
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
-  const displayContent = content || (isStreaming ? placeholder : '\u00A0');
+  const showPlaceholder = !content && !reasoning && isStreaming;
+  const displayContent = content || (showPlaceholder ? placeholder : '');
 
   return (
     <div className="flex flex-col items-start">
@@ -53,19 +54,26 @@ export function StreamingBubble({
         </span>
       )}
       {reasoning && (
-        <div className="mb-1 max-w-[80%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100 whitespace-pre-wrap">
+        <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100 whitespace-pre-wrap">
           <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80">
             Reasoning
           </div>
           {reasoning}
         </div>
       )}
-      <div className="max-w-[80%] bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
-        {displayContent}
-        {isStreaming && (
+      {(displayContent || (!content && !reasoning && isStreaming)) && (
+        <div className="max-w-[94%] border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
+          {displayContent}
+          {isStreaming && content && (
+            <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
+          )}
+        </div>
+      )}
+      {isStreaming && !content && reasoning && (
+        <div className="max-w-[94%] rounded-xl border border-blue-400/20 bg-white/5 px-3 py-1.5 text-sm text-slate-400">
           <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

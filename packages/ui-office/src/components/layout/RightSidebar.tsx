@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
+import { ActivityRail } from '../chat/ActivityRail';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 
@@ -40,7 +41,7 @@ export function RightSidebar({
   }, [requestChatToken]);
 
   const workflowLabel = useMemo(() => {
-    if (!stage && !isRunning) return 'Ready';
+    if (!stage && !isRunning) return null;
     if (!stage && isRunning) return 'Starting workflow';
     const activeStage = stage ?? 'boss';
     return STAGE_META[activeStage].chatLabel;
@@ -51,9 +52,11 @@ export function RightSidebar({
       <div className="border-b border-white/5 px-3 py-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Workspace Rail</p>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
-            {workflowLabel}
-          </span>
+          {workflowLabel && activeTab === 'tasks' && (
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+              {workflowLabel}
+            </span>
+          )}
         </div>
       </div>
 
@@ -101,6 +104,9 @@ export function RightSidebar({
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="px-3 pb-1 pt-3">
+                <ActivityRail variant="full" />
+              </div>
               <TaskDashboard agents={agents} />
               <div className="border-t border-white/5 px-3 pb-3 pt-2">
                 <div className="mb-2">

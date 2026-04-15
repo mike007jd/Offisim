@@ -42,18 +42,17 @@ export function EmptyState({
     );
   }
 
-  const prompts = starterPrompts ?? FALLBACK_STARTER_PROMPTS;
+  const prompts = (starterPrompts ?? FALLBACK_STARTER_PROMPTS).slice(0, 2);
 
   return (
     <div className="flex flex-1 min-h-0 overflow-y-auto px-6">
-      <div className="m-auto flex w-full max-w-md flex-col items-center gap-4 py-4 text-center">
+      <div className="m-auto flex w-full max-w-sm flex-col items-center gap-3 py-4 text-center">
         {welcome && (
-          <div className="w-full rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-            <h3 className="text-sm font-semibold text-white">{welcome.title}</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{welcome.body}</p>
+          <div className="w-full rounded-2xl border border-cyan-400/15 bg-cyan-400/4 px-4 py-3">
+            <h3 className="text-[13px] font-semibold text-white">{welcome.title}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{welcome.body}</p>
           </div>
         )}
-        <p className="text-xs text-slate-500">What would you like to do?</p>
         {onSendPrompt && (
           <div className="flex flex-wrap justify-center gap-2">
             {prompts.map(({ label, text }) => (
@@ -61,7 +60,7 @@ export function EmptyState({
                 key={label}
                 type="button"
                 onClick={() => onSendPrompt(text)}
-                className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-blue-300 hover:border-blue-500/30 transition-all"
+                className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-blue-300 hover:border-blue-500/30 transition-all"
                 data-onboarding-starter-prompt={label}
               >
                 {label}
@@ -69,7 +68,7 @@ export function EmptyState({
             ))}
           </div>
         )}
-        <p className="text-[10px] text-slate-500">
+        <p className="text-[10px] text-slate-500/80">
           Use <kbd className="text-slate-500">/</kbd> for commands,{' '}
           <kbd className="text-slate-500">@</kbd> to mention someone
         </p>

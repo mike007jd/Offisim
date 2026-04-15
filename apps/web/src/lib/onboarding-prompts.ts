@@ -15,8 +15,8 @@ export interface OnboardingCopy {
 
 const DEFAULT_COPY: OnboardingCopy = {
   welcome: {
-    title: 'Welcome to your team',
-    body: "I'm the boss — describe a task and I'll delegate it to the right people. Try one of these to see how we work.",
+    title: 'Start with a task',
+    body: "Describe the outcome you want. I'll route it to the right people.",
   },
   starterPrompts: [
     {
@@ -34,8 +34,8 @@ const DEFAULT_COPY: OnboardingCopy = {
 const COPY_BY_TEMPLATE = {
   'rd-company': {
     welcome: {
-      title: 'Welcome to the R&D floor',
-      body: 'I run the research and development team. Give me a product or research problem and I will get engineering and design on it right away.',
+      title: 'Start with a product task',
+      body: 'Describe a product or research outcome. I will route engineering and design.',
     },
     starterPrompts: [
       {
@@ -46,16 +46,12 @@ const COPY_BY_TEMPLATE = {
         label: 'Tech RFC',
         text: 'Write an RFC comparing Postgres, SQLite, and DuckDB for an embedded analytics workload.',
       },
-      {
-        label: 'Prototype plan',
-        text: 'Plan a 2-week prototype for an AI-powered code review assistant.',
-      },
     ],
   },
   'ai-startup': {
     welcome: {
-      title: 'Welcome to the startup',
-      body: 'We move fast and ship weekly. Point me at a customer problem or a go-to-market question and the team will start working.',
+      title: 'Start with a launch task',
+      body: 'Give me a customer or go-to-market problem. The team will start working.',
     },
     starterPrompts: [
       {
@@ -66,16 +62,12 @@ const COPY_BY_TEMPLATE = {
         label: 'Landing copy',
         text: 'Write landing page copy for an AI agent platform targeting solo developers.',
       },
-      {
-        label: 'Go-to-market',
-        text: 'Draft a go-to-market plan for launching an AI code review SaaS to indie developers.',
-      },
     ],
   },
   'agency-lite': {
     welcome: {
-      title: 'Welcome to the agency',
-      body: 'We handle client work end-to-end — strategy, creative, delivery. Give me a brief and I will assign the right specialists.',
+      title: 'Start with a client brief',
+      body: 'Give me the brief. I will assign the right specialists.',
     },
     starterPrompts: [
       {
@@ -86,16 +78,12 @@ const COPY_BY_TEMPLATE = {
         label: 'Brand voice',
         text: 'Define a brand voice guide for a premium coffee subscription service.',
       },
-      {
-        label: 'Social plan',
-        text: 'Plan a 30-day social content calendar for a B2B SaaS launch.',
-      },
     ],
   },
   'product-team': {
     welcome: {
-      title: 'Welcome to the product team',
-      body: 'We build, measure, learn. Hand me a product decision or feature idea and I will line up PM, design, and engineering.',
+      title: 'Start with a product decision',
+      body: 'Hand me a feature idea or decision. I will line up PM, design, and engineering.',
     },
     starterPrompts: [
       {
@@ -106,16 +94,12 @@ const COPY_BY_TEMPLATE = {
         label: 'North star',
         text: 'Propose a north-star metric and supporting metrics for a B2B collaboration tool.',
       },
-      {
-        label: 'Roadmap',
-        text: 'Plan a 6-month roadmap for a new mobile-first task management app.',
-      },
     ],
   },
   'content-studio': {
     welcome: {
-      title: 'Welcome to the studio',
-      body: 'We produce words, visuals, and stories that ship. Give me a topic or brand and the studio will start drafting.',
+      title: 'Start with a content brief',
+      body: 'Give me a topic or brand. The studio will start drafting.',
     },
     starterPrompts: [
       {
@@ -125,10 +109,6 @@ const COPY_BY_TEMPLATE = {
       {
         label: 'Script',
         text: 'Draft a 60-second explainer video script for a new AI-powered notes app.',
-      },
-      {
-        label: 'Newsletter',
-        text: 'Plan a weekly newsletter series for developers interested in AI tooling.',
       },
     ],
   },

@@ -35,6 +35,10 @@ function formatMeetingActionItems(items: MeetingActionItem[]): string {
   return `\n\n**Action items (${items.length}):**\n${lines.join('\n')}`;
 }
 
+function stripLegacySpeakerPrefix(content: string): string {
+  return content.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -126,6 +130,10 @@ export async function bossSummaryNode(
           .filter(
             (c) => c.startsWith('[') && !EXCLUDED_PREFIXES.some((prefix) => c.startsWith(prefix)),
           );
+  const employeeFinalOutputs =
+    state.currentStepOutputs.length > 0
+      ? state.currentStepOutputs.map((o) => o.content)
+      : employeeResults.map(stripLegacySpeakerPrefix);
 
   if (employeeResults.length === 0) {
     if (runtimeCtx) {
@@ -133,7 +141,7 @@ export async function bossSummaryNode(
     }
     return {
       completed: true,
-      messages: [new AIMessage({ content: '[Boss]: Task processing complete.' })],
+      messages: [new AIMessage({ content: 'Task processing complete.' })],
     };
   }
 
@@ -145,7 +153,7 @@ export async function bossSummaryNode(
       employeeName: o.employeeName,
       roleSlug: o.roleSlug,
     }));
-    const title = state.taskPlan?.summary ?? finalContent.slice(0, 80);
+    const title = state.taskPlan?.summary ?? stripLegacySpeakerPrefix(finalContent).slice(0, 80);
     runtimeCtx.eventBus.emit(
       deliverableCreated(
         runtimeCtx.companyId,
@@ -163,7 +171,7 @@ export async function bossSummaryNode(
 
   // Single employee result — no need for LLM summary
   if (employeeResults.length === 1) {
-    const firstEmployeeResult = employeeResults[0];
+    const firstEmployeeResult = employeeFinalOutputs[0];
     if (!firstEmployeeResult) {
       throw new Error('Expected a single employee result for boss summary fast path');
     }
@@ -246,6 +254,6 @@ export async function bossSummaryNode(
 
   return {
     completed: true,
-    messages: [new AIMessage({ content: `[Boss]: ${finalContent}` })],
+    messages: [new AIMessage({ content: finalContent })],
   };
 }
