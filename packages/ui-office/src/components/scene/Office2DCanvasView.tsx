@@ -1,7 +1,7 @@
 /**
  * Office2DCanvasView — HTML5 Canvas-based 2D office top-down view.
  *
- * Replaces the SVG-based Office2DView for rendering. Consumes the same
+ * Replaces the removed SVG-based 2D scene implementation. Consumes the same
  * data hooks and props, but draws everything via Canvas 2D API through
  * the drawScene() renderer. No per-entity React elements.
  *
@@ -222,7 +222,7 @@ export default function Office2DCanvasView({
     [],
   );
 
-  // ── Ceremony-aware positions (mirrors Office2DView logic) ──
+  // ── Ceremony-aware positions (mirrors the legacy SVG 2D rules) ──
   const ceremonyActive = ceremony.phase !== 'idle';
   const dispatchedIds = useMemo(
     () => Array.from(ceremony.dispatchedIds).sort(),

@@ -13,7 +13,7 @@ Primary stack direction for this repository:
 - `apps/platform`: Hono + PostgreSQL
 - `packages/core`: LangGraph-based orchestration kernel
 - `packages/renderer`: scene tokens, layout engine, and prefab/state logic
-- `packages/ui-office`: office shell with `Three.js` / React Three Fiber 3D views and SVG 2D views
+- `packages/ui-office`: office shell with `Three.js` / React Three Fiber 3D views and canvas-based 2D views
 - Tailwind CSS for DOM UI
 - shadcn/ui primitives for DOM controls where they fit
 - Lucide icons
@@ -109,7 +109,7 @@ Promote a package only when the boundary is real.
 - shadcn/ui is for DOM primitives, not the office canvas.
 - Avoid CSS Modules unless a case is truly awkward in Tailwind.
 - Avoid inline styles except for dynamic values that cannot be expressed cleanly.
-- For office-scene rendering, keep visual constants centralized and data-driven across the `Three.js` 3D view and the `SVG` 2D fallback.
+- For office-scene rendering, keep visual constants centralized and data-driven across the `Three.js` 3D view and the canvas 2D scene.
 
 ## State management rules
 

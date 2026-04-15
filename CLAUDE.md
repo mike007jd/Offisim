@@ -151,7 +151,7 @@ apps/
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
 - **仓库已无自动 gate**: 不再保留 husky / typecheck / test / smoke 自动校验链。验证统一走 live agent。
 - **2026-04-14 起自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。以后遇到 runtime / UI / vault / Tauri 问题，直接 live agent 验证，不要重建自动 smoke。
-- **2D office 方向已改判**: 当前 `Office2DView` 仍是 SVG 路线, 视觉质量和结构可维护性都差。后续不要继续扩 SVG scene grammar；2D 场景主渲染应转 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
+- **2D office 方向已改判并已完成主路径切换**: 旧 SVG 2D 路径已经删除。后续不要复活 SVG scene grammar；2D 场景主渲染保持 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
 
 ## Ground Truth
 

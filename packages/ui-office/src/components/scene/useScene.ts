@@ -6,7 +6,7 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
  * Scene integration hook — wires EventBus listeners for selection sync
  * and workstation assignment persistence. No PixiJS dependency.
  *
- * 3D/2D views get employee data independently via useAgentStates().
+ * 3D/canvas-2D views get employee data independently via useAgentStates().
  */
 export function useScene(_reducedMotion = false) {
   const { eventBus, repos } = useOffisimRuntime();

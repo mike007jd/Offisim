@@ -2,7 +2,8 @@
  * Pure coordinate transform module for the 2D office Canvas view.
  * No React, no side effects — just math.
  *
- * Mirrors the constants and logic from office-2d-geometry.ts (SVG path)
+ * Mirrors the geometry rules from the removed SVG 2D path so canvas keeps
+ * the same layout semantics.
  * but adds viewport pan/zoom helpers for the Canvas renderer.
  */
 
@@ -54,7 +55,7 @@ export function canvasToWorld(
 
 /**
  * Convert 3D zone center + dimensions → canvas rect (top-left, width, height).
- * Matches the `toSVG` logic from office-2d-geometry.ts.
+ * Matches the legacy SVG world-to-screen conversion rules.
  */
 export function zoneToCanvasRect(
   cx: number,

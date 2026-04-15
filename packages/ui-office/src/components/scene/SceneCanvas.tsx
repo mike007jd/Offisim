@@ -6,13 +6,9 @@ import { useScene } from './useScene';
 
 const Office3DView = lazy(() => import('./Office3DView'));
 
-// Default: canvas-based 2D renderer. SVG fallback gated behind VITE_OFFISIM_SVG_FALLBACK.
-const Office2DCanvasView =
-  import.meta.env.VITE_OFFISIM_SVG_FALLBACK === 'true'
-    ? lazy(() => import('./Office2DView'))
-    : lazy(() => import('./Office2DCanvasView'));
+const Office2DCanvasView = lazy(() => import('./Office2DCanvasView'));
 
-// ── Error boundary for Three.js / SVG scene crashes ─────────────
+// ── Error boundary for scene crashes ────────────────────────────
 
 class SceneErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback?: React.ReactNode; onError?: (error: Error) => void },
@@ -89,9 +85,9 @@ export function SceneCanvas({
   useEffect(() => {
     if (effectiveViewMode === '2D') {
       setHasMounted2D(true);
-      return;
+    } else {
+      setHasMounted3D(true);
     }
-    setHasMounted3D(true);
   }, [effectiveViewMode]);
 
   useEffect(() => {

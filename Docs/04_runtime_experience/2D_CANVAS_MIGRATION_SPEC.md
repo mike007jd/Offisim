@@ -9,13 +9,13 @@
 
 ## 1. Decision
 
-Offisim's current 2D office scene is SVG-based and should **not** be iterated further as the long-term rendering path.
+Offisim's former 2D office scene was SVG-based and should **not** be revived as the long-term rendering path.
 
 The new direction is:
 
 - **2D office scene = canvas-first renderer**
 - **DOM = overlays and controls only**
-- **SVG = no new investment for the main 2D scene**
+- **SVG = retired from the main 2D scene**
 
 This is a directional architecture change, not a visual polish pass.
 
@@ -55,7 +55,7 @@ It does **not** change the current product positioning:
 
 ## 4. In scope
 
-- Replace the current SVG implementation behind `Office2DView`
+- Replace the former SVG implementation that previously powered the 2D office scene
 - Keep the existing `SceneCanvas` route/view toggle intact
 - Reuse existing runtime/business data sources where possible
 - Preserve 2D user-facing behaviors:
@@ -86,7 +86,7 @@ If a feature requires new product behavior, that is a separate task.
 
 ## 6. Current implementation references
 
-The current SVG path lives primarily in:
+The former SVG path lived primarily in:
 
 - `packages/ui-office/src/components/scene/Office2DView.tsx`
 - `packages/ui-office/src/components/scene/Office2DPrefab.tsx`
@@ -96,7 +96,9 @@ The current SVG path lives primarily in:
 - `packages/ui-office/src/components/scene/office-2d-avatar-cache.ts`
 - `packages/ui-office/src/components/scene/SceneCanvas.tsx`
 
-These files are the migration source, not the final architecture target.
+The SVG-specific files above were removed once the canvas path became the only
+supported 2D renderer. They remain listed here as migration context, not as an
+active code path.
 
 ---
 
@@ -307,7 +309,7 @@ Must prove:
 
 Goal:
 
-- old SVG 2D path is either deleted or reduced to a short-lived fallback behind an explicit kill switch
+- old SVG 2D path is deleted so canvas is the only supported 2D main path
 
 Rule:
 
@@ -325,7 +327,7 @@ The migration is complete only when all of the following are true:
 4. drag-to-assign still works end-to-end
 5. scene state is at least as readable as the current implementation
 6. the visual result is clearly stronger than the current SVG version
-7. the old SVG 2D main path is removed or explicitly demoted to a temporary fallback
+7. the old SVG 2D main path is removed
 8. no new feature work continues on the old SVG renderer
 
 ---
@@ -339,7 +341,7 @@ The next implementation agent should follow these guardrails:
 - do not rewrite office editor unless strictly required
 - prefer a small number of focused files over another monolithic scene component
 - preserve current product behavior before inventing new scene semantics
-- if a temporary fallback is needed, make it explicit and short-lived
+- do not reintroduce a hidden or temporary SVG fallback for the main 2D scene
 
 ---
 
@@ -354,4 +356,3 @@ That decision is already made:
 - **move 2D scene rendering from SVG to canvas**
 - **keep DOM for overlays**
 - **stop investing in the SVG 2D path**
-

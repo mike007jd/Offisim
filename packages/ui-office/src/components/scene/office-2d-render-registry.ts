@@ -1,8 +1,8 @@
 /**
  * office-2d-render-registry.ts — Maps prefab IDs and categories to canvas draw functions.
  *
- * Replaces the SVG component lookup tables in Office2DPrefab.tsx with
- * Canvas 2D API draw functions that render simple silhouettes on a dark
+ * Replaces the removed SVG prefab lookup tables with Canvas 2D API draw
+ * functions that render simple silhouettes on a dark
  * background (#020617). Each draw function receives a canvas context,
  * center position, and rotation angle.
  */
