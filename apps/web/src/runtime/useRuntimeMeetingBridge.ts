@@ -8,6 +8,10 @@ async function loadHumanMessage() {
   return HumanMessage;
 }
 
+function getMeetingId(event: RuntimeEvent): string | null {
+  return (event.payload as { meetingId?: string } | undefined)?.meetingId ?? null;
+}
+
 export function useRuntimeMeetingBridge(opts: {
   eventBusRef: MutableRefObject<InMemoryEventBus>;
   runtimeRef: MutableRefObject<RuntimeBundle | null>;
@@ -44,6 +48,10 @@ export function useRuntimeMeetingBridge(opts: {
       }
     }
 
+    function runAsync(action: () => Promise<void>): void {
+      void action();
+    }
+
     const unsubPause = eventBus.on('meeting.interrupt.pause', () => {
       runtimeRef.current?.orch?.interruptMeeting('pause');
     });
@@ -54,26 +62,26 @@ export function useRuntimeMeetingBridge(opts: {
     });
 
     const unsubResume = eventBus.on('meeting.interrupt.resume', (event: RuntimeEvent) => {
-      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
+      const meetingId = getMeetingId(event);
       if (!meetingId) return;
 
-      void (async () => {
+      runAsync(async () => {
         await runPausedMeetingAction(
           meetingId,
           async (runtime, threadId, HumanMessage) => {
             await runtime.orch.resumeMeeting(meetingId, [new HumanMessage('Resume meeting')], threadId);
           },
         );
-      })();
+      });
     });
 
     const unsubEnd = eventBus.on('meeting.interrupt.end', (event: RuntimeEvent) => {
       const runtime = runtimeRef.current;
       const orch = runtime?.orch;
-      const meetingId = (event.payload as { meetingId?: string } | undefined)?.meetingId;
+      const meetingId = getMeetingId(event);
       if (!orch || !meetingId) return;
 
-      void (async () => {
+      runAsync(async () => {
         const meeting = await runtime.repos?.meetings.findById(meetingId);
         if (!meeting) return;
 
@@ -92,7 +100,7 @@ export function useRuntimeMeetingBridge(opts: {
         }
 
         orch.interruptMeeting('end');
-      })();
+      });
     });
 
     return () => {

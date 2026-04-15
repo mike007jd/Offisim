@@ -26,6 +26,26 @@ interface DeliverableResponse {
   content: string;
 }
 
+function buildInferredArtifact(
+  taskDescription: string,
+  content: string,
+):
+  | {
+      fileName: string | null;
+      mimeType: string | null;
+      artifactContent: string;
+    }
+  | null {
+  const inferred = inferDeliverableFile(taskDescription, content);
+  if (!inferred) return null;
+
+  return {
+    fileName: inferred.fileName ?? null,
+    mimeType: inferred.mimeType ?? null,
+    artifactContent: content,
+  };
+}
+
 export function buildEmployeeDeliverableTitle(
   taskDescription: string,
   fileName: string | null,
@@ -55,14 +75,8 @@ export async function materializeFileDeliverableIfNeeded(
     }
   | null
 > {
-  const inferredFromPrimary = inferDeliverableFile(taskDescription, response.content);
-  if (inferredFromPrimary) {
-    return {
-      fileName: inferredFromPrimary.fileName ?? null,
-      mimeType: inferredFromPrimary.mimeType ?? null,
-      artifactContent: response.content,
-    };
-  }
+  const primaryArtifact = buildInferredArtifact(taskDescription, response.content);
+  if (primaryArtifact) return primaryArtifact;
   if (!taskNeedsFileDeliverable(taskDescription)) return null;
 
   const repaired = await recordedLlmCall(
@@ -88,12 +102,5 @@ export async function materializeFileDeliverableIfNeeded(
     },
   );
 
-  const inferredFromRepair = inferDeliverableFile(taskDescription, repaired.content);
-  if (!inferredFromRepair) return null;
-
-  return {
-    fileName: inferredFromRepair.fileName ?? null,
-    mimeType: inferredFromRepair.mimeType ?? null,
-    artifactContent: repaired.content,
-  };
+  return buildInferredArtifact(taskDescription, repaired.content);
 }

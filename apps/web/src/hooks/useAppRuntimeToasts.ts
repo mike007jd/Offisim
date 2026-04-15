@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { markCompany } from '../lib/onboarding-store';
 
 const DELIVERABLE_FILE_NAME_RE = /\.(html|js|ts|json|md|css|txt|csv|ya?ml|xml)$/i;
+const DEFAULT_DELIVERABLE_TITLE = 'Deliverable ready';
 
 function stripLegacySpeakerPrefix(text: string): string {
   return text.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
@@ -25,11 +26,11 @@ function formatDeliverableToastTitle(
     return `${cleaned} ready`;
   }
   if (cleaned.startsWith('```') || /^<!doctype html/i.test(cleaned) || /^<html[\s>]/i.test(cleaned)) {
-    return 'Deliverable ready';
+    return DEFAULT_DELIVERABLE_TITLE;
   }
-  if (!cleaned) return 'Deliverable ready';
+  if (!cleaned) return DEFAULT_DELIVERABLE_TITLE;
   if (cleaned.length <= 36) return `${cleaned} ready`;
-  return 'Deliverable ready';
+  return DEFAULT_DELIVERABLE_TITLE;
 }
 
 function formatVaultFailureToast(payload: VaultSyncFailedPayload): string {
