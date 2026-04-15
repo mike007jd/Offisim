@@ -16,7 +16,7 @@ export interface OnboardingCopy {
 const DEFAULT_COPY: OnboardingCopy = {
   welcome: {
     title: 'Start with a task',
-    body: "Describe the outcome you want. I'll route it to the right people.",
+    body: 'Describe the outcome you need. The team will route the work and produce an output.',
   },
   starterPrompts: [
     {
@@ -35,7 +35,7 @@ const COPY_BY_TEMPLATE = {
   'rd-company': {
     welcome: {
       title: 'Start with a product task',
-      body: 'Describe a product or research outcome. I will route engineering and design.',
+      body: 'Describe the product or research outcome you need. Engineering and design will pick it up from there.',
     },
     starterPrompts: [
       {
@@ -51,7 +51,7 @@ const COPY_BY_TEMPLATE = {
   'ai-startup': {
     welcome: {
       title: 'Start with a launch task',
-      body: 'Give me a customer or go-to-market problem. The team will start working.',
+      body: 'Give me a customer or go-to-market outcome. The team will turn it into an execution path.',
     },
     starterPrompts: [
       {
@@ -67,7 +67,7 @@ const COPY_BY_TEMPLATE = {
   'agency-lite': {
     welcome: {
       title: 'Start with a client brief',
-      body: 'Give me the brief. I will assign the right specialists.',
+      body: 'Paste the brief. The right specialists will take it from there.',
     },
     starterPrompts: [
       {
@@ -83,7 +83,7 @@ const COPY_BY_TEMPLATE = {
   'product-team': {
     welcome: {
       title: 'Start with a product decision',
-      body: 'Hand me a feature idea or decision. I will line up PM, design, and engineering.',
+      body: 'Send a feature idea or decision to make. PM, design, and engineering will align on it.',
     },
     starterPrompts: [
       {
@@ -99,7 +99,7 @@ const COPY_BY_TEMPLATE = {
   'content-studio': {
     welcome: {
       title: 'Start with a content brief',
-      body: 'Give me a topic or brand. The studio will start drafting.',
+      body: 'Give me the topic, audience, or brand. The studio will start drafting immediately.',
     },
     starterPrompts: [
       {

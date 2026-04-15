@@ -189,10 +189,14 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
 
         if (existingStep && existingTask) {
           // Update existing task
+          const nextEmployeeId = employeeId ?? existingTask.employeeId;
           existingStep.tasks[ti] = {
             ...existingTask,
             status: nextStatus,
-            employeeId: employeeId ?? existingTask.employeeId,
+            employeeId: nextEmployeeId,
+            employeeName: nextEmployeeId
+              ? (agentsRef.current?.get(nextEmployeeId)?.name ?? existingTask.employeeName)
+              : existingTask.employeeName,
           };
         } else {
           // Unknown task — assign to active step (or last step), replacing first placeholder.
@@ -243,10 +247,10 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
             const resolvedName =
               action === 'assigned'
                 ? (agentsRef.current?.get(employeeId)?.name ?? employeeId)
-                : null;
+                : assignTask.employeeName;
             assignStep.tasks[ti] = {
               ...assignTask,
-              employeeId: action === 'assigned' ? employeeId : null,
+              employeeId: action === 'assigned' ? employeeId : assignTask.employeeId,
               employeeName: resolvedName,
             };
           }

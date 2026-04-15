@@ -29,7 +29,7 @@ export function ActivityRail({
   if (!hasActivity) {
     return variant === 'compact' ? null : (
       <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
-        Waiting for a task to start…
+        Run a task to see live activity here.
       </div>
     );
   }
@@ -60,15 +60,13 @@ export function ActivityRail({
             </span>
           )}
         </div>
-        {latestEntry && (
-          <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>
-        )}
+        {latestEntry && <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>}
       </div>
     );
   }
 
   return (
-    <div className="mb-2 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_16px_40px_rgba(2,6,23,0.18)]">
+    <div className="mb-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 shadow-[0_12px_32px_rgba(2,6,23,0.14)]">
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
         <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-100">
           <Activity className="h-3 w-3 animate-pulse" />
@@ -106,7 +104,7 @@ export function ActivityRail({
 
       {visibleEntries.length > 0 && (
         <div className="mt-2 grid gap-1">
-          {visibleEntries.slice(0, 4).map((entry) => (
+          {visibleEntries.slice(0, 3).map((entry) => (
             <div
               key={entry.id}
               className={`flex items-start gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] ${ENTRY_STYLES[entry.tone]}`}

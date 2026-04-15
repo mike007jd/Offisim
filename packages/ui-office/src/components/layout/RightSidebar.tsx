@@ -42,7 +42,7 @@ export function RightSidebar({
 
   const workflowLabel = useMemo(() => {
     if (!stage && !isRunning) return null;
-    if (!stage && isRunning) return 'Starting workflow';
+    if (!stage && isRunning) return 'Starting run';
     const activeStage = stage ?? 'boss';
     return STAGE_META[activeStage].chatLabel;
   }, [stage, isRunning]);
@@ -51,7 +51,7 @@ export function RightSidebar({
     <div className="flex h-full flex-col overflow-hidden">
       <div className="border-b border-white/5 px-3 py-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Workspace Rail</p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Workspace</p>
           {workflowLabel && activeTab === 'tasks' && (
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
               {workflowLabel}

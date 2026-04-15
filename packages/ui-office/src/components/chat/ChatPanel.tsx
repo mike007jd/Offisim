@@ -60,12 +60,14 @@ interface ChatPanelProps {
   compact?: boolean;
   showPipelineProgress?: boolean;
   showMeetingPanel?: boolean;
+  showActivityRail?: boolean;
 }
 
-let nextMsgId = 0;
 const EMPTY_MESSAGES: ChatMessage[] = [];
 function genMsgId(): string {
-  return `msg-${nextMsgId++}`;
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `msg-${crypto.randomUUID()}`
+    : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
@@ -92,6 +94,7 @@ export function ChatPanel({
   compact = false,
   showPipelineProgress = true,
   showMeetingPanel = true,
+  showActivityRail = false,
 }: ChatPanelProps) {
   const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
     useOffisimRuntime();
@@ -347,6 +350,13 @@ export function ChatPanel({
   const inputPlaceholder = isDirectChat
     ? `Message ${selectedEmployeeName ?? 'employee'}...`
     : 'Message your team...';
+  const activityRail = showActivityRail ? (
+    <ActivityRail
+      focusedEmployeeId={selectedEmployeeId}
+      focusedEmployeeName={selectedEmployeeName}
+      variant="compact"
+    />
+  ) : null;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -443,11 +453,7 @@ export function ChatPanel({
                   className="flex flex-col gap-1"
                   style={{ padding: 'var(--sp-sm)' }}
                 >
-                  <ActivityRail
-                    focusedEmployeeId={selectedEmployeeId}
-                    focusedEmployeeName={selectedEmployeeName}
-                    variant="compact"
-                  />
+                  {activityRail}
                   <SystemMessageFeed />
                 </div>
               </ScrollArea>
@@ -472,11 +478,7 @@ export function ChatPanel({
                 className="flex flex-col gap-1"
                 style={{ padding: 'var(--sp-sm)' }}
               >
-                <ActivityRail
-                  focusedEmployeeId={selectedEmployeeId}
-                  focusedEmployeeName={selectedEmployeeName}
-                  variant="compact"
-                />
+                {activityRail}
                 <SystemMessageFeed />
                 {pendingInteraction?.severity !== 'high' &&
                   pendingInteraction &&

@@ -66,7 +66,11 @@ export function getConversationKey(options: {
   return `${options.threadId ?? 'unscoped'}::${options.targetEmployeeId ?? 'team'}`;
 }
 
-let nextAssistantMessageId = 0;
+function genAssistantMessageId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `assistant-${crypto.randomUUID()}`
+    : `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function createEmptyStreamingState(nodeName: string | null = null): ChatStreamingState {
   return {
@@ -202,7 +206,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       if (!streaming || !streaming.content.trim()) return state;
       const sanitizedContent = stripLegacySpeakerPrefix(streaming.content);
       const committedMessage: ChatMessage = {
-        id: `assistant-${nextAssistantMessageId++}`,
+        id: genAssistantMessageId(),
         role: 'assistant',
         content: sanitizedContent,
         status: options?.status ?? 'completed',
@@ -238,7 +242,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           ? [
               ...conversation.messages,
               {
-                id: `assistant-${nextAssistantMessageId++}`,
+                id: genAssistantMessageId(),
                 role: 'assistant' as const,
                 content: sanitizedContent,
                 status: options.status,
@@ -301,7 +305,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
               ? [
                   ...conversation.messages,
                   {
-                    id: `assistant-${nextAssistantMessageId++}`,
+                    id: genAssistantMessageId(),
                     role: 'assistant',
                     content: resolvedContent,
                     status: 'completed',

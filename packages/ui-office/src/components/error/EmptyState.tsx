@@ -23,9 +23,9 @@ interface EmptyStateProps {
 }
 
 const FALLBACK_STARTER_PROMPTS: readonly StarterPrompt[] = [
-  { label: 'Write a report', text: 'Write a market analysis report' },
-  { label: 'Design a logo', text: 'Design a company logo' },
-  { label: 'Plan a roadmap', text: 'Plan a product roadmap' },
+  { label: 'Market report', text: 'Write a short market analysis report for this market.' },
+  { label: 'Launch plan', text: 'Draft a launch plan with milestones and owners.' },
+  { label: 'Hiring brief', text: 'Write a hiring brief for the next role this team needs.' },
 ];
 
 export function EmptyState({
@@ -69,8 +69,7 @@ export function EmptyState({
           </div>
         )}
         <p className="text-[10px] text-slate-500/80">
-          Use <kbd className="text-slate-500">/</kbd> for commands,{' '}
-          <kbd className="text-slate-500">@</kbd> to mention someone
+          Start in team chat, then use <kbd className="text-slate-500">@</kbd> for a direct ask.
         </p>
       </div>
     </div>

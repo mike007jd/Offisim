@@ -39,13 +39,14 @@ function pickActiveHint(
   account: AccountOnboardingState,
   company: CompanyOnboardingState,
   companyId: string | null,
+  directChatActive: boolean,
 ): HintDescriptor | null {
   if (!account.provider_configured) {
     return {
       slot: 'provider_configured',
       selector: '[data-onboarding-target="configure-provider"]',
       title: 'Connect your AI provider',
-      body: 'Open Settings and add an API key so your team can start collaborating.',
+      body: 'Open Settings and add an API key so the team can start working.',
       dismiss: () => markAccount('provider_configured'),
     };
   }
@@ -54,16 +55,16 @@ function pickActiveHint(
       slot: 'first_task_sent',
       selector: '[data-onboarding-target="chat-input"]',
       title: 'Send your first task',
-      body: 'Describe the outcome you want. The team will route and execute it from Chat.',
+      body: 'Describe the outcome you want. Team chat is the fastest way to kick work off.',
       dismiss: () => markCompany(companyId, 'first_task_sent'),
     };
   }
-  if (company.first_task_sent && !company.first_deliverable_seen && companyId) {
+  if (company.first_task_sent && !company.first_deliverable_seen && companyId && !directChatActive) {
     return {
       slot: 'first_deliverable_seen',
       selector: '[data-onboarding-target="tasks-tab"]',
-      title: 'Open Tasks for outputs',
-      body: 'Tasks holds runtime activity and finished outputs.',
+      title: 'Open Tasks for progress and outputs',
+      body: 'Tasks is where live activity, plan progress, and finished deliverables show up.',
       dismiss: () => markCompany(companyId, 'first_deliverable_seen'),
     };
   }
@@ -176,7 +177,7 @@ function OnboardingControllerImpl({
 
   const hint =
     isOfficeView && !anyOverlayOpen
-      ? pickActiveHint(state.account, companyState, activeCompanyId)
+      ? pickActiveHint(state.account, companyState, activeCompanyId, directChatActive)
       : null;
 
   const targetRect = useTargetRect(hint?.selector ?? null);

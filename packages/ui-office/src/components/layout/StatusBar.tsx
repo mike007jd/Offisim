@@ -114,7 +114,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
               className="flex items-center space-x-1.5"
               title={`${activeTools.length} tool calls currently running`}
             >
-              <span className="font-mono text-emerald-300/70">{activeTools.length} tools live</span>
+              <span className="font-mono text-emerald-300/70">{activeTools.length} tools</span>
             </div>
           )}
           {modelName && (
@@ -138,7 +138,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
           >
             <Database className="w-3 h-3 text-purple-400/50" />
             <span className="font-mono">
-              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} employees active
+              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} employees
             </span>
           </div>
         </div>

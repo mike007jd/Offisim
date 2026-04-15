@@ -40,6 +40,7 @@ function renderChatPanel({
   compact?: boolean;
   showMeetingPanel?: boolean;
   showPipelineProgress?: boolean;
+  showActivityRail?: boolean;
 }) {
   return (
     <ChatPanel
@@ -58,6 +59,7 @@ function renderChatPanel({
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
       showMeetingPanel={showMeetingPanel}
+      showActivityRail={showActivityRail}
     />
   );
 }
@@ -71,6 +73,7 @@ export function ChatDock(props: CollaborationRailProps) {
           compact,
           showMeetingPanel: !compact,
           showPipelineProgress: true,
+          showActivityRail: compact,
         })
       }
     </ChatDrawer>
@@ -84,6 +87,7 @@ export function CollaborationSidebar(props: CollaborationRailProps) {
         ...props,
         showPipelineProgress: false,
         showMeetingPanel: false,
+        showActivityRail: false,
       })}
       focusTasksToken={props.focusOutputsToken}
       requestChatToken={props.chatOpenToken}
