@@ -18,6 +18,8 @@ export interface TaskInfo {
   taskRunId: string;
   employeeId: string | null;
   employeeName: string | null;
+  assigneeKind?: 'employee' | 'department';
+  assigneeName?: string | null;
   taskType: string;
   description: string;
   status: string;
@@ -130,8 +132,12 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
           status: 'pending' as const,
           tasks: s.tasks.map((t) => ({
             taskRunId: t.taskRunId,
-            employeeId: t.employeeId,
-            employeeName: agentsRef.current?.get(t.employeeId)?.name ?? null,
+            employeeId: t.employeeId ?? null,
+            employeeName: t.employeeId ? (agentsRef.current?.get(t.employeeId)?.name ?? null) : null,
+            assigneeKind: t.assigneeKind,
+            assigneeName:
+              t.assigneeName ??
+              (t.employeeId ? (agentsRef.current?.get(t.employeeId)?.name ?? null) : null),
             taskType: t.taskType,
             description: t.description,
             status: 'planned',
@@ -180,6 +186,9 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
     // task.state.changed — update or create task in its step
     const offTaskState = eventBus.on('task.state.changed', (e: RuntimeEvent<TaskStatePayload>) => {
       const { taskRunId, next: nextStatus, employeeId } = e.payload;
+      const nextAssigneeName =
+        e.payload.assigneeName ??
+        (employeeId ? (agentsRef.current?.get(employeeId)?.name ?? employeeId) : null);
       update((prev) => {
         const steps = prev.steps.map((s) => ({ ...s, tasks: [...s.tasks] }));
         const [si, ti] = findTask(steps, taskRunId);
@@ -197,6 +206,8 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
             employeeName: nextEmployeeId
               ? (agentsRef.current?.get(nextEmployeeId)?.name ?? existingTask.employeeName)
               : existingTask.employeeName,
+            assigneeKind: e.payload.assigneeKind ?? existingTask.assigneeKind,
+            assigneeName: nextAssigneeName ?? existingTask.assigneeName,
           };
         } else {
           // Unknown task — assign to active step (or last step), replacing first placeholder.
@@ -218,6 +229,8 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
               employeeName: employeeId
                 ? (agentsRef.current?.get(employeeId)?.name ?? employeeId)
                 : null,
+              assigneeKind: e.payload.assigneeKind,
+              assigneeName: nextAssigneeName,
               taskType: nextStatus,
               description: taskRunId,
               status: nextStatus,
@@ -237,7 +250,7 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
     const offTaskAssign = eventBus.on(
       'task.assignment.changed',
       (e: RuntimeEvent<TaskAssignmentPayload>) => {
-        const { taskRunId, employeeId, action } = e.payload;
+        const { taskRunId, employeeId, assigneeName, assigneeKind, action } = e.payload;
         update((prev) => {
           const steps = prev.steps.map((s) => ({ ...s, tasks: [...s.tasks] }));
           const [si, ti] = findTask(steps, taskRunId);
@@ -246,12 +259,18 @@ export function useTaskDashboard(agents?: Map<string, { name: string }>): TaskDa
           if (assignStep && assignTask) {
             const resolvedName =
               action === 'assigned'
-                ? (agentsRef.current?.get(employeeId)?.name ?? employeeId)
-                : assignTask.employeeName;
+                ? (assigneeName ??
+                  (employeeId ? (agentsRef.current?.get(employeeId)?.name ?? employeeId) : null))
+                : assignTask.assigneeName;
             assignStep.tasks[ti] = {
               ...assignTask,
-              employeeId: action === 'assigned' ? employeeId : assignTask.employeeId,
-              employeeName: resolvedName,
+              employeeId: action === 'assigned' ? (employeeId ?? assignTask.employeeId) : assignTask.employeeId,
+              employeeName:
+                action === 'assigned' && employeeId
+                  ? (agentsRef.current?.get(employeeId)?.name ?? resolvedName ?? null)
+                  : (assignTask.employeeName ?? null),
+              assigneeKind: action === 'assigned' ? assigneeKind : assignTask.assigneeKind,
+              assigneeName: resolvedName ?? null,
             };
           }
           return { ...prev, steps };

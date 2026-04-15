@@ -369,10 +369,13 @@ export function useRuntimeActivityFeed(opts?: {
           pushEntry(
             prev,
             {
-              id: `dispatch-${event.timestamp}-${event.payload.employeeId}-${event.payload.stepIndex}`,
+              id: `dispatch-${event.timestamp}-${event.payload.assigneeId}-${event.payload.stepIndex}`,
               kind: 'dispatch',
               tone: 'info',
-              label: `${event.payload.employeeName} took step ${event.payload.stepIndex + 1}: ${truncate(event.payload.stepLabel, 34)}`,
+              label:
+                event.payload.assigneeKind === 'department'
+                  ? `Delegated to ${event.payload.assigneeName}: ${truncate(event.payload.stepLabel, 34)}`
+                  : `${event.payload.assigneeName} took step ${event.payload.stepIndex + 1}: ${truncate(event.payload.stepLabel, 34)}`,
               timestamp: event.timestamp,
               employeeId: event.payload.employeeId,
             },
@@ -606,6 +609,9 @@ export function useRuntimeActivityFeed(opts?: {
       (event: RuntimeEvent<DeliverableCreatedPayload>) => {
         const payload = event.payload;
         const empCount = payload.contributingEmployees.length;
+        const externalCount = payload.contributingEmployees.filter(
+          (employee) => employee.sourceKind === 'department',
+        ).length;
         const artifact = resolveDeliverableArtifact(payload);
         const title = truncate(getDeliverableDisplayTitle(payload.title, artifact), 50);
         setEntries((prev) =>
@@ -617,7 +623,7 @@ export function useRuntimeActivityFeed(opts?: {
               tone: 'success',
               label:
                 empCount > 0
-                  ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'})`
+                  ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'}${externalCount > 0 ? `, ${externalCount} external` : ''})`
                   : `Deliverable ready: "${title}"`,
               timestamp: event.timestamp,
             },

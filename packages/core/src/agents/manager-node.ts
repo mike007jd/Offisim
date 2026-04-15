@@ -1,4 +1,5 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
+import { formatExternalDepartmentCatalog, matchExternalDepartments } from '../a2a/external-departments.js';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
@@ -51,6 +52,20 @@ Rules:
 - Each assignment must reference a valid employee ID`;
 
 const VALID_INTENTS = new Set(['work', 'hire', 'assess_team']);
+const EXTERNAL_ROUTING_RE = /\b(external|partner|vendor|outsourc(?:e|ed|ing)|a2a)\b|外包|外部/i;
+
+function hasInternalCapabilityMatch(
+  userContent: string,
+  employees: ReadonlyArray<{ role_slug: string; name: string; config_json: string | null }>,
+): boolean {
+  const intent = userContent.toLowerCase();
+  return employees.some((employee) => {
+    if (intent.includes(employee.role_slug.toLowerCase())) return true;
+    if (intent.includes(employee.name.toLowerCase())) return true;
+    if (!employee.config_json) return false;
+    return employee.config_json.toLowerCase().includes(intent.slice(0, 120));
+  });
+}
 
 function parseManagerDecision(content: string): ManagerDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -115,6 +130,7 @@ export async function managerNode(
   );
 
   const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
+  const externalDepartments = runtimeCtx.externalDepartments ?? [];
 
   // Get last user message (needed for both fast path and LLM path)
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
@@ -129,6 +145,40 @@ export async function managerNode(
   // (not hiring/assessment), skip the LLM call to save tokens.
   const HIRE_KEYWORDS = /\b(hire|recruit|assess|staffing)\b|团队评估|招聘|招人/i;
   const looksLikeHiring = HIRE_KEYWORDS.test(userContent);
+  const matchedDepartments = matchExternalDepartments(userContent, externalDepartments);
+  const shouldPreferExternal =
+    matchedDepartments.length > 0 &&
+    (EXTERNAL_ROUTING_RE.test(userContent) ||
+      !hasInternalCapabilityMatch(userContent, nonManagerEmployees));
+
+  if (shouldPreferExternal) {
+    const departmentIds = matchedDepartments.map((department) => department.id);
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'manager',
+      eventType: 'decision',
+      payload: {
+        intent: 'work',
+        assignmentCount: departmentIds.length,
+        targetKind: 'department',
+      },
+    });
+    runtimeCtx.scratchpad.write(
+      `manager.assignment.${state.threadId}`,
+      `Delegated externally to ${matchedDepartments.map((department) => department.name).join(', ')} for: ${userContent}`,
+      'manager',
+    );
+    return {
+      managerDirective: {
+        intent: userContent,
+        recommendedEmployees: [],
+        recommendedDepartments: departmentIds,
+        sopTemplateId: state.selectedSopTemplateId ?? undefined,
+      },
+    };
+  }
+
   if (nonManagerEmployees.length === 1 && !looksLikeHiring) {
     const soleEmployee = nonManagerEmployees[0];
     if (!soleEmployee) {
@@ -162,7 +212,7 @@ export async function managerNode(
       messages: [
         {
           role: 'system',
-          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}\n\nAvailable external departments:\n${formatExternalDepartmentCatalog(externalDepartments)}`,
         },
         { role: 'user', content: userContent },
       ],

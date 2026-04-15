@@ -29,7 +29,17 @@ export class SceneIntentDispatcher {
       this.eventBus.on(
         'task.assignment.dispatched',
         (event: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
-          this.sceneIntentBus.emit(createSceneIntent('scene.task.dispatched', event.payload));
+          if (!event.payload.employeeId) {
+            return;
+          }
+          const payload = {
+            employeeId: event.payload.employeeId,
+            employeeName: event.payload.employeeName,
+            stepLabel: event.payload.stepLabel,
+            stepIndex: event.payload.stepIndex,
+            totalSteps: event.payload.totalSteps,
+          };
+          this.sceneIntentBus.emit(createSceneIntent('scene.task.dispatched', payload));
         },
       ),
     );

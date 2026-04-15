@@ -16,6 +16,7 @@ export interface Deliverable {
   contributingEmployees: ReadonlyArray<{
     employeeId: string;
     employeeName: string;
+    sourceKind?: 'employee' | 'department';
     roleSlug: RoleSlug;
   }>;
   createdAt: number;

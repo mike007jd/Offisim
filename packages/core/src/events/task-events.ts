@@ -19,6 +19,8 @@ export function taskStateChanged(
   next: TaskState,
   threadId?: string,
   employeeId?: string,
+  assigneeKind?: TaskStatePayload['assigneeKind'],
+  assigneeName?: string,
 ): RuntimeEvent<TaskStatePayload> {
   return {
     type: 'task.state.changed',
@@ -27,16 +29,29 @@ export function taskStateChanged(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { taskRunId, prev, next, employeeId },
+    payload: {
+      taskRunId,
+      prev,
+      next,
+      employeeId,
+      assigneeId: employeeId,
+      assigneeName,
+      assigneeKind,
+    },
   };
 }
 
 export function taskAssignmentChanged(
   companyId: string,
   taskRunId: string,
-  employeeId: string,
+  assigneeId: string,
   action: 'assigned' | 'unassigned',
   threadId?: string,
+  opts?: {
+    employeeId?: string;
+    assigneeName?: string;
+    assigneeKind?: TaskAssignmentPayload['assigneeKind'];
+  },
 ): RuntimeEvent<TaskAssignmentPayload> {
   return {
     type: 'task.assignment.changed',
@@ -45,48 +60,83 @@ export function taskAssignmentChanged(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { taskRunId, employeeId, action },
+    payload: {
+      taskRunId,
+      employeeId: opts?.employeeId,
+      assigneeId,
+      assigneeName: opts?.assigneeName,
+      assigneeKind: opts?.assigneeKind,
+      action,
+    },
   };
 }
 
 export function taskAssignmentDispatched(
   companyId: string,
-  employeeId: string,
-  employeeName: string,
+  assigneeId: string,
+  assigneeName: string,
   stepLabel: string,
   stepIndex: number,
   totalSteps: number,
   threadId?: string,
+  opts?: {
+    employeeId?: string;
+    assigneeKind?: TaskAssignmentDispatchedPayload['assigneeKind'];
+  },
 ): RuntimeEvent<TaskAssignmentDispatchedPayload> {
   return {
     type: 'task.assignment.dispatched',
-    entityId: employeeId,
+    entityId: assigneeId,
     entityType: 'task',
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { employeeId, employeeName, stepLabel, stepIndex, totalSteps },
+    payload: {
+      employeeId: opts?.employeeId,
+      employeeName: assigneeName,
+      assigneeId,
+      assigneeName,
+      assigneeKind: opts?.assigneeKind,
+      stepLabel,
+      stepIndex,
+      totalSteps,
+    },
   };
 }
 
 export function taskSubtaskProgress(
   companyId: string,
-  employeeId: string,
+  assigneeId: string,
   stepIndex: number,
   label: string,
   status: 'queued' | 'running' | 'done' | 'failed',
   totalSteps: number,
   completedSteps: number,
   threadId?: string,
+  opts?: {
+    employeeId?: string;
+    assigneeName?: string;
+    assigneeKind?: TaskSubtaskProgressPayload['assigneeKind'];
+  },
 ): RuntimeEvent<TaskSubtaskProgressPayload> {
   return {
     type: 'task.subtask.progress',
-    entityId: employeeId,
+    entityId: assigneeId,
     entityType: 'task',
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { employeeId, stepIndex, label, status, totalSteps, completedSteps },
+    payload: {
+      employeeId: opts?.employeeId,
+      assigneeId,
+      assigneeName: opts?.assigneeName,
+      assigneeKind: opts?.assigneeKind,
+      stepIndex,
+      label,
+      status,
+      totalSteps,
+      completedSteps,
+    },
   };
 }
 

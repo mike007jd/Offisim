@@ -43,6 +43,7 @@ import {
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
+import { loadExternalDepartments } from './external-departments';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -102,6 +103,7 @@ export async function createTauriRuntime(
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
+  const externalDepartments = loadExternalDepartments();
   await seedTauriDb();
 
   const db = createTauriDrizzleDb();
@@ -234,6 +236,7 @@ export async function createTauriRuntime(
     companyId,
     threadId,
     runtimePolicy,
+    externalDepartments,
     memoryService,
     interactionBox,
     hookRegistry,
@@ -312,6 +315,7 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    externalDepartments,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
     dispose: () => {

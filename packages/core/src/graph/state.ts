@@ -2,15 +2,21 @@ import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 import type { RoleSlug } from '@offisim/shared-types';
 
+export type AssignmentTargetKind = 'employee' | 'department';
+
 export interface PendingAssignment {
   taskType: string;
   employeeId: string;
+  assigneeKind?: AssignmentTargetKind;
+  assigneeName?: string;
   inputJson: Record<string, unknown>;
 }
 
 export interface PlanTask {
   taskType: string;
   employeeId: string;
+  assigneeKind?: AssignmentTargetKind;
+  assigneeName?: string;
   description: string;
   dependsOnStepOutput: boolean;
   requiredSkills?: string[];
@@ -38,6 +44,7 @@ export interface TaskPlan {
 export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
+  recommendedDepartments?: string[];
   constraints?: string;
   sopTemplateId?: string; // explicit SOP selection — bypasses substring matching
 }
@@ -54,6 +61,7 @@ export interface CitationRef {
 export interface StepTaskOutput {
   employeeId: string;
   employeeName: string;
+  sourceKind?: AssignmentTargetKind;
   roleSlug: RoleSlug;
   content: string;
   taskRunId: string;

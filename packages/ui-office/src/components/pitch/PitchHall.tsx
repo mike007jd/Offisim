@@ -199,6 +199,7 @@ function DeliverableCard({ item, onSaveAsSop, desktopVaultRoot, isNew }: Deliver
                 className="text-[10px] px-1.5 py-0 truncate max-w-[120px]"
               >
                 {emp.employeeName}
+                {emp.sourceKind === 'department' ? ' (external)' : ''}
               </Badge>
             ))}
           </div>
@@ -360,9 +361,15 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         employees.length > 0
           ? employees.map((emp, i) => ({
               step_id: `step_${i + 1}`,
-              label: `${emp.employeeName} contribution`,
+              label:
+                emp.sourceKind === 'department'
+                  ? `${emp.employeeName} external contribution`
+                  : `${emp.employeeName} contribution`,
               role_slug: emp.roleSlug,
-              instruction: `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
+              instruction:
+                emp.sourceKind === 'department'
+                  ? `Replicate the outsourced work handled by ${emp.employeeName} to produce "${item.title}".`
+                  : `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
               dependencies: i === 0 ? [] : [`step_${i}`],
               output_key: `output_step_${i + 1}`,
             }))

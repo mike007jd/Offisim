@@ -49,6 +49,7 @@ import {
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
+import { loadExternalDepartments } from './external-departments';
 import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
@@ -110,6 +111,7 @@ export type RuntimeBundle = {
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
+  externalDepartments?: ReturnType<typeof loadExternalDepartments>;
   vaultActivation?: VaultActivation;
   desktopVaultRoot?: string | null;
   browserVault?: BrowserVaultController;
@@ -131,6 +133,7 @@ export async function createBrowserRuntime(
   assertBrowserProviderAllowed(config.provider);
 
   const threadId = `thread-${companyId}`;
+  const externalDepartments = loadExternalDepartments();
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
@@ -257,6 +260,7 @@ export async function createBrowserRuntime(
     companyId,
     threadId,
     runtimePolicy,
+    externalDepartments,
     memoryService,
     interactionBox,
     hookRegistry,
@@ -299,6 +303,7 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     packService,
+    externalDepartments,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,
@@ -323,6 +328,7 @@ export async function createBrowserRuntimeReposOnly(
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
+  const externalDepartments = loadExternalDepartments();
   const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
@@ -357,6 +363,7 @@ export async function createBrowserRuntimeReposOnly(
       },
       companyId,
       threadId,
+      externalDepartments,
       interactionBox,
       hookRegistry,
       scratchpad,
@@ -370,6 +377,7 @@ export async function createBrowserRuntimeReposOnly(
     sessionCostTracker: undefined,
     toolTelemetryService: undefined,
     interactionService,
+    externalDepartments,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,

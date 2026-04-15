@@ -57,7 +57,8 @@ export function TaskItem({
           {task.status}
         </span>
         <span className="shrink-0 text-koi">
-          {task.employeeName ?? task.employeeId ?? 'Unassigned'}
+          {task.assigneeName ?? task.employeeName ?? task.employeeId ?? 'Unassigned'}
+          {task.assigneeKind === 'department' ? ' (external)' : ''}
         </span>
         <span className="truncate text-shell">{task.description || task.taskType}</span>
         {taskCost > 0 && (
@@ -77,7 +78,7 @@ export function TaskItem({
             task={{
               taskRunId: task.taskRunId,
               description: task.description,
-              employeeName: task.employeeName ?? undefined,
+              employeeName: task.assigneeName ?? task.employeeName ?? undefined,
               taskType: task.taskType,
               status: task.status,
             }}

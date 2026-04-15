@@ -1,4 +1,5 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
+import type { ExternalDepartmentDefinition } from '../a2a/external-departments.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
@@ -39,6 +40,7 @@ export interface RuntimeContext {
   readonly companyId: string;
   readonly threadId: string;
   readonly runtimePolicy?: RuntimePolicyConfig;
+  readonly externalDepartments?: readonly ExternalDepartmentDefinition[];
   readonly memoryService?: MemoryService;
   /** PRD 2.3: Workstation-scoped tool resolver. */
   readonly workstationToolResolver?: WorkstationToolResolver;
@@ -97,6 +99,7 @@ export function createRuntimeContext(deps: {
   companyId: string;
   threadId: string;
   runtimePolicy?: RuntimePolicyConfig;
+  externalDepartments?: readonly ExternalDepartmentDefinition[];
   memoryService?: MemoryService;
   workstationToolResolver?: WorkstationToolResolver;
   meetingInterruptBox?: MeetingInterruptBox;

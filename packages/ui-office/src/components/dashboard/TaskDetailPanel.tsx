@@ -74,7 +74,7 @@ export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
         <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px]">
           {task.employeeName && (
             <span>
-              <span className="text-shell">Assigned to: </span>
+              <span className="text-shell">Owner: </span>
               <span className="text-koi">{task.employeeName}</span>
             </span>
           )}

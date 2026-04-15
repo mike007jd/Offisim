@@ -110,24 +110,36 @@ export interface TaskStatePayload {
   readonly prev: TaskState;
   readonly next: TaskState;
   readonly employeeId?: string;
+  readonly assigneeId?: string;
+  readonly assigneeName?: string;
+  readonly assigneeKind?: 'employee' | 'department';
 }
 
 export interface TaskAssignmentPayload {
   readonly taskRunId: string;
-  readonly employeeId: string;
+  readonly employeeId?: string;
+  readonly assigneeId: string;
+  readonly assigneeName?: string;
+  readonly assigneeKind?: 'employee' | 'department';
   readonly action: 'assigned' | 'unassigned';
 }
 
 export interface TaskAssignmentDispatchedPayload {
-  readonly employeeId: string;
+  readonly employeeId?: string;
   readonly employeeName: string;
+  readonly assigneeId: string;
+  readonly assigneeName: string;
+  readonly assigneeKind?: 'employee' | 'department';
   readonly stepLabel: string;
   readonly stepIndex: number;
   readonly totalSteps: number;
 }
 
 export interface TaskSubtaskProgressPayload {
-  readonly employeeId: string;
+  readonly employeeId?: string;
+  readonly assigneeId: string;
+  readonly assigneeName?: string;
+  readonly assigneeKind?: 'employee' | 'department';
   readonly stepIndex: number;
   readonly label: string;
   readonly status: 'queued' | 'running' | 'done' | 'failed';
@@ -309,7 +321,10 @@ export interface PlanCreatedPayload {
       readonly taskRunId: string;
       readonly taskType: string;
       readonly description: string;
-      readonly employeeId: string;
+      readonly employeeId?: string;
+      readonly assigneeId: string;
+      readonly assigneeName?: string;
+      readonly assigneeKind?: 'employee' | 'department';
     }>;
   }>;
 }
@@ -396,6 +411,7 @@ export interface DeliverableCreatedPayload {
   readonly contributingEmployees: ReadonlyArray<{
     readonly employeeId: string;
     readonly employeeName: string;
+    readonly sourceKind?: 'employee' | 'department';
     readonly roleSlug: RoleSlug;
   }>;
   readonly createdAt: number;

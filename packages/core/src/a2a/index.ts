@@ -1,5 +1,10 @@
 export { A2AClient } from './a2a-client.js';
 export { A2ARequestHandler } from './a2a-server.js';
+export {
+  defineExternalDepartments,
+  formatExternalDepartmentCatalog,
+  matchExternalDepartments,
+} from './external-departments.js';
 export type {
   A2AHttpRequest,
   A2AHttpResponse,
@@ -23,3 +28,10 @@ export type {
   A2ATaskStatus,
   A2ATextPart,
 } from './a2a-types.js';
+export type {
+  ExternalDepartmentDefinition,
+  ExternalDepartmentSeed,
+  ExternalDepartmentStatus,
+  ExternalDepartmentAvailability,
+  ExternalDepartmentAuthState,
+} from './external-departments.js';

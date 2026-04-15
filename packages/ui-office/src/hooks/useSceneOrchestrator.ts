@@ -827,7 +827,16 @@ export function useSceneOrchestrator({
       : eventBus.on(
           'task.assignment.dispatched',
           (e: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
-            handleDispatched(e.payload);
+            if (!e.payload.employeeId) {
+              return;
+            }
+            handleDispatched({
+              employeeId: e.payload.employeeId,
+              employeeName: e.payload.employeeName,
+              stepLabel: e.payload.stepLabel,
+              stepIndex: e.payload.stepIndex,
+              totalSteps: e.payload.totalSteps,
+            });
           },
         );
 

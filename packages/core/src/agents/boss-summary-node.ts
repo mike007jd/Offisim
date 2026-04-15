@@ -152,6 +152,7 @@ export async function bossSummaryNode(
     const contributingEmployees = state.currentStepOutputs.map((o) => ({
       employeeId: o.employeeId,
       employeeName: o.employeeName,
+      sourceKind: o.sourceKind,
       roleSlug: o.roleSlug,
     }));
     const title = state.taskPlan?.summary ?? stripLegacySpeakerPrefix(finalContent).slice(0, 80);

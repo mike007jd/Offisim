@@ -290,9 +290,13 @@ export async function pmPlannerNode(
     approvedToExecute && planReviewDecision?.reviewedPayload
       ? (planReviewDecision.reviewedPayload as LlmPlan)
       : null;
+  const recommendedDepartmentIds = directive?.recommendedDepartments ?? [];
 
-  // If no directive or no recommended employees, return empty plan
-  if (!directive || directive.recommendedEmployees.length === 0) {
+  // If no directive or no targets, return empty plan
+  if (
+    !directive ||
+    (directive.recommendedEmployees.length === 0 && recommendedDepartmentIds.length === 0)
+  ) {
     return {
       taskPlan: null,
       currentStepIndex: 0,
@@ -308,8 +312,11 @@ export async function pmPlannerNode(
   const validEmployees = employeeDetails.filter(
     (e): e is NonNullable<typeof e> => e !== null && e.enabled === 1,
   );
+  const validDepartments = (runtimeCtx.externalDepartments ?? []).filter((department) =>
+    recommendedDepartmentIds.includes(department.id),
+  );
 
-  if (validEmployees.length === 0) {
+  if (validEmployees.length === 0 && validDepartments.length === 0) {
     return {
       taskPlan: null,
       currentStepIndex: 0,
@@ -321,6 +328,106 @@ export async function pmPlannerNode(
   // --- SOP-aware planning: check if intent references a known SOP template ---
   const allEmployees = await repos.employees.findByCompany(companyId);
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
+
+  if (validDepartments.length > 0) {
+    const planId = generateId('plan');
+    const description =
+      validDepartments.length === 1
+        ? `Outsource to ${validDepartments[0]?.name ?? 'external department'}`
+        : `Outsource to ${validDepartments.length} external departments`;
+    const planTasks: PlanTask[] = [];
+
+    for (const department of validDepartments) {
+      const taskRunId = generateId('tr');
+      const taskDescription = `${directive.intent}\n\nDelegate this work to ${department.name}. Use its external capabilities: ${department.capabilities.join(', ')}.`;
+      await repos.taskRuns.create({
+        task_run_id: taskRunId,
+        thread_id: threadId,
+        employee_id: null,
+        parent_task_run_id: null,
+        task_type: 'general',
+        status: 'planned',
+        input_json: JSON.stringify({
+          description: taskDescription,
+          assigneeKind: 'department',
+          assigneeId: department.id,
+        }),
+        output_json: null,
+        started_at: new Date().toISOString(),
+      });
+      planTasks.push({
+        taskType: 'general',
+        employeeId: department.id,
+        assigneeKind: 'department',
+        assigneeName: department.name,
+        description: taskDescription,
+        dependsOnStepOutput: false,
+        requiredSkills: [...department.capabilities],
+        taskRunId,
+      });
+    }
+
+    const taskPlan: TaskPlan = {
+      planId,
+      threadId,
+      companyId,
+      steps: [
+        {
+          stepIndex: 0,
+          description,
+          tasks: planTasks,
+          phase: 'external delivery',
+        },
+      ],
+      summary:
+        validDepartments.length === 1
+          ? `Delegate work to ${validDepartments[0]?.name ?? 'external department'}`
+          : `Delegate work to external departments`,
+    };
+
+    eventBus.emit(
+      planCreated(
+        companyId,
+        planId,
+        threadId,
+        taskPlan.summary,
+        taskPlan.steps.map((step) => ({
+          stepIndex: step.stepIndex,
+          description: step.description,
+          taskCount: step.tasks.length,
+          tasks: step.tasks.map((task) => ({
+            taskRunId: task.taskRunId ?? '',
+            taskType: task.taskType,
+            description: task.description,
+            employeeId: undefined,
+            assigneeId: task.employeeId,
+            assigneeName: task.assigneeName,
+            assigneeKind: task.assigneeKind,
+          })),
+        })),
+      ),
+    );
+
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'pm',
+      eventType: 'decision',
+      payload: {
+        planId,
+        stepCount: taskPlan.steps.length,
+        summary: taskPlan.summary,
+        targetKind: 'department',
+      },
+    });
+
+    return {
+      taskPlan,
+      currentStepIndex: 0,
+      stepResults: [],
+      currentStepOutputs: [],
+    };
+  }
 
   let plan: LlmPlan | null = reviewedPlan;
   let resolvedSopTemplateId: string | undefined;
@@ -498,6 +605,9 @@ export async function pmPlannerNode(
       planTasks.push({
         taskType: llmTask.taskType,
         employeeId: llmTask.employeeId,
+        assigneeKind: 'employee',
+        assigneeName: validEmployees.find((employee) => employee.employee_id === llmTask.employeeId)
+          ?.name,
         description: llmTask.description,
         dependsOnStepOutput: llmTask.dependsOnStepOutput,
         requiredSkills: llmTask.requiredSkills,
@@ -542,6 +652,9 @@ export async function pmPlannerNode(
             taskType: t.taskType,
             description: t.description,
             employeeId: t.employeeId,
+            assigneeId: t.employeeId,
+            assigneeName: t.assigneeName,
+            assigneeKind: t.assigneeKind,
           };
         }),
       })),

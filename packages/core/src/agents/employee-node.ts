@@ -342,7 +342,16 @@ export async function employeeNode(
   if (taskRunId) {
     await repos.taskRuns.updateStatus(taskRunId, 'running');
     eventBus.emit(
-      taskStateChanged(companyId, taskRunId, 'queued', 'running', threadId, employee.employee_id),
+      taskStateChanged(
+        companyId,
+        taskRunId,
+        'queued',
+        'running',
+        threadId,
+        employee.employee_id,
+        'employee',
+        employee.name,
+      ),
     );
   }
 
@@ -357,6 +366,7 @@ export async function employeeNode(
       totalAssignments,
       completedSoFar,
       threadId,
+      { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
     ),
   );
 
@@ -685,6 +695,7 @@ export async function employeeNode(
               {
                 employeeId: employee.employee_id,
                 employeeName: employee.name,
+                sourceKind: 'employee',
                 roleSlug: employee.role_slug,
                 content: args.completedWork,
                 taskRunId: taskRunId ?? '',
@@ -838,10 +849,16 @@ export async function employeeNode(
           'completed',
           threadId,
           employee.employee_id,
+          'employee',
+          employee.name,
         ),
       );
       eventBus.emit(
-        taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
+        taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId, {
+          employeeId: employee.employee_id,
+          assigneeKind: 'employee',
+          assigneeName: employee.name,
+        }),
       );
     }
 
@@ -856,6 +873,7 @@ export async function employeeNode(
         totalAssignments,
         completedSoFar + 1,
         threadId,
+        { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
       ),
     );
 
@@ -939,6 +957,7 @@ export async function employeeNode(
             {
               employeeId: employee.employee_id,
               employeeName: employee.name,
+              sourceKind: 'employee',
               roleSlug: employee.role_slug,
             },
           ],
@@ -961,6 +980,7 @@ export async function employeeNode(
         {
           employeeId: employee.employee_id,
           employeeName: employee.name,
+          sourceKind: 'employee',
           roleSlug: employee.role_slug,
           content: llmResponse.content,
           taskRunId: taskRunId ?? '',
@@ -1021,10 +1041,16 @@ export async function employeeNode(
             'completed',
             threadId,
             employee.employee_id,
+            'employee',
+            employee.name,
           ),
         );
         eventBus.emit(
-          taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId),
+          taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId, {
+            employeeId: employee.employee_id,
+            assigneeKind: 'employee',
+            assigneeName: employee.name,
+          }),
         );
         await runtimeCtx.hookRegistry.emit('task.completed', {
           threadId,
@@ -1044,6 +1070,7 @@ export async function employeeNode(
           totalAssignments,
           completedSoFar + 1,
           threadId,
+          { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
         ),
       );
       eventBus.emit(
@@ -1085,6 +1112,7 @@ export async function employeeNode(
               {
                 employeeId: employee.employee_id,
                 employeeName: employee.name,
+                sourceKind: 'employee',
                 roleSlug: employee.role_slug,
               },
             ],
@@ -1107,6 +1135,7 @@ export async function employeeNode(
           {
             employeeId: employee.employee_id,
             employeeName: employee.name,
+            sourceKind: 'employee',
             roleSlug: employee.role_slug,
             content: recovered.content,
             taskRunId: taskRunId ?? '',
@@ -1141,7 +1170,16 @@ export async function employeeNode(
     if (taskRunId) {
       await repos.taskRuns.updateStatus(taskRunId, 'failed');
       eventBus.emit(
-        taskStateChanged(companyId, taskRunId, 'running', 'failed', threadId, employee.employee_id),
+        taskStateChanged(
+          companyId,
+          taskRunId,
+          'running',
+          'failed',
+          threadId,
+          employee.employee_id,
+          'employee',
+          employee.name,
+        ),
       );
     }
 
@@ -1156,6 +1194,7 @@ export async function employeeNode(
         totalAssignments,
         completedSoFar,
         threadId,
+        { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
       ),
     );
 

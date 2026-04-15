@@ -183,6 +183,7 @@ export function useAgentStates(): Map<string, AgentState> {
       'task.assignment.dispatched',
       (event: RuntimeEvent<TaskAssignmentDispatchedPayload>) => {
         const { employeeId, stepLabel, stepIndex, totalSteps } = event.payload;
+        if (!employeeId) return;
         setAgents((prev) => {
           const existing = prev.get(employeeId);
           if (!existing) return prev;
@@ -201,6 +202,7 @@ export function useAgentStates(): Map<string, AgentState> {
       'task.subtask.progress',
       (event: RuntimeEvent<TaskSubtaskProgressPayload>) => {
         const { employeeId, stepIndex, label, status } = event.payload;
+        if (!employeeId) return;
         setAgents((prev) => {
           const existing = prev.get(employeeId);
           if (!existing) return prev;

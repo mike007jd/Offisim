@@ -3,6 +3,7 @@ import { END, StateGraph } from '@langchain/langgraph';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { bossNode } from '../agents/boss-node.js';
 import { bossSummaryNode } from '../agents/boss-summary-node.js';
+import { departmentDispatcherNode } from '../agents/department-dispatcher-node.js';
 import { employeeDirectSetupNode } from '../agents/employee-direct-setup-node.js';
 import { employeeNode } from '../agents/employee-node.js';
 import { errorHandlerNode } from '../agents/error-handler-node.js';
@@ -134,6 +135,24 @@ export function routeFromPm(state: OffisimGraphState): string {
     return 'boss_summary';
   }
   return 'step_dispatcher';
+}
+
+/** @internal — exported for testing */
+export function routeFromStepDispatcher(state: OffisimGraphState): string {
+  return state.pendingAssignments.some((assignment) => assignment.assigneeKind === 'department')
+    ? 'department_dispatcher'
+    : 'employee';
+}
+
+/** @internal — exported for testing */
+export function routeFromDepartmentDispatcher(state: OffisimGraphState): string {
+  if (state.pendingAssignments.some((assignment) => assignment.assigneeKind === 'department')) {
+    return 'department_dispatcher';
+  }
+  if (state.pendingAssignments.length > 0) {
+    return 'employee';
+  }
+  return routeFromEmployee(state);
 }
 
 /** @internal — exported for testing */
@@ -340,6 +359,12 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
       withNodeHooks('step_dispatcher', (state, config) => stepDispatcherNode(state, config)),
     )
     .addNode(
+      'department_dispatcher',
+      withNodeHooks('department_dispatcher', (state, config) =>
+        departmentDispatcherNode(state, config),
+      ),
+    )
+    .addNode(
       'employee',
       withNodeHooks('employee', (state: OffisimGraphState, config: RunnableConfig) =>
         employeeNode(state, config),
@@ -420,7 +445,17 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
     ])
     .addConditionalEdges('manager', routeFromManager, ['pm_planner', 'hr'])
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])
-    .addEdge('step_dispatcher', 'employee')
+    .addConditionalEdges('step_dispatcher', routeFromStepDispatcher, [
+      'department_dispatcher',
+      'employee',
+    ])
+    .addConditionalEdges('department_dispatcher', routeFromDepartmentDispatcher, [
+      'department_dispatcher',
+      'employee',
+      'step_advance',
+      'boss_summary',
+      'error_handler',
+    ])
     .addConditionalEdges('employee', routeFromEmployee, [
       'employee',
       'step_advance',

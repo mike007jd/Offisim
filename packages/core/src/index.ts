@@ -351,6 +351,11 @@ export type { MeetingInterrupt, MeetingInterruptType } from './graph/state.js';
 // --- A2A (Agent-to-Agent Protocol) ---
 export { A2AClient } from './a2a/index.js';
 export { A2ARequestHandler } from './a2a/index.js';
+export {
+  defineExternalDepartments,
+  formatExternalDepartmentCatalog,
+  matchExternalDepartments,
+} from './a2a/index.js';
 export type {
   A2AHttpRequest,
   A2AHttpResponse,
@@ -367,6 +372,11 @@ export type {
   A2ATaskState,
   A2ATaskStatus,
   A2ATextPart,
+  ExternalDepartmentDefinition,
+  ExternalDepartmentSeed,
+  ExternalDepartmentStatus,
+  ExternalDepartmentAvailability,
+  ExternalDepartmentAuthState,
 } from './a2a/index.js';
 
 // --- Built-in Tools ---
