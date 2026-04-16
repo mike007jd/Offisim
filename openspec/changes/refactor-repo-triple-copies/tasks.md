@@ -1,10 +1,10 @@
 ## 1. Baseline capture
 
-- [ ] 1.1 Record pre-refactor line counts: `wc -l packages/core/src/runtime/drizzle-repositories.ts packages/core/src/runtime/memory-repositories.ts apps/web/src/lib/tauri-repos.ts`
-- [ ] 1.2 Record pre-refactor NBNC (non-blank non-comment) counts via `awk '{ if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*\/\// && $0 !~ /^[[:space:]]*\*/) c++ } END { print c }'`
-- [ ] 1.3 Capture pre-refactor sorted key list of each factory return (drizzle 36 / memory 35+snapshot / tauri 34) into `baseline-notes.md` — this is the equivalence bar for spec Requirement "Public factory signatures are byte-identical"
-- [ ] 1.4 Snapshot SHA1 of `packages/core/src/runtime/repositories.ts` into `baseline-notes.md` to prove contract file is unchanged at the end
-- [ ] 1.5 Commit baseline-notes.md — start of apply trail
+- [x] 1.1 Record pre-refactor line counts: `wc -l packages/core/src/runtime/drizzle-repositories.ts packages/core/src/runtime/memory-repositories.ts apps/web/src/lib/tauri-repos.ts`
+- [x] 1.2 Record pre-refactor NBNC (non-blank non-comment) counts via `awk '{ if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*\/\// && $0 !~ /^[[:space:]]*\*/) c++ } END { print c }'`
+- [x] 1.3 Capture pre-refactor sorted key list of each factory return (drizzle 36 / memory 35+snapshot / tauri 34) into `baseline-notes.md` — this is the equivalence bar for spec Requirement "Public factory signatures are byte-identical"
+- [x] 1.4 Snapshot SHA1 of `packages/core/src/runtime/repositories.ts` into `baseline-notes.md` to prove contract file is unchanged at the end
+- [x] 1.5 Commit baseline-notes.md — start of apply trail
 
 ## 2. Scaffold (Phase A)
 
