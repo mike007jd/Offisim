@@ -73,11 +73,11 @@
 
 ## 10. Phase K — projects family
 
-- [ ] 10.1 Create `runtime/repos/projects/drizzle.ts` — extract `projects`, `projectAssignments`
-- [ ] 10.2 Create `runtime/repos/projects/memory.ts` — move `MemoryProjectRepository`, `MemoryProjectAssignmentRepository` classes
-- [ ] 10.3 Create `apps/web/src/lib/tauri-repos/projects.ts`
-- [ ] 10.4 Splice barrels; update memory barrel re-exports (2 class symbols); delete inline blocks
-- [ ] 10.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase K — projects`
+- [x] 10.1 Create `runtime/repos/projects/drizzle.ts` — extract `projects`, `projectAssignments`
+- [x] 10.2 Create `runtime/repos/projects/memory.ts` — move `MemoryProjectRepository`, `MemoryProjectAssignmentRepository` classes
+- [x] 10.3 Create `apps/web/src/lib/tauri-repos/projects.ts`
+- [x] 10.4 Splice barrels; update memory barrel re-exports (2 class symbols); delete inline blocks
+- [x] 10.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase K — projects`
 
 ## 11. Phase L — agent-events family
 

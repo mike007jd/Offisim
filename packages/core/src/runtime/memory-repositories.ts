@@ -1,11 +1,3 @@
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
-import type {
-  NewProject,
-  NewProjectAssignment,
-  ProjectAssignmentRow,
-  ProjectRow,
-  ProjectStatus,
-} from '@offisim/shared-types';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
@@ -14,6 +6,7 @@ import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
+import { createProjectsMemoryRepos } from './repos/projects/memory.js';
 import { createWorkspaceMemoryRepos } from './repos/workspace/memory.js';
 export {
   MemoryActiveInteractionRepository,
@@ -58,6 +51,10 @@ export {
   MemoryWorkstationRackRepository,
 } from './repos/permissions/memory.js';
 export {
+  MemoryProjectAssignmentRepository,
+  MemoryProjectRepository,
+} from './repos/projects/memory.js';
+export {
   MemoryOfficeLayoutRepository,
   MemoryPrefabInstanceRepository,
   MemorySopTemplateRepository,
@@ -72,8 +69,6 @@ import type {
   AgentEventRow,
   NewAgentEvent,
   NewRecoveryKnowledge,
-  ProjectAssignmentRepository,
-  ProjectRepository,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
   RuntimeRepositories,
@@ -113,6 +108,8 @@ export function createMemoryRepositories(
     prefabInstances,
     zones: zonesRepo,
   } = workspaceFamily;
+  const projectsFamily = createProjectsMemoryRepos(snapshot);
+  const { projects, projectAssignments } = projectsFamily;
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -123,8 +120,6 @@ export function createMemoryRepositories(
     },
   };
 
-  const projects = new MemoryProjectRepository(snapshot?.projects);
-  const projectAssignments = new MemoryProjectAssignmentRepository(snapshot?.projectAssignments);
   const agentEventsRepo = new MemoryAgentEventRepository(snapshot?.agentEvents);
   const recoveryKnowledgeRepo = new MemoryRecoveryKnowledgeRepository(snapshot?.recoveryKnowledge);
 
@@ -206,119 +201,6 @@ export function createMemoryRepositories(
   };
 
   return repositories;
-}
-
-export class MemoryProjectRepository implements ProjectRepository {
-  private readonly store = new Map<string, ProjectRow>();
-
-  constructor(initialRows?: Iterable<ProjectRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(row.project_id, { ...row });
-    }
-  }
-
-  async create(project: NewProject): Promise<ProjectRow> {
-    const row: ProjectRow = {
-      ...project,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.store.set(row.project_id, row);
-    return row;
-  }
-
-  async findById(projectId: string): Promise<ProjectRow | null> {
-    return this.store.get(projectId) ?? null;
-  }
-
-  async findByCompany(companyId: string): Promise<ProjectRow[]> {
-    return [...this.store.values()]
-      .filter((p) => p.company_id === companyId)
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  }
-
-  async findActiveByCompany(companyId: string): Promise<ProjectRow[]> {
-    return [...this.store.values()]
-      .filter(
-        (p) =>
-          p.company_id === companyId &&
-          (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status),
-      )
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  }
-
-  async updateStatus(projectId: string, status: ProjectStatus): Promise<void> {
-    const row = this.store.get(projectId);
-    if (row) {
-      this.store.set(projectId, { ...row, status, updated_at: new Date().toISOString() });
-    }
-  }
-
-  async update(
-    projectId: string,
-    patch: Partial<Pick<ProjectRow, 'name' | 'description' | 'status'>>,
-  ): Promise<void> {
-    const row = this.store.get(projectId);
-    if (row) {
-      this.store.set(projectId, { ...row, ...patch, updated_at: new Date().toISOString() });
-    }
-  }
-
-  async delete(projectId: string): Promise<void> {
-    this.store.delete(projectId);
-  }
-
-  snapshot(): ProjectRow[] {
-    return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepository {
-  private readonly store = new Map<string, ProjectAssignmentRow>();
-
-  constructor(initialRows?: Iterable<ProjectAssignmentRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(this.key(row.project_id, row.employee_id), { ...row });
-    }
-  }
-
-  private key(projectId: string, employeeId: string): string {
-    return `${projectId}::${employeeId}`;
-  }
-
-  async assign(assignment: NewProjectAssignment): Promise<ProjectAssignmentRow> {
-    const key = this.key(assignment.project_id, assignment.employee_id);
-    const existing = this.store.get(key);
-    if (existing) return existing;
-    const row: ProjectAssignmentRow = {
-      ...assignment,
-      assigned_at: new Date().toISOString(),
-    };
-    this.store.set(key, row);
-    return row;
-  }
-
-  async unassign(projectId: string, employeeId: string): Promise<void> {
-    this.store.delete(this.key(projectId, employeeId));
-  }
-
-  async findByProject(projectId: string): Promise<ProjectAssignmentRow[]> {
-    return [...this.store.values()].filter((a) => a.project_id === projectId);
-  }
-
-  async findByEmployee(employeeId: string): Promise<ProjectAssignmentRow[]> {
-    return [...this.store.values()].filter((a) => a.employee_id === employeeId);
-  }
-
-  async isAssigned(projectId: string, employeeId: string): Promise<boolean> {
-    return this.store.has(this.key(projectId, employeeId));
-  }
-
-  snapshot(): ProjectAssignmentRow[] {
-    return cloneRows(this.store.values());
-  }
 }
 
 // ---------------------------------------------------------------------------

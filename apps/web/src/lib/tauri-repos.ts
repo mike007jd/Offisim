@@ -7,21 +7,12 @@ import type {
   AgentEventRow,
   NewAgentEvent,
   NewRecoveryKnowledge,
-  ProjectRepository,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
   RuntimeRepositories,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
-import type {
-  NewProject,
-  NewProjectAssignment,
-  ProjectAssignmentRow,
-  ProjectRow,
-  ProjectStatus,
-} from '@offisim/shared-types';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
 import { createConversationsTauriRepos } from './tauri-repos/conversations';
 import { createEmployeesTauriRepos } from './tauri-repos/employees';
@@ -31,6 +22,7 @@ import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 import { createPermissionsTauriRepos } from './tauri-repos/permissions';
+import { createProjectsTauriRepos } from './tauri-repos/projects';
 import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
 
 function now(): string {
@@ -58,110 +50,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
   const memorySystemFamily = createMemorySystemTauriRepos(db);
   const filesFamily = createFilesTauriRepos(db);
   const workspaceFamily = createWorkspaceTauriRepos(db);
-
-  const projects: ProjectRepository = {
-    async create(p: NewProject) {
-      const row: ProjectRow = { ...p, created_at: now(), updated_at: now() };
-      await db.insert(schema.projects).values(row);
-      return row;
-    },
-    async findById(projectId) {
-      const rows = await db
-        .select()
-        .from(schema.projects)
-        .where(eq(schema.projects.project_id, projectId));
-      return (rows[0] as ProjectRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return (await db
-        .select()
-        .from(schema.projects)
-        .where(eq(schema.projects.company_id, companyId))
-        .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
-    },
-    async findActiveByCompany(companyId) {
-      return (await db
-        .select()
-        .from(schema.projects)
-        .where(
-          and(
-            eq(schema.projects.company_id, companyId),
-            inArray(schema.projects.status, [...ACTIVE_PROJECT_STATUSES]),
-          ),
-        )
-        .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
-    },
-    async updateStatus(projectId, status: ProjectStatus) {
-      await db
-        .update(schema.projects)
-        .set({ status, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
-    },
-    async update(projectId, patch) {
-      await db
-        .update(schema.projects)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
-    },
-    async delete(projectId) {
-      await db.delete(schema.projects).where(eq(schema.projects.project_id, projectId));
-    },
-  };
-
-  const projectAssignments: RuntimeRepositories['projectAssignments'] = {
-    async assign(assignment: NewProjectAssignment) {
-      const row: ProjectAssignmentRow = {
-        ...assignment,
-        assigned_at: now(),
-      };
-      await db.insert(schema.projectAssignments).values(row).onConflictDoNothing();
-
-      const rows = await db
-        .select()
-        .from(schema.projectAssignments)
-        .where(
-          and(
-            eq(schema.projectAssignments.project_id, assignment.project_id),
-            eq(schema.projectAssignments.employee_id, assignment.employee_id),
-          ),
-        );
-      return (rows[0] as ProjectAssignmentRow | undefined) ?? row;
-    },
-    async unassign(projectId, employeeId) {
-      await db
-        .delete(schema.projectAssignments)
-        .where(
-          and(
-            eq(schema.projectAssignments.project_id, projectId),
-            eq(schema.projectAssignments.employee_id, employeeId),
-          ),
-        );
-    },
-    async findByProject(projectId) {
-      return (await db
-        .select()
-        .from(schema.projectAssignments)
-        .where(eq(schema.projectAssignments.project_id, projectId))) as ProjectAssignmentRow[];
-    },
-    async findByEmployee(employeeId) {
-      return (await db
-        .select()
-        .from(schema.projectAssignments)
-        .where(eq(schema.projectAssignments.employee_id, employeeId))) as ProjectAssignmentRow[];
-    },
-    async isAssigned(projectId, employeeId) {
-      const rows = await db
-        .select()
-        .from(schema.projectAssignments)
-        .where(
-          and(
-            eq(schema.projectAssignments.project_id, projectId),
-            eq(schema.projectAssignments.employee_id, employeeId),
-          ),
-        );
-      return rows.length > 0;
-    },
-  };
+  const projectsFamily = createProjectsTauriRepos(db);
 
   const agentEvents: AgentEventRepository = {
     async append(event: NewAgentEvent) {
@@ -372,8 +261,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     ...memorySystemFamily,
     ...filesFamily,
     ...workspaceFamily,
-    projects,
-    projectAssignments,
+    ...projectsFamily,
     agentEvents,
     recoveryKnowledge,
   };
