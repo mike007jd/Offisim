@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: All repo families are migrated to the family sub-directory pattern
+### Requirement: Per-family sub-directory pattern is established
 
 All 11 repo families identified in the archived `refactor-repo-triple-copies` D1 decision SHALL be migrated to the family sub-directory pattern defined by `repository-backend-boundaries`. Each family SHALL have its drizzle + memory implementations under `packages/core/src/runtime/repos/<family>/{drizzle,memory}.ts` and its tauri implementation under `apps/web/src/lib/tauri-repos/<family>.ts`. Each family file SHALL export exactly one factory per backend returning a typed slice of `RuntimeRepositories`.
 
@@ -44,7 +44,7 @@ Each family file SHALL contain at most 320 NBNC lines (D5 decision retained from
 - **WHEN** running NBNC count on every file under `packages/core/src/runtime/repos/**/*.ts` and `apps/web/src/lib/tauri-repos/*.ts`
 - **THEN** no file exceeds 320 NBNC
 
-### Requirement: Memory barrel re-exports all 29 Memory class symbols
+### Requirement: Migrated Memory class exports survive through the barrel
 
 The memory barrel `packages/core/src/runtime/memory-repositories.ts` SHALL re-export every `Memory*Repository` class, covering all 29 classes after full migration:
 
