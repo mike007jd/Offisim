@@ -52,13 +52,13 @@
 
 ## 8. Phase G — 抽 employee-completion.ts
 
-- [ ] 8.1 新建 `packages/core/src/agents/employee-completion.ts`
-- [ ] 8.2 把 `extractUsedCitations`（原 line 150-170）搬入；barrel 改为 `export { extractUsedCitations } from './employee-completion.js'`
-- [ ] 8.3 实现 `finalizeEmployeeSuccess(ctx)`：搬迁原 line 712-888 happy path 完成路径；ctx 字段对照 design.md D3
-- [ ] 8.4 `appendAgentEvent` payload 通过 `ctx.source` 分支：`'normal'` → `{ taskRunId, employeeName, toolRounds: ctx.round, outputLength, citationCount }`；`'recovery'` → `{ taskRunId, employeeName, recoveredFromError: true, outputLength }`
-- [ ] 8.5 `hookRegistry.emit('task.completed', { ..., completionType })`：normal → `'response'`；recovery → `'recovery'`
-- [ ] 8.6 `employee-node.ts` happy path 末段改为 `return await finalizeEmployeeSuccess({ ...ctx, source: 'normal', round })`
-- [ ] 8.7 typecheck + build 双绿；commit "Phase G: extract employee-completion shared between happy and recovery paths"
+- [x] 8.1 新建 `employee-completion.ts`
+- [x] 8.2 `extractUsedCitations` 搬入,barrel re-export
+- [x] 8.3 实现 `finalizeEmployeeSuccess(ctx)` 搬迁 happy path 完成路径
+- [x] 8.4 appendAgentEvent payload 按 source 分支 (normal: toolRounds/citationCount; recovery: recoveredFromError)
+- [x] 8.5 hookRegistry.emit completionType 按 source 分支 (normal: response; recovery: recovery)
+- [x] 8.6 barrel happy path 改为 `return await finalizeEmployeeSuccess(...)`
+- [x] 8.7 typecheck + build 双绿,commit Phase G
 
 ## 9. Phase H — recovery path 复用 finalizeEmployeeSuccess
 

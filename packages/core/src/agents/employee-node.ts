@@ -1,14 +1,11 @@
-import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('employee');
 import {
-  deliverableCreated,
   employeeStateChanged,
   handoffInitiated,
-  taskAssignmentChanged,
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
@@ -21,10 +18,6 @@ import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
-import {
-  buildEmployeeDeliverableTitle,
-  materializeFileDeliverableIfNeeded,
-} from './employee-deliverables.js';
 import { MAX_TOOL_ROUNDS, TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import { runPreflight } from './employee-preflight.js';
@@ -190,6 +183,10 @@ export async function employeeNode(
     signal: getConfigSignal(config),
   });
 
+  // Hoisted out of try scope so the recovery catch handler can report the
+  // tool round count reached before the failure.
+  let round = 0;
+
   try {
     // Initial LLM call
     let llmResponse = await runEmployeeTurn(
@@ -208,7 +205,6 @@ export async function employeeNode(
     ];
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
-    let round = 0;
     let workingHistory = conversationHistory;
 
     while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
@@ -276,144 +272,16 @@ export async function employeeNode(
     }).catch(() => null); // recovery itself must not throw
 
     if (recovered) {
-      const materializedRecoveredDeliverable = await materializeFileDeliverableIfNeeded(
+      return await finalizeEmployeeSuccess({
         runtimeCtx,
-        taskDescription,
-        employee,
-        recovered,
-        {
-          model: resolved.model,
-          provider: resolved.provider,
-          temperature: resolved.temperature,
-          maxTokens: resolved.maxTokens,
-          signal: getConfigSignal(config),
-        },
-        taskRunId,
-      );
-      // Recovery succeeded — continue as if the original call worked
-      if (taskRunId) {
-        await repos.taskRuns.updateStatus(
-          taskRunId,
-          'completed',
-          JSON.stringify({ content: recovered.content }),
-        );
-        eventBus.emit(
-          taskStateChanged(
-            companyId,
-            taskRunId,
-            'running',
-            'completed',
-            threadId,
-            employee.employee_id,
-            'employee',
-            employee.name,
-          ),
-        );
-        eventBus.emit(
-          taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId, {
-            employeeId: employee.employee_id,
-            assigneeKind: 'employee',
-            assigneeName: employee.name,
-          }),
-        );
-        await runtimeCtx.hookRegistry.emit('task.completed', {
-          threadId,
-          companyId,
-          employeeId: employee.employee_id,
-          taskRunId,
-          completionType: 'recovery',
-        });
-      }
-      eventBus.emit(
-        taskSubtaskProgress(
-          companyId,
-          employee.employee_id,
-          completedSoFar,
-          taskLabel,
-          'done',
-          totalAssignments,
-          completedSoFar + 1,
-          threadId,
-          { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
-        ),
-      );
-      eventBus.emit(
-        employeeStateChanged(
-          companyId,
-          employee.employee_id,
-          'executing',
-          'idle',
-          threadId,
-          taskRunId,
-        ),
-      );
-
-      await appendAgentEvent(runtimeCtx, {
-        projectId: state.projectId,
-        threadId: state.threadId,
-        agentName: `employee:${employee.employee_id}`,
-        eventType: 'action',
-        payload: {
-          taskRunId,
-          employeeName: employee.name,
-          recoveredFromError: true,
-          outputLength: recovered.content.length,
-        },
-      }).catch(() => {});
-
-      if (materializedRecoveredDeliverable) {
-        runtimeCtx.eventBus.emit(
-          deliverableCreated(
-            runtimeCtx.companyId,
-            generateId('del'),
-            state.threadId,
-            buildEmployeeDeliverableTitle(
-              taskDescription,
-              materializedRecoveredDeliverable.fileName,
-            ),
-            materializedRecoveredDeliverable.artifactContent,
-            [
-              {
-                employeeId: employee.employee_id,
-                employeeName: employee.name,
-                sourceKind: 'employee',
-                roleSlug: employee.role_slug,
-              },
-            ],
-            {
-              kind: 'file',
-              fileName: materializedRecoveredDeliverable.fileName,
-              mimeType: materializedRecoveredDeliverable.mimeType,
-            },
-          ),
-        );
-      }
-
-      return {
-        currentEmployeeId: employee.employee_id,
-        currentTaskRunId: taskRunId ?? null,
-        pendingAssignments: remaining,
-        messages: [new AIMessage({ content: recovered.content })],
-        currentStepOutputs: [
-          ...state.currentStepOutputs,
-          {
-            employeeId: employee.employee_id,
-            employeeName: employee.name,
-            sourceKind: 'employee',
-            roleSlug: employee.role_slug,
-            content: recovered.content,
-            taskRunId: taskRunId ?? '',
-            artifact: materializedRecoveredDeliverable
-              ? {
-                  kind: 'file',
-                  fileName: materializedRecoveredDeliverable.fileName,
-                  mimeType: materializedRecoveredDeliverable.mimeType,
-                  content: materializedRecoveredDeliverable.artifactContent,
-                }
-              : undefined,
-          },
-        ],
-      };
+        state,
+        preflight: preflightOutcome.preflight,
+        llmResponse: recovered,
+        citationMap,
+        source: 'recovery',
+        round,
+        signal: getConfigSignal(config),
+      });
     }
 
     // --- Recovery failed or not available — escalate to error_handler ---
