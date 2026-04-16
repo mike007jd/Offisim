@@ -2,15 +2,12 @@ import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
 import type { RuntimeSkillConfig } from '@offisim/shared-types';
-import { parseEmployeeConfig } from '@offisim/shared-types';
-import { GraphError } from '../errors.js';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('employee');
 import {
   deliverableCreated,
   employeeStateChanged,
-  graphNodeEntered,
   handoffInitiated,
   llmStreamChunk,
   taskAssignmentChanged,
@@ -47,39 +44,9 @@ import {
   SKILL_TOOL_NAME,
   TASK_TYPE_HANDOFF_CONTINUATION,
 } from './employee-node-constants.js';
+import { runPreflight } from './employee-preflight.js';
 
 import type { CitationRef } from '../graph/state.js';
-
-function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig | null {
-  const config = parseEmployeeConfig(configJson);
-  if (!config.runtimeSkill || config.runtimeSkill.enabled === false) return null;
-  return config.runtimeSkill;
-}
-
-function normalizeSkillText(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function taskHasSkillMismatch(
-  requiredSkills: string[],
-  runtimeSkill: RuntimeSkillConfig | null,
-): boolean {
-  if (requiredSkills.length === 0) return false;
-  if (!runtimeSkill) return true;
-  const haystack = [
-    runtimeSkill.skillName,
-    runtimeSkill.summary,
-    ...(runtimeSkill.capabilityIndex?.requiredCapabilities ?? []),
-    ...(runtimeSkill.capabilityIndex?.capabilities ?? []).map(
-      (cap) => cap.label ?? cap.key ?? cap.kind ?? '',
-    ),
-  ]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .map(normalizeSkillText)
-    .join(' ');
-
-  return !requiredSkills.some((skill) => haystack.includes(normalizeSkillText(skill)));
-}
 
 function formatSkillCatalogSection(skill: RuntimeSkillConfig): string {
   const summary = sanitizeForPrompt(skill.capabilityIndex?.summary ?? skill.summary, 600);
@@ -170,119 +137,29 @@ export async function employeeNode(
 ): Promise<Partial<OffisimGraphState> | Command> {
   const runtimeCtx = getRuntime(config, 'employee');
 
-  // Announce node entry
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'));
-
-  const { modelResolver, repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
-
-  // Pop the first pending assignment
-  const remaining = [...state.pendingAssignments];
-  const assignment = remaining.shift();
-
-  if (!assignment) {
-    return { pendingAssignments: [], completed: true };
+  const preflightOutcome = await runPreflight(state, runtimeCtx);
+  if (preflightOutcome.kind === 'early-return') {
+    return preflightOutcome.stateUpdate;
   }
-  const isDirectChatTask = assignment.taskType === 'direct_chat';
+  const {
+    assignment,
+    remaining,
+    employee,
+    company,
+    taskRunId,
+    taskLabel,
+    totalAssignments,
+    completedSoFar,
+    isDirectChatTask,
+    resolved,
+    taskDescription,
+    runtimeSkill,
+    memoryPolicy,
+    toolSearchEnabled,
+  } = preflightOutcome.preflight;
   const streamEmployeeReplies = true;
 
-  const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
-    | string
-    | undefined;
-
-  const employee = await repos.employees.findById(assignment.employeeId).catch(() => null);
-  if (!employee) {
-    // Employee was deleted mid-execution — skip this assignment gracefully
-    if (taskRunId) {
-      await repos.taskRuns.updateStatus(taskRunId, 'failed');
-      eventBus.emit(taskStateChanged(companyId, taskRunId, 'queued', 'failed', threadId));
-    }
-    return {
-      pendingAssignments: remaining,
-      currentStepOutputs: state.currentStepOutputs,
-    };
-  }
-
-  const company = await repos.companies.findById(companyId);
-  if (!company) {
-    throw new GraphError(`Company ${companyId} not found`, 'employee');
-  }
-
-  // Emit employee working state
-  eventBus.emit(
-    employeeStateChanged(companyId, employee.employee_id, 'idle', 'executing', threadId, taskRunId),
-  );
-
-  // Track subtask progress scoped to THIS employee (not all employees in the queue)
-  const myAssignments = state.pendingAssignments.filter(
-    (a) => a.employeeId === employee.employee_id,
-  );
-  const myRemaining = remaining.filter((a) => a.employeeId === employee.employee_id);
-  const totalAssignments = myAssignments.length;
-  const completedSoFar = totalAssignments - myRemaining.length - 1;
-  const taskLabel =
-    ((assignment.inputJson as Record<string, unknown>).description as string)?.slice(0, 60) ??
-    'Task';
-
-  // Update task run status
-  if (taskRunId) {
-    await repos.taskRuns.updateStatus(taskRunId, 'running');
-    eventBus.emit(
-      taskStateChanged(
-        companyId,
-        taskRunId,
-        'queued',
-        'running',
-        threadId,
-        employee.employee_id,
-        'employee',
-        employee.name,
-      ),
-    );
-  }
-
-  // Emit subtask running progress
-  eventBus.emit(
-    taskSubtaskProgress(
-      companyId,
-      employee.employee_id,
-      completedSoFar,
-      taskLabel,
-      'running',
-      totalAssignments,
-      completedSoFar,
-      threadId,
-      { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
-    ),
-  );
-
-  const resolved = modelResolver.resolve(null, employee.role_slug);
-  const taskDescription =
-    ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
-  const requiredSkills = Array.isArray(
-    (assignment.inputJson as Record<string, unknown>).requiredSkills,
-  )
-    ? ((assignment.inputJson as Record<string, unknown>).requiredSkills as unknown[]).filter(
-        (skill): skill is string => typeof skill === 'string' && skill.trim().length > 0,
-      )
-    : [];
-  const runtimeSkill = parseRuntimeSkillConfig(employee.config_json);
-  const memoryPolicy = runtimeCtx.runtimePolicy?.memory;
-  const toolSearchEnabled = runtimeCtx.runtimePolicy?.toolSearch.enabled ?? true;
-
-  if (taskHasSkillMismatch(requiredSkills, runtimeSkill)) {
-    await appendAgentEvent(runtimeCtx, {
-      projectId: state.projectId,
-      threadId: state.threadId,
-      agentName: employee.employee_id,
-      eventType: 'skill_mismatch',
-      payload: {
-        taskRunId,
-        employeeId: employee.employee_id,
-        employeeSkill: runtimeSkill?.skillName ?? null,
-        requiredSkills,
-      },
-    });
-  }
+  const { repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
 
   let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
   if (runtimeSkill) {

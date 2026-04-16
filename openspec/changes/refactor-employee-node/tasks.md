@@ -8,9 +8,9 @@
 
 ## 2. Phase A — 提常量到独立模块
 
-- [ ] 2.1 新建 `packages/core/src/agents/employee-node-constants.ts`，把 `MAX_HANDOFF_COUNT`(3) / `MAX_CONTEXT_MESSAGES`(20) / `TASK_TYPE_HANDOFF_CONTINUATION`('handoff_continuation') / `SKILL_TOOL_NAME`('activate_skill_context') / `MAX_TOOL_ROUNDS`(5) 5 个常量集中 export
-- [ ] 2.2 `employee-node.ts` 改为 `import { ... } from './employee-node-constants.js'`，删除原行 47/51/54/56/470 处声明
-- [ ] 2.3 typecheck `pnpm --filter @offisim/core typecheck`、build `pnpm --filter @offisim/core build` 双绿，commit "Phase A: extract employee-node constants"
+- [x] 2.1 新建 `packages/core/src/agents/employee-node-constants.ts`，5 个常量集中 export
+- [x] 2.2 `employee-node.ts` 改为 import,删除原行 47/51/54/56/470 处声明
+- [x] 2.3 typecheck + build 双绿，commit Phase A
 
 ## 3. Phase B — 抽 employee-preflight.ts
 
