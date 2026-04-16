@@ -4,6 +4,7 @@ import './index.css';
 import {
   CompanyProvider,
   NotificationProvider,
+  PlanStepStoreProvider,
   ThemeProvider,
   useOffisimRuntime,
 } from '@offisim/ui-office/web';
@@ -100,13 +101,15 @@ function Shell() {
   return (
     <ThemeProvider>
       <OffisimRuntimeProvider key={companyId} companyId={companyId}>
-        <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
-          <NotificationProvider>
-            <Suspense fallback={<AppBootFallback />}>
-              <App onCompanySwitch={handleCompanySwitch} />
-            </Suspense>
-          </NotificationProvider>
-        </CompanyBridge>
+        <PlanStepStoreProvider>
+          <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
+            <NotificationProvider>
+              <Suspense fallback={<AppBootFallback />}>
+                <App onCompanySwitch={handleCompanySwitch} />
+              </Suspense>
+            </NotificationProvider>
+          </CompanyBridge>
+        </PlanStepStoreProvider>
       </OffisimRuntimeProvider>
     </ThemeProvider>
   );

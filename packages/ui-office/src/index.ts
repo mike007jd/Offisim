@@ -107,6 +107,7 @@ export * from './hooks/useOfficeLayout.js';
 export * from './hooks/usePrefabInstances.js';
 export * from './hooks/useRackSlot.js';
 export * from './hooks/useSceneOrchestrator.js';
+export * from './hooks/plan-step-store.js';
 export * from './hooks/useTaskDashboard.js';
 export * from './hooks/useNotifications.js';
 export * from './hooks/useTaskQueue.js';

@@ -34,6 +34,7 @@ export { useEmployeeEditor } from './hooks/useEmployeeEditor.js';
 export { useFirstRunGuidance } from './hooks/useFirstRunGuidance.js';
 export { useInstallFlow } from './hooks/useInstallFlow.js';
 export { usePrefabInstances } from './hooks/usePrefabInstances.js';
+export { PlanStepStoreProvider, usePlanStepStore } from './hooks/plan-step-store.js';
 export { useProjects } from './hooks/useProjects.js';
 export { useReducedMotion } from './hooks/use-reduced-motion.js';
 export { useSceneOrchestrator } from './hooks/useSceneOrchestrator.js';

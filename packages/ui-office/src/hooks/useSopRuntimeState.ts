@@ -1,106 +1,35 @@
-import type {
-  PlanCompletedPayload,
-  PlanCreatedPayload,
-  PlanStepCompletedPayload,
-  PlanStepStartedPayload,
-  RuntimeEvent,
-} from '@offisim/shared-types';
-import { useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
+import { usePlanStepStore } from './plan-step-store';
 
 export interface SopRuntimeStepState {
   stepIndex: number;
   status: 'pending' | 'active' | 'completed' | 'failed';
 }
 
-/**
- * Maps EventBus plan lifecycle events to per-step status.
- * When `sopTemplateId` is provided, only activates for plans originating from that SOP.
- * Returns null when no matching plan is active.
- */
 export function useSopRuntimeState(sopTemplateId?: string): SopRuntimeStepState[] | null {
-  const { eventBus } = useOffisimRuntime();
+  const store = usePlanStepStore();
   const { isRunning } = useOffisimRuntimeStatus();
-  const [steps, setSteps] = useState<SopRuntimeStepState[] | null>(null);
+  const [cleared, setCleared] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Track which planId belongs to us so step/complete events can match. */
-  const activePlanIdRef = useRef<string | null>(null);
 
-  // Auto-clear 3s after runtime stops (aligned with usePipelineStage pattern)
   useEffect(() => {
     if (!isRunning) {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        setSteps(null);
-        activePlanIdRef.current = null;
-      }, 3000);
+      timerRef.current = setTimeout(() => setCleared(true), 3000);
+    } else {
+      setCleared(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [isRunning]);
 
-  useEffect(() => {
-    const offs: Array<() => void> = [];
-
-    offs.push(
-      eventBus.on('plan.created', (e: RuntimeEvent<PlanCreatedPayload>) => {
-        // If filtering by SOP and this plan doesn't match, ignore
-        if (sopTemplateId && e.payload.sopTemplateId !== sopTemplateId) {
-          // A different SOP's plan — clear our state if we were active
-          if (activePlanIdRef.current) {
-            activePlanIdRef.current = null;
-            setSteps(null);
-          }
-          return;
-        }
-
-        if (timerRef.current) clearTimeout(timerRef.current);
-        activePlanIdRef.current = e.payload.planId;
-        setSteps(
-          e.payload.steps.map((s) => ({
-            stepIndex: s.stepIndex,
-            status: 'pending' as const,
-          })),
-        );
-      }),
-    );
-
-    offs.push(
-      eventBus.on('plan.step.started', (e: RuntimeEvent<PlanStepStartedPayload>) => {
-        if (sopTemplateId && activePlanIdRef.current !== e.payload.planId) return;
-        setSteps(
-          (prev) =>
-            prev?.map((s) =>
-              s.stepIndex === e.payload.stepIndex ? { ...s, status: 'active' as const } : s,
-            ) ?? null,
-        );
-      }),
-    );
-
-    offs.push(
-      eventBus.on('plan.step.completed', (e: RuntimeEvent<PlanStepCompletedPayload>) => {
-        if (sopTemplateId && activePlanIdRef.current !== e.payload.planId) return;
-        setSteps(
-          (prev) =>
-            prev?.map((s) =>
-              s.stepIndex === e.payload.stepIndex ? { ...s, status: 'completed' as const } : s,
-            ) ?? null,
-        );
-      }),
-    );
-
-    offs.push(
-      eventBus.on('plan.completed', (e: RuntimeEvent<PlanCompletedPayload>) => {
-        if (sopTemplateId && activePlanIdRef.current !== e.payload.planId) return;
-        setSteps((prev) => prev?.map((s) => ({ ...s, status: 'completed' as const })) ?? null);
-      }),
-    );
-
-    return () => {
-      for (const off of offs) off();
-    };
-  }, [eventBus, sopTemplateId]);
-
-  return steps;
+  return useMemo(() => {
+    if (cleared) return null;
+    if (!store.planId) return null;
+    if (sopTemplateId && store.sopTemplateId !== sopTemplateId) return null;
+    return store.steps.map((s) => ({ stepIndex: s.stepIndex, status: s.status }));
+  }, [cleared, store.planId, store.sopTemplateId, store.steps, sopTemplateId]);
 }
