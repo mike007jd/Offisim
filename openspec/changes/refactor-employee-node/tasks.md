@@ -36,10 +36,10 @@
 
 ## 6. Phase E — 抽 employee-turn-runner.ts
 
-- [ ] 6.1 新建 `packages/core/src/agents/employee-turn-runner.ts`，定义 `buildTurnRunner({ runtimeCtx, state, resolved, allTools, config, streamEnabled })` 把原 line 393-450 closure 搬迁为 free function；保留 stream / non-stream 双分支
-- [ ] 6.2 严格保证 `chunk.reasoning` → emit reasoning kind、`chunk.content` → emit default kind 的 if-if（不是 if-else）顺序
-- [ ] 6.3 `employee-node.ts` 改为 `const runTurn = buildTurnRunner(...)`
-- [ ] 6.4 typecheck + build 双绿；commit "Phase E: extract employee-turn-runner"
+- [x] 6.1 新建 `employee-turn-runner.ts`,buildTurnRunner factory 搬迁 closure
+- [x] 6.2 严格保留 if-if (非 if-else) chunk emit 顺序 (reasoning → default)
+- [x] 6.3 barrel 改为 `const runEmployeeTurn = buildTurnRunner(...)`
+- [x] 6.4 typecheck + build 双绿,commit Phase E
 
 ## 7. Phase F — 抽 employee-tool-round.ts
 

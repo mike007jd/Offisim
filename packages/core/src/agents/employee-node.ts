@@ -12,29 +12,26 @@ import {
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
-import type { OffisimGraphState } from '../graph/state.js';
+import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
-import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
+import type { EmployeeRow } from '../runtime/repositories.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
-import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
 import {
   buildEmployeeDeliverableTitle,
   materializeFileDeliverableIfNeeded,
 } from './employee-deliverables.js';
-import {
-  MAX_CONTEXT_MESSAGES,
-  MAX_TOOL_ROUNDS,
-  SKILL_TOOL_NAME,
-  TASK_TYPE_HANDOFF_CONTINUATION,
-} from './employee-node-constants.js';
+import { MAX_TOOL_ROUNDS, TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import { runPreflight } from './employee-preflight.js';
 import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
+import type { HandoffArgs } from './employee-tool-round.js';
+import { runToolRound } from './employee-tool-round.js';
 import { buildTurnRunner } from './employee-turn-runner.js';
 
 import type { CitationRef } from '../graph/state.js';
@@ -66,6 +63,116 @@ export function extractUsedCitations(
     }));
 }
 
+interface ExecuteHandoffContext {
+  readonly state: OffisimGraphState;
+  readonly remaining: PendingAssignment[];
+  readonly employee: EmployeeRow;
+  readonly taskRunId: string | undefined;
+  readonly runtimeCtx: RuntimeContext;
+  readonly companyId: string;
+  readonly threadId: string;
+}
+
+/**
+ * Execute the full handoff side-effect chain. Returns null if the target
+ * employee has been deleted mid-flight (caller should fall back to a normal
+ * completion path).
+ */
+async function executeHandoff(args: HandoffArgs, ctx: ExecuteHandoffContext): Promise<Command | null> {
+  const { state, remaining, employee, taskRunId, runtimeCtx, companyId, threadId } = ctx;
+  const { repos, eventBus } = runtimeCtx;
+
+  const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
+  if (!targetEmp) return null;
+
+  const handoffId = generateId('ho');
+  await repos.handoffs.create({
+    handoff_id: handoffId,
+    thread_id: state.threadId,
+    from_employee_id: employee.employee_id,
+    to_employee_id: args.targetEmployeeId,
+    reason: args.reason,
+    payload_json: JSON.stringify({
+      completedWork: args.completedWork,
+      remainingWork: args.remainingWork,
+    }),
+    created_at: new Date().toISOString(),
+  });
+
+  const newTaskRunId = generateId('tr-ho');
+  await repos.taskRuns.create({
+    task_run_id: newTaskRunId,
+    thread_id: state.threadId,
+    employee_id: args.targetEmployeeId,
+    parent_task_run_id: taskRunId ?? null,
+    task_type: TASK_TYPE_HANDOFF_CONTINUATION,
+    status: 'queued',
+    input_json: JSON.stringify({
+      description: args.remainingWork,
+      priorWork: args.completedWork,
+    }),
+    output_json: null,
+    started_at: new Date().toISOString(),
+  });
+
+  if (taskRunId) {
+    await repos.taskRuns.updateStatus(taskRunId, 'completed');
+    await runtimeCtx.hookRegistry.emit('task.completed', {
+      threadId,
+      companyId,
+      employeeId: employee.employee_id,
+      taskRunId,
+      completionType: 'handoff',
+    });
+  }
+
+  eventBus.emit(
+    handoffInitiated(
+      companyId,
+      handoffId,
+      state.threadId,
+      employee.employee_id,
+      args.targetEmployeeId,
+      args.reason,
+      newTaskRunId,
+    ),
+  );
+  eventBus.emit(
+    employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+  );
+
+  return new Command({
+    goto: 'employee',
+    update: {
+      pendingAssignments: [
+        {
+          taskType: TASK_TYPE_HANDOFF_CONTINUATION,
+          employeeId: args.targetEmployeeId,
+          inputJson: {
+            description: args.remainingWork,
+            priorWork: args.completedWork,
+            handoffReason: args.reason,
+            taskRunId: newTaskRunId,
+          },
+        },
+        ...remaining,
+      ],
+      handoffCount: state.handoffCount + 1,
+      currentStepOutputs: [
+        ...state.currentStepOutputs,
+        {
+          employeeId: employee.employee_id,
+          employeeName: employee.name,
+          sourceKind: 'employee',
+          roleSlug: employee.role_slug,
+          content: args.completedWork,
+          taskRunId: taskRunId ?? '',
+        },
+      ],
+    },
+  });
+}
+
 export async function employeeNode(
   state: OffisimGraphState,
   config: RunnableConfig,
@@ -87,19 +194,10 @@ export async function employeeNode(
     isDirectChatTask,
     resolved,
     taskDescription,
-    runtimeSkill,
   } = preflightOutcome.preflight;
   const streamEmployeeReplies = true;
 
-  const {
-    repos,
-    eventBus,
-    toolExecutor,
-    workstationToolResolver,
-    companyId,
-    threadId,
-    memoryService,
-  } = runtimeCtx;
+  const { repos, eventBus, companyId, threadId, memoryService } = runtimeCtx;
 
   const { systemPrompt, citationMap } = await assemblePrompt(
     preflightOutcome.preflight,
@@ -140,240 +238,41 @@ export async function employeeNode(
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
     let round = 0;
+    let workingHistory = conversationHistory;
 
     while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
       round++;
 
-      // Check for handoff_to virtual tool BEFORE delegating to toolExecutor
-      const handoffCall = llmResponse.toolCalls.find((tc) => tc.name === 'handoff_to');
-      if (handoffCall) {
-        const args = handoffCall.arguments as {
-          targetEmployeeId: string;
-          reason: string;
-          completedWork: string;
-          remainingWork: string;
-        };
-
-        // 0. Validate target employee still exists
-        const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
-        if (!targetEmp) {
-          // Target employee no longer exists — skip handoff, continue with current task
-          conversationHistory.push({
-            role: 'user',
-            content: 'Handoff target employee no longer exists. Please complete the task yourself.',
-          });
-          break;
-        }
-
-        // 1. Write handoff record
-        const handoffId = generateId('ho');
-        await repos.handoffs.create({
-          handoff_id: handoffId,
-          thread_id: state.threadId,
-          from_employee_id: employee.employee_id,
-          to_employee_id: args.targetEmployeeId,
-          reason: args.reason,
-          payload_json: JSON.stringify({
-            completedWork: args.completedWork,
-            remainingWork: args.remainingWork,
-          }),
-          created_at: new Date().toISOString(),
-        });
-
-        // 2. Create new TaskRun for receiving employee
-        const newTaskRunId = generateId('tr-ho');
-        await repos.taskRuns.create({
-          task_run_id: newTaskRunId,
-          thread_id: state.threadId,
-          employee_id: args.targetEmployeeId,
-          parent_task_run_id: taskRunId ?? null,
-          task_type: TASK_TYPE_HANDOFF_CONTINUATION,
-          status: 'queued',
-          input_json: JSON.stringify({
-            description: args.remainingWork,
-            priorWork: args.completedWork,
-          }),
-          output_json: null,
-          started_at: new Date().toISOString(),
-        });
-
-        // 3. Mark current task as completed
-        if (taskRunId) {
-          await repos.taskRuns.updateStatus(taskRunId, 'completed');
-          await runtimeCtx.hookRegistry.emit('task.completed', {
-            threadId,
-            companyId,
-            employeeId: employee.employee_id,
-            taskRunId,
-            completionType: 'handoff',
-          });
-        }
-
-        // 4. Emit events
-        eventBus.emit(
-          handoffInitiated(
-            companyId,
-            handoffId,
-            state.threadId,
-            employee.employee_id,
-            args.targetEmployeeId,
-            args.reason,
-            newTaskRunId,
-          ),
-        );
-        eventBus.emit(
-          employeeStateChanged(
-            companyId,
-            employee.employee_id,
-            'executing',
-            'idle',
-            threadId,
-            taskRunId,
-          ),
-        );
-
-        // 5. Return Command — bypasses routeFromEmployee
-        //    Prepend handoff task but KEEP remaining assignments from this step
-        return new Command({
-          goto: 'employee',
-          update: {
-            pendingAssignments: [
-              {
-                taskType: TASK_TYPE_HANDOFF_CONTINUATION,
-                employeeId: args.targetEmployeeId,
-                inputJson: {
-                  description: args.remainingWork,
-                  priorWork: args.completedWork,
-                  handoffReason: args.reason,
-                  taskRunId: newTaskRunId,
-                },
-              },
-              ...remaining,
-            ],
-            handoffCount: state.handoffCount + 1,
-            currentStepOutputs: [
-              ...state.currentStepOutputs,
-              {
-                employeeId: employee.employee_id,
-                employeeName: employee.name,
-                sourceKind: 'employee',
-                roleSlug: employee.role_slug,
-                content: args.completedWork,
-                taskRunId: taskRunId ?? '',
-              },
-            ],
-          },
-        });
-      }
-
-      // Handle virtual + MCP tool calls — execute in parallel for throughput.
-      // Each tool call is independent; a failing tool should not block others.
-      const settled = await Promise.allSettled(
-        llmResponse.toolCalls.map(async (toolCall) => {
-          // Check for memory virtual tools
-          if (
-            memoryService &&
-            MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
-          ) {
-            const result = await handleMemoryTool(
-              toolCall.name as (typeof MEMORY_TOOL_NAMES)[number],
-              toolCall.arguments,
-              employee.employee_id,
-              companyId,
-              threadId,
-              runtimeCtx,
-            );
-            return { callId: toolCall.id, name: toolCall.name, result };
-          }
-          if (runtimeSkill && toolCall.name === SKILL_TOOL_NAME) {
-            return {
-              callId: toolCall.id,
-              name: toolCall.name,
-              result: {
-                skillName: runtimeSkill.skillName,
-                summary: runtimeSkill.summary,
-                instructions: runtimeSkill.instructions ?? '',
-                allowedTools: runtimeSkill.allowedTools ?? [],
-                capabilities: runtimeSkill.capabilityIndex?.requiredCapabilities ?? [],
-              },
-            };
-          }
-
-          // Non-memory, non-handoff tool calls — delegate to toolExecutor
-          // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries)
-          if (workstationToolResolver && !allowedMcpToolNames.has(toolCall.name)) {
-            return {
-              callId: toolCall.id,
-              name: toolCall.name,
-              result: {
-                success: false,
-                result: null,
-                error: `[${WORKSTATION_ACCESS_DENIED}] Employee '${employee.name}' is not assigned to a workstation with access to tool '${toolCall.name}'.`,
-              },
-            };
-          }
-
-          const result = await toolExecutor.execute({
-            toolCallId: toolCall.id,
-            name: toolCall.name,
-            arguments: toolCall.arguments,
-            nodeName: 'employee',
-            employeeId: employee.employee_id,
-            taskRunId: taskRunId ?? undefined,
-            stepIndex: state.currentStepIndex,
-          });
-          return { callId: toolCall.id, name: toolCall.name, result };
-        }),
-      );
-
-      // Unwrap settled results — failed tools get an error string instead of crashing the loop
-      const toolResults = settled.map((s, i) => {
-        if (s.status === 'fulfilled') return s.value;
-        const tc = llmResponse.toolCalls[i];
-        if (!tc) {
-          const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
-          logger.warn('Tool call failed without matching tool call metadata', { error: errMsg });
-          return {
-            callId: generateId('tool'),
-            name: 'unknown_tool',
-            result: `Tool execution failed: ${errMsg}`,
-          };
-        }
-        const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
-        logger.warn('Tool call failed', { toolName: tc.name, error: errMsg });
-        return { callId: tc.id, name: tc.name, result: `Tool execution failed: ${errMsg}` };
+      const outcome = await runToolRound({
+        llmResponse,
+        conversationHistory: workingHistory,
+        preflight: preflightOutcome.preflight,
+        runtimeCtx,
+        state,
+        allowedMcpToolNames,
       });
 
-      // Append this round's assistant message (with tool calls) + tool results
-      // to the running history using proper LLM message format.
-      conversationHistory.push({
-        role: 'assistant',
-        content: llmResponse.content || '',
-        ...(llmResponse.reasoningContent ? { reasoningContent: llmResponse.reasoningContent } : {}),
-        toolCalls: llmResponse.toolCalls.map((tc) => ({
-          id: tc.id,
-          name: tc.name,
-          arguments: tc.arguments,
-        })),
-      });
-      for (const tr of toolResults) {
-        conversationHistory.push({
-          role: 'tool',
-          content: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
-          toolCallId: tr.callId,
+      if (outcome.kind === 'handoff') {
+        const command = await executeHandoff(outcome.args, {
+          state,
+          remaining,
+          employee,
+          taskRunId,
+          runtimeCtx,
+          companyId,
+          threadId,
         });
+        if (command) return command;
+        // Target employee gone — fall back to completing the task ourselves.
+        workingHistory.push({
+          role: 'user',
+          content: 'Handoff target employee no longer exists. Please complete the task yourself.',
+        });
+        break;
       }
 
-      // Trim conversation history to avoid unbounded token growth in long sessions.
-      // Keep the system message (first) + the last MAX_CONTEXT_MESSAGES messages.
-      const [firstMessage] = conversationHistory;
-      const trimmedHistory =
-        conversationHistory.length > MAX_CONTEXT_MESSAGES + 1 && firstMessage
-          ? [firstMessage, ...conversationHistory.slice(-MAX_CONTEXT_MESSAGES)]
-          : conversationHistory;
-
-      // Follow-up LLM call with (potentially trimmed) accumulated history
-      llmResponse = await runEmployeeTurn(trimmedHistory, { taskRunId });
+      workingHistory = outcome.nextHistory;
+      llmResponse = await runEmployeeTurn(workingHistory, { taskRunId });
     }
 
     if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
