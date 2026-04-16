@@ -1,7 +1,8 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
+import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
@@ -140,6 +141,39 @@ export function ChatPanel({
       [conversationKey],
     ),
   );
+
+  // Deliverables — attach each to its matching assistant message.
+  // Pins the assignment by deliverableId so late re-renders don't reshuffle attachments.
+  const allDeliverables = useDeliverables();
+  const assignedDeliverableRef = useRef<Map<string, string>>(new Map());
+  const deliverablesByMessageId = useMemo(() => {
+    const map = new Map<string, Deliverable[]>();
+    const assistantMessages = messages.filter((m) => m.role === 'assistant');
+    if (assistantMessages.length === 0) return map;
+    for (const d of allDeliverables) {
+      let messageId = assignedDeliverableRef.current.get(d.id);
+      if (!messageId) {
+        // Pick latest assistant message created within a sane window around the deliverable.
+        // The 2s slack lets message commits that happen slightly after the deliverable still match.
+        const candidates = assistantMessages.filter(
+          (m) => (m.createdAt ?? 0) <= d.createdAt + 2000,
+        );
+        const fallback = assistantMessages.at(-1);
+        const candidate = candidates.at(-1) ?? fallback;
+        if (candidate) {
+          messageId = candidate.id;
+          assignedDeliverableRef.current.set(d.id, messageId);
+        }
+      }
+      if (!messageId) continue;
+      // Only attach if that message belongs to the current conversation view.
+      if (!assistantMessages.some((m) => m.id === messageId)) continue;
+      const arr = map.get(messageId) ?? [];
+      arr.push(d);
+      map.set(messageId, arr);
+    }
+    return map;
+  }, [allDeliverables, messages]);
 
   // Clear error when switching targets
   const prevTargetRef = useRef(targetKey);
@@ -497,6 +531,7 @@ export function ChatPanel({
                     status={msg.status}
                     nodeName={msg.nodeName}
                     reasoning={msg.reasoning}
+                    deliverables={deliverablesByMessageId.get(msg.id)}
                   />
                 ))}
                 <StreamingBubble

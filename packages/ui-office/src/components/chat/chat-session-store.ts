@@ -13,6 +13,8 @@ export interface ChatMessage {
   nodeName?: string | null;
   /** Reasoning content accumulated during streaming. */
   reasoning?: string;
+  /** Unix ms when the message was appended/committed. Used to correlate with deliverable events. */
+  createdAt?: number;
 }
 
 export interface ChatStreamingState {
@@ -95,12 +97,14 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
   appendMessage: (conversationKey, message) =>
     set((state) => {
       const conversation = ensureConversation(state.conversations, conversationKey);
+      const stamped =
+        message.createdAt === undefined ? { ...message, createdAt: Date.now() } : message;
       return {
         conversations: {
           ...state.conversations,
           [conversationKey]: {
             ...conversation,
-            messages: [...conversation.messages, message],
+            messages: [...conversation.messages, stamped],
           },
         },
       };
@@ -212,6 +216,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
         status: options?.status ?? 'completed',
         nodeName: streaming.nodeName,
         reasoning: streaming.reasoning || undefined,
+        createdAt: Date.now(),
       };
       return {
         conversations: {
@@ -236,7 +241,8 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       const content = streaming?.content.trim() ?? '';
-      const sanitizedContent = content.length > 0 ? stripLegacySpeakerPrefix(streaming!.content) : '';
+      const sanitizedContent =
+        content.length > 0 ? stripLegacySpeakerPrefix(streaming!.content) : '';
       const newMessages =
         content.length > 0
           ? [
@@ -248,6 +254,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
                 status: options.status,
                 nodeName: streaming!.nodeName,
                 reasoning: streaming!.reasoning || undefined,
+                createdAt: Date.now(),
               },
             ]
           : conversation.messages;
@@ -311,6 +318,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
                     status: 'completed',
                     nodeName: streaming?.nodeName,
                     reasoning: streaming?.reasoning || undefined,
+                    createdAt: Date.now(),
                   },
                 ]
               : conversation.messages,

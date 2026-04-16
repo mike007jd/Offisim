@@ -1,6 +1,7 @@
 import { cn } from '@offisim/ui-core';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import type { Deliverable } from '../../hooks/useDeliverables';
 import {
   DEFAULT_BADGE_COLOR,
   NODE_BADGE_COLORS,
@@ -8,6 +9,7 @@ import {
   humanizeNodeName,
 } from '../../lib/agent-display';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
+import { DeliverableArtifactCard } from './DeliverableArtifactCard';
 import type { MessageStatus } from './chat-session-store';
 
 interface MessageBubbleProps {
@@ -16,6 +18,14 @@ interface MessageBubbleProps {
   status?: MessageStatus;
   nodeName?: string | null;
   reasoning?: string;
+  deliverables?: Deliverable[];
+}
+
+const FILENAME_LINE = /(^|\n)\s*Filename\s*:\s*[^\n]+\s*(?=\n|$)/gi;
+const FENCED_CODE_BLOCK_RE = /```[a-zA-Z0-9#+._-]*\s*\n[\s\S]*?\n```/g;
+
+function stripFencedArtifactContent(content: string): string {
+  return content.replace(FENCED_CODE_BLOCK_RE, '').replace(FILENAME_LINE, '').trim();
 }
 
 // ── Agent identity extraction ──────────────────────────────────────
@@ -74,8 +84,10 @@ export function MessageBubble({
   status,
   nodeName,
   reasoning,
+  deliverables,
 }: MessageBubbleProps) {
   const [reasoningOpen, setReasoningOpen] = useState(false);
+  const hasDeliverables = !!deliverables && deliverables.length > 0;
 
   // System messages: full-width, monospace, no avatar
   if (role === 'system') {
@@ -106,6 +118,13 @@ export function MessageBubble({
       badgeColor = badgeColorFor(agent.name);
       displayContent = agent.body;
     }
+  }
+
+  // When a deliverable is attached, the raw fenced code is redundant with the artifact card.
+  // Collapse the bubble text to whatever prose surrounds the fenced block (or a default completion note).
+  if (hasDeliverables) {
+    const trimmed = stripFencedArtifactContent(displayContent);
+    displayContent = trimmed.length > 0 ? trimmed : 'Prepared the file below.';
   }
 
   // Status-based border styling
@@ -166,6 +185,17 @@ export function MessageBubble({
           <div className="mt-1 text-[10px] font-medium text-amber-400/70">Interrupted</div>
         )}
       </div>
+      {hasDeliverables && deliverables && (
+        <div className="flex w-full flex-col">
+          {deliverables.map((d) => (
+            <DeliverableArtifactCard
+              key={d.id}
+              artifact={d.artifact}
+              employeeLabel={d.contributingEmployees[0]?.employeeName ?? null}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
