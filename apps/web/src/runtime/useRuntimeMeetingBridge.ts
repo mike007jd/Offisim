@@ -1,6 +1,7 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { useEffect, type MutableRefObject } from 'react';
 import type { InMemoryEventBus } from '@offisim/core/browser';
+import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
 async function loadHumanMessage() {
@@ -26,13 +27,13 @@ export function useRuntimeMeetingBridge(opts: {
     async function runPausedMeetingAction(
       meetingId: string,
       action: (
-        runtime: RuntimeBundle,
+        orch: OrchestrationService,
         threadId: string | undefined,
         HumanMessage: Awaited<ReturnType<typeof loadHumanMessage>>,
       ) => Promise<void>,
     ): Promise<void> {
       const runtime = runtimeRef.current;
-      if (!runtime) return;
+      if (!runtime?.orch) return;
 
       const meeting = await runtime.repos?.meetings.findById(meetingId);
       if (!meeting || meeting.status !== 'paused') return;
@@ -40,16 +41,12 @@ export function useRuntimeMeetingBridge(opts: {
       setIsRunning(true);
       try {
         const HumanMessage = await loadHumanMessage();
-        await action(runtime, meeting.thread_id ?? undefined, HumanMessage);
+        await action(runtime.orch, meeting.thread_id ?? undefined, HumanMessage);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setIsRunning(false);
       }
-    }
-
-    function runAsync(action: () => Promise<void>): void {
-      void action();
     }
 
     const unsubPause = eventBus.on('meeting.interrupt.pause', () => {
@@ -65,14 +62,14 @@ export function useRuntimeMeetingBridge(opts: {
       const meetingId = getMeetingId(event);
       if (!meetingId) return;
 
-      runAsync(async () => {
+      void (async () => {
         await runPausedMeetingAction(
           meetingId,
-          async (runtime, threadId, HumanMessage) => {
-            await runtime.orch.resumeMeeting(meetingId, [new HumanMessage('Resume meeting')], threadId);
+          async (orch, threadId, HumanMessage) => {
+            await orch.resumeMeeting(meetingId, [new HumanMessage('Resume meeting')], threadId);
           },
         );
-      });
+      })();
     });
 
     const unsubEnd = eventBus.on('meeting.interrupt.end', (event: RuntimeEvent) => {
@@ -81,15 +78,15 @@ export function useRuntimeMeetingBridge(opts: {
       const meetingId = getMeetingId(event);
       if (!orch || !meetingId) return;
 
-      runAsync(async () => {
+      void (async () => {
         const meeting = await runtime.repos?.meetings.findById(meetingId);
         if (!meeting) return;
 
         if (meeting.status === 'paused') {
           await runPausedMeetingAction(
             meetingId,
-            async (nextRuntime, threadId, HumanMessage) => {
-              await nextRuntime.orch.endPausedMeeting(
+            async (nextOrch, threadId, HumanMessage) => {
+              await nextOrch.endPausedMeeting(
                 meetingId,
                 [new HumanMessage('End meeting')],
                 threadId,
@@ -100,7 +97,7 @@ export function useRuntimeMeetingBridge(opts: {
         }
 
         orch.interruptMeeting('end');
-      });
+      })();
     });
 
     return () => {

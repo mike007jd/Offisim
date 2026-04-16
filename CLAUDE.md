@@ -130,6 +130,7 @@ apps/
 - **Tauri / browser 双模导入已分叉**: 浏览器 dev 继续走精确 stub, `tauri dev/build` 允许真实加载 `@tauri-apps/api/*` / `plugin-fs` / `plugin-sql`。新增 Tauri 依赖时必须同时补 browser stub 或 alias, 否则浏览器模式会直接炸
 - Dev 端口锁定: web=5176, launcher=4200, platform=4100 (strictPort)
 - 修改 `shared-types` 后必须先 `pnpm --filter @offisim/shared-types build`
+- **验证命令按依赖顺序串行跑**: `shared-types -> ui-core -> core -> ui-office -> web`。不要并行跑 `core/ui-office/web`; `web build` 会读 `core/dist`，并行时容易拿到旧产物产生假失败/假通过。
 - `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物
 - Linux/CI 必须 `--filter '!@offisim/desktop' --filter '!@offisim/launcher'` 跳过 Tauri
 - Three.js 非真实运行时对象可能不完整, 代码里要做 defensive cast / null guard, 不要假设测试环境会替你兜底
@@ -187,6 +188,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 - `web` live 审计已确认：真实 MiniMax 请求能跑通，底部 token / cost / latency 都是真值
 - chat 当前 **不是强感知 streaming UX**：用户常先看到 placeholder（如 `Working through the request...`），再一次性落完整答案。后续若修 chat，目标应是“正文 chunk 真正在气泡里增长”
 - 3D 员工外观当前与 2D DiceBear 头像 **不是同一来源**：3D 走 `office3d-employees.tsx` 的硬编码 `OUTFIT_COLORS / SKIN_TONES`，2D 走 DiceBear seed。不要假设 2D/3D 已经视觉对齐
+- **2026-04-16 execution-plan 已落到 `main`**: P0/P1/P2/P3/P4/P5 都已并入，当前基线包含 canvas-only 2D、artifact-aware deliverables、external departments、以及 runtime/scene/activity 的结构拆分。
 - A2A 的产品抽象已定向为 **external department / 外包部门**，不是外部员工 avatar。未来接入先做部门卡、能力、路由和结果归属，不要先塞进办公室座位语义
 
 ## Interop

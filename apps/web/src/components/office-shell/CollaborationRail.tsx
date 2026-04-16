@@ -36,6 +36,7 @@ function renderChatPanel({
   compact,
   showMeetingPanel,
   showPipelineProgress,
+  showActivityRail,
 }: CollaborationRailProps & {
   compact?: boolean;
   showMeetingPanel?: boolean;

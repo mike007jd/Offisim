@@ -1,5 +1,5 @@
 import type { EventBus } from '@offisim/core/browser';
-import type { ToastIntent } from '@offisim/ui-core';
+import type { ToastVariant } from '@offisim/ui-core';
 import type { DeliverableCreatedPayload, RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types';
 import { useEffect } from 'react';
 import { markCompany } from '../lib/onboarding-store';
@@ -53,7 +53,7 @@ export function useAppRuntimeToasts(opts: {
   eventBus: EventBus;
   addToast: (
     message: string,
-    intent?: ToastIntent,
+    variant?: ToastVariant,
     options?: {
       actionLabel?: string;
       onAction?: () => void;
