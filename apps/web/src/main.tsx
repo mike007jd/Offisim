@@ -101,15 +101,15 @@ function Shell() {
   return (
     <ThemeProvider>
       <OffisimRuntimeProvider key={companyId} companyId={companyId}>
-        <PlanStepStoreProvider>
-          <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
+        <CompanyBridge activeCompanyId={companyId} onCompanySwitch={handleCompanySwitch}>
+          <PlanStepStoreProvider>
             <NotificationProvider>
               <Suspense fallback={<AppBootFallback />}>
                 <App onCompanySwitch={handleCompanySwitch} />
               </Suspense>
             </NotificationProvider>
-          </CompanyBridge>
-        </PlanStepStoreProvider>
+          </PlanStepStoreProvider>
+        </CompanyBridge>
       </OffisimRuntimeProvider>
     </ThemeProvider>
   );
