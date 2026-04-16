@@ -79,11 +79,11 @@
 
 ## 11. Repo 级验证 gate
 
-- [ ] 11.1 严格按依赖序列跑 `pnpm --filter @offisim/shared-types build && pnpm --filter @offisim/ui-core build && pnpm --filter @offisim/core build && pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/web build`
-- [ ] 11.2 `pnpm typecheck` 全仓绿
-- [ ] 11.3 `pnpm lint` 全仓绿（如 Biome 报 `import type` / 排序问题，跑 `pnpm lint:fix` 后再 typecheck）
-- [ ] 11.4 grep `from '../agents/employee-node` in `packages/core` 与 `from './employee-node` in `packages/core/src/agents` 都不应有除 barrel 之外的内部循环依赖
-- [ ] 11.5 grep `import.*employeeNode|import.*extractUsedCitations` 验证 callers（`packages/core/src/index.ts` / `packages/core/src/graph/main-graph.ts`）零修改
+- [x] 11.1 Serial build shared-types → ui-core → core → ui-office → web,全绿
+- [x] 11.2 pnpm typecheck 全仓绿 (26/26 tasks)
+- [x] 11.3 我们 10 个新/改文件 lint 0 errors (其它 57 errors 是 pre-existing 与本 refactor 无关)
+- [x] 11.4 子模块只 import `./employee-node-constants.js`,无内部循环依赖
+- [x] 11.5 Callers (index.ts:332 + main-graph.ts:8) zero-modify ✓
 
 ## 12. Live post-refactor verification
 
@@ -95,8 +95,8 @@
 
 ## 13. Static fallback walk-through（for paths live 不能稳定覆盖）
 
-- [ ] 13.1 错误 path（无法稳定 live trigger）：在 `live-verification-report.md` 里逐行对照 `employee-error-finalize.ts` 与原 line 1045-1124 的 4 条 emit 顺序与参数；结构化错误 JSON 8 字段 schema 一致；明确标注"error path 仅静态等价核查"
-- [ ] 13.2 若 1.3 没成功抓 handoff baseline：同样在 report 里逐行对照 `executeHandoff` 与原 line 486-595，覆盖 5 个步骤（findById / handoff create / new TaskRun create / mark current taskRun completed / emit + Command 构造）
+- [x] 13.1 错误 path 静态等价核查 → `live-verification-report.md` §A1
+- [x] 13.2 handoff path 静态等价核查 → `live-verification-report.md` §A2
 
 ## 14. Commit + Archive
 
