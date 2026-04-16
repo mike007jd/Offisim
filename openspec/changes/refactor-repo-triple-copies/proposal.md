@@ -12,17 +12,19 @@ D1/D2/D3 已经用"boundary-first, zero behavior change"节奏解了三个 god-f
 
 ## What Changes
 
-**策略 B：纯结构化重组，按 repo 家族拆目录，零行为变更。**
+**策略 B：纯结构化重组，按 repo 家族拆目录，零行为变更。本 change 立定边界 + 首家族（orchestration）落地，剩余 10 家族由后续 change 承接（`refactor-repo-families-continuation` 或等价名）。**
 
-- **NEW**: `packages/core/src/runtime/repos/` 目录树，按 repo 家族分 ~8-10 个子目录，每个子目录下含 `drizzle.ts` / `memory.ts` / `tauri.ts` 三个薄文件（后者位于 `apps/web/src/lib/` 保留一份 re-export 为兼容 path，实际实现迁移到 core）
-- **NEW**: 每个子目录可选 `shared.ts` 只放纯 helper（例如 `normalizeMemoryDedupeKey`、`now`、JSON wrap/unwrap）；行为保持 byte-identical
-- **KEEP**: `packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` 与 `apps/web/src/lib/tauri-repos.ts` 文件路径不消失，转为 re-export barrel（保留所有现有 import 路径零修改）
+- **NEW**: `packages/core/src/runtime/repos/` 目录树（apply 阶段已 scaffold 11 个 family 子目录，本 change 只落地 `orchestration/`），每个子目录下含 `drizzle.ts` / `memory.ts` 两个薄文件
+- **NEW**: `apps/web/src/lib/tauri-repos/` 目录（已 scaffold），本 change 只落地 `orchestration.ts`；剩余 10 家族的 tauri 薄文件由后续 change 写
+- **NEW**: `packages/core/src/runtime/repos/memory-types.ts` 集中存放 `MemoryRepositoriesSnapshot` / `MemoryRepositorySeed`，各家族 memory.ts 从这里 `import type`
+- **NEW**: `D8 路径 1` — orchestration 家族新增 5 个 `Memory*Repository` class（`MemoryCompanyRepository` / `MemoryThreadRepository` / `MemoryTaskRunRepository` / `MemoryCheckpointRepository` / `MemoryEventRepository`），对齐已有 19 class 模式；`MemoryTaskRunRepository` 通过构造器 inject `ThreadRepository` 做 cross-class lookup；`MemoryCompanyRepository` 暴露 `.seed(rows)`
+- **KEEP**: `packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` 与 `apps/web/src/lib/tauri-repos.ts` 文件路径不消失；本 change 后 3 个 barrel 还持有剩余 10 家族的 inline 实现（memory 侧还有 5 个未转 class 的 inline repo），后续 change 持续抽离直至 barrel ≤200 NBNC
 - **KEEP**: `packages/core/src/runtime/repositories.ts` 契约文件（33+ interface、`RuntimeRepositories`、所有 Row/New/Update 类型）byte-identical 不动
 - **KEEP**: `createDrizzleRepositories(db)` / `createMemoryRepositories(seed?)` / `createTauriRepositories(db)` 三个工厂签名与返回 shape byte-identical
 - **KEEP**: memory-repositories 的 19 个 exported `Memory*Repository` class 与 `MemoryRepositoriesSnapshot` / `MemoryRepositorySeed` 类型从新位置继续 re-export，现有消费者零修改
 - **NOT CHANGED**: 任何 SQL 语句、Map 操作、JSON 序列化策略、transact 行为、dedupe 规则
 - **NOT CHANGED**: `userPreferences` 只 memory 有、`transact` 只 drizzle 有这两条既有 runtime 真相
-- **FILE SIZE GATE**: barrel 文件 ≤200 NBNC；每个家族子文件 ≤250 NBNC；contract 文件 `repositories.ts` 不在 gate 内（纯 interface 聚合，仅随契约增长）
+- **FILE SIZE GATE (本 change 现实落地值)**: 家族子文件 ≤320 NBNC（D5 apply 阶段从 250 上调到 320 以容纳 memory class boilerplate）；barrel ≤200 NBNC 是长期目标，本 change 未达到（barrel 还持有 10 家族 inline），留给后续 change；contract 文件 `repositories.ts` 不在 gate 内
 
 ## Capabilities
 

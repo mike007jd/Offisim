@@ -31,7 +31,18 @@
 - `tauri-repos.ts` 1577 → 1353 (-224)
 - **D5 decision**: family file gate raised from 250 → 320 NBNC (memory class boilerplate + constructor/snapshot methods push orchestration/memory.ts to 269; future install + memory-system families with more repos will push higher). Spec updated.
 
-## 4. Employees family (Phase C)
+## — DEFERRED TO FOLLOW-ON CHANGE —
+
+**The tasks below (§4–§17) are deferred to a successor change** (working name `refactor-repo-families-continuation` or equivalent). Reason: path 1 D8 decision expanded memory scope significantly; pacing choice at archive time was to land orchestration (the template family) + scope the canonical spec to what was delivered, then resume the remaining 10 families + full barrel finalization in a fresh change so each archived unit represents a coherent delivered outcome.
+
+What the successor change picks up:
+- Memory barrel still holds 5 inline repos (`employees` / `toolCalls` / `handoffs` / `meetings` / `llmCalls`) pending D8 class conversion
+- Drizzle + tauri barrels still hold ~28 inline repos across 10 families
+- barrel ≤200 NBNC gate is unmet (current post-archive NBNC: drizzle 1402 / memory 1144 / tauri 1353)
+- Live verification across all 3 runtimes (§16) not yet executed
+- Orchestration family is live-validated only by typecheck (26/26 green); cold-start runtime verification deferred to follow-on
+
+## 4. Employees family (Phase C) — DEFERRED
 
 - [ ] 4.1 Create `runtime/repos/employees/drizzle.ts` — extract `employees`, `employeeVersions`
 - [ ] 4.2 Create `runtime/repos/employees/memory.ts` — move existing `MemoryEmployeeVersionRepository` class + convert inline `employees` to new `MemoryEmployeeRepository` class (D8). `MemoryEmployeeRepository` exposes `.seed(rows)` for `MemoryRepositorySeed`
