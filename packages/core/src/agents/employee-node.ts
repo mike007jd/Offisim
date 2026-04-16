@@ -40,20 +40,15 @@ import {
   buildEmployeeDeliverableTitle,
   materializeFileDeliverableIfNeeded,
 } from './employee-deliverables.js';
+import {
+  MAX_CONTEXT_MESSAGES,
+  MAX_HANDOFF_COUNT,
+  MAX_TOOL_ROUNDS,
+  SKILL_TOOL_NAME,
+  TASK_TYPE_HANDOFF_CONTINUATION,
+} from './employee-node-constants.js';
 
 import type { CitationRef } from '../graph/state.js';
-
-/** Maximum number of employee-to-employee handoffs per thread. */
-const MAX_HANDOFF_COUNT = 3;
-
-/** Maximum number of conversation messages sent to the LLM in a single call.
- *  Prevents unbounded token growth in long direct-chat sessions. */
-const MAX_CONTEXT_MESSAGES = 20;
-
-/** Task type for handoff continuation tasks. */
-const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
-
-const SKILL_TOOL_NAME = 'activate_skill_context';
 
 function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig | null {
   const config = parseEmployeeConfig(configJson);
@@ -467,7 +462,6 @@ export async function employeeNode(
     ];
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
-    const MAX_TOOL_ROUNDS = 5;
     let round = 0;
 
     while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {

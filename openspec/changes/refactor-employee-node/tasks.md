@@ -1,10 +1,10 @@
 ## 1. Pre-refactor live baseline
 
-- [ ] 1.1 启动 web dev (`cd apps/web && pnpm dev`)，跑一个 normal 任务（例："Write a haiku about testing"），用 Playwright snapshot 抓全 EventBus timeline 到 `/tmp/employee-node-pre-normal.json`：含 `graph.node.entered` / `employee.state.changed` / `task.state.changed` / `task.subtask.progress` / `llm.stream.chunk(reasoning|content)` / `task.assignment.changed` / 可选 `deliverable.created` 的有序数组（payload 关键 key 保留，`event_id` / `created_at` / `task_run_id` / `thread_id` 等 UUID/timestamp normalize 成占位符 `<uuid:N>` / `<ts:N>`）
-- [ ] 1.2 跑一个 file-deliverable 任务（例："create snake.html game"），同样抓到 `/tmp/employee-node-pre-tool.json`，确认 `deliverable.created` 有出现
-- [ ] 1.3 尝试 trigger handoff（chat prompt 直白要求"hand this off to <colleague name>"）；若能稳定 trigger 抓到 `/tmp/employee-node-pre-handoff.json`，否则在该文件写 `{"unable_to_trigger_live": true, "fallback": "static walk-through in step 8.x"}` 占位
-- [ ] 1.4 抓 `/tmp/employee-node-pre-source-stats.json`：line count（`wc -l` + `grep -cvE`）、importer list（`grep -rn employee-node packages/core apps/web`）、export 符号 list（`grep -nE '^export ' packages/core/src/agents/employee-node.ts`），作为 post 阶段比对基准
-- [ ] 1.5 commit baseline 文件 metadata 到 `openspec/changes/refactor-employee-node/baseline-notes.md`（pre 文件本体 stay in /tmp，不入库；只记录文件指纹与执行时间）
+- [~] 1.1 ~~启动 web dev~~ — **skipped (Option B)**, post-only verification per `baseline-notes.md`
+- [~] 1.2 ~~跑一个 file-deliverable 任务~~ — **skipped (Option B)**
+- [~] 1.3 ~~尝试 trigger handoff~~ — **skipped (Option B)**, static walk-through in §13.2
+- [x] 1.4 抓 `/tmp/employee-node-pre-source-stats.json`：line count（`wc -l` + `grep -cvE`）、importer list、export 符号 list，作为 post 阶段比对基准 — captured into `baseline-notes.md`
+- [x] 1.5 commit baseline 文件 metadata 到 `openspec/changes/refactor-employee-node/baseline-notes.md`
 
 ## 2. Phase A — 提常量到独立模块
 
