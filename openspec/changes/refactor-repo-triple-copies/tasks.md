@@ -8,11 +8,11 @@
 
 ## 2. Scaffold (Phase A)
 
-- [ ] 2.1 Create directory `packages/core/src/runtime/repos/` + 11 empty family sub-directories (`orchestration/`, `employees/`, `conversations/`, `llm/`, `install/`, `permissions/`, `memory-system/`, `files/`, `workspace/`, `projects/`, `agent-events/`)
-- [ ] 2.2 Create `apps/web/src/lib/tauri-repos/` (new directory) with 11 placeholder `<family>.ts` files for tauri side
-- [ ] 2.3 Create `packages/core/src/runtime/repos/memory-types.ts` to hold `MemoryRepositoriesSnapshot` / `MemoryRepositorySeed` (currently in `memory-repositories.ts:109-143`)
-- [ ] 2.4 Rewrite `memory-types.ts` to re-export these types from the new home; keep `MemoryInstallRepositoriesSnapshot` extension working (Phase A verifies typecheck green)
-- [ ] 2.5 `pnpm typecheck` must be green — Phase A gate commit
+- [x] 2.1 Create directory `packages/core/src/runtime/repos/` + 11 empty family sub-directories (`orchestration/`, `employees/`, `conversations/`, `llm/`, `install/`, `permissions/`, `memory-system/`, `files/`, `workspace/`, `projects/`, `agent-events/`)
+- [x] 2.2 Create `apps/web/src/lib/tauri-repos/` (new directory) — **D5 deviation**: empty placeholder `.ts` files skipped (would break lint/typecheck with "not a module" errors); family files created as each phase populates them
+- [x] 2.3 Create `packages/core/src/runtime/repos/memory-types.ts` to hold `MemoryRepositoriesSnapshot` / `MemoryRepositorySeed` (currently in `memory-repositories.ts:109-143`)
+- [x] 2.4 Rewrite `memory-types.ts` to re-export these types from the new home; keep `MemoryInstallRepositoriesSnapshot` extension working (Phase A verifies typecheck green)
+- [x] 2.5 `pnpm typecheck` must be green — Phase A gate commit
 
 ## 3. Orchestration family (Phase B)
 

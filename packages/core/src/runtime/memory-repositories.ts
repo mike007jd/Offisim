@@ -13,9 +13,12 @@ import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { MemoryUserPreferenceRepository } from '../repositories/memory-user-preference-repository.js';
 import { matchCostRate } from '../utils/glob-match.js';
-import type { MemoryInstallRepositoriesSnapshot } from './memory-install-repos.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import type {
+  MemoryRepositoriesSnapshot,
+  MemoryRepositorySeed,
+} from './repos/memory-types.js';
 import type {
   ActiveInteractionRepository,
   AgentEventRepository,
@@ -24,7 +27,6 @@ import type {
   CompactSummaryRepository,
   CompactSummaryRow,
   CompanyRepository,
-  CompanyRow,
   EmployeeRepository,
   EmployeeRow,
   EmployeeVersionRepository,
@@ -92,7 +94,6 @@ import type {
   ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
-  UserPreferenceRow,
   WorkstationRackRepository,
   WorkstationRackRow,
 } from './repositories.js';
@@ -101,45 +102,7 @@ function now(): string {
   return new Date().toISOString();
 }
 
-export interface MemoryRepositorySeed {
-  employees(rows: EmployeeRow[]): void;
-  companies(rows: CompanyRow[]): void;
-}
-
-export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSnapshot {
-  threads: GraphThreadRow[];
-  taskRuns: TaskRunRow[];
-  employees: EmployeeRow[];
-  companies: CompanyRow[];
-  toolCalls: ToolCallRow[];
-  handoffs: HandoffEventRow[];
-  meetings: MeetingSessionRow[];
-  checkpoints: GraphCheckpointRow[];
-  events: NewRuntimeEvent[];
-  llmCalls: LlmCallRow[];
-  memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
-  userPreferences: UserPreferenceRow[];
-  mcpAudit: McpAuditRow[];
-  nodeSummaries: NodeSummaryRow[];
-  compactSummaries: CompactSummaryRow[];
-  activeInteractions: InteractionActiveRow[];
-  interactionHistory: InteractionHistoryRow[];
-  fileHistory: FileHistoryRow[];
-  employeeVersions: EmployeeVersionRow[];
-  costRates: ModelCostRateRow[];
-  sopTemplates: SopTemplateRow[];
-  racks: RackRow[];
-  slots: SlotRow[];
-  workstationRacks: WorkstationRackRow[];
-  libraryDocuments: LibraryDocumentRow[];
-  officeLayouts: OfficeLayoutRow[];
-  zones: ZoneRow[];
-  prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
-  projects: ProjectRow[];
-  projectAssignments: ProjectAssignmentRow[];
-  agentEvents: AgentEventRow[];
-  recoveryKnowledge: RecoveryKnowledgeRow[];
-}
+export type { MemoryRepositorySeed, MemoryRepositoriesSnapshot } from './repos/memory-types.js';
 
 function cloneRows<T extends object>(rows: Iterable<T>): T[] {
   return [...rows].map((row) => ({ ...row }));
