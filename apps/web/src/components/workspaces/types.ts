@@ -17,6 +17,11 @@ export type OfficeSessionState = {
   viewMode: '2D' | '3D';
   selectedEmployeeId: string | null;
   studioMode: 'create' | 'edit' | null;
+  dashboardOpen: boolean;
+  kanbanOpen: boolean;
+  marketplaceListingId: string | null;
+  leftPanelWidth: number;
+  rightPanelWidth: number;
 };
 
 export type SopSessionState = {
@@ -180,6 +185,11 @@ export function createDefaultOfficeState(): OfficeSessionState {
     viewMode: '3D',
     selectedEmployeeId: null,
     studioMode: null,
+    dashboardOpen: false,
+    kanbanOpen: false,
+    marketplaceListingId: null,
+    leftPanelWidth: 44,
+    rightPanelWidth: 44,
   };
 }
 

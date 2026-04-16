@@ -16,15 +16,11 @@ import {
   useProjects,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
-import React, { Suspense } from 'react';
-import {
-  type AppView,
-  type OfficeViewMode,
-  isFullPageWorkspaceView,
-} from '../../lib/app-view-layout';
+import React, { Suspense, useCallback } from 'react';
+import type { OverlayKey } from '../../lib/app-view-layout';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 import { OnboardingController } from '../OnboardingController';
-import type { WorkspaceKey } from '../workspaces/types';
+import type { OfficeSessionState, WorkspaceKey } from '../workspaces/types';
 const ChatDock = React.lazy(() =>
   import('./CollaborationRail').then((module) => ({ default: module.ChatDock })),
 );
@@ -69,71 +65,48 @@ export interface EmployeeActions {
   onOpenEditor: (id: string) => void;
 }
 
-export interface SceneViewProps {
-  viewMode: OfficeViewMode;
-  onViewModeChange: (mode: OfficeViewMode) => void;
-  onSceneFallbackTo2D: () => void;
-}
-
 // ---------------------------------------------------------------------------
 // Component props
 // ---------------------------------------------------------------------------
 
 interface OfficeWorkspaceShellProps {
   activeCompanyId: string | null;
+  activeOverlay: OverlayKey | null;
   anyOverlayOpen: boolean;
   chatOnboardingStarterPrompts?: readonly StarterPrompt[];
   chatOnboardingWelcome?: EmptyStateWelcome;
   chatOpenToken: number;
-  dashboardOpen: boolean;
   focusOutputsToken: number;
-  kanbanOpen: boolean;
   lastUserRequest: string | null;
-  leftPanelWidth: number;
-  rightPanelWidth: number;
-  marketplaceListingId: string | null;
-  onCloseDashboard: () => void;
-  onCloseKanban: () => void;
-  onCloseMarketplace: () => void;
+  officeState: OfficeSessionState;
+  updateOfficeState: (updater: (prev: OfficeSessionState) => OfficeSessionState) => void;
   onFileImport: (file: File) => void;
   onInstallListing: (listingId: string, version: string) => void;
-  onLayoutMetricsChange: (metrics: {
-    leftPanelWidth: number;
-    rightPanelWidth: number;
-  }) => void;
   onUserMessage: (text: string) => void;
   providerConfig: ProviderConfig | null;
-  view: AppView;
+  activeWorkspace: WorkspaceKey;
   navigation: NavigationCallbacks;
   employee: EmployeeActions;
-  sceneView: SceneViewProps;
 }
 
 export function OfficeWorkspaceShell({
   activeCompanyId,
+  activeOverlay,
   anyOverlayOpen,
   chatOnboardingStarterPrompts,
   chatOnboardingWelcome,
   chatOpenToken,
-  dashboardOpen,
   focusOutputsToken,
-  kanbanOpen,
   lastUserRequest,
-  leftPanelWidth,
-  rightPanelWidth,
-  marketplaceListingId,
-  onCloseDashboard,
-  onCloseKanban,
-  onCloseMarketplace,
+  officeState,
+  updateOfficeState,
   onFileImport,
   onInstallListing,
-  onLayoutMetricsChange,
   onUserMessage,
   providerConfig,
-  view,
+  activeWorkspace,
   navigation,
   employee,
-  sceneView,
 }: OfficeWorkspaceShellProps) {
   const {
     onOpenCompanyEditor,
@@ -152,7 +125,31 @@ export function OfficeWorkspaceShell({
     onStartChat: onStartEmployeeChat,
     onOpenEditor: openEmployeeEditor,
   } = employee;
-  const { viewMode, onViewModeChange, onSceneFallbackTo2D } = sceneView;
+
+  const {
+    viewMode, leftPanelWidth, rightPanelWidth,
+    dashboardOpen, kanbanOpen, marketplaceListingId,
+  } = officeState;
+  const onViewModeChange = useCallback(
+    (mode: '2D' | '3D') => updateOfficeState((prev) => ({ ...prev, viewMode: mode })),
+    [updateOfficeState],
+  );
+  const onSceneFallbackTo2D = useCallback(
+    () => updateOfficeState((prev) => ({ ...prev, viewMode: '2D' })),
+    [updateOfficeState],
+  );
+  const onLayoutMetricsChange = useCallback(
+    (metrics: { leftPanelWidth: number; rightPanelWidth: number }) => {
+      updateOfficeState((prev) => {
+        if (prev.leftPanelWidth === metrics.leftPanelWidth && prev.rightPanelWidth === metrics.rightPanelWidth) {
+          return prev;
+        }
+        return { ...prev, leftPanelWidth: metrics.leftPanelWidth, rightPanelWidth: metrics.rightPanelWidth };
+      });
+    },
+    [updateOfficeState],
+  );
+
   const { unfinishedThreads, dismissUnfinishedThreads, repos, resumeThread } = useOffisimRuntime();
   const { toasts: guidanceToasts, dismissToast: dismissGuidanceToast } = useFirstRunGuidance();
   const { companies } = useCompany();
@@ -215,7 +212,7 @@ export function OfficeWorkspaceShell({
             viewMode={viewMode}
             onViewModeChange={onViewModeChange}
             needsConfig={!providerConfig}
-            activeWorkspace={isFullPageWorkspaceView(view) ? (view as WorkspaceKey) : 'office'}
+            activeWorkspace={activeWorkspace}
           />
         }
         agentPanel={
@@ -234,7 +231,7 @@ export function OfficeWorkspaceShell({
               onSelectEmployee={onSelectEmployee}
               rightPanelWidth={rightPanelWidth}
               selectedEmployeeId={selectedEmployeeId}
-              view={view}
+              sceneInteractive={activeOverlay === null}
               viewMode={viewMode}
             />
           </Suspense>
@@ -294,7 +291,7 @@ export function OfficeWorkspaceShell({
         <Suspense fallback={null}>
           <DashboardOverlay
             open={dashboardOpen}
-            onClose={onCloseDashboard}
+            onClose={() => updateOfficeState((prev) => ({ ...prev, dashboardOpen: false }))}
             activeThreadId={activeProject?.thread_id ?? null}
           />
         </Suspense>
@@ -304,7 +301,7 @@ export function OfficeWorkspaceShell({
         <Suspense fallback={null}>
           <KanbanOverlay
             open={kanbanOpen}
-            onClose={onCloseKanban}
+            onClose={() => updateOfficeState((prev) => ({ ...prev, kanbanOpen: false }))}
             requestText={lastUserRequest ?? undefined}
           />
         </Suspense>
@@ -314,7 +311,7 @@ export function OfficeWorkspaceShell({
         <Suspense fallback={null}>
           <MarketplaceOverlay
             listingId={marketplaceListingId}
-            onClose={onCloseMarketplace}
+            onClose={() => updateOfficeState((prev) => ({ ...prev, marketplaceListingId: null }))}
             onInstall={onInstallListing}
           />
         </Suspense>
@@ -332,7 +329,7 @@ export function OfficeWorkspaceShell({
 
       <OnboardingController
         activeCompanyId={activeCompanyId}
-        isOfficeView={view === 'office'}
+        isOfficeView={activeOverlay === null}
         anyOverlayOpen={anyOverlayOpen}
         directChatActive={selectedEmployeeId !== null}
       />

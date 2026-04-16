@@ -70,8 +70,23 @@ export function tryWorkspaceInternalBack(
       return [false, sessionState];
     }
 
-    // Office: no internal drill-in
-    case 'office':
+    case 'office': {
+      const o = sessionState.office;
+      if (o.dashboardOpen) {
+        return [true, { ...sessionState, office: { ...o, dashboardOpen: false } }];
+      }
+      if (o.kanbanOpen) {
+        return [true, { ...sessionState, office: { ...o, kanbanOpen: false } }];
+      }
+      if (o.marketplaceListingId) {
+        return [true, { ...sessionState, office: { ...o, marketplaceListingId: null } }];
+      }
+      if (o.selectedEmployeeId) {
+        return [true, { ...sessionState, office: { ...o, selectedEmployeeId: null } }];
+      }
+      return [false, sessionState];
+    }
+
     case 'settings':
     default:
       return [false, sessionState];
@@ -85,20 +100,7 @@ export function hasInternalDrillIn(
   key: WorkspaceKey,
   sessionState: WorkspaceSessionState,
 ): boolean {
-  switch (key) {
-    case 'sops':
-      return sessionState.sops.selectedSopId !== null;
-    case 'market':
-      return (
-        sessionState.market.mode === 'explore' && sessionState.market.selectedListingId !== null
-      );
-    case 'activity-log':
-      return sessionState.activityLog.selectedEventId !== null;
-    case 'office':
-    case 'settings':
-    default:
-      return false;
-  }
+  return tryWorkspaceInternalBack(key, sessionState)[0];
 }
 
 export function resolveBackNavigation(
@@ -155,12 +157,20 @@ export function useWorkspaceSessionState() {
 
       let nextSessionState = prev.sessionState;
 
-      // Close Studio when leaving Office
-      if (prev.activeWorkspace === 'office' && prev.sessionState.office.studioMode !== null) {
-        nextSessionState = {
-          ...nextSessionState,
-          office: { ...nextSessionState.office, studioMode: null },
-        };
+      if (prev.activeWorkspace === 'office') {
+        const o = nextSessionState.office;
+        if (o.studioMode !== null || o.dashboardOpen || o.kanbanOpen || o.marketplaceListingId !== null) {
+          nextSessionState = {
+            ...nextSessionState,
+            office: {
+              ...o,
+              studioMode: null,
+              dashboardOpen: false,
+              kanbanOpen: false,
+              marketplaceListingId: null,
+            },
+          };
+        }
       }
 
       return {

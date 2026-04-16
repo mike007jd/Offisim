@@ -22,17 +22,13 @@ import {
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { FullPageWorkspaceShell } from './components/workspaces/FullPageWorkspaceShell';
 import { WorkspaceRouter } from './components/workspaces/WorkspaceRouter';
-import type { WorkspaceKey } from './components/workspaces/types';
 import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import { useAppRuntimeToasts } from './hooks/useAppRuntimeToasts';
 import {
-  type AppView,
-  type OfficeViewMode,
-  isFullPageWorkspaceView,
-  isWorkspaceView,
+  type OverlayKey,
+  isNonOfficeWorkspace,
   shouldShowAppShell,
-  shouldShowEmployeeCreatorOverlay,
 } from './lib/app-view-layout';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
 import { markAccount, markCompany, useCompanyOnboardingState } from './lib/onboarding-store';
@@ -46,7 +42,6 @@ const WORKSPACE_TITLES: Record<string, string> = {
   settings: 'Settings',
 };
 
-/** Lazy-loaded overlay/dialog components — kept out of the initial bundle */
 const CompanyCreationWizard = React.lazy(() =>
   import('@offisim/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
 );
@@ -72,35 +67,23 @@ const OfficeWorkspaceShellLazy = React.lazy(() =>
     default: module.OfficeWorkspaceShell,
   })),
 );
-// MarketplaceDetailOverlay is a legacy overlay path, intentionally kept.
-// Primary market inspection happens inside MarketWorkspacePage (the full 3-pane
-// workspace). This overlay + `marketplaceListingId` state exist only to handle
-// deep-link installs (offisim://install?listing_id=X) that open a listing before
-// the workspace is navigated to. No near-term plan to unify — routing deep-link
-// installs through MarketWorkspacePage would require a deep-link spec that
-// currently has no owner.
 
 interface AppProps {
-  /** Callback to propagate company switch up to main.tsx (re-keys OffisimRuntimeProvider). */
   onCompanySwitch: (id: string | null) => void;
 }
 
-// WorkspaceSurface removed — workspace pages are now rendered by WorkspaceRouter
-
 export function App({ onCompanySwitch }: AppProps) {
   const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
-  const [view, setView] = useState<AppView>(() => (activeCompanyId ? 'office' : 'company-select'));
-  const [viewMode, setViewMode] = useState<OfficeViewMode>('3D');
-  const [dashboardOpen, setDashboardOpen] = useState(false);
-  const [kanbanOpen, setKanbanOpen] = useState(false);
-  const [marketplaceListingId, setMarketplaceListingId] = useState<string | null>(null);
+
+  // ── Overlay state (orthogonal to workspace identity) ─────────────────
+  const [activeOverlay, setActiveOverlay] = useState<OverlayKey | null>(() =>
+    activeCompanyId ? null : 'company-select',
+  );
+
+  // ── Global state (not workspace-scoped) ──────────────────────────────
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(44);
-  const [rightPanelWidth, setRightPanelWidth] = useState(44);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [chatOpenToken, setChatOpenToken] = useState(0);
-  const [studioMode, setStudioMode] = useState<'create' | 'edit'>('create');
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const [companyWizardMode, setCompanyWizardMode] = useState<'create-new' | null>(null);
   const [portalPreviewCompanyId, setPortalPreviewCompanyId] = useState<string | null>(
@@ -109,7 +92,7 @@ export function App({ onCompanySwitch }: AppProps) {
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 
-  // ── Workspace IA: session state + back navigation ──────────────────
+  // ── Workspace IA: unified session state + back navigation ────────────
   const {
     state: workspaceSessionState,
     activeWorkspace,
@@ -120,33 +103,16 @@ export function App({ onCompanySwitch }: AppProps) {
 
   useWorkspaceBackNavigation(activeWorkspace, goBack);
 
-  // ── Sync view ↔ activeWorkspace ────────────────────────────────────
-  // When the workspace session state changes (e.g. via header nav), update
-  // the legacy `view` state to match. This keeps existing code paths working
-  // while we migrate to the workspace router.
-  const handleWorkspaceSwitch = useCallback(
-    (key: WorkspaceKey) => {
-      setActiveWorkspace(key);
-      setView(key as AppView);
-    },
-    [setActiveWorkspace],
-  );
+  const officeState = workspaceSessionState.office;
 
-  // Keep activeWorkspace in sync when view changes from non-workspace paths
-  useEffect(() => {
-    if (isWorkspaceView(view)) {
-      if (activeWorkspace !== view) {
-        setActiveWorkspace(view as WorkspaceKey);
-      }
-    }
-  }, [view, activeWorkspace, setActiveWorkspace]);
-
+  // ── Derived convenience ──────────────────────────────────────────────
   const handleOpenSettings = useCallback(() => {
-    handleWorkspaceSwitch('settings');
-  }, [handleWorkspaceSwitch]);
+    setActiveWorkspace('settings');
+  }, [setActiveWorkspace]);
   const handleBackToOffice = useCallback(() => {
-    handleWorkspaceSwitch('office');
-  }, [handleWorkspaceSwitch]);
+    setActiveWorkspace('office');
+  }, [setActiveWorkspace]);
+
   const { reinitRuntime, repos, eventBus } = useOffisimRuntime();
   const companyEditor = useCompanyEditor();
   const employeeEditor = useEmployeeEditor();
@@ -158,8 +124,13 @@ export function App({ onCompanySwitch }: AppProps) {
     onOpenTasks: () => setFocusOutputsToken((token) => token + 1),
   });
 
+  // ── Company switch → reset overlay ───────────────────────────────────
   useEffect(() => {
-    setView(activeCompanyId ? 'office' : 'company-select');
+    if (activeCompanyId) {
+      setActiveOverlay(null);
+    } else {
+      setActiveOverlay('company-select');
+    }
   }, [activeCompanyId]);
 
   useEffect(() => {
@@ -192,10 +163,10 @@ export function App({ onCompanySwitch }: AppProps) {
     const pendingView = sessionStorage.getItem(PENDING_VIEW_KEY);
     if (pendingView === 'studio-edit') {
       sessionStorage.removeItem(PENDING_VIEW_KEY);
-      setStudioMode('edit');
-      setView('studio');
+      updateWorkspaceState('office', (prev) => ({ ...prev, studioMode: 'edit' as const }));
+      setActiveOverlay('studio');
     }
-  }, [activeCompanyId]);
+  }, [activeCompanyId, updateWorkspaceState]);
 
   useEffect(() => {
     primeEventLogStore(eventBus);
@@ -204,27 +175,35 @@ export function App({ onCompanySwitch }: AppProps) {
     };
   }, [eventBus]);
 
+  // ── Keyboard shortcuts ───────────────────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+        if (activeWorkspace !== 'office') return;
         e.preventDefault();
-        setDashboardOpen((prev) => !prev);
+        updateWorkspaceState('office', (prev) => ({ ...prev, dashboardOpen: !prev.dashboardOpen }));
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
+        if (activeWorkspace !== 'office') return;
         e.preventDefault();
-        setKanbanOpen((prev) => !prev);
+        updateWorkspaceState('office', (prev) => ({ ...prev, kanbanOpen: !prev.kanbanOpen }));
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '1') {
+        if (activeWorkspace !== 'office') return;
         e.preventDefault();
-        setViewMode((prev) => (prev === '3D' ? '2D' : '3D'));
+        updateWorkspaceState('office', (prev) => ({
+          ...prev,
+          viewMode: prev.viewMode === '3D' ? '2D' : '3D',
+        }));
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
-        if (!selectedEmployeeId) return;
+        if (activeWorkspace !== 'office') return;
+        if (!officeState.selectedEmployeeId) return;
         e.preventDefault();
-        void employeeEditor.openForEdit(selectedEmployeeId);
+        void employeeEditor.openForEdit(officeState.selectedEmployeeId);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && (e.key === '/' || e.key === '?')) {
@@ -237,44 +216,27 @@ export function App({ onCompanySwitch }: AppProps) {
           setShortcutHelpOpen(false);
           return;
         }
-        if (dashboardOpen) {
-          setDashboardOpen(false);
-          return;
-        }
-        if (kanbanOpen) {
-          setKanbanOpen(false);
-          return;
-        }
-        if (marketplaceListingId) {
-          setMarketplaceListingId(null);
-          return;
-        }
         if (employeeEditor.isOpen) {
           employeeEditor.close();
           return;
         }
-        if (selectedEmployeeId) {
-          setSelectedEmployeeId(null);
+        if (activeOverlay) {
+          setActiveOverlay(null);
           return;
         }
-        if (isFullPageWorkspaceView(view)) {
-          handleWorkspaceSwitch('office');
-        } else if (view !== 'office') {
-          setView('office');
-        }
+        goBack();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    dashboardOpen,
+    activeOverlay,
+    activeWorkspace,
     employeeEditor,
-    handleWorkspaceSwitch,
-    kanbanOpen,
-    marketplaceListingId,
-    selectedEmployeeId,
+    goBack,
+    officeState.selectedEmployeeId,
     shortcutHelpOpen,
-    view,
+    updateWorkspaceState,
   ]);
 
   useEffect(() => {
@@ -294,12 +256,15 @@ export function App({ onCompanySwitch }: AppProps) {
     ),
   );
 
-  const handleSelectEmployee = useCallback((id: string | null) => {
-    setSelectedEmployeeId(id);
-    if (id) {
-      markAccount('first_employee_clicked');
-    }
-  }, []);
+  const handleSelectEmployee = useCallback(
+    (id: string | null) => {
+      updateWorkspaceState('office', (prev) => ({ ...prev, selectedEmployeeId: id }));
+      if (id) {
+        markAccount('first_employee_clicked');
+      }
+    },
+    [updateWorkspaceState],
+  );
 
   const handleUserMessage = useCallback(
     (text: string) => {
@@ -311,7 +276,6 @@ export function App({ onCompanySwitch }: AppProps) {
     [activeCompanyId],
   );
 
-  // Welcome card only renders on the very first task of a given company.
   const activeCompanyOnboarding = useCompanyOnboardingState(activeCompanyId);
   const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
   const chatOnboardingWelcome = activeCompanyOnboarding.first_task_sent
@@ -320,9 +284,9 @@ export function App({ onCompanySwitch }: AppProps) {
   const chatOnboardingStarters = onboardingCopy.starterPrompts;
 
   const anyOverlayOpen =
-    dashboardOpen ||
-    kanbanOpen ||
-    marketplaceListingId !== null ||
+    officeState.dashboardOpen ||
+    officeState.kanbanOpen ||
+    officeState.marketplaceListingId !== null ||
     employeeEditor.isOpen ||
     installFlow.isOpen ||
     companyEditor.isOpen ||
@@ -331,38 +295,27 @@ export function App({ onCompanySwitch }: AppProps) {
 
   const handleOpenStudio = useCallback(() => {
     if (activeWorkspace !== 'office') return;
-    setStudioMode('edit');
-    setView('studio');
-  }, [activeWorkspace]);
+    updateWorkspaceState('office', (prev) => ({ ...prev, studioMode: 'edit' as const }));
+    setActiveOverlay('studio');
+  }, [activeWorkspace, updateWorkspaceState]);
 
-  const handleLayoutMetricsChange = useCallback(
-    ({
-      leftPanelWidth: nextLeftPanelWidth,
-      rightPanelWidth: nextRightPanelWidth,
-    }: {
-      leftPanelWidth: number;
-      rightPanelWidth: number;
-    }) => {
-      setLeftPanelWidth(nextLeftPanelWidth);
-      setRightPanelWidth(nextRightPanelWidth);
+  const updateOfficeState = useCallback(
+    (updater: (prev: typeof officeState) => typeof officeState) => {
+      updateWorkspaceState('office', updater);
     },
-    [],
+    [updateWorkspaceState],
   );
 
   // ── Workspace center content via WorkspaceRouter ────────────────────
-  // When the active workspace is not 'office', WorkspaceRouter renders the
-  // appropriate workspace page. When it IS 'office', it renders children
-  // (the Office scene slot) — but we handle that via the sceneCanvas prop
-  // in AppLayout, so we only need WorkspaceRouter for non-office workspaces.
-  const isNonOfficeWorkspace = isFullPageWorkspaceView(view);
+  const showNonOfficeWorkspace = isNonOfficeWorkspace(activeWorkspace, activeOverlay);
 
-  const workspaceRouterContent = isNonOfficeWorkspace ? (
+  const workspaceRouterContent = showNonOfficeWorkspace ? (
     <WorkspaceRouter
       activeWorkspace={activeWorkspace}
       sessionState={workspaceSessionState}
       updateWorkspaceState={updateWorkspaceState}
       settingsPageProps={{
-        onBack: () => handleWorkspaceSwitch('office'),
+        onBack: handleBackToOffice,
         onSave: handleSaveConfig,
         onSaveSuccess: () => addToast('Provider configuration saved', 'success'),
         onToast: (message, variant = 'info') => addToast(message, variant),
@@ -394,7 +347,7 @@ export function App({ onCompanySwitch }: AppProps) {
         });
         eventBus.emit(employeeCreated(activeCompanyId, result.employee_id, name, role));
         addToast(`${name} deployed successfully`, 'success');
-        setView('office');
+        setActiveOverlay(null);
       } catch (err) {
         console.error('[App] Failed to create employee:', err);
         addToast(`Failed to deploy ${name}`, 'error');
@@ -434,28 +387,23 @@ export function App({ onCompanySwitch }: AppProps) {
   function handleWizardComplete(newCompanyId?: string) {
     refreshCompanies();
     if (newCompanyId) {
-      // Auto-enter the newly created company instead of returning to the portal.
-      // Previous behavior (setView('company-select')) forced users to pick their
-      // brand-new company from a list, breaking onboarding flow continuity.
       setPortalPreviewCompanyId(newCompanyId);
       setCompanyWizardMode(null);
       switchCompany(newCompanyId);
       onCompanySwitch(newCompanyId);
-      setView('office');
+      setActiveOverlay(null);
     }
     if (!providerConfig && !companyWizardMode && activeCompanyId) {
       handleOpenSettings();
     }
   }
 
-  /** Navigate to company selection, selecting a company triggers runtime switch. */
   function handleSelectCompany(id: string) {
     switchCompany(id);
     onCompanySwitch(id);
-    setView('office');
+    setActiveOverlay(null);
   }
 
-  /** Handle "Create Your Own" from wizard — opens Studio in create mode. */
   function handleCreateYourOwn(newCompanyId: string) {
     refreshCompanies();
     setPortalPreviewCompanyId(newCompanyId);
@@ -465,13 +413,12 @@ export function App({ onCompanySwitch }: AppProps) {
     setCompanyWizardMode(null);
   }
 
-  /** Handle Studio save — switch to the new/edited company and return to office. */
   function handleStudioCompanyCreated(newId: string) {
     switchCompany(newId);
     onCompanySwitch(newId);
     refreshCompanies();
     setPortalPreviewCompanyId(newId);
-    setView('office');
+    setActiveOverlay(null);
   }
 
   return (
@@ -479,26 +426,25 @@ export function App({ onCompanySwitch }: AppProps) {
       <>
         <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-        {shouldShowEmployeeCreatorOverlay(view) && (
+        {activeOverlay === 'employee-creator' && (
           <div className="fixed inset-0 z-[70]">
             <Suspense fallback={null}>
               <EmployeeCreatorOverlay
                 open
-                onClose={() => setView('office')}
+                onClose={() => setActiveOverlay(null)}
                 onDeploy={handleCreatorDeploy}
               />
             </Suspense>
           </div>
         )}
 
-        {/* ── Full-page views ── */}
-        {view === 'office-editor' && (
+        {activeOverlay === 'office-editor' && (
           <Suspense fallback={null}>
-            <OfficeEditorOverlay open onClose={() => setView('office')} />
+            <OfficeEditorOverlay open onClose={() => setActiveOverlay(null)} />
           </Suspense>
         )}
 
-        {view === 'company-select' && (
+        {activeOverlay === 'company-select' && (
           <CompanySelectionPage
             previewCompanyId={portalPreviewCompanyId}
             onPreviewCompany={setPortalPreviewCompanyId}
@@ -510,13 +456,13 @@ export function App({ onCompanySwitch }: AppProps) {
           />
         )}
 
-        {view === 'studio' && (
+        {activeOverlay === 'studio' && (
           <Suspense fallback={null}>
-            {studioMode === 'create' ? (
+            {officeState.studioMode === 'create' ? (
               <StudioPage
                 mode="create"
                 repos={repos}
-                onBack={() => setView('office')}
+                onBack={() => setActiveOverlay(null)}
                 onCompanyCreated={handleStudioCompanyCreated}
               />
             ) : activeCompanyId ? (
@@ -524,14 +470,14 @@ export function App({ onCompanySwitch }: AppProps) {
                 mode="edit"
                 companyId={activeCompanyId}
                 repos={repos}
-                onBack={() => setView('office')}
+                onBack={() => setActiveOverlay(null)}
                 onCompanyCreated={handleStudioCompanyCreated}
               />
             ) : null}
           </Suspense>
         )}
 
-        {isNonOfficeWorkspace && (
+        {showNonOfficeWorkspace && (
           <FullPageWorkspaceShell
             title={WORKSPACE_TITLES[activeWorkspace] ?? activeWorkspace}
             onBackToOffice={handleBackToOffice}
@@ -540,47 +486,48 @@ export function App({ onCompanySwitch }: AppProps) {
           </FullPageWorkspaceShell>
         )}
 
-        {/* ── Office view (default) ── */}
-        {shouldShowAppShell(view) && (
+        {shouldShowAppShell(activeWorkspace, activeOverlay) && (
           <Suspense fallback={null}>
             <OfficeWorkspaceShellLazy
               activeCompanyId={activeCompanyId}
+              activeOverlay={activeOverlay}
               anyOverlayOpen={anyOverlayOpen}
               chatOnboardingStarterPrompts={chatOnboardingStarters}
               chatOnboardingWelcome={chatOnboardingWelcome}
               chatOpenToken={chatOpenToken}
-              dashboardOpen={dashboardOpen}
               focusOutputsToken={focusOutputsToken}
-              kanbanOpen={kanbanOpen}
               lastUserRequest={lastUserRequest}
-              leftPanelWidth={leftPanelWidth}
-              rightPanelWidth={rightPanelWidth}
-              marketplaceListingId={marketplaceListingId}
-              onCloseDashboard={() => setDashboardOpen(false)}
-              onCloseKanban={() => setKanbanOpen(false)}
-              onCloseMarketplace={() => setMarketplaceListingId(null)}
+              officeState={officeState}
+              updateOfficeState={updateOfficeState}
               onFileImport={(file) => installFlow.startFileImport(file)}
               onInstallListing={(listingId, version) => {
-                setMarketplaceListingId(null);
+                updateWorkspaceState('office', (prev) => ({ ...prev, marketplaceListingId: null }));
                 installFlow.startRegistryInstall(listingId, version);
               }}
-              onLayoutMetricsChange={handleLayoutMetricsChange}
               onUserMessage={handleUserMessage}
               providerConfig={providerConfig}
-              view={view}
+              activeWorkspace={activeWorkspace}
               navigation={{
                 onOpenCompanyEditor: companyEditor.open,
-                onOpenCompanySelect: () => setView('company-select'),
-                onOpenEmployeeCreator: () => setView('employee-creator'),
-                onOpenOfficeEditor: () => setView('office-editor'),
+                onOpenCompanySelect: () => setActiveOverlay('company-select'),
+                onOpenEmployeeCreator: () => setActiveOverlay('employee-creator'),
+                onOpenOfficeEditor: () => setActiveOverlay('office-editor'),
                 onOpenSettings: handleOpenSettings,
                 onOpenStudio: handleOpenStudio,
-                onWorkspaceSwitch: handleWorkspaceSwitch,
-                onToggleDashboard: () => setDashboardOpen((open) => !open),
-                onToggleKanban: () => setKanbanOpen((open) => !open),
+                onWorkspaceSwitch: setActiveWorkspace,
+                onToggleDashboard: () =>
+                  updateWorkspaceState('office', (prev) => ({
+                    ...prev,
+                    dashboardOpen: !prev.dashboardOpen,
+                  })),
+                onToggleKanban: () =>
+                  updateWorkspaceState('office', (prev) => ({
+                    ...prev,
+                    kanbanOpen: !prev.kanbanOpen,
+                  })),
               }}
               employee={{
-                selectedId: selectedEmployeeId,
+                selectedId: officeState.selectedEmployeeId,
                 onSelect: handleSelectEmployee,
                 onStartChat: (id) => {
                   handleSelectEmployee(id);
@@ -588,14 +535,6 @@ export function App({ onCompanySwitch }: AppProps) {
                 },
                 onOpenEditor: (id) => {
                   void employeeEditor.openForEdit(id);
-                },
-              }}
-              sceneView={{
-                viewMode,
-                onViewModeChange: setViewMode,
-                onSceneFallbackTo2D: () => {
-                  setViewMode('2D');
-                  addToast('3D rendering failed — switched to 2D view', 'error');
                 },
               }}
             />
@@ -608,10 +547,13 @@ export function App({ onCompanySwitch }: AppProps) {
         </Suspense>
         <EmployeeEditorDialog {...employeeEditor} />
         <Suspense fallback={null}>
-          <CompanyEditor {...companyEditor} onOpenOfficeEditor={() => setView('office-editor')} />
+          <CompanyEditor
+            {...companyEditor}
+            onOpenOfficeEditor={() => setActiveOverlay('office-editor')}
+          />
         </Suspense>
         <KeyboardShortcutsDialog open={shortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
-        {view === 'office' && (
+        {activeWorkspace === 'office' && activeOverlay === null && (
           <Suspense fallback={null}>
             <CompanyCreationWizard
               mode="populate-existing"

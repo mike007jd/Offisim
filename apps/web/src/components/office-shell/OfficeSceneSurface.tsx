@@ -9,7 +9,6 @@ import {
   useSceneOrchestrator,
 } from '@offisim/ui-office/web';
 import React, { Suspense, useCallback, useMemo } from 'react';
-import { type AppView, isOfficeSceneInteractive } from '../../lib/app-view-layout';
 
 const SceneCanvas = React.lazy<
   React.ComponentType<{
@@ -35,7 +34,7 @@ interface OfficeSceneSurfaceProps {
   onSelectEmployee: (id: string | null) => void;
   rightPanelWidth: number;
   selectedEmployeeId: string | null;
-  view: AppView;
+  sceneInteractive: boolean;
   viewMode: '2D' | '3D';
 }
 
@@ -67,7 +66,7 @@ export function OfficeSceneSurface({
   onSelectEmployee,
   rightPanelWidth,
   selectedEmployeeId,
-  view,
+  sceneInteractive,
   viewMode,
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
@@ -78,7 +77,7 @@ export function OfficeSceneSurface({
       <CeremonyHost>
         <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
           <SceneCanvas
-            active={isOfficeSceneInteractive(view)}
+            active={sceneInteractive}
             reducedMotion={reducedMotion}
             viewMode={viewMode}
             leftInset={leftPanelWidth}
