@@ -94,53 +94,51 @@ Current application/package shape:
 - `README.md` — this file; project truth and document routing
 - `Docs/00_start_here/LOCAL_DEVELOPMENT.md` — new-machine setup, prerequisites, env, and local startup commands
 
-### Human rules
+### AI operating rules
 
-- `spec/PROJECT_CONSTITUTION.md` — highest-level non-negotiable rules
-- `spec/ENGINEERING_RULES.md` — architecture, state, contracts, implementation boundaries
-- `spec/UX_RULES.md` — interaction, install trust, accessibility, motion principles
-- `spec/DESIGN_RULES.md` — visual language and presentation guardrails
+- `CLAUDE.md` — primary AI working instructions (root + per-package under `packages/*/CLAUDE.md`, `apps/*/CLAUDE.md`)
 
-### Contracts and schema snapshots
+### Capability specs
 
-- `Docs/02_contracts_and_schemas/offisim_openapi.yaml`
-- `Docs/02_contracts_and_schemas/offisim_install_state_machine.md`
-- `Docs/02_contracts_and_schemas/offisim_manifest.schema.json`
-- `Docs/02_contracts_and_schemas/offisim_manifest_example.json`
-- `Docs/02_contracts_and_schemas/offisim_local_runtime_schema.sql`
-- `Docs/02_contracts_and_schemas/offisim_platform_registry_schema.sql`
+- `openspec/specs/` — capability specifications (rebuild in progress; will grow as stable capabilities are locked down)
+- `openspec/changes/` — active change proposals
 
-`Docs/02_contracts_and_schemas/` should track the current public contract surface and schema snapshots.
-Implementation truth still lives in the mounted route files and Drizzle schema/migrations.
+### Live contracts (code is the source of truth)
+
+- Package manifest schema → `packages/asset-schema/src/schema/manifest-1.0.0.json` + `packages/asset-schema/src/manifest.types.ts`
+- Install state machine → `packages/install-core/src/state-machine.ts` + `packages/shared-types/src/install.ts`
+- Platform HTTP API → `apps/platform/src/routes/`
+- Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/migrations/`
+- Platform Postgres schema → `packages/db-platform/src/schema.ts` + `packages/db-platform/src/migrations/`
+- A2A JSON-RPC → `packages/core/src/a2a/`
+- LangGraph kernel state → `packages/core/src/graph/state.ts`
 
 ### Migration packs
 
 - `Docs/03_migrations/offisim_migrations_local_v0.1/`
 - `Docs/03_migrations/offisim_migrations_platform_v0.1/`
 
-### Runtime experience / game-grade presentation docs
+### Working notes (evolving, not authoritative)
 
-- `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md`
+- `Docs/04_runtime_experience/` — scene / chat / runtime UX notes still in flux
+- `Docs/design/spacing-density.md`
 
 ## Recommended reading order for AI agents
 
 1. `README.md`
-2. `spec/PROJECT_CONSTITUTION.md`
-3. the rest of `/spec`
-4. relevant files under `Docs/02_contracts_and_schemas/`
-5. `Docs/04_runtime_experience/SCENE_STATE_MATRIX.md` when the task touches scene, animation, install trust presentation, or runtime feedback
-6. `Docs/03_migrations/` when the task touches persistence
+2. `CLAUDE.md` (root + relevant package CLAUDE.md)
+3. `openspec/specs/` for the capability being touched
+4. Code paths listed under **Live contracts** for the affected surface
+5. `Docs/03_migrations/` when the task touches persistence
 
 ## Document precedence
 
-When two documents overlap, use this order:
+When two sources overlap, use this order:
 
-1. `spec/PROJECT_CONSTITUTION.md`
-2. machine-readable contracts and schemas in `Docs/02_contracts_and_schemas/`
-3. `spec/ENGINEERING_RULES.md`
-4. `spec/UX_RULES.md`
-5. `spec/DESIGN_RULES.md`
-6. `Docs/04_runtime_experience/*`
+1. Code + `git log` — the only live truth
+2. `CLAUDE.md` (root and per-package)
+3. `openspec/specs/` for the affected capability
+4. `Docs/` working notes (informational only, do not treat as contracts)
 
 ## Task routing
 

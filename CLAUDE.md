@@ -156,9 +156,9 @@ apps/
 
 ## Ground Truth
 
-- `Docs/business-logic-map.md` — 业务逻辑真相源（产品定义 + 数据模型 + 四循环）
 - 产品方向："过程即价值"——凡是系统做了的事，玩家必须能看到、理解、干预
-- `Docs/archive/2026-04/` — 已归档的阶段性审计 + T0-T3 UX transparency spec（已全部落地，commit `3e8e11d` + `4ac8390`），不要当作 active artifact
+- 业务逻辑真相在代码里，不再维护单独的 business-logic-map
+- 稳定能力的规范化描述将陆续落到 `openspec/specs/`（重建中）
 
 ## Truth-source priority (AI 接手必读)
 
@@ -166,10 +166,10 @@ apps/
 
 1. **代码 + `git log`** — 唯一活真相
 2. **本 CLAUDE.md + 子包 CLAUDE.md** — 人肉维护的规则与 gotchas
-3. **`Docs/` 非 archive 的活文档**（`business-logic-map.md` 等）
-4. **`Docs/archive/`** — 历史文档，内部 refs 已冻结
+3. **`openspec/specs/`** — 稳定能力的规范化描述（正在重建，未覆盖的 capability 暂以代码为准）
+4. **`Docs/` 下的 working notes** — 信息参考，不是契约
 
-**规则：AI 开工前先 `git log --oneline -10` 核对最近 commit。spec / 活文档与 git 冲突时，永远信 git；发现冲突即刻更新上层文档，不要沉默地跳过。**
+**规则：AI 开工前先 `git log --oneline -10` 核对最近 commit。openspec / CLAUDE.md 与 git 冲突时，永远信 git；发现冲突即刻更新上层文档，不要沉默地跳过。**
 
 ## License and Key Model
 
@@ -194,4 +194,4 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 ## Interop
 
 外部 agent 接入 = **A2A only** (HTTP JSON-RPC, `packages/core/src/a2a/`)。
-OpenClaw 旧 gateway / SKILL.md 文件导入 / Lobster3D 场景分支已于 2026-04-14 全量移除, 对应 GDD 归档到 `Docs/archive/2026-04/OFFISIM_RUNTIME_EXPERIENCE_GDD.md`。未来若要接入带品牌外观的外包员工, 按 A2A agent card 元数据路由, 不要复活旧 role string 分支。
+OpenClaw 旧 gateway / SKILL.md 文件导入 / Lobster3D 场景分支已于 2026-04-14 全量移除。未来若要接入带品牌外观的外包员工, 按 A2A agent card 元数据路由, 不要复活旧 role string 分支。

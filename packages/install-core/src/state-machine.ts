@@ -1,7 +1,6 @@
 /**
  * Install state machine — transition validation and state classification.
- *
- * Source of truth: Docs/02_contracts_and_schemas/offisim_install_state_machine.md
+ * This file is the source of truth for the install lifecycle.
  */
 
 import type { InstallState } from '@offisim/shared-types';

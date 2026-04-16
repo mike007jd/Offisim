@@ -3,7 +3,7 @@
 **Version:** v0.1  
 **Status:** Implementation-facing support document  
 **Audience:** rendering, runtime, UX, AI coding agents  
-**Depends on:** contracts in `Docs/02_contracts_and_schemas/`
+**Depends on:** live contracts in `packages/core/src/graph/state.ts`, `packages/ui-office/src/lib/ceremony-visuals.ts`, `packages/ui-office/src/lib/scene-behavior.ts`
 
 ---
 

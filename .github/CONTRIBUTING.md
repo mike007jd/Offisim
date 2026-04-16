@@ -46,10 +46,9 @@ Use conventional commits when practical:
 
 Read these before major changes:
 
-- [`spec/PROJECT_CONSTITUTION.md`](../spec/PROJECT_CONSTITUTION.md)
-- [`spec/ENGINEERING_RULES.md`](../spec/ENGINEERING_RULES.md)
-- [`spec/UX_RULES.md`](../spec/UX_RULES.md)
-- [`spec/DESIGN_RULES.md`](../spec/DESIGN_RULES.md)
+- [`CLAUDE.md`](../CLAUDE.md) — repo-wide AI operating rules and architectural context
+- Per-package `CLAUDE.md` where present (`packages/core/CLAUDE.md`, `packages/ui-office/CLAUDE.md`, `apps/platform/CLAUDE.md`)
+- [`openspec/specs/`](../openspec/specs/) — capability specifications (rebuild in progress)
 
 ## Verification Guidance
 
