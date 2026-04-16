@@ -43,12 +43,12 @@
 
 ## 7. Phase F — 抽 employee-tool-round.ts
 
-- [ ] 7.1 新建 `packages/core/src/agents/employee-tool-round.ts`，定义 `ToolRoundOutcome = { kind: 'handoff', args: HandoffArgs } | { kind: 'continue', nextHistory: LlmMessage[] }`
-- [ ] 7.2 实现 `runToolRound(llmResponse, ctx)` 把原 line 477-705 的 handoff 检测 + parallel `Promise.allSettled` 工具执行 + tool result unwrap + history append + trim 全部搬入；handoff 检测命中只返回 `{ kind: 'handoff', args }` 不做任何 side effect
-- [ ] 7.3 保留：(a) `WORKSTATION_ACCESS_DENIED` 短路（`workstationToolResolver && !allowedMcpToolNames.has(name)`）；(b) failed tool 的 fallback `Tool execution failed: <msg>`；(c) `MAX_CONTEXT_MESSAGES` trim 阈值（保 first message + 最后 20 条）
-- [ ] 7.4 `employee-node.ts` 把 while loop 改为 `while (...) { const r = await runToolRound(llmResponse, ctx); if (r.kind === 'handoff') return await executeHandoff(r.args, ctx); conversationHistory = r.nextHistory; llmResponse = await runTurn(conversationHistory, { taskRunId }); }`
-- [ ] 7.5 在 barrel 内实现 `executeHandoff(args, ctx)` 行为同原 line 486-595 — 写 handoffs / 创建 newTaskRunId / mark current taskRun completed / hookRegistry.emit task.completed completionType: 'handoff' / emit handoffInitiated + employeeStateChanged / 返回 `new Command({ goto: 'employee', update: {...} })`
-- [ ] 7.6 typecheck + build 双绿；commit "Phase F: extract employee-tool-round, keep handoff in barrel"
+- [x] 7.1 新建 `employee-tool-round.ts`,定义 ToolRoundOutcome 联合
+- [x] 7.2 runToolRound 搬迁循环体,handoff 命中只返回 args 零 side-effect
+- [x] 7.3 保留 WORKSTATION_ACCESS_DENIED 短路 / failed tool fallback / MAX_CONTEXT_MESSAGES trim
+- [x] 7.4 barrel while loop 改为 runToolRound + executeHandoff dispatch
+- [x] 7.5 barrel 实现 executeHandoff(args, ctx),target missing 返 null
+- [x] 7.6 typecheck + build 双绿,commit Phase F
 
 ## 8. Phase G — 抽 employee-completion.ts
 

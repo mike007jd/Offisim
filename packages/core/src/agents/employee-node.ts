@@ -16,7 +16,6 @@ import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { CitationEntry } from '../services/library-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -27,6 +26,7 @@ import {
   materializeFileDeliverableIfNeeded,
 } from './employee-deliverables.js';
 import { MAX_TOOL_ROUNDS, TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
+import { finalizeEmployeeSuccess } from './employee-completion.js';
 import { runPreflight } from './employee-preflight.js';
 import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
@@ -34,34 +34,7 @@ import type { HandoffArgs } from './employee-tool-round.js';
 import { runToolRound } from './employee-tool-round.js';
 import { buildTurnRunner } from './employee-turn-runner.js';
 
-import type { CitationRef } from '../graph/state.js';
-
-/**
- * Extract [N] citation references from an LLM response and map them
- * back to the citation entries that were injected into the prompt.
- * Returns only citations that were actually referenced in the text.
- */
-export function extractUsedCitations(
-  responseText: string,
-  citationMap: CitationEntry[],
-): CitationRef[] {
-  if (citationMap.length === 0 || !responseText) return [];
-  const usedIndices = new Set<number>();
-  const re = /\[(\d+)]/g;
-  let m = re.exec(responseText);
-  while (m !== null) {
-    usedIndices.add(Number(m[1]));
-    m = re.exec(responseText);
-  }
-  return citationMap
-    .filter((c) => usedIndices.has(c.index))
-    .map((c) => ({
-      index: c.index,
-      docTitle: c.docTitle,
-      docId: c.docId,
-      snippet: c.snippet,
-    }));
-}
+export { extractUsedCitations } from './employee-completion.js';
 
 interface ExecuteHandoffContext {
   readonly state: OffisimGraphState;
@@ -184,20 +157,18 @@ export async function employeeNode(
     return preflightOutcome.stateUpdate;
   }
   const {
-    assignment,
     remaining,
     employee,
     taskRunId,
     taskLabel,
     totalAssignments,
     completedSoFar,
-    isDirectChatTask,
     resolved,
     taskDescription,
   } = preflightOutcome.preflight;
   const streamEmployeeReplies = true;
 
-  const { repos, eventBus, companyId, threadId, memoryService } = runtimeCtx;
+  const { repos, eventBus, companyId, threadId } = runtimeCtx;
 
   const { systemPrompt, citationMap } = await assemblePrompt(
     preflightOutcome.preflight,
@@ -279,183 +250,16 @@ export async function employeeNode(
       logger.warn(`Tool loop hit max ${MAX_TOOL_ROUNDS} rounds`, { employeeName: employee.name });
     }
 
-    const materializedDeliverable = await materializeFileDeliverableIfNeeded(
+    return await finalizeEmployeeSuccess({
       runtimeCtx,
-      taskDescription,
-      employee,
+      state,
+      preflight: preflightOutcome.preflight,
       llmResponse,
-      {
-        model: resolved.model,
-        provider: resolved.provider,
-        temperature: resolved.temperature,
-        maxTokens: resolved.maxTokens,
-        signal: getConfigSignal(config),
-      },
-      taskRunId,
-    );
-
-    // Update task run to completed
-    if (taskRunId) {
-      await repos.taskRuns.updateStatus(
-        taskRunId,
-        'completed',
-        JSON.stringify({ content: llmResponse.content }),
-      );
-      eventBus.emit(
-        taskStateChanged(
-          companyId,
-          taskRunId,
-          'running',
-          'completed',
-          threadId,
-          employee.employee_id,
-          'employee',
-          employee.name,
-        ),
-      );
-      eventBus.emit(
-        taskAssignmentChanged(companyId, taskRunId, employee.employee_id, 'unassigned', threadId, {
-          employeeId: employee.employee_id,
-          assigneeKind: 'employee',
-          assigneeName: employee.name,
-        }),
-      );
-    }
-
-    // Emit subtask done progress
-    eventBus.emit(
-      taskSubtaskProgress(
-        companyId,
-        employee.employee_id,
-        completedSoFar,
-        taskLabel,
-        'done',
-        totalAssignments,
-        completedSoFar + 1,
-        threadId,
-        { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
-      ),
-    );
-
-    // Emit employee idle state
-    eventBus.emit(
-      employeeStateChanged(
-        companyId,
-        employee.employee_id,
-        'executing',
-        'idle',
-        threadId,
-        taskRunId,
-      ),
-    );
-
-    // Reflect and remember before returning so the next task can rely on
-    // newly extracted memory in the same local runtime session.
-    // Skip for direct-chat style tasks and handoff_continuation.
-    if (memoryService) {
-      const skipReflection =
-        isDirectChatTask || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
-      try {
-        await memoryService.reflectAndRemember(
-          employee.employee_id,
-          companyId,
-          `Task: ${taskDescription}\n\nResponse: ${llmResponse.content}`,
-          threadId,
-          { skip: skipReflection, signal: getConfigSignal(config) },
-        );
-      } catch (err) {
-        logger.warn('reflectAndRemember failed', {
-          error: err instanceof Error ? err.message : String(err),
-          employeeId: employee.employee_id,
-        });
-      }
-    }
-
-    // Extract citations actually used in the response
-    const usedCitations = extractUsedCitations(llmResponse.content, citationMap);
-
-    await appendAgentEvent(runtimeCtx, {
-      projectId: state.projectId,
-      threadId: state.threadId,
-      agentName: `employee:${employee.employee_id}`,
-      eventType: 'action',
-      payload: {
-        taskRunId,
-        employeeName: employee.name,
-        toolRounds: round,
-        outputLength: llmResponse.content.length,
-        citationCount: usedCitations.length,
-      },
+      citationMap,
+      source: 'normal',
+      round,
+      signal: getConfigSignal(config),
     });
-    if (taskRunId) {
-      await runtimeCtx.hookRegistry.emit('task.completed', {
-        threadId,
-        companyId,
-        employeeId: employee.employee_id,
-        taskRunId,
-        completionType: 'response',
-      });
-    }
-    runtimeCtx.scratchpad.write(
-      `employee.last-output.${employee.employee_id}`,
-      `${employee.name}: ${llmResponse.content.slice(0, 240)}`,
-      'employee',
-    );
-
-    if (materializedDeliverable) {
-      runtimeCtx.eventBus.emit(
-        deliverableCreated(
-          runtimeCtx.companyId,
-          generateId('del'),
-          state.threadId,
-          buildEmployeeDeliverableTitle(
-            taskDescription,
-            materializedDeliverable.fileName,
-          ),
-          materializedDeliverable.artifactContent,
-          [
-            {
-              employeeId: employee.employee_id,
-              employeeName: employee.name,
-              sourceKind: 'employee',
-              roleSlug: employee.role_slug,
-            },
-          ],
-          {
-            kind: 'file',
-            fileName: materializedDeliverable.fileName,
-            mimeType: materializedDeliverable.mimeType,
-          },
-        ),
-      );
-    }
-
-    return {
-      currentEmployeeId: employee.employee_id,
-      currentTaskRunId: taskRunId ?? null,
-      pendingAssignments: remaining,
-      messages: [new AIMessage({ content: llmResponse.content })],
-      currentStepOutputs: [
-        ...state.currentStepOutputs,
-        {
-          employeeId: employee.employee_id,
-          employeeName: employee.name,
-          sourceKind: 'employee',
-          roleSlug: employee.role_slug,
-          content: llmResponse.content,
-          taskRunId: taskRunId ?? '',
-          artifact: materializedDeliverable
-            ? {
-                kind: 'file',
-                fileName: materializedDeliverable.fileName,
-                mimeType: materializedDeliverable.mimeType,
-                content: materializedDeliverable.artifactContent,
-              }
-            : undefined,
-          citations: usedCitations.length > 0 ? usedCitations : undefined,
-        },
-      ],
-    };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
 
