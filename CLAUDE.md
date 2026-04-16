@@ -157,7 +157,7 @@ apps/
 
 - 产品方向："过程即价值"——凡是系统做了的事，玩家必须能看到、理解、干预
 - 业务逻辑真相在代码里，不再维护单独的 business-logic-map
-- 稳定能力的规范化描述将陆续落到 `openspec/specs/`（重建中）
+- 稳定能力的规范化描述落在 `openspec/specs/`；2026-04-16 首轮重建已落 5 个 canonical spec（avatar-seed-resolution / plan-step-store / typed-json-field-parsers / unified-shell-routing / workspace-state-management）。未覆盖的 capability 继续按 refactor-first-then-spec 流程补（先把代码从屎山状态重构出来，再把稳定结构落成 spec）。
 
 ## Truth-source priority (AI 接手必读)
 
@@ -165,7 +165,7 @@ apps/
 
 1. **代码 + `git log`** — 唯一活真相
 2. **本 CLAUDE.md + 子包 CLAUDE.md** — 人肉维护的规则与 gotchas
-3. **`openspec/specs/`** — 稳定能力的规范化描述（正在重建，未覆盖的 capability 暂以代码为准）
+3. **`openspec/specs/`** — 稳定能力的规范化描述；首轮重建 2026-04-16 已落 5 个 canonical spec。未覆盖的 capability 继续按 refactor-first-then-spec 节奏补，期间仍以代码为准
 4. **`Docs/` 下的 working notes** — 信息参考，不是契约
 
 **规则：AI 开工前先 `git log --oneline -10` 核对最近 commit。openspec / CLAUDE.md 与 git 冲突时，永远信 git；发现冲突即刻更新上层文档，不要沉默地跳过。**
