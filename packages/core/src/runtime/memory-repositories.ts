@@ -13,8 +13,16 @@ import { MemoryUserPreferenceRepository } from '../repositories/memory-user-pref
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
+export {
+  MemoryActiveInteractionRepository,
+  MemoryHandoffRepository,
+  MemoryInteractionHistoryRepository,
+  MemoryMeetingRepository,
+  MemoryToolCallRepository,
+} from './repos/conversations/memory.js';
 export {
   MemoryEmployeeRepository,
   MemoryEmployeeVersionRepository,
@@ -31,37 +39,25 @@ import type {
   MemoryRepositorySeed,
 } from './repos/memory-types.js';
 import type {
-  ActiveInteractionRepository,
   AgentEventRepository,
   AgentEventRow,
   CompactSummaryRepository,
   CompactSummaryRow,
   FileHistoryRepository,
   FileHistoryRow,
-  HandoffEventRow,
-  HandoffRepository,
-  InteractionActiveRow,
-  InteractionHistoryRepository,
-  InteractionHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
   McpAuditRepository,
   McpAuditRow,
-  MeetingRepository,
-  MeetingSessionRow,
   ModelCostRateRepository,
   ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
-  NewHandoffEvent,
-  NewInteractionActive,
-  NewInteractionHistory,
   NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
-  NewMeetingSession,
   NewModelCostRate,
   NewNodeSummary,
   NewOfficeLayout,
@@ -69,7 +65,6 @@ import type {
   NewRecoveryKnowledge,
   NewSlot,
   NewSopTemplate,
-  NewToolCall,
   NewWorkstationRack,
   NodeSummaryRepository,
   NodeSummaryRow,
@@ -86,8 +81,6 @@ import type {
   SlotRow,
   SopTemplateRepository,
   SopTemplateRow,
-  ToolCallRepository,
-  ToolCallRow,
   WorkstationRackRepository,
   WorkstationRackRow,
 } from './repositories.js';
@@ -125,58 +118,11 @@ export function createMemoryRepositories(
 
   const employeesFamily = createEmployeesMemoryRepos(snapshot);
   const { employees, employeeVersions } = employeesFamily;
+  const conversationsFamily = createConversationsMemoryRepos(snapshot);
+  const { toolCalls, handoffs, meetings, activeInteractions, interactionHistory } =
+    conversationsFamily;
 
-  const toolCallsMap = createRowMap(snapshot?.toolCalls, 'tool_call_id');
-  const handoffsMap = createRowMap(snapshot?.handoffs, 'handoff_id');
-  const meetingsMap = createRowMap(snapshot?.meetings, 'meeting_id');
   const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
-
-  const toolCalls: ToolCallRepository = {
-    async create(t: NewToolCall) {
-      const row: ToolCallRow = { ...t, finished_at: null };
-      toolCallsMap.set(row.tool_call_id, row);
-      return row;
-    },
-    async updateResult(id, status, responseJson) {
-      const row = toolCallsMap.get(id);
-      if (row) {
-        toolCallsMap.set(id, { ...row, status, response_json: responseJson, finished_at: now() });
-      }
-    },
-  };
-
-  const handoffs: HandoffRepository = {
-    async create(h: NewHandoffEvent) {
-      const row: HandoffEventRow = { ...h };
-      handoffsMap.set(row.handoff_id, row);
-      return row;
-    },
-    async findByThread(threadId) {
-      return [...handoffsMap.values()].filter((h) => h.thread_id === threadId);
-    },
-  };
-
-  const meetings: MeetingRepository = {
-    async create(m: NewMeetingSession) {
-      const row: MeetingSessionRow = { ...m };
-      meetingsMap.set(row.meeting_id, row);
-      return row;
-    },
-    async findById(id) {
-      return meetingsMap.get(id) ?? null;
-    },
-    async updateStatus(id, status, summaryJson) {
-      const row = meetingsMap.get(id);
-      if (row) {
-        meetingsMap.set(id, {
-          ...row,
-          status,
-          summary_json: summaryJson ?? row.summary_json,
-          updated_at: now(),
-        });
-      }
-    },
-  };
 
   const llmCalls: LlmCallRepository = {
     async create(c: NewLlmCall) {
@@ -215,8 +161,6 @@ export function createMemoryRepositories(
   const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
   const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
-  const activeInteractions = new MemoryActiveInteractionRepository(snapshot?.activeInteractions);
-  const interactionHistory = new MemoryInteractionHistoryRepository(snapshot?.interactionHistory);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
@@ -273,9 +217,9 @@ export function createMemoryRepositories(
         threads: orchestration.threads.snapshot(),
         taskRuns: orchestration.taskRuns.snapshot(),
         employees: employees.snapshot(),
-        toolCalls: cloneRows(toolCallsMap.values()),
-        handoffs: cloneRows(handoffsMap.values()),
-        meetings: cloneRows(meetingsMap.values()),
+        toolCalls: toolCalls.snapshot(),
+        handoffs: handoffs.snapshot(),
+        meetings: meetings.snapshot(),
         checkpoints: orchestration.checkpoints.snapshot(),
         events: orchestration.events.snapshot(),
         llmCalls: cloneRows(llmCallsMap.values()),
@@ -310,64 +254,6 @@ export function createMemoryRepositories(
   };
 
   return repositories;
-}
-
-export class MemoryActiveInteractionRepository implements ActiveInteractionRepository {
-  private readonly rows = new Map<string, InteractionActiveRow>();
-
-  constructor(initialRows?: Iterable<InteractionActiveRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.rows.set(row.thread_id, { ...row });
-    }
-  }
-
-  async upsert(row: NewInteractionActive): Promise<InteractionActiveRow> {
-    const persisted = { ...row };
-    this.rows.set(persisted.thread_id, persisted);
-    return persisted;
-  }
-
-  async findByThread(threadId: string): Promise<InteractionActiveRow | null> {
-    return this.rows.get(threadId) ?? null;
-  }
-
-  async deleteByThread(threadId: string): Promise<void> {
-    this.rows.delete(threadId);
-  }
-
-  snapshot(): InteractionActiveRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
-
-export class MemoryInteractionHistoryRepository implements InteractionHistoryRepository {
-  private readonly rows: InteractionHistoryRow[] = [];
-
-  constructor(initialRows?: Iterable<InteractionHistoryRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(row: NewInteractionHistory): Promise<InteractionHistoryRow> {
-    const persisted = { ...row };
-    this.rows.push(persisted);
-    return persisted;
-  }
-
-  async listByThread(
-    threadId: string,
-    opts?: { limit?: number },
-  ): Promise<InteractionHistoryRow[]> {
-    const rows = this.rows
-      .filter((row) => row.thread_id === threadId)
-      .sort((a, b) => b.resolved_at.localeCompare(a.resolved_at));
-    return typeof opts?.limit === 'number' ? rows.slice(0, opts.limit) : rows;
-  }
-
-  snapshot(): InteractionHistoryRow[] {
-    return cloneRows(this.rows);
-  }
 }
 
 export class MemoryModelCostRateRepository implements ModelCostRateRepository {

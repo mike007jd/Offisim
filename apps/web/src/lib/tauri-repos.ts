@@ -3,7 +3,6 @@
 // If you change repository logic in core, update this file too.
 
 import type {
-  ActiveInteractionRepository,
   AgentEventRepository,
   AgentEventRow,
   AssetBindingRepository,
@@ -11,20 +10,13 @@ import type {
   CompactSummaryRow,
   FileHistoryRepository,
   FileHistoryRow,
-  HandoffEventRow,
-  HandoffRepository,
   InstallTransactionRepository,
   InstalledAssetRepository,
   InstalledPackageRepository,
-  InteractionActiveRow,
-  InteractionHistoryRepository,
-  InteractionHistoryRow,
   LibraryDocumentRow,
   LlmCallRepository,
   LlmCallRow,
   McpAuditRow,
-  MeetingRepository,
-  MeetingSessionRow,
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
@@ -33,13 +25,9 @@ import type {
   NewAgentEvent,
   NewCompactSummary,
   NewFileHistory,
-  NewHandoffEvent,
-  NewInteractionActive,
-  NewInteractionHistory,
   NewLibraryDocument,
   NewLlmCall,
   NewMcpAudit,
-  NewMeetingSession,
   NewModelCostRate,
   NewNodeSummary,
   NewOfficeLayout,
@@ -47,7 +35,6 @@ import type {
   NewRecoveryKnowledge,
   NewSlot,
   NewSopTemplate,
-  NewToolCall,
   NodeSummaryRepository,
   NodeSummaryRow,
   OfficeLayoutRow,
@@ -58,8 +45,6 @@ import type {
   RuntimeRepositories,
   SlotRow,
   SopTemplateRow,
-  ToolCallRepository,
-  ToolCallRow,
   WorkstationRackRow,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
@@ -80,6 +65,7 @@ import type {
 import type { BindingStatus, InstallState } from '@offisim/shared-types';
 import { and, desc, eq, inArray, like, notInArray, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
+import { createConversationsTauriRepos } from './tauri-repos/conversations';
 import { createEmployeesTauriRepos } from './tauri-repos/employees';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 
@@ -113,53 +99,7 @@ type MemoryReinforcementPatch = Parameters<MemoryRepository['reinforce']>[1];
 export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories {
   const orchestration = createOrchestrationTauriRepos(db);
   const employeesFamily = createEmployeesTauriRepos(db);
-
-  const toolCalls: ToolCallRepository = {
-    async create(t: NewToolCall) {
-      const row = { ...t, finished_at: null };
-      await db.insert(schema.toolCalls).values(row);
-      return row as ToolCallRow;
-    },
-    async updateResult(id, status, responseJson) {
-      await db
-        .update(schema.toolCalls)
-        .set({ status, response_json: responseJson, finished_at: now() })
-        .where(eq(schema.toolCalls.tool_call_id, id));
-    },
-  };
-
-  const handoffs: HandoffRepository = {
-    async create(h: NewHandoffEvent) {
-      await db.insert(schema.handoffEvents).values(h);
-      return h as HandoffEventRow;
-    },
-    async findByThread(threadId) {
-      return (await db
-        .select()
-        .from(schema.handoffEvents)
-        .where(eq(schema.handoffEvents.thread_id, threadId))) as HandoffEventRow[];
-    },
-  };
-
-  const meetings: MeetingRepository = {
-    async create(m: NewMeetingSession) {
-      await db.insert(schema.meetingSessions).values(m);
-      return m as MeetingSessionRow;
-    },
-    async findById(id) {
-      const rows = await db
-        .select()
-        .from(schema.meetingSessions)
-        .where(eq(schema.meetingSessions.meeting_id, id));
-      return (rows[0] as MeetingSessionRow | undefined) ?? null;
-    },
-    async updateStatus(id, status, summaryJson) {
-      await db
-        .update(schema.meetingSessions)
-        .set({ status, summary_json: summaryJson ?? undefined, updated_at: now() })
-        .where(eq(schema.meetingSessions.meeting_id, id));
-    },
-  };
+  const conversationsFamily = createConversationsTauriRepos(db);
 
   const llmCalls: LlmCallRepository = {
     async create(c: NewLlmCall) {
@@ -594,57 +534,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
       await db
         .delete(schema.compactSummaries)
         .where(eq(schema.compactSummaries.thread_id, threadId));
-    },
-  };
-
-  const activeInteractions: ActiveInteractionRepository = {
-    async upsert(row: NewInteractionActive) {
-      await db
-        .insert(schema.activeThreadInteractions)
-        .values(row)
-        .onConflictDoUpdate({
-          target: schema.activeThreadInteractions.thread_id,
-          set: {
-            company_id: row.company_id,
-            interaction_id: row.interaction_id,
-            kind: row.kind,
-            interaction_mode: row.interaction_mode,
-            request_json: row.request_json,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-          },
-        });
-      return row as InteractionActiveRow;
-    },
-    async findByThread(threadId) {
-      const rows = await db
-        .select()
-        .from(schema.activeThreadInteractions)
-        .where(eq(schema.activeThreadInteractions.thread_id, threadId));
-      return (rows[0] as InteractionActiveRow | undefined) ?? null;
-    },
-    async deleteByThread(threadId) {
-      await db
-        .delete(schema.activeThreadInteractions)
-        .where(eq(schema.activeThreadInteractions.thread_id, threadId));
-    },
-  };
-
-  const interactionHistory: InteractionHistoryRepository = {
-    async create(row: NewInteractionHistory) {
-      await db.insert(schema.interactionHistory).values(row);
-      return row as InteractionHistoryRow;
-    },
-    async listByThread(threadId, opts) {
-      let query = db
-        .select()
-        .from(schema.interactionHistory)
-        .where(eq(schema.interactionHistory.thread_id, threadId))
-        .orderBy(desc(schema.interactionHistory.resolved_at));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return (await query) as InteractionHistoryRow[];
     },
   };
 
@@ -1298,9 +1187,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
   return {
     ...orchestration,
     ...employeesFamily,
-    toolCalls,
-    handoffs,
-    meetings,
+    ...conversationsFamily,
     llmCalls,
     installTransactions,
     installedPackages,
@@ -1310,8 +1197,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     mcpAudit,
     nodeSummaries,
     compactSummaries,
-    activeInteractions,
-    interactionHistory,
     fileHistory,
     costRates,
     sopTemplates,

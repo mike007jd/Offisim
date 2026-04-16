@@ -16,11 +16,11 @@
 
 ## 3. Phase D — conversations family
 
-- [ ] 3.1 Create `runtime/repos/conversations/drizzle.ts` — extract `toolCalls`, `handoffs`, `meetings`, `activeInteractions`, `interactionHistory` into `createConversationsDrizzleRepos(db)`
-- [ ] 3.2 Create `runtime/repos/conversations/memory.ts` — move existing `MemoryActiveInteractionRepository`, `MemoryInteractionHistoryRepository` classes + convert inline `toolCalls`/`handoffs`/`meetings` into new classes `MemoryToolCallRepository`, `MemoryHandoffRepository`, `MemoryMeetingRepository` (D8). Each new class owns its `Map<string, Row>` and exposes `.snapshot()`. Factory `createConversationsMemoryRepos(snapshot?)` returns the 5 class instances
-- [ ] 3.3 Create `apps/web/src/lib/tauri-repos/conversations.ts`
-- [ ] 3.4 Splice barrels; update memory barrel re-exports for 5 class symbols (2 existing + 3 new); delete inline blocks
-- [ ] 3.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase D — conversations`
+- [x] 3.1 Create `runtime/repos/conversations/drizzle.ts` — extract `toolCalls`, `handoffs`, `meetings`, `activeInteractions`, `interactionHistory` into `createConversationsDrizzleRepos(db)`
+- [x] 3.2 Create `runtime/repos/conversations/memory.ts` — move existing `MemoryActiveInteractionRepository`, `MemoryInteractionHistoryRepository` classes + convert inline `toolCalls`/`handoffs`/`meetings` into new classes `MemoryToolCallRepository`, `MemoryHandoffRepository`, `MemoryMeetingRepository` (D8). Each new class owns its `Map<string, Row>` and exposes `.snapshot()`. Factory `createConversationsMemoryRepos(snapshot?)` returns the 5 class instances
+- [x] 3.3 Create `apps/web/src/lib/tauri-repos/conversations.ts`
+- [x] 3.4 Splice barrels; update memory barrel re-exports for 5 class symbols (2 existing + 3 new); delete inline blocks
+- [x] 3.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase D — conversations`
 
 ## 4. Phase E — llm family
 
