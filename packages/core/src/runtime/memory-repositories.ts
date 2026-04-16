@@ -11,6 +11,7 @@ import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
+import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createInstallMemoryRepos } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
@@ -27,6 +28,10 @@ export {
   MemoryEmployeeRepository,
   MemoryEmployeeVersionRepository,
 } from './repos/employees/memory.js';
+export {
+  MemoryFileHistoryRepository,
+  MemoryLibraryDocumentRepository,
+} from './repos/files/memory.js';
 export {
   MemoryAssetBindingRepository,
   MemoryInstallTransactionRepository,
@@ -61,12 +66,7 @@ import type {
 import type {
   AgentEventRepository,
   AgentEventRow,
-  FileHistoryRepository,
-  FileHistoryRow,
-  LibraryDocumentRepository,
-  LibraryDocumentRow,
   NewAgentEvent,
-  NewLibraryDocument,
   NewOfficeLayout,
   NewRecoveryKnowledge,
   NewSopTemplate,
@@ -110,6 +110,8 @@ export function createMemoryRepositories(
     permissionsFamily;
   const memorySystemFamily = createMemorySystemMemoryRepos(snapshot);
   const { memories, userPreferences, nodeSummaries, compactSummaries } = memorySystemFamily;
+  const filesFamily = createFilesMemoryRepos(snapshot);
+  const { fileHistory, libraryDocuments } = filesFamily;
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -120,9 +122,7 @@ export function createMemoryRepositories(
     },
   };
 
-  const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
-  const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
   const zonesRepo = new MemoryZoneRepository(snapshot?.zones);
   const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
@@ -261,61 +261,6 @@ export class MemorySopTemplateRepository implements SopTemplateRepository {
   }
 }
 
-export class MemoryLibraryDocumentRepository implements LibraryDocumentRepository {
-  private readonly store = new Map<string, LibraryDocumentRow>();
-
-  constructor(initialRows?: Iterable<LibraryDocumentRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(row.doc_id, { ...row });
-    }
-  }
-
-  async create(doc: NewLibraryDocument): Promise<LibraryDocumentRow> {
-    const row: LibraryDocumentRow = {
-      ...doc,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.store.set(row.doc_id, row);
-    return row;
-  }
-
-  async findById(docId: string): Promise<LibraryDocumentRow | null> {
-    return this.store.get(docId) ?? null;
-  }
-
-  async findByCompany(companyId: string): Promise<LibraryDocumentRow[]> {
-    return [...this.store.values()]
-      .filter((d) => d.company_id === companyId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }
-
-  async search(
-    companyId: string,
-    query: string,
-    opts?: { limit?: number },
-  ): Promise<LibraryDocumentRow[]> {
-    const q = query.toLowerCase();
-    let results = [...this.store.values()].filter(
-      (d) =>
-        d.company_id === companyId &&
-        (d.title.toLowerCase().includes(q) || d.content_text.toLowerCase().includes(q)),
-    );
-    results.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    if (opts?.limit) results = results.slice(0, opts.limit);
-    return results;
-  }
-
-  async delete(docId: string): Promise<void> {
-    this.store.delete(docId);
-  }
-
-  snapshot(): LibraryDocumentRow[] {
-    return cloneRows(this.store.values());
-  }
-}
-
 export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   private readonly store = new Map<string, OfficeLayoutRow>();
 
@@ -429,45 +374,6 @@ export class MemoryZoneRepository implements ZoneRepository {
 
   snapshot(): ZoneRow[] {
     return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryFileHistoryRepository implements FileHistoryRepository {
-  private readonly rows: FileHistoryRow[] = [];
-
-  constructor(initialRows?: Iterable<FileHistoryRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(entry: FileHistoryRow): Promise<FileHistoryRow> {
-    this.rows.push(entry);
-    return entry;
-  }
-
-  async listByThread(threadId: string, opts?: { limit?: number }): Promise<FileHistoryRow[]> {
-    const rows = this.rows
-      .filter((row) => row.thread_id === threadId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return opts?.limit ? rows.slice(0, opts.limit) : rows;
-  }
-
-  async listBySnapshot(snapshotId: string): Promise<FileHistoryRow[]> {
-    return this.rows
-      .filter((row) => row.snapshot_id === snapshotId)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  }
-
-  async deleteByThread(threadId: string): Promise<void> {
-    for (let index = this.rows.length - 1; index >= 0; index--) {
-      if (this.rows[index]?.thread_id === threadId) {
-        this.rows.splice(index, 1);
-      }
-    }
-  }
-
-  snapshot(): FileHistoryRow[] {
-    return cloneRows(this.rows);
   }
 }
 

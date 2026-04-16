@@ -57,11 +57,11 @@
 
 ## 8. Phase I — files family
 
-- [ ] 8.1 Create `runtime/repos/files/drizzle.ts` — extract `fileHistory`, `libraryDocuments`
-- [ ] 8.2 Create `runtime/repos/files/memory.ts` — move `MemoryFileHistoryRepository`, `MemoryLibraryDocumentRepository` classes
-- [ ] 8.3 Create `apps/web/src/lib/tauri-repos/files.ts`
-- [ ] 8.4 Splice barrels; update memory barrel re-exports (2 class symbols); delete inline blocks
-- [ ] 8.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase I — files`
+- [x] 8.1 Create `runtime/repos/files/drizzle.ts` — extract `fileHistory`, `libraryDocuments`
+- [x] 8.2 Create `runtime/repos/files/memory.ts` — move `MemoryFileHistoryRepository`, `MemoryLibraryDocumentRepository` classes
+- [x] 8.3 Create `apps/web/src/lib/tauri-repos/files.ts`
+- [x] 8.4 Splice barrels; update memory barrel re-exports (2 class symbols); delete inline blocks
+- [x] 8.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase I — files`
 
 ## 9. Phase J — workspace family
 

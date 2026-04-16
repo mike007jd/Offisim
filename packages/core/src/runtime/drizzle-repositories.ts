@@ -8,11 +8,12 @@ import type {
   ProjectStatus,
   ZoneRow,
 } from '@offisim/shared-types';
-import { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NewZone } from '../repos/zone-repository.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
+import { createFilesDrizzleRepos } from './repos/files/drizzle.js';
 import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
 import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js';
@@ -21,12 +22,7 @@ import { createPermissionsDrizzleRepos } from './repos/permissions/drizzle.js';
 import type {
   AgentEventRepository,
   AgentEventRow,
-  FileHistoryRepository,
-  FileHistoryRow,
-  LibraryDocumentRow,
   NewAgentEvent,
-  NewFileHistory,
-  NewLibraryDocument,
   NewOfficeLayout,
   NewRecoveryKnowledge,
   NewSopTemplate,
@@ -53,35 +49,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   const installFamily = createInstallDrizzleRepos(db);
   const permissionsFamily = createPermissionsDrizzleRepos(db);
   const memorySystemFamily = createMemorySystemDrizzleRepos(db);
-
-  const fileHistory: FileHistoryRepository = {
-    async create(entry: NewFileHistory) {
-      db.insert(schema.fileHistory).values(entry).run();
-      return entry as FileHistoryRow;
-    },
-    async listByThread(threadId, opts) {
-      let query = db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.thread_id, threadId))
-        .orderBy(desc(schema.fileHistory.created_at));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return query.all() as FileHistoryRow[];
-    },
-    async listBySnapshot(snapshotId) {
-      return db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.snapshot_id, snapshotId))
-        .orderBy(schema.fileHistory.created_at)
-        .all() as FileHistoryRow[];
-    },
-    async deleteByThread(threadId) {
-      db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId)).run();
-    },
-  };
+  const filesFamily = createFilesDrizzleRepos(db);
 
   const sopTemplates: RuntimeRepositories['sopTemplates'] = {
     // NOTE: not `async` — see EmployeeRepository.create for rationale.
@@ -116,51 +84,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
       db.delete(schema.sopTemplates)
         .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
         .run();
-    },
-  };
-
-  const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
-    async create(doc: NewLibraryDocument) {
-      const ts = now();
-      const row: LibraryDocumentRow = { ...doc, created_at: ts, updated_at: ts };
-      db.insert(schema.libraryDocuments).values(row).run();
-      return row;
-    },
-    async findById(docId) {
-      const rows = db
-        .select()
-        .from(schema.libraryDocuments)
-        .where(eq(schema.libraryDocuments.doc_id, docId))
-        .all();
-      return (rows[0] as LibraryDocumentRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return db
-        .select()
-        .from(schema.libraryDocuments)
-        .where(eq(schema.libraryDocuments.company_id, companyId))
-        .all() as LibraryDocumentRow[];
-    },
-    async search(companyId, query, opts) {
-      const pattern = `%${query}%`;
-      const limit = opts?.limit ?? 20;
-      return db
-        .select()
-        .from(schema.libraryDocuments)
-        .where(
-          and(
-            eq(schema.libraryDocuments.company_id, companyId),
-            or(
-              like(sql`lower(${schema.libraryDocuments.title})`, pattern.toLowerCase()),
-              like(sql`lower(${schema.libraryDocuments.content_text})`, pattern.toLowerCase()),
-            ),
-          ),
-        )
-        .limit(limit)
-        .all() as LibraryDocumentRow[];
-    },
-    async delete(docId) {
-      db.delete(schema.libraryDocuments).where(eq(schema.libraryDocuments.doc_id, docId)).run();
     },
   };
 
@@ -654,9 +577,8 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     ...installFamily,
     ...permissionsFamily,
     ...memorySystemFamily,
-    fileHistory,
+    ...filesFamily,
     sopTemplates,
-    libraryDocuments,
     officeLayouts,
     prefabInstances,
     zones,
