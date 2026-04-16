@@ -100,8 +100,8 @@
 
 ## 14. Commit + Archive
 
-- [ ] 14.1 final commit：把所有 phase commit squash 成一个 `refactor(core): split employee-node into single-responsibility modules`（或保留 phase commits 视 reviewer 偏好）
-- [ ] 14.2 commit message body 列出 8 个模块 + 行数变化（1126 → barrel ≤200 + 8 模块）
-- [ ] 14.3 用户 sign-off live verification report 后，跑 `/opsx:archive refactor-employee-node`，sync canonical spec 到 `openspec/specs/employee-node-boundaries/spec.md`
-- [ ] 14.4 archive 后立即更新 `~/.claude/projects/-Users-haoshengli-Seafile-WebWorkSpace-Offisim/memory/project_next_change_queue.md` 的 D3 status → `[x] archived` + 补 archive commit SHA + scope anchor + 完整 completion log（参考 D2 体例）
-- [ ] 14.5 主动提示用户："下一个 queued 条目是 D4（repo triple-copies）。要现在 /opsx:propose 吗？"
+- [~] 14.1 不 squash,保留 11 个 phase commit (proposal → A-I → gate → verification report → live) 供 reviewer 回溯
+- [~] 14.2 参见 live-verification-report.md §D+§E 的 phase commit timeline + NBNC 表
+- [x] 14.3 archive + canonical spec sync
+- [x] 14.4 queue file 更新
+- [x] 14.5 D4 prompt
