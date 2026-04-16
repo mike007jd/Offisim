@@ -8,9 +8,9 @@ import {
 } from '../events/event-factories.js';
 import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { Logger } from '../services/logger.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import {
@@ -274,9 +274,7 @@ export async function finalizeEmployeeSuccess(
           content: materializedDeliverable.artifactContent,
         }
       : undefined,
-    ...(source === 'normal' && usedCitations.length > 0
-      ? { citations: usedCitations }
-      : {}),
+    ...(source === 'normal' && usedCitations.length > 0 ? { citations: usedCitations } : {}),
   };
 
   return {

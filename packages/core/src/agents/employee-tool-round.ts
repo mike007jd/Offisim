@@ -1,7 +1,7 @@
 import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage, LlmResponse } from '../llm/gateway.js';
-import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
 import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';

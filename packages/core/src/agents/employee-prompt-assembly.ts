@@ -1,8 +1,8 @@
 import type { RuntimeSkillConfig } from '@offisim/shared-types';
 import { parseEmployeeConfig } from '@offisim/shared-types';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { formatMemoriesSection } from './employee-memory-tools.js';

@@ -69,12 +69,13 @@
 
 ## 10. Phase I — 抽 employee-error-finalize.ts + barrel 收尾
 
-- [ ] 10.1 新建 `packages/core/src/agents/employee-error-finalize.ts`，实现 `finalizeEmployeeFailure(ctx)` 搬迁原 line 1045-1124 错误路径；保留结构化错误 JSON schema 8 字段（`errorCode / message / recoverable / nodeName / employeeId / taskRunId / provider / model`）
-- [ ] 10.2 `employee-node.ts` catch 末段改为 `return finalizeEmployeeFailure({ ...ctx, errorMessage })`
-- [ ] 10.3 验证 barrel `grep -cvE '^\s*(//|$|/\*|\*)' packages/core/src/agents/employee-node.ts` ≤ 200
-- [ ] 10.4 验证每个新模块 `grep -cvE '^\s*(//|$|/\*|\*)' packages/core/src/agents/employee-{preflight,prompt-assembly,tool-kit,turn-runner,tool-round,completion,error-finalize,node-constants}.ts` ≤ 250
-- [ ] 10.5 grep `^const MAX_HANDOFF_COUNT|^const MAX_CONTEXT_MESSAGES|^const TASK_TYPE_HANDOFF_CONTINUATION|^const SKILL_TOOL_NAME|^const MAX_TOOL_ROUNDS` packages/core/src 下每个常量恰好 1 次匹配
-- [ ] 10.6 typecheck + build 双绿；commit "Phase I: extract employee-error-finalize, barrel shrunk to <=200 NBNC lines"
+- [x] 10.1 新建 `employee-error-finalize.ts`,实现 `finalizeEmployeeFailure(ctx)`,结构化错误 8 字段保留
+- [x] 10.2 barrel catch 末段改为 `return finalizeEmployeeFailure(...)`
+- [x] 10.3 barrel NBNC = 137 ≤ 200 ✓
+- [x] 10.4 每个模块 NBNC ≤ 250 ✓ (max completion 247)
+- [x] 10.5 grep 验证 5 个常量各恰好 1 次 declaration ✓
+- [x] 10.6 typecheck + build 双绿,commit Phase I
+- [x] **scope addition**: 新建 `employee-handoff.ts` (108 NBNC) 让 barrel 命中 ≤200 gate (原 design 把 executeHandoff 留 barrel → NBNC 238 超 gate; Phase I 抽出)
 
 ## 11. Repo 级验证 gate
 
