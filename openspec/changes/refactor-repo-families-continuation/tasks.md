@@ -8,11 +8,11 @@
 
 ## 2. Phase C — employees family
 
-- [ ] 2.1 Create `packages/core/src/runtime/repos/employees/drizzle.ts` — extract `employees`, `employeeVersions` from `drizzle-repositories.ts` into `createEmployeesDrizzleRepos(db): EmployeesDrizzleRepos`
-- [ ] 2.2 Create `packages/core/src/runtime/repos/employees/memory.ts` — move existing `MemoryEmployeeVersionRepository` class + convert inline `employees` to new `MemoryEmployeeRepository` class (D8). `MemoryEmployeeRepository` exposes `.snapshot()` and `.seed(rows)`. Factory `createEmployeesMemoryRepos(snapshot?)` returns the 2 class instances
-- [ ] 2.3 Create `apps/web/src/lib/tauri-repos/employees.ts` — extract from `tauri-repos.ts` into `createEmployeesTauriRepos(db): EmployeesTauriRepos`
-- [ ] 2.4 Splice each barrel: spread the new family factory into `createDrizzleRepositories` / `createMemoryRepositories` / `createTauriRepositories`; delete the corresponding inline blocks from each barrel; update memory barrel to re-export `MemoryEmployeeRepository` + `MemoryEmployeeVersionRepository` from the new location
-- [ ] 2.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase C — employees`
+- [x] 2.1 Create `packages/core/src/runtime/repos/employees/drizzle.ts` — extract `employees`, `employeeVersions` from `drizzle-repositories.ts` into `createEmployeesDrizzleRepos(db): EmployeesDrizzleRepos`
+- [x] 2.2 Create `packages/core/src/runtime/repos/employees/memory.ts` — move existing `MemoryEmployeeVersionRepository` class + convert inline `employees` to new `MemoryEmployeeRepository` class (D8). `MemoryEmployeeRepository` exposes `.snapshot()` and `.seed(rows)`. Factory `createEmployeesMemoryRepos(snapshot?)` returns the 2 class instances
+- [x] 2.3 Create `apps/web/src/lib/tauri-repos/employees.ts` — extract from `tauri-repos.ts` into `createEmployeesTauriRepos(db): EmployeesTauriRepos`
+- [x] 2.4 Splice each barrel: spread the new family factory into `createDrizzleRepositories` / `createMemoryRepositories` / `createTauriRepositories`; delete the corresponding inline blocks from each barrel; update memory barrel to re-export `MemoryEmployeeRepository` + `MemoryEmployeeVersionRepository` from the new location
+- [x] 2.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase C — employees`
 
 ## 3. Phase D — conversations family
 

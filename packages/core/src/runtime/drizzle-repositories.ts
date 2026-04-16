@@ -4,7 +4,6 @@ import type {
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
-  NewEmployee,
 } from '@offisim/install-core';
 import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
@@ -24,6 +23,7 @@ import type { InstallTransactionRepository } from '../repos/install-transaction-
 import type { InstalledAssetRepository } from '../repos/installed-asset-repository.js';
 import type { InstalledPackageRepository } from '../repos/installed-package-repository.js';
 import type { NewZone } from '../repos/zone-repository.js';
+import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
 import type {
   ActiveInteractionRepository,
@@ -31,10 +31,6 @@ import type {
   AgentEventRow,
   CompactSummaryRepository,
   CompactSummaryRow,
-  EmployeeRepository,
-  EmployeeRow,
-  EmployeeVersionRepository,
-  EmployeeVersionRow,
   FileHistoryRepository,
   FileHistoryRow,
   HandoffEventRow,
@@ -56,7 +52,6 @@ import type {
   ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
-  NewEmployeeVersion,
   NewFileHistory,
   NewHandoffEvent,
   NewInteractionActive,
@@ -106,63 +101,7 @@ function normalizeMemoryDedupeKey(content: string): string {
 
 export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   const orchestration = createOrchestrationDrizzleRepos(db);
-
-  const employees: EmployeeRepository = {
-    // NOTE: not `async` — lets synchronous throws from better-sqlite3 escape to
-    // the caller's transact() callback so the transaction rolls back instead of
-    // committing partial state (an async wrapper would capture the throw into a
-    // rejected promise that `void repo.create(...)` silently discards).
-    create(emp: NewEmployee) {
-      const employee_id = emp.employee_id ?? crypto.randomUUID();
-      const ts = now();
-      db.insert(schema.employees)
-        .values({
-          ...emp,
-          employee_id,
-          created_at: ts,
-          updated_at: ts,
-        })
-        .run();
-      return Promise.resolve({ employee_id });
-    },
-    async findById(id) {
-      const rows = db
-        .select()
-        .from(schema.employees)
-        .where(eq(schema.employees.employee_id, id))
-        .all();
-      return (
-        (rows[0] as unknown as ReturnType<EmployeeRepository['findById']> extends Promise<infer T>
-          ? T
-          : never) ?? null
-      );
-    },
-    async findByCompany(companyId) {
-      return db
-        .select()
-        .from(schema.employees)
-        .where(eq(schema.employees.company_id, companyId))
-        .all() as EmployeeRow[];
-    },
-    async findByRole(companyId, roleSlug) {
-      return db
-        .select()
-        .from(schema.employees)
-        .where(
-          and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)),
-        )
-        .all() as EmployeeRow[];
-    },
-    async update(employeeId, patch) {
-      db.update(schema.employees)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.employees.employee_id, employeeId))
-        .run();
-    },
-    async delete(employeeId) {
-      db.delete(schema.employees).where(eq(schema.employees.employee_id, employeeId)).run();
-    },
-  };
+  const employeesFamily = createEmployeesDrizzleRepos(db);
 
   const toolCalls: ToolCallRepository = {
     async create(t: NewToolCall) {
@@ -678,50 +617,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
     async deleteByThread(threadId) {
       db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId)).run();
-    },
-  };
-
-  const employeeVersions: EmployeeVersionRepository = {
-    async create(version: NewEmployeeVersion) {
-      const row: EmployeeVersionRow = {
-        ...version,
-        version_id: crypto.randomUUID(),
-        created_at: now(),
-      };
-      db.insert(schema.employeeVersions).values(row).run();
-      return row;
-    },
-    async findByEmployee(employeeId, opts) {
-      let query = db
-        .select()
-        .from(schema.employeeVersions)
-        .where(eq(schema.employeeVersions.employee_id, employeeId))
-        .orderBy(desc(schema.employeeVersions.version_num));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return query.all() as EmployeeVersionRow[];
-    },
-    async findByVersion(employeeId, versionNum) {
-      const rows = db
-        .select()
-        .from(schema.employeeVersions)
-        .where(
-          and(
-            eq(schema.employeeVersions.employee_id, employeeId),
-            eq(schema.employeeVersions.version_num, versionNum),
-          ),
-        )
-        .all();
-      return (rows[0] as EmployeeVersionRow | undefined) ?? null;
-    },
-    async getLatestVersionNum(employeeId) {
-      const rows = db
-        .select({ maxVer: sql<number>`MAX(${schema.employeeVersions.version_num})` })
-        .from(schema.employeeVersions)
-        .where(eq(schema.employeeVersions.employee_id, employeeId))
-        .all();
-      return (rows[0] as { maxVer: number | null } | undefined)?.maxVer ?? 0;
     },
   };
 
@@ -1446,7 +1341,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
 
   return {
     ...orchestration,
-    employees,
+    ...employeesFamily,
     toolCalls,
     handoffs,
     meetings,
@@ -1462,7 +1357,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     installedPackages,
     installedAssets,
     assetBindings,
-    employeeVersions,
     costRates,
     sopTemplates,
     racks,

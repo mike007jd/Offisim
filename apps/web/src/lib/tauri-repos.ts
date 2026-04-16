@@ -9,10 +9,6 @@ import type {
   AssetBindingRepository,
   CompactSummaryRepository,
   CompactSummaryRow,
-  EmployeeRepository,
-  EmployeeRow,
-  EmployeeVersionRepository,
-  EmployeeVersionRow,
   FileHistoryRepository,
   FileHistoryRow,
   HandoffEventRow,
@@ -36,7 +32,6 @@ import type {
   ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
-  NewEmployeeVersion,
   NewFileHistory,
   NewHandoffEvent,
   NewInteractionActive,
@@ -73,7 +68,6 @@ import type {
   InstallTransactionRow,
   InstalledAssetRow,
   InstalledPackageRow,
-  NewEmployee,
 } from '@offisim/install-core';
 import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
@@ -86,6 +80,7 @@ import type {
 import type { BindingStatus, InstallState } from '@offisim/shared-types';
 import { and, desc, eq, inArray, like, notInArray, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from './tauri-drizzle';
+import { createEmployeesTauriRepos } from './tauri-repos/employees';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 
 function now(): string {
@@ -117,59 +112,7 @@ type MemoryReinforcementPatch = Parameters<MemoryRepository['reinforce']>[1];
  */
 export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories {
   const orchestration = createOrchestrationTauriRepos(db);
-
-  const employees: EmployeeRepository = {
-    async create(emp: NewEmployee) {
-      const employee_id = crypto.randomUUID();
-      const ts = now();
-      const row = {
-        employee_id,
-        company_id: emp.company_id,
-        source_asset_id: emp.source_asset_id,
-        source_package_id: emp.source_package_id,
-        name: emp.name,
-        role_slug: emp.role_slug,
-        workstation_id: null,
-        persona_json: emp.persona_json ?? null,
-        config_json: emp.config_json ?? null,
-        enabled: 1,
-        created_at: ts,
-        updated_at: ts,
-      };
-      await db.insert(schema.employees).values(row);
-      return { employee_id };
-    },
-    async findById(id) {
-      const rows = await db
-        .select()
-        .from(schema.employees)
-        .where(eq(schema.employees.employee_id, id));
-      return (rows[0] as EmployeeRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return (await db
-        .select()
-        .from(schema.employees)
-        .where(eq(schema.employees.company_id, companyId))) as EmployeeRow[];
-    },
-    async findByRole(companyId, roleSlug) {
-      return (await db
-        .select()
-        .from(schema.employees)
-        .where(
-          and(eq(schema.employees.company_id, companyId), eq(schema.employees.role_slug, roleSlug)),
-        )) as EmployeeRow[];
-    },
-    async update(employeeId, patch) {
-      await db
-        .update(schema.employees)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.employees.employee_id, employeeId));
-    },
-    async delete(employeeId) {
-      await db.delete(schema.employees).where(eq(schema.employees.employee_id, employeeId));
-    },
-  };
+  const employeesFamily = createEmployeesTauriRepos(db);
 
   const toolCalls: ToolCallRepository = {
     async create(t: NewToolCall) {
@@ -479,48 +422,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
           access_count: sql`${schema.memoryEntries.access_count} + 1`,
         })
         .where(eq(schema.memoryEntries.memory_id, memoryId));
-    },
-  };
-
-  const employeeVersions: EmployeeVersionRepository = {
-    async create(version: NewEmployeeVersion) {
-      const row: EmployeeVersionRow = {
-        ...version,
-        version_id: crypto.randomUUID(),
-        created_at: now(),
-      };
-      await db.insert(schema.employeeVersions).values(row);
-      return row;
-    },
-    async findByEmployee(employeeId, opts) {
-      let query = db
-        .select()
-        .from(schema.employeeVersions)
-        .where(eq(schema.employeeVersions.employee_id, employeeId))
-        .orderBy(desc(schema.employeeVersions.version_num));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return (await query) as EmployeeVersionRow[];
-    },
-    async findByVersion(employeeId, versionNum) {
-      const rows = await db
-        .select()
-        .from(schema.employeeVersions)
-        .where(
-          and(
-            eq(schema.employeeVersions.employee_id, employeeId),
-            eq(schema.employeeVersions.version_num, versionNum),
-          ),
-        );
-      return (rows[0] as EmployeeVersionRow | undefined) ?? null;
-    },
-    async getLatestVersionNum(employeeId) {
-      const rows = await db
-        .select({ maxVer: sql<number>`MAX(${schema.employeeVersions.version_num})` })
-        .from(schema.employeeVersions)
-        .where(eq(schema.employeeVersions.employee_id, employeeId));
-      return (rows[0] as { maxVer: number | null } | undefined)?.maxVer ?? 0;
     },
   };
 
@@ -1396,7 +1297,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
 
   return {
     ...orchestration,
-    employees,
+    ...employeesFamily,
     toolCalls,
     handoffs,
     meetings,
@@ -1412,7 +1313,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     activeInteractions,
     interactionHistory,
     fileHistory,
-    employeeVersions,
     costRates,
     sopTemplates,
     racks,

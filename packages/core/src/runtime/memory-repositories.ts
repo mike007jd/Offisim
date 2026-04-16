@@ -1,4 +1,3 @@
-import type { NewEmployee } from '@offisim/install-core';
 import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
   NewProject,
@@ -6,7 +5,6 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
-  RoleSlug,
   ZoneRow,
 } from '@offisim/shared-types';
 import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
@@ -15,7 +13,12 @@ import { MemoryUserPreferenceRepository } from '../repositories/memory-user-pref
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
+export {
+  MemoryEmployeeRepository,
+  MemoryEmployeeVersionRepository,
+} from './repos/employees/memory.js';
 export {
   MemoryCheckpointRepository,
   MemoryCompanyRepository,
@@ -33,10 +36,6 @@ import type {
   AgentEventRow,
   CompactSummaryRepository,
   CompactSummaryRow,
-  EmployeeRepository,
-  EmployeeRow,
-  EmployeeVersionRepository,
-  EmployeeVersionRow,
   FileHistoryRepository,
   FileHistoryRow,
   HandoffEventRow,
@@ -56,7 +55,6 @@ import type {
   ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
-  NewEmployeeVersion,
   NewHandoffEvent,
   NewInteractionActive,
   NewInteractionHistory,
@@ -125,54 +123,13 @@ export function createMemoryRepositories(
   const orchestration = createOrchestrationMemoryRepos(snapshot);
   const { companies, threads, taskRuns, checkpoints, events } = orchestration;
 
-  const employeesMap = createRowMap(snapshot?.employees, 'employee_id');
+  const employeesFamily = createEmployeesMemoryRepos(snapshot);
+  const { employees, employeeVersions } = employeesFamily;
+
   const toolCallsMap = createRowMap(snapshot?.toolCalls, 'tool_call_id');
   const handoffsMap = createRowMap(snapshot?.handoffs, 'handoff_id');
   const meetingsMap = createRowMap(snapshot?.meetings, 'meeting_id');
   const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
-
-  const employees: EmployeeRepository = {
-    async create(emp: NewEmployee) {
-      const employee_id = emp.employee_id ?? crypto.randomUUID();
-      const ts = now();
-      const row: EmployeeRow = {
-        employee_id,
-        company_id: emp.company_id,
-        source_asset_id: emp.source_asset_id,
-        source_package_id: emp.source_package_id,
-        name: emp.name,
-        role_slug: emp.role_slug as RoleSlug,
-        workstation_id: null,
-        persona_json: emp.persona_json ?? null,
-        config_json: emp.config_json ?? null,
-        enabled: 1,
-        created_at: ts,
-        updated_at: ts,
-      };
-      employeesMap.set(employee_id, row);
-      return { employee_id };
-    },
-    async findById(id) {
-      return employeesMap.get(id) ?? null;
-    },
-    async findByCompany(companyId) {
-      return [...employeesMap.values()].filter((e) => e.company_id === companyId);
-    },
-    async findByRole(companyId, roleSlug) {
-      return [...employeesMap.values()].filter(
-        (e) => e.company_id === companyId && e.role_slug === roleSlug,
-      );
-    },
-    async update(employeeId, patch) {
-      const row = employeesMap.get(employeeId);
-      if (row) {
-        employeesMap.set(employeeId, { ...row, ...patch, updated_at: now() });
-      }
-    },
-    async delete(employeeId) {
-      employeesMap.delete(employeeId);
-    },
-  };
 
   const toolCalls: ToolCallRepository = {
     async create(t: NewToolCall) {
@@ -243,7 +200,7 @@ export function createMemoryRepositories(
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
-      for (const row of rows) employeesMap.set(row.employee_id, row);
+      employees.seed(rows);
     },
     companies(rows) {
       orchestration.companies.seed(rows);
@@ -261,7 +218,6 @@ export function createMemoryRepositories(
   const activeInteractions = new MemoryActiveInteractionRepository(snapshot?.activeInteractions);
   const interactionHistory = new MemoryInteractionHistoryRepository(snapshot?.interactionHistory);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
-  const employeeVersions = new MemoryEmployeeVersionRepository(snapshot?.employeeVersions);
   const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
   const racksRepo = new MemoryRackRepository(snapshot?.racks);
@@ -316,7 +272,7 @@ export function createMemoryRepositories(
         companies: orchestration.companies.snapshot(),
         threads: orchestration.threads.snapshot(),
         taskRuns: orchestration.taskRuns.snapshot(),
-        employees: cloneRows(employeesMap.values()),
+        employees: employees.snapshot(),
         toolCalls: cloneRows(toolCallsMap.values()),
         handoffs: cloneRows(handoffsMap.values()),
         meetings: cloneRows(meetingsMap.values()),
@@ -410,51 +366,6 @@ export class MemoryInteractionHistoryRepository implements InteractionHistoryRep
   }
 
   snapshot(): InteractionHistoryRow[] {
-    return cloneRows(this.rows);
-  }
-}
-
-export class MemoryEmployeeVersionRepository implements EmployeeVersionRepository {
-  private readonly rows: EmployeeVersionRow[] = [];
-
-  constructor(initialRows?: Iterable<EmployeeVersionRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(version: NewEmployeeVersion): Promise<EmployeeVersionRow> {
-    const row: EmployeeVersionRow = {
-      ...version,
-      version_id: crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-    };
-    this.rows.push(row);
-    return row;
-  }
-
-  async findByEmployee(
-    employeeId: string,
-    opts?: { limit?: number },
-  ): Promise<EmployeeVersionRow[]> {
-    const results = this.rows
-      .filter((r) => r.employee_id === employeeId)
-      .sort((a, b) => b.version_num - a.version_num);
-    return opts?.limit ? results.slice(0, opts.limit) : results;
-  }
-
-  async findByVersion(employeeId: string, versionNum: number): Promise<EmployeeVersionRow | null> {
-    return (
-      this.rows.find((r) => r.employee_id === employeeId && r.version_num === versionNum) ?? null
-    );
-  }
-
-  async getLatestVersionNum(employeeId: string): Promise<number> {
-    const versions = this.rows.filter((r) => r.employee_id === employeeId);
-    if (versions.length === 0) return 0;
-    return Math.max(...versions.map((v) => v.version_num));
-  }
-
-  snapshot(): EmployeeVersionRow[] {
     return cloneRows(this.rows);
   }
 }
