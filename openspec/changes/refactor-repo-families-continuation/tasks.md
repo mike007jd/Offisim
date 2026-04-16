@@ -41,11 +41,11 @@
 
 ## 6. Phase G — permissions family
 
-- [ ] 6.1 Create `runtime/repos/permissions/drizzle.ts` — extract `racks`, `slots`, `workstationRacks`, `mcpAudit`
-- [ ] 6.2 Create `runtime/repos/permissions/memory.ts` — move `MemoryRackRepository`, `MemorySlotRepository`, `MemoryWorkstationRackRepository`, `MemoryMcpAuditRepository` classes
-- [ ] 6.3 Create `apps/web/src/lib/tauri-repos/permissions.ts`
-- [ ] 6.4 Splice barrels; update memory barrel re-exports (4 class symbols); delete inline blocks
-- [ ] 6.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase G — permissions`
+- [x] 6.1 Create `runtime/repos/permissions/drizzle.ts` — extract `racks`, `slots`, `workstationRacks`, `mcpAudit`
+- [x] 6.2 Create `runtime/repos/permissions/memory.ts` — move `MemoryRackRepository`, `MemorySlotRepository`, `MemoryWorkstationRackRepository`, `MemoryMcpAuditRepository` classes
+- [x] 6.3 Create `apps/web/src/lib/tauri-repos/permissions.ts`
+- [x] 6.4 Splice barrels; update memory barrel re-exports (4 class symbols); delete inline blocks
+- [x] 6.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase G — permissions`
 
 ## 7. Phase H — memory-system family (D11 normalizeMemoryDedupeKey local copy)
 

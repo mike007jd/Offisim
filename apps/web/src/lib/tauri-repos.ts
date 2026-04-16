@@ -10,7 +10,6 @@ import type {
   FileHistoryRepository,
   FileHistoryRow,
   LibraryDocumentRow,
-  McpAuditRow,
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
@@ -18,24 +17,18 @@ import type {
   NewCompactSummary,
   NewFileHistory,
   NewLibraryDocument,
-  NewMcpAudit,
   NewNodeSummary,
   NewOfficeLayout,
-  NewRack,
   NewRecoveryKnowledge,
-  NewSlot,
   NewSopTemplate,
   NodeSummaryRepository,
   NodeSummaryRow,
   OfficeLayoutRow,
   ProjectRepository,
-  RackRow,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
   RuntimeRepositories,
-  SlotRow,
   SopTemplateRow,
-  WorkstationRackRow,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
@@ -53,6 +46,7 @@ import { createEmployeesTauriRepos } from './tauri-repos/employees';
 import { createInstallTauriRepos } from './tauri-repos/install';
 import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
+import { createPermissionsTauriRepos } from './tauri-repos/permissions';
 
 function now(): string {
   return new Date().toISOString();
@@ -87,6 +81,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
   const conversationsFamily = createConversationsTauriRepos(db);
   const llmFamily = createLlmTauriRepos(db);
   const installFamily = createInstallTauriRepos(db);
+  const permissionsFamily = createPermissionsTauriRepos(db);
 
   // --- Memory (async Drizzle-backed, mirrors core/drizzle-repositories.ts) ---
 
@@ -222,37 +217,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
           access_count: sql`${schema.memoryEntries.access_count} + 1`,
         })
         .where(eq(schema.memoryEntries.memory_id, memoryId));
-    },
-  };
-
-  // --- MCP audit log (Drizzle-backed, migration 007) ---
-
-  const mcpAudit: RuntimeRepositories['mcpAudit'] = {
-    async create(audit: NewMcpAudit) {
-      await db.insert(schema.mcpAuditLog).values(audit);
-      return audit as McpAuditRow;
-    },
-    async listByThread(threadId) {
-      return (await db
-        .select()
-        .from(schema.mcpAuditLog)
-        .where(eq(schema.mcpAuditLog.thread_id, threadId))) as McpAuditRow[];
-    },
-    async hasSuccessfulToolCall(threadId, employeeId, serverName, toolName) {
-      const rows = await db
-        .select({ audit_id: schema.mcpAuditLog.audit_id })
-        .from(schema.mcpAuditLog)
-        .where(
-          and(
-            eq(schema.mcpAuditLog.thread_id, threadId),
-            eq(schema.mcpAuditLog.employee_id, employeeId),
-            eq(schema.mcpAuditLog.server_name, serverName),
-            eq(schema.mcpAuditLog.tool_name, toolName),
-            sql`${schema.mcpAuditLog.error} IS NULL`,
-          ),
-        )
-        .limit(1);
-      return rows.length > 0;
     },
   };
 
@@ -392,62 +356,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
   };
 
-  // --- Racks (Drizzle-backed, migration 001 — core tables) ---
-
-  const racks: RuntimeRepositories['racks'] = {
-    async create(rack: NewRack) {
-      const ts = now();
-      const row: RackRow = { ...rack, created_at: ts, updated_at: ts };
-      await db.insert(schema.racks).values(row);
-      return row;
-    },
-    async findById(rackId) {
-      const rows = await db.select().from(schema.racks).where(eq(schema.racks.rack_id, rackId));
-      return (rows[0] as RackRow | undefined) ?? null;
-    },
-    async findByCompany(companyId) {
-      return (await db
-        .select()
-        .from(schema.racks)
-        .where(eq(schema.racks.company_id, companyId))) as RackRow[];
-    },
-    async updateStatus(rackId, status) {
-      await db
-        .update(schema.racks)
-        .set({ status, updated_at: now() })
-        .where(eq(schema.racks.rack_id, rackId));
-    },
-    async delete(rackId) {
-      await db.delete(schema.racks).where(eq(schema.racks.rack_id, rackId));
-    },
-  };
-
-  // --- Slots (Drizzle-backed, migration 001 — core tables) ---
-
-  const slots: RuntimeRepositories['slots'] = {
-    async create(slot: NewSlot) {
-      const ts = now();
-      const row: SlotRow = { ...slot, created_at: ts, updated_at: ts };
-      await db.insert(schema.slots).values(row);
-      return row;
-    },
-    async findByRack(rackId) {
-      return (await db
-        .select()
-        .from(schema.slots)
-        .where(eq(schema.slots.rack_id, rackId))) as SlotRow[];
-    },
-    async updateStatus(slotId, status) {
-      await db
-        .update(schema.slots)
-        .set({ status, updated_at: now() })
-        .where(eq(schema.slots.slot_id, slotId));
-    },
-    async delete(slotId) {
-      await db.delete(schema.slots).where(eq(schema.slots.slot_id, slotId));
-    },
-  };
-
   // --- Library documents (Drizzle-backed, migration 013) ---
 
   const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
@@ -546,36 +454,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     },
     async delete(layoutId: string) {
       await db.delete(schema.officeLayouts).where(eq(schema.officeLayouts.layout_id, layoutId));
-    },
-  };
-
-  const workstationRacks: RuntimeRepositories['workstationRacks'] = {
-    async create(binding) {
-      const row = { ...binding, created_at: new Date().toISOString() };
-      await db.insert(schema.workstationRacks).values(row);
-      return row;
-    },
-    async findByWorkstation(workstationId) {
-      return (await db
-        .select()
-        .from(schema.workstationRacks)
-        .where(eq(schema.workstationRacks.workstation_id, workstationId))) as WorkstationRackRow[];
-    },
-    async findByRack(rackId) {
-      return (await db
-        .select()
-        .from(schema.workstationRacks)
-        .where(eq(schema.workstationRacks.rack_id, rackId))) as WorkstationRackRow[];
-    },
-    async delete(workstationId, rackId) {
-      await db
-        .delete(schema.workstationRacks)
-        .where(
-          and(
-            eq(schema.workstationRacks.workstation_id, workstationId),
-            eq(schema.workstationRacks.rack_id, rackId),
-          ),
-        );
     },
   };
 
@@ -982,15 +860,12 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     ...conversationsFamily,
     ...llmFamily,
     ...installFamily,
+    ...permissionsFamily,
     memories,
-    mcpAudit,
     nodeSummaries,
     compactSummaries,
     fileHistory,
     sopTemplates,
-    racks,
-    slots,
-    workstationRacks,
     libraryDocuments,
     officeLayouts,
     zones,

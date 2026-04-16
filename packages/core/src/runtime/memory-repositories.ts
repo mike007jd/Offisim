@@ -16,6 +16,7 @@ import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createInstallMemoryRepos } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
+import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
 export {
   MemoryActiveInteractionRepository,
   MemoryHandoffRepository,
@@ -44,6 +45,12 @@ export {
   MemoryTaskRunRepository,
   MemoryThreadRepository,
 } from './repos/orchestration/memory.js';
+export {
+  MemoryMcpAuditRepository,
+  MemoryRackRepository,
+  MemorySlotRepository,
+  MemoryWorkstationRackRepository,
+} from './repos/permissions/memory.js';
 import type {
   MemoryRepositoriesSnapshot,
   MemoryRepositorySeed,
@@ -57,36 +64,24 @@ import type {
   FileHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
-  McpAuditRepository,
-  McpAuditRow,
   NewAgentEvent,
   NewCompactSummary,
   NewLibraryDocument,
-  NewMcpAudit,
   NewNodeSummary,
   NewOfficeLayout,
-  NewRack,
   NewRecoveryKnowledge,
-  NewSlot,
   NewSopTemplate,
-  NewWorkstationRack,
   NodeSummaryRepository,
   NodeSummaryRow,
   OfficeLayoutRepository,
   OfficeLayoutRow,
   ProjectAssignmentRepository,
   ProjectRepository,
-  RackRepository,
-  RackRow,
   RecoveryKnowledgeRepository,
   RecoveryKnowledgeRow,
   RuntimeRepositories,
-  SlotRepository,
-  SlotRow,
   SopTemplateRepository,
   SopTemplateRow,
-  WorkstationRackRepository,
-  WorkstationRackRow,
 } from './repositories.js';
 
 function now(): string {
@@ -113,6 +108,9 @@ export function createMemoryRepositories(
   const llmFamily = createLlmMemoryRepos(snapshot);
   const { llmCalls, costRates } = llmFamily;
   const installRepos = createInstallMemoryRepos(snapshot);
+  const permissionsFamily = createPermissionsMemoryRepos(snapshot);
+  const { racks: racksRepo, slots: slotsRepo, workstationRacks: workstationRacksRepo, mcpAudit } =
+    permissionsFamily;
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -126,14 +124,10 @@ export function createMemoryRepositories(
   const memories = new InMemoryMemoryRepository(snapshot?.memories);
   const userPreferences = new MemoryUserPreferenceRepository(snapshot?.userPreferences);
 
-  const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
   const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
-  const racksRepo = new MemoryRackRepository(snapshot?.racks);
-  const slotsRepo = new MemorySlotRepository(snapshot?.slots);
-  const workstationRacksRepo = new MemoryWorkstationRackRepository(snapshot?.workstationRacks);
   const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
   const zonesRepo = new MemoryZoneRepository(snapshot?.zones);
@@ -270,110 +264,6 @@ export class MemorySopTemplateRepository implements SopTemplateRepository {
 
   snapshot(): SopTemplateRow[] {
     return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryRackRepository implements RackRepository {
-  private readonly store = new Map<string, RackRow>();
-
-  constructor(initialRows?: Iterable<RackRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(row.rack_id, { ...row });
-    }
-  }
-
-  async create(rack: NewRack): Promise<RackRow> {
-    const row: RackRow = {
-      ...rack,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.store.set(row.rack_id, row);
-    return row;
-  }
-  async findById(rackId: string): Promise<RackRow | null> {
-    return this.store.get(rackId) ?? null;
-  }
-  async findByCompany(companyId: string): Promise<RackRow[]> {
-    return [...this.store.values()].filter((r) => r.company_id === companyId);
-  }
-  async updateStatus(rackId: string, status: string): Promise<void> {
-    const row = this.store.get(rackId);
-    if (row) this.store.set(rackId, { ...row, status, updated_at: new Date().toISOString() });
-  }
-  async delete(rackId: string): Promise<void> {
-    this.store.delete(rackId);
-  }
-
-  snapshot(): RackRow[] {
-    return cloneRows(this.store.values());
-  }
-}
-
-export class MemorySlotRepository implements SlotRepository {
-  private readonly store = new Map<string, SlotRow>();
-
-  constructor(initialRows?: Iterable<SlotRow>) {
-    if (!initialRows) return;
-    for (const row of initialRows) {
-      this.store.set(row.slot_id, { ...row });
-    }
-  }
-
-  async create(slot: NewSlot): Promise<SlotRow> {
-    const row: SlotRow = {
-      ...slot,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.store.set(row.slot_id, row);
-    return row;
-  }
-  async findByRack(rackId: string): Promise<SlotRow[]> {
-    return [...this.store.values()].filter((s) => s.rack_id === rackId);
-  }
-  async updateStatus(slotId: string, status: string): Promise<void> {
-    const row = this.store.get(slotId);
-    if (row) this.store.set(slotId, { ...row, status, updated_at: new Date().toISOString() });
-  }
-  async delete(slotId: string): Promise<void> {
-    this.store.delete(slotId);
-  }
-
-  snapshot(): SlotRow[] {
-    return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryWorkstationRackRepository implements WorkstationRackRepository {
-  private readonly store: WorkstationRackRow[] = [];
-
-  constructor(initialRows?: Iterable<WorkstationRackRow>) {
-    if (!initialRows) return;
-    this.store.push(...cloneRows(initialRows));
-  }
-
-  async create(binding: NewWorkstationRack): Promise<WorkstationRackRow> {
-    const row: WorkstationRackRow = { ...binding, created_at: new Date().toISOString() };
-    this.store.push(row);
-    return row;
-  }
-  async findByWorkstation(workstationId: string): Promise<WorkstationRackRow[]> {
-    return this.store.filter((r) => r.workstation_id === workstationId);
-  }
-  async findByRack(rackId: string): Promise<WorkstationRackRow[]> {
-    return this.store.filter((r) => r.rack_id === rackId);
-  }
-  async delete(workstationId: string, rackId: string): Promise<void> {
-    const idx = this.store.findIndex(
-      (r) => r.workstation_id === workstationId && r.rack_id === rackId,
-    );
-    if (idx >= 0) this.store.splice(idx, 1);
-  }
-
-  snapshot(): WorkstationRackRow[] {
-    return cloneRows(this.store);
   }
 }
 
@@ -545,44 +435,6 @@ export class MemoryZoneRepository implements ZoneRepository {
 
   snapshot(): ZoneRow[] {
     return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryMcpAuditRepository implements McpAuditRepository {
-  private readonly rows: McpAuditRow[] = [];
-
-  constructor(initialRows?: Iterable<McpAuditRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(audit: NewMcpAudit): Promise<McpAuditRow> {
-    this.rows.push(audit);
-    return audit;
-  }
-
-  async listByThread(threadId: string): Promise<McpAuditRow[]> {
-    return this.rows.filter((r) => r.thread_id === threadId);
-  }
-
-  async hasSuccessfulToolCall(
-    threadId: string,
-    employeeId: string,
-    serverName: string,
-    toolName: string,
-  ): Promise<boolean> {
-    return this.rows.some(
-      (row) =>
-        row.thread_id === threadId &&
-        row.employee_id === employeeId &&
-        row.server_name === serverName &&
-        row.tool_name === toolName &&
-        row.error === null,
-    );
-  }
-
-  snapshot(): McpAuditRow[] {
-    return cloneRows(this.rows);
   }
 }
 
