@@ -1,5 +1,4 @@
 import type { ResolvedModel, RuntimeMemoryPolicy, RuntimeSkillConfig } from '@offisim/shared-types';
-import { parseEmployeeConfig } from '@offisim/shared-types';
 import { GraphError } from '../errors.js';
 import {
   employeeStateChanged,
@@ -11,39 +10,7 @@ import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-
-// Phase B inlines these skill helpers; Phase C will move them to
-// employee-prompt-assembly.ts and have preflight import them from there.
-function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig | null {
-  const config = parseEmployeeConfig(configJson);
-  if (!config.runtimeSkill || config.runtimeSkill.enabled === false) return null;
-  return config.runtimeSkill;
-}
-
-function normalizeSkillText(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function taskHasSkillMismatch(
-  requiredSkills: string[],
-  runtimeSkill: RuntimeSkillConfig | null,
-): boolean {
-  if (requiredSkills.length === 0) return false;
-  if (!runtimeSkill) return true;
-  const haystack = [
-    runtimeSkill.skillName,
-    runtimeSkill.summary,
-    ...(runtimeSkill.capabilityIndex?.requiredCapabilities ?? []),
-    ...(runtimeSkill.capabilityIndex?.capabilities ?? []).map(
-      (cap) => cap.label ?? cap.key ?? cap.kind ?? '',
-    ),
-  ]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .map(normalizeSkillText)
-    .join(' ');
-
-  return !requiredSkills.some((skill) => haystack.includes(normalizeSkillText(skill)));
-}
+import { parseRuntimeSkillConfig, taskHasSkillMismatch } from './employee-prompt-assembly.js';
 
 export interface PreflightResult {
   readonly assignment: PendingAssignment;

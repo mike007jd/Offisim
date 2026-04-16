@@ -14,10 +14,10 @@
 
 ## 3. Phase B — 抽 employee-preflight.ts
 
-- [ ] 3.1 新建 `packages/core/src/agents/employee-preflight.ts`，定义 `PreflightResult` type（含 `assignment / remaining / employee / company / taskRunId / taskLabel / totalAssignments / completedSoFar / isDirectChatTask / resolved / taskDescription / requiredSkills / runtimeSkill / memoryPolicy / toolSearchEnabled` 字段）
-- [ ] 3.2 实现 `runPreflight(state, runtimeCtx, config)` 把原 line 176-290 行为搬迁；no-assignment / employee-deleted 两个 early-return 用 discriminated union `{ kind: 'early-return', stateUpdate } | { kind: 'continue', preflight: PreflightResult }` 表达
-- [ ] 3.3 `employee-node.ts` 改为调用 `runPreflight`，删除原 line 176-290 同等代码
-- [ ] 3.4 typecheck + build 双绿；commit "Phase B: extract employee-preflight"
+- [x] 3.1 新建 `employee-preflight.ts`,定义 `PreflightResult` type
+- [x] 3.2 实现 `runPreflight(state, runtimeCtx)` 搬迁 preflight 行为,discriminated union early-return
+- [x] 3.3 barrel 改为调用 `runPreflight`,删除同等代码 + 3 个 dead helper
+- [x] 3.4 typecheck + build 双绿,commit Phase B
 
 ## 4. Phase C — 抽 employee-prompt-assembly.ts
 

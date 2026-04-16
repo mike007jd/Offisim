@@ -1,7 +1,6 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
-import type { RuntimeSkillConfig } from '@offisim/shared-types';
 import { Logger } from '../services/logger.js';
 
 const logger = new Logger('employee');
@@ -19,18 +18,14 @@ import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
 import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
-import { LibraryService } from '../services/library-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
-import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
-import { buildEmployeePrompt } from './employee-builder.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
 import {
   MEMORY_TOOL_NAMES,
   buildMemoryTools,
-  formatMemoriesSection,
   handleMemoryTool,
 } from './employee-memory-tools.js';
 import {
@@ -45,46 +40,9 @@ import {
   TASK_TYPE_HANDOFF_CONTINUATION,
 } from './employee-node-constants.js';
 import { runPreflight } from './employee-preflight.js';
+import { assemblePrompt } from './employee-prompt-assembly.js';
 
 import type { CitationRef } from '../graph/state.js';
-
-function formatSkillCatalogSection(skill: RuntimeSkillConfig): string {
-  const summary = sanitizeForPrompt(skill.capabilityIndex?.summary ?? skill.summary, 600);
-  const excerpt = skill.instructionExcerpt
-    ? sanitizeForPrompt(skill.instructionExcerpt, 800)
-    : null;
-  const requiredCapabilities = skill.capabilityIndex?.requiredCapabilities ?? [];
-  const capabilities = skill.capabilityIndex?.capabilities ?? [];
-  const lines = [
-    '',
-    '## Installed skill package',
-    `Name: ${sanitizeForPrompt(skill.skillName, 120)}`,
-    `Summary: ${summary}`,
-  ];
-
-  if (requiredCapabilities.length > 0) {
-    lines.push(`Required capabilities: ${requiredCapabilities.join(', ')}`);
-  }
-  if (capabilities.length > 0) {
-    lines.push(
-      `Capability index: ${capabilities
-        .map((cap) => sanitizeForPrompt(cap.label ?? cap.key ?? cap.kind ?? 'capability', 80))
-        .join(', ')}`,
-    );
-  }
-  if (excerpt) {
-    lines.push(`Instruction preview: ${excerpt}`);
-  }
-  lines.push(
-    `If you need the full skill instructions before acting, call \`${SKILL_TOOL_NAME}\` once and use the returned guidance.`,
-  );
-  return `\n${lines.join('\n')}`;
-}
-
-function formatSkillInstructionsSection(skill: RuntimeSkillConfig): string {
-  if (!skill.instructions) return '';
-  return `\n\n## Installed skill instructions\n${sanitizeForPrompt(skill.instructions, 6000)}`;
-}
 
 function buildSkillActivationTool(): ToolDef {
   return {
@@ -145,7 +103,6 @@ export async function employeeNode(
     assignment,
     remaining,
     employee,
-    company,
     taskRunId,
     taskLabel,
     totalAssignments,
@@ -154,65 +111,16 @@ export async function employeeNode(
     resolved,
     taskDescription,
     runtimeSkill,
-    memoryPolicy,
     toolSearchEnabled,
   } = preflightOutcome.preflight;
   const streamEmployeeReplies = true;
 
-  const { repos, eventBus, toolExecutor, companyId, threadId } = runtimeCtx;
+  const { repos, eventBus, toolExecutor, companyId, threadId, memoryService } = runtimeCtx;
 
-  let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
-  if (runtimeSkill) {
-    systemPrompt += formatSkillCatalogSection(runtimeSkill);
-    if (!toolSearchEnabled) {
-      systemPrompt += formatSkillInstructionsSection(runtimeSkill);
-    }
-  }
-
-  // --- Inject relevant memories into system prompt ---
-  const { memoryService } = runtimeCtx;
-  if (memoryService && taskDescription && (memoryPolicy?.injectionEnabled ?? true)) {
-    try {
-      const relevantMemories = await memoryService.getRelevantMemories(
-        employee.employee_id,
-        companyId,
-        taskDescription,
-        memoryPolicy?.maxFacts ?? 10,
-      );
-      const memoriesSection = formatMemoriesSection(relevantMemories);
-      if (memoriesSection) {
-        systemPrompt += memoriesSection;
-      }
-    } catch {
-      // Memory retrieval failure is non-critical
-    }
-  }
-
-  // --- Inject relevant library documents into system prompt (with numbered citations) ---
-  let citationMap: CitationEntry[] = [];
-  if (taskDescription && repos.libraryDocuments) {
-    try {
-      const libraryService = new LibraryService(repos.libraryDocuments, eventBus);
-      const { text, citations } = await libraryService.getRelevantSnippetsWithCitations(
-        companyId,
-        taskDescription,
-      );
-      if (text) {
-        citationMap = citations;
-        systemPrompt += `\n\n## Relevant company documents\n${text}\n\nWhen referencing these documents, cite them using [N] notation.`;
-      }
-    } catch {
-      // Library retrieval failure is non-critical
-    }
-  }
-
-  const scratchpadEntries = runtimeCtx.scratchpad.list();
-  if (scratchpadEntries.length > 0) {
-    systemPrompt += `\n\n## Shared scratchpad\n${scratchpadEntries
-      .slice(0, 5)
-      .map((entry) => `- [${entry.author}] ${entry.summary}`)
-      .join('\n')}`;
-  }
+  const { systemPrompt, citationMap } = await assemblePrompt(
+    preflightOutcome.preflight,
+    runtimeCtx,
+  );
 
   // --- Build virtual + MCP tools ---
   const virtualTools: ToolDef[] = [];
