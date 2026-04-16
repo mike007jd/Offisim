@@ -21,11 +21,11 @@
 
 ## 4. Phase C — 抽 employee-prompt-assembly.ts
 
-- [ ] 4.1 新建 `packages/core/src/agents/employee-prompt-assembly.ts`，搬迁 `parseRuntimeSkillConfig` / `normalizeSkillText` / `taskHasSkillMismatch` / `formatSkillCatalogSection` / `formatSkillInstructionsSection` 5 个 helper（原 line 58-125）
-- [ ] 4.2 在同模块定义 `assemblePrompt(preflight, runtimeCtx)` 把原 line 277-343 prompt 拼装搬来；返回 `{ systemPrompt, citationMap, runtimeSkill }`；保留 try/catch 包裹 LibraryService.getRelevantSnippetsWithCitations 与 memoryService.getRelevantMemories 失败的 silent-skip 行为
-- [ ] 4.3 `employee-node.ts` 改为调用 `assemblePrompt`，删除原 helper 与 prompt 拼装代码段
-- [ ] 4.4 grep 全仓 `parseRuntimeSkillConfig|formatSkillCatalogSection|formatSkillInstructionsSection|taskHasSkillMismatch|normalizeSkillText` 确保没有第三方 importer（除新模块自己）；若 employee-direct-setup-node.ts 也用到要补 import
-- [ ] 4.5 typecheck + build 双绿；commit "Phase C: extract employee-prompt-assembly"
+- [x] 4.1 新建 `employee-prompt-assembly.ts`,搬迁 5 个 skill helper
+- [x] 4.2 实现 `assemblePrompt(preflight, runtimeCtx)`,返回 { systemPrompt, citationMap, runtimeSkill }
+- [x] 4.3 barrel 改为调用 `assemblePrompt`,删除 helper + 拼装代码
+- [x] 4.4 grep 验证无第三方 importer (只 prompt-assembly + preflight 自用)
+- [x] 4.5 typecheck + build 双绿,commit Phase C
 
 ## 5. Phase D — 抽 employee-tool-kit.ts
 

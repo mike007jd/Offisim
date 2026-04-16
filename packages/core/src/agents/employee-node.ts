@@ -14,7 +14,7 @@ import {
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
+import type { LlmMessage, LlmResponse } from '../llm/gateway.js';
 import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
@@ -23,44 +23,22 @@ import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
-import {
-  MEMORY_TOOL_NAMES,
-  buildMemoryTools,
-  handleMemoryTool,
-} from './employee-memory-tools.js';
+import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
 import {
   buildEmployeeDeliverableTitle,
   materializeFileDeliverableIfNeeded,
 } from './employee-deliverables.js';
 import {
   MAX_CONTEXT_MESSAGES,
-  MAX_HANDOFF_COUNT,
   MAX_TOOL_ROUNDS,
   SKILL_TOOL_NAME,
   TASK_TYPE_HANDOFF_CONTINUATION,
 } from './employee-node-constants.js';
 import { runPreflight } from './employee-preflight.js';
 import { assemblePrompt } from './employee-prompt-assembly.js';
+import { assembleToolKit } from './employee-tool-kit.js';
 
 import type { CitationRef } from '../graph/state.js';
-
-function buildSkillActivationTool(): ToolDef {
-  return {
-    name: SKILL_TOOL_NAME,
-    description:
-      'Load the full instructions for the installed skill package when the catalog preview is not enough.',
-    parameters: {
-      type: 'object',
-      properties: {
-        reason: {
-          type: 'string',
-          description: 'Why the full skill instructions are needed for the current task.',
-        },
-      },
-      required: ['reason'],
-    },
-  };
-}
 
 /**
  * Extract [N] citation references from an LLM response and map them
@@ -111,64 +89,29 @@ export async function employeeNode(
     resolved,
     taskDescription,
     runtimeSkill,
-    toolSearchEnabled,
   } = preflightOutcome.preflight;
   const streamEmployeeReplies = true;
 
-  const { repos, eventBus, toolExecutor, companyId, threadId, memoryService } = runtimeCtx;
+  const {
+    repos,
+    eventBus,
+    toolExecutor,
+    workstationToolResolver,
+    companyId,
+    threadId,
+    memoryService,
+  } = runtimeCtx;
 
   const { systemPrompt, citationMap } = await assemblePrompt(
     preflightOutcome.preflight,
     runtimeCtx,
   );
 
-  // --- Build virtual + MCP tools ---
-  const virtualTools: ToolDef[] = [];
-
-  // Memory tools: always available when memoryService is present
-  if (memoryService) {
-    virtualTools.push(...buildMemoryTools());
-  }
-  if (runtimeSkill && toolSearchEnabled && runtimeSkill.instructions) {
-    virtualTools.push(buildSkillActivationTool());
-  }
-
-  // Handoff tool: only if NOT direct_chat, NOT at max handoffs, AND has colleagues
-  if (!isDirectChatTask && state.handoffCount < MAX_HANDOFF_COUNT) {
-    const employees = await repos.employees.findByCompany(companyId);
-    const colleagues = employees.filter((e) => e.employee_id !== employee.employee_id);
-
-    if (colleagues.length > 0) {
-      virtualTools.push({
-        name: 'handoff_to',
-        description: 'Hand off this task to another employee who is better suited.',
-        parameters: {
-          type: 'object',
-          properties: {
-            targetEmployeeId: {
-              type: 'string',
-              enum: colleagues.map((e) => e.employee_id),
-              description: `Colleagues: ${colleagues.map((e) => `${e.employee_id} (${e.name})`).join(', ')}`,
-            },
-            reason: { type: 'string', description: 'Why handoff is needed' },
-            completedWork: { type: 'string', description: 'Summary of what you completed' },
-            remainingWork: { type: 'string', description: 'What the next employee should do' },
-          },
-          required: ['targetEmployeeId', 'reason', 'completedWork', 'remainingWork'],
-        },
-      });
-    }
-  }
-
-  // PRD 2.3: Use workstation-scoped tools when resolver is available.
-  // If an employee is not at a workstation, they get no MCP tools.
-  // System agents (manager/hr/pm/boss) bypass this and get all tools.
-  const { workstationToolResolver } = runtimeCtx;
-  const mcpTools = workstationToolResolver
-    ? await workstationToolResolver.resolveForEmployee(companyId, employee.employee_id)
-    : await toolExecutor.listAvailable(companyId);
-  const allowedMcpToolNames = new Set(mcpTools.map((t) => t.name));
-  const allTools = [...virtualTools, ...mcpTools];
+  const { allTools, allowedMcpToolNames } = await assembleToolKit(
+    preflightOutcome.preflight,
+    runtimeCtx,
+    state,
+  );
 
   const runEmployeeTurn = async (
     messages: LlmMessage[],
