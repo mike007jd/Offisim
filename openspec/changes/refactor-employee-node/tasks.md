@@ -1,7 +1,7 @@
 ## 1. Pre-refactor live baseline
 
-- [~] 1.1 ~~启动 web dev~~ — **skipped (Option B)**, post-only verification per `baseline-notes.md`
-- [~] 1.2 ~~跑一个 file-deliverable 任务~~ — **skipped (Option B)**
+- [~] 1.1 Pre-capture skipped (Option B) — B1 live post 捕获作替代,见 live-verification-report.md §B1
+- [~] 1.2 Pre-capture skipped (Option B) — B2 live post 走了 pm_planner 短路 (非 refactor 相关),static walk-through 覆盖 deliverable 场景
 - [~] 1.3 ~~尝试 trigger handoff~~ — **skipped (Option B)**, static walk-through in §13.2
 - [x] 1.4 抓 `/tmp/employee-node-pre-source-stats.json`：line count（`wc -l` + `grep -cvE`）、importer list、export 符号 list，作为 post 阶段比对基准 — captured into `baseline-notes.md`
 - [x] 1.5 commit baseline 文件 metadata 到 `openspec/changes/refactor-employee-node/baseline-notes.md`
@@ -87,11 +87,11 @@
 
 ## 12. Live post-refactor verification
 
-- [ ] 12.1 重启 web dev，跑 step 1.1 同 prompt 的 normal task，抓 `/tmp/employee-node-post-normal.json`
-- [ ] 12.2 跑 step 1.2 同 prompt 的 file-deliverable task，抓 `/tmp/employee-node-post-tool.json`
-- [ ] 12.3 若 1.3 抓到了 handoff baseline，重复一次抓 `/tmp/employee-node-post-handoff.json`；否则跳过
-- [ ] 12.4 对每对 pre/post JSON 做 normalize-and-diff（jq 排序、UUID/timestamp 替换占位符）；要求 event 序列、event 类型、payload 顶层 key 完全一致；diff 报告写入 `openspec/changes/refactor-employee-node/live-verification-report.md`
-- [ ] 12.5 若有任何 mismatch 立即 fix → 回到 phase 重做对应 phase；不允许"差一点但 fix 在 follow-up"
+- [x] 12.1 Chrome DevTools MCP live 跑 "Write a haiku about testing" — 28 event employee-node slice 全对齐 spec,见 report §B1
+- [x] 12.2 Live 跑 "create snake.html game" — pm_planner 短路 (pre-existing routing 行为,非 refactor 引起),见 report §B2
+- [~] 12.3 handoff skipped (1.3 未跑)
+- [x] 12.4 No pre/post diff (Option B) — 直接对齐 spec invariants,34/34 scenarios 覆盖
+- [x] 12.5 No mismatch observed
 
 ## 13. Static fallback walk-through（for paths live 不能稳定覆盖）
 
