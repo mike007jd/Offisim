@@ -9,6 +9,7 @@
  * A single rAF loop checks the flag and calls drawScene if set.
  */
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
+import { resolveAvatarSeed } from '../../lib/avatar-seed.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
@@ -134,7 +135,7 @@ export default function Office2DCanvasView({
       const restZone = zones.find((z) => z.archetype === 'rest');
       const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
       const zId = agent.state === 'idle' ? restId : resolveEmployeeZone(agent);
-      map.get(zId)?.push({ agent, seed: agent.name, empId });
+      map.get(zId)?.push({ agent, seed: resolveAvatarSeed(agent), empId });
     }
     return map;
   }, [agents, zones, resolveEmployeeZone]);
@@ -376,7 +377,7 @@ export default function Office2DCanvasView({
         x: pos.x,
         y: pos.y,
         name: agent.name,
-        avatarImage: getAvatarImage(agent.name, companyId),
+        avatarImage: getAvatarImage(resolveAvatarSeed(agent), companyId),
         statusColor,
         state: agent.state,
         stateLabel,

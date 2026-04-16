@@ -20,23 +20,13 @@ import { useCompany } from '../company/CompanyContext.js';
 import type { Zone3D } from './office3d-shared.js';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
-const OUTFIT_COLORS = [
-  '#3b82f6',
-  '#a855f7',
-  '#22c55e',
-  '#818cf8',
-  '#f97316',
-  '#ef4444',
-  '#06b6d4',
-  '#f59e0b',
-];
-
-const SKIN_TONES = ['#fce7f3', '#fef3c7', '#92400e', '#fdf2f8', '#fff1f2', '#d4a574', '#f5deb3'];
+import { outfitColorFromSeed, resolveAvatarSeed, skinToneFromSeed } from '../../lib/avatar-seed.js';
 
 export interface PlacedEmployee {
   id: string;
   agent: AgentState;
   globalIndex: number;
+  seed: string;
   position: [number, number, number];
 }
 
@@ -57,7 +47,7 @@ export function usePlacedEmployees(
 
     const zoneEmployees = new Map<
       string,
-      { id: string; agent: AgentState; globalIndex: number }[]
+      { id: string; agent: AgentState; globalIndex: number; seed: string }[]
     >();
     for (const zone of zones3D) {
       zoneEmployees.set(zone.zoneId, []);
@@ -68,7 +58,7 @@ export function usePlacedEmployees(
       const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeSceneZoneId(agent, zones);
       const zoneBucket = zoneEmployees.get(zoneId);
       if (zoneBucket) {
-        zoneBucket.push({ id, agent, globalIndex: globalIdx });
+        zoneBucket.push({ id, agent, globalIndex: globalIdx, seed: resolveAvatarSeed(agent) });
       }
       globalIdx++;
     }
@@ -84,6 +74,7 @@ export function usePlacedEmployees(
               id: employee.id,
               agent: employee.agent,
               globalIndex: employee.globalIndex,
+              seed: employee.seed,
               position: restPos,
             });
             return;
@@ -92,6 +83,7 @@ export function usePlacedEmployees(
             id: employee.id,
             agent: employee.agent,
             globalIndex: employee.globalIndex,
+            seed: employee.seed,
             position: computeRestSeatPosition(
               restZoneLayout.position[0],
               restZoneLayout.position[2],
@@ -109,6 +101,7 @@ export function usePlacedEmployees(
               id: employee.id,
               agent: employee.agent,
               globalIndex: employee.globalIndex,
+              seed: employee.seed,
               position: [...seat.position],
             });
             return;
@@ -124,6 +117,7 @@ export function usePlacedEmployees(
           id: employee.id,
           agent: employee.agent,
           globalIndex: employee.globalIndex,
+          seed: employee.seed,
           position: deskPos,
         });
       });
@@ -304,8 +298,8 @@ export function EmployeeMarker({
   onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
   const sc = useSceneColors();
-  const outfit = OUTFIT_COLORS[emp.globalIndex % OUTFIT_COLORS.length] ?? '#3b82f6';
-  const skin = SKIN_TONES[emp.globalIndex % SKIN_TONES.length] ?? '#fce7f3';
+  const outfit = outfitColorFromSeed(emp.seed);
+  const skin = skinToneFromSeed(emp.seed);
 
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);
