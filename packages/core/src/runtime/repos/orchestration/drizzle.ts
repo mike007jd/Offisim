@@ -1,0 +1,270 @@
+import * as schema from '@offisim/db-local/dist/schema.js';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type {
+  CheckpointRepository,
+  CompanyRepository,
+  EventRepository,
+  GraphCheckpointRow,
+  GraphThreadRow,
+  NewGraphCheckpoint,
+  NewGraphThread,
+  NewRuntimeEvent,
+  NewTaskRun,
+  RuntimeEventRow,
+  TaskRunRepository,
+  TaskRunRow,
+  ThreadRepository,
+} from '../../repositories.js';
+
+type Db = BetterSQLite3Database<typeof schema>;
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+export interface OrchestrationDrizzleRepos {
+  companies: CompanyRepository;
+  threads: ThreadRepository;
+  taskRuns: TaskRunRepository;
+  checkpoints: CheckpointRepository;
+  events: EventRepository;
+}
+
+export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRepos {
+  const companies: CompanyRepository = {
+    async findById(id) {
+      const rows = db
+        .select()
+        .from(schema.companies)
+        .where(eq(schema.companies.company_id, id))
+        .all();
+      return (
+        (rows[0] as unknown as ReturnType<CompanyRepository['findById']> extends Promise<infer T>
+          ? T
+          : never) ?? null
+      );
+    },
+    async findAll() {
+      return db.select().from(schema.companies).all() as Awaited<
+        ReturnType<CompanyRepository['findAll']>
+      >;
+    },
+    async create(company) {
+      db.insert(schema.companies).values(company).run();
+      return company;
+    },
+    async update(companyId, fields) {
+      db.update(schema.companies)
+        .set({ ...fields, updated_at: now() })
+        .where(eq(schema.companies.company_id, companyId))
+        .run();
+    },
+  };
+
+  const threads: ThreadRepository = {
+    async create(t: NewGraphThread) {
+      const row = {
+        ...t,
+        interaction_mode: t.interaction_mode ?? 'boss_proxy',
+        synopsis_json: t.synopsis_json ?? null,
+        compact_baseline_json: t.compact_baseline_json ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.insert(schema.graphThreads).values(row).run();
+      return row as GraphThreadRow;
+    },
+    async findById(id) {
+      const rows = db
+        .select()
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.thread_id, id))
+        .all();
+      return (rows[0] as GraphThreadRow | undefined) ?? null;
+    },
+    async findByCompany(companyId, opts) {
+      let query = db
+        .select()
+        .from(schema.graphThreads)
+        .where(
+          opts?.status
+            ? and(
+                eq(schema.graphThreads.company_id, companyId),
+                eq(schema.graphThreads.status, opts.status),
+              )
+            : eq(schema.graphThreads.company_id, companyId),
+        )
+        .orderBy(desc(schema.graphThreads.created_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return query.all() as GraphThreadRow[];
+    },
+    async findByCompanyAndStatus(companyId, status) {
+      return db
+        .select()
+        .from(schema.graphThreads)
+        .where(
+          and(
+            eq(schema.graphThreads.company_id, companyId),
+            eq(schema.graphThreads.status, status),
+          ),
+        )
+        .orderBy(desc(schema.graphThreads.created_at))
+        .all() as GraphThreadRow[];
+    },
+    async updateStatus(id, status) {
+      db.update(schema.graphThreads)
+        .set({ status, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+    async updateInteractionMode(id, interactionMode) {
+      db.update(schema.graphThreads)
+        .set({ interaction_mode: interactionMode, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+    async updateSynopsis(id, synopsisJson) {
+      db.update(schema.graphThreads)
+        .set({ synopsis_json: synopsisJson, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+    async updateCompactBaseline(id, compactBaselineJson) {
+      db.update(schema.graphThreads)
+        .set({ compact_baseline_json: compactBaselineJson, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id))
+        .run();
+    },
+  };
+
+  const taskRuns: TaskRunRepository = {
+    async create(t: NewTaskRun) {
+      const row = { ...t, finished_at: null };
+      db.insert(schema.taskRuns).values(row).run();
+      return row as TaskRunRow;
+    },
+    async findById(id) {
+      const rows = db
+        .select()
+        .from(schema.taskRuns)
+        .where(eq(schema.taskRuns.task_run_id, id))
+        .all();
+      return (rows[0] as TaskRunRow | undefined) ?? null;
+    },
+    async findByThread(threadId) {
+      return db
+        .select()
+        .from(schema.taskRuns)
+        .where(eq(schema.taskRuns.thread_id, threadId))
+        .all() as TaskRunRow[];
+    },
+    async updateStatus(id, status, outputJson) {
+      const finished = ['completed', 'failed', 'cancelled'].includes(status) ? now() : null;
+      db.update(schema.taskRuns)
+        .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
+        .where(eq(schema.taskRuns.task_run_id, id))
+        .run();
+    },
+    async findQueue(companyId, opts) {
+      const threadRows = db
+        .select({ thread_id: schema.graphThreads.thread_id })
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId))
+        .all();
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return [];
+
+      const conditions = [inArray(schema.taskRuns.thread_id, threadIds)];
+      if (opts?.statuses && opts.statuses.length > 0) {
+        conditions.push(inArray(schema.taskRuns.status, opts.statuses));
+      }
+
+      let query = db
+        .select()
+        .from(schema.taskRuns)
+        .where(and(...conditions))
+        .orderBy(desc(schema.taskRuns.started_at));
+
+      if (opts?.limit) {
+        query = query.limit(opts.limit) as typeof query;
+      }
+
+      return query.all() as TaskRunRow[];
+    },
+    async countByStatus(companyId) {
+      const threadRows = db
+        .select({ thread_id: schema.graphThreads.thread_id })
+        .from(schema.graphThreads)
+        .where(eq(schema.graphThreads.company_id, companyId))
+        .all();
+      const threadIds = threadRows.map((t) => t.thread_id);
+      if (threadIds.length === 0) return {};
+
+      const rows = db
+        .select({
+          status: schema.taskRuns.status,
+          cnt: sql<number>`COUNT(*)`,
+        })
+        .from(schema.taskRuns)
+        .where(inArray(schema.taskRuns.thread_id, threadIds))
+        .groupBy(schema.taskRuns.status)
+        .all();
+
+      const counts: Record<string, number> = {};
+      for (const r of rows) {
+        counts[r.status] = r.cnt;
+      }
+      return counts;
+    },
+  };
+
+  const checkpoints: CheckpointRepository = {
+    async save(c: NewGraphCheckpoint) {
+      db.insert(schema.graphCheckpoints).values(c).run();
+    },
+    async findLatest(threadId) {
+      const rows = db
+        .select()
+        .from(schema.graphCheckpoints)
+        .where(eq(schema.graphCheckpoints.thread_id, threadId))
+        .orderBy(desc(schema.graphCheckpoints.checkpoint_seq))
+        .limit(1)
+        .all();
+      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
+    },
+    async findBySeq(threadId, seq) {
+      const rows = db
+        .select()
+        .from(schema.graphCheckpoints)
+        .where(
+          and(
+            eq(schema.graphCheckpoints.thread_id, threadId),
+            eq(schema.graphCheckpoints.checkpoint_seq, seq),
+          ),
+        )
+        .all();
+      return (rows[0] as GraphCheckpointRow | undefined) ?? null;
+    },
+  };
+
+  const events: EventRepository = {
+    async insert(e: NewRuntimeEvent) {
+      db.insert(schema.runtimeEvents).values(e).run();
+    },
+    async findByThread(threadId) {
+      return db
+        .select()
+        .from(schema.runtimeEvents)
+        .where(eq(schema.runtimeEvents.thread_id, threadId))
+        .orderBy(schema.runtimeEvents.created_at)
+        .all() as RuntimeEventRow[];
+    },
+  };
+
+  return { companies, threads, taskRuns, checkpoints, events };
+}

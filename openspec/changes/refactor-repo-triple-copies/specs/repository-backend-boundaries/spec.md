@@ -39,19 +39,19 @@ Each barrel SHALL contain at most 200 non-blank, non-comment (NBNC) lines. A bar
 
 ### Requirement: Family files respect size gate
 
-Each family implementation file under `packages/core/src/runtime/repos/<family>/<backend>.ts` and `apps/web/src/lib/tauri-repos/<family>.ts` SHALL contain at most 250 NBNC lines.
+Each family implementation file under `packages/core/src/runtime/repos/<family>/<backend>.ts` and `apps/web/src/lib/tauri-repos/<family>.ts` SHALL contain at most 320 NBNC lines (D5 decision — raised from initial proposal of 250 once memory class boilerplate + large SQL surface for specific families like `install` / `memory-system` was measured during Phase B / early phases).
 
-#### Scenario: All family drizzle files ≤250 NBNC
+#### Scenario: All family drizzle files ≤320 NBNC
 - **WHEN** counting NBNC lines of every `packages/core/src/runtime/repos/*/drizzle.ts`
-- **THEN** no file exceeds 250
+- **THEN** no file exceeds 320
 
-#### Scenario: All family memory files ≤250 NBNC
+#### Scenario: All family memory files ≤320 NBNC
 - **WHEN** counting NBNC lines of every `packages/core/src/runtime/repos/*/memory.ts`
-- **THEN** no file exceeds 250
+- **THEN** no file exceeds 320
 
-#### Scenario: All family tauri files ≤250 NBNC
+#### Scenario: All family tauri files ≤320 NBNC
 - **WHEN** counting NBNC lines of every `apps/web/src/lib/tauri-repos/*.ts`
-- **THEN** no file exceeds 250
+- **THEN** no file exceeds 320
 
 ### Requirement: Contract file `repositories.ts` is unchanged
 

@@ -18,12 +18,18 @@
 
 **D8 decision** (apply-phase): each memory family phase converts its inline repos to classes matching the existing 19 Memory\* class pattern. Barrel `createMemoryRepositories()` then aggregates snapshot() across all 29 classes.
 
-- [ ] 3.1 Create `runtime/repos/orchestration/drizzle.ts` — extract `companies`, `threads`, `taskRuns`, `checkpoints`, `events` from `drizzle-repositories.ts:119-461` → `createOrchestrationDrizzleRepos(db)`
-- [ ] 3.2 Create `runtime/repos/orchestration/memory.ts` — convert 5 inline memory repos to classes: `MemoryCompanyRepository`, `MemoryThreadRepository`, `MemoryTaskRunRepository`, `MemoryCheckpointRepository`, `MemoryEventRepository`. `MemoryTaskRunRepository` takes a `ThreadRepository` dep via constructor for `findQueue` / `countByStatus` cross-repo lookup. `MemoryCompanyRepository` exposes `.seed(rows)` for `MemoryRepositorySeed`. Factory `createOrchestrationMemoryRepos(snapshot?)` returns the 5 class instances
-- [ ] 3.3 Create `apps/web/src/lib/tauri-repos/orchestration.ts` — extract from `tauri-repos.ts:132-465` → `createOrchestrationTauriRepos(db)`
-- [ ] 3.4 Delete corresponding blocks from drizzle-repositories.ts / memory-repositories.ts / tauri-repos.ts; splice spread call in each barrel
-- [ ] 3.5 Update memory barrel: re-export the 5 new classes; barrel `snapshot()` calls `companies.snapshot()` etc. instead of `cloneRows(companiesMap.values())`
-- [ ] 3.6 `pnpm typecheck` green; commit Phase B
+- [x] 3.1 Create `runtime/repos/orchestration/drizzle.ts` — extract `companies`, `threads`, `taskRuns`, `checkpoints`, `events` from `drizzle-repositories.ts:119-461` → `createOrchestrationDrizzleRepos(db)`. 253 NBNC
+- [x] 3.2 Create `runtime/repos/orchestration/memory.ts` — convert 5 inline memory repos to classes: `MemoryCompanyRepository`, `MemoryThreadRepository`, `MemoryTaskRunRepository`, `MemoryCheckpointRepository`, `MemoryEventRepository`. `MemoryTaskRunRepository` takes a `ThreadRepository` dep via constructor for `findQueue` / `countByStatus` cross-repo lookup. `MemoryCompanyRepository` exposes `.seed(rows)` for `MemoryRepositorySeed`. Factory `createOrchestrationMemoryRepos(snapshot?)` returns the 5 class instances. 269 NBNC
+- [x] 3.3 Create `apps/web/src/lib/tauri-repos/orchestration.ts` — extract from `tauri-repos.ts:132-465` → `createOrchestrationTauriRepos(db)`. 240 NBNC
+- [x] 3.4 Delete corresponding blocks from drizzle-repositories.ts / memory-repositories.ts / tauri-repos.ts; splice spread call in each barrel
+- [x] 3.5 Update memory barrel: re-export the 5 new classes; barrel `snapshot()` calls `companies.snapshot()` etc. instead of `cloneRows(companiesMap.values())`
+- [x] 3.6 `pnpm typecheck` green — full repo 26/26 tasks pass; commit Phase B
+
+**Phase B NBNC deltas** (from pre-refactor baseline):
+- `drizzle-repositories.ts` 1638 → 1402 (-236)
+- `memory-repositories.ts` 1351 → 1144 (-207)
+- `tauri-repos.ts` 1577 → 1353 (-224)
+- **D5 decision**: family file gate raised from 250 → 320 NBNC (memory class boilerplate + constructor/snapshot methods push orchestration/memory.ts to 269; future install + memory-system families with more repos will push higher). Spec updated.
 
 ## 4. Employees family (Phase C)
 

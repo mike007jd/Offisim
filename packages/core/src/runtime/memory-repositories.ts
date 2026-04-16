@@ -15,6 +15,14 @@ import { MemoryUserPreferenceRepository } from '../repositories/memory-user-pref
 import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
+import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
+export {
+  MemoryCheckpointRepository,
+  MemoryCompanyRepository,
+  MemoryEventRepository,
+  MemoryTaskRunRepository,
+  MemoryThreadRepository,
+} from './repos/orchestration/memory.js';
 import type {
   MemoryRepositoriesSnapshot,
   MemoryRepositorySeed,
@@ -23,19 +31,14 @@ import type {
   ActiveInteractionRepository,
   AgentEventRepository,
   AgentEventRow,
-  CheckpointRepository,
   CompactSummaryRepository,
   CompactSummaryRow,
-  CompanyRepository,
   EmployeeRepository,
   EmployeeRow,
   EmployeeVersionRepository,
   EmployeeVersionRow,
-  EventRepository,
   FileHistoryRepository,
   FileHistoryRow,
-  GraphCheckpointRow,
-  GraphThreadRow,
   HandoffEventRow,
   HandoffRepository,
   InteractionActiveRow,
@@ -54,8 +57,6 @@ import type {
   NewAgentEvent,
   NewCompactSummary,
   NewEmployeeVersion,
-  NewGraphCheckpoint,
-  NewGraphThread,
   NewHandoffEvent,
   NewInteractionActive,
   NewInteractionHistory,
@@ -68,10 +69,8 @@ import type {
   NewOfficeLayout,
   NewRack,
   NewRecoveryKnowledge,
-  NewRuntimeEvent,
   NewSlot,
   NewSopTemplate,
-  NewTaskRun,
   NewToolCall,
   NewWorkstationRack,
   NodeSummaryRepository,
@@ -89,9 +88,6 @@ import type {
   SlotRow,
   SopTemplateRepository,
   SopTemplateRow,
-  TaskRunRepository,
-  TaskRunRow,
-  ThreadRepository,
   ToolCallRepository,
   ToolCallRow,
   WorkstationRackRepository,
@@ -126,158 +122,14 @@ function createRowMap<Row extends object>(
 export function createMemoryRepositories(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): RuntimeRepositories & { seed: MemoryRepositorySeed; snapshot(): MemoryRepositoriesSnapshot } {
-  const threadsMap = createRowMap(snapshot?.threads, 'thread_id');
-  const taskRunsMap = createRowMap(snapshot?.taskRuns, 'task_run_id');
+  const orchestration = createOrchestrationMemoryRepos(snapshot);
+  const { companies, threads, taskRuns, checkpoints, events } = orchestration;
+
   const employeesMap = createRowMap(snapshot?.employees, 'employee_id');
-  const companiesMap = createRowMap(snapshot?.companies, 'company_id');
   const toolCallsMap = createRowMap(snapshot?.toolCalls, 'tool_call_id');
   const handoffsMap = createRowMap(snapshot?.handoffs, 'handoff_id');
   const meetingsMap = createRowMap(snapshot?.meetings, 'meeting_id');
-  const checkpointsMap = createRowMap(snapshot?.checkpoints, 'checkpoint_id');
-  const eventsStore: NewRuntimeEvent[] = cloneRows(snapshot?.events ?? []);
   const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
-
-  function withThreadDefaults(row: GraphThreadRow): GraphThreadRow {
-    return {
-      ...row,
-      interaction_mode: row.interaction_mode ?? 'boss_proxy',
-    };
-  }
-
-  const companies: CompanyRepository = {
-    async findById(id) {
-      return companiesMap.get(id) ?? null;
-    },
-    async findAll() {
-      return [...companiesMap.values()];
-    },
-    async create(company) {
-      companiesMap.set(company.company_id, company);
-      return company;
-    },
-    async update(companyId, fields) {
-      const row = companiesMap.get(companyId);
-      if (row) {
-        companiesMap.set(companyId, { ...row, ...fields, updated_at: now() });
-      }
-    },
-  };
-
-  const threads: ThreadRepository = {
-    async create(t: NewGraphThread) {
-      const row: GraphThreadRow = {
-        ...t,
-        project_id: t.project_id ?? null,
-        interaction_mode: t.interaction_mode ?? 'boss_proxy',
-        synopsis_json: t.synopsis_json ?? null,
-        compact_baseline_json: t.compact_baseline_json ?? null,
-        created_at: now(),
-        updated_at: now(),
-      };
-      threadsMap.set(row.thread_id, row);
-      return row;
-    },
-    async findById(id) {
-      const row = threadsMap.get(id);
-      return row ? withThreadDefaults(row) : null;
-    },
-    async findByCompany(companyId, opts) {
-      let results = [...threadsMap.values()]
-        .map(withThreadDefaults)
-        .filter((t) => t.company_id === companyId);
-      if (opts?.status) results = results.filter((t) => t.status === opts.status);
-      results.sort((a, b) => b.created_at.localeCompare(a.created_at));
-      if (opts?.limit) results = results.slice(0, opts.limit);
-      return results;
-    },
-    async findByCompanyAndStatus(companyId, status) {
-      return [...threadsMap.values()]
-        .map(withThreadDefaults)
-        .filter((t) => t.company_id === companyId && t.status === status)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    },
-    async updateStatus(id, status) {
-      const row = threadsMap.get(id);
-      if (row) {
-        threadsMap.set(id, { ...row, status, updated_at: now() });
-      }
-    },
-    async updateInteractionMode(id, interactionMode) {
-      const row = threadsMap.get(id);
-      if (row) {
-        threadsMap.set(id, { ...row, interaction_mode: interactionMode, updated_at: now() });
-      }
-    },
-    async updateSynopsis(id, synopsisJson) {
-      const row = threadsMap.get(id);
-      if (row) {
-        threadsMap.set(id, { ...row, synopsis_json: synopsisJson, updated_at: now() });
-      }
-    },
-    async updateCompactBaseline(id, compactBaselineJson) {
-      const row = threadsMap.get(id);
-      if (row) {
-        threadsMap.set(id, {
-          ...row,
-          compact_baseline_json: compactBaselineJson,
-          updated_at: now(),
-        });
-      }
-    },
-  };
-
-  const taskRuns: TaskRunRepository = {
-    async create(t: NewTaskRun) {
-      const row: TaskRunRow = { ...t, finished_at: null };
-      taskRunsMap.set(row.task_run_id, row);
-      return row;
-    },
-    async findById(id) {
-      return taskRunsMap.get(id) ?? null;
-    },
-    async findByThread(threadId) {
-      return [...taskRunsMap.values()].filter((r) => r.thread_id === threadId);
-    },
-    async updateStatus(id, status, outputJson) {
-      const row = taskRunsMap.get(id);
-      if (row) {
-        taskRunsMap.set(id, {
-          ...row,
-          status,
-          output_json: outputJson ?? row.output_json,
-          finished_at: ['completed', 'failed', 'cancelled'].includes(status)
-            ? now()
-            : row.finished_at,
-        });
-      }
-    },
-    async findQueue(companyId, opts) {
-      // Join through threads to filter by company
-      const companyThreadIds = new Set(
-        [...threadsMap.values()].filter((t) => t.company_id === companyId).map((t) => t.thread_id),
-      );
-      let results = [...taskRunsMap.values()].filter((r) => companyThreadIds.has(r.thread_id));
-      if (opts?.statuses) {
-        const statuses = new Set(opts.statuses);
-        results = results.filter((r) => statuses.has(r.status));
-      }
-      results.sort((a, b) => b.started_at.localeCompare(a.started_at));
-      if (opts?.limit) results = results.slice(0, opts.limit);
-      return results;
-    },
-    async countByStatus(companyId) {
-      const companyThreadIds = new Set(
-        [...threadsMap.values()].filter((t) => t.company_id === companyId).map((t) => t.thread_id),
-      );
-      const counts: Record<string, number> = {};
-      for (const r of taskRunsMap.values()) {
-        if (companyThreadIds.has(r.thread_id)) {
-          counts[r.status] = (counts[r.status] ?? 0) + 1;
-        }
-      }
-      return counts;
-    },
-  };
 
   const employees: EmployeeRepository = {
     async create(emp: NewEmployee) {
@@ -369,35 +221,6 @@ export function createMemoryRepositories(
     },
   };
 
-  const checkpoints: CheckpointRepository = {
-    async save(c: NewGraphCheckpoint) {
-      const row: GraphCheckpointRow = { ...c };
-      checkpointsMap.set(row.checkpoint_id, row);
-    },
-    async findLatest(threadId) {
-      const matching = [...checkpointsMap.values()]
-        .filter((c) => c.thread_id === threadId)
-        .sort((a, b) => b.checkpoint_seq - a.checkpoint_seq);
-      return matching[0] ?? null;
-    },
-    async findBySeq(threadId, seq) {
-      return (
-        [...checkpointsMap.values()].find(
-          (c) => c.thread_id === threadId && c.checkpoint_seq === seq,
-        ) ?? null
-      );
-    },
-  };
-
-  const events: EventRepository = {
-    async insert(e: NewRuntimeEvent) {
-      eventsStore.push(e);
-    },
-    async findByThread(threadId) {
-      return eventsStore.filter((event) => event.thread_id === threadId);
-    },
-  };
-
   const llmCalls: LlmCallRepository = {
     async create(c: NewLlmCall) {
       const row: LlmCallRow = { ...c };
@@ -423,7 +246,7 @@ export function createMemoryRepositories(
       for (const row of rows) employeesMap.set(row.employee_id, row);
     },
     companies(rows) {
-      for (const row of rows) companiesMap.set(row.company_id, row);
+      orchestration.companies.seed(rows);
     },
   };
 
@@ -490,15 +313,15 @@ export function createMemoryRepositories(
     seed,
     snapshot(): MemoryRepositoriesSnapshot {
       return {
-        companies: cloneRows(companiesMap.values()),
-        threads: cloneRows(threadsMap.values()),
-        taskRuns: cloneRows(taskRunsMap.values()),
+        companies: orchestration.companies.snapshot(),
+        threads: orchestration.threads.snapshot(),
+        taskRuns: orchestration.taskRuns.snapshot(),
         employees: cloneRows(employeesMap.values()),
         toolCalls: cloneRows(toolCallsMap.values()),
         handoffs: cloneRows(handoffsMap.values()),
         meetings: cloneRows(meetingsMap.values()),
-        checkpoints: cloneRows(checkpointsMap.values()),
-        events: cloneRows(eventsStore),
+        checkpoints: orchestration.checkpoints.snapshot(),
+        events: orchestration.events.snapshot(),
         llmCalls: cloneRows(llmCallsMap.values()),
         memories: memories.snapshot(),
         userPreferences: userPreferences.snapshot(),
