@@ -62,10 +62,10 @@
 
 ## 9. Phase H — recovery path 复用 finalizeEmployeeSuccess
 
-- [ ] 9.1 `employee-node.ts` catch 块的 recovered 分支（原 line 904-1042）改为 `if (recovered) return await finalizeEmployeeSuccess({ ...ctx, llmResponse: recovered, source: 'recovery', round })`，删除 ~130 行重复代码
-- [ ] 9.2 grep `recoveredFromError` 在 finalize 内只有 1 处出现（原代码有 2 处，post-refactor 应只剩 finalize 内一处）
-- [ ] 9.3 grep `materializeFileDeliverableIfNeeded` 在 employee-* 文件中只在 completion 模块内调用 1 次（原 happy path + recovery 各一次共 2 次）
-- [ ] 9.4 typecheck + build 双绿；commit "Phase H: recovery path reuses finalizeEmployeeSuccess"
+- [x] 9.1 catch 块 recovered 分支折叠为 finalizeEmployeeSuccess({ source: 'recovery', round })
+- [x] 9.2 grep recoveredFromError = 1 处 (在 completion.ts) ✓
+- [x] 9.3 grep materializeFileDeliverableIfNeeded employee-* 内仅 1 次调用 (在 completion.ts) ✓
+- [x] 9.4 typecheck + build 双绿,commit Phase H
 
 ## 10. Phase I — 抽 employee-error-finalize.ts + barrel 收尾
 

@@ -258,43 +258,26 @@ export async function finalizeEmployeeSuccess(
     );
   }
 
-  // Recovery path's currentStepOutputs entry omits `citations` field —
-  // preserve byte-identical structure between normal vs recovery returns.
-  const stepOutputEntry =
-    source === 'normal'
+  // Recovery path entry omits `citations` (preserve pre-refactor structure).
+  const stepOutputEntry = {
+    employeeId: employee.employee_id,
+    employeeName: employee.name,
+    sourceKind: 'employee' as const,
+    roleSlug: employee.role_slug,
+    content: llmResponse.content,
+    taskRunId: taskRunId ?? '',
+    artifact: materializedDeliverable
       ? {
-          employeeId: employee.employee_id,
-          employeeName: employee.name,
-          sourceKind: 'employee' as const,
-          roleSlug: employee.role_slug,
-          content: llmResponse.content,
-          taskRunId: taskRunId ?? '',
-          artifact: materializedDeliverable
-            ? {
-                kind: 'file' as const,
-                fileName: materializedDeliverable.fileName,
-                mimeType: materializedDeliverable.mimeType,
-                content: materializedDeliverable.artifactContent,
-              }
-            : undefined,
-          citations: usedCitations.length > 0 ? usedCitations : undefined,
+          kind: 'file' as const,
+          fileName: materializedDeliverable.fileName,
+          mimeType: materializedDeliverable.mimeType,
+          content: materializedDeliverable.artifactContent,
         }
-      : {
-          employeeId: employee.employee_id,
-          employeeName: employee.name,
-          sourceKind: 'employee' as const,
-          roleSlug: employee.role_slug,
-          content: llmResponse.content,
-          taskRunId: taskRunId ?? '',
-          artifact: materializedDeliverable
-            ? {
-                kind: 'file' as const,
-                fileName: materializedDeliverable.fileName,
-                mimeType: materializedDeliverable.mimeType,
-                content: materializedDeliverable.artifactContent,
-              }
-            : undefined,
-        };
+      : undefined,
+    ...(source === 'normal' && usedCitations.length > 0
+      ? { citations: usedCitations }
+      : {}),
+  };
 
   return {
     currentEmployeeId: employee.employee_id,
