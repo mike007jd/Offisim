@@ -49,11 +49,11 @@
 
 ## 7. Phase H — memory-system family (D11 normalizeMemoryDedupeKey local copy)
 
-- [ ] 7.1 Create `runtime/repos/memory-system/drizzle.ts` — extract `memories`, `nodeSummaries`, `compactSummaries` (drizzle has no `userPreferences`); copy `normalizeMemoryDedupeKey` helper inline
-- [ ] 7.2 Create `runtime/repos/memory-system/memory.ts` — move `MemoryNodeSummaryRepository`, `MemoryCompactSummaryRepository`, `MemoryUserPreferenceRepository` classes + convert inline `memories` to new class with snapshot/seed; copy `normalizeMemoryDedupeKey` helper inline; expose `userPreferences` as memory-only attach point in factory return
-- [ ] 7.3 Create `apps/web/src/lib/tauri-repos/memory-system.ts` — extract tauri impls (no `userPreferences` on tauri); copy `normalizeMemoryDedupeKey` helper inline
-- [ ] 7.4 Splice barrels; update memory barrel re-exports (3 class symbols: NodeSummary, CompactSummary, UserPreference); memory barrel must continue to attach `userPreferences` into factory return
-- [ ] 7.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase H — memory-system`
+- [x] 7.1 Create `runtime/repos/memory-system/drizzle.ts` — extract `memories`, `nodeSummaries`, `compactSummaries` (drizzle has no `userPreferences`); copy `normalizeMemoryDedupeKey` helper inline
+- [x] 7.2 Create `runtime/repos/memory-system/memory.ts` — move `MemoryNodeSummaryRepository`, `MemoryCompactSummaryRepository` + wrap existing `InMemoryMemoryRepository` + `MemoryUserPreferenceRepository` (re-imported from `/repositories/` path); expose `userPreferences` as memory-only attach point in factory return
+- [x] 7.3 Create `apps/web/src/lib/tauri-repos/memory-system.ts` — extract tauri impls (no `userPreferences` on tauri); copy `normalizeMemoryDedupeKey` helper inline
+- [x] 7.4 Splice barrels; update memory barrel re-exports (2 class symbols: NodeSummary, CompactSummary — `InMemoryMemoryRepository` + `MemoryUserPreferenceRepository` remain re-exported directly from `/repositories/` path via index.ts/browser.ts, not through memory-system); memory barrel continues to attach `userPreferences` into factory return
+- [x] 7.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase H — memory-system`
 
 ## 8. Phase I — files family
 

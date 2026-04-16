@@ -8,13 +8,12 @@ import type {
   ZoneRow,
 } from '@offisim/shared-types';
 import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
-import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
-import { MemoryUserPreferenceRepository } from '../repositories/memory-user-preference-repository.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createInstallMemoryRepos } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
+import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
 export {
@@ -39,6 +38,10 @@ export {
   MemoryModelCostRateRepository,
 } from './repos/llm/memory.js';
 export {
+  MemoryCompactSummaryRepository,
+  MemoryNodeSummaryRepository,
+} from './repos/memory-system/memory.js';
+export {
   MemoryCheckpointRepository,
   MemoryCompanyRepository,
   MemoryEventRepository,
@@ -58,21 +61,15 @@ import type {
 import type {
   AgentEventRepository,
   AgentEventRow,
-  CompactSummaryRepository,
-  CompactSummaryRow,
   FileHistoryRepository,
   FileHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
   NewAgentEvent,
-  NewCompactSummary,
   NewLibraryDocument,
-  NewNodeSummary,
   NewOfficeLayout,
   NewRecoveryKnowledge,
   NewSopTemplate,
-  NodeSummaryRepository,
-  NodeSummaryRow,
   OfficeLayoutRepository,
   OfficeLayoutRow,
   ProjectAssignmentRepository,
@@ -111,6 +108,8 @@ export function createMemoryRepositories(
   const permissionsFamily = createPermissionsMemoryRepos(snapshot);
   const { racks: racksRepo, slots: slotsRepo, workstationRacks: workstationRacksRepo, mcpAudit } =
     permissionsFamily;
+  const memorySystemFamily = createMemorySystemMemoryRepos(snapshot);
+  const { memories, userPreferences, nodeSummaries, compactSummaries } = memorySystemFamily;
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -121,11 +120,6 @@ export function createMemoryRepositories(
     },
   };
 
-  const memories = new InMemoryMemoryRepository(snapshot?.memories);
-  const userPreferences = new MemoryUserPreferenceRepository(snapshot?.userPreferences);
-
-  const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
-  const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
   const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
@@ -435,89 +429,6 @@ export class MemoryZoneRepository implements ZoneRepository {
 
   snapshot(): ZoneRow[] {
     return cloneRows(this.store.values());
-  }
-}
-
-export class MemoryNodeSummaryRepository implements NodeSummaryRepository {
-  private readonly rows: NodeSummaryRow[] = [];
-
-  constructor(initialRows?: Iterable<NodeSummaryRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(summary: NewNodeSummary): Promise<NodeSummaryRow> {
-    this.rows.push(summary);
-    return summary;
-  }
-
-  async listByThread(threadId: string, opts?: { limit?: number }): Promise<NodeSummaryRow[]> {
-    const rows = this.rows
-      .filter((row) => row.thread_id === threadId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return opts?.limit ? rows.slice(0, opts.limit) : rows;
-  }
-
-  async countByThread(threadId: string): Promise<number> {
-    return this.rows.filter((row) => row.thread_id === threadId).length;
-  }
-
-  async deleteByThread(threadId: string): Promise<void> {
-    for (let index = this.rows.length - 1; index >= 0; index--) {
-      if (this.rows[index]?.thread_id === threadId) {
-        this.rows.splice(index, 1);
-      }
-    }
-  }
-
-  async trimByThread(threadId: string, keepLatest: number): Promise<void> {
-    if (keepLatest < 0) return;
-    const keepIds = new Set(
-      (await this.listByThread(threadId, { limit: keepLatest })).map((row) => row.summary_id),
-    );
-    for (let index = this.rows.length - 1; index >= 0; index--) {
-      const row = this.rows[index];
-      if (row?.thread_id === threadId && !keepIds.has(row.summary_id)) {
-        this.rows.splice(index, 1);
-      }
-    }
-  }
-
-  snapshot(): NodeSummaryRow[] {
-    return cloneRows(this.rows);
-  }
-}
-
-export class MemoryCompactSummaryRepository implements CompactSummaryRepository {
-  private readonly rows: CompactSummaryRow[] = [];
-
-  constructor(initialRows?: Iterable<CompactSummaryRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(summary: NewCompactSummary): Promise<CompactSummaryRow> {
-    this.rows.push(summary);
-    return summary;
-  }
-
-  async listByThread(threadId: string, opts?: { limit?: number }): Promise<CompactSummaryRow[]> {
-    const rows = this.rows
-      .filter((row) => row.thread_id === threadId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return opts?.limit ? rows.slice(0, opts.limit) : rows;
-  }
-
-  async deleteByThread(threadId: string): Promise<void> {
-    for (let index = this.rows.length - 1; index >= 0; index--) {
-      if (this.rows[index]?.thread_id === threadId) {
-        this.rows.splice(index, 1);
-      }
-    }
-  }
-
-  snapshot(): CompactSummaryRow[] {
-    return cloneRows(this.rows);
   }
 }
 
