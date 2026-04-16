@@ -47,8 +47,8 @@
 
 ## 8. Live 验证
 
-- [ ] 8.1 浏览器 dev 启动：workspace 切换（Office ↔ SOPs ↔ Market ↔ Activity Log ↔ Settings），确认切换流畅、状态保留/清理正确
-- [ ] 8.2 Escape unwind：Office 打开 dashboard → Escape 关闭 → 打开 kanban → Escape 关闭 → 选中员工 → Escape 取消选中
-- [ ] 8.3 keyboard shortcuts：Cmd+D / Cmd+J / Cmd+1 在 Office 正常工作，在非 Office workspace 无响应
-- [ ] 8.4 overlay 流程：employee-creator / office-editor / studio / company-select 打开关闭正常，关闭后回到 Office
-- [ ] 8.5 browser back button：在 Office 内有 drill-in 时 back 先 unwind，无 drill-in 时 back 切换 workspace
+- [x] 8.1 浏览器 dev 启动：workspace 切换（Office ↔ SOPs ↔ Market ↔ Activity Log ↔ Settings），确认切换流畅、状态保留/清理正确
+- [x] 8.2 Escape unwind：Office 打开 dashboard → Escape 关闭 → 打开 kanban → Escape 关闭 → 选中员工 → Escape 取消选中
+- [x] 8.3 keyboard shortcuts：Cmd+D / Cmd+J / Cmd+1 在 Office 正常工作，在非 Office workspace 无响应
+- [x] 8.4 overlay 流程：employee-creator / office-editor / studio / company-select 打开关闭正常，关闭后回到 Office
+- [x] 8.5 browser back button：在 Office 内有 drill-in 时 back 先 unwind，无 drill-in 时 back 切换 workspace

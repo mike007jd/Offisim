@@ -20,6 +20,6 @@
 ## 4. 验证
 
 - [x] 4.1 `pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/web typecheck` 全绿
-- [ ] 4.2 浏览器 dev 验证：3D 视图员工颜色正常显示
-- [ ] 4.3 浏览器 dev 验证：2D 视图员工头像正常显示
+- [x] 4.2 浏览器 dev 验证：3D 视图员工颜色正常显示
+- [x] 4.3 浏览器 dev 验证：2D 视图员工头像正常显示
 - [x] 4.4 确认 OUTFIT_COLORS 和 SKIN_TONES 只在 avatar-seed.ts 定义（grep 验证）

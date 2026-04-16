@@ -34,7 +34,7 @@
 ## 6. 验证
 
 - [x] 6.1 `pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/web typecheck` 全绿
-- [ ] 6.2 浏览器 dev 验证：发一个任务，TaskDashboard 显示 step 进度正常
-- [ ] 6.3 浏览器 dev 验证：SOP editor 在任务执行时 DAG node 颜色变化正常
-- [ ] 6.4 浏览器 dev 验证：KanbanBoard 显示 task 状态正常
-- [ ] 6.5 确认只有一个 EventBus subscriber（grep 验证无其他 `plan.created` 订阅）
+- [x] 6.2 浏览器 dev 验证：发一个任务，TaskDashboard 显示 step 进度正常
+- [x] 6.3 浏览器 dev 验证：SOP editor 在任务执行时 DAG node 颜色变化正常
+- [x] 6.4 浏览器 dev 验证：KanbanBoard 显示 task 状态正常
+- [x] 6.5 确认只有一个 EventBus subscriber（grep 验证无其他 `plan.created` 订阅）
