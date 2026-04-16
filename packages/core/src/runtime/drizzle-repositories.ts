@@ -25,6 +25,7 @@ import type { InstalledPackageRepository } from '../repos/installed-package-repo
 import type { NewZone } from '../repos/zone-repository.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
+import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
 import type {
   AgentEventRepository,
@@ -34,22 +35,16 @@ import type {
   FileHistoryRepository,
   FileHistoryRow,
   LibraryDocumentRow,
-  LlmCallRepository,
-  LlmCallRow,
   McpAuditRepository,
   McpAuditRow,
   MemoryEntryCreate,
   MemoryEntryRow,
   MemoryRepository,
-  ModelCostRateRepository,
-  ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
   NewFileHistory,
   NewLibraryDocument,
-  NewLlmCall,
   NewMcpAudit,
-  NewModelCostRate,
   NewNodeSummary,
   NewOfficeLayout,
   NewRack,
@@ -89,35 +84,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
   const orchestration = createOrchestrationDrizzleRepos(db);
   const employeesFamily = createEmployeesDrizzleRepos(db);
   const conversationsFamily = createConversationsDrizzleRepos(db);
-
-  const llmCalls: LlmCallRepository = {
-    async create(c: NewLlmCall) {
-      db.insert(schema.llmCalls).values(c).run();
-      return c as LlmCallRow;
-    },
-    async findByThread(threadId) {
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.thread_id, threadId))
-        .all() as LlmCallRow[];
-    },
-    async findByThreadIds(threadIds) {
-      if (threadIds.length === 0) return [];
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(inArray(schema.llmCalls.thread_id, threadIds))
-        .all() as LlmCallRow[];
-    },
-    async findByTaskRun(taskRunId) {
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.task_run_id, taskRunId))
-        .all() as LlmCallRow[];
-    },
-  };
+  const llmFamily = createLlmDrizzleRepos(db);
 
   const installTransactions: InstallTransactionRepository = {
     async create(txn) {
@@ -503,76 +470,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     },
     async deleteByThread(threadId) {
       db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId)).run();
-    },
-  };
-
-  const costRates: ModelCostRateRepository = {
-    async create(rate: NewModelCostRate) {
-      const row: ModelCostRateRow = {
-        ...rate,
-        rate_id: crypto.randomUUID(),
-        created_at: now(),
-      };
-      db.insert(schema.modelCostRates).values(row).run();
-      return row;
-    },
-    async findByProviderModel(provider, model) {
-      const rows = db
-        .select()
-        .from(schema.modelCostRates)
-        .where(eq(schema.modelCostRates.provider, provider))
-        .all() as ModelCostRateRow[];
-      const matching = rows.filter((r) => {
-        const regex = new RegExp(
-          `^${r.model_pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
-          'i',
-        );
-        return regex.test(model);
-      });
-      if (matching.length === 0) return null;
-      matching.sort((a, b) => b.model_pattern.length - a.model_pattern.length);
-      const [bestMatch] = matching;
-      return bestMatch ?? null;
-    },
-    async findAll() {
-      return db.select().from(schema.modelCostRates).all() as ModelCostRateRow[];
-    },
-    async upsert(rate: NewModelCostRate) {
-      const ts = now();
-      const rateId = `mcr-${crypto.randomUUID()}`;
-      const values: ModelCostRateRow = {
-        rate_id: rateId,
-        ...rate,
-        created_at: ts,
-      };
-      db.insert(schema.modelCostRates)
-        .values(values)
-        .onConflictDoUpdate({
-          target: [
-            schema.modelCostRates.provider,
-            schema.modelCostRates.model_pattern,
-            schema.modelCostRates.effective_from,
-          ],
-          set: {
-            input_cost_per_mtok: rate.input_cost_per_mtok,
-            output_cost_per_mtok: rate.output_cost_per_mtok,
-            effective_until: rate.effective_until,
-          },
-        })
-        .run();
-      // Fetch the persisted row (rate_id may differ if conflict resolved via DO UPDATE)
-      const persisted = db
-        .select()
-        .from(schema.modelCostRates)
-        .where(
-          and(
-            eq(schema.modelCostRates.provider, rate.provider),
-            eq(schema.modelCostRates.model_pattern, rate.model_pattern),
-            eq(schema.modelCostRates.effective_from, rate.effective_from),
-          ),
-        )
-        .all() as ModelCostRateRow[];
-      return persisted[0] as ModelCostRateRow;
     },
   };
 
@@ -1229,7 +1126,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     ...orchestration,
     ...employeesFamily,
     ...conversationsFamily,
-    llmCalls,
+    ...llmFamily,
     memories,
     mcpAudit,
     nodeSummaries,
@@ -1239,7 +1136,6 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     installedPackages,
     installedAssets,
     assetBindings,
-    costRates,
     sopTemplates,
     racks,
     slots,

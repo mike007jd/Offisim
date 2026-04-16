@@ -10,11 +10,11 @@ import type {
 import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { MemoryUserPreferenceRepository } from '../repositories/memory-user-preference-repository.js';
-import { matchCostRate } from '../utils/glob-match.js';
 import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
+import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 export {
   MemoryActiveInteractionRepository,
@@ -27,6 +27,10 @@ export {
   MemoryEmployeeRepository,
   MemoryEmployeeVersionRepository,
 } from './repos/employees/memory.js';
+export {
+  MemoryLlmCallRepository,
+  MemoryModelCostRateRepository,
+} from './repos/llm/memory.js';
 export {
   MemoryCheckpointRepository,
   MemoryCompanyRepository,
@@ -47,18 +51,12 @@ import type {
   FileHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
-  LlmCallRepository,
-  LlmCallRow,
   McpAuditRepository,
   McpAuditRow,
-  ModelCostRateRepository,
-  ModelCostRateRow,
   NewAgentEvent,
   NewCompactSummary,
   NewLibraryDocument,
-  NewLlmCall,
   NewMcpAudit,
-  NewModelCostRate,
   NewNodeSummary,
   NewOfficeLayout,
   NewRack,
@@ -95,21 +93,6 @@ function cloneRows<T extends object>(rows: Iterable<T>): T[] {
   return [...rows].map((row) => ({ ...row }));
 }
 
-function createRowMap<Row extends object>(
-  rows: Iterable<Row> | undefined,
-  key: keyof Row,
-): Map<string, Row> {
-  const map = new Map<string, Row>();
-  if (!rows) return map;
-  for (const row of rows) {
-    const id = row[key] as unknown;
-    if (typeof id === 'string') {
-      map.set(id, { ...row });
-    }
-  }
-  return map;
-}
-
 export function createMemoryRepositories(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): RuntimeRepositories & { seed: MemoryRepositorySeed; snapshot(): MemoryRepositoriesSnapshot } {
@@ -121,28 +104,8 @@ export function createMemoryRepositories(
   const conversationsFamily = createConversationsMemoryRepos(snapshot);
   const { toolCalls, handoffs, meetings, activeInteractions, interactionHistory } =
     conversationsFamily;
-
-  const llmCallsMap = createRowMap(snapshot?.llmCalls, 'llm_call_id');
-
-  const llmCalls: LlmCallRepository = {
-    async create(c: NewLlmCall) {
-      const row: LlmCallRow = { ...c };
-      llmCallsMap.set(row.llm_call_id, row);
-      return row;
-    },
-    async findByThread(threadId) {
-      return [...llmCallsMap.values()].filter((c) => c.thread_id === threadId);
-    },
-    async findByThreadIds(threadIds) {
-      const idSet = new Set(threadIds);
-      return [...llmCallsMap.values()].filter(
-        (c) => c.thread_id !== null && idSet.has(c.thread_id),
-      );
-    },
-    async findByTaskRun(taskRunId) {
-      return [...llmCallsMap.values()].filter((c) => c.task_run_id === taskRunId);
-    },
-  };
+  const llmFamily = createLlmMemoryRepos(snapshot);
+  const { llmCalls, costRates } = llmFamily;
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -162,7 +125,6 @@ export function createMemoryRepositories(
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
   const compactSummaries = new MemoryCompactSummaryRepository(snapshot?.compactSummaries);
   const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
-  const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
   const racksRepo = new MemoryRackRepository(snapshot?.racks);
   const slotsRepo = new MemorySlotRepository(snapshot?.slots);
@@ -222,7 +184,7 @@ export function createMemoryRepositories(
         meetings: meetings.snapshot(),
         checkpoints: orchestration.checkpoints.snapshot(),
         events: orchestration.events.snapshot(),
-        llmCalls: cloneRows(llmCallsMap.values()),
+        llmCalls: llmCalls.snapshot(),
         memories: memories.snapshot(),
         userPreferences: userPreferences.snapshot(),
         mcpAudit: mcpAudit.snapshot(),
@@ -254,59 +216,6 @@ export function createMemoryRepositories(
   };
 
   return repositories;
-}
-
-export class MemoryModelCostRateRepository implements ModelCostRateRepository {
-  private readonly rows: ModelCostRateRow[] = [];
-
-  constructor(initialRows?: Iterable<ModelCostRateRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(rate: NewModelCostRate): Promise<ModelCostRateRow> {
-    const row: ModelCostRateRow = {
-      ...rate,
-      rate_id: crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-    };
-    this.rows.push(row);
-    return row;
-  }
-
-  async findByProviderModel(provider: string, model: string): Promise<ModelCostRateRow | null> {
-    return matchCostRate(this.rows, provider, model);
-  }
-
-  async findAll(): Promise<ModelCostRateRow[]> {
-    return [...this.rows];
-  }
-
-  async upsert(rate: NewModelCostRate): Promise<ModelCostRateRow> {
-    const existing = this.rows.findIndex(
-      (r) =>
-        r.provider === rate.provider &&
-        r.model_pattern === rate.model_pattern &&
-        r.effective_from === rate.effective_from,
-    );
-    if (existing >= 0) {
-      const current = this.rows[existing];
-      if (!current) {
-        return this.create(rate);
-      }
-      const updated: ModelCostRateRow = {
-        ...current,
-        ...rate,
-      };
-      this.rows[existing] = updated;
-      return updated;
-    }
-    return this.create(rate);
-  }
-
-  snapshot(): ModelCostRateRow[] {
-    return cloneRows(this.rows);
-  }
 }
 
 export class MemorySopTemplateRepository implements SopTemplateRepository {

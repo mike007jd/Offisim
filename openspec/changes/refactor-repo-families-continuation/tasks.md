@@ -24,11 +24,11 @@
 
 ## 4. Phase E — llm family
 
-- [ ] 4.1 Create `runtime/repos/llm/drizzle.ts` — extract `llmCalls`, `costRates`
-- [ ] 4.2 Create `runtime/repos/llm/memory.ts` — move existing `MemoryModelCostRateRepository` class + convert inline `llmCalls` to new `MemoryLlmCallRepository` class (D8)
-- [ ] 4.3 Create `apps/web/src/lib/tauri-repos/llm.ts`
-- [ ] 4.4 Splice barrels; update memory barrel re-exports (1 existing + 1 new); delete inline blocks
-- [ ] 4.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase E — llm`
+- [x] 4.1 Create `runtime/repos/llm/drizzle.ts` — extract `llmCalls`, `costRates`
+- [x] 4.2 Create `runtime/repos/llm/memory.ts` — move existing `MemoryModelCostRateRepository` class + convert inline `llmCalls` to new `MemoryLlmCallRepository` class (D8)
+- [x] 4.3 Create `apps/web/src/lib/tauri-repos/llm.ts`
+- [x] 4.4 Splice barrels; update memory barrel re-exports (1 existing + 1 new); delete inline blocks
+- [x] 4.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase E — llm`
 
 ## 5. Phase F — install family (D10 re-use existing class files)
 
