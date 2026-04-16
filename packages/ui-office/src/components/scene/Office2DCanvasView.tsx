@@ -222,7 +222,6 @@ export default function Office2DCanvasView({
     [],
   );
 
-  // ── Ceremony-aware positions (mirrors the legacy SVG 2D rules) ──
   const ceremonyActive = ceremony.phase !== 'idle';
   const dispatchedIds = useMemo(
     () => Array.from(ceremony.dispatchedIds).sort(),

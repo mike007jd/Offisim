@@ -10,14 +10,12 @@ import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
-import { seedTauriDb } from './tauri-seed';
 import { tryActivateTauriVault } from './vault-tauri-activation';
 
 export async function createTauriRuntimeReposOnly(
   eventBus: InMemoryEventBus,
   companyId?: string,
 ): Promise<RuntimeBundle> {
-  await seedTauriDb();
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
 

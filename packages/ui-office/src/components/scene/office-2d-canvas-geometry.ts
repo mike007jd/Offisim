@@ -1,10 +1,6 @@
 /**
  * Pure coordinate transform module for the 2D office Canvas view.
  * No React, no side effects — just math.
- *
- * Mirrors the geometry rules from the removed SVG 2D path so canvas keeps
- * the same layout semantics.
- * but adds viewport pan/zoom helpers for the Canvas renderer.
  */
 
 // ── Constants ─────────────────────────────────────────────────────────

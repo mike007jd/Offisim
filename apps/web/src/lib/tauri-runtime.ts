@@ -50,7 +50,6 @@ import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
-import { seedTauriDb } from './tauri-seed';
 import { tryActivateTauriVault } from './vault-tauri-activation';
 
 // ---------------------------------------------------------------------------
@@ -104,8 +103,6 @@ export async function createTauriRuntime(
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
   const externalDepartments = loadExternalDepartments();
-  await seedTauriDb();
-
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
 

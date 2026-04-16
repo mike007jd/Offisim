@@ -10,12 +10,3 @@ export function parseSopDefinition(json: string): SopDefinition | null {
   }
 }
 
-export type SopStepStatus = 'pending' | 'active' | 'completed' | 'failed';
-
-/** Step status display config — single source of truth for label + color. */
-export const SOP_STEP_STATUS: Record<SopStepStatus, { label: string; color: string }> = {
-  active: { label: '▶ Active', color: 'text-blue-400' },
-  completed: { label: '✓ Done', color: 'text-green-400' },
-  failed: { label: '✗ Failed', color: 'text-red-400' },
-  pending: { label: '○ Pending', color: 'text-slate-500' },
-};
