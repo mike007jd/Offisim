@@ -8,14 +8,12 @@ import {
   deliverableCreated,
   employeeStateChanged,
   handoffInitiated,
-  llmStreamChunk,
   taskAssignmentChanged,
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmMessage, LlmResponse } from '../llm/gateway.js';
-import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
+import type { LlmMessage } from '../llm/gateway.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
@@ -37,6 +35,7 @@ import {
 import { runPreflight } from './employee-preflight.js';
 import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
+import { buildTurnRunner } from './employee-turn-runner.js';
 
 import type { CitationRef } from '../graph/state.js';
 
@@ -113,64 +112,14 @@ export async function employeeNode(
     state,
   );
 
-  const runEmployeeTurn = async (
-    messages: LlmMessage[],
-    meta: { taskRunId?: string },
-  ): Promise<LlmResponse> => {
-    const request = {
-      messages,
-      model: resolved.model,
-      temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
-      tools: allTools.length > 0 ? allTools : undefined,
-      signal: getConfigSignal(config),
-    };
-
-    if (!streamEmployeeReplies) {
-      return recordedLlmCall(runtimeCtx, request, {
-        nodeName: 'employee',
-        provider: resolved.provider,
-        model: resolved.model,
-        taskRunId: meta.taskRunId,
-      });
-    }
-
-    const streamResult = await recordedLlmStream(
-      runtimeCtx,
-      request,
-      {
-        nodeName: 'employee',
-        provider: resolved.provider,
-        model: resolved.model,
-        taskRunId: meta.taskRunId,
-      },
-      (chunk) => {
-        if (chunk.reasoning) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(
-              runtimeCtx.companyId,
-              state.threadId,
-              'employee',
-              chunk.reasoning,
-              'reasoning',
-            ),
-          );
-        }
-        if (chunk.content) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(runtimeCtx.companyId, state.threadId, 'employee', chunk.content),
-          );
-        }
-      },
-    );
-
-    return {
-      content: streamResult.fullContent,
-      reasoningContent: streamResult.fullReasoning || undefined,
-      toolCalls: streamResult.toolCalls,
-      usage: streamResult.usage,
-    };
-  };
+  const runEmployeeTurn = buildTurnRunner({
+    runtimeCtx,
+    threadId,
+    resolved,
+    allTools,
+    streamEnabled: streamEmployeeReplies,
+    signal: getConfigSignal(config),
+  });
 
   try {
     // Initial LLM call

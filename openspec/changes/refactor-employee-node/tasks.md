@@ -29,10 +29,10 @@
 
 ## 5. Phase D — 抽 employee-tool-kit.ts
 
-- [ ] 5.1 新建 `packages/core/src/agents/employee-tool-kit.ts`，搬迁 `buildSkillActivationTool`（原 line 127-143），引用 `SKILL_TOOL_NAME` from constants
-- [ ] 5.2 实现 `assembleToolKit(preflight, runtimeCtx)` 把原 line 346-391 工具组装搬来；handoff_to tool 的 colleagues lookup（`repos.employees.findByCompany(companyId)`）也搬入；返回 `{ virtualTools, mcpTools, allTools, allowedMcpToolNames }`
-- [ ] 5.3 `employee-node.ts` 改为调用 `assembleToolKit`，删除原工具组装代码
-- [ ] 5.4 typecheck + build 双绿；commit "Phase D: extract employee-tool-kit"
+- [x] 5.1 新建 `employee-tool-kit.ts`,搬迁 `buildSkillActivationTool`
+- [x] 5.2 实现 `assembleToolKit(preflight, runtimeCtx, state)` 搬迁工具拼装,返回 ToolKit
+- [x] 5.3 barrel 改为调用 `assembleToolKit`,删除拼装代码
+- [x] 5.4 typecheck + build 双绿,commit Phase D
 
 ## 6. Phase E — 抽 employee-turn-runner.ts
 
