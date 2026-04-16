@@ -85,6 +85,38 @@
 
 **理由**: 这个 flag 只是生命周期内的一次性开关，不需要 React 感知。用 state 只会引入无意义的 re-render。
 
+### D5: Renderer pipeline 加 dpr 补偿（apply 阶段扩入）
+
+**背景**：Apply 阶段 live 采样发现 sizing 修好后 scene 依然只占 canvas 左上 1/4，根因是 `office-2d-canvas-renderer.ts` 的 `drawBackground` 和 `drawScene` 都忽略 dpr。具体：
+
+- `drawBackground`（line 131-139）：`ctx.resetTransform()` 抹掉 caller 在 rAF loop 里设置的 `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`，然后用 CSS 尺寸 `fillRect(0, 0, canvasWidth, canvasHeight)`，只填充 canvas 左上 CSS 尺寸矩形（而不是整个 `canvas.width × canvas.height` 像素空间）
+- `drawScene` line 707：`ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.x, viewport.y)` 也不含 dpr，所有 zone/employee/prefab 绘制都在 1:1 坐标系进行，dpr=2 下 scene 实际像素尺寸是预期的 1/dpr
+
+**选择**: 把 dpr 作为显式参数传进 `drawScene`，内部两处 setTransform 都乘 dpr：
+- `drawBackground`：`ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillRect(0, 0, canvasWidth, canvasHeight);`（caller 已传 CSS 尺寸，dpr 补偿后刚好覆盖全部像素）
+- `drawScene` line 707：`ctx.setTransform(dpr * viewport.scale, 0, 0, dpr * viewport.scale, dpr * viewport.x, dpr * viewport.y)`
+
+**理由**:
+- 显式传参避免 drawScene 反推 dpr（比如从 `ctx.canvas.width / canvasWidth`），失真概率低
+- drawBackground 保留 `setTransform(dpr,...)` 后 `fillRect(0,0,w,h)` 的语义最清晰，不需要再 `resetTransform`
+- 改动仅限 renderer，不污染 view 层 rAF loop 的 `ctx.setTransform(dpr,...)` 习惯（view 层那行实际上已经是 dead code，可在本 change 里一并移除或保留，选择移除以避免未来误导）
+
+**备选**:
+- drawScene 从 ctx 或 window 读 dpr。否决：隐式依赖全局 / canvas attr 反推 CSS 尺寸，调用侧测试也更难。
+- 只改 drawBackground 不改 drawScene line 707。否决：半修，scene 仍偏小，acceptance 不过。
+- 让 caller rAF loop 自己把 viewport 乘好 dpr 再传进 drawScene。否决：caller 已经把 viewport 视作"世界 → CSS 像素"语义，改 caller 会扩散到 interaction handler（点击坐标换算）。把 dpr 补偿局限在 renderer 内最安全。
+
+**风险**：pan/zoom/drag 的 hit-test 代码在 view 层用的是 `viewport.scale / x / y`（CSS 像素语义），不经过 dpr，因此不受本修改影响。需要在 live 验证里确认 pan/zoom 行为不变（tasks.md 4.6/4.7 已覆盖）。
+
+## Apply 阶段根因修订（保留作历史）
+
+原 proposal 把根因归结为"initial rect 读取偏小"，apply 阶段 live 采样否决了这一点：
+- container.getBoundingClientRect() 和 ResizeObserver contentRect 首次都测到 1200×766（真实值），computeFitViewport 算出的 viewport 也对
+- canvas 像素采样：(240,153)/(720,459) 有 bg+scene 内容，(1200,766)/(1680,459)/(2160,153) 全 alpha=0
+- 证据指向 renderer pipeline 丢失 dpr，不是 sizing 阶段
+
+结论：view 层 sizing 合并（D1/D2/D3/D4）是结构重构，渲染偏小的真正修复靠 D5。本 change 同时覆盖两者。
+
 ## Risks / Trade-offs
 
 - **[风险] ResizeObserver first entry 在某些浏览器 / 场景下不触发** → Mitigation: 极少，但 tasks.md 里要求 live 测试 "切 3D→2D" 后 canvas 是否填满。若真不触发，fallback 是在 `useEffect` 里 `queueMicrotask` + `requestAnimationFrame(() => observer.disconnect(); observer.observe(container))` 强制重启 observer。

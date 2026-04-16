@@ -1,19 +1,28 @@
 ## Why
 
-切换到 2D office view 后，canvas 内容明显只占容器左上一小块（大概 30% 宽 × 25% 高），右/下大量黑底空白。live 证据：2026-04-16 Playwright 会话 `verify-office-2d.png`（文件已删，复现步骤见 tasks.md）。容器本身的 CSS 链路是干净的 —— `Office2DCanvasView.tsx` 根节点 `w-full h-full`，祖先 `SceneCanvas` 里是 `absolute inset-0`——所以根因不在容器 CSS，而在 canvas **尺寸测量 + fit viewport 计算**：
+切换到 2D office view 后，canvas 内容明显只占容器左上一小块（大概 30% 宽 × 25% 高），右/下大量黑底空白。
 
-- `Office2DCanvasView.tsx:515-522` 的 initial sizing effect 用空依赖 `[]`，只在 mount 瞬间跑一次 `container.getBoundingClientRect()`，读到的 rect 可能是 **layout 尚未稳定** 的中间尺寸（父层 flex/grid 还没完成 pass，或 `hasMounted2D` 刚从 false 翻到 true 时）
-- `computeFitViewport(containerWidth, containerHeight)` 直接用初始 rect 算 `scale = min(w/2000, h/1500) * 0.92` —— 如果初始 w/h 偏小，后续 scale 永远保留那个小值
-- `ResizeObserver` 初始触发只调用 `preserveViewportOnResize`（line 540）保现有 pan/zoom，不会重 `computeFitViewport`；所以**错的初始 scale 会被后续 resize 原样继承**
+**初始诊断（保留作历史）**：怀疑 `Office2DCanvasView.tsx:515-522` 的 initial sizing effect 读到 mount 瞬间的 stale rect，导致 `computeFitViewport` 用偏小输入算出偏小 scale，被 ResizeObserver `preserveViewportOnResize` 固化。
 
-产品层面的影响：2D view 目前是浏览器用户看到的"破相"第一眼，和 memory 里记录的 "2D canvas migration — started but not fully product-closed" 强相关。这个 bug 修掉是 2D 路径 product closure 的一个必过关卡。
+**Apply 阶段 live 采样修正根因**（2026-04-16）：
+- container=1200×766，canvas attr=2400×1532（= container × dpr=2），初始 rect 一直是对的
+- ResizeObserver first-entry `contentRect = 1200×766`，`computeFitViewport` 返回 scale≈0.47、x=130、y=30 也都对
+- 但 canvas 像素采样显示 scene 只画到 (0,0)–(1070,735) 像素范围，右下 alpha=0 全透明
+
+真正根因在 `office-2d-canvas-renderer.ts` 的 renderer pipeline **完全丢失 dpr 补偿**：
+- `drawBackground(ctx, canvasWidth, canvasHeight)`（line 131-139）第一行 `ctx.resetTransform()` 抹掉 caller 在 rAF loop 里设的 `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`，然后用 CSS 尺寸 (1200×766) 当像素画，只覆盖 canvas 左上 CSS-sized 矩形
+- `drawScene` line 707 `ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.x, viewport.y)` 也不含 dpr，scene 在 viewport.scale=0.47 下画，有效尺寸 = container × scale / dpr ≈ 容器 23.5%，恰好吻合"30% × 25%"观察
+- dpr=1 显示器不会暴露这个 bug，dpr=2 Retina 一直破相
+
+原 sizing 路径合并（initial sizing effect + ResizeObserver 两条合并成 first-entry fit）结构上仍有重构价值，本 change 合并保留，但**不解决 scene 偏小**；真正 fix 需要在 renderer pipeline 加 dpr-aware setTransform。
+
+产品层面影响：2D view 目前是浏览器用户看到的"破相"第一眼，和 memory 里记录的 "2D canvas migration — started but not fully product-closed" 强相关。修掉是 2D 路径 product closure 的必过关卡。
 
 ## What Changes
 
-- 让 2D canvas 在 container 第一次真实 layout 完成后再计算 `computeFitViewport`（不再依赖可能 stale 的 initial `getBoundingClientRect`）
-- initial sizing 和 ResizeObserver 两条路径合并或对齐时序，避免初始 rect 和 observer first entry 两次错开 fit viewport
-- ResizeObserver 的 first entry 语义从"一律 preserve"改成"第一次是 fit，之后才 preserve"
-- acceptance：2D view mount 后首帧 canvas 内容即填满可用容器；3D↔2D 来回切换多次不退化；pan/zoom 保留
+- **（view 层 sizing 重构，原 scope）** initial sizing effect 和 ResizeObserver 合并：删除独立 `useEffect` initial sizing，由 ResizeObserver first-entry 唯一触发 `computeFitViewport`；新增 `hasInitialSizedRef` 标记；rAF loop 加零尺寸守卫
+- **（renderer dpr 补偿，本 apply 阶段扩入）** `office-2d-canvas-renderer.ts` 的 `drawBackground` + `drawScene` pipeline 改成 dpr-aware：不再 `resetTransform` 后按 CSS 尺寸填矩形，而是所有 setTransform 都乘入 dpr，让 ROOM 坐标系正确映射到 canvas 实际像素
+- acceptance：2D view mount 后首帧 canvas 内容即填满可用容器（scene 覆盖 ≥ ~47% × ~47% 容器中央区域，对应 FIT_MARGIN 下 ROOM 铺满后的居中框）；3D↔2D 来回切换多次不退化；pan/zoom 保留；DPR=2 显示器不再出现右下透明区
 
 ## Capabilities
 
@@ -25,8 +34,8 @@
 
 ## Impact
 
-- `packages/ui-office/src/components/scene/Office2DCanvasView.tsx` — 修改 initial sizing effect + ResizeObserver 初始触发逻辑（预计 +20/-15 行）
-- `packages/ui-office/src/components/scene/office-2d-canvas-geometry.ts` — 可能新增一个 `isFirstResize` 分支的辅助；或不改，全部改落在 view 层（由 design 决策）
+- `packages/ui-office/src/components/scene/Office2DCanvasView.tsx` — 合并 initial sizing 路径 + ResizeObserver first-entry fit + rAF 零尺寸守卫（约 +10/-15 行）
+- `packages/ui-office/src/components/scene/office-2d-canvas-renderer.ts` — `drawBackground` + `drawScene` setTransform 加入 dpr 补偿（约 +6/-3 行）；`drawScene` 签名增加一个 `devicePixelRatio` 参数
 - 不触：`SceneCanvas.tsx`（宿主容器）/ `Office3DView.tsx` / 3D 渲染路径 / 布局 tokens / AppLayout
-- 不触：`computeFitViewport` 纯函数本身的数学（已 verified 正确）
-- 验证：live Playwright 切 3D→2D 看首帧填满 + 切回 3D + 再切 2D 两次不退化
+- 不触：`computeFitViewport` / `preserveViewportOnResize` 纯函数本身的数学（已 verified 正确）
+- 验证：live Playwright 切 3D→2D 看首帧填满 + 切回 3D + 再切 2D 两次不退化；用 canvas 像素采样确认 dpr=2 下右下角不再透明

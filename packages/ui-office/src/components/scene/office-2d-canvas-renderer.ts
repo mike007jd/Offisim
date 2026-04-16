@@ -132,8 +132,9 @@ function drawBackground(
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
   canvasHeight: number,
+  devicePixelRatio: number,
 ): void {
-  ctx.resetTransform();
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   ctx.fillStyle = BACKGROUND_COLOR;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
@@ -696,15 +697,23 @@ export function drawScene(
   interaction: InteractionState,
   canvasWidth: number,
   canvasHeight: number,
+  devicePixelRatio: number,
   animationTime: number,
 ): void {
   const degraded = snapshot.employees.length > DEGRADED_THRESHOLD;
 
-  // 1. Clear canvas with background
-  drawBackground(ctx, canvasWidth, canvasHeight);
+  // 1. Clear canvas with background (dpr-aware fill)
+  drawBackground(ctx, canvasWidth, canvasHeight, devicePixelRatio);
 
-  // 2. Apply viewport transform for all scene drawing
-  ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.x, viewport.y);
+  // 2. Apply viewport transform with dpr compensation so world coords map to backing-store pixels
+  ctx.setTransform(
+    devicePixelRatio * viewport.scale,
+    0,
+    0,
+    devicePixelRatio * viewport.scale,
+    devicePixelRatio * viewport.x,
+    devicePixelRatio * viewport.y,
+  );
 
   // 3. Floor grid
   drawFloorGrid(ctx, ROOM_W, ROOM_H);

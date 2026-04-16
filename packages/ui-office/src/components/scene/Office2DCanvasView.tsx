@@ -92,6 +92,7 @@ export default function Office2DCanvasView({
   const rafIdRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const containerSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  const hasInitialSizedRef = useRef<boolean>(false);
 
   // ── Pan state refs ──
   const isPanningRef = useRef(false);
@@ -511,17 +512,7 @@ export default function Office2DCanvasView({
     setHasCanvasContextError(false);
   }, []);
 
-  // ── Compute fit viewport on mount ──
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    containerSizeRef.current = { width: rect.width, height: rect.height };
-    viewportRef.current = computeFitViewport(rect.width, rect.height);
-    needsRedrawRef.current = true;
-  }, []);
-
-  // ── ResizeObserver: update canvas resolution on container resize ──
+  // ── ResizeObserver: sole source of initial sizing + on-resize updates ──
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -532,31 +523,30 @@ export default function Office2DCanvasView({
       const entry = entries[0];
       if (!entry) return;
       const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
       const dpr = window.devicePixelRatio || 1;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      viewportRef.current = preserveViewportOnResize(
-        viewportRef.current,
-        containerSizeRef.current.width,
-        containerSizeRef.current.height,
-        width,
-        height,
-      );
+
+      if (!hasInitialSizedRef.current) {
+        viewportRef.current = computeFitViewport(width, height);
+        hasInitialSizedRef.current = true;
+      } else {
+        viewportRef.current = preserveViewportOnResize(
+          viewportRef.current,
+          containerSizeRef.current.width,
+          containerSizeRef.current.height,
+          width,
+          height,
+        );
+      }
       containerSizeRef.current = { width, height };
       needsRedrawRef.current = true;
     });
 
     observer.observe(container);
-    // Initial sizing
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    containerSizeRef.current = { width: rect.width, height: rect.height };
 
     return () => {
       observer.disconnect();
@@ -579,13 +569,11 @@ export default function Office2DCanvasView({
       );
 
       if (needsRedrawRef.current || hasAnimatedEmployees) {
-        needsRedrawRef.current = false;
         const ctx = ctxRef.current;
         const canvas = canvasRef.current;
-        if (ctx && canvas) {
+        if (ctx && canvas && canvas.width > 0 && canvas.height > 0) {
+          needsRedrawRef.current = false;
           const dpr = window.devicePixelRatio || 1;
-          // Scale context for DPR
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           drawScene(
             ctx,
             snapshotRef.current,
@@ -593,6 +581,7 @@ export default function Office2DCanvasView({
             interactionRef.current,
             canvas.width / dpr,
             canvas.height / dpr,
+            dpr,
             performance.now(),
           );
         }

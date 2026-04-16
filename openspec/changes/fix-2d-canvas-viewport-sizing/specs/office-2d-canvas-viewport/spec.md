@@ -33,6 +33,21 @@ Switching between 3D and 2D views multiple times SHALL NOT leave the 2D canvas i
 - **WHEN** the user toggles 3D → 2D → 3D → 2D → 3D → 2D (three round-trips)
 - **THEN** every time the 2D view becomes visible, the canvas fills the container (measured as in "2D canvas fills its container on first visible frame")
 
+### Requirement: Scene drawing respects devicePixelRatio
+The 2D canvas renderer SHALL scale all drawing transforms by `devicePixelRatio` so that on a dpr=N display (N ≥ 1) the rendered scene covers the full `canvas.width × canvas.height` pixel space allocated by the view layer, not only the CSS-sized upper-left sub-region.
+
+#### Scenario: Background fills entire canvas on Retina
+- **WHEN** `drawScene` is called on a canvas whose CSS size is `W × H` and whose backing store is `W·dpr × H·dpr` (dpr=2 on Retina)
+- **THEN** the background fill covers the entire `(W·dpr) × (H·dpr)` pixel rectangle (no transparent alpha=0 region in the bottom-right)
+
+#### Scenario: Scene transform accounts for dpr
+- **WHEN** the renderer applies the viewport transform for scene drawing after the background fill
+- **THEN** the transform used SHALL be equivalent to `setTransform(dpr·viewport.scale, 0, 0, dpr·viewport.scale, dpr·viewport.x, dpr·viewport.y)` so that world coordinates `(0,0)` through `(ROOM_W, ROOM_H)` map onto the full-resolution canvas pixel space
+
+#### Scenario: dpr=1 unchanged
+- **WHEN** the renderer runs on a display with `window.devicePixelRatio === 1`
+- **THEN** the output is pixel-identical to the pre-change renderer (dpr·x = x when dpr=1), i.e. this requirement MUST NOT regress non-Retina displays
+
 ### Requirement: Pan and zoom interactions preserved
 The viewport-sizing fix SHALL NOT alter the behavior of pan (drag), zoom (wheel), or drag-and-drop in the 2D canvas.
 
