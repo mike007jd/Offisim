@@ -65,11 +65,11 @@
 
 ## 9. Phase J — workspace family
 
-- [ ] 9.1 Create `runtime/repos/workspace/drizzle.ts` — extract `sopTemplates`, `officeLayouts`, `prefabInstances`, `zones`
-- [ ] 9.2 Create `runtime/repos/workspace/memory.ts` — move `MemorySopTemplateRepository`, `MemoryOfficeLayoutRepository`, `MemoryZoneRepository` classes + handle `prefabInstances` (already class-based per memory barrel snapshot line) — re-use existing class if present, otherwise convert per D8
-- [ ] 9.3 Create `apps/web/src/lib/tauri-repos/workspace.ts`
-- [ ] 9.4 Splice barrels; update memory barrel re-exports; delete inline blocks
-- [ ] 9.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase J — workspace`
+- [x] 9.1 Create `runtime/repos/workspace/drizzle.ts` — extract `sopTemplates`, `officeLayouts`, `prefabInstances`, `zones`
+- [x] 9.2 Create `runtime/repos/workspace/memory.ts` — move `MemorySopTemplateRepository`, `MemoryOfficeLayoutRepository`, `MemoryZoneRepository` classes + re-use existing `MemoryPrefabInstanceRepository` from `memory-prefab-repository.ts`
+- [x] 9.3 Create `apps/web/src/lib/tauri-repos/workspace.ts`
+- [x] 9.4 Splice barrels; update memory barrel re-exports (4 class symbols: SopTemplate + OfficeLayout + Zone + PrefabInstance); delete inline blocks
+- [x] 9.5 `pnpm typecheck` green; commit `refactor(core): repo-families Phase J — workspace`
 
 ## 10. Phase K — projects family
 
