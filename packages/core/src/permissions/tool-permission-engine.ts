@@ -1,4 +1,5 @@
 import type { RuntimePolicyConfig, RuntimeToolPermissionBehavior } from '@offisim/shared-types';
+import { parseEmployeeConfig } from '@offisim/shared-types';
 import type { ToolApprovalMode, ToolPermissionPolicy } from '../mcp/types.js';
 import type { EmployeeRepository, McpAuditRepository } from '../runtime/repositories.js';
 import type { ToolPermissionGrantResolver } from '../services/interaction-service.js';
@@ -28,10 +29,6 @@ interface ToolPermissionEngineDeps {
   readonly mcpAudit: McpAuditRepository;
   readonly runtimePolicy?: RuntimePolicyConfig;
   readonly grants?: ToolPermissionGrantResolver;
-}
-
-interface JsonRecord {
-  [key: string]: unknown;
 }
 
 export class ToolPermissionEngine implements ToolPermissionAuthorizer {
@@ -187,33 +184,8 @@ function buildRuntimeIdentity(serverName: string, toolName: string): string {
 }
 
 function parseEmployeeToolPermissionPolicy(raw: string | null): ToolPermissionPolicy | null {
-  const parsed = safeParseJson(raw);
-  const candidate = parsed.toolPermissionPolicy;
-  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
-
-  const policy = candidate as {
-    defaultMode?: unknown;
-    overrides?: Array<{ pattern?: unknown; mode?: unknown }>;
-  };
-  if (!isToolApprovalMode(policy.defaultMode)) return null;
-
-  return {
-    defaultMode: policy.defaultMode,
-    overrides: Array.isArray(policy.overrides)
-      ? policy.overrides.flatMap((override) => {
-          if (
-            !override ||
-            typeof override.pattern !== 'string' ||
-            !override.pattern.trim() ||
-            !isToolApprovalMode(override.mode)
-          ) {
-            return [];
-          }
-
-          return [{ pattern: override.pattern.trim(), mode: override.mode }];
-        })
-      : [],
-  };
+  const config = parseEmployeeConfig(raw);
+  return config.toolPermissionPolicy ?? null;
 }
 
 function resolveEmployeePolicyMatch(
@@ -231,18 +203,3 @@ function resolveEmployeePolicyMatch(
   return { mode: policy.defaultMode };
 }
 
-function isToolApprovalMode(value: unknown): value is ToolApprovalMode {
-  return value === 'auto' || value === 'ask_first_time' || value === 'always_ask';
-}
-
-function safeParseJson(raw: string | null): JsonRecord {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as JsonRecord)
-      : {};
-  } catch {
-    return {};
-  }
-}

@@ -1,5 +1,10 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { PLAN_REVIEW_REQUIRED, type SopDefinition, type SopStep } from '@offisim/shared-types';
+import {
+  PLAN_REVIEW_REQUIRED,
+  parseEmployeeConfig,
+  type SopDefinition,
+  type SopStep,
+} from '@offisim/shared-types';
 import { graphNodeEntered, planCreated } from '../events/event-factories.js';
 import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
@@ -11,7 +16,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
-import { buildEnrichedEmployeeList, readRuntimeSkill, safeParseJson } from './employee-roster.js';
+import { buildEnrichedEmployeeList, readRuntimeSkill } from './employee-roster.js';
 
 /** @internal — exported for testing */
 export const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
@@ -182,7 +187,7 @@ export function findEmployeeForRole(
 
   if (normalizedSkill) {
     const skillMatch = exactMatches.find((employee) => {
-      const config = safeParseJson(employee.config_json);
+      const config = parseEmployeeConfig(employee.config_json);
       const skill = readRuntimeSkill(config);
       if (!skill) return false;
       const haystack = [skill.skillName, skill.summary]

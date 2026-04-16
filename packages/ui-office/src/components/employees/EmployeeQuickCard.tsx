@@ -1,4 +1,5 @@
 import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
+import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -6,29 +7,19 @@ import { useCallback, useRef, useState } from 'react';
 // ---------------------------------------------------------------------------
 
 function parsePersona(raw: string | null): { expertise: string; style: string } {
-  if (!raw) return { expertise: '', style: '' };
-  try {
-    const p = JSON.parse(raw);
-    return {
-      expertise: p.expertise ?? '',
-      style: p.style ?? '',
-    };
-  } catch {
-    return { expertise: '', style: '' };
-  }
+  const persona = parseEmployeePersona(raw);
+  return {
+    expertise: persona.expertise ?? '',
+    style: persona.style ?? '',
+  };
 }
 
 function parseConfig(raw: string | null): { modelPreference: string; temperature: number } {
-  if (!raw) return { modelPreference: '', temperature: 0.7 };
-  try {
-    const p = JSON.parse(raw);
-    return {
-      modelPreference: p.modelPreference ?? '',
-      temperature: typeof p.temperature === 'number' ? p.temperature : 0.7,
-    };
-  } catch {
-    return { modelPreference: '', temperature: 0.7 };
-  }
+  const config = parseEmployeeConfig(raw);
+  return {
+    modelPreference: config.modelPreference ?? '',
+    temperature: config.temperature ?? 0.7,
+  };
 }
 
 /** Map employee enabled value (0|1) + agent state to a display label + colour. */
@@ -143,12 +134,7 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
   // Helper: save a persona field
   const savePersField = useCallback(
     (field: 'expertise' | 'style', next: string) => {
-      let existing: Record<string, unknown> = {};
-      try {
-        if (employee.persona_json) existing = JSON.parse(employee.persona_json);
-      } catch {
-        /* ignore */
-      }
+      const existing = parseEmployeePersona(employee.persona_json);
       onUpdate(employee.employee_id, {
         persona_json: JSON.stringify({ ...existing, [field]: next }),
       });

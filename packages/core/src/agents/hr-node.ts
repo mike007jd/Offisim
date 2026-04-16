@@ -1,6 +1,6 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { ROLE_REGISTRY } from '@offisim/shared-types';
+import { ROLE_REGISTRY, parseEmployeePersona } from '@offisim/shared-types';
 import type { RoleSlug } from '@offisim/shared-types';
 import {
   graphNodeEntered,
@@ -86,13 +86,8 @@ export async function hrNode(
   const teamRoster = employees
     .filter((e) => e.enabled)
     .map((e) => {
-      let persona: Record<string, unknown> = {};
-      try {
-        persona = JSON.parse(e.persona_json ?? '{}');
-      } catch {
-        /* use default */
-      }
-      return `- ${e.name} (${e.role_slug}): ${(persona.expertise as string) ?? 'no expertise listed'}`;
+      const persona = parseEmployeePersona(e.persona_json);
+      return `- ${e.name} (${e.role_slug}): ${persona.expertise ?? 'no expertise listed'}`;
     })
     .join('\n');
 

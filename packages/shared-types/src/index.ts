@@ -239,3 +239,19 @@ export {
   resolveZoneForRole,
   resolveEmployeeZone,
 } from './zone-resolution.js';
+
+export type {
+  EmployeeAppearance,
+  EmployeePersona,
+  EmployeeConfig,
+  RuntimeSkillCapability,
+  RuntimeSkillConfig,
+  EmployeeToolApprovalMode,
+  EmployeeToolPermissionOverride,
+  EmployeeToolPermissionPolicy,
+} from './json-field-parsers.js';
+export {
+  parseEmployeePersona,
+  parseEmployeeConfig,
+  parsePrefabBindings,
+} from './json-field-parsers.js';

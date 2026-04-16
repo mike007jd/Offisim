@@ -5,6 +5,7 @@ import type {
   RuntimeEvent,
   SemanticCategory,
 } from '@offisim/shared-types';
+import { parsePrefabBindings } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
@@ -127,9 +128,7 @@ export class PrefabService {
     const row = await this.repo.findById(instanceId);
     if (!row) throw new Error(`Prefab instance not found: ${instanceId}`);
 
-    const bindings: PrefabBinding[] = row.bindings_json
-      ? (JSON.parse(row.bindings_json) as PrefabBinding[])
-      : [];
+    const bindings: PrefabBinding[] = parsePrefabBindings(row.bindings_json);
 
     const existing = bindings.findIndex((b) => b.slotName === slotName);
     const newBinding: PrefabBinding = {
@@ -163,9 +162,7 @@ export class PrefabService {
     const row = await this.repo.findById(instanceId);
     if (!row) throw new Error(`Prefab instance not found: ${instanceId}`);
 
-    const bindings: PrefabBinding[] = row.bindings_json
-      ? (JSON.parse(row.bindings_json) as PrefabBinding[])
-      : [];
+    const bindings: PrefabBinding[] = parsePrefabBindings(row.bindings_json);
 
     const filtered = bindings.filter((b) => b.slotName !== slotName);
 

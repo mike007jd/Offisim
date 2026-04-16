@@ -1,6 +1,8 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { Command } from '@langchain/langgraph';
+import type { RuntimeSkillConfig } from '@offisim/shared-types';
+import { parseEmployeeConfig } from '@offisim/shared-types';
 import { GraphError } from '../errors.js';
 import { Logger } from '../services/logger.js';
 
@@ -53,38 +55,10 @@ const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
 const SKILL_TOOL_NAME = 'activate_skill_context';
 
-interface RuntimeSkillCapability {
-  readonly kind?: string;
-  readonly key?: string;
-  readonly label?: string;
-}
-
-interface RuntimeSkillConfig {
-  readonly skillName: string;
-  readonly summary: string;
-  readonly enabled?: boolean;
-  readonly instructionMode?: string;
-  readonly instructionExcerpt?: string;
-  readonly instructions?: string;
-  readonly capabilityIndex?: {
-    readonly summary?: string;
-    readonly requiredCapabilities?: readonly string[];
-    readonly capabilities?: readonly RuntimeSkillCapability[];
-  };
-  readonly allowedTools?: readonly string[];
-}
-
 function parseRuntimeSkillConfig(configJson: string | null): RuntimeSkillConfig | null {
-  if (!configJson) return null;
-  try {
-    const parsed = JSON.parse(configJson) as {
-      runtimeSkill?: RuntimeSkillConfig;
-    };
-    if (!parsed.runtimeSkill || parsed.runtimeSkill.enabled === false) return null;
-    return parsed.runtimeSkill;
-  } catch {
-    return null;
-  }
+  const config = parseEmployeeConfig(configJson);
+  if (!config.runtimeSkill || config.runtimeSkill.enabled === false) return null;
+  return config.runtimeSkill;
 }
 
 function normalizeSkillText(value: string): string {

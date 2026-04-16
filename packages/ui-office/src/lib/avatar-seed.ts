@@ -1,3 +1,5 @@
+import { parseEmployeePersona } from '@offisim/shared-types';
+
 export const OUTFIT_COLORS = [
   '#3b82f6',
   '#a855f7',
@@ -23,15 +25,8 @@ export function resolveAvatarSeed(agent: {
   name: string;
   persona_json?: string | null;
 }): string {
-  if (agent.persona_json) {
-    try {
-      const persona = JSON.parse(agent.persona_json) as { avatarSeed?: string };
-      if (persona.avatarSeed) return persona.avatarSeed;
-    } catch {
-      // invalid JSON — fall through to name
-    }
-  }
-  return agent.name;
+  const persona = parseEmployeePersona(agent.persona_json ?? null);
+  return persona.avatarSeed ?? agent.name;
 }
 
 function hashSeed(seed: string): number {

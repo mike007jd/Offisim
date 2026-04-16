@@ -1,3 +1,5 @@
+import type { EmployeeConfig, RuntimeSkillConfig } from '@offisim/shared-types';
+import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
 import type { EmployeeRow } from '../runtime/repositories.js';
 
 type JsonObject = Record<string, unknown>;
@@ -12,23 +14,19 @@ export function safeParseJson(raw: string | null): JsonObject {
   }
 }
 
-export function readRuntimeSkill(
-  config: JsonObject,
-): { skillName?: string; summary?: string } | null {
+export function readRuntimeSkill(config: EmployeeConfig): RuntimeSkillConfig | null {
   const runtimeSkill = config.runtimeSkill;
-  if (!runtimeSkill || typeof runtimeSkill !== 'object') return null;
-  const parsed = runtimeSkill as { enabled?: boolean; skillName?: string; summary?: string };
-  if (parsed.enabled === false) return null;
-  return parsed;
+  if (!runtimeSkill || runtimeSkill.enabled === false) return null;
+  return runtimeSkill;
 }
 
 export function buildEnrichedEmployeeList(employees: EmployeeRow[]): string {
   return employees
     .map((employee) => {
-      const persona = safeParseJson(employee.persona_json);
-      const config = safeParseJson(employee.config_json);
+      const persona = parseEmployeePersona(employee.persona_json);
+      const config = parseEmployeeConfig(employee.config_json);
       const expertise =
-        typeof persona.expertise === 'string' && persona.expertise.trim().length > 0
+        persona.expertise && persona.expertise.trim().length > 0
           ? ` | expertise: ${persona.expertise.trim()}`
           : '';
       const runtimeSkill = readRuntimeSkill(config);
