@@ -32,12 +32,12 @@
 
 ## 5. Phase F — install family (D10 re-use existing class files)
 
-- [ ] 5.1 Create `runtime/repos/install/drizzle.ts` — re-export from `packages/core/src/repos/install-transaction-repository.ts` etc.; factory wires `new DrizzleInstallTransactionRepository(db)` etc. (no class duplication — D10)
-- [ ] 5.2 Create `runtime/repos/install/memory.ts` — re-export memory variants from same source files; factory wires `new MemoryInstallTransactionRepository()` etc. with seed plumbing
-- [ ] 5.3 Create `apps/web/src/lib/tauri-repos/install.ts` — extract tauri install impls (no class duplication if tauri install already class-shaped; otherwise inline factory shape matching other tauri family files)
-- [ ] 5.4 Confirm `MemoryInstallRepositoriesSnapshot` extension to `MemoryRepositoriesSnapshot` still typechecks (R9)
-- [ ] 5.5 Splice barrels; delete inline blocks
-- [ ] 5.6 `pnpm typecheck` green; commit `refactor(core): repo-families Phase F — install`
+- [x] 5.1 Create `runtime/repos/install/drizzle.ts` — re-export from `packages/core/src/repos/install-transaction-repository.ts` etc.; factory wires `new DrizzleInstallTransactionRepository(db)` etc. (no class duplication — D10)
+- [x] 5.2 Create `runtime/repos/install/memory.ts` — re-export memory variants from same source files; factory wires `new MemoryInstallTransactionRepository()` etc. with seed plumbing
+- [x] 5.3 Create `apps/web/src/lib/tauri-repos/install.ts` — extract tauri install impls (no class duplication if tauri install already class-shaped; otherwise inline factory shape matching other tauri family files)
+- [x] 5.4 Confirm `MemoryInstallRepositoriesSnapshot` extension to `MemoryRepositoriesSnapshot` still typechecks (R9)
+- [x] 5.5 Splice barrels; delete inline blocks
+- [x] 5.6 `pnpm typecheck` green; commit `refactor(core): repo-families Phase F — install`
 
 ## 6. Phase G — permissions family
 

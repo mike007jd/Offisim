@@ -10,10 +10,10 @@ import type {
 import type { NewZone, ZoneRepository } from '../repos/zone-repository.js';
 import { InMemoryMemoryRepository } from '../repositories/memory-memory-repository.js';
 import { MemoryUserPreferenceRepository } from '../repositories/memory-user-preference-repository.js';
-import { createMemoryInstallRepositories } from './memory-install-repos.js';
 import { createMemoryPrefabRepository } from './memory-prefab-repository.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
+import { createInstallMemoryRepos } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 export {
@@ -27,6 +27,12 @@ export {
   MemoryEmployeeRepository,
   MemoryEmployeeVersionRepository,
 } from './repos/employees/memory.js';
+export {
+  MemoryAssetBindingRepository,
+  MemoryInstallTransactionRepository,
+  MemoryInstalledAssetRepository,
+  MemoryInstalledPackageRepository,
+} from './repos/install/memory.js';
 export {
   MemoryLlmCallRepository,
   MemoryModelCostRateRepository,
@@ -106,6 +112,7 @@ export function createMemoryRepositories(
     conversationsFamily;
   const llmFamily = createLlmMemoryRepos(snapshot);
   const { llmCalls, costRates } = llmFamily;
+  const installRepos = createInstallMemoryRepos(snapshot);
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -118,8 +125,6 @@ export function createMemoryRepositories(
 
   const memories = new InMemoryMemoryRepository(snapshot?.memories);
   const userPreferences = new MemoryUserPreferenceRepository(snapshot?.userPreferences);
-
-  const installRepos = createMemoryInstallRepositories(snapshot);
 
   const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
   const nodeSummaries = new MemoryNodeSummaryRepository(snapshot?.nodeSummaries);
