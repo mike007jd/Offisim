@@ -81,8 +81,8 @@
 - [x] 4.1 `git status --short` 确认改动集中在 chat/ 目录 + openspec change 目录（实测: StreamingBubble.tsx + tasks.md 两文件）
 - [x] 4.2 `git diff` review：变更集中在 StreamingBubble / ChatPanel / 可能 chat-session-store；**不** 碰 use-chat-streaming-sync（除非 RC-4 分支），**不** 碰 provider adapter。实测: 仅动 StreamingBubble.tsx 一个文件
 - [x] 4.3 清理 Playwright 截图（`rm -f verify-*.png`）
-- [ ] 4.4 commit message 建议：`fix(ui-office): stream real content into chat bubble`，body 引用本 change 裁决的 RC 编号 + 根因 + 修改位置
-- [ ] 4.5 `/opsx:archive fix-chat-streaming-ux` 选 Sync now 让 canonical spec `openspec/specs/chat-streaming-ux/spec.md` 落地
+- [x] 4.4 commit message 建议：`fix(ui-office): stream real content into chat bubble`，body 引用本 change 裁决的 RC 编号 + 根因 + 修改位置（commit `18b0171`）
+- [x] 4.5 `/opsx:archive fix-chat-streaming-ux` 选 Sync now 让 canonical spec `openspec/specs/chat-streaming-ux/spec.md` 落地
 
 ## Observations
 
