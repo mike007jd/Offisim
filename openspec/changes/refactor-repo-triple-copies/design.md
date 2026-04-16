@@ -185,6 +185,58 @@ export type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/m
 - `packages/core/src/{index,browser}.ts` 已对这 19 个 class 做 named re-export；barrel 作中转层零影响
 - snapshot/seed 类型放 `runtime/repos/memory-types.ts`（因为跨家族使用）
 
+### D8. Memory inline repos 升级为 class（路径 1 — apply 阶段 D5 决策）
+
+**背景**：`createMemoryRepositories()` 原有 10 个内联 repo（`companies` / `threads` / `taskRuns` / `employees` / `toolCalls` / `handoffs` / `meetings` / `checkpoints` / `events` / `llmCalls`）通过函数作用域闭包共享 Maps（`companiesMap` 等）+ `eventsStore` 数组。这些 Maps 同时被 `snapshot()` 引用。按 family 拆分不能简单"切一片"，必须解决共享状态问题。
+
+**选择**：路径 1 — 把 10 个内联 repo 全部升级为 class，各自拥有 Map，对齐现有 19 class 模式。
+
+**Rationale**:
+
+- 现有 19 class 已证明"each class owns its Map + snapshot()"模式可行
+- 10 新 class 后，memory 后端变完全均匀，family 拆分变机械
+- 19 → 29 class 全部遵循同一模式，未来加 repo 只需加 class（无"inline vs class"二分）
+- 一次性付清重构代价，避免将来又发现一处例外
+
+**Implementation shape**:
+
+```ts
+// packages/core/src/runtime/repos/orchestration/memory.ts
+export class MemoryCompanyRepository implements CompanyRepository {
+  private readonly rows = new Map<string, CompanyRow>();
+  constructor(initial?: Iterable<CompanyRow>) { /* seed from initial */ }
+  async findById(id) { return this.rows.get(id) ?? null; }
+  // ...
+  seed(rows: CompanyRow[]) { for (const r of rows) this.rows.set(r.company_id, r); }
+  snapshot(): CompanyRow[] { return [...this.rows.values()].map((r) => ({ ...r })); }
+}
+```
+
+**Cross-class dependency**（`taskRuns` 需要 threads lookup）：
+
+```ts
+export class MemoryTaskRunRepository implements TaskRunRepository {
+  constructor(
+    initial?: Iterable<TaskRunRow>,
+    private readonly threads?: ThreadRepository,  // inject for findQueue / countByStatus
+  ) { /* ... */ }
+}
+```
+
+**Scope delta**:
+
+- 新增 class：10（`MemoryCompanyRepository` / `MemoryThreadRepository` / `MemoryTaskRunRepository` / `MemoryEmployeeRepository` / `MemoryToolCallRepository` / `MemoryHandoffRepository` / `MemoryMeetingRepository` / `MemoryCheckpointRepository` / `MemoryEventRepository` / `MemoryLlmCallRepository`）
+- 总 Memory class 数：19 → 29
+- 各 class 约 30-60 NBNC
+- 各 class 需暴露 `.snapshot()`；`MemoryEmployeeRepository` 和 `MemoryCompanyRepository` 额外暴露 `.seed(rows)` 供 `MemoryRepositorySeed` helper 用
+- barrel 的 `snapshot()` 方法由逐个 Map `cloneRows(Xmap.values())` 改为调用 `X.snapshot()` 逐个聚合
+
+**Rejected alternatives**:
+
+- 路径 2（barrel 传 state context）：保留 inline 模式但 coupling 更高，barrel 膨胀风险大
+- 路径 3（放弃 memory barrel gate）：违反 D3 barrel ≤200 NBNC 约束，三后端对称性破坏
+- 路径 4（拆两个 change）：多一轮 propose/apply，且两 change 之间 memory 处于半对称的中间态，增加回滚歧义
+
 ### D6. Helper 去留（本 change 不做 DRY）
 
 **选择**: 保留当前三文件各自的 `now()` / `normalizeMemoryDedupeKey()` 局部 helper 不抽

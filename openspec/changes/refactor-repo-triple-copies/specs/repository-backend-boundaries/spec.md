@@ -87,16 +87,21 @@ Each factory's returned object SHALL contain exactly the same set of keys and th
 
 The memory barrel `packages/core/src/runtime/memory-repositories.ts` SHALL continue to export the following symbols for downstream consumers that import from `@offisim/core` or `@offisim/core/browser`:
 
-- 19 class symbols matching the pattern `Memory*Repository` — all 19 implementing their respective `*Repository` interface from `runtime/repositories.ts`
+- 19 pre-existing class symbols matching the pattern `Memory*Repository` — all 19 implementing their respective `*Repository` interface from `runtime/repositories.ts`
+- 10 newly-added class symbols (D8 decision — converted from pre-refactor inline repos): `MemoryCompanyRepository`, `MemoryThreadRepository`, `MemoryTaskRunRepository`, `MemoryEmployeeRepository`, `MemoryToolCallRepository`, `MemoryHandoffRepository`, `MemoryMeetingRepository`, `MemoryCheckpointRepository`, `MemoryEventRepository`, `MemoryLlmCallRepository` — each owning its backing Map (or Array for events), implementing `.snapshot()`, and (where used by `MemoryRepositorySeed`) `.seed(rows)`
 - `MemoryRepositoriesSnapshot` type
 - `MemoryRepositorySeed` type
 - `createMemoryRepositories` function
 
-Implementations of these classes SHALL live in `packages/core/src/runtime/repos/<family>/memory.ts` files; the barrel SHALL only re-export them.
+Implementations of these 29 classes SHALL live in `packages/core/src/runtime/repos/<family>/memory.ts` files; the barrel SHALL only re-export them.
 
-#### Scenario: All 19 Memory*Repository classes remain exported
+#### Scenario: All 19 pre-existing Memory*Repository classes remain exported
 - **WHEN** importing `{ MemoryActiveInteractionRepository, MemoryInteractionHistoryRepository, MemoryEmployeeVersionRepository, MemoryModelCostRateRepository, MemorySopTemplateRepository, MemoryRackRepository, MemorySlotRepository, MemoryWorkstationRackRepository, MemoryLibraryDocumentRepository, MemoryOfficeLayoutRepository, MemoryZoneRepository, MemoryMcpAuditRepository, MemoryNodeSummaryRepository, MemoryCompactSummaryRepository, MemoryFileHistoryRepository, MemoryProjectRepository, MemoryProjectAssignmentRepository, MemoryAgentEventRepository, MemoryRecoveryKnowledgeRepository }` from `@offisim/core` post-refactor
 - **THEN** all 19 symbols resolve and are constructable (no undefined imports)
+
+#### Scenario: 10 newly-added Memory*Repository classes exported
+- **WHEN** importing `{ MemoryCompanyRepository, MemoryThreadRepository, MemoryTaskRunRepository, MemoryEmployeeRepository, MemoryToolCallRepository, MemoryHandoffRepository, MemoryMeetingRepository, MemoryCheckpointRepository, MemoryEventRepository, MemoryLlmCallRepository }` from `@offisim/core` post-refactor
+- **THEN** all 10 symbols resolve and are constructable; each instance exposes `.snapshot()` returning an array matching the corresponding field of `MemoryRepositoriesSnapshot`
 
 #### Scenario: MemoryRepositoriesSnapshot type re-exported
 - **WHEN** importing `{ MemoryRepositoriesSnapshot }` as a type from both `@offisim/core` (`index.ts`) and `@offisim/core/browser` (`browser.ts`) post-refactor

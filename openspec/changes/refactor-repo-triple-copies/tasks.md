@@ -14,38 +14,41 @@
 - [x] 2.4 Rewrite `memory-types.ts` to re-export these types from the new home; keep `MemoryInstallRepositoriesSnapshot` extension working (Phase A verifies typecheck green)
 - [x] 2.5 `pnpm typecheck` must be green — Phase A gate commit
 
-## 3. Orchestration family (Phase B)
+## 3. Orchestration family (Phase B) — includes D8 class conversion
 
-- [ ] 3.1 Create `runtime/repos/orchestration/drizzle.ts` — extract `companies`, `threads`, `taskRuns`, `checkpoints`, `events` from `drizzle-repositories.ts:120-491` → `createOrchestrationDrizzleRepos(db)`
-- [ ] 3.2 Create `runtime/repos/orchestration/memory.ts` — extract the 5 repos' memory implementations (inline objects inside `createMemoryRepositories`) → `createOrchestrationMemoryRepos(seed?)` returning typed slice + any needed snapshot access
-- [ ] 3.3 Create `apps/web/src/lib/tauri-repos/orchestration.ts` — extract from `tauri-repos.ts:132-453` → `createOrchestrationTauriRepos(db)`
-- [ ] 3.4 Delete corresponding repo blocks from original 3 god-files; splice barrel spread call
-- [ ] 3.5 `pnpm typecheck` green; commit Phase B
+**D8 decision** (apply-phase): each memory family phase converts its inline repos to classes matching the existing 19 Memory\* class pattern. Barrel `createMemoryRepositories()` then aggregates snapshot() across all 29 classes.
+
+- [ ] 3.1 Create `runtime/repos/orchestration/drizzle.ts` — extract `companies`, `threads`, `taskRuns`, `checkpoints`, `events` from `drizzle-repositories.ts:119-461` → `createOrchestrationDrizzleRepos(db)`
+- [ ] 3.2 Create `runtime/repos/orchestration/memory.ts` — convert 5 inline memory repos to classes: `MemoryCompanyRepository`, `MemoryThreadRepository`, `MemoryTaskRunRepository`, `MemoryCheckpointRepository`, `MemoryEventRepository`. `MemoryTaskRunRepository` takes a `ThreadRepository` dep via constructor for `findQueue` / `countByStatus` cross-repo lookup. `MemoryCompanyRepository` exposes `.seed(rows)` for `MemoryRepositorySeed`. Factory `createOrchestrationMemoryRepos(snapshot?)` returns the 5 class instances
+- [ ] 3.3 Create `apps/web/src/lib/tauri-repos/orchestration.ts` — extract from `tauri-repos.ts:132-465` → `createOrchestrationTauriRepos(db)`
+- [ ] 3.4 Delete corresponding blocks from drizzle-repositories.ts / memory-repositories.ts / tauri-repos.ts; splice spread call in each barrel
+- [ ] 3.5 Update memory barrel: re-export the 5 new classes; barrel `snapshot()` calls `companies.snapshot()` etc. instead of `cloneRows(companiesMap.values())`
+- [ ] 3.6 `pnpm typecheck` green; commit Phase B
 
 ## 4. Employees family (Phase C)
 
 - [ ] 4.1 Create `runtime/repos/employees/drizzle.ts` — extract `employees`, `employeeVersions`
-- [ ] 4.2 Create `runtime/repos/employees/memory.ts` — extract `MemoryEmployeeVersionRepository` class + employees inline impl; re-export class from new location
+- [ ] 4.2 Create `runtime/repos/employees/memory.ts` — move existing `MemoryEmployeeVersionRepository` class + convert inline `employees` to new `MemoryEmployeeRepository` class (D8). `MemoryEmployeeRepository` exposes `.seed(rows)` for `MemoryRepositorySeed`
 - [ ] 4.3 Create `apps/web/src/lib/tauri-repos/employees.ts` — extract from tauri-repos
-- [ ] 4.4 Update memory barrel re-export to source `MemoryEmployeeVersionRepository` from new location
+- [ ] 4.4 Update memory barrel re-export to source `MemoryEmployeeVersionRepository` + new `MemoryEmployeeRepository` from new location
 - [ ] 4.5 Delete corresponding blocks from original files; splice barrel spread
 - [ ] 4.6 `pnpm typecheck` green; commit Phase C
 
 ## 5. Conversations family (Phase D)
 
 - [ ] 5.1 Create `runtime/repos/conversations/drizzle.ts` — extract `toolCalls`, `handoffs`, `meetings`, `activeInteractions`, `interactionHistory`
-- [ ] 5.2 Create `runtime/repos/conversations/memory.ts` — extract `MemoryActiveInteractionRepository`, `MemoryInteractionHistoryRepository` classes + toolCalls/handoffs/meetings inline impl
+- [ ] 5.2 Create `runtime/repos/conversations/memory.ts` — move existing `MemoryActiveInteractionRepository`, `MemoryInteractionHistoryRepository` classes + convert inline `toolCalls`/`handoffs`/`meetings` to new classes: `MemoryToolCallRepository`, `MemoryHandoffRepository`, `MemoryMeetingRepository` (D8)
 - [ ] 5.3 Create `apps/web/src/lib/tauri-repos/conversations.ts`
-- [ ] 5.4 Update memory barrel re-exports (2 class names) to new location
+- [ ] 5.4 Update memory barrel re-exports (5 class names: 2 existing + 3 new) to new location
 - [ ] 5.5 Delete old blocks; splice barrel spread
 - [ ] 5.6 `pnpm typecheck` green; commit Phase D
 
 ## 6. LLM family (Phase E)
 
 - [ ] 6.1 Create `runtime/repos/llm/drizzle.ts` — extract `llmCalls`, `costRates`
-- [ ] 6.2 Create `runtime/repos/llm/memory.ts` — extract `MemoryModelCostRateRepository` class + llmCalls inline impl
+- [ ] 6.2 Create `runtime/repos/llm/memory.ts` — move existing `MemoryModelCostRateRepository` class + convert inline `llmCalls` to new `MemoryLlmCallRepository` class (D8)
 - [ ] 6.3 Create `apps/web/src/lib/tauri-repos/llm.ts`
-- [ ] 6.4 Update memory barrel re-export (`MemoryModelCostRateRepository`) to new location
+- [ ] 6.4 Update memory barrel re-exports (2 class names: 1 existing + 1 new) to new location
 - [ ] 6.5 Delete old blocks; splice barrel spread
 - [ ] 6.6 `pnpm typecheck` green; commit Phase E
 
