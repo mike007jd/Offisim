@@ -204,84 +204,88 @@ export function AppLayout({
         style={{ paddingInline: 'var(--sp-lg)' }}
       >
         {/* ══════ LEFT PANEL ══════ */}
-        <div
-          className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-          style={{
-            width: leftOpen ? `${LEFT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
-            marginBlock: 'var(--sp-lg)',
-          }}
-        >
+        {agentPanel != null && (
           <div
-            className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+            className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
+            style={{
+              width: leftOpen ? `${LEFT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
+              marginBlock: 'var(--sp-lg)',
+            }}
           >
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
-            {leftOpen ? (
-              <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                {agentPanel}
-              </div>
-            ) : (
-              <CollapsedBar
+            <div
+              className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
+              {leftOpen ? (
+                <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                  {agentPanel}
+                </div>
+              ) : (
+                <CollapsedBar
+                  side="left"
+                  icon={Users}
+                  label="Personnel"
+                  ariaLabel="Expand personnel panel"
+                  onClick={() => setLeftOpen(true)}
+                />
+              )}
+            </div>
+            {leftOpen && (
+              <PanelCollapseHandle
                 side="left"
-                icon={Users}
-                label="Personnel"
-                ariaLabel="Expand personnel panel"
-                onClick={() => setLeftOpen(true)}
+                label="Collapse personnel panel"
+                onClick={() => setLeftOpen(false)}
               />
             )}
           </div>
-          {leftOpen && (
-            <PanelCollapseHandle
-              side="left"
-              label="Collapse personnel panel"
-              onClick={() => setLeftOpen(false)}
-            />
-          )}
-        </div>
+        )}
 
         <main className="flex-1 min-w-0 pointer-events-none">
           {centerContent ? <div className="pointer-events-auto h-full">{centerContent}</div> : null}
         </main>
 
         {/* ══════ RIGHT PANEL ══════ */}
-        <div
-          className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-          style={{
-            width: rightOpen ? `${RIGHT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
-            marginBlock: 'var(--sp-lg)',
-          }}
-        >
+        {eventLog != null && (
           <div
-            className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+            className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
+            style={{
+              width: rightOpen ? `${RIGHT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
+              marginBlock: 'var(--sp-lg)',
+            }}
           >
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
             <div
-              aria-hidden={!rightOpen}
-              className={`custom-scrollbar relative z-10 transition-opacity duration-200 ${
-                rightOpen
-                  ? 'flex-1 overflow-y-auto opacity-100 pointer-events-auto'
-                  : 'h-0 overflow-hidden opacity-0 pointer-events-none'
-              }`}
+              className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
             >
-              {eventLog}
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
+              <div
+                aria-hidden={!rightOpen}
+                className={`custom-scrollbar relative z-10 transition-opacity duration-200 ${
+                  rightOpen
+                    ? 'flex-1 overflow-y-auto opacity-100 pointer-events-auto'
+                    : 'h-0 overflow-hidden opacity-0 pointer-events-none'
+                }`}
+              >
+                {eventLog}
+              </div>
+              {!rightOpen && (
+                <CollapsedBar
+                  side="right"
+                  icon={LayoutDashboard}
+                  label="Collaboration"
+                  ariaLabel="Expand collaboration panel"
+                  onClick={() => setRightOpen(true)}
+                />
+              )}
             </div>
-            {!rightOpen && (
-              <CollapsedBar
+            {rightOpen && (
+              <PanelCollapseHandle
                 side="right"
-                icon={LayoutDashboard}
-                label="Collaboration"
-                ariaLabel="Expand collaboration panel"
-                onClick={() => setRightOpen(true)}
+                label="Collapse collaboration panel"
+                onClick={() => setRightOpen(false)}
               />
             )}
           </div>
-          {rightOpen && (
-            <PanelCollapseHandle
-              side="right"
-              label="Collapse collaboration panel"
-              onClick={() => setRightOpen(false)}
-            />
-          )}
-        </div>
+        )}
       </div>
 
       {chatDrawer && (chatDrawerMode === 'always' || isNarrow) ? (

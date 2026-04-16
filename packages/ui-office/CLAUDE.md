@@ -10,7 +10,6 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - `RegistryClient.hasAuthToken`: 调用认证端点（`/me`, `/drafts`）前必须检查, 无 token 时跳过请求
 - `INSTALLABLE_KINDS` (marketplace-meta.tsx): 只有 `employee`。Skill 是嵌入能力包, 不是独立可装实体。`PublishDialog` 只发布 employee, `KIND_FILTERS` 只有 `all`/`employee` 两项
 - `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
-- `OfficeWorkspaceShell` props 三组: `navigation`, `employee`, `sceneView`
 - `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`。**原因**: runtime 拆双 Context, `version` 是 bump 计数器, 不放 deps 闭包会陈旧
 
 ## UI / Scene / 3D

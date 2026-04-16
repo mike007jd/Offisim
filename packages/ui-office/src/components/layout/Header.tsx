@@ -1,5 +1,14 @@
 import { Button } from '@offisim/ui-core';
-import { Building2, ChevronDown, PenTool, Pencil, Settings, Store, Workflow } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  ChevronDown,
+  PenTool,
+  Pencil,
+  Settings,
+  Store,
+  Workflow,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
@@ -7,7 +16,6 @@ type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
 
 interface HeaderProps {
   providerName?: string;
-  /** Current company display name — shown in the company chip. */
   companyName?: string;
   onOpenSettings: () => void;
   onOpenOffice?: () => void;
@@ -18,13 +26,13 @@ interface HeaderProps {
   onOpenCompanyEditor?: () => void;
   onFileImport: (file: File) => void;
   notificationSlot?: ReactNode;
-  /** Slot for project selector dropdown — rendered in the left section. */
   projectSlot?: ReactNode;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
-  /** Show provider setup guidance when runtime config is incomplete. */
   needsConfig?: boolean;
   activeWorkspace?: WorkspaceKey;
+  onBackToOffice?: () => void;
+  workspaceTitle?: string;
 }
 
 export function Header({
@@ -44,8 +52,10 @@ export function Header({
   onViewModeChange,
   needsConfig,
   activeWorkspace = 'office',
+  onBackToOffice,
+  workspaceTitle,
 }: HeaderProps) {
-  const primaryNav = [{ key: 'office' as const, label: 'Office', onClick: onOpenOffice }];
+  const isOffice = activeWorkspace === 'office';
 
   return (
     <header
@@ -56,8 +66,26 @@ export function Header({
         className="flex min-w-0 flex-wrap items-center"
         style={{ columnGap: '0.625rem', rowGap: '0.375rem' }}
       >
-        {/* 2D/3D View Toggle */}
-        {viewMode && onViewModeChange && (
+        {!isOffice && onBackToOffice && (
+          <>
+            <button
+              type="button"
+              onClick={onBackToOffice}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Office
+            </button>
+            <div className="h-5 w-px bg-white/10" />
+            {workspaceTitle && (
+              <h1 className="text-sm font-semibold tracking-wide text-slate-100">
+                {workspaceTitle}
+              </h1>
+            )}
+          </>
+        )}
+
+        {isOffice && viewMode && onViewModeChange && (
           <div className="flex h-8 items-center rounded-full border border-white/10 bg-black/35 px-1">
             <button
               type="button"
@@ -88,8 +116,7 @@ export function Header({
           </div>
         )}
 
-        {/* Company chip — primary identity, always visible */}
-        {onOpenCompanySelect && (
+        {isOffice && onOpenCompanySelect && (
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -120,32 +147,30 @@ export function Header({
           </div>
         )}
 
-        <div className="h-5 w-px bg-white/10" />
+        {isOffice && <div className="h-5 w-px bg-white/10" />}
 
-        <nav
-          aria-label="Primary workspace navigation"
-          className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1"
-        >
-          {primaryNav.map((item) =>
-            item.onClick ? (
+        {isOffice && (
+          <nav
+            aria-label="Primary workspace navigation"
+            className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1"
+          >
+            {onOpenOffice && (
               <button
-                key={item.key}
                 type="button"
-                onClick={item.onClick}
-                aria-label={`${item.label} workspace`}
+                onClick={onOpenOffice}
+                aria-label="Office workspace"
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                  activeWorkspace === item.key
+                  isOffice
                     ? 'border border-cyan-400/30 bg-blue-500/15 text-blue-100'
                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
                 }`}
               >
-                {item.label}
+                Office
               </button>
-            ) : null,
-          )}
-        </nav>
+            )}
+          </nav>
+        )}
 
-        {/* Provider badge */}
         {providerName && (
           <div
             className="flex items-center space-x-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1"
@@ -172,8 +197,7 @@ export function Header({
           </Button>
         )}
 
-        {/* Project selector slot */}
-        {projectSlot}
+        {isOffice && projectSlot}
       </div>
 
       <div className="flex items-center shrink-0" style={{ columnGap: 'var(--sp-sm)' }}>
