@@ -81,8 +81,8 @@
 
 ## 8. Commit
 
-- [ ] 8.1 `git status -s`：确认仅触及 `apps/web/src/App.tsx` / 5 新 hook / 2 新组件 / `openspec/changes/refactor-web-app-shell/**`
-- [ ] 8.2 `git diff --stat` 审一遍增删行数是否合理（预期 App.tsx 删 ~600 行、新文件合计 ~600 行，净变化接近零）
-- [ ] 8.3 创建 apply commit：`refactor(web): split App.tsx into shell composition + single-responsibility hooks`，commit message 里列出 5 hook + 2 组件 + 行数变化
-- [ ] 8.4 Commit 不 amend，不 skip hooks
-- [ ] 8.5 回到 `/opsx:archive refactor-web-app-shell` 阶段：sync canonical spec 到 `openspec/specs/web-app-shell-boundaries/spec.md`
+- [x] 8.1 `git status -s`：仅触及 `apps/web/src/App.tsx` (modified) + 5 hook 新增 + 3 render-only component 新增 (AppOverlayHost / AppGlobalDialogs / AppMainShell — 3.4 apply-phase 新增一层) + openspec artifacts ✓
+- [x] 8.2 `git diff --stat` App.tsx 单文件：-630 +174（净 -456 行），新文件合计 ~1433 行 — 净增加是因为每个 hook/component 带完整 type interface + JSDoc 导入路径等
+- [x] 8.3 创建 apply commit `af2cf6a refactor(web): split App.tsx into shell composition + single-responsibility hooks`
+- [x] 8.4 Commit 未 amend，未 skip hooks（默认 biome pre-commit gate 通过，web app 修改无 core/ui-office hook 触发）
+- [ ] 8.5 回到 `/opsx:archive refactor-web-app-shell` 阶段：sync canonical spec 到 `openspec/specs/web-app-shell-boundaries/spec.md`（下一步 `/opsx:archive` 命令里执行）
