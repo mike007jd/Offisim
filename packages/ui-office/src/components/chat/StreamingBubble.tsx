@@ -32,7 +32,7 @@ export function StreamingBubble({
   isStreaming,
   nodeName,
 }: StreamingBubbleProps) {
-  if (!isStreaming && !content && !reasoning) return null;
+  if (!nodeName && !content && !reasoning) return null;
 
   const label = nodeName ? (NODE_DISPLAY_NAMES[nodeName] ?? nodeName) : null;
   const badgeColor = nodeName
@@ -41,8 +41,9 @@ export function StreamingBubble({
   const placeholder = nodeName
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
-  const showPlaceholder = !content && !reasoning && isStreaming;
+  const showPlaceholder = !content && !reasoning && !!nodeName;
   const displayContent = content || (showPlaceholder ? placeholder : '');
+  const showPulseWhileWaiting = isStreaming && !content;
 
   return (
     <div className="flex flex-col items-start">
@@ -61,17 +62,12 @@ export function StreamingBubble({
           {reasoning}
         </div>
       )}
-      {(displayContent || (!content && !reasoning && isStreaming)) && (
+      {(displayContent || showPulseWhileWaiting) && (
         <div className="max-w-[94%] border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
           {displayContent}
-          {isStreaming && content && (
+          {(isStreaming || showPlaceholder) && (
             <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
           )}
-        </div>
-      )}
-      {isStreaming && !content && reasoning && (
-        <div className="max-w-[94%] rounded-xl border border-blue-400/20 bg-white/5 px-3 py-1.5 text-sm text-slate-400">
-          <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
         </div>
       )}
     </div>
