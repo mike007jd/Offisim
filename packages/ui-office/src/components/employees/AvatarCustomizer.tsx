@@ -8,6 +8,7 @@ interface AvatarCustomizerProps {
   onChange: (config: AvatarAppearance) => void;
 }
 
+// Manual-config palettes, independent from seed-derived SKIN_TONES in avatar-seed.ts.
 const SKIN_COLORS: { value: number; label: string }[] = [
   { value: 0xfde8d5, label: 'Light' },
   { value: 0xfdbcb4, label: 'Fair' },
