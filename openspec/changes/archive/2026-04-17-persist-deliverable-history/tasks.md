@@ -65,7 +65,7 @@
 
 ## 8. Close Out
 
-- [ ] 8.1 `openspec validate persist-deliverable-history --strict` 通过
-- [ ] 8.2 commit 用一条 message 收口（feat 范围 core + db-local + ui-office），body 简述"为什么"
-- [ ] 8.3 跑 `/opsx:archive persist-deliverable-history` → 归档到 `openspec/changes/archive/` → canonical spec 同步
+- [x] 8.1 `openspec validate persist-deliverable-history --strict` 通过（两轮：apply 后 + simplify 后）
+- [x] 8.2 commit 收口：apply `c86c3e64` + simplify `111fa68f`（simplify 不算 rework，算 apply 自然延伸 — live verify 发现 spec scenario 错 + 3 个 reviewer 挑出 SSOT / 未校验 cast / N² merge，全部吸收）
+- [ ] 8.3 跑 `/opsx:archive persist-deliverable-history` → 归档到 `openspec/changes/archive/` → canonical spec 同步（正在跑）
 - [ ] 8.4 更新 project memory queue 文件（`project_next_change_queue.md`）：H1 状态 → `[x] archived` + archive commit SHA；提示下一条 H2 `unify-deliverable-card-surfaces`
