@@ -32,7 +32,6 @@ import {
   loadProviderConfig,
   loadStoredBrowserMcpServers,
   mapDeliverableFullRowToHookRow,
-  mapDeliverableSummaryToHookRow,
   terminateRunWithError,
   useChatStreamingSync,
 } from '@offisim/ui-office/web';
@@ -487,28 +486,18 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     runtime.orch.abortExecution(runtime.runtimeCtx.threadId);
   }, []);
 
-  // Eager hydrate: pull summary then resolve full content per row. Typical
-  // deliverable is 20–100 KB and storage is local SQLite, so N+1 findById is
-  // cheap and removes the UI-side lazy-load branch. `loadDeliverableContent`
-  // below stays available for callers that refresh a single row.
+  // Single round-trip hydrate: one `listByCompanyWithContent` call returns all
+  // full rows (Tauri: one SQL IPC; memory: map scan + parallel IDB content
+  // loads). `loadDeliverableContent` below stays available for single-row
+  // refresh scenarios.
   const listRecentDeliverables = useCallback(
     async (opts?: { threadId?: string; limit?: number }): Promise<DeliverableHookRow[]> => {
       const runtime = runtimeRef.current;
       const repo = runtime?.repos?.deliverables;
       if (!repo) return [];
       try {
-        const summaries = await repo.listByCompany(companyId, opts);
-        const fullRows = await Promise.all(summaries.map((s) => repo.findById(s.deliverable_id)));
-        const resolved: DeliverableHookRow[] = [];
-        for (let i = 0; i < summaries.length; i++) {
-          const full = fullRows[i];
-          const summary = summaries[i];
-          if (!summary) continue;
-          resolved.push(
-            full ? mapDeliverableFullRowToHookRow(full) : mapDeliverableSummaryToHookRow(summary),
-          );
-        }
-        return resolved;
+        const rows = await repo.listByCompanyWithContent(companyId, opts);
+        return rows.map(mapDeliverableFullRowToHookRow);
       } catch (err) {
         console.error('[OffisimRuntime] listRecentDeliverables failed', err);
         return [];

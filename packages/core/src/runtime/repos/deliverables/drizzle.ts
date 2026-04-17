@@ -114,6 +114,23 @@ export function createDeliverablesDrizzleRepos(db: Db): DeliverablesDrizzleRepos
         .all();
       return rows.map((r) => rowToSummary(r as Parameters<typeof rowToSummary>[0]));
     },
+    async listByCompanyWithContent(companyId, opts) {
+      const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
+      const whereClause = opts?.threadId
+        ? and(
+            eq(schema.deliverables.company_id, companyId),
+            eq(schema.deliverables.thread_id, opts.threadId),
+          )
+        : eq(schema.deliverables.company_id, companyId);
+      const rows = db
+        .select()
+        .from(schema.deliverables)
+        .where(whereClause)
+        .orderBy(desc(schema.deliverables.created_at))
+        .limit(limit)
+        .all();
+      return rows.map((r) => rowToFull(r as Parameters<typeof rowToFull>[0]));
+    },
   };
 
   return { deliverables };

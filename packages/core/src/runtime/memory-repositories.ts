@@ -1,5 +1,6 @@
 import { createAgentEventsMemoryRepos } from './repos/agent-events/memory.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
+import type { DeliverableContentLoader } from './repos/deliverables/memory.js';
 import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
@@ -74,6 +75,7 @@ export type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/m
 
 export function createMemoryRepositories(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
+  deliverableContentLoader?: DeliverableContentLoader,
 ): RuntimeRepositories & { seed: MemoryRepositorySeed; snapshot(): MemoryRepositoriesSnapshot } {
   const orchestration = createOrchestrationMemoryRepos(snapshot);
   const employeesFamily = createEmployeesMemoryRepos(snapshot);
@@ -86,7 +88,7 @@ export function createMemoryRepositories(
   const workspaceFamily = createWorkspaceMemoryRepos(snapshot);
   const projectsFamily = createProjectsMemoryRepos(snapshot);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
-  const deliverablesFamily = createDeliverablesMemoryRepos(snapshot);
+  const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {

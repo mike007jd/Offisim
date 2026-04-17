@@ -232,6 +232,7 @@ export {
   MemoryOfficeLayoutRepository,
 } from './runtime/memory-repositories.js';
 export type { MemoryRepositoriesSnapshot } from './runtime/memory-repositories.js';
+export type { DeliverableContentLoader } from './runtime/repos/deliverables/memory.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
 export { MemoryUserPreferenceRepository } from './repositories/memory-user-preference-repository.js';
 export { createMemoryInstallRepositories } from './runtime/memory-install-repos.js';

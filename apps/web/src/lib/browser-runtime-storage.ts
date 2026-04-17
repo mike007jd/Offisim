@@ -1,7 +1,9 @@
 import type { createMemoryRepositories } from '@offisim/core/browser';
+import { mapDeliverablePayloadToRow } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { MemoryRepositoriesSnapshot } from '@offisim/core/browser';
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { DeliverableCreatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import { putDeliverableContent } from './deliverable-content-idb';
 
 const STORAGE_KEY = 'offisim:browser-runtime-snapshot:v1';
 const EVENT_HISTORY_KEY = 'offisim:browser-event-history:v1';
@@ -83,6 +85,37 @@ export function loadBrowserRuntimeBootstrapState(
   return {
     reposSnapshot: loadBrowserRuntimeSnapshot(storage),
     eventHistory: loadBrowserEventHistory(storage),
+  };
+}
+
+export interface DeliverableContentBridgeOptions {
+  readonly eventBus: InMemoryEventBus;
+  readonly db: IDBDatabase | null;
+}
+
+export function createDeliverableContentBridge({
+  eventBus,
+  db,
+}: DeliverableContentBridgeOptions): { dispose(): void } {
+  if (!db) {
+    return { dispose() {} };
+  }
+  const unsubscribe = eventBus.on(
+    'deliverable.created',
+    (event: RuntimeEvent<DeliverableCreatedPayload>) => {
+      const row = mapDeliverablePayloadToRow(event);
+      void putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
+        console.error(
+          `[deliverable-content-idb] failed to write ${row.deliverable_id}`,
+          err,
+        );
+      });
+    },
+  );
+  return {
+    dispose() {
+      unsubscribe();
+    },
   };
 }
 

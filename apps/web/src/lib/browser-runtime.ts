@@ -53,8 +53,14 @@ import { BrowserMcpClientFactory } from './browser-mcp-client';
 import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
+  createDeliverableContentBridge,
   loadBrowserRuntimeSnapshot,
 } from './browser-runtime-storage';
+import {
+  getDeliverableContent,
+  openDeliverableContentDb,
+  putDeliverableContent,
+} from './deliverable-content-idb';
 import { loadExternalDepartments } from './external-departments';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import type { VaultActivation } from './vault-activation';
@@ -90,6 +96,38 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
 
 async function ensureCostRates(repos: ReturnType<typeof createMemoryRepositories>) {
   await seedDefaultCostRatesIfEmpty(repos);
+}
+
+interface MaybeLegacyDeliverableRow {
+  deliverable_id?: string;
+  content?: string;
+}
+
+/**
+ * Migrate inline `content` bytes from a pre-H2 localStorage snapshot into IDB.
+ * Fire-and-forget: runs in the background so runtime ready is not blocked.
+ * The next snapshot flush will naturally overwrite the legacy shape with the
+ * new summary-only form produced by `MemoryDeliverableRepository.snapshot()`.
+ */
+function migrateLegacyDeliverableContent(
+  db: IDBDatabase,
+  snapshot: { deliverables?: readonly unknown[] } | null | undefined,
+): void {
+  const rows = snapshot?.deliverables;
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  void Promise.all(
+    rows.map((raw) => {
+      const row = raw as MaybeLegacyDeliverableRow;
+      if (typeof row.deliverable_id !== 'string' || typeof row.content !== 'string') return null;
+      if (row.content.length === 0) return null;
+      return putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
+        console.warn(
+          `[browser-runtime] legacy deliverable content migration failed for ${row.deliverable_id}`,
+          err,
+        );
+      });
+    }),
+  );
 }
 
 const IS_DEV = import.meta.env.DEV;
@@ -135,13 +173,23 @@ export async function createBrowserRuntime(
 
   const threadId = `thread-${companyId}`;
   const externalDepartments = loadExternalDepartments();
-  const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
+  const snapshot = loadBrowserRuntimeSnapshot();
+  const deliverableContentDb = await openDeliverableContentDb();
+  if (deliverableContentDb) migrateLegacyDeliverableContent(deliverableContentDb, snapshot);
+  const contentLoader = deliverableContentDb
+    ? (id: string) => getDeliverableContent(deliverableContentDb, id)
+    : undefined;
+  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
+  });
+  const deliverableContentBridge = createDeliverableContentBridge({
+    eventBus,
+    db: deliverableContentDb,
   });
 
   const proxyBaseURL =
@@ -317,6 +365,7 @@ export async function createBrowserRuntime(
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
       deliverablePersistence.dispose();
+      deliverableContentBridge.dispose();
       persistence.dispose();
       installService.dispose();
     },
@@ -335,13 +384,23 @@ export async function createBrowserRuntimeReposOnly(
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
   const externalDepartments = loadExternalDepartments();
-  const repos = createMemoryRepositories(loadBrowserRuntimeSnapshot() ?? undefined);
+  const snapshot = loadBrowserRuntimeSnapshot();
+  const deliverableContentDb = await openDeliverableContentDb();
+  if (deliverableContentDb) migrateLegacyDeliverableContent(deliverableContentDb, snapshot);
+  const contentLoader = deliverableContentDb
+    ? (id: string) => getDeliverableContent(deliverableContentDb, id)
+    : undefined;
+  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
+  });
+  const deliverableContentBridge = createDeliverableContentBridge({
+    eventBus,
+    db: deliverableContentDb,
   });
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
@@ -394,6 +453,7 @@ export async function createBrowserRuntimeReposOnly(
     dispose: () => {
       browserVault.dispose();
       deliverablePersistence.dispose();
+      deliverableContentBridge.dispose();
       persistence.dispose();
     },
   };

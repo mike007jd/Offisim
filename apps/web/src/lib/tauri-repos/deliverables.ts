@@ -112,6 +112,22 @@ export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTa
         .limit(limit)) as Array<Parameters<typeof rowToSummary>[0]>;
       return rows.map(rowToSummary);
     },
+    async listByCompanyWithContent(companyId, opts) {
+      const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
+      const whereClause = opts?.threadId
+        ? and(
+            eq(schema.deliverables.company_id, companyId),
+            eq(schema.deliverables.thread_id, opts.threadId),
+          )
+        : eq(schema.deliverables.company_id, companyId);
+      const rows = (await db
+        .select()
+        .from(schema.deliverables)
+        .where(whereClause)
+        .orderBy(desc(schema.deliverables.created_at))
+        .limit(limit)) as Array<Parameters<typeof rowToFull>[0]>;
+      return rows.map(rowToFull);
+    },
   };
 
   return { deliverables };
