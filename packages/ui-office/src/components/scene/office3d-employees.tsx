@@ -14,6 +14,7 @@ import {
   computeWorkspaceFallbackSeatPosition,
 } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
+import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
@@ -196,7 +197,7 @@ function StatusBubble3D({
   const label = STATE_LABELS[state];
   if (!label) return null;
 
-  const isBlocked = state === 'blocked' || state === 'failed';
+  const isBlocked = isEmployeeBlocked(state);
   const isReporting = state === 'reporting';
   const isWorking = state === 'executing';
 

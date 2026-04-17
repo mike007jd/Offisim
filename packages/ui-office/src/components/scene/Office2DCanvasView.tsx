@@ -21,6 +21,7 @@ import {
 import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
@@ -325,7 +326,7 @@ export default function Office2DCanvasView({
           statusColor,
           state: emp.agent.state,
           stateLabel,
-          isBlocked: emp.agent.state === 'blocked' || emp.agent.state === 'failed',
+          isBlocked: isEmployeeBlocked(emp.agent.state),
           isSuccess: emp.agent.state === 'success',
           isWorking:
             emp.agent.state === 'executing' ||
@@ -356,7 +357,7 @@ export default function Office2DCanvasView({
           statusColor,
           state: emp.agent.state,
           stateLabel,
-          isBlocked: emp.agent.state === 'blocked' || emp.agent.state === 'failed',
+          isBlocked: isEmployeeBlocked(emp.agent.state),
           isSuccess: emp.agent.state === 'success',
           isWorking:
             emp.agent.state === 'executing' ||
@@ -382,7 +383,7 @@ export default function Office2DCanvasView({
         statusColor,
         state: agent.state,
         stateLabel,
-        isBlocked: agent.state === 'blocked' || agent.state === 'failed',
+        isBlocked: isEmployeeBlocked(agent.state),
         isSuccess: agent.state === 'success',
         isWorking:
           agent.state === 'executing' ||

@@ -6,8 +6,8 @@ import type {
 } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useActiveEmployeeCount } from '../runtime/use-active-employee-count.js';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
+import { useActiveEmployeeCount } from '../runtime/use-active-employee-count.js';
 
 export interface DashboardMetrics {
   activeTaskCount: number;
@@ -163,6 +163,7 @@ export function useDashboardMetrics(): DashboardMetrics {
     setMetrics(updater);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeCompanyId is an intentional trigger — re-runs reset + re-binds subscriptions on company switch even though the body doesn't read it
   useEffect(() => {
     // Reset accumulators on company switch so data doesn't bleed across companies.
     // Employee count is owned by useActiveEmployeeCount and resets independently

@@ -17,7 +17,10 @@ import type {
   SceneInteractionWaitingPayload,
   SceneTaskDispatchedPayload,
 } from '../../runtime/scene-intents.js';
-import { useActiveEmployeeCount } from '../../runtime/use-active-employee-count.js';
+import {
+  isEmployeeBlocked,
+  useActiveEmployeeCount,
+} from '../../runtime/use-active-employee-count.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import {
   DRAG_THRESHOLD_PX,
@@ -144,7 +147,7 @@ export function useOffice3DViewState({
       if (agent.state !== 'idle') {
         activity[zoneId].count++;
       }
-      if (agent.state === 'blocked' || agent.state === 'failed') {
+      if (isEmployeeBlocked(agent.state)) {
         activity[zoneId].blocked = true;
       }
     }

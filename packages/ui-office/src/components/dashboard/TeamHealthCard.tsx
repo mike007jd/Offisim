@@ -2,6 +2,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@of
 import { HeartPulse } from 'lucide-react';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
+import { isEmployeeActive, isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 
@@ -66,13 +67,8 @@ function EmployeeHealthRow({ id, agent }: { id: string; agent: AgentState }) {
 // ---------------------------------------------------------------------------
 
 export function TeamHealthCard({ agents }: TeamHealthCardProps) {
-  // Compute summary counts for the header
-  const activeCount = [...agents.values()].filter(
-    (a) => a.state !== 'idle' && a.state !== 'failed' && a.state !== 'blocked',
-  ).length;
-  const blockedCount = [...agents.values()].filter(
-    (a) => a.state === 'blocked' || a.state === 'failed',
-  ).length;
+  const activeCount = [...agents.values()].filter((a) => isEmployeeActive(a.state)).length;
+  const blockedCount = [...agents.values()].filter((a) => isEmployeeBlocked(a.state)).length;
 
   return (
     <Card>

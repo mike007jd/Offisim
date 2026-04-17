@@ -2,6 +2,7 @@ import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import type { DragState3D, FlowLineData } from './office3d-shared.js';
@@ -407,9 +408,7 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
 
   const { targetColor, targetIntensity } = useMemo(() => {
     const values = [...agents.values()];
-    const hasBlocked = values.some(
-      (agent) => agent.state === 'blocked' || agent.state === 'failed',
-    );
+    const hasBlocked = values.some((agent) => isEmployeeBlocked(agent.state));
     const hasActive = values.some((agent) => agent.state !== 'idle');
     const hasMeeting = values.some((agent) => agent.state === 'meeting');
     const color = hasBlocked

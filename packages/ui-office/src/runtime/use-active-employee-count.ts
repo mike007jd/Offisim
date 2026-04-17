@@ -27,12 +27,12 @@ const ACTIVE_STATES: ReadonlySet<EmployeeState> = new Set<EmployeeState>([
 
 const BLOCKED_STATES: ReadonlySet<EmployeeState> = new Set<EmployeeState>(['blocked', 'failed']);
 
-export function isEmployeeActive(state: EmployeeState): boolean {
-  return ACTIVE_STATES.has(state);
+export function isEmployeeActive(state: string): boolean {
+  return ACTIVE_STATES.has(state as EmployeeState);
 }
 
-export function isEmployeeBlocked(state: EmployeeState): boolean {
-  return BLOCKED_STATES.has(state);
+export function isEmployeeBlocked(state: string): boolean {
+  return BLOCKED_STATES.has(state as EmployeeState);
 }
 
 function deriveCounts(states: ReadonlyMap<string, EmployeeState>): ActiveEmployeeCount {
@@ -43,6 +43,10 @@ function deriveCounts(states: ReadonlyMap<string, EmployeeState>): ActiveEmploye
     else if (isEmployeeBlocked(state)) blocked++;
   }
   return { active, total: states.size, blocked };
+}
+
+function sameCounts(a: ActiveEmployeeCount, b: ActiveEmployeeCount): boolean {
+  return a.active === b.active && a.total === b.total && a.blocked === b.blocked;
 }
 
 function getBootstrapEmployeeCount(
@@ -91,7 +95,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
         }
       }
     }
-    setCounts(deriveCounts(statesRef.current));
+    setCounts((prev) => {
+      const next = deriveCounts(statesRef.current);
+      return sameCounts(prev, next) ? prev : next;
+    });
 
     if (!repos || !activeCompanyId) return;
     let cancelled = false;
@@ -103,7 +110,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
           states.set(row.employee_id, 'idle');
         }
       }
-      setCounts(deriveCounts(states));
+      setCounts((prev) => {
+        const next = deriveCounts(states);
+        return sameCounts(prev, next) ? prev : next;
+      });
     });
     return () => {
       cancelled = true;
@@ -117,7 +127,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
     for (const employeeId of states.keys()) {
       states.set(employeeId, 'idle');
     }
-    setCounts(deriveCounts(states));
+    setCounts((prev) => {
+      const next = deriveCounts(states);
+      return sameCounts(prev, next) ? prev : next;
+    });
   }, [isRunning]);
 
   // Live event subscriptions — state transitions, roster add/remove.
@@ -130,7 +143,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
         const prev = states.get(employeeId);
         if (prev === next) return;
         states.set(employeeId, next);
-        setCounts(deriveCounts(states));
+        setCounts((prev) => {
+          const next = deriveCounts(states);
+          return sameCounts(prev, next) ? prev : next;
+        });
       },
     );
 
@@ -140,7 +156,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
         const states = statesRef.current;
         if (states.has(event.payload.employeeId)) return;
         states.set(event.payload.employeeId, 'idle');
-        setCounts(deriveCounts(states));
+        setCounts((prev) => {
+          const next = deriveCounts(states);
+          return sameCounts(prev, next) ? prev : next;
+        });
       },
     );
 
@@ -149,7 +168,10 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
       (event: RuntimeEvent<EmployeeDeletedPayload>) => {
         const states = statesRef.current;
         if (!states.delete(event.payload.employeeId)) return;
-        setCounts(deriveCounts(states));
+        setCounts((prev) => {
+          const next = deriveCounts(states);
+          return sameCounts(prev, next) ? prev : next;
+        });
       },
     );
 
