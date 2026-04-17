@@ -19,17 +19,20 @@ import type {
   InteractionResolvedPayload,
 } from '@offisim/shared-types';
 import {
+  type DeliverableHookRow,
   InMemorySceneIntentBus,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
   type OffisimRuntimeStatusValue,
-  type VaultDirectoryStatus,
   type OffisimRuntimeValue,
   SceneIntentDispatcher,
+  type VaultDirectoryStatus,
   disposeEventLogStore,
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
+  mapDeliverableFullRowToHookRow,
+  mapDeliverableSummaryToHookRow,
   terminateRunWithError,
   useChatStreamingSync,
 } from '@offisim/ui-office/web';
@@ -484,6 +487,52 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     runtime.orch.abortExecution(runtime.runtimeCtx.threadId);
   }, []);
 
+  // Eager hydrate: pull summary then resolve full content per row. Typical
+  // deliverable is 20–100 KB and storage is local SQLite, so N+1 findById is
+  // cheap and removes the UI-side lazy-load branch. `loadDeliverableContent`
+  // below stays available for callers that refresh a single row.
+  const listRecentDeliverables = useCallback(
+    async (opts?: { threadId?: string; limit?: number }): Promise<DeliverableHookRow[]> => {
+      const runtime = runtimeRef.current;
+      const repo = runtime?.repos?.deliverables;
+      if (!repo) return [];
+      try {
+        const summaries = await repo.listByCompany(companyId, opts);
+        const fullRows = await Promise.all(summaries.map((s) => repo.findById(s.deliverable_id)));
+        const resolved: DeliverableHookRow[] = [];
+        for (let i = 0; i < summaries.length; i++) {
+          const full = fullRows[i];
+          const summary = summaries[i];
+          if (!summary) continue;
+          resolved.push(
+            full ? mapDeliverableFullRowToHookRow(full) : mapDeliverableSummaryToHookRow(summary),
+          );
+        }
+        return resolved;
+      } catch (err) {
+        console.error('[OffisimRuntime] listRecentDeliverables failed', err);
+        return [];
+      }
+    },
+    [companyId],
+  );
+
+  const loadDeliverableContent = useCallback(
+    async (deliverableId: string): Promise<DeliverableHookRow | null> => {
+      const runtime = runtimeRef.current;
+      const repo = runtime?.repos?.deliverables;
+      if (!repo) return null;
+      try {
+        const row = await repo.findById(deliverableId);
+        return row ? mapDeliverableFullRowToHookRow(row) : null;
+      } catch (err) {
+        console.error('[OffisimRuntime] loadDeliverableContent failed', err);
+        return null;
+      }
+    },
+    [],
+  );
+
   // Auto-connect saved MCP servers on runtime init
   // biome-ignore lint/correctness/useExhaustiveDependencies: version triggers reconnect on reinit
   useEffect(() => {
@@ -662,6 +711,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         ? () => runtime.browserVault!.unmount() as Promise<VaultDirectoryStatus>
         : undefined,
       exportVaultSnapshotZip: undefined,
+      listRecentDeliverables,
+      loadDeliverableContent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- version forces reinit
   }, [
@@ -683,6 +734,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     pendingInteraction,
     setInteractionMode,
     respondToInteraction,
+    listRecentDeliverables,
+    loadDeliverableContent,
   ]);
 
   return (

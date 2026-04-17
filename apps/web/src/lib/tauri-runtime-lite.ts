@@ -5,6 +5,7 @@
  * and editing without requiring an API key. Data persists to SQLite so it
  * survives reinitRuntime() calls.
  */
+import { DeliverablePersistenceService } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
@@ -18,6 +19,10 @@ export async function createTauriRuntimeReposOnly(
 ): Promise<RuntimeBundle> {
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  const deliverablePersistence = new DeliverablePersistenceService({
+    eventBus,
+    repo: repos.deliverables,
+  });
 
   await seedDefaultCostRatesIfEmpty(repos);
 
@@ -37,6 +42,9 @@ export async function createTauriRuntimeReposOnly(
     repos,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
-    dispose: vaultActivation ? () => vaultActivation.dispose() : undefined,
+    dispose: () => {
+      deliverablePersistence.dispose();
+      vaultActivation?.dispose();
+    },
   };
 }

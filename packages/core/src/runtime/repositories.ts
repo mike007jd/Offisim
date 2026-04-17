@@ -844,6 +844,55 @@ export interface AgentEventRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Deliverables (structured artifact history)
+// ---------------------------------------------------------------------------
+
+export type DeliverableKind = 'document' | 'file';
+
+export interface DeliverableContributor {
+  employeeId: string;
+  employeeName: string;
+  sourceKind?: 'employee' | 'department';
+  roleSlug: RoleSlug;
+}
+
+export interface DeliverableRow {
+  deliverable_id: string;
+  company_id: string;
+  thread_id: string | null;
+  title: string;
+  content: string;
+  kind: DeliverableKind | null;
+  file_name: string | null;
+  mime_type: string | null;
+  /** JSON-stringified DeliverableContributor[] */
+  contributors_json: string;
+  created_at: string;
+}
+
+export type NewDeliverable = DeliverableRow;
+
+/** Metadata-only projection — `content` is omitted; `content_size` is byte length. */
+export type DeliverableSummaryRow = Omit<DeliverableRow, 'content'> & {
+  content_size: number;
+};
+
+export interface DeliverableRepository {
+  /** Idempotent insert keyed on deliverable_id (INSERT OR IGNORE semantics). */
+  insert(row: NewDeliverable): Promise<void>;
+  /** Returns the full row including content, or null if not found. */
+  findById(deliverableId: string): Promise<DeliverableRow | null>;
+  /**
+   * Lists deliverables for a company, newest first. Excludes `content`; rows
+   * carry `content_size` (UTF-8 byte length) instead. Default limit is 100.
+   */
+  listByCompany(
+    companyId: string,
+    opts?: { threadId?: string; limit?: number },
+  ): Promise<DeliverableSummaryRow[]>;
+}
+
+// ---------------------------------------------------------------------------
 // Recovery knowledge (persistent learning)
 // ---------------------------------------------------------------------------
 
@@ -914,6 +963,8 @@ export interface RuntimeRepositories {
   agentEvents?: AgentEventRepository;
   /** Recovery knowledge base — optional for backward compatibility. */
   recoveryKnowledge?: RecoveryKnowledgeRepository;
+  /** Deliverable artifact history — optional for backward compatibility. */
+  deliverables?: DeliverableRepository;
   /**
    * Wraps a synchronous callback in a DB transaction.
    * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.

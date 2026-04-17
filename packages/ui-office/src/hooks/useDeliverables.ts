@@ -22,39 +22,67 @@ export interface Deliverable {
   createdAt: number;
 }
 
+function fallbackDedupeKey(d: Pick<Deliverable, 'threadId' | 'artifact'>): string {
+  return `${d.threadId}|${d.artifact.kind}|${d.artifact.fileName ?? ''}|${d.artifact.content}`;
+}
+
+/**
+ * Merge a new deliverable into an existing list with id-first dedup, falling
+ * back to the legacy `(threadId + kind + fileName + content)` tuple only when
+ * `id` is missing. Newest-first ordering is preserved by `createdAt`.
+ */
+function upsertDeliverable(list: Deliverable[], next: Deliverable): Deliverable[] {
+  const byId = next.id
+    ? list.filter((existing) => existing.id !== next.id)
+    : list.filter((existing) => fallbackDedupeKey(existing) !== fallbackDedupeKey(next));
+  const merged = [...byId, next];
+  merged.sort((a, b) => b.createdAt - a.createdAt);
+  return merged;
+}
+
 export function useDeliverables(): Deliverable[] {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus, listRecentDeliverables } = useOffisimRuntime();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
 
   useEffect(() => {
-    // Clear stale deliverables when eventBus changes (runtime reinit)
     setDeliverables([]);
+    let cancelled = false;
+
+    // Subscribe BEFORE awaiting hydrate so live events that arrive mid-hydrate
+    // are captured. `upsertDeliverable` dedups by id regardless of order.
     const off = eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
       const { deliverableId, threadId, title, contributingEmployees, createdAt } = e.payload;
       const artifact = resolveDeliverableArtifact(e.payload);
-      setDeliverables((prev) => [
-        ...prev.filter(
-          (existing) =>
-            !(
-              existing.threadId === threadId &&
-              existing.artifact.kind === artifact.kind &&
-              existing.artifact.fileName === artifact.fileName &&
-              existing.artifact.content === artifact.content
-            ),
-        ),
-        {
-          id: deliverableId,
-          threadId,
-          title: getDeliverableDisplayTitle(title, artifact),
-          content: artifact.content,
-          artifact,
-          contributingEmployees,
-          createdAt,
-        },
-      ]);
+      const row: Deliverable = {
+        id: deliverableId,
+        threadId,
+        title: getDeliverableDisplayTitle(title, artifact),
+        content: artifact.content,
+        artifact,
+        contributingEmployees,
+        createdAt,
+      };
+      setDeliverables((prev) => upsertDeliverable(prev, row));
     });
-    return off;
-  }, [eventBus]);
+
+    if (listRecentDeliverables) {
+      void listRecentDeliverables({ limit: 100 }).then((history) => {
+        if (cancelled) return;
+        setDeliverables((prev) => {
+          let merged = prev;
+          for (const item of history) {
+            merged = upsertDeliverable(merged, item);
+          }
+          return merged;
+        });
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, [eventBus, listRecentDeliverables]);
 
   return deliverables;
 }

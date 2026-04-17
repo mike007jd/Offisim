@@ -1,21 +1,23 @@
 import { createAgentEventsMemoryRepos } from './repos/agent-events/memory.js';
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
+import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createInstallMemoryRepos } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
+import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
 import { createProjectsMemoryRepos } from './repos/projects/memory.js';
 import { createWorkspaceMemoryRepos } from './repos/workspace/memory.js';
-import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
 import type { RuntimeRepositories } from './repositories.js';
 
 export {
   MemoryAgentEventRepository,
   MemoryRecoveryKnowledgeRepository,
 } from './repos/agent-events/memory.js';
+export { MemoryDeliverableRepository } from './repos/deliverables/memory.js';
 export {
   MemoryActiveInteractionRepository,
   MemoryHandoffRepository,
@@ -84,6 +86,7 @@ export function createMemoryRepositories(
   const workspaceFamily = createWorkspaceMemoryRepos(snapshot);
   const projectsFamily = createProjectsMemoryRepos(snapshot);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
+  const deliverablesFamily = createDeliverablesMemoryRepos(snapshot);
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -106,6 +109,7 @@ export function createMemoryRepositories(
     ...workspaceFamily,
     ...projectsFamily,
     ...agentEventsFamily,
+    ...deliverablesFamily,
     seed,
     snapshot(): MemoryRepositoriesSnapshot {
       return {
@@ -145,6 +149,7 @@ export function createMemoryRepositories(
         projectAssignments: projectsFamily.projectAssignments.snapshot(),
         agentEvents: agentEventsFamily.agentEvents.snapshot(),
         recoveryKnowledge: agentEventsFamily.recoveryKnowledge.snapshot(),
+        deliverables: deliverablesFamily.deliverables.snapshot(),
       };
     },
   };

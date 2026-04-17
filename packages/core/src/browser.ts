@@ -101,6 +101,12 @@ export type {
   ProjectRepository,
   UserPreferenceRepository,
   UserPreferenceRow,
+  DeliverableRepository,
+  DeliverableRow,
+  DeliverableSummaryRow,
+  DeliverableKind,
+  DeliverableContributor,
+  NewDeliverable,
 } from './runtime/repositories.js';
 export type { InstallTransactionRepository } from './repos/install-transaction-repository.js';
 export type { InstalledPackageRepository } from './repos/installed-package-repository.js';
@@ -260,6 +266,11 @@ export type {
   GitAutoCommitResult,
 } from './services/git-auto-commit-service.js';
 export { ToolTelemetryService } from './services/tool-telemetry-service.js';
+export {
+  DeliverablePersistenceService,
+  mapPayloadToRow as mapDeliverablePayloadToRow,
+} from './services/deliverable-persistence-service.js';
+export type { DeliverablePersistenceServiceOptions } from './services/deliverable-persistence-service.js';
 export { InteractionService } from './services/interaction-service.js';
 export { AgentContextPackService } from './services/agent-context-pack-service.js';
 export type { AgentContextPackDeps } from './services/agent-context-pack-service.js';

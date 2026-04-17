@@ -10,6 +10,7 @@ import type {
 import type { InstallService } from '@offisim/install-core';
 import type { InteractionMode, InteractionRequest, RuntimeEvent } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
+import type { DeliverableHookRow } from '../lib/deliverable-artifacts.js';
 import type { SceneIntentBus } from './scene-intents.js';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,20 @@ export interface OffisimRuntimeValue {
     selectedOptionId: string,
     freeformResponse?: string,
   ) => Promise<string | undefined>;
+  /**
+   * List persisted deliverables for the active company, newest first.
+   * Summary-shape rows: `content` is empty until `loadDeliverableContent(id)` hydrates it.
+   * Returns `[]` when `repos.deliverables` is unavailable (e.g. browser-only session).
+   */
+  listRecentDeliverables?: (opts?: {
+    threadId?: string;
+    limit?: number;
+  }) => Promise<DeliverableHookRow[]>;
+  /**
+   * Lazy-load full content for a summary-shape deliverable row.
+   * Returns `null` when the row is absent from storage.
+   */
+  loadDeliverableContent?: (deliverableId: string) => Promise<DeliverableHookRow | null>;
   /** Desktop-only local vault root. Null in browser mode. */
   desktopVaultRoot?: string | null;
   /** Browser-only live vault status / controls. Undefined in desktop mode. */

@@ -6,6 +6,7 @@ import type {
   AgentEventRow,
   CompactSummaryRow,
   CompanyRow,
+  DeliverableRow,
   EmployeeRow,
   EmployeeVersionRow,
   FileHistoryRow,
@@ -72,4 +73,5 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   projectAssignments: ProjectAssignmentRow[];
   agentEvents: AgentEventRow[];
   recoveryKnowledge: RecoveryKnowledgeRow[];
+  deliverables: DeliverableRow[];
 }

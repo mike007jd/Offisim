@@ -1,4 +1,5 @@
 import {
+  DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
   bindingStateChanged,
   installStateChanged,
@@ -105,6 +106,10 @@ export async function createTauriRuntime(
   const externalDepartments = loadExternalDepartments();
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  const deliverablePersistence = new DeliverablePersistenceService({
+    eventBus,
+    repo: repos.deliverables,
+  });
 
   const gateway = createGateway({
     provider: config.provider,
@@ -319,6 +324,7 @@ export async function createTauriRuntime(
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
       installService.dispose();
+      deliverablePersistence.dispose();
       vaultActivation?.dispose();
     },
   };

@@ -845,6 +845,32 @@ export const officeLayouts = sqliteTable(
 // Zones — spatial regions within the office
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 023 — Deliverables (structured artifact history)
+// ---------------------------------------------------------------------------
+
+export const deliverables = sqliteTable(
+  'deliverables',
+  {
+    deliverable_id: text('deliverable_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id'),
+    title: text('title').notNull(),
+    content: text('content').notNull(),
+    kind: text('kind'),
+    file_name: text('file_name'),
+    mime_type: text('mime_type'),
+    contributors_json: text('contributors_json').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_deliverables_company_time').on(table.company_id, table.created_at),
+    index('idx_deliverables_thread_time').on(table.thread_id, table.created_at),
+  ],
+);
+
 export const zones = sqliteTable(
   'zones',
   {

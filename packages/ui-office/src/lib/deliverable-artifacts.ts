@@ -1,5 +1,13 @@
-import type { DeliverableCreatedPayload } from '@offisim/shared-types';
+import type { DeliverableRow, DeliverableSummaryRow } from '@offisim/core/browser';
+import type { DeliverableCreatedPayload, RoleSlug } from '@offisim/shared-types';
 import { stripLegacySpeakerPrefix } from './legacy-speaker-prefix';
+
+type DeliverableContributor = {
+  employeeId: string;
+  employeeName: string;
+  sourceKind?: 'employee' | 'department';
+  roleSlug: RoleSlug;
+};
 
 export type DeliverableKind = NonNullable<DeliverableCreatedPayload['kind']>;
 
@@ -244,4 +252,79 @@ export function canPreviewDeliverable(artifact: DeliverableArtifact): boolean {
     artifact.mimeType === 'application/json' ||
     artifact.mimeType === 'application/javascript'
   );
+}
+
+function safeParseContributors(json: string): ReadonlyArray<DeliverableContributor> {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as DeliverableContributor[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function summaryRowToPayload(
+  row: DeliverableSummaryRow,
+  content: string,
+): DeliverableCreatedPayload {
+  return {
+    deliverableId: row.deliverable_id,
+    threadId: row.thread_id ?? '',
+    title: row.title,
+    content,
+    kind: row.kind ?? undefined,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    contributingEmployees: safeParseContributors(row.contributors_json),
+    createdAt: Date.parse(row.created_at) || Date.now(),
+  };
+}
+
+/** Minimal-content hydrate shape — used when `content` is empty until lazy load. */
+export interface DeliverableHookRow {
+  id: string;
+  threadId: string;
+  title: string;
+  content: string;
+  artifact: DeliverableArtifact;
+  contributingEmployees: ReadonlyArray<DeliverableContributor>;
+  createdAt: number;
+}
+
+export function mapDeliverableSummaryToHookRow(row: DeliverableSummaryRow): DeliverableHookRow {
+  const payload = summaryRowToPayload(row, '');
+  const artifact = resolveDeliverableArtifact(payload);
+  return {
+    id: row.deliverable_id,
+    threadId: row.thread_id ?? '',
+    title: getDeliverableDisplayTitle(payload.title, artifact),
+    content: '',
+    artifact,
+    contributingEmployees: payload.contributingEmployees,
+    createdAt: payload.createdAt,
+  };
+}
+
+export function mapDeliverableFullRowToHookRow(row: DeliverableRow): DeliverableHookRow {
+  const payload: DeliverableCreatedPayload = {
+    deliverableId: row.deliverable_id,
+    threadId: row.thread_id ?? '',
+    title: row.title,
+    content: row.content,
+    kind: row.kind ?? undefined,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    contributingEmployees: safeParseContributors(row.contributors_json),
+    createdAt: Date.parse(row.created_at) || Date.now(),
+  };
+  const artifact = resolveDeliverableArtifact(payload);
+  return {
+    id: row.deliverable_id,
+    threadId: payload.threadId,
+    title: getDeliverableDisplayTitle(payload.title, artifact),
+    content: artifact.content,
+    artifact,
+    contributingEmployees: payload.contributingEmployees,
+    createdAt: payload.createdAt,
+  };
 }

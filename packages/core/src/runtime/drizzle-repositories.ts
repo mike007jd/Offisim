@@ -1,7 +1,8 @@
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type * as schema from '@offisim/db-local/dist/schema.js';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { createAgentEventsDrizzleRepos } from './repos/agent-events/drizzle.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
+import { createDeliverablesDrizzleRepos } from './repos/deliverables/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
 import { createFilesDrizzleRepos } from './repos/files/drizzle.js';
 import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
@@ -43,6 +44,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     ...createWorkspaceDrizzleRepos(db),
     ...createProjectsDrizzleRepos(db),
     ...createAgentEventsDrizzleRepos(db),
+    ...createDeliverablesDrizzleRepos(db),
     transact: makeTransact(db),
   };
 }

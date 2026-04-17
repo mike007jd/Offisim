@@ -9,6 +9,7 @@
 // Browser-safe imports — lightweight, no LLM/graph deps
 import {
   AgentContextPackService,
+  DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
   bindingStateChanged,
   createMemoryRepositories,
@@ -49,12 +50,12 @@ import {
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
-import { loadExternalDepartments } from './external-departments';
 import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
   loadBrowserRuntimeSnapshot,
 } from './browser-runtime-storage';
+import { loadExternalDepartments } from './external-departments';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import type { VaultActivation } from './vault-activation';
 import type { BrowserVaultController } from './vault-browser-activation';
@@ -138,6 +139,10 @@ export async function createBrowserRuntime(
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
+  const deliverablePersistence = new DeliverablePersistenceService({
+    eventBus,
+    repo: repos.deliverables,
+  });
 
   const proxyBaseURL =
     IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -311,6 +316,7 @@ export async function createBrowserRuntime(
       browserVault.dispose();
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
+      deliverablePersistence.dispose();
       persistence.dispose();
       installService.dispose();
     },
@@ -333,6 +339,10 @@ export async function createBrowserRuntimeReposOnly(
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
+  const deliverablePersistence = new DeliverablePersistenceService({
+    eventBus,
+    repo: repos.deliverables,
+  });
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();
@@ -383,6 +393,7 @@ export async function createBrowserRuntimeReposOnly(
     browserVault,
     dispose: () => {
       browserVault.dispose();
+      deliverablePersistence.dispose();
       persistence.dispose();
     },
   };

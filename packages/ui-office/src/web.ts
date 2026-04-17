@@ -41,6 +41,16 @@ export { useSceneOrchestrator } from './hooks/useSceneOrchestrator.js';
 export { isTauri } from './lib/env.js';
 export { stripLegacySpeakerPrefix } from './lib/legacy-speaker-prefix.js';
 export {
+  canPreviewDeliverable,
+  getDeliverableDisplayTitle,
+  mapDeliverableFullRowToHookRow,
+  mapDeliverableSummaryToHookRow,
+  resolveDeliverableArtifact,
+  type DeliverableArtifact,
+  type DeliverableHookRow,
+  type DeliverableKind,
+} from './lib/deliverable-artifacts.js';
+export {
   buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
   loadProviderConfig,

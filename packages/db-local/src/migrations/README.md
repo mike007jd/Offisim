@@ -28,5 +28,6 @@ Apply in lexical order:
 20. _(020 intentionally skipped)_
 21. `021_installed_packages_provenance.sql`
 22. `022_fix_mcp_audit_fk.sql`
+23. `023_deliverables.sql`
 
 These migrations target SQLite and reflect the current package-local runtime model.
