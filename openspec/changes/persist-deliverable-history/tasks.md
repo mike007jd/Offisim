@@ -55,8 +55,12 @@
     - "No platform schema change" → db-platform 不动
     - "Browser hydration returns empty after refresh" → memory-only backend 天然行为
 - [x] 7.2 人工核对 `repository-backend-boundaries` spec：`ls packages/core/src/runtime/repos/` 含 `deliverables/`（12 家族齐），`ls apps/web/src/lib/tauri-repos/` 含 `deliverables.ts`（12 文件齐），家族 NBNC 全部 ≤320（113/72/112），3 个 barrel ≤200（44/152/40）
-- [ ] 7.3 Live 验证（desktop Tauri）— **user 操作**：启动桌面端、触发 deliverable 任务（如 "写 snake.html"）、完全退出 app、重开，确认 PitchHall / chat 里历史还在。代码侧已完全落位，此步仅需真机验证。
-- [ ] 7.4 Live 验证（web 纯浏览器）— **user 操作**：`apps/web dev`、触发 deliverable、刷新 tab、确认历史为空且不报错（已知 gap，memory-only 预期行为）
+- [ ] 7.3 Live 验证（desktop Tauri）— **user 操作**：启动桌面端、触发 deliverable 任务（如 "写 snake.html"）、完全退出 app、重开，确认 PitchHall / chat 里历史还在。代码侧已完全落位（7.4 已证 service + hook 链路正确，desktop 只是换 backend sqlite 而非 memory）
+- [x] 7.4 Live 验证（web 纯浏览器）— ✅ 通过（browser MCP live test）：
+    - 启 `apps/web dev --force`（先清 Vite dep cache 吃到新 `DeliverablePersistenceService` 导出），发 "Please write a minimal snake.html" → deliverable 产生（`del-b2c4212f-...`, `snake.html`, 7364 bytes）
+    - 查 `localStorage['offisim:browser-runtime-snapshot:v1']` → `deliverables[0]` 完整 10 列 + contributors_json 合法 + created_at ISO-8601
+    - 刷 tab → DOM 里 `snake.html` 卡出现 → 证明 `useDeliverables` mount hydrate 跑通
+    - **发现 spec scenario 错**：原 "Browser hydration returns empty after refresh" 假定 web 无持久化；实际既有 `createBrowserRuntimePersistence` 把 `repos.snapshot()` 写 localStorage，memory repo boot 从 snapshot 种子恢复。已更新 spec scenario：web 在 localStorage 可用时 DO 持久化（best-effort），localStorage 被清才回空
 - [x] 7.5 `pnpm typecheck`（绿） + `pnpm lint`（baseline 65 errors/9 warnings → 61 errors/9 warnings，全部 pre-existing，我落地无新增）；`pnpm --filter shared-types/ui-core/core/ui-office/web build` 串行全绿
 
 ## 8. Close Out

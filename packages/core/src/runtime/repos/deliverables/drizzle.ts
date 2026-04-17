@@ -2,12 +2,12 @@ import * as schema from '@offisim/db-local/dist/schema.js';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
-  DeliverableKind,
   DeliverableRepository,
   DeliverableRow,
   DeliverableSummaryRow,
   NewDeliverable,
 } from '../../repositories.js';
+import { coerceDeliverableKind } from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -34,7 +34,7 @@ function rowToSummary(row: {
     company_id: row.company_id,
     thread_id: row.thread_id,
     title: row.title,
-    kind: (row.kind as DeliverableKind | null) ?? null,
+    kind: coerceDeliverableKind(row.kind),
     file_name: row.file_name,
     mime_type: row.mime_type,
     contributors_json: row.contributors_json,
@@ -61,7 +61,7 @@ function rowToFull(row: {
     thread_id: row.thread_id,
     title: row.title,
     content: row.content,
-    kind: (row.kind as DeliverableKind | null) ?? null,
+    kind: coerceDeliverableKind(row.kind),
     file_name: row.file_name,
     mime_type: row.mime_type,
     contributors_json: row.contributors_json,

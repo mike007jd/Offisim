@@ -1,15 +1,13 @@
-import type { DeliverableRow, DeliverableSummaryRow } from '@offisim/core/browser';
-import type { DeliverableCreatedPayload, RoleSlug } from '@offisim/shared-types';
+import type {
+  DeliverableContributor,
+  DeliverableKind,
+  DeliverableRow,
+  DeliverableSummaryRow,
+} from '@offisim/core/browser';
+import type { DeliverableCreatedPayload } from '@offisim/shared-types';
 import { stripLegacySpeakerPrefix } from './legacy-speaker-prefix';
 
-type DeliverableContributor = {
-  employeeId: string;
-  employeeName: string;
-  sourceKind?: 'employee' | 'department';
-  roleSlug: RoleSlug;
-};
-
-export type DeliverableKind = NonNullable<DeliverableCreatedPayload['kind']>;
+export type { DeliverableKind };
 
 export interface DeliverableArtifact {
   kind: DeliverableKind;

@@ -1,10 +1,10 @@
 import type {
-  DeliverableKind,
   DeliverableRepository,
   DeliverableRow,
   DeliverableSummaryRow,
   NewDeliverable,
 } from '@offisim/core/browser';
+import { coerceDeliverableKind } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
@@ -33,7 +33,7 @@ function rowToFull(row: {
     thread_id: row.thread_id,
     title: row.title,
     content: row.content,
-    kind: (row.kind as DeliverableKind | null) ?? null,
+    kind: coerceDeliverableKind(row.kind),
     file_name: row.file_name,
     mime_type: row.mime_type,
     contributors_json: row.contributors_json,
@@ -58,7 +58,7 @@ function rowToSummary(row: {
     company_id: row.company_id,
     thread_id: row.thread_id,
     title: row.title,
-    kind: (row.kind as DeliverableKind | null) ?? null,
+    kind: coerceDeliverableKind(row.kind),
     file_name: row.file_name,
     mime_type: row.mime_type,
     contributors_json: row.contributors_json,

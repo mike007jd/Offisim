@@ -48,7 +48,6 @@ export {
   resolveDeliverableArtifact,
   type DeliverableArtifact,
   type DeliverableHookRow,
-  type DeliverableKind,
 } from './lib/deliverable-artifacts.js';
 export {
   buildSubscriptionGatewayConfig,

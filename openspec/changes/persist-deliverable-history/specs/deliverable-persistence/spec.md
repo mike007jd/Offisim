@@ -104,14 +104,20 @@ This capability SHALL NOT add tables, columns, or migrations to `@offisim/db-pla
 - **WHEN** inspecting `packages/db-platform/src/schema.ts` and `packages/db-platform/src/migrations/`
 - **THEN** neither file contains any reference to a `deliverables` table, a `Deliverable*` type, or a deliverables migration
 
-### Requirement: Browser-only (non-Tauri) persistence is a documented gap
+### Requirement: Browser-only (non-Tauri) persistence rides the existing localStorage snapshot
 
-When the web app runs outside Tauri (no `tauri-repos` wired), the active `RuntimeRepositories.deliverables` SHALL be the in-memory implementation, which SHALL be acceptable for the current iteration. Documentation (`CLAUDE.md`, project memory or queue notes) SHALL call out that browser-only sessions lose deliverable history on refresh and that full browser persistence is deferred.
+When the web app runs outside Tauri (no `tauri-repos` wired), the active `RuntimeRepositories.deliverables` SHALL be the in-memory implementation. The existing `createBrowserRuntimePersistence` path in `apps/web/src/lib/browser-runtime-storage.ts` already debounce-writes `repos.snapshot()` to `localStorage` under key `offisim:browser-runtime-snapshot:v1` and seeds new memory repos from that snapshot on boot, so browser sessions DO retain deliverable history across tab reloads as long as `localStorage` is available and not cleared. This is best-effort (not as durable as Tauri's SQLite backend) but is NOT the "history lost on refresh" gap originally anticipated — that assumption turned out to be wrong against the current browser runtime wiring.
+
+`MemoryDeliverableRepository.snapshot()` SHALL return the current row set, and `MemoryRepositoriesSnapshot.deliverables` SHALL be the serialization slot. The memory repo constructor SHALL accept a `DeliverableRow[]` seed so the snapshot round-trip is symmetric.
 
 #### Scenario: Memory repo does not throw on browser
 - **WHEN** the web app boots without Tauri and emits `deliverable.created`
 - **THEN** the in-memory `DeliverableRepository` accepts the insert, `useDeliverables()` shows the entry for the session, and nothing errors
 
-#### Scenario: Browser hydration returns empty after refresh
-- **WHEN** the browser tab is reloaded after deliverables were created in the previous session
-- **THEN** `useDeliverables()` initial state SHALL be an empty array (no persisted history), with no runtime error
+#### Scenario: Browser hydration restores persisted deliverables after refresh
+- **WHEN** the browser tab is reloaded after deliverables were created in the previous session AND `localStorage` is available and untouched
+- **THEN** `useDeliverables()` initial state SHALL contain those deliverables after mount-time hydrate, with `artifact.content` populated (verified live during `persist-deliverable-history` apply: snake.html deliverable round-tripped through `offisim:browser-runtime-snapshot:v1.deliverables` and re-rendered in PitchHall after reload)
+
+#### Scenario: Browser hydration returns empty when localStorage is cleared
+- **WHEN** `localStorage` is wiped between sessions (user action, storage quota, or incognito eviction)
+- **THEN** `useDeliverables()` initial state SHALL be an empty array, with no runtime error — the memory repo simply starts fresh

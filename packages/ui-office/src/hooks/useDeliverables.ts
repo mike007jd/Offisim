@@ -69,11 +69,11 @@ export function useDeliverables(): Deliverable[] {
       void listRecentDeliverables({ limit: 100 }).then((history) => {
         if (cancelled) return;
         setDeliverables((prev) => {
-          let merged = prev;
+          const map = new Map(prev.map((d) => [d.id, d] as const));
           for (const item of history) {
-            merged = upsertDeliverable(merged, item);
+            if (!map.has(item.id)) map.set(item.id, item);
           }
-          return merged;
+          return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
         });
       });
     }

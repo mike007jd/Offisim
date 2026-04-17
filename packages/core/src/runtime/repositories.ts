@@ -849,6 +849,11 @@ export interface AgentEventRepository {
 
 export type DeliverableKind = 'document' | 'file';
 
+/** Validates an untyped SQLite TEXT value against the `DeliverableKind` union. */
+export function coerceDeliverableKind(raw: string | null): DeliverableKind | null {
+  return raw === 'document' || raw === 'file' ? raw : null;
+}
+
 export interface DeliverableContributor {
   employeeId: string;
   employeeName: string;

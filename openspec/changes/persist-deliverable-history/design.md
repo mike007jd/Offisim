@@ -125,6 +125,10 @@
 **[风险 R6] 老 session 升级后没有历史**
 → Mitigation: 不做数据回填（runtime_events 的 deliverable 事件从没完整落过，没得回填）。文档说明首次上线历史为空是预期。
 
+**[风险 R7] Web 端 localStorage snapshot quota 爆裂**
+→ `MemoryDeliverableRepository.snapshot()` 返回 full rows（含 content）并进 `offisim:browser-runtime-snapshot:v1`。N=100 × 100KB = 10MB，浏览器 localStorage quota ≈5–10MB/origin，大 deliverable 多了会 `QuotaExceededError` 把整个 snapshot 写入失败（连锁影响 employees / memories / zones 等状态持久化）。
+→ Mitigation 本轮：现实使用量有限（产品暂无大批量生成场景），live 单条 7KB 验证通过。后续独立 change（`optimize-deliverable-persistence-hotpath` 或等价）拆 web snapshot：metadata 走主 snapshot，content 走单独 IndexedDB key 或仅保留最近 N 条。desktop 不受影响（SQLite 存储）。
+
 ## Migration Plan
 
 1. **db-local migration `023_deliverables.sql`**: `CREATE TABLE IF NOT EXISTS deliverables (...)` + 索引
