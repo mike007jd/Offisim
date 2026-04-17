@@ -5,12 +5,11 @@ import {
   deliverableCreated,
   directChatCompleted,
   graphNodeEntered,
-  llmStreamChunk,
   planCompleted,
   planStepCompleted,
 } from '../events/event-factories.js';
 import type { MeetingActionItem, OffisimGraphState } from '../graph/state.js';
-import { recordedLlmStream } from '../llm/recorded-call.js';
+import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
@@ -211,7 +210,6 @@ export async function bossSummaryNode(
   const resolved = runtimeCtx.modelResolver.resolve(null, 'boss');
   const resultsText = employeeResults.map((r, i) => `${i + 1}. ${r}`).join('\n');
 
-  // recordedLlmStream: streams via teeStream, records llm_call, emits events
   const streamResult = await recordedLlmStream(
     runtimeCtx,
     {
@@ -224,24 +222,7 @@ export async function bossSummaryNode(
       maxTokens: resolved.maxTokens,
     },
     { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
-    (chunk) => {
-      if (chunk.reasoning) {
-        runtimeCtx.eventBus.emit(
-          llmStreamChunk(
-            runtimeCtx.companyId,
-            state.threadId,
-            'boss_summary',
-            chunk.reasoning,
-            'reasoning',
-          ),
-        );
-      }
-      if (chunk.content) {
-        runtimeCtx.eventBus.emit(
-          llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss_summary', chunk.content),
-        );
-      }
-    },
+    forwardStreamChunks(runtimeCtx, state.threadId, 'boss_summary'),
   );
 
   const finalContent = streamResult.fullContent + actionItemsSuffix;

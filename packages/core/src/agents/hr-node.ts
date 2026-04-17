@@ -7,10 +7,9 @@ import {
   hrAssessmentCompleted,
   hrAssessmentStarted,
   hrRecommendation,
-  llmStreamChunk,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmStream } from '../llm/recorded-call.js';
+import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -121,16 +120,7 @@ export async function hrNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'hr', provider: resolved.provider, model: resolved.model },
-    (chunk) => {
-      if (chunk.reasoning) {
-        eventBus.emit(
-          llmStreamChunk(companyId, state.threadId, 'hr', chunk.reasoning, 'reasoning'),
-        );
-      }
-      if (chunk.content) {
-        eventBus.emit(llmStreamChunk(companyId, state.threadId, 'hr', chunk.content));
-      }
-    },
+    forwardStreamChunks(runtimeCtx, state.threadId, 'hr'),
   );
 
   const fullContent = streamResult.fullContent;

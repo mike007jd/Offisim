@@ -1,4 +1,9 @@
-import { llmCallCompleted, llmCallStarted, llmUsageRecorded } from '../events/event-factories.js';
+import {
+  llmCallCompleted,
+  llmCallStarted,
+  llmStreamChunk,
+  llmUsageRecorded,
+} from '../events/event-factories.js';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
@@ -9,6 +14,31 @@ import type { LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import { pruneLlmMessages } from './prune-messages.js';
 import type { TeeResult } from './stream-tee.js';
 import { teeStream } from './stream-tee.js';
+
+/**
+ * Build an `onChunk` callback for `recordedLlmStream` that forwards reasoning and/or
+ * content deltas onto the runtime eventBus as `llm.stream.chunk` events. Set
+ * `content: false` for JSON-routing calls whose partial content would corrupt the UI.
+ */
+export function forwardStreamChunks(
+  ctx: RuntimeContext,
+  threadId: string,
+  nodeName: string,
+  options: { reasoning?: boolean; content?: boolean } = {},
+): (chunk: LlmStreamChunk) => void {
+  const fwdReasoning = options.reasoning !== false;
+  const fwdContent = options.content !== false;
+  return (chunk) => {
+    if (fwdReasoning && chunk.reasoning) {
+      ctx.eventBus.emit(
+        llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.reasoning, 'reasoning'),
+      );
+    }
+    if (fwdContent && chunk.content) {
+      ctx.eventBus.emit(llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.content));
+    }
+  };
+}
 
 export async function recordedLlmCall(
   ctx: RuntimeContext,

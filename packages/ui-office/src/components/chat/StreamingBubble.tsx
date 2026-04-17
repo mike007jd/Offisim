@@ -1,24 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_BADGE_COLOR,
+  DEFAULT_PLACEHOLDER,
   NODE_BADGE_COLORS,
   NODE_DISPLAY_NAMES,
+  NODE_PLACEHOLDERS,
 } from '../../lib/agent-display';
-
-const NODE_PLACEHOLDERS: Record<string, string> = {
-  boss: 'Drafting',
-  boss_summary: 'Summarizing',
-  employee: 'Working',
-  manager: 'Coordinating',
-  pm_planner: 'Planning',
-  pm_replan: 'Reworking plan',
-  pm_heartbeat: 'Checking progress',
-  hr: 'Reviewing',
-  error_handler: 'Recovering',
-  step_dispatcher: 'Dispatching',
-};
-
-const DEFAULT_PLACEHOLDER = 'Thinking';
 
 interface StreamingBubbleProps {
   content: string;

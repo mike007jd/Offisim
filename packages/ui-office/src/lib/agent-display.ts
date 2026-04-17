@@ -34,6 +34,23 @@ export const NODE_BADGE_COLORS: Record<string, string> = {
 
 export const DEFAULT_BADGE_COLOR = 'bg-slate-500/25 text-slate-300';
 
+/** Pre-chunk placeholder text, keyed by graph node name. Short verb form — the
+ *  shimmer + elapsed counter carry the "still working" signal. */
+export const NODE_PLACEHOLDERS: Record<string, string> = {
+  boss: 'Drafting',
+  boss_summary: 'Summarizing',
+  employee: 'Working',
+  manager: 'Coordinating',
+  pm_planner: 'Planning',
+  pm_replan: 'Reworking plan',
+  pm_heartbeat: 'Checking progress',
+  hr: 'Reviewing',
+  error_handler: 'Recovering',
+  step_dispatcher: 'Dispatching',
+};
+
+export const DEFAULT_PLACEHOLDER = 'Thinking';
+
 /** Resolve badge color for a display name (used by MessageBubble). */
 const DISPLAY_NAME_BADGE_COLORS: Record<string, string> = {
   Boss: 'bg-amber-500/25 text-amber-300',

@@ -1,7 +1,10 @@
 import type { ResolvedModel } from '@offisim/shared-types';
-import { llmStreamChunk } from '../events/event-factories.js';
 import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
-import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
+import {
+  forwardStreamChunks,
+  recordedLlmCall,
+  recordedLlmStream,
+} from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 export type TurnRunner = (
@@ -19,15 +22,9 @@ export interface TurnRunnerDeps {
 }
 
 /**
- * Build the per-turn LLM caller used by the employee node.
- *
- * Stream branch: emits `llm.stream.chunk` per chunk — `kind: 'reasoning'` first
- *   when `chunk.reasoning` present, then default kind when `chunk.content`
- *   present (independent if-statements, NOT if-else, so a single chunk carrying
- *   both reasoning + content emits two separate events in that order).
- *
- * Non-stream branch: delegates to `recordedLlmCall` and returns its result
- *   without any chunk events.
+ * Build the per-turn LLM caller used by the employee node. Stream branch forwards
+ * both reasoning and content deltas onto the event bus; non-stream branch skips
+ * chunk events entirely.
  */
 export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
   const { runtimeCtx, threadId, resolved, allTools, streamEnabled, signal } = deps;
@@ -60,24 +57,7 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
         model: resolved.model,
         taskRunId: meta.taskRunId,
       },
-      (chunk) => {
-        if (chunk.reasoning) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(
-              runtimeCtx.companyId,
-              threadId,
-              'employee',
-              chunk.reasoning,
-              'reasoning',
-            ),
-          );
-        }
-        if (chunk.content) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(runtimeCtx.companyId, threadId, 'employee', chunk.content),
-          );
-        }
-      },
+      forwardStreamChunks(runtimeCtx, threadId, 'employee'),
     );
 
     return {

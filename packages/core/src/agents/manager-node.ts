@@ -1,8 +1,8 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { formatExternalDepartmentCatalog, matchExternalDepartments } from '../a2a/external-departments.js';
-import { graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
+import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmStream } from '../llm/recorded-call.js';
+import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -205,11 +205,8 @@ export async function managerNode(
     };
   }
 
-  // --- LLM-based assignment (multiple employees) ---
-  // Stream-and-capture: reasoning chunks flow into the chat bubble so the ~20s
-  // Manager deliberation is visible; content chunks are NOT emitted because the
-  // LLM returns partial JSON that would corrupt the UI. JSON is parsed from the
-  // accumulated fullContent after stream close (byte-identical to .chat() result).
+  // Reasoning-only stream: partial JSON in the content channel would corrupt the UI;
+  // decision is parsed from fullContent after close (byte-identical to non-stream).
   const routingStreamResult = await recordedLlmStream(
     runtimeCtx,
     {
@@ -226,19 +223,7 @@ export async function managerNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
-    (chunk) => {
-      if (chunk.reasoning) {
-        runtimeCtx.eventBus.emit(
-          llmStreamChunk(
-            runtimeCtx.companyId,
-            state.threadId,
-            'manager',
-            chunk.reasoning,
-            'reasoning',
-          ),
-        );
-      }
-    },
+    forwardStreamChunks(runtimeCtx, state.threadId, 'manager', { content: false }),
   );
 
   let decision = parseManagerDecision(routingStreamResult.fullContent);

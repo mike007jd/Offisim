@@ -1,9 +1,9 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { AGENT_QUESTION_REQUIRED, type BossRouteAction } from '@offisim/shared-types';
-import { bossRouteDecided, graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
+import { bossRouteDecided, graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmStream } from '../llm/recorded-call.js';
+import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -181,11 +181,9 @@ export async function bossNode(
     sopSection = `\n\nAvailable SOPs (reusable workflows):\n${sopList}`;
   }
 
-  // Stream-and-capture routing call: we run the routing JSON call as a stream so the
-  // reasoning tokens can progressively fill the chat bubble during the ~30s Boss is
-  // deliberating. Content chunks (the partial JSON) are intentionally NOT emitted —
-  // the JSON decision is parsed from the accumulated fullContent after stream close,
-  // which is byte-identical to the non-stream .chat() response.
+  // Reasoning-only stream: partial JSON in the content channel would corrupt the UI,
+  // so we forward reasoning deltas live while parsing the decision from the buffered
+  // fullContent after stream close (byte-identical to the non-stream response).
   const routingStreamResult = await recordedLlmStream(
     runtimeCtx,
     {
@@ -199,19 +197,7 @@ export async function bossNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
-    (chunk) => {
-      if (chunk.reasoning) {
-        runtimeCtx.eventBus.emit(
-          llmStreamChunk(
-            runtimeCtx.companyId,
-            state.threadId,
-            'boss',
-            chunk.reasoning,
-            'reasoning',
-          ),
-        );
-      }
-    },
+    forwardStreamChunks(runtimeCtx, state.threadId, 'boss', { content: false }),
   );
 
   const decision = parseBossDecision(routingStreamResult.fullContent);
@@ -329,24 +315,7 @@ export async function bossNode(
         signal: getConfigSignal(config),
       },
       { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
-      (chunk) => {
-        if (chunk.reasoning) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(
-              runtimeCtx.companyId,
-              state.threadId,
-              'boss',
-              chunk.reasoning,
-              'reasoning',
-            ),
-          );
-        }
-        if (chunk.content) {
-          runtimeCtx.eventBus.emit(
-            llmStreamChunk(runtimeCtx.companyId, state.threadId, 'boss', chunk.content),
-          );
-        }
-      },
+      forwardStreamChunks(runtimeCtx, state.threadId, 'boss'),
     );
     finalReplyContent = streamResult.fullContent.trim() || replyContent;
   }
