@@ -1,8 +1,4 @@
 import type {
-  EmployeeCreatedPayload,
-  EmployeeDeletedPayload,
-  EmployeeState,
-  EmployeeStatePayload,
   LlmCallCompletedPayload,
   LlmUsageRecordedPayload,
   RuntimeEvent,
@@ -10,6 +6,7 @@ import type {
 } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { useActiveEmployeeCount } from '../runtime/use-active-employee-count.js';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
 
 export interface DashboardMetrics {
@@ -28,13 +25,12 @@ export interface DashboardMetrics {
   getTaskCost: (taskRunId: string) => number;
 }
 
-type MetricsState = Omit<DashboardMetrics, 'getTaskCost'>;
+type MetricsState = Omit<DashboardMetrics, 'getTaskCost' | 'employeeUtilization'>;
 
 const INITIAL_METRICS: MetricsState = {
   activeTaskCount: 0,
   totalInputTokens: 0,
   totalOutputTokens: 0,
-  employeeUtilization: { active: 0, total: 0 },
   elapsedMs: null,
   estimatedCostUsd: 0,
   completedTasks: 0,
@@ -94,34 +90,23 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
   return (inputTokens * rates.input + outputTokens * rates.output) / 1000;
 }
 
-function getBootstrapEmployeeCount(
-  companyId: string | null,
-  bootstrapEmployees: Array<{ company_id: string }>,
-): number {
-  if (!companyId) return 0;
-  return bootstrapEmployees.filter((row) => row.company_id === companyId).length;
-}
-
 /**
  * Aggregates runtime events into dashboard-level metrics:
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
+ *
+ * Employee utilization (`active` / `total`) is delegated to
+ * `useActiveEmployeeCount()` so the StatusBar footer and the 3D overlay
+ * read the same authoritative numbers.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus, repos, bootstrapState } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const { activeCompanyId } = useCompany();
-  const bootstrapEmployeeCount = getBootstrapEmployeeCount(
-    activeCompanyId,
-    bootstrapState?.reposSnapshot?.employees ?? [],
-  );
-  const [metrics, setMetrics] = useState<MetricsState>(() => ({
-    ...INITIAL_METRICS,
-    employeeUtilization: { active: 0, total: bootstrapEmployeeCount },
-  }));
+  const employeeCount = useActiveEmployeeCount();
+  const [metrics, setMetrics] = useState<MetricsState>(() => ({ ...INITIAL_METRICS }));
 
   // Mutable refs for tracking sets across events without triggering re-renders per event.
   const activeTasksRef = useRef<Set<string>>(new Set());
-  const employeeStatesRef = useRef<Map<string, EmployeeState>>(new Map());
   const costAccRef = useRef<CostAccumulator>({ totalCost: 0 });
   const costByTaskRef = useRef(new Map<string, number>());
   const completedTasksRef = useRef(0);
@@ -132,51 +117,10 @@ export function useDashboardMetrics(): DashboardMetrics {
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load initial employee count from repos on mount (same pattern as useAgentStates).
-  // Without this, the status bar shows "0/0 agents" until an employee.created event fires.
-  useEffect(() => {
-    if (!repos || !activeCompanyId) {
-      setMetrics((prev) => ({
-        ...prev,
-        employeeUtilization: {
-          active: prev.employeeUtilization.active,
-          total: bootstrapEmployeeCount,
-        },
-      }));
-      return;
-    }
-
-    if (!repos || !activeCompanyId) return;
-    let cancelled = false;
-    repos.employees.findByCompany(activeCompanyId).then((rows) => {
-      if (cancelled) return;
-      const states = employeeStatesRef.current;
-      for (const row of rows) {
-        if (!states.has(row.employee_id)) {
-          states.set(row.employee_id, 'idle');
-        }
-      }
-      if (rows.length > 0) {
-        setMetrics((prev) => ({
-          ...prev,
-          employeeUtilization: { active: prev.employeeUtilization.active, total: states.size },
-        }));
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [repos, activeCompanyId, bootstrapEmployeeCount]);
-
   // Reset all accumulators when a new run starts
   useEffect(() => {
     if (isRunning) {
       activeTasksRef.current.clear();
-      // Reset employee states to 'idle' without clearing — roster is company-scoped, not run-scoped.
-      const employeeStates = employeeStatesRef.current;
-      for (const employeeId of employeeStates.keys()) {
-        employeeStates.set(employeeId, 'idle');
-      }
       costAccRef.current = { totalCost: 0 };
       costByTaskRef.current.clear();
       completedTasksRef.current = 0;
@@ -184,10 +128,9 @@ export function useDashboardMetrics(): DashboardMetrics {
       bossMessagesRef.current = 0;
       startTimeRef.current = Date.now();
 
-      setMetrics((prev) => ({
+      setMetrics(() => ({
         ...INITIAL_METRICS,
         elapsedMs: 0,
-        employeeUtilization: { active: 0, total: prev.employeeUtilization.total },
       }));
 
       // Start elapsed timer
@@ -222,21 +165,15 @@ export function useDashboardMetrics(): DashboardMetrics {
 
   useEffect(() => {
     // Reset accumulators on company switch so data doesn't bleed across companies.
-    // Unlike the run-start reset above, this path *must* clear employeeStatesRef
-    // (new company = new roster) and seed `total` from `bootstrapEmployeeCount` —
-    // not `prev.total` — because the ref was just wiped and the roster-reload
-    // effect (line ~136) hasn't fired yet. Do not "unify" the two reset blocks.
+    // Employee count is owned by useActiveEmployeeCount and resets independently
+    // when activeCompanyId changes.
     activeTasksRef.current.clear();
-    employeeStatesRef.current.clear();
     costAccRef.current = { totalCost: 0 };
     costByTaskRef.current.clear();
     completedTasksRef.current = 0;
     totalTasksRef.current = 0;
     bossMessagesRef.current = 0;
-    setMetrics({
-      ...INITIAL_METRICS,
-      employeeUtilization: { active: 0, total: bootstrapEmployeeCount },
-    });
+    setMetrics({ ...INITIAL_METRICS });
 
     // --- LLM tokens (from llm.call.completed for totals) ---
     const unsubLlm = eventBus.on(
@@ -310,60 +247,6 @@ export function useDashboardMetrics(): DashboardMetrics {
       }));
     });
 
-    // --- Employee creation (register with initial 'idle' state for total count) ---
-    const unsubCreated = eventBus.on(
-      'employee.created',
-      (event: RuntimeEvent<EmployeeCreatedPayload>) => {
-        const states = employeeStatesRef.current;
-        states.set(event.payload.employeeId, 'idle');
-
-        updateMetrics((prev) => ({
-          ...prev,
-          employeeUtilization: { active: prev.employeeUtilization.active, total: states.size },
-        }));
-      },
-    );
-
-    // --- Employee deletion ---
-    const unsubDeleted = eventBus.on(
-      'employee.deleted',
-      (event: RuntimeEvent<EmployeeDeletedPayload>) => {
-        const states = employeeStatesRef.current;
-        states.delete(event.payload.employeeId);
-
-        let active = 0;
-        for (const state of states.values()) {
-          if (state !== 'idle') active++;
-        }
-
-        updateMetrics((prev) => ({
-          ...prev,
-          employeeUtilization: { active, total: states.size },
-        }));
-      },
-    );
-
-    // --- Employee utilization (prefix match on 'employee.state.') ---
-    const unsubEmployee = eventBus.on(
-      'employee.state.',
-      (event: RuntimeEvent<EmployeeStatePayload>) => {
-        const { employeeId, next } = event.payload;
-        const states = employeeStatesRef.current;
-
-        states.set(employeeId, next);
-
-        let active = 0;
-        for (const state of states.values()) {
-          if (state !== 'idle') active++;
-        }
-
-        updateMetrics((prev) => ({
-          ...prev,
-          employeeUtilization: { active, total: states.size },
-        }));
-      },
-    );
-
     // --- Boss intervention counter (prefix match on 'boss.') ---
     const unsubBoss = eventBus.on('boss.', () => {
       bossMessagesRef.current += 1;
@@ -380,16 +263,17 @@ export function useDashboardMetrics(): DashboardMetrics {
       unsubLlm();
       unsubUsage();
       unsubTask();
-      unsubCreated();
-      unsubDeleted();
-      unsubEmployee();
       unsubBoss();
     };
-  }, [eventBus, updateMetrics, bootstrapEmployeeCount]);
+  }, [eventBus, updateMetrics, activeCompanyId]);
 
   const getTaskCost = useCallback((taskRunId: string): number => {
     return costByTaskRef.current.get(taskRunId) ?? 0;
   }, []);
 
-  return { ...metrics, getTaskCost };
+  return {
+    ...metrics,
+    employeeUtilization: { active: employeeCount.active, total: employeeCount.total },
+    getTaskCost,
+  };
 }

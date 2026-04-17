@@ -132,6 +132,7 @@ export * from './runtime/notification-provider.js';
 export * from './runtime/scene-ceremony-context.js';
 export * from './runtime/scene-intent-dispatcher.js';
 export * from './runtime/scene-intents.js';
+export * from './runtime/use-active-employee-count.js';
 export * from './runtime/use-agent-states.js';
 export * from './runtime/use-runtime-activity-feed.js';
 export * from './runtime/use-event-stream.js';

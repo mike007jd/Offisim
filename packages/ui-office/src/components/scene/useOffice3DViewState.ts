@@ -17,6 +17,7 @@ import type {
   SceneInteractionWaitingPayload,
   SceneTaskDispatchedPayload,
 } from '../../runtime/scene-intents.js';
+import { useActiveEmployeeCount } from '../../runtime/use-active-employee-count.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import {
   DRAG_THRESHOLD_PX,
@@ -150,16 +151,9 @@ export function useOffice3DViewState({
     return activity;
   }, [agents, zones3D, zones]);
 
-  const activeCount = useMemo(
-    () => [...agents.values()].filter((agent) => agent.state !== 'idle').length,
-    [agents],
-  );
-  const blockedCount = useMemo(
-    () =>
-      [...agents.values()].filter((agent) => agent.state === 'blocked' || agent.state === 'failed')
-        .length,
-    [agents],
-  );
+  const employeeCount = useActiveEmployeeCount();
+  const activeCount = employeeCount.active;
+  const blockedCount = employeeCount.blocked;
 
   const agentsRef = useRef(agents);
   agentsRef.current = agents;
