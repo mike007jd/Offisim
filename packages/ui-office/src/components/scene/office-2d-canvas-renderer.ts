@@ -2,16 +2,15 @@
  * office-2d-canvas-renderer.ts — Thin orchestrator for the 2D office canvas.
  *
  * Responsibilities:
- *  - Own the public `drawScene(ctx, snapshot, transform)` API.
+ *  - Own the public `drawScene(ctx, snapshot, frame)` API.
  *  - Own the shared render data types consumed by every layer.
  *  - Delegate actual drawing to the per-layer modules in `./canvas-layers/`.
  *
  * Draw order (back-to-front) mirrors the 7 layers called from `drawScene`:
  *   background → zones → prefabs → employees → ceremony → interactions → drag-overlay.
  *
- * The dpr-aware viewport transform is applied inside `drawBackground` (it needs
- * a dpr-only pass for the initial clear, then switches to world coords for the
- * grid and all downstream layers).
+ * The dpr-aware viewport transform is applied inside `drawBackground`; every
+ * downstream layer trusts the ctx is already in world coords.
  */
 
 import { drawBackground } from './canvas-layers/draw-background';
@@ -24,6 +23,9 @@ import { drawZones } from './canvas-layers/draw-zones';
 import type { ViewportTransform } from './office-2d-canvas-geometry';
 
 export type { ViewportTransform } from './office-2d-canvas-geometry';
+
+/** Degraded-rendering threshold: switch to cheap silhouettes past this many employees. */
+export const DEGRADED_THRESHOLD = 50;
 
 // ── Status colors ─────────────────────────────────────────────────────
 
@@ -48,7 +50,7 @@ export function getStatusColor(state: string): string {
     : DEFAULT_STATUS_COLOR;
 }
 
-// ── Render data types ─────────────────────────────────────────────────
+// ── Stable scene data (SSOT rebuilt only when scene inputs change) ────
 
 export interface SceneSnapshot {
   zones: ReadonlyArray<ZoneRenderData>;
@@ -57,9 +59,6 @@ export interface SceneSnapshot {
   ceremony: CeremonyRenderData;
   managerMarker: ManagerMarkerData | null;
   meetingBubble: MeetingBubbleData | null;
-  interaction: InteractionState;
-  animationTime: number;
-  canvasSize: { width: number; height: number; devicePixelRatio: number };
 }
 
 export interface ZoneRenderData {
@@ -116,6 +115,8 @@ export interface MeetingBubbleData {
   extraWaitingCount: number;
 }
 
+// ── Per-frame transient context (rebuilt each rAF tick) ───────────────
+
 export interface InteractionState {
   selectedEmployeeId: string | null;
   hoveredEmployeeId: string | null;
@@ -131,6 +132,13 @@ export interface DragRenderState {
   sourceZoneId: string;
   hoveredZoneId: string | null;
   dropTargetZoneIds: string[];
+}
+
+export interface FrameContext {
+  interaction: InteractionState;
+  animationTime: number;
+  canvasSize: { width: number; height: number; devicePixelRatio: number };
+  transform: ViewportTransform;
 }
 
 // ── Legacy / compatibility exports ────────────────────────────────────
@@ -166,14 +174,14 @@ export function computeSemicirclePositions(
 export function drawScene(
   ctx: CanvasRenderingContext2D,
   snapshot: SceneSnapshot,
-  transform: ViewportTransform,
+  frame: FrameContext,
 ): void {
-  drawBackground(ctx, snapshot, transform);
-  drawZones(ctx, snapshot, transform);
-  drawPrefabs(ctx, snapshot, transform);
-  drawEmployees(ctx, snapshot, transform);
-  drawCeremony(ctx, snapshot, transform);
-  drawInteractions(ctx, snapshot, transform);
-  drawDragOverlay(ctx, snapshot, transform);
+  drawBackground(ctx, snapshot, frame);
+  drawZones(ctx, snapshot, frame);
+  drawPrefabs(ctx, snapshot, frame);
+  drawEmployees(ctx, snapshot, frame);
+  drawCeremony(ctx, snapshot, frame);
+  drawInteractions(ctx, snapshot, frame);
+  drawDragOverlay(ctx, snapshot, frame);
   ctx.resetTransform();
 }

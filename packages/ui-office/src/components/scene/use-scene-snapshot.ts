@@ -1,5 +1,5 @@
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
@@ -15,20 +15,18 @@ import { STATE_LABELS } from '../../lib/state-labels';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
-import type { SceneFrameData } from './hooks/useCanvasRedrawLoop';
-import { getAvatarUri } from './office-2d-avatar-cache';
+import { getAvatarImage } from './office-2d-avatar-cache';
 import { EMPLOYEE_RADIUS, worldToCanvas, zoneToCanvasRect } from './office-2d-canvas-geometry';
 import {
   type EmployeeRenderData,
   type PrefabRenderData,
+  type SceneSnapshot,
   type ZoneRenderData,
   getStatusColor,
 } from './office-2d-canvas-renderer';
 import { SceneHitMap } from './office-2d-hitmap';
-import { ARCHETYPE_FALLBACK_MAP } from './office-2d-render-registry';
+import { ARCHETYPE_FALLBACK_MAP, archetypeToCategory } from './office-2d-render-registry';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
-
-const avatarImageCache = new Map<string, HTMLImageElement>();
 
 interface Params {
   ceremony: CeremonyState;
@@ -36,7 +34,7 @@ interface Params {
 }
 
 interface Returns {
-  sceneData: SceneFrameData;
+  sceneData: SceneSnapshot;
   hitMap: SceneHitMap;
   dropTargetZoneIds: string[];
   employeeRenderData: ReadonlyArray<EmployeeRenderData>;
@@ -114,19 +112,9 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
       const rect = zoneToCanvasRect(z.cx, z.cz, z.w, z.d);
       const archetype = z.archetype as string;
       const fallbackType = ARCHETYPE_FALLBACK_MAP[archetype] ?? 'workstation';
-      const fallbackCategory =
-        archetype === 'server'
-          ? 'compute'
-          : archetype === 'meeting'
-            ? 'meeting'
-            : archetype === 'library'
-              ? 'knowledge'
-              : archetype === 'rest'
-                ? 'rest'
-                : 'workspace';
       return {
         prefabId: `${fallbackType}-fallback`,
-        category: fallbackCategory,
+        category: archetypeToCategory(archetype),
         x: rect.x + rect.w / 2,
         y: rect.y + rect.h / 2,
         rotation: 0,
@@ -134,24 +122,13 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     });
   }, [prefabInstances, zones]);
 
-  const avatarImageRequestCache = useRef(avatarImageCache);
-  const getAvatarImage = useCallback(
-    (seed: string, cId: string): HTMLImageElement | null => {
-      const key = `${cId}:${seed}`;
-      const cache = avatarImageRequestCache.current;
-      const cached = cache.get(key);
-      if (cached) return cached.complete ? cached : null;
-      const uri = getAvatarUri(seed, cId);
-      const img = new Image();
-      img.src = uri;
-      cache.set(key, img);
-      if (img.complete) return img;
-      img.onload = () => {
-        needsRedrawRef.current = true;
-      };
-      return null;
-    },
-    [needsRedrawRef],
+  const triggerRedraw = useCallback(() => {
+    needsRedrawRef.current = true;
+  }, [needsRedrawRef]);
+
+  const loadAvatar = useCallback(
+    (seed: string, cId: string) => getAvatarImage(seed, cId, triggerRedraw),
+    [triggerRedraw],
   );
 
   const ceremonyActive = ceremony.phase !== 'idle';
@@ -238,7 +215,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
         x: entry.x,
         y: entry.y,
         name: agent.name,
-        avatarImage: getAvatarImage(entry.seed, companyId),
+        avatarImage: loadAvatar(entry.seed, companyId),
         statusColor: getStatusColor(agent.state),
         state: agent.state,
         stateLabel: STATE_LABELS[agent.state] ?? null,
@@ -285,10 +262,10 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     seatRegistry,
     agents,
     companyId,
-    getAvatarImage,
+    loadAvatar,
   ]);
 
-  const sceneData: SceneFrameData = useMemo(() => {
+  const sceneData: SceneSnapshot = useMemo(() => {
     let managerMarker = null;
     if (ceremony.managerVisible && ceremony.managerPosition) {
       const pos = worldToCanvas(ceremony.managerPosition[0], ceremony.managerPosition[2]);

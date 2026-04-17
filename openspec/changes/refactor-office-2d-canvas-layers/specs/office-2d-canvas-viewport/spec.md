@@ -12,7 +12,7 @@ The 2D canvas draw pipeline SHALL be split into one module per visual layer in `
 - `draw-interactions.ts` — hover / selection / interaction hold indicators
 - `draw-drag-overlay.ts` — drag preview and snap guides
 
-Each layer SHALL export a single top-level draw function with the signature `drawX(ctx: CanvasRenderingContext2D, snapshot: SceneSnapshot, transform: ViewportTransform): void`. No layer SHALL import another layer.
+Each layer SHALL export a single top-level draw function with the signature `drawX(ctx: CanvasRenderingContext2D, snapshot: SceneSnapshot, frame: FrameContext): void` where `SceneSnapshot` carries the stable per-scene data (zones / prefabs / employees / ceremony / manager marker / meeting bubble) and `FrameContext` carries per-frame transient data (interaction state, animation time, canvas size, viewport transform). No layer SHALL import another layer.
 
 #### Scenario: One file per layer
 - **WHEN** listing `packages/ui-office/src/components/scene/canvas-layers/*.ts`
@@ -24,7 +24,7 @@ Each layer SHALL export a single top-level draw function with the signature `dra
 
 #### Scenario: Renderer orchestrator is thin
 - **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/ui-office/src/components/scene/office-2d-canvas-renderer.ts` is run after refactor
-- **THEN** the non-blank, non-comment line count is at most 200, and the `drawScene` body consists of sequential calls to the 7 layer functions in back-to-front order
+- **THEN** the non-blank, non-comment line count is at most 200, and the `drawScene(ctx, snapshot, frame)` body consists of sequential calls to the 7 layer functions in back-to-front order
 
 ### Requirement: 2D canvas view is split into single-responsibility hooks
 

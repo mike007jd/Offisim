@@ -1,14 +1,15 @@
 import { EMPLOYEE_RADIUS } from '../office-2d-canvas-geometry';
-import type { SceneSnapshot, ViewportTransform } from '../office-2d-canvas-renderer';
+import type { FrameContext, SceneSnapshot } from '../office-2d-canvas-renderer';
 
 export function drawInteractions(
   ctx: CanvasRenderingContext2D,
   snapshot: SceneSnapshot,
-  _transform: ViewportTransform,
+  frame: FrameContext,
 ): void {
-  const { selectedEmployeeId, hoveredEmployeeId } = snapshot.interaction;
+  const { selectedEmployeeId, hoveredEmployeeId } = frame.interaction;
   if (selectedEmployeeId === null && hoveredEmployeeId === null) return;
   const r = EMPLOYEE_RADIUS;
+  const prevAlpha = ctx.globalAlpha;
   for (const emp of snapshot.employees) {
     const isSelected = selectedEmployeeId === emp.employeeId;
     const isHovered = hoveredEmployeeId === emp.employeeId;
@@ -19,7 +20,6 @@ export function drawInteractions(
       ctx.beginPath();
       ctx.arc(emp.x, emp.y, r + 8, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.globalAlpha = 1.0;
     }
     if (isHovered && !isSelected) {
       ctx.strokeStyle = emp.statusColor;
@@ -28,7 +28,7 @@ export function drawInteractions(
       ctx.beginPath();
       ctx.arc(emp.x, emp.y, r + 6, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.globalAlpha = 1.0;
     }
   }
+  ctx.globalAlpha = prevAlpha;
 }

@@ -1,15 +1,16 @@
 import { truncate } from '../../../lib/format-time';
+import { drawRoundedRect } from '../canvas-primitives';
 import type {
+  FrameContext,
   ManagerMarkerData,
   MeetingBubbleData,
   SceneSnapshot,
-  ViewportTransform,
 } from '../office-2d-canvas-renderer';
 
 export function drawCeremony(
   ctx: CanvasRenderingContext2D,
   snapshot: SceneSnapshot,
-  _transform: ViewportTransform,
+  _frame: FrameContext,
 ): void {
   if (snapshot.managerMarker) drawManagerMarker(ctx, snapshot.managerMarker);
   if (snapshot.meetingBubble) drawMeetingBubble(ctx, snapshot.meetingBubble);
@@ -47,20 +48,20 @@ function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleD
   const extraH = bubble.extraWaitingCount > 0 ? 12 : 0;
   const totalH = bubbleH + extraH;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(bx - bubbleW / 2, by - 16, bubbleW, totalH, 16);
-  ctx.fill();
-  ctx.stroke();
+  drawRoundedRect(ctx, bx - bubbleW / 2, by - 16, bubbleW, totalH, {
+    fill: 'rgba(0, 0, 0, 0.65)',
+    stroke: 'rgba(255, 255, 255, 0.10)',
+    lineWidth: 1,
+    radius: 16,
+  });
 
+  const prevAlpha = ctx.globalAlpha;
   ctx.fillStyle = bubble.phaseColor;
   ctx.globalAlpha = 0.8;
   ctx.beginPath();
   ctx.arc(bx - bubbleW / 2 + 20, by, 4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1.0;
+  ctx.globalAlpha = prevAlpha;
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
   ctx.font = '600 12px monospace';

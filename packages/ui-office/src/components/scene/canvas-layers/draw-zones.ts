@@ -1,15 +1,12 @@
-import type {
-  SceneSnapshot,
-  ViewportTransform,
-  ZoneRenderData,
-} from '../office-2d-canvas-renderer';
+import { drawRoundedRect } from '../canvas-primitives';
+import type { FrameContext, SceneSnapshot, ZoneRenderData } from '../office-2d-canvas-renderer';
 
 export function drawZones(
   ctx: CanvasRenderingContext2D,
   snapshot: SceneSnapshot,
-  _transform: ViewportTransform,
+  frame: FrameContext,
 ): void {
-  const drag = snapshot.interaction.drag;
+  const drag = frame.interaction.drag;
   drawZoneSurfaces(ctx, snapshot.zones, drag);
   drawZoneLabels(ctx, snapshot.zones);
 }
@@ -17,53 +14,50 @@ export function drawZones(
 function drawZoneSurfaces(
   ctx: CanvasRenderingContext2D,
   zones: ReadonlyArray<ZoneRenderData>,
-  drag: SceneSnapshot['interaction']['drag'],
+  drag: FrameContext['interaction']['drag'],
 ): void {
   for (const zone of zones) {
     const isDragging = drag !== null;
     const isDropTarget = isDragging && drag.dropTargetZoneIds.includes(zone.zoneId);
     const isHovered = isDragging && drag.hoveredZoneId === zone.zoneId;
     const isSourceZone = isDragging && drag.sourceZoneId === zone.zoneId;
+    const strokeWidth = isDropTarget ? (isHovered && !isSourceZone ? 3 : 2) : 1.5;
+    const strokeAlpha = isDropTarget ? (isHovered && !isSourceZone ? 0.8 : 0.5) : 0.3;
+    const dash = zone.isInfrastructure
+      ? [8, 4]
+      : isDropTarget && !isSourceZone
+        ? [6, 3]
+        : undefined;
 
-    ctx.fillStyle = zone.accentColor;
-    ctx.globalAlpha = isHovered && !isSourceZone ? 0.18 : 0.06;
-    ctx.beginPath();
-    ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 16);
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-
-    ctx.strokeStyle = zone.accentColor;
-    ctx.lineWidth = isDropTarget ? (isHovered && !isSourceZone ? 3 : 2) : 1.5;
-    ctx.globalAlpha = isDropTarget ? (isHovered && !isSourceZone ? 0.8 : 0.5) : 0.3;
-
-    if (zone.isInfrastructure) {
-      ctx.setLineDash([8, 4]);
-    } else if (isDropTarget && !isSourceZone) {
-      ctx.setLineDash([6, 3]);
-    } else {
-      ctx.setLineDash([]);
-    }
-
-    ctx.beginPath();
-    ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 16);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1.0;
+    drawRoundedRect(ctx, zone.x, zone.y, zone.w, zone.h, {
+      fill: zone.accentColor,
+      alpha: isHovered && !isSourceZone ? 0.18 : 0.06,
+      radius: 16,
+    });
+    drawRoundedRect(ctx, zone.x, zone.y, zone.w, zone.h, {
+      stroke: zone.accentColor,
+      lineWidth: strokeWidth,
+      alpha: strokeAlpha,
+      dash,
+      radius: 16,
+    });
 
     if (isDropTarget && !isSourceZone) {
+      const prevAlpha = ctx.globalAlpha;
       ctx.fillStyle = zone.accentColor;
       ctx.globalAlpha = isHovered ? 0.9 : 0.4;
       ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('Drop here', zone.x + zone.w / 2, zone.y + zone.h / 2 + 5);
-      ctx.globalAlpha = 1.0;
+      ctx.globalAlpha = prevAlpha;
     }
   }
 }
 
 function drawZoneLabels(ctx: CanvasRenderingContext2D, zones: ReadonlyArray<ZoneRenderData>): void {
   for (const zone of zones) {
+    const prevAlpha = ctx.globalAlpha;
     ctx.fillStyle = zone.accentColor;
     ctx.globalAlpha = 0.5;
     ctx.font = '900 18px sans-serif';
@@ -81,6 +75,6 @@ function drawZoneLabels(ctx: CanvasRenderingContext2D, zones: ReadonlyArray<Zone
       ctx.fillText(ch, cx + cw / 2, zone.y + 20);
       cx += cw + letterSpacing;
     }
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = prevAlpha;
   }
 }

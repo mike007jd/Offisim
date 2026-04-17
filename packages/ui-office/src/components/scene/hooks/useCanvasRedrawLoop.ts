@@ -1,41 +1,50 @@
 import { useEffect, useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { ViewportTransform } from '../office-2d-canvas-geometry';
-import { type InteractionState, type SceneSnapshot, drawScene } from '../office-2d-canvas-renderer';
-
-export type SceneFrameData = Omit<SceneSnapshot, 'interaction' | 'animationTime' | 'canvasSize'>;
+import {
+  type FrameContext,
+  type InteractionState,
+  type SceneSnapshot,
+  drawScene,
+} from '../office-2d-canvas-renderer';
 
 interface Params {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   ctxRef: MutableRefObject<CanvasRenderingContext2D | null>;
-  sceneDataRef: MutableRefObject<SceneFrameData>;
+  sceneData: SceneSnapshot;
   viewportRef: MutableRefObject<ViewportTransform>;
   interactionRef: MutableRefObject<InteractionState>;
   needsRedrawRef: MutableRefObject<boolean>;
 }
 
 /**
- * Owns the single rAF loop that drives canvas redraws. Invokes `drawScene`
- * when `needsRedrawRef` is set, or continuously while blocked/failed
- * employees are on screen (their pulse animation needs per-frame updates).
+ * Owns the single rAF loop that drives canvas redraws. Takes `sceneData` as
+ * a regular value — the hook mirrors it into a ref via `useEffect` so the
+ * rAF callback always reads the latest snapshot without capturing stale
+ * closures. Invokes `drawScene` when `needsRedrawRef` is set, or every
+ * frame while blocked/failed employees need their pulse animation.
  */
 export function useCanvasRedrawLoop({
   canvasRef,
   ctxRef,
-  sceneDataRef,
+  sceneData,
   viewportRef,
   interactionRef,
   needsRedrawRef,
 }: Params): void {
-  const mountedRef = useRef(true);
-  const rafIdRef = useRef(0);
+  const sceneDataRef = useRef<SceneSnapshot>(sceneData);
 
   useEffect(() => {
-    mountedRef.current = true;
+    sceneDataRef.current = sceneData;
+    needsRedrawRef.current = true;
+  }, [sceneData, needsRedrawRef]);
+
+  useEffect(() => {
+    let mounted = true;
+    let rafId = 0;
 
     const loop = () => {
-      if (!mountedRef.current) return;
-
+      if (!mounted) return;
       const scene = sceneDataRef.current;
       const hasAnimated = scene.employees.some(
         (employee) => employee.isBlocked || employee.state === 'failed',
@@ -47,8 +56,7 @@ export function useCanvasRedrawLoop({
         if (ctx && canvas && canvas.width > 0 && canvas.height > 0) {
           needsRedrawRef.current = false;
           const dpr = window.devicePixelRatio || 1;
-          const snapshot: SceneSnapshot = {
-            ...scene,
+          const frame: FrameContext = {
             interaction: interactionRef.current,
             animationTime: performance.now(),
             canvasSize: {
@@ -56,18 +64,19 @@ export function useCanvasRedrawLoop({
               height: canvas.height / dpr,
               devicePixelRatio: dpr,
             },
+            transform: viewportRef.current,
           };
-          drawScene(ctx, snapshot, viewportRef.current);
+          drawScene(ctx, scene, frame);
         }
       }
 
-      rafIdRef.current = requestAnimationFrame(loop);
+      rafId = requestAnimationFrame(loop);
     };
 
-    rafIdRef.current = requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
     return () => {
-      mountedRef.current = false;
-      cancelAnimationFrame(rafIdRef.current);
+      mounted = false;
+      cancelAnimationFrame(rafId);
     };
-  }, [canvasRef, ctxRef, sceneDataRef, viewportRef, interactionRef, needsRedrawRef]);
+  }, [canvasRef, ctxRef, interactionRef, needsRedrawRef, viewportRef]);
 }

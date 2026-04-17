@@ -69,7 +69,12 @@ function drawWorkstation(
     ctx.stroke();
 
     // Chair dots
-    const chairs: [number, number][] = [[-10, -8], [10, -8], [-10, 8], [10, 8]];
+    const chairs: [number, number][] = [
+      [-10, -8],
+      [10, -8],
+      [-10, 8],
+      [10, 8],
+    ];
     for (const [cx, cy] of chairs) {
       ctx.fillStyle = '#334155';
       ctx.strokeStyle = '#1e293b';
@@ -193,12 +198,7 @@ function drawMeetingTable(
   });
 }
 
-function drawSofa(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  rotation: number,
-): void {
+function drawSofa(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
   withRotation(ctx, x, y, rotation, () => {
     // Seat body
     ctx.fillStyle = '#92400e';
@@ -227,12 +227,7 @@ function drawSofa(
   });
 }
 
-function drawPlant(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  rotation: number,
-): void {
+function drawPlant(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
   withRotation(ctx, x, y, rotation, () => {
     // Pot
     ctx.fillStyle = '#334155';
@@ -427,6 +422,20 @@ export const ARCHETYPE_FALLBACK_MAP: Record<string, string> = {
   library: 'bookshelf',
   rest: 'sofa',
 };
+
+// ── Zone archetype → catalog category (sibling of ARCHETYPE_FALLBACK_MAP) ──
+
+export const ARCHETYPE_CATEGORY_MAP: Record<string, string> = {
+  workspace: 'workspace',
+  server: 'compute',
+  meeting: 'meeting',
+  library: 'knowledge',
+  rest: 'rest',
+};
+
+export function archetypeToCategory(archetype: string): string {
+  return ARCHETYPE_CATEGORY_MAP[archetype] ?? 'workspace';
+}
 
 // ── Public API ──────────────────────────────────────────────────────
 

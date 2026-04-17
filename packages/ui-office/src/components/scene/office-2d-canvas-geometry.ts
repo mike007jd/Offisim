@@ -27,10 +27,7 @@ export interface ViewportTransform {
 // ── Coordinate transforms ─────────────────────────────────────────────
 
 /** Convert 3D world (x, z) → canvas pixel coordinates. */
-export function worldToCanvas(
-  worldX: number,
-  worldZ: number,
-): { x: number; y: number } {
+export function worldToCanvas(worldX: number, worldZ: number): { x: number; y: number } {
   return {
     x: (worldX + WORLD_OFFSET_X) * SCALE,
     y: (worldZ + WORLD_OFFSET_Z) * SCALE,
@@ -38,16 +35,12 @@ export function worldToCanvas(
 }
 
 /** Convert canvas pixel coordinates → 3D world (x, z). Inverse of worldToCanvas. */
-export function canvasToWorld(
-  canvasX: number,
-  canvasY: number,
-): { x: number; z: number } {
+export function canvasToWorld(canvasX: number, canvasY: number): { x: number; z: number } {
   return {
     x: canvasX / SCALE - WORLD_OFFSET_X,
     z: canvasY / SCALE - WORLD_OFFSET_Z,
   };
 }
-
 
 /**
  * Convert 3D zone center + dimensions → canvas rect (top-left, width, height).
@@ -147,11 +140,7 @@ export function applyWheelZoom(
 }
 
 /** Apply pan delta to viewport. */
-export function applyPan(
-  prev: ViewportTransform,
-  dx: number,
-  dy: number,
-): ViewportTransform {
+export function applyPan(prev: ViewportTransform, dx: number, dy: number): ViewportTransform {
   return {
     x: prev.x + dx,
     y: prev.y + dy,

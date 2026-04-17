@@ -14,19 +14,10 @@ import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { useCanvasInteraction } from './hooks/useCanvasInteraction';
-import { type SceneFrameData, useCanvasRedrawLoop } from './hooks/useCanvasRedrawLoop';
+import { useCanvasRedrawLoop } from './hooks/useCanvasRedrawLoop';
 import { useCanvasViewport } from './hooks/useCanvasViewport';
 import type { InteractionState } from './office-2d-canvas-renderer';
 import { useSceneSnapshot } from './use-scene-snapshot';
-
-const EMPTY_FRAME: SceneFrameData = {
-  zones: [],
-  prefabs: [],
-  employees: [],
-  ceremony: { phase: 'idle', isActive: false },
-  managerMarker: null,
-  meetingBubble: null,
-};
 
 interface Office2DCanvasViewProps {
   ceremony: CeremonyState;
@@ -49,26 +40,25 @@ export default function Office2DCanvasView({
   const containerRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const needsRedrawRef = useRef(true);
-  const sceneDataRef = useRef<SceneFrameData>(EMPTY_FRAME);
   const interactionRef = useRef<InteractionState>({
     selectedEmployeeId: null,
     hoveredEmployeeId: null,
     drag: null,
   });
-  const prevSnapshotRef = useRef<SceneFrameData | null>(null);
-  const prevSelectedRef = useRef<string | null>(null);
   const [hasCanvasContextError, setHasCanvasContextError] = useState(false);
 
   const { sceneData, hitMap, dropTargetZoneIds, employeeRenderData, zoneEmployees } =
     useSceneSnapshot({ ceremony, needsRedrawRef });
 
-  sceneDataRef.current = sceneData;
-  interactionRef.current.selectedEmployeeId = externalSelectedId ?? null;
-  if (prevSnapshotRef.current !== sceneData || prevSelectedRef.current !== externalSelectedId) {
-    needsRedrawRef.current = true;
-    prevSnapshotRef.current = sceneData;
-    prevSelectedRef.current = externalSelectedId;
-  }
+  // Keep interactionRef.selectedEmployeeId in sync with the controlled prop
+  // and request a redraw when selection changes.
+  useEffect(() => {
+    const next = externalSelectedId ?? null;
+    if (interactionRef.current.selectedEmployeeId !== next) {
+      interactionRef.current.selectedEmployeeId = next;
+      needsRedrawRef.current = true;
+    }
+  }, [externalSelectedId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -87,7 +77,7 @@ export default function Office2DCanvasView({
   useCanvasRedrawLoop({
     canvasRef,
     ctxRef,
-    sceneDataRef,
+    sceneData,
     viewportRef,
     interactionRef,
     needsRedrawRef,
