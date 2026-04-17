@@ -284,6 +284,7 @@ export interface DeliverableHookRow {
   threadId: string;
   title: string;
   content: string;
+  contentSize: number;
   artifact: DeliverableArtifact;
   contributingEmployees: ReadonlyArray<DeliverableContributor>;
   createdAt: number;
@@ -297,6 +298,7 @@ export function mapDeliverableSummaryToHookRow(row: DeliverableSummaryRow): Deli
     threadId: row.thread_id ?? '',
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: '',
+    contentSize: row.content_size ?? 0,
     artifact,
     contributingEmployees: payload.contributingEmployees,
     createdAt: payload.createdAt,
@@ -321,6 +323,7 @@ export function mapDeliverableFullRowToHookRow(row: DeliverableRow): Deliverable
     threadId: payload.threadId,
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: artifact.content,
+    contentSize: artifact.content.length,
     artifact,
     contributingEmployees: payload.contributingEmployees,
     createdAt: payload.createdAt,

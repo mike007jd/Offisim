@@ -21,6 +21,7 @@ import {
 } from '../../lib/deliverable-presentation';
 import { openDesktopLocalPath, saveDesktopDeliverable } from '../../lib/desktop-local-paths';
 import { isTauri } from '../../lib/env';
+import { truncate } from '../../lib/format-time';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 
 const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
@@ -31,6 +32,11 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'html', label: 'HTML' },
   { value: 'txt', label: 'TXT' },
 ];
+
+const COMPACT_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-300 hover:text-pearl';
+const FULL_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl';
+const SOP_DEFAULT_CLASS = 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50';
+const SOP_PROMOTED_CLASS = 'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -58,8 +64,29 @@ function previewInNewTab(content: string, mimeType: string | null): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-function truncate(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)}...`;
+interface CopyButtonProps {
+  content: string;
+  className: string;
+}
+
+function CopyButton({ content, className }: CopyButtonProps) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const onClick = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setState('copied');
+      setTimeout(() => setState('idle'), 1500);
+    } catch {
+      setState('failed');
+      setTimeout(() => setState('idle'), 2000);
+    }
+  }, [content]);
+  const label = state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : 'Copy';
+  return (
+    <Button variant="ghost" size="sm" className={className} onClick={onClick}>
+      {label}
+    </Button>
+  );
 }
 
 interface ContributorStackProps {
@@ -98,44 +125,13 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   );
 }
 
-interface DeliverableCardProps {
+interface DeliverableHeaderProps {
   item: Deliverable;
-  variant: 'compact' | 'full';
-  employeeLabel?: string | null;
-  desktopVaultRoot?: string | null;
-  onSaveAsSop?: (item: Deliverable) => Promise<void>;
-  isNew?: boolean;
 }
 
-export function DeliverableCard({
-  item,
-  variant,
-  employeeLabel,
-  desktopVaultRoot,
-  onSaveAsSop,
-  isNew,
-}: DeliverableCardProps) {
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
-  const canPreview = canPreviewDeliverable(item.artifact);
-  const fileName = item.artifact.fileName ?? 'deliverable.txt';
+function DeliverableHeader({ item }: DeliverableHeaderProps) {
   const Icon = mimeTypeToIcon(item.artifact.mimeType);
-
-  const handleCopy = useCallback(async () => {
-    setCopyFailed(false);
-    try {
-      await navigator.clipboard.writeText(item.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopyFailed(true);
-      setTimeout(() => setCopyFailed(false), 2000);
-    }
-  }, [item.content]);
-
-  const copyLabel = copyFailed ? 'Copy failed' : copied ? 'Copied!' : 'Copy';
-
-  const header = (
+  return (
     <div className="flex items-start gap-2 min-w-0">
       <Icon className="h-4 w-4 shrink-0 text-slate-400 mt-px" />
       <div className="min-w-0 flex-1">
@@ -153,87 +149,83 @@ export function DeliverableCard({
       </div>
     </div>
   );
+}
 
-  if (variant === 'compact') {
-    return (
-      <div className="mt-2 max-w-[94%] rounded-xl border border-emerald-400/20 bg-emerald-500/5 px-3 py-2">
-        {header}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
-          <span className="inline-flex items-center rounded bg-emerald-500/15 px-1.5 py-px font-medium text-emerald-200">
-            {fileName}
-          </span>
-          {item.artifact.mimeType && (
-            <span className="text-slate-400">{item.artifact.mimeType}</span>
-          )}
-          {employeeLabel && <span className="text-slate-500">· {employeeLabel}</span>}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-slate-300 hover:text-pearl"
-            onClick={handleCopy}
-          >
-            {copyLabel}
-          </Button>
-          {canPreview && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px] text-slate-300 hover:text-pearl"
-              onClick={() => previewInNewTab(item.artifact.content, item.artifact.mimeType)}
-            >
-              Open
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-slate-300 hover:text-pearl"
-            onClick={() => downloadArtifactContent(item.artifact.content, fileName, item.artifact.mimeType)}
-          >
-            Download
-          </Button>
-        </div>
-      </div>
-    );
-  }
+interface DeliverableCardProps {
+  item: Deliverable;
+  variant: 'compact' | 'full';
+  employeeLabel?: string | null;
+  desktopVaultRoot?: string | null;
+  onSaveAsSop?: (item: Deliverable) => Promise<void>;
+  isNew?: boolean;
+}
 
-  return (
-    <FullVariant
-      item={item}
-      header={header}
-      canPreview={canPreview}
-      desktopVaultRoot={desktopVaultRoot ?? null}
-      onSaveAsSop={onSaveAsSop}
-      isNew={isNew}
-      copyLabel={copyLabel}
-      onCopy={handleCopy}
+export function DeliverableCard(props: DeliverableCardProps) {
+  return props.variant === 'compact' ? (
+    <CompactCard item={props.item} employeeLabel={props.employeeLabel} />
+  ) : (
+    <FullCard
+      item={props.item}
+      desktopVaultRoot={props.desktopVaultRoot ?? null}
+      onSaveAsSop={props.onSaveAsSop}
+      isNew={props.isNew}
     />
   );
 }
 
-interface FullVariantProps {
+interface CompactCardProps {
   item: Deliverable;
-  header: React.ReactNode;
-  canPreview: boolean;
+  employeeLabel?: string | null;
+}
+
+function CompactCard({ item, employeeLabel }: CompactCardProps) {
+  const canPreview = canPreviewDeliverable(item.artifact);
+  const fileName = item.artifact.fileName ?? 'deliverable.txt';
+  const { content, mimeType } = item.artifact;
+
+  return (
+    <div className="mt-2 max-w-[94%] rounded-xl border border-emerald-400/20 bg-emerald-500/5 px-3 py-2">
+      <DeliverableHeader item={item} />
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
+        <span className="inline-flex items-center rounded bg-emerald-500/15 px-1.5 py-px font-medium text-emerald-200">
+          {fileName}
+        </span>
+        {mimeType && <span className="text-slate-400">{mimeType}</span>}
+        {employeeLabel && <span className="text-slate-500">· {employeeLabel}</span>}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <CopyButton content={item.content} className={COMPACT_ACTION_CLASS} />
+        {canPreview && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={COMPACT_ACTION_CLASS}
+            onClick={() => previewInNewTab(content, mimeType)}
+          >
+            Open
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={COMPACT_ACTION_CLASS}
+          onClick={() => downloadArtifactContent(content, fileName, mimeType)}
+        >
+          Download
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface FullCardProps {
+  item: Deliverable;
   desktopVaultRoot: string | null;
   onSaveAsSop?: (item: Deliverable) => Promise<void>;
   isNew?: boolean;
-  copyLabel: string;
-  onCopy: () => Promise<void>;
 }
 
-function FullVariant({
-  item,
-  header,
-  canPreview,
-  desktopVaultRoot,
-  onSaveAsSop,
-  isNew,
-  copyLabel,
-  onCopy,
-}: FullVariantProps) {
+function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps) {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [exporting, setExporting] = useState(false);
   const [savingSop, setSavingSop] = useState(false);
@@ -241,18 +233,22 @@ function FullVariant({
   const [localPath, setLocalPath] = useState<string | null>(null);
   const [savingLocal, setSavingLocal] = useState(false);
   const desktopMode = isTauri();
+  const canPreview = canPreviewDeliverable(item.artifact);
   const isFileArtifact = item.artifact.kind === 'file' && !!item.artifact.fileName;
+  const isSopPromoted = item.contributingEmployees.length >= 2 && !sopSaved;
+
+  const { content, fileName, mimeType } = item.artifact;
 
   const handleDownload = useCallback(async () => {
-    if (isFileArtifact && item.artifact.fileName) {
-      downloadArtifactContent(item.artifact.content, item.artifact.fileName, item.artifact.mimeType);
+    if (isFileArtifact && fileName) {
+      downloadArtifactContent(content, fileName, mimeType);
       return;
     }
     setExporting(true);
     try {
       const doc: ExportableDocument = {
         title: item.title,
-        content: item.artifact.content,
+        content,
         contributors: item.contributingEmployees.map((e) => ({ name: e.employeeName })),
         createdAt: item.createdAt,
       };
@@ -263,24 +259,20 @@ function FullVariant({
     } finally {
       setExporting(false);
     }
-  }, [isFileArtifact, item, selectedFormat]);
+  }, [content, fileName, mimeType, isFileArtifact, item.title, item.contributingEmployees, item.createdAt, selectedFormat]);
 
   const handleSaveLocal = useCallback(async () => {
-    if (!desktopMode || !desktopVaultRoot || !item.artifact.fileName) return;
+    if (!desktopMode || !desktopVaultRoot || !fileName) return;
     setSavingLocal(true);
     try {
-      const path = await saveDesktopDeliverable(
-        desktopVaultRoot,
-        item.artifact.fileName,
-        item.artifact.content,
-      );
+      const path = await saveDesktopDeliverable(desktopVaultRoot, fileName, content);
       setLocalPath(path);
     } catch (err) {
       console.error('[DeliverableCard] Save locally failed:', err);
     } finally {
       setSavingLocal(false);
     }
-  }, [desktopMode, desktopVaultRoot, item.artifact.content, item.artifact.fileName]);
+  }, [desktopMode, desktopVaultRoot, fileName, content]);
 
   const handleSaveAsSop = useCallback(async () => {
     if (!onSaveAsSop || savingSop || sopSaved) return;
@@ -303,20 +295,15 @@ function FullVariant({
         isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700',
       )}
     >
-      <CardHeader className="p-3 pb-1">{header}</CardHeader>
+      <CardHeader className="p-3 pb-1">
+        <DeliverableHeader item={item} />
+      </CardHeader>
       <CardContent className="p-3 pt-1">
         <p className="font-mono text-[11px] leading-relaxed text-slate-400/80 whitespace-pre-wrap break-words">
-          {truncate(item.artifact.content, 200)}
+          {truncate(content, 200)}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-            onClick={onCopy}
-          >
-            {copyLabel}
-          </Button>
+          <CopyButton content={content} className={FULL_ACTION_CLASS} />
           {!isFileArtifact && (
             <Select
               value={selectedFormat}
@@ -338,8 +325,8 @@ function FullVariant({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-              onClick={() => previewInNewTab(item.artifact.content, item.artifact.mimeType)}
+              className={FULL_ACTION_CLASS}
+              onClick={() => previewInNewTab(content, mimeType)}
             >
               Preview
             </Button>
@@ -347,7 +334,7 @@ function FullVariant({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+            className={FULL_ACTION_CLASS}
             onClick={handleDownload}
             disabled={exporting}
           >
@@ -357,7 +344,7 @@ function FullVariant({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+              className={FULL_ACTION_CLASS}
               onClick={() =>
                 localPath ? void openDesktopLocalPath(localPath) : void handleSaveLocal()
               }
@@ -370,7 +357,7 @@ function FullVariant({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
+              className={FULL_ACTION_CLASS}
               onClick={() => void openDesktopLocalPath(`${desktopVaultRoot}/deliverables`)}
             >
               Open folder
@@ -378,13 +365,9 @@ function FullVariant({
           )}
           {onSaveAsSop && (
             <Button
-              variant={item.contributingEmployees.length >= 2 && !sopSaved ? 'default' : 'ghost'}
+              variant={isSopPromoted ? 'default' : 'ghost'}
               size="sm"
-              className={
-                item.contributingEmployees.length >= 2 && !sopSaved && !savingSop
-                  ? 'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse'
-                  : 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50'
-              }
+              className={isSopPromoted && !savingSop ? SOP_PROMOTED_CLASS : SOP_DEFAULT_CLASS}
               onClick={() => void handleSaveAsSop()}
               disabled={savingSop || sopSaved}
               title="Save the task path that produced this output as a reusable SOP template"

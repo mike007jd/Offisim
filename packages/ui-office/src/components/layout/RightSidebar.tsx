@@ -20,8 +20,10 @@ interface RightSidebarProps {
 
 type TaskSubTab = 'activity' | 'plan' | 'outputs';
 
-const SUB_TAB_TRIGGER_CLASS =
-  'h-auto min-w-fit shrink-0 rounded-full border border-transparent px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200';
+const PILL_TRIGGER_BASE =
+  'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200';
+const MAIN_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} gap-1.5 px-3 py-2 text-[11px]`;
+const SUB_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} px-3 py-1 text-[10px] uppercase tracking-[0.18em]`;
 
 export function RightSidebar({
   chatPanel,
@@ -79,7 +81,7 @@ export function RightSidebar({
               value="chat"
               title="Chat"
               aria-label="Chat"
-              className="h-auto min-w-fit shrink-0 gap-1.5 rounded-full border border-transparent px-3 py-2 text-[11px] text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200"
+              className={MAIN_TAB_TRIGGER_CLASS}
             >
               <MessageSquare className="h-4 w-4" />
               <span>Chat</span>
@@ -89,7 +91,7 @@ export function RightSidebar({
               title="Tasks"
               aria-label="Tasks"
               data-onboarding-target="tasks-tab"
-              className="h-auto min-w-fit shrink-0 gap-1.5 rounded-full border border-transparent px-3 py-2 text-[11px] text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200"
+              className={MAIN_TAB_TRIGGER_CLASS}
             >
               <Terminal className="h-4 w-4" />
               <span>Tasks</span>

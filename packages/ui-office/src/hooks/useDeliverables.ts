@@ -73,9 +73,7 @@ export function useDeliverables(): Deliverable[] {
         setDeliverables((prev) => {
           const map = new Map(prev.map((d) => [d.id, d] as const));
           for (const row of history) {
-            if (!map.has(row.id)) {
-              map.set(row.id, { ...row, contentSize: row.artifact.content.length });
-            }
+            if (!map.has(row.id)) map.set(row.id, row);
           }
           return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
         });
