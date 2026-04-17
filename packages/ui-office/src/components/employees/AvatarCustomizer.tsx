@@ -8,9 +8,6 @@ interface AvatarCustomizerProps {
   onChange: (config: AvatarAppearance) => void;
 }
 
-// Manual-config palette for the AvatarCustomizer UI. NOT shared with seed-derived
-// rendering (SKIN_TONES in avatar-seed.ts is for hash-index pick; these labeled
-// swatches let a user pick explicitly). Keep independent.
 const SKIN_COLORS: { value: number; label: string }[] = [
   { value: 0xfde8d5, label: 'Light' },
   { value: 0xfdbcb4, label: 'Fair' },
@@ -19,8 +16,6 @@ const SKIN_COLORS: { value: number; label: string }[] = [
   { value: 0x6b3f2a, label: 'Dark' },
 ];
 
-// Manual-config palette for AvatarCustomizer. Independent from seed-derived
-// auto-coloring; lets a user pick hair color explicitly with named swatches.
 const HAIR_COLORS: { value: number; label: string }[] = [
   { value: 0x1a1a1a, label: 'Black' },
   { value: 0x6b3f1e, label: 'Brown' },

@@ -1,5 +1,6 @@
 import { Badge, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { HeartPulse } from 'lucide-react';
+import { useMemo } from 'react';
 import { resolveAvatarSeed } from '../../lib/avatar-seed';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
@@ -23,6 +24,7 @@ function EmployeeHealthRow({ id, agent }: { id: string; agent: AgentState }) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
   const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
   const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
+  const avatarSeed = useMemo(() => resolveAvatarSeed(agent), [agent]);
 
   return (
     <div
@@ -32,11 +34,7 @@ function EmployeeHealthRow({ id, agent }: { id: string; agent: AgentState }) {
       {/* Mini avatar + status dot */}
       <div className="relative flex-shrink-0">
         <div className="h-6 w-6 overflow-hidden rounded-full border border-white/10 bg-slate-800">
-          <DicebearAvatar
-            seed={resolveAvatarSeed(agent)}
-            size={24}
-            className="h-full w-full object-cover"
-          />
+          <DicebearAvatar seed={avatarSeed} size={24} className="h-full w-full object-cover" />
         </div>
         <div
           className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-slate-900 ${dotColor}`}

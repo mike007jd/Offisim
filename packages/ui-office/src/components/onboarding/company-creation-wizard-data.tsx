@@ -1,5 +1,3 @@
-import { avataaars } from '@dicebear/collection';
-import { createAvatar } from '@dicebear/core';
 import type { CompanyTemplate } from '@offisim/core/browser';
 import type { Zone } from '@offisim/shared-types';
 import {
@@ -9,6 +7,7 @@ import {
 } from '@offisim/shared-types';
 import { Brain, Briefcase, FlaskConical, PenTool, Rocket, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { createOffisimAvatar } from '../../lib/avatar-seed';
 
 export function getTemplatePreviewZones(template?: CompanyTemplate | null): Zone[] {
   const zoneTemplates = template?.zones ?? SYSTEM_ZONE_TEMPLATES;
@@ -373,7 +372,7 @@ export function getAvatar(seed: string, size = 32): string {
   if (cached) {
     return cached;
   }
-  const uri = createAvatar(avataaars, { seed, size }).toDataUri();
+  const uri = createOffisimAvatar(seed, size);
   avatarCache.set(key, uri);
   return uri;
 }

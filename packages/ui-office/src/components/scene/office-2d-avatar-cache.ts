@@ -3,9 +3,7 @@
  * Replaces the previous unbounded Map to prevent memory growth
  * when switching companies or accumulating many unique seeds.
  */
-import { avataaars } from '@dicebear/collection';
-import { createAvatar } from '@dicebear/core';
-import { outfitColorFromSeed } from '../../lib/avatar-seed';
+import { createOffisimAvatar } from '../../lib/avatar-seed';
 
 const MAX_CACHE_SIZE = 100;
 
@@ -52,11 +50,7 @@ const cache = new AvatarLRUCache();
 export function getAvatarUri(seed: string, companyId: string): string {
   const cached = cache.get(seed, companyId);
   if (cached) return cached;
-  const uri = createAvatar(avataaars, {
-    seed,
-    size: 64,
-    clothesColor: [outfitColorFromSeed(seed).slice(1)],
-  }).toDataUri();
+  const uri = createOffisimAvatar(seed, 64);
   cache.set(seed, companyId, uri);
   return uri;
 }
