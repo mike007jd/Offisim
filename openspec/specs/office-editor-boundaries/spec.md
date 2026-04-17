@@ -1,8 +1,14 @@
-## ADDED Requirements
+# office-editor-boundaries Specification
+
+## Purpose
+
+`OfficeEditorOverlay` 的职责边界规范——overlay 不再是单文件 950 行 god-component，而是一个 ≤ 200 行的薄 composition shell，仅负责接 `{ open, onClose }` props、调用 4 个 composition hook、拼装 6 个 render-only section component、协调 save-before-close 生命周期。zone preset palette / drag-to-reposition / pan-zoom viewport / required-archetype 守卫 / validation 派生 / save lifecycle 各自落到独立 hook 与 section 模块，单一职责、互不交叉。Section component 是纯 render-only：props in / JSX out，禁止 useState / useRef / useEffect；hook 之间禁止互相 import，跨 hook 数据流由 barrel 显式 props 串联。Public consumer API（import 路径 + props 形状）严格不变，refactor 对调用方零感知。
+
+## Requirements
 
 ### Requirement: OfficeEditorOverlay is a thin composition shell
 
-`packages/ui-office/src/components/office/OfficeEditorOverlay.tsx` SHALL contain no more than 200 non-blank, non-comment lines and SHALL only: (a) accept `{ open, onClose }` props, (b) call the 4 composition hooks (`useZoneEditorState` / `useDragReposition` / `useZonePanZoom` / `useZoneValidation`), (c) render the 4 section components (`EditorToolbar` / `PresetPalette` / `ZoneCanvas` / `ValidationBanner`) with props derived from the hooks, (d) orchestrate save-before-close. Inline useState / useRef beyond the `open` reflection SHALL NOT live in this file.
+`packages/ui-office/src/components/office/OfficeEditorOverlay.tsx` SHALL contain no more than 200 non-blank, non-comment lines and SHALL only: (a) accept `{ open, onClose }` props, (b) call the 4 composition hooks (`useZoneEditorState` / `useDragReposition` / `useZonePanZoom` / `useZoneValidation`), (c) render the 6 section components (`EditorToolbar` / `PresetPalette` / `ZoneCanvas` / `ZoneInspector` / `StatusBar` / `ValidationBanner`) with props derived from the hooks, (d) orchestrate save-before-close. Inline useState / useRef beyond the `open` reflection SHALL NOT live in this file.
 
 #### Scenario: File size gate
 - **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/ui-office/src/components/office/OfficeEditorOverlay.tsx` is run after refactor
@@ -14,11 +20,11 @@
 
 ### Requirement: Editor section components are render-only
 
-Each of `EditorToolbar` / `PresetPalette` / `ZoneCanvas` / `ValidationBanner` SHALL live in `packages/ui-office/src/components/office/editor/` and SHALL be a render-only component — props in, JSX out, no `useState` / `useRef` / `useEffect`. Section components SHALL NOT import sibling section components; the barrel composes them.
+Each of `EditorToolbar` / `PresetPalette` / `ZoneCanvas` / `ZoneInspector` / `StatusBar` / `ValidationBanner` SHALL live in `packages/ui-office/src/components/office/editor/` and SHALL be a render-only component — props in, JSX out, no `useState` / `useRef` / `useEffect`. Section components SHALL NOT import sibling section components; the barrel composes them.
 
 #### Scenario: One file per section
 - **WHEN** listing `packages/ui-office/src/components/office/editor/` for `*.tsx` files
-- **THEN** exactly these 4 files exist: `EditorToolbar.tsx`, `PresetPalette.tsx`, `ZoneCanvas.tsx`, `ValidationBanner.tsx`
+- **THEN** exactly these 6 files exist: `EditorToolbar.tsx`, `PresetPalette.tsx`, `ZoneCanvas.tsx`, `ZoneInspector.tsx`, `StatusBar.tsx`, `ValidationBanner.tsx`
 
 #### Scenario: Sections contain no state hooks
 - **WHEN** grepping any section component for `useState\(` / `useRef\(` / `useEffect\(`

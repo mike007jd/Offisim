@@ -13,9 +13,10 @@
 **Goals:**
 
 - `OfficeEditorOverlay.tsx` ≤ 200 NBNC thin shell，只做 open/close + hook 装配 + section 渲染
-- 4 个 section 组件各 ≤ 200 行，单一视觉责任
+- 6 个 section 组件各 ≤ 200 行，单一视觉责任（含 ZoneInspector 右栏 + StatusBar 底栏）
 - 4 个 composition hook 各 ≤ 250 行，单一逻辑责任
 - overlay 打开后编辑行为 / 视觉 / save round-trip byte-identical
+- `editor/useOfficeEditor.ts`（535 行 god-hook）整体下线，由 4 个 composition hook 接管
 
 **Non-Goals:**
 
@@ -34,9 +35,11 @@
 
 ### D2. Section 组件是 render-only，不拥有状态
 
-**选择**：4 个 section 组件全部 props-in/JSX-out，不挂 useState/useRef。所有状态住 4 个 hook 里，overlay barrel 通过 props 传下去。
+**选择**：6 个 section 组件全部 props-in/JSX-out，不挂 useState/useRef/useEffect。所有状态住 4 个 hook 里，overlay barrel 通过 props 传下去。
 
 **理由**：对齐 `AppMainShell` / `AppOverlayHost` / `AppGlobalDialogs` 的 "render-only, state 在 hook" 模式。section 组件只做视觉，易于 review 和替换。
+
+**6 而非 4**：现有 UI 比 proposal 初版列得多——除了 toolbar / palette / canvas / banner 之外，还有右侧 `ZoneInspector` 和底部 `StatusBar` 两个独立视觉块（共 ~200 行 JSX）。强行折进 4 个槽位会让 ZoneCanvas / EditorToolbar 失去单一视觉责任并爆 200 行预算，故扩到 6 个 section 文件。
 
 **不选**：Section 组件自己挂 useState——会让 save 时需要 forwardRef 或 context 收集，复杂度不降反升。
 
@@ -69,4 +72,4 @@ barrel 组合：`const state = useZoneEditorState()` → `const drag = useDragRe
 - **风险：drag 坐标换算跨 hook 分裂**→ `useDragReposition` 和 `useZonePanZoom` 都读 `viewport.transform`，前者要做 pixel→svg 换算。通过 `useDragReposition({ viewport })` 显式注入解决，不共享 context。
 - **风险：validation 和 drag 双向耦合**→ drag 中 banner 要实时更新。`useZoneValidation` 读 `items` 引用，items 由 drag mutate，React re-render 天然驱动 banner 重算；无需 drag handle invalidate validation。
 - **风险：live verify 覆盖不足**→ overlay 交互多，必须覆盖：open overlay → 添加 preset → 拖动 → 触发 overlap → save → 重开确认持久化。
-- **Trade-off：文件数增加**→ overlay 从 1 文件变成 9 文件（barrel + 4 section + 4 hook）。换来单文件 ≤ 200/250 行，对齐 `App.tsx` 拆分模式。
+- **Trade-off：文件数增加**→ overlay 从 1 文件 + 1 god-hook 变成 11 文件（barrel + 6 section + 4 hook，god-hook 删除）。换来单文件 ≤ 200/250 行，对齐 `App.tsx` 拆分模式。

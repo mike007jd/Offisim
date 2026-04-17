@@ -4,12 +4,14 @@
 
 ## What Changes
 
-- **Thin shell**: `OfficeEditorOverlay.tsx` 压到 ≤ 200 非空非注释行，只做 open/close lifecycle + useCallback 调 sub-hook + 拼装 4 个 section component。
-- **4 Section components** (`components/office/editor/` 子目录)：
-  - `EditorToolbar.tsx` — title / zoom buttons / grid toggle / save / close
-  - `PresetPalette.tsx` — zone preset group filter + preview cards（drag source）
-  - `ZoneCanvas.tsx` — SVG viewport + zone rects + prefab silhouettes + drag target
-  - `ValidationBanner.tsx` — overlap / required-missing / bounds violation inline banner
+- **Thin shell**: `OfficeEditorOverlay.tsx` 压到 ≤ 200 非空非注释行，只做 open/close lifecycle + useCallback 调 sub-hook + 拼装 6 个 section component。
+- **6 Section components** (`components/office/editor/` 子目录)：
+  - `EditorToolbar.tsx` — top bar（title / zoom buttons / reset / save / close）
+  - `PresetPalette.tsx` — zone preset group filter + preview cards（drag source）+ custom-zone form
+  - `ZoneCanvas.tsx` — SVG viewport + zone rects + prefab silhouettes + ghost preview + drag target
+  - `ZoneInspector.tsx` — selected-zone properties rail（label / variant swap / position nudge / delete guard）
+  - `StatusBar.tsx` — bottom bar（zone count / item count / overlap badge / zoom %）
+  - `ValidationBanner.tsx` — required-archetype / overlap / bounds violation inline banner（吃 `useZoneValidation` warning + 现 toast 路径）
 - **4 Composition hooks** (`components/office/editor/hooks/` 子目录)：
   - `useZoneEditorState` — editor zones / placed items / dirty tracking / save orchestration
   - `useDragReposition` — drag 源/目标坐标换算 + obstacle snap + 重叠检测
@@ -30,7 +32,8 @@
 
 ## Impact
 
-- **目录新增**：`packages/ui-office/src/components/office/editor/{EditorToolbar,PresetPalette,ZoneCanvas,ValidationBanner}.tsx` + `editor/hooks/{useZoneEditorState,useDragReposition,useZonePanZoom,useZoneValidation}.ts`
+- **目录新增**：`packages/ui-office/src/components/office/editor/{EditorToolbar,PresetPalette,ZoneCanvas,ZoneInspector,StatusBar,ValidationBanner}.tsx` + `editor/hooks/{useZoneEditorState,useDragReposition,useZonePanZoom,useZoneValidation}.ts`
+- **删除**：`editor/useOfficeEditor.ts` 535 行 god-hook 整体被 4 个 composition hook 取代
 - **文件重写**：`OfficeEditorOverlay.tsx` 950 → ≤ 200 行
 - **消费者无改动**：`App.tsx` 里的 `<OfficeEditorOverlay open={...} onClose={...}>` import 路径 + props 不变
 - **验证**：live runtime 打开 overlay 走一轮完整编辑（添加 preset / 拖动 / 触发 overlap banner / save），视觉 byte-identical
