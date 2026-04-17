@@ -5,6 +5,7 @@
  */
 import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
+import { outfitColorFromSeed } from '../../lib/avatar-seed';
 
 const MAX_CACHE_SIZE = 100;
 
@@ -51,7 +52,11 @@ const cache = new AvatarLRUCache();
 export function getAvatarUri(seed: string, companyId: string): string {
   const cached = cache.get(seed, companyId);
   if (cached) return cached;
-  const uri = createAvatar(avataaars, { seed, size: 64 }).toDataUri();
+  const uri = createAvatar(avataaars, {
+    seed,
+    size: 64,
+    clothesColor: [outfitColorFromSeed(seed).slice(1)],
+  }).toDataUri();
   cache.set(seed, companyId, uri);
   return uri;
 }

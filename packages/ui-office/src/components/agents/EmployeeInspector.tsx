@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEmployeeMemories } from '../../hooks/useEmployeeMemories';
+import { resolveAvatarSeed } from '../../lib/avatar-seed';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -302,7 +303,11 @@ export function EmployeeInspector({
         >
           <div className="relative flex-shrink-0">
             <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-slate-800">
-              <DicebearAvatar seed={agent.name} size={48} className="h-full w-full object-cover" />
+              <DicebearAvatar
+                seed={resolveAvatarSeed(employee ?? agent)}
+                size={48}
+                className="h-full w-full object-cover"
+              />
             </div>
             <div
               className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-900 ${dotColor}`}

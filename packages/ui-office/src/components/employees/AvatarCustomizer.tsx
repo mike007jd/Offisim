@@ -1,12 +1,16 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
 import { cn } from '@offisim/ui-core';
 import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
+import { OUTFIT_COLORS_NUMERIC, OUTFIT_LABELS } from '../../lib/avatar-seed';
 
 interface AvatarCustomizerProps {
   config: AvatarAppearance;
   onChange: (config: AvatarAppearance) => void;
 }
 
+// Manual-config palette for the AvatarCustomizer UI. NOT shared with seed-derived
+// rendering (SKIN_TONES in avatar-seed.ts is for hash-index pick; these labeled
+// swatches let a user pick explicitly). Keep independent.
 const SKIN_COLORS: { value: number; label: string }[] = [
   { value: 0xfde8d5, label: 'Light' },
   { value: 0xfdbcb4, label: 'Fair' },
@@ -15,6 +19,8 @@ const SKIN_COLORS: { value: number; label: string }[] = [
   { value: 0x6b3f2a, label: 'Dark' },
 ];
 
+// Manual-config palette for AvatarCustomizer. Independent from seed-derived
+// auto-coloring; lets a user pick hair color explicitly with named swatches.
 const HAIR_COLORS: { value: number; label: string }[] = [
   { value: 0x1a1a1a, label: 'Black' },
   { value: 0x6b3f1e, label: 'Brown' },
@@ -24,14 +30,11 @@ const HAIR_COLORS: { value: number; label: string }[] = [
   { value: 0x3d6bce, label: 'Blue' },
 ];
 
-const CLOTHING_COLORS: { value: number; label: string }[] = [
-  { value: 0x4a90d9, label: 'Blue' },
-  { value: 0x7a7a7a, label: 'Gray' },
-  { value: 0x1a1a1a, label: 'Black' },
-  { value: 0xf0f0f0, label: 'White' },
-  { value: 0x3a8a4a, label: 'Green' },
-  { value: 0xc0392b, label: 'Red' },
-];
+// Clothing swatches derive from OUTFIT_COLORS (avatar-seed.ts SSOT) so that
+// manual-config, 2D DiceBear shirt and 3D block-figure body all share the same palette.
+const CLOTHING_COLORS: { value: number; label: string }[] = OUTFIT_COLORS_NUMERIC.map(
+  (value, i) => ({ value, label: OUTFIT_LABELS[i] ?? `Color ${i + 1}` }),
+);
 
 const HAIR_STYLES = [
   'short',

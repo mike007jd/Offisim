@@ -186,7 +186,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 
 - `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
 - chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
-- 3D 员工外观 (`office3d-employees.tsx` 硬编码 `OUTFIT_COLORS / SKIN_TONES`) 与 2D DiceBear 头像 **不同源** — 未来需统一 seed-based 配色
+- 2D DiceBear 卡通头像和 3D 块人是两种渲染引擎；衣服色通过 `outfitColorFromSeed(seed)` 桥接（2D 的 shirt 色 = 3D 的 body 色，hex 字节等价），其他部件（发型 / 脸 / 配饰）由 DiceBear 自 seed 独立派生
 - A2A 产品抽象 = **external department / 外包部门**，不是外部员工 avatar。接入先做部门卡、能力、路由和结果归属，不要塞进办公室座位语义
 
 ## Interop

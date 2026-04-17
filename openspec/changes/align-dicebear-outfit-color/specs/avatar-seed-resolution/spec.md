@@ -2,7 +2,7 @@
 
 ### Requirement: 2D DiceBear outfit color aligns with 3D seed-derived color
 
-When a 2D avatar is rendered via DiceBear (`@dicebear/core` + `@dicebear/avataaars` style) for an employee, the DiceBear `clothingColor` option SHALL be set to a single-element array containing `outfitColorFromSeed(resolveAvatarSeed(employee))` (hex without leading `#`), so that the generated SVG's shirt color matches the 3D block-figure body color byte-for-byte for the same employee.
+When a 2D avatar is rendered via DiceBear (`@dicebear/core` + `@dicebear/avataaars` style) for an employee, the DiceBear `clothesColor` option (the actual avataaars 9.4.2 API name; common docs also call it "clothing color") SHALL be set to a single-element array containing `outfitColorFromSeed(resolveAvatarSeed(employee))` (hex without leading `#`), so that the generated SVG's shirt color matches the 3D block-figure body color byte-for-byte for the same employee.
 
 #### Scenario: Same employee renders matching outfit color across 2D and 3D
 - **WHEN** employee "Alex Chen" (seed `"Alex Chen"` resolving to `outfitColorFromSeed` output `#3b82f6`) is rendered in both the 2D DiceBear chat avatar and the 3D block-figure office scene

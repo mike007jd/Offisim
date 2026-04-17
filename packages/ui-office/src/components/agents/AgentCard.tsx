@@ -1,6 +1,7 @@
 import { Badge } from '@offisim/ui-core';
 import { Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { resolveAvatarSeed } from '../../lib/avatar-seed';
 import { truncate } from '../../lib/format-time';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
@@ -83,7 +84,11 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         {/* Avatar with status dot */}
         <div className="relative flex-shrink-0">
           <div className="w-11 h-11 rounded-full bg-slate-900 overflow-hidden border border-white/10">
-            <DicebearAvatar seed={agent.name} size={44} className="w-full h-full object-cover" />
+            <DicebearAvatar
+              seed={resolveAvatarSeed(agent)}
+              size={44}
+              className="w-full h-full object-cover"
+            />
           </div>
           <div
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#02040a] transition-colors duration-300 ${dotColor}`}

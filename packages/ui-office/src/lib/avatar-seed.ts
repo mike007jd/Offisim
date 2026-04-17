@@ -11,6 +11,21 @@ export const OUTFIT_COLORS = [
   '#f59e0b',
 ];
 
+export const OUTFIT_COLORS_NUMERIC: readonly number[] = OUTFIT_COLORS.map((hex) =>
+  parseInt(hex.slice(1), 16),
+);
+
+export const OUTFIT_LABELS: readonly string[] = [
+  'Blue',
+  'Purple',
+  'Green',
+  'Indigo',
+  'Orange',
+  'Red',
+  'Cyan',
+  'Amber',
+];
+
 export const SKIN_TONES = [
   '#fce7f3',
   '#fef3c7',
