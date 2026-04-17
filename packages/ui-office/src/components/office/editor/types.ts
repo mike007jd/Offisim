@@ -1,11 +1,9 @@
 import type {
   ActivityType,
-  PrefabDefinition,
   RoleSlug,
   SemanticCategory,
   ZoneArchetype,
   ZoneKind,
-  ZonePreset,
 } from '@offisim/shared-types';
 
 /** A zone placed on the editor canvas. */
@@ -85,44 +83,3 @@ export function prefabColor(category: SemanticCategory): string {
   return colors[category] ?? '#64748b';
 }
 
-/** Spawn an EditorZone + PlacedItems from a preset at a given position. */
-export function spawnFromPreset(
-  preset: ZonePreset,
-  cx: number,
-  cz: number,
-  allPrefabsMap: Map<string, PrefabDefinition>,
-): { zone: EditorZone; items: PlacedItem[] } {
-  const zoneId = crypto.randomUUID();
-  const zone: EditorZone = {
-    id: zoneId,
-    kind: 'system',
-    presetId: preset.id,
-    label: preset.label,
-    archetype: preset.archetype,
-    accentColor: preset.accentColor,
-    floorColor: preset.floorColor,
-    cx,
-    cz,
-    w: preset.w,
-    d: preset.d,
-    deskSlots: preset.deskSlots,
-    targetRoles: [...preset.targetRoles],
-    allowedCategories: [...preset.allowedCategories],
-    activityTypes: [...preset.activityTypes],
-  };
-  const items: PlacedItem[] = [];
-  for (const p of preset.prefabs) {
-    const def = allPrefabsMap.get(p.prefabId);
-    if (!def) continue;
-    items.push({
-      instanceId: crypto.randomUUID(),
-      prefabId: p.prefabId,
-      name: def.name,
-      x: Math.round((cx + p.offsetX) * 10) / 10,
-      y: Math.round((cz + p.offsetZ) * 10) / 10,
-      rotation: p.rotation ?? 0,
-      zoneId,
-    });
-  }
-  return { zone, items };
-}

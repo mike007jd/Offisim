@@ -33,33 +33,6 @@ export const ARCHETYPE_ICONS: Record<ZoneArchetype, { path: string; label: strin
 export const LOCK_ICON_PATH =
   'M5 11V7a5 5 0 0 1 10 0v4M3 11h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z';
 
-/** SVG pattern definitions for zone floor textures per archetype. */
 export function getFloorPatternId(archetype: ZoneArchetype | null): string {
   return archetype ? `floor-${archetype}` : 'floor-default';
 }
-
-/** Static SVG pattern markup for zone floor textures (injected once into <defs>). */
-export const FLOOR_PATTERNS_SVG = `
-    <pattern id="floor-workspace" width="8" height="8" patternUnits="userSpaceOnUse">
-      <line x1="0" y1="8" x2="8" y2="0" stroke="currentColor" stroke-width="0.3" opacity="0.08"/>
-    </pattern>
-    <pattern id="floor-meeting" width="6" height="6" patternUnits="userSpaceOnUse">
-      <circle cx="3" cy="3" r="0.5" fill="currentColor" opacity="0.08"/>
-    </pattern>
-    <pattern id="floor-library" width="10" height="4" patternUnits="userSpaceOnUse">
-      <line x1="0" y1="2" x2="10" y2="2" stroke="currentColor" stroke-width="0.4" opacity="0.06"/>
-    </pattern>
-    <pattern id="floor-rest" width="12" height="6" patternUnits="userSpaceOnUse">
-      <path d="M0 3 Q3 0 6 3 T12 3" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.07"/>
-    </pattern>
-    <pattern id="floor-server" width="8" height="8" patternUnits="userSpaceOnUse">
-      <line x1="4" y1="0" x2="4" y2="8" stroke="currentColor" stroke-width="0.2" opacity="0.06"/>
-      <line x1="0" y1="4" x2="8" y2="4" stroke="currentColor" stroke-width="0.2" opacity="0.06"/>
-    </pattern>
-    <pattern id="floor-default" width="8" height="8" patternUnits="userSpaceOnUse">
-      <circle cx="4" cy="4" r="0.3" fill="currentColor" opacity="0.05"/>
-    </pattern>
-    <pattern id="overlap-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="6" stroke="#ef4444" stroke-width="1" opacity="0.3"/>
-    </pattern>
-  `;

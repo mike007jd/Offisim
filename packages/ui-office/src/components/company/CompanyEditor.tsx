@@ -54,6 +54,10 @@ export function CompanyEditor({
 }: CompanyEditorProps) {
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const { activeLayout } = useOfficeLayout();
+  const zoneLayoutMap = useMemo<ZoneLayoutMap>(
+    () => parseZoneLayoutMap(activeLayout?.layout_json),
+    [activeLayout?.layout_json],
+  );
 
   if (!isOpen) return null;
 
@@ -61,11 +65,6 @@ export function CompanyEditor({
     await save();
     close();
   }
-
-  const zoneLayoutMap = useMemo<ZoneLayoutMap>(
-    () => parseZoneLayoutMap(activeLayout?.layout_json),
-    [activeLayout?.layout_json],
-  );
 
   return (
     <div

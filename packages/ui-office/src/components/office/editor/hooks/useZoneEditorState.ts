@@ -1,79 +1,66 @@
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
 import type { PrefabDefinition, ZoneArchetype, ZonePreset } from '@offisim/shared-types';
-import { computeOverlapMap, findOverlaps, isRequiredArchetype } from '@offisim/shared-types';
+import { isRequiredArchetype } from '@offisim/shared-types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCompanyZones } from '../../../hooks/useCompanyZones.js';
-import { usePrefabInstances } from '../../../hooks/usePrefabInstances.js';
-import { saveZonesToDb } from '../../../lib/zone-persistence.js';
-import { useOffisimRuntime } from '../../../runtime/offisim-runtime-context.js';
-import { useCompany } from '../../company/CompanyContext.js';
-import { useStudioStore } from '../../studio/StudioState.js';
-import type { DragState, EditorZone, PlacedItem } from './types.js';
-import { SCALE, SVG_H, SVG_W, fromSVG } from './types.js';
+import { useCompanyZones } from '../../../../hooks/useCompanyZones.js';
+import { usePrefabInstances } from '../../../../hooks/usePrefabInstances.js';
+import { saveZonesToDb } from '../../../../lib/zone-persistence.js';
+import { useOffisimRuntime } from '../../../../runtime/offisim-runtime-context.js';
+import { useCompany } from '../../../company/CompanyContext.js';
+import { useStudioStore } from '../../../studio/StudioState.js';
+import type { EditorZone, PlacedItem } from '../types.js';
 
-export interface UseOfficeEditorReturn {
+export interface UseZoneEditorStateParams {
+  open: boolean;
+  onClose: () => void;
+}
+
+export interface UseZoneEditorStateReturn {
   editorZones: EditorZone[];
   localItems: PlacedItem[];
   selectedZoneId: string | null;
   selectedZone: EditorZone | null;
+  selectedZoneRequired: boolean;
   placingPreset: ZonePreset | null;
-  ghostPos: { x: number; y: number } | null;
-  drag: DragState | null;
   saving: boolean;
   dirty: boolean;
   collapsed: Record<string, boolean>;
   showCustomForm: boolean;
   customLabel: string;
   customArchetype: ZoneArchetype;
+  warning: string | null;
   allPrefabsMap: Map<string, PrefabDefinition>;
   itemsByZone: Map<string, PlacedItem[]>;
-  overlapMap: Map<string, string[]>;
-  ghostOverlaps: string[];
-  zoom: number;
-  panX: number;
-  panY: number;
-  viewBox: string;
-  svgRef: React.RefObject<SVGSVGElement | null>;
   setCollapsed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setShowCustomForm: React.Dispatch<React.SetStateAction<boolean>>;
   setCustomLabel: React.Dispatch<React.SetStateAction<string>>;
   setCustomArchetype: React.Dispatch<React.SetStateAction<ZoneArchetype>>;
   setPlacingPreset: React.Dispatch<React.SetStateAction<ZonePreset | null>>;
   setSelectedZoneId: React.Dispatch<React.SetStateAction<string | null>>;
+  setDirty: React.Dispatch<React.SetStateAction<boolean>>;
   handlePresetClick: (preset: ZonePreset) => void;
-  handleCanvasPointerDown: (e: React.PointerEvent<SVGSVGElement>) => void;
-  handleCanvasMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
-  handleCanvasPointerUp: () => void;
-  handleCanvasMouseLeave: () => void;
-  handleZonePointerDown: (zoneId: string, e: React.PointerEvent) => void;
   handleDeleteZone: () => void;
   handleMoveZone: (dx: number, dz: number) => void;
   handleLabelChange: (label: string) => void;
+  handleSwapVariant: (preset: ZonePreset) => void;
   handleCreateCustom: () => void;
   handleResetAll: () => void;
   handleSave: () => Promise<void>;
-  handleWheel: (e: React.WheelEvent) => void;
-  handleZoomIn: () => void;
-  handleZoomOut: () => void;
-  handleZoomFit: () => void;
-  handleSwapVariant: (preset: ZonePreset) => void;
-  selectedZoneRequired: boolean;
-  warning: string | null;
 }
 
-export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEditorReturn {
+export function useZoneEditorState({
+  open,
+  onClose,
+}: UseZoneEditorStateParams): UseZoneEditorStateReturn {
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const { zones: dbZones, refresh: refreshZones } = useCompanyZones();
   const { instances: dbInstances, refresh: refreshPrefabs } = usePrefabInstances();
-  const svgRef = useRef<SVGSVGElement>(null);
 
   const studioZones = useStudioStore((s) => s.zones);
   const studioInstances = useStudioStore((s) => s.instances);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [placingPreset, setPlacingPreset] = useState<ZonePreset | null>(null);
-  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
-  const [drag, setDrag] = useState<DragState | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -82,22 +69,9 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
   const [customArchetype, setCustomArchetype] = useState<ZoneArchetype>('workspace');
   const [warning, setWarning] = useState<string | null>(null);
 
-  // ── Zoom/pan ──
-  const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-
-  const viewBox = `${panX} ${panY} ${SVG_W / zoom} ${SVG_H / zoom}`;
-
-  // ── Refs for stable callbacks (avoid drag-frame re-creation) ──
   const editorZonesRef = useRef<EditorZone[]>([]);
-  const localItemsRef = useRef<PlacedItem[]>([]);
-  const zoomRef = useRef(zoom);
-  const panXRef = useRef(panX);
-  const panYRef = useRef(panY);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Prefab catalog ──
   const allPrefabsMap = useMemo(() => {
     const map = new Map<string, PrefabDefinition>();
     for (const p of getAllBuiltinPrefabs()) map.set(p.prefabId, p);
@@ -142,13 +116,8 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
 
   useEffect(() => {
     editorZonesRef.current = editorZones;
-    localItemsRef.current = localItems;
-    zoomRef.current = zoom;
-    panXRef.current = panX;
-    panYRef.current = panY;
-  }, [editorZones, localItems, zoom, panX, panY]);
+  }, [editorZones]);
 
-  // Cleanup warning timer on unmount
   useEffect(
     () => () => {
       if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
@@ -156,7 +125,6 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     [],
   );
 
-  // ── DB sync (initial open only) ──
   const syncedRef = useRef(false);
   useEffect(() => {
     if (!open) {
@@ -179,13 +147,8 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     setDirty(false);
     setSelectedZoneId(null);
     setPlacingPreset(null);
-    setDrag(null);
-    setZoom(1);
-    setPanX(0);
-    setPanY(0);
   }, [open, activeCompanyId, dbZones, dbInstances]);
 
-  // ── Derived ──
   const selectedZone = useMemo(
     () => editorZones.find((z) => z.id === selectedZoneId) ?? null,
     [editorZones, selectedZoneId],
@@ -205,39 +168,11 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     return m;
   }, [localItems]);
 
-  // Skip overlap recomputation during drag for performance
-  const lastOverlapMap = useRef<Map<string, string[]>>(new Map());
-  const overlapMap = useMemo(() => {
-    if (drag) return lastOverlapMap.current;
-    const result = computeOverlapMap(editorZones);
-    lastOverlapMap.current = result;
-    return result;
-  }, [editorZones, drag]);
-
-  const ghostOverlaps = useMemo(() => {
-    if (!placingPreset || !ghostPos) return [];
-    const { wx, wz } = fromSVG(ghostPos.x, ghostPos.y);
-    const candidate = {
-      id: '__ghost__',
-      cx: Math.round(wx * 2) / 2,
-      cz: Math.round(wz * 2) / 2,
-      w: placingPreset.w,
-      d: placingPreset.d,
-    };
-    return findOverlaps(candidate, editorZonesRef.current).map((z) => z.label);
-  }, [placingPreset, ghostPos]);
-
-  // ── SVG coords (stable — reads zoom/pan from refs) ─��
-  const svgCoords = useCallback((e: React.MouseEvent): { svgX: number; svgY: number } => {
-    if (!svgRef.current) return { svgX: 0, svgY: 0 };
-    const rect = svgRef.current.getBoundingClientRect();
-    return {
-      svgX: panXRef.current + ((e.clientX - rect.left) / rect.width) * (SVG_W / zoomRef.current),
-      svgY: panYRef.current + ((e.clientY - rect.top) / rect.height) * (SVG_H / zoomRef.current),
-    };
+  const showWarning = useCallback((msg: string) => {
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    setWarning(msg);
+    warningTimerRef.current = setTimeout(() => setWarning(null), 2500);
   }, []);
-
-  // ── Handlers ──
 
   const handlePresetClick = useCallback((preset: ZonePreset) => {
     setPlacingPreset((prev) => (prev?.id === preset.id ? null : preset));
@@ -245,82 +180,6 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     setShowCustomForm(false);
   }, []);
 
-  const handleCanvasPointerDown = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (drag) return;
-      if (!placingPreset) {
-        setSelectedZoneId(null);
-        return;
-      }
-      const { svgX, svgY } = svgCoords(e);
-      const { wx, wz } = fromSVG(svgX, svgY);
-      const snappedPosition = [Math.round(wx * 2) / 2, 0, Math.round(wz * 2) / 2] as [
-        number,
-        number,
-        number,
-      ];
-      useStudioStore.getState().addZoneFromPreset(placingPreset, snappedPosition);
-      setDirty(true);
-    },
-    [placingPreset, drag, svgCoords],
-  );
-
-  const handleCanvasMouseMove = useCallback(
-    (e: React.MouseEvent<SVGSVGElement>) => {
-      if (drag) {
-        const { svgX, svgY } = svgCoords(e);
-        const newCx = Math.round((drag.startCx + (svgX - drag.startMouseX) / SCALE) * 2) / 2;
-        const newCz = Math.round((drag.startCz + (svgY - drag.startMouseY) / SCALE) * 2) / 2;
-        useStudioStore.getState().updateZonePosition(drag.zoneId, newCx, newCz);
-        setDirty(true);
-        return;
-      }
-      if (!placingPreset) {
-        setGhostPos(null);
-        return;
-      }
-      const { svgX, svgY } = svgCoords(e);
-      setGhostPos({ x: svgX, y: svgY });
-    },
-    [placingPreset, drag, svgCoords],
-  );
-
-  const handleZonePointerDown = useCallback(
-    (zoneId: string, e: React.PointerEvent) => {
-      if (placingPreset) return;
-      e.stopPropagation();
-      const { svgX, svgY } = svgCoords(e);
-      const zone = editorZonesRef.current.find((z) => z.id === zoneId);
-      if (!zone) return;
-      setSelectedZoneId(zoneId);
-      setDrag({
-        zoneId,
-        startMouseX: svgX,
-        startMouseY: svgY,
-        startCx: zone.cx,
-        startCz: zone.cz,
-        startItemPositions: new Map(),
-      });
-    },
-    [placingPreset, svgCoords],
-  );
-
-  const handleCanvasPointerUp = useCallback(() => {
-    if (drag) setDrag(null);
-  }, [drag]);
-
-  const handleCanvasMouseLeave = useCallback(() => {
-    setGhostPos(null);
-    if (drag) setDrag(null);
-  }, [drag]);
-
-  const showWarning = useCallback((msg: string) => {
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    setWarning(msg);
-    warningTimerRef.current = setTimeout(() => setWarning(null), 2500);
-  }, []);
-
-  // Uses ref to avoid depending on editorZones (prevents keyboard effect churn during drag)
   const handleDeleteZone = useCallback(() => {
     if (!selectedZoneId) return;
     const zone = editorZonesRef.current.find((z) => z.id === selectedZoneId);
@@ -426,7 +285,6 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     }));
     setSelectedZoneId(null);
     setPlacingPreset(null);
-    setDrag(null);
     setDirty(true);
   }, []);
 
@@ -451,20 +309,6 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     }
   }, [repos, activeCompanyId, eventBus, refreshZones, refreshPrefabs]);
 
-  // ── Zoom ──
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    setZoom((prev) => Math.max(0.3, Math.min(4, prev * (e.deltaY > 0 ? 0.9 : 1.1))));
-  }, []);
-  const handleZoomIn = useCallback(() => setZoom((z) => Math.min(4, z * 1.2)), []);
-  const handleZoomOut = useCallback(() => setZoom((z) => Math.max(0.3, z / 1.2)), []);
-  const handleZoomFit = useCallback(() => {
-    setZoom(1);
-    setPanX(0);
-    setPanY(0);
-  }, []);
-
-  // ── Keyboard shortcuts ──
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -487,48 +331,31 @@ export function useOfficeEditor(open: boolean, onClose: () => void): UseOfficeEd
     localItems,
     selectedZoneId,
     selectedZone,
+    selectedZoneRequired,
     placingPreset,
-    ghostPos,
-    drag,
     saving,
     dirty,
     collapsed,
     showCustomForm,
     customLabel,
     customArchetype,
+    warning,
     allPrefabsMap,
     itemsByZone,
-    overlapMap,
-    ghostOverlaps,
-    zoom,
-    panX,
-    panY,
-    viewBox,
-    svgRef,
     setCollapsed,
     setShowCustomForm,
     setCustomLabel,
     setCustomArchetype,
     setPlacingPreset,
     setSelectedZoneId,
+    setDirty,
     handlePresetClick,
-    handleCanvasPointerDown,
-    handleCanvasMouseMove,
-    handleCanvasPointerUp,
-    handleCanvasMouseLeave,
-    handleZonePointerDown,
     handleDeleteZone,
     handleMoveZone,
     handleLabelChange,
+    handleSwapVariant,
     handleCreateCustom,
     handleResetAll,
     handleSave,
-    handleWheel,
-    handleZoomIn,
-    handleZoomOut,
-    handleZoomFit,
-    handleSwapVariant,
-    selectedZoneRequired,
-    warning,
   };
 }
