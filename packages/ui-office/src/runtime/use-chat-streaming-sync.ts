@@ -8,7 +8,7 @@ import type {
 import { useEffect } from 'react';
 import { useChatSessionStore } from '../components/chat/chat-session-store.js';
 
-const VISIBLE_STREAMING_NODES = new Set(['boss', 'boss_summary', 'employee', 'hr']);
+const VISIBLE_STREAMING_NODES = new Set(['boss', 'boss_summary', 'employee', 'hr', 'manager']);
 
 /**
  * Called ONLY by OffisimRuntimeProvider.sendMessage catch block.

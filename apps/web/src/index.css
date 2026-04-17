@@ -290,3 +290,29 @@ body {
     transform: none;
   }
 }
+
+/* ── Streaming placeholder shimmer ── */
+@keyframes streaming-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.streaming-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(148, 163, 184, 0.18) 50%,
+    transparent 100%
+  );
+  animation: streaming-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-shimmer {
+    animation: none;
+    background: none;
+  }
+}

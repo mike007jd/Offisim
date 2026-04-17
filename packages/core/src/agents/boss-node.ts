@@ -3,7 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { AGENT_QUESTION_REQUIRED, type BossRouteAction } from '@offisim/shared-types';
 import { bossRouteDecided, graphNodeEntered, llmStreamChunk } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
+import { recordedLlmStream } from '../llm/recorded-call.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -181,7 +181,12 @@ export async function bossNode(
     sopSection = `\n\nAvailable SOPs (reusable workflows):\n${sopList}`;
   }
 
-  const llmResponse = await recordedLlmCall(
+  // Stream-and-capture routing call: we run the routing JSON call as a stream so the
+  // reasoning tokens can progressively fill the chat bubble during the ~30s Boss is
+  // deliberating. Content chunks (the partial JSON) are intentionally NOT emitted —
+  // the JSON decision is parsed from the accumulated fullContent after stream close,
+  // which is byte-identical to the non-stream .chat() response.
+  const routingStreamResult = await recordedLlmStream(
     runtimeCtx,
     {
       messages: [
@@ -194,9 +199,22 @@ export async function bossNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
+    (chunk) => {
+      if (chunk.reasoning) {
+        runtimeCtx.eventBus.emit(
+          llmStreamChunk(
+            runtimeCtx.companyId,
+            state.threadId,
+            'boss',
+            chunk.reasoning,
+            'reasoning',
+          ),
+        );
+      }
+    },
   );
 
-  const decision = parseBossDecision(llmResponse.content);
+  const decision = parseBossDecision(routingStreamResult.fullContent);
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
@@ -291,7 +309,7 @@ export async function bossNode(
       ? decision.clarificationQuestion
       : decision?.action === 'direct_reply' && decision.reply
         ? decision.reply
-        : (decision?.reason ?? llmResponse.content);
+        : (decision?.reason ?? routingStreamResult.fullContent);
 
   let finalReplyContent = replyContent;
   if (route === 'direct_reply') {

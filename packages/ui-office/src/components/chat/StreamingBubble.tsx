@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   DEFAULT_BADGE_COLOR,
   NODE_BADGE_COLORS,
@@ -5,19 +6,19 @@ import {
 } from '../../lib/agent-display';
 
 const NODE_PLACEHOLDERS: Record<string, string> = {
-  boss: 'Drafting the response...',
-  boss_summary: 'Summarizing the outcome...',
-  employee: 'Working through the request...',
-  manager: 'Coordinating the next step...',
-  pm_planner: 'Planning the next move...',
-  pm_replan: 'Reworking the plan...',
-  pm_heartbeat: 'Checking execution progress...',
-  hr: 'Reviewing the situation...',
-  error_handler: 'Recovering from an issue...',
-  step_dispatcher: 'Dispatching the next step...',
+  boss: 'Drafting',
+  boss_summary: 'Summarizing',
+  employee: 'Working',
+  manager: 'Coordinating',
+  pm_planner: 'Planning',
+  pm_replan: 'Reworking plan',
+  pm_heartbeat: 'Checking progress',
+  hr: 'Reviewing',
+  error_handler: 'Recovering',
+  step_dispatcher: 'Dispatching',
 };
 
-const DEFAULT_PLACEHOLDER = 'Thinking...';
+const DEFAULT_PLACEHOLDER = 'Thinking';
 
 interface StreamingBubbleProps {
   content: string;
@@ -42,8 +43,6 @@ export function StreamingBubble({
     ? (NODE_PLACEHOLDERS[nodeName] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER;
   const showPlaceholder = !content && !reasoning && !!nodeName;
-  const displayContent = content || (showPlaceholder ? placeholder : '');
-  const showPulseWhileWaiting = isStreaming && !content;
 
   return (
     <div className="flex flex-col items-start">
@@ -55,21 +54,74 @@ export function StreamingBubble({
         </span>
       )}
       {reasoning && (
-        <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100 whitespace-pre-wrap">
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80">
-            Reasoning
-          </div>
-          {reasoning}
-        </div>
+        <ReasoningRegion reasoning={reasoning} hasContent={!!content} />
       )}
-      {(displayContent || showPulseWhileWaiting) && (
+      {(content || showPlaceholder) && (
         <div className="max-w-[94%] border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
-          {displayContent}
-          {(isStreaming || showPlaceholder) && (
-            <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
+          {content ? (
+            <>
+              {content}
+              {isStreaming && (
+                <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
+              )}
+            </>
+          ) : (
+            <PlaceholderWithTimer key={nodeName ?? 'placeholder'} text={placeholder} />
           )}
         </div>
       )}
     </div>
+  );
+}
+
+interface ReasoningRegionProps {
+  reasoning: string;
+  hasContent: boolean;
+}
+
+function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
+  const [expandedByUser, setExpandedByUser] = useState<boolean | null>(null);
+  const expanded = expandedByUser ?? !hasContent;
+
+  return (
+    <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100/90">
+      <button
+        type="button"
+        onClick={() => setExpandedByUser(!expanded)}
+        className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80 transition-colors hover:text-indigo-100"
+      >
+        <span>{expanded ? '▾' : '▸'}</span>
+        <span>Reasoning</span>
+      </button>
+      {expanded && <div className="whitespace-pre-wrap">{reasoning}</div>}
+    </div>
+  );
+}
+
+interface PlaceholderWithTimerProps {
+  text: string;
+}
+
+function PlaceholderWithTimer({ text }: PlaceholderWithTimerProps) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-slate-300/80">
+      <span className="relative inline-block overflow-hidden rounded-sm px-0.5 text-slate-300/90">
+        <span>{text}</span>
+        <span className="pointer-events-none absolute inset-0 streaming-shimmer" aria-hidden />
+      </span>
+      {elapsedSec > 0 && (
+        <span className="text-[11px] tabular-nums text-slate-400/70">{elapsedSec}s</span>
+      )}
+      <span className="inline-block w-1.5 h-3.5 bg-blue-400/60 animate-pulse rounded-sm" />
+    </span>
   );
 }
