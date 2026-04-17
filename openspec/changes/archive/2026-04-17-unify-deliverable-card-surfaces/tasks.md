@@ -66,6 +66,6 @@
 ## 9. Close Out
 
 - [x] 9.1 apply commit（feat(ui-office,web) 范围，body 简述 "为什么 — 三表面统一 + Tasks tab IA + 文件态标准化"）
-- [ ] 9.2 `/simplify` 审 diff，按 reviewer 高优先级项 follow-up commit（若有）
-- [ ] 9.3 `/opsx:archive unify-deliverable-card-surfaces` → canonical spec sync（新增 `deliverable-card-presentation` + 修订 `deliverable-artifact-handoff`）
-- [ ] 9.4 更新 `project_next_change_queue.md`：H2 `[x] archived` + archive SHA；提示下一条 H3 `scene-deliverable-delivery`（场景化包裹）是否起
+- [x] 9.2 `/simplify` 审 diff → follow-up commit `902f9e1f`（helper dedupe + DeliverableCard 拆 CompactCard/FullCard + shared CopyButton + useCallback deps 收窄 + RightSidebar PILL_TRIGGER_BASE 共享）
+- [x] 9.3 `/opsx:archive unify-deliverable-card-surfaces` → canonical spec sync（新增 `deliverable-card-presentation` + 修订 `deliverable-artifact-handoff`，两条 `openspec validate --strict` 绿）
+- [x] 9.4 更新 `project_next_change_queue.md` H2 条目 + completion log 条目；MEMORY.md "Next Change Queue" 段改 "队列已清"（E/F/G/H1/H1-followup/H2 全 archived），H 系列正式关闭（queue 文件非 git-tracked，memory 独立落）
