@@ -1,0 +1,38 @@
+export interface PlanCreatedPayload {
+  readonly planId: string;
+  readonly threadId: string;
+  readonly summary: string;
+  /** The SOP template that produced this plan, if any. */
+  readonly sopTemplateId?: string;
+  readonly steps: ReadonlyArray<{
+    readonly stepIndex: number;
+    readonly description: string;
+    readonly taskCount: number;
+    readonly tasks: ReadonlyArray<{
+      readonly taskRunId: string;
+      readonly taskType: string;
+      readonly description: string;
+      readonly employeeId?: string;
+      readonly assigneeId: string;
+      readonly assigneeName?: string;
+      readonly assigneeKind?: 'employee' | 'department';
+    }>;
+  }>;
+}
+
+export interface PlanStepStartedPayload {
+  readonly planId: string;
+  readonly stepIndex: number;
+  readonly taskCount: number;
+}
+
+export interface PlanStepCompletedPayload {
+  readonly planId: string;
+  readonly stepIndex: number;
+  readonly outputCount: number;
+}
+
+export interface PlanCompletedPayload {
+  readonly planId: string;
+  readonly totalSteps: number;
+}

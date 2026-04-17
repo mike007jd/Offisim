@@ -1,0 +1,88 @@
+import type { RuntimeEntityType } from '../states.js';
+
+/**
+ * Cross-package event envelope.
+ * Extended in Phase 2.0 with companyId and threadId for multi-company isolation.
+ */
+export interface RuntimeEvent<P = Readonly<Record<string, unknown>>> {
+  readonly type: string;
+  readonly entityId: string;
+  readonly entityType: RuntimeEntityType;
+  readonly companyId: string;
+  readonly threadId?: string;
+  readonly timestamp: number;
+  readonly payload: P;
+}
+
+/** Well-known event type prefixes */
+export type EventFamily =
+  | 'conversation.synopsis.updated'
+  | 'conversation.compact.completed'
+  | 'employee.state.changed'
+  | 'task.state.changed'
+  | 'task.assignment.changed'
+  | 'meeting.state.changed'
+  | 'install.state.changed'
+  | 'binding.state.changed'
+  | 'report.state.changed'
+  | 'runtime.performance.tier.changed'
+  | 'ui.selection.changed'
+  | 'ui.task.focused'
+  | 'ui.scene.task.echo'
+  | 'scene.employee.selected'
+  | 'llm.call.started'
+  | 'llm.call.completed'
+  | 'llm.usage.recorded'
+  | 'graph.node.entered'
+  | 'graph.node.exited'
+  | 'llm.stream.chunk'
+  | 'plan.created'
+  | 'plan.step.started'
+  | 'plan.step.completed'
+  | 'plan.completed'
+  | 'mcp.server.connected'
+  | 'mcp.tool.called'
+  | 'mcp.tool.result'
+  | 'employee.installed'
+  | 'employee.created'
+  | 'employee.updated'
+  | 'employee.deleted'
+  | 'error.occurred'
+  | 'deliverable.created'
+  | 'direct.chat.started'
+  | 'direct.chat.completed'
+  | 'meeting.action.created'
+  | 'handoff.initiated'
+  | 'handoff.completed'
+  | 'memory.created'
+  | 'memory.accessed'
+  | 'employee.workstation.changed'
+  | 'employee.workstation.drop-requested'
+  | 'employee.version.created'
+  | 'rack.bound'
+  | 'rack.unbound'
+  | 'slot.assigned'
+  | 'slot.removed'
+  | 'cost.aggregated'
+  | 'hr.assessment.started'
+  | 'hr.assessment.completed'
+  | 'hr.recommendation'
+  | 'notification.created'
+  | 'notification.dismissed'
+  | 'knowledge.index.started'
+  | 'knowledge.index.completed'
+  | 'knowledge.index.failed'
+  | 'knowledge.search.started'
+  | 'knowledge.search.completed'
+  | 'prefab.state.changed'
+  | 'cost.session.updated'
+  | 'tool.execution.telemetry'
+  | 'workspace.staleness.detected'
+  | 'execution.resumed'
+  | 'execution.aborted'
+  | 'interaction.requested'
+  | 'interaction.restored'
+  | 'interaction.resolved'
+  | 'interaction.mode.changed'
+  | 'boss.route.decided'
+  | 'vault.sync.failed';
