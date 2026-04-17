@@ -486,10 +486,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     runtime.orch.abortExecution(runtime.runtimeCtx.threadId);
   }, []);
 
-  // Single round-trip hydrate: one `listByCompanyWithContent` call returns all
-  // full rows (Tauri: one SQL IPC; memory: map scan + parallel IDB content
-  // loads). `loadDeliverableContent` below stays available for single-row
-  // refresh scenarios.
   const listRecentDeliverables = useCallback(
     async (opts?: { threadId?: string; limit?: number }): Promise<DeliverableHookRow[]> => {
       const runtime = runtimeRef.current;

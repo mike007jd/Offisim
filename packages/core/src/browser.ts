@@ -274,6 +274,7 @@ export {
 export type { DeliverablePersistenceServiceOptions } from './services/deliverable-persistence-service.js';
 export { coerceDeliverableKind } from './runtime/repositories.js';
 export { byteLength, clampUtf8 } from './utils/byte-length.js';
+export { idbRequestToPromise, idbTransactionDone } from './utils/idb-promise.js';
 export { InteractionService } from './services/interaction-service.js';
 export { AgentContextPackService } from './services/agent-context-pack-service.js';
 export type { AgentContextPackDeps } from './services/agent-context-pack-service.js';

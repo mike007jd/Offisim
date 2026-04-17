@@ -15,7 +15,12 @@ import {
   createMemoryRepositories,
   installStateChanged,
 } from '@offisim/core/browser';
-import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
+import type {
+  EventBus,
+  InMemoryEventBus,
+  MemoryRepositoriesSnapshot,
+  RuntimeRepositories,
+} from '@offisim/core/browser';
 import { createMemoryCheckpointSaver } from '@offisim/core/dist/graph/checkpoint-saver.js';
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 // These modules pull in @langchain/langgraph, openai SDK, etc.
@@ -54,6 +59,7 @@ import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
   createDeliverableContentBridge,
+  extractLegacyDeliverableContent,
   loadBrowserRuntimeSnapshot,
 } from './browser-runtime-storage';
 import {
@@ -98,36 +104,34 @@ async function ensureCostRates(repos: ReturnType<typeof createMemoryRepositories
   await seedDefaultCostRatesIfEmpty(repos);
 }
 
-interface MaybeLegacyDeliverableRow {
-  deliverable_id?: string;
-  content?: string;
-}
-
-/**
- * Migrate inline `content` bytes from a pre-H2 localStorage snapshot into IDB.
- * Fire-and-forget: runs in the background so runtime ready is not blocked.
- * The next snapshot flush will naturally overwrite the legacy shape with the
- * new summary-only form produced by `MemoryDeliverableRepository.snapshot()`.
- */
-function migrateLegacyDeliverableContent(
-  db: IDBDatabase,
-  snapshot: { deliverables?: readonly unknown[] } | null | undefined,
-): void {
-  const rows = snapshot?.deliverables;
-  if (!Array.isArray(rows) || rows.length === 0) return;
-  void Promise.all(
-    rows.map((raw) => {
-      const row = raw as MaybeLegacyDeliverableRow;
-      if (typeof row.deliverable_id !== 'string' || typeof row.content !== 'string') return null;
-      if (row.content.length === 0) return null;
-      return putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
-        console.warn(
-          `[browser-runtime] legacy deliverable content migration failed for ${row.deliverable_id}`,
-          err,
-        );
-      });
-    }),
-  );
+function wireDeliverableContentStore(
+  snapshot: MemoryRepositoriesSnapshot | null,
+): {
+  dbPromise: Promise<IDBDatabase | null>;
+  contentLoader: (id: string) => Promise<string | null>;
+} {
+  const dbPromise = openDeliverableContentDb();
+  const legacyRows = extractLegacyDeliverableContent(snapshot);
+  if (legacyRows.length > 0) {
+    void dbPromise.then((db) => {
+      if (!db) return;
+      return Promise.all(
+        legacyRows.map((row) =>
+          putDeliverableContent(db, row.id, row.content).catch((err) => {
+            console.warn(
+              `[browser-runtime] legacy deliverable content migration failed for ${row.id}`,
+              err,
+            );
+          }),
+        ),
+      );
+    });
+  }
+  const contentLoader = async (id: string): Promise<string | null> => {
+    const db = await dbPromise;
+    return db ? getDeliverableContent(db, id) : null;
+  };
+  return { dbPromise, contentLoader };
 }
 
 const IS_DEV = import.meta.env.DEV;
@@ -174,11 +178,7 @@ export async function createBrowserRuntime(
   const threadId = `thread-${companyId}`;
   const externalDepartments = loadExternalDepartments();
   const snapshot = loadBrowserRuntimeSnapshot();
-  const deliverableContentDb = await openDeliverableContentDb();
-  if (deliverableContentDb) migrateLegacyDeliverableContent(deliverableContentDb, snapshot);
-  const contentLoader = deliverableContentDb
-    ? (id: string) => getDeliverableContent(deliverableContentDb, id)
-    : undefined;
+  const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
@@ -187,10 +187,7 @@ export async function createBrowserRuntime(
     eventBus,
     repo: repos.deliverables,
   });
-  const deliverableContentBridge = createDeliverableContentBridge({
-    eventBus,
-    db: deliverableContentDb,
-  });
+  const deliverableContentBridge = createDeliverableContentBridge({ eventBus, dbPromise });
 
   const proxyBaseURL =
     IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
@@ -385,11 +382,7 @@ export async function createBrowserRuntimeReposOnly(
   const threadId = `thread-${companyId}`;
   const externalDepartments = loadExternalDepartments();
   const snapshot = loadBrowserRuntimeSnapshot();
-  const deliverableContentDb = await openDeliverableContentDb();
-  if (deliverableContentDb) migrateLegacyDeliverableContent(deliverableContentDb, snapshot);
-  const contentLoader = deliverableContentDb
-    ? (id: string) => getDeliverableContent(deliverableContentDb, id)
-    : undefined;
+  const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
@@ -398,10 +391,7 @@ export async function createBrowserRuntimeReposOnly(
     eventBus,
     repo: repos.deliverables,
   });
-  const deliverableContentBridge = createDeliverableContentBridge({
-    eventBus,
-    db: deliverableContentDb,
-  });
+  const deliverableContentBridge = createDeliverableContentBridge({ eventBus, dbPromise });
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();

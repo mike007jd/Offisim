@@ -1,12 +1,4 @@
-/**
- * IndexedDB-backed store for deliverable content bodies.
- *
- * H1 archived the deliverable-persistence change where content was inlined in
- * the main `offisim:browser-runtime-snapshot:v1` localStorage blob. That blew
- * the ~5–10 MB per-origin quota once a session collected N deliverables with
- * real content. This module holds the content bytes in IDB instead, keyed by
- * `deliverable_id`. The localStorage snapshot keeps only summary metadata.
- */
+import { idbRequestToPromise, idbTransactionDone } from '@offisim/core/browser';
 
 const DB_NAME = 'offisim-runtime';
 const DB_VERSION = 1;
@@ -21,21 +13,6 @@ function warnUnavailableOnce(reason: unknown): void {
     '[deliverable-content-idb] IndexedDB unavailable — deliverable content will not persist across reloads.',
     reason,
   );
-}
-
-function toPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IDB request failed'));
-  });
-}
-
-function awaitTransaction(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction failed'));
-    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'));
-  });
 }
 
 export function openDeliverableContentDb(): Promise<IDBDatabase | null> {
@@ -77,7 +54,7 @@ export async function putDeliverableContent(
 ): Promise<void> {
   const tx = db.transaction(STORE_NAME, 'readwrite');
   tx.objectStore(STORE_NAME).put(content, deliverableId);
-  await awaitTransaction(tx);
+  await idbTransactionDone(tx);
 }
 
 export async function getDeliverableContent(
@@ -85,8 +62,8 @@ export async function getDeliverableContent(
   deliverableId: string,
 ): Promise<string | null> {
   const tx = db.transaction(STORE_NAME, 'readonly');
-  const result = await toPromise<unknown>(tx.objectStore(STORE_NAME).get(deliverableId));
-  await awaitTransaction(tx);
+  const result = await idbRequestToPromise<unknown>(tx.objectStore(STORE_NAME).get(deliverableId));
+  await idbTransactionDone(tx);
   return typeof result === 'string' ? result : null;
 }
 
@@ -96,12 +73,14 @@ export async function deleteDeliverableContent(
 ): Promise<void> {
   const tx = db.transaction(STORE_NAME, 'readwrite');
   tx.objectStore(STORE_NAME).delete(deliverableId);
-  await awaitTransaction(tx);
+  await idbTransactionDone(tx);
 }
 
 export async function listDeliverableContentKeys(db: IDBDatabase): Promise<string[]> {
   const tx = db.transaction(STORE_NAME, 'readonly');
-  const keys = await toPromise<IDBValidKey[]>(tx.objectStore(STORE_NAME).getAllKeys());
-  await awaitTransaction(tx);
+  const keys = await idbRequestToPromise<IDBValidKey[]>(
+    tx.objectStore(STORE_NAME).getAllKeys(),
+  );
+  await idbTransactionDone(tx);
   return keys.filter((k): k is string => typeof k === 'string');
 }

@@ -1,3 +1,4 @@
+import { idbRequestToPromise, idbTransactionDone } from '../utils/idb-promise.js';
 import type { VaultFileSystem } from './fs.js';
 
 const HANDLE_DB_NAME = 'offisim-vault-browser-fs';
@@ -50,21 +51,6 @@ function idbSupported(factory: IDBFactory | undefined = globalThis.indexedDB): f
   return typeof factory !== 'undefined';
 }
 
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'));
-  });
-}
-
-function transactionDone(tx: IDBTransaction): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'));
-    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
-  });
-}
-
 async function openHandleDb(factory: IDBFactory): Promise<IDBDatabase> {
   const request = factory.open(HANDLE_DB_NAME, 1);
   request.onupgradeneeded = () => {
@@ -73,7 +59,7 @@ async function openHandleDb(factory: IDBFactory): Promise<IDBDatabase> {
       db.createObjectStore(HANDLE_STORE_NAME);
     }
   };
-  return requestToPromise(request);
+  return idbRequestToPromise(request);
 }
 
 export function createIndexedDbBrowserVaultHandleStore(
@@ -86,8 +72,8 @@ export function createIndexedDbBrowserVaultHandleStore(
       try {
         const tx = db.transaction(HANDLE_STORE_NAME, 'readonly');
         const request = tx.objectStore(HANDLE_STORE_NAME).get(HANDLE_KEY);
-        const handle = await requestToPromise(request);
-        await transactionDone(tx);
+        const handle = await idbRequestToPromise(request);
+        await idbTransactionDone(tx);
         return isDirectoryHandle(handle) ? handle : null;
       } finally {
         db.close();
@@ -101,7 +87,7 @@ export function createIndexedDbBrowserVaultHandleStore(
       try {
         const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
         tx.objectStore(HANDLE_STORE_NAME).put(handle, HANDLE_KEY);
-        await transactionDone(tx);
+        await idbTransactionDone(tx);
       } finally {
         db.close();
       }
@@ -112,7 +98,7 @@ export function createIndexedDbBrowserVaultHandleStore(
       try {
         const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
         tx.objectStore(HANDLE_STORE_NAME).delete(HANDLE_KEY);
-        await transactionDone(tx);
+        await idbTransactionDone(tx);
       } finally {
         db.close();
       }

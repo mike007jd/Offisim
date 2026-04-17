@@ -33,7 +33,7 @@ function summaryToFull(row: DeliverableSummaryRow, content: string): Deliverable
 export class MemoryDeliverableRepository implements DeliverableRepository {
   private readonly summaryStore = new Map<string, DeliverableSummaryRow>();
   private readonly contentCache = new Map<string, string>();
-  private readonly missWarned = new Set<string>();
+  private contentMissWarned = false;
   private readonly contentLoader?: DeliverableContentLoader;
 
   constructor(
@@ -78,7 +78,7 @@ export class MemoryDeliverableRepository implements DeliverableRepository {
     return Promise.all(
       summaries.map(async (summary) => {
         const content = await this.ensureContent(summary.deliverable_id);
-        return summaryToFull(cloneSummary(summary), content);
+        return summaryToFull(summary, content);
       }),
     );
   }
@@ -90,7 +90,7 @@ export class MemoryDeliverableRepository implements DeliverableRepository {
   seed(rows: Iterable<DeliverableSummaryRow>): void {
     this.summaryStore.clear();
     this.contentCache.clear();
-    this.missWarned.clear();
+    this.contentMissWarned = false;
     for (const row of rows) {
       this.summaryStore.set(row.deliverable_id, cloneSummary(row));
     }
@@ -117,23 +117,25 @@ export class MemoryDeliverableRepository implements DeliverableRepository {
     try {
       const loaded = await this.contentLoader(id);
       if (loaded === null) {
-        if (!this.missWarned.has(id)) {
-          this.missWarned.add(id);
-          console.warn(
-            `[MemoryDeliverableRepository] content missing for ${id} — contentLoader returned null`,
-          );
-        }
+        this.warnMissOnce(id);
         return '';
       }
       this.contentCache.set(id, loaded);
       return loaded;
     } catch (err) {
-      if (!this.missWarned.has(id)) {
-        this.missWarned.add(id);
-        console.warn(`[MemoryDeliverableRepository] contentLoader failed for ${id}`, err);
-      }
+      this.warnMissOnce(id, err);
       return '';
     }
+  }
+
+  private warnMissOnce(id: string, err?: unknown): void {
+    if (this.contentMissWarned) return;
+    this.contentMissWarned = true;
+    const suffix = err !== undefined ? ` (first failure: ${id})` : ` (first missing: ${id})`;
+    console.warn(
+      `[MemoryDeliverableRepository] contentLoader unavailable — deliverable content will render empty${suffix}`,
+      err,
+    );
   }
 }
 

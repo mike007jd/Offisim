@@ -895,11 +895,7 @@ export interface DeliverableRepository {
     companyId: string,
     opts?: { threadId?: string; limit?: number },
   ): Promise<DeliverableSummaryRow[]>;
-  /**
-   * Like `listByCompany` but returns full rows (including `content`) in a
-   * single round-trip. Replaces the N+1 `listByCompany` + per-row `findById`
-   * hydrate pattern on the UI hot path. Default limit is 100.
-   */
+  /** Like `listByCompany` but returns full rows (content included) in one round-trip. */
   listByCompanyWithContent(
     companyId: string,
     opts?: { threadId?: string; limit?: number },

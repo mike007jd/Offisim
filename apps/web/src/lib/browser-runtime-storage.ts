@@ -88,27 +88,53 @@ export function loadBrowserRuntimeBootstrapState(
   };
 }
 
+interface MaybeLegacyDeliverableRow {
+  deliverable_id?: string;
+  content?: string;
+}
+
+/**
+ * Harvests inline `content` bytes left over from the pre-IDB snapshot shape.
+ * Returns `{id, content}` pairs so the caller can fire-and-forget write them
+ * into IDB. Safe to call on every boot — returns `[]` once legacy rows are
+ * gone (next snapshot flush rewrites the store to summary-only).
+ */
+export function extractLegacyDeliverableContent(
+  snapshot: { deliverables?: readonly unknown[] } | null | undefined,
+): Array<{ id: string; content: string }> {
+  const rows = snapshot?.deliverables;
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const out: Array<{ id: string; content: string }> = [];
+  for (const raw of rows) {
+    const row = raw as MaybeLegacyDeliverableRow;
+    if (typeof row.deliverable_id !== 'string') continue;
+    if (typeof row.content !== 'string' || row.content.length === 0) continue;
+    out.push({ id: row.deliverable_id, content: row.content });
+  }
+  return out;
+}
+
 export interface DeliverableContentBridgeOptions {
   readonly eventBus: InMemoryEventBus;
-  readonly db: IDBDatabase | null;
+  readonly dbPromise: Promise<IDBDatabase | null>;
 }
 
 export function createDeliverableContentBridge({
   eventBus,
-  db,
+  dbPromise,
 }: DeliverableContentBridgeOptions): { dispose(): void } {
-  if (!db) {
-    return { dispose() {} };
-  }
   const unsubscribe = eventBus.on(
     'deliverable.created',
     (event: RuntimeEvent<DeliverableCreatedPayload>) => {
       const row = mapDeliverablePayloadToRow(event);
-      void putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
-        console.error(
-          `[deliverable-content-idb] failed to write ${row.deliverable_id}`,
-          err,
-        );
+      void dbPromise.then((db) => {
+        if (!db) return;
+        return putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
+          console.error(
+            `[deliverable-content-idb] failed to write ${row.deliverable_id}`,
+            err,
+          );
+        });
       });
     },
   );
