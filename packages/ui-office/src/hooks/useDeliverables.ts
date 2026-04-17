@@ -12,6 +12,7 @@ export interface Deliverable {
   threadId: string;
   title: string;
   content: string;
+  contentSize: number;
   artifact: DeliverableArtifact;
   contributingEmployees: ReadonlyArray<{
     employeeId: string;
@@ -58,6 +59,7 @@ export function useDeliverables(): Deliverable[] {
         threadId,
         title: getDeliverableDisplayTitle(title, artifact),
         content: artifact.content,
+        contentSize: artifact.content.length,
         artifact,
         contributingEmployees,
         createdAt,
@@ -70,8 +72,10 @@ export function useDeliverables(): Deliverable[] {
         if (cancelled) return;
         setDeliverables((prev) => {
           const map = new Map(prev.map((d) => [d.id, d] as const));
-          for (const item of history) {
-            if (!map.has(item.id)) map.set(item.id, item);
+          for (const row of history) {
+            if (!map.has(row.id)) {
+              map.set(row.id, { ...row, contentSize: row.artifact.content.length });
+            }
           }
           return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
         });

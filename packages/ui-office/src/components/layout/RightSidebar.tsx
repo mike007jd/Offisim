@@ -18,6 +18,11 @@ interface RightSidebarProps {
   activeThreadId?: string | null;
 }
 
+type TaskSubTab = 'activity' | 'plan' | 'outputs';
+
+const SUB_TAB_TRIGGER_CLASS =
+  'h-auto min-w-fit shrink-0 rounded-full border border-transparent px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200';
+
 export function RightSidebar({
   chatPanel,
   focusTasksToken,
@@ -29,6 +34,7 @@ export function RightSidebar({
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
+  const [taskSubTab, setTaskSubTab] = useState<TaskSubTab>('plan');
 
   useEffect(() => {
     if (focusTasksToken) {
@@ -104,8 +110,36 @@ export function RightSidebar({
           forceMount
           className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+          <Tabs
+            value={taskSubTab}
+            onValueChange={(value) => setTaskSubTab(value as TaskSubTab)}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <div className="border-b border-white/5 px-2 pt-2">
+              <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0 pb-2">
+                <TabsTrigger value="activity" className={SUB_TAB_TRIGGER_CLASS}>
+                  Activity
+                </TabsTrigger>
+                <TabsTrigger value="plan" className={SUB_TAB_TRIGGER_CLASS}>
+                  Plan
+                </TabsTrigger>
+                <TabsTrigger value="outputs" className={SUB_TAB_TRIGGER_CLASS}>
+                  Outputs
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent
+              value="activity"
+              forceMount
+              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar px-3 pb-3 pt-3 data-[state=inactive]:hidden"
+            >
+              <ActivityRail variant="full" />
+            </TabsContent>
+            <TabsContent
+              value="plan"
+              forceMount
+              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar data-[state=inactive]:hidden"
+            >
               {externalDepartments.length > 0 && (
                 <div className="border-b border-white/5 px-3 pb-3 pt-3">
                   <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">
@@ -131,20 +165,16 @@ export function RightSidebar({
                   </div>
                 </div>
               )}
-              <div className="px-3 pb-1 pt-3">
-                <ActivityRail variant="full" />
-              </div>
               <TaskDashboard agents={agents} />
-              <div className="border-t border-white/5 px-3 pb-3 pt-2">
-                <div className="mb-2">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                    Deliverables
-                  </p>
-                </div>
-                <PitchHall activeThreadId={activeThreadId} />
-              </div>
-            </div>
-          </div>
+            </TabsContent>
+            <TabsContent
+              value="outputs"
+              forceMount
+              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar data-[state=inactive]:hidden"
+            >
+              <PitchHall activeThreadId={activeThreadId} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

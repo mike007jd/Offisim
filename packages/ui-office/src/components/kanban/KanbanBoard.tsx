@@ -1,7 +1,6 @@
 import { cn } from '@offisim/ui-core';
 import { useCallback, useRef } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
-import { useDeliverables } from '../../hooks/useDeliverables';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { KanbanColumn } from './KanbanColumn';
@@ -24,7 +23,6 @@ export interface KanbanBoardProps {
 export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
-  const deliverables = useDeliverables();
   const { eventBus } = useOffisimRuntime();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -197,41 +195,6 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
               getTaskCost={getTaskCost}
             />
           ))}
-
-          {/* ═══ Deliverables column ═══ */}
-          <KanbanColumn title="Deliverables" stepIndex={null} status="deliverables" tasks={[]}>
-            {deliverables.length === 0 ? (
-              <div className="flex items-center justify-center py-6 text-[10px] text-slate-500">
-                Outputs will appear here
-              </div>
-            ) : (
-              deliverables.map((d) => (
-                <div
-                  key={d.id}
-                  className="rounded-lg border border-white/[0.06] bg-[var(--surface)] px-2.5 py-2 space-y-1"
-                >
-                  <span className="text-[11px] font-semibold text-slate-200 line-clamp-1">
-                    {d.title}
-                  </span>
-                  <p className="text-[10px] text-slate-400 line-clamp-3 leading-relaxed">
-                    {d.content}
-                  </p>
-                  {d.contributingEmployees.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      {d.contributingEmployees.map((emp) => (
-                        <span
-                          key={emp.employeeId}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300"
-                        >
-                          {emp.employeeName}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </KanbanColumn>
         </div>
       </div>
     </div>

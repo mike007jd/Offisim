@@ -7,7 +7,7 @@ import { KanbanCard } from './KanbanCard';
 // ---------------------------------------------------------------------------
 
 function columnAccent(
-  status: 'pending' | 'active' | 'completed' | 'requirements' | 'deliverables',
+  status: 'pending' | 'active' | 'completed' | 'requirements',
 ): string {
   switch (status) {
     case 'completed':
@@ -16,8 +16,6 @@ function columnAccent(
       return 'border-t-blue-400/60';
     case 'requirements':
       return 'border-t-amber-400/60';
-    case 'deliverables':
-      return 'border-t-purple-400/60';
     default:
       return 'border-t-slate-500/40';
   }
@@ -34,19 +32,19 @@ function progressText(tasks: TaskInfo[]): string {
 // ---------------------------------------------------------------------------
 
 export interface KanbanColumnProps {
-  /** Column title (step description or "Requirements" / "Deliverables") */
+  /** Column title (step description or "Requirements") */
   title: string;
   /** Step index for display. null for special columns */
   stepIndex: number | null;
   /** Column status for accent color */
-  status: 'pending' | 'active' | 'completed' | 'requirements' | 'deliverables';
+  status: 'pending' | 'active' | 'completed' | 'requirements';
   /** Tasks to render as cards */
   tasks: TaskInfo[];
   /** Called when a card is clicked */
   onTaskClick?: (taskRunId: string) => void;
   /** Cost lookup function */
   getTaskCost?: (taskRunId: string) => number;
-  /** Freeform content for special columns (Requirements/Deliverables) */
+  /** Freeform content for special columns (Requirements) */
   children?: React.ReactNode;
 }
 

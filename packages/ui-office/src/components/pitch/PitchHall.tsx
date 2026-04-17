@@ -1,314 +1,15 @@
-import { type ExportFormat, type ExportableDocument, exportDocument } from '@offisim/doc-engine';
 import type {
   DeliverableCreatedPayload,
   RoleSlug,
   RuntimeEvent,
   SopDefinition,
 } from '@offisim/shared-types';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@offisim/ui-core';
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
-import { canPreviewDeliverable } from '../../lib/deliverable-artifacts';
-import {
-  openDesktopLocalPath,
-  saveDesktopDeliverable,
-} from '../../lib/desktop-local-paths';
-import { isTauri } from '../../lib/env';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
-  { value: 'docx', label: 'DOCX' },
-  { value: 'pdf', label: 'PDF' },
-  { value: 'pptx', label: 'PPTX' },
-  { value: 'csv', label: 'CSV' },
-  { value: 'html', label: 'HTML' },
-  { value: 'txt', label: 'TXT' },
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max)}...`;
-}
-
-function triggerDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function triggerTextDownload(content: string, filename: string, mimeType = 'text/plain'): void {
-  triggerDownload(new Blob([content], { type: `${mimeType};charset=utf-8` }), filename);
-}
-
-function previewTextArtifact(content: string, mimeType: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
-  window.open(url, '_blank', 'noopener,noreferrer');
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-// ---------------------------------------------------------------------------
-// DeliverableCard
-// ---------------------------------------------------------------------------
-
-interface DeliverableCardProps {
-  item: Deliverable;
-  onSaveAsSop: (item: Deliverable) => Promise<void>;
-  desktopVaultRoot: string | null;
-  /** When true, briefly flash a highlight ring then fade */
-  isNew?: boolean;
-}
-
-function DeliverableCard({ item, onSaveAsSop, desktopVaultRoot, isNew }: DeliverableCardProps) {
-  const [copied, setCopied] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
-  const [exporting, setExporting] = useState(false);
-  const [savingSop, setSavingSop] = useState(false);
-  const [sopSaved, setSopSaved] = useState(false);
-  const [localPath, setLocalPath] = useState<string | null>(null);
-  const [savingLocal, setSavingLocal] = useState(false);
-  const desktopMode = isTauri();
-  const isFileArtifact = item.artifact.kind === 'file' && !!item.artifact.fileName;
-  const canPreview = canPreviewDeliverable(item.artifact);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(item.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard API may fail in non-secure contexts — silent fallback
-    }
-  }, [item.content]);
-
-  const handleDownload = useCallback(async () => {
-    if (isFileArtifact && item.artifact.fileName) {
-      triggerTextDownload(
-        item.artifact.content,
-        item.artifact.fileName,
-        item.artifact.mimeType ?? 'text/plain',
-      );
-      return;
-    }
-    setExporting(true);
-    try {
-      const doc: ExportableDocument = {
-        title: item.title,
-        content: item.artifact.content,
-        contributors: item.contributingEmployees.map((e) => ({
-          name: e.employeeName,
-        })),
-        createdAt: item.createdAt,
-      };
-      const result = await exportDocument(doc, selectedFormat);
-      triggerDownload(result.blob, result.filename);
-    } catch (err) {
-      console.error('[PitchHall] Export failed:', err);
-    } finally {
-      setExporting(false);
-    }
-  }, [isFileArtifact, item, selectedFormat]);
-
-  const handlePreview = useCallback(() => {
-    if (!canPreview) return;
-    previewTextArtifact(item.artifact.content, item.artifact.mimeType ?? 'text/plain');
-  }, [canPreview, item.artifact.content, item.artifact.mimeType]);
-
-  const handleSaveLocal = useCallback(async () => {
-    if (!desktopMode || !desktopVaultRoot || !item.artifact.fileName) return;
-    setSavingLocal(true);
-    try {
-      const path = await saveDesktopDeliverable(
-        desktopVaultRoot,
-        item.artifact.fileName,
-        item.artifact.content,
-      );
-      setLocalPath(path);
-    } catch (err) {
-      console.error('[PitchHall] Save locally failed:', err);
-    } finally {
-      setSavingLocal(false);
-    }
-  }, [desktopMode, desktopVaultRoot, item.artifact.content, item.artifact.fileName]);
-
-  const handleSaveAsSop = useCallback(async () => {
-    if (savingSop || sopSaved) return;
-    setSavingSop(true);
-    try {
-      await onSaveAsSop(item);
-      setSopSaved(true);
-      setTimeout(() => setSopSaved(false), 2000);
-    } catch (err) {
-      console.error('[PitchHall] Save as SOP failed:', err);
-    } finally {
-      setSavingSop(false);
-    }
-  }, [item, onSaveAsSop, savingSop, sopSaved]);
-
-  return (
-    <Card
-      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 bg-slate-900/50 overflow-hidden transition-all ${isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700'}`}
-    >
-      <CardHeader className="p-3 pb-1">
-        <div className="flex items-start justify-between gap-2 min-w-0">
-          <CardTitle className="text-xs text-pearl leading-snug truncate">{item.title}</CardTitle>
-          <span className="shrink-0 text-[10px] text-slate-400/60">{timeAgo(item.createdAt)}</span>
-        </div>
-        {item.contributingEmployees.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {item.contributingEmployees.map((emp) => (
-              <Badge
-                key={emp.employeeId}
-                variant="info"
-                className="text-[10px] px-1.5 py-0 truncate max-w-[120px]"
-              >
-                {emp.employeeName}
-                {emp.sourceKind === 'department' ? ' (external)' : ''}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className="p-3 pt-1">
-        {item.artifact.fileName && (
-          <div className="mb-2 flex items-center gap-2">
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-              {item.artifact.fileName}
-            </Badge>
-            {item.artifact.mimeType && (
-              <span className="text-[10px] text-slate-500">{item.artifact.mimeType}</span>
-            )}
-          </div>
-        )}
-        <p className="font-mono text-[11px] text-slate-400/80 leading-relaxed whitespace-pre-wrap break-words">
-          {truncate(item.artifact.content, 200)}
-        </p>
-        {/* Actions — wrap-friendly for 280px */}
-        <div className="flex flex-wrap items-center gap-1 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-            onClick={handleCopy}
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </Button>
-          {!isFileArtifact && (
-            <Select
-              value={selectedFormat}
-              onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
-            >
-              <SelectTrigger className="h-6 w-[64px] text-[10px] text-slate-400/70 border-shell/20 bg-transparent">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FORMAT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-[10px]">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {canPreview && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-              onClick={handlePreview}
-            >
-              Preview
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-            onClick={handleDownload}
-            disabled={exporting}
-          >
-            {exporting ? '...' : isFileArtifact ? 'Download' : 'Export'}
-          </Button>
-          {desktopMode && isFileArtifact && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-              onClick={() => (localPath ? void openDesktopLocalPath(localPath) : void handleSaveLocal())}
-              disabled={savingLocal || !desktopVaultRoot}
-            >
-              {savingLocal ? '...' : localPath ? 'Open file' : 'Save locally'}
-            </Button>
-          )}
-          {desktopMode && desktopVaultRoot && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl"
-              onClick={() => void openDesktopLocalPath(`${desktopVaultRoot}/deliverables`)}
-            >
-              Open folder
-            </Button>
-          )}
-          <Button
-            variant={item.contributingEmployees.length >= 2 && !sopSaved ? 'default' : 'ghost'}
-            size="sm"
-            className={
-              item.contributingEmployees.length >= 2 && !sopSaved && !savingSop
-                ? 'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse'
-                : 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50'
-            }
-            onClick={() => void handleSaveAsSop()}
-            disabled={savingSop || sopSaved}
-            title="Save the task path that produced this output as a reusable SOP template"
-          >
-            {sopSaved ? 'Saved!' : savingSop ? '...' : 'Save as SOP'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// PitchHall
-// ---------------------------------------------------------------------------
+import { DeliverableCard } from '../deliverable/DeliverableCard';
 
 export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }) {
   const allDeliverables = useDeliverables();
@@ -323,7 +24,6 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
   const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);
 
-  // Track newest deliverable id for brief highlight, clear after 3s
   const [newestId, setNewestId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -333,7 +33,6 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
       if (!id) return;
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
       setNewestId(id);
-      // Scroll to bottom so the new card is visible
       setTimeout(() => {
         listBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 50);
@@ -350,9 +49,6 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
       if (!repos) throw new Error('Runtime not ready');
       if (!activeCompanyId) throw new Error('No active company');
 
-      // Build a minimal SopDefinition from contributing employees.
-      // Each contributing employee becomes one sequential step.
-      // If no contributors, create a single generic step.
       const employees = item.contributingEmployees;
       const sopId = `sop_draft_${item.id}`;
       const now = new Date().toISOString();
@@ -405,7 +101,6 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         last_synced_at: null,
       });
 
-      // Notify subscribers — useSops auto-refreshes on any sop.* event
       eventBus.emit({
         type: 'sop.template.created',
         entityId: sopTemplateId,
@@ -446,8 +141,9 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         <DeliverableCard
           key={item.id}
           item={item}
-          onSaveAsSop={handleSaveAsSop}
+          variant="full"
           desktopVaultRoot={desktopVaultRoot ?? null}
+          onSaveAsSop={handleSaveAsSop}
           isNew={item.id === newestId}
         />
       ))}

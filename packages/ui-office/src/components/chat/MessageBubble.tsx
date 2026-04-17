@@ -9,7 +9,7 @@ import {
   humanizeNodeName,
 } from '../../lib/agent-display';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
-import { DeliverableArtifactCard } from './DeliverableArtifactCard';
+import { DeliverableCard } from '../deliverable/DeliverableCard';
 import type { MessageStatus } from './chat-session-store';
 
 interface MessageBubbleProps {
@@ -188,11 +188,7 @@ export function MessageBubble({
       {hasDeliverables && deliverables && (
         <div className="flex w-full flex-col">
           {deliverables.map((d) => (
-            <DeliverableArtifactCard
-              key={d.id}
-              artifact={d.artifact}
-              employeeLabel={d.contributingEmployees[0]?.employeeName ?? null}
-            />
+            <DeliverableCard key={d.id} item={d} variant="compact" />
           ))}
         </div>
       )}
