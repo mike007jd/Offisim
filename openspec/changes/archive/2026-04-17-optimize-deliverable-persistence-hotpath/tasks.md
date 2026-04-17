@@ -49,7 +49,7 @@
 
 ## 6. Close Out
 
-- [ ] 6.1 apply commit（feat 范围 web + core，body 简述 "为什么 — R7/R8"）
-- [ ] 6.2 `/simplify` 审 diff，按 reviewer 高优先级项 follow-up commit（若有）
-- [ ] 6.3 `/opsx:archive optimize-deliverable-persistence-hotpath` → canonical spec sync
+- [x] 6.1 apply commit `8c40b4bf` (feat(core,web): split deliverable content to IndexedDB + bulk list API)
+- [x] 6.2 `/simplify` 审 diff → follow-up commit `7d070258` (reuse shared IDB helpers, non-blocking open, drop hot-path clone, prune narrative comments)
+- [x] 6.3 `/opsx:archive optimize-deliverable-persistence-hotpath` → canonical spec sync（本次 archive）
 - [ ] 6.4 更新 `project_next_change_queue.md`：本 change `[x] archived` + archive SHA；提示下一条 H2 `unify-deliverable-card-surfaces`
