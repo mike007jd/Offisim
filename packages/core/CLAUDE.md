@@ -30,9 +30,9 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 - `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
 
-## Repository 三套副本
+## Repository 三后端同步
 
-`packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/web/src/lib/tauri-repos.ts` 三份各 1500-1700 行左右, 任何 repo 接口变更必须三处同步。自动 parity test 已删除, 这条约束现在只能靠改代码时人工逐一核对。
+`packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/web/src/lib/tauri-repos.ts` 现为 barrel（各 <200 行 NBNC）, 按 family 拆到 `runtime/repos/<family>/{drizzle,memory}.ts` + `tauri-repos/<family>.ts`。repo 接口变更必须跨 3 个 backend 同步对应 family 文件, 契约约束见 `openspec/specs/repository-backend-boundaries/spec.md`。自动 parity test 已删除, 靠人工 + spec 核对。
 
 ## Employee Vault (Obsidian-style, Phase 1)
 

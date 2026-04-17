@@ -156,8 +156,8 @@ apps/
 ## Ground Truth
 
 - 产品方向："过程即价值"——凡是系统做了的事，玩家必须能看到、理解、干预
-- 业务逻辑真相在代码里，不再维护单独的 business-logic-map
-- 稳定能力的规范化描述落在 `openspec/specs/`；2026-04-16 首轮重建已落 5 个 canonical spec（avatar-seed-resolution / plan-step-store / typed-json-field-parsers / unified-shell-routing / workspace-state-management）。未覆盖的 capability 继续按 refactor-first-then-spec 流程补（先把代码从屎山状态重构出来，再把稳定结构落成 spec）。
+- 业务逻辑真相在代码里
+- 稳定能力的规范化描述落在 `openspec/specs/`，采用 refactor-first-then-spec 流程（先把代码从屎山状态重构出来，再把稳定结构落成 spec）。已覆盖列表直接看目录。
 
 ## Truth-source priority (AI 接手必读)
 
@@ -165,7 +165,7 @@ apps/
 
 1. **代码 + `git log`** — 唯一活真相
 2. **本 CLAUDE.md + 子包 CLAUDE.md** — 人肉维护的规则与 gotchas
-3. **`openspec/specs/`** — 稳定能力的规范化描述；首轮重建 2026-04-16 已落 5 个 canonical spec。未覆盖的 capability 继续按 refactor-first-then-spec 节奏补，期间仍以代码为准
+3. **`openspec/specs/`** — 稳定能力的规范化描述，未覆盖的 capability 仍以代码为准
 4. **`Docs/` 下的 working notes** — 信息参考，不是契约
 
 **规则：AI 开工前先 `git log --oneline -10` 核对最近 commit。openspec / CLAUDE.md 与 git 冲突时，永远信 git；发现冲突即刻更新上层文档，不要沉默地跳过。**
@@ -182,13 +182,12 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 - 这条能力的目标是 **web live AI 验证 / 演示 / 轻量入口**，不是替代 Tauri 的正式本地工作流
 - 若 UI 没显示 key，不要先假设 env 没读到：浏览器侧优先看当前 provider label / model / live request 是否真走 MiniMax；桌面侧 secure key 可能被 secret store 掩码
 
-### Live Product Findings (2026-04-14 audit)
+### Live Product Findings
 
-- `web` live 审计已确认：真实 MiniMax 请求能跑通，底部 token / cost / latency 都是真值
-- chat 当前 **不是强感知 streaming UX**：用户常先看到 placeholder（如 `Working through the request...`），再一次性落完整答案。后续若修 chat，目标应是“正文 chunk 真正在气泡里增长”
-- 3D 员工外观当前与 2D DiceBear 头像 **不是同一来源**：3D 走 `office3d-employees.tsx` 的硬编码 `OUTFIT_COLORS / SKIN_TONES`，2D 走 DiceBear seed。不要假设 2D/3D 已经视觉对齐
-- **2026-04-16 execution-plan 已落到 `main`**: P0/P1/P2/P3/P4/P5 都已并入，当前基线包含 canvas-only 2D、artifact-aware deliverables、external departments、以及 runtime/scene/activity 的结构拆分。
-- A2A 的产品抽象已定向为 **external department / 外包部门**，不是外部员工 avatar。未来接入先做部门卡、能力、路由和结果归属，不要先塞进办公室座位语义
+- `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
+- chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
+- 3D 员工外观 (`office3d-employees.tsx` 硬编码 `OUTFIT_COLORS / SKIN_TONES`) 与 2D DiceBear 头像 **不同源** — 未来需统一 seed-based 配色
+- A2A 产品抽象 = **external department / 外包部门**，不是外部员工 avatar。接入先做部门卡、能力、路由和结果归属，不要塞进办公室座位语义
 
 ## Interop
 
