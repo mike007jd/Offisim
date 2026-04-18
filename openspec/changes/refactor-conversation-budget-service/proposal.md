@@ -1,18 +1,22 @@
 ## Why
 
-`packages/core/src/services/conversation-budget-service.ts` 699 行单 class `ConversationBudgetService` 承担：thread synopsis 管理（version + summary + prunedCount）、LLM prune policy（maxNonSystemMessages + tailNonSystemMessages）、tool result compaction（keepRecent + maxContentChars）、synopsis trigger 判定、auto-compact 判定、synopsis 生成 LLM call 编排、事件发射（`conversationSynopsisUpdated` / `conversationCompactCompleted`）。单文件里 10+ method + 5+ config option 耦合，修改任何一条 policy 都要读全文件。对齐 Round 1 `employee-node-boundaries` 的 "barrel + single-responsibility sibling modules" 模式。
+`packages/core/src/services/conversation-budget-service.ts` 660 NBNC 单 class `ConversationBudgetService`。一个 public method `prepareRequest(ctx, request)` 要同时做：resolve options、load thread、compact tool results、split system / non-system、slice 按 compactBaseline、synopsis 生成决策 + LLM call + event、initial full-compact orchestration（circuit breaker + 失败 fallback）、refresh full-compact orchestration（circuit breaker）、最终 assemble + prune。
+
+Class 内部还揉着：3 条 failure-streak Map、2 个 system prompt 常量、11 个 DEFAULT_* 常量、13 个 private method（含 `generateSynopsis` ~120 NBNC 和 `persistCompactBaseline` ~70 NBNC 两个大块）。任何一条 policy 微调（改阈值 / 改 circuit breaker / 改 heuristic fallback）都要把 660 行通读。对齐 Round 2 `pm-planner-node-boundaries` / `offisim-runtime-provider-boundaries` 的 "thin barrel + single-responsibility sibling modules" 模式。
+
+**注意：这条 proposal 是 2026-04-18 重写过的**。第一版按 `processBeforeCall / processAfterCall / getSynopsis` + `SynopsisStore Map` 的假设写的，与真实代码不一致（真实 API 是 `prepareRequest`，synopsis 持久化在 DB 而非内存 Map）。已按真实代码结构重新拆分。
 
 ## What Changes
 
-- **Thin service class**: `ConversationBudgetService` 保留 public API（`processBeforeCall(request)` / `processAfterCall(response)` / `getSynopsis(threadId)`），但内部委托给 4 个 single-responsibility module。
-- **4 个新 module** (`packages/core/src/services/conversation-budget/` 子目录)：
-  - `synopsis-store.ts` — `ThreadSynopsisRecord` Map 管理（getByThread / upsert / version bump），无业务 policy
-  - `prune-policy.ts` — 根据 config 对 LLM messages 做 prune（wrap `pruneLlmMessages` + wrapping logic）
-  - `tool-result-compactor.ts` — 对 tool result message 做 content compact（wrap `compactToolResultMessages`）
-  - `synopsis-generator.ts` — 触发 LLM call 生成 synopsis summary + 发 event（纯 orchestration，不动 LLM adapter）
-- **Policy evaluator**: `conversation-budget/policy.ts` — 输入 `{ messageCount, hasRecentSynopsis, lastSynopsisMessageCount }`，输出 `{ shouldPrune: boolean, shouldCompact: boolean, shouldRefreshSynopsis: boolean }`。决策纯函数。
-- **保留**：`ConversationBudgetServiceOptions` interface + `ThreadSynopsisRecord` interface 在 service 文件里 export（消费者兼容）。
-- **可观测行为不变**：prune / compact / synopsis event 发射序列、synopsis 内容、synopsis refresh trigger 时机、auto-compact 阈值行为全部 byte-identical。
+- **Thin barrel**：`conversation-budget-service.ts` 保留 `ConversationBudgetService` class + `prepareRequest(ctx, request)` public method + `ConversationBudgetServiceOptions` + `ThreadSynopsisRecord` export。方法体只做 high-level orchestration，不含 LLM call / DB 写 / event 构造。
+- **4 个 sibling module**（`packages/core/src/services/conversation-budget/`）：
+  - `options-resolver.ts` — `resolveOptions(ctx, defaults) → ResolvedConversationBudgetOptions` 纯函数 + 所有 `DEFAULT_*` 常量
+  - `message-utils.ts` — `buildRequestMessages(...)` + `estimateTokens(messages)` 纯函数
+  - `synopsis-generator.ts` — class `SynopsisGenerator` 拥有 `synopsisFailureStreaks` Map、`SYNOPSIS_SYSTEM_PROMPT`、`generate(ctx, ...) → { synopsis, summarySource, failureStreak } | null`、DB 写 + `conversation.synopsis.updated` event emit、heuristic fallback + circuit breaker
+  - `full-compact-orchestrator.ts` — class `FullCompactOrchestrator` 拥有 `fullCompactFailureStreaks` + `fullCompactFailureMessageCounts` 两 Map、`FULL_COMPACT_SYSTEM_PROMPT`、`tryInitialCompact(...)`、`tryRefreshCompact(...)`、`persistBaseline(...)`、`conversation.compact.completed` event emit、skip row DB 写
+
+- **消费者无改动**：`new ConversationBudgetService(opts)` 构造 + `prepareRequest(ctx, request)` 调用签名不变。`ConversationBudgetServiceOptions` / `ThreadSynopsisRecord` 的 export 位置不变。
+- **可观测行为不变**：DB 写顺序（`threads.updateSynopsis` / `threads.updateCompactBaseline` / `compactSummaries.create` / `events.insert`）、EventBus emit 顺序、event payload shape、synopsis / baseline 内容、failure streak 递增语义，全部 byte-identical。
 
 ## Capabilities
 
@@ -26,8 +30,8 @@
 
 ## Impact
 
-- **目录新增**：`packages/core/src/services/conversation-budget/{synopsis-store,prune-policy,tool-result-compactor,synopsis-generator,policy}.ts`
-- **文件重写**：`conversation-budget-service.ts` 699 → ≤ 220 NBNC（保留 class + public methods，method body 委托给 sibling）
-- **消费者无改动**：`new ConversationBudgetService(opts)` 构造 + `processBeforeCall` / `processAfterCall` / `getSynopsis` 调用都不变
-- **验证**：live runtime 跑多轮长对话（触发 auto-compact 和 synopsis refresh），对比事件序列、synopsis 内容、prune message count 与重构前一致
+- **目录新增**：`packages/core/src/services/conversation-budget/{options-resolver,message-utils,synopsis-generator,full-compact-orchestrator}.ts`
+- **barrel 重写**：`conversation-budget-service.ts` 660 → ≤ 180 NBNC
+- **消费者代码不动**：`summarization-middleware.ts` / `tauri-runtime.ts` / `browser-runtime.ts` / `execution-trace-service.ts` 引用保持原路径
+- **验证**：串行 build + typecheck + grep gate + live 长会话触发 synopsis / compact 一次，对比事件序列和 DB 行
 - **无依赖升级 / 无 API 断裂 / 无 DB migration**

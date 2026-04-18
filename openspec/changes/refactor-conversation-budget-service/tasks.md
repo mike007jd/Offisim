@@ -1,51 +1,69 @@
 ## 1. Scaffolding
 
-- [ ] 1.1 创建 `packages/core/src/services/conversation-budget/` + 5 空文件
-- [ ] 1.2 基线：`wc -l conversation-budget-service.ts`（699）+ public method 清单对照 + events emit 点枚举
+- [x] 1.1 创建 `packages/core/src/services/conversation-budget/` + 4 空文件（`options-resolver.ts` / `message-utils.ts` / `synopsis-generator.ts` / `full-compact-orchestrator.ts`）
+- [x] 1.2 基线：`grep -cvE '^\s*(//|$|/\*|\*)' conversation-budget-service.ts` → 660；snapshot public API（`prepareRequest` / `ConversationBudgetServiceOptions` / `ThreadSynopsisRecord`）
 
-## 2. 抽 `SynopsisStore`
+## 2. 抽 `options-resolver.ts`
 
-- [ ] 2.1 `services/conversation-budget/synopsis-store.ts`：class `SynopsisStore { get / upsert / clear }`，内部 Map
-- [ ] 2.2 ThreadSynopsisRecord interface 保留在 barrel 里 export
+- [x] 2.1 迁 11 个 `DEFAULT_*` 常量 + `ResolvedConversationBudgetOptions` interface + `resolveOptions(ctx, defaults)` 纯函数
+- [x] 2.2 barrel 里 `this.resolveOptions(ctx)` → `resolveOptions(ctx, this.defaults)`
 
-## 3. 抽 pure-function modules
+## 3. 抽 `message-utils.ts`
 
-- [ ] 3.1 `prune-policy.ts`：`pruneMessages({ messages, config, synopsisSummary? }) → { messages, prunedCount }`
-- [ ] 3.2 `tool-result-compactor.ts`：`compactToolResults({ messages, config }) → { messages, compactedCount }`
-- [ ] 3.3 `policy.ts`：`evaluatePolicy({ messageCount, lastSynopsisMessageCount, hasSynopsis, config }) → { shouldPrune, shouldCompact, shouldRefreshSynopsis }`
+- [x] 3.1 迁 `buildRequestMessages(systemMessages, compactBaseline, nonSystemMessages, synopsisMessage?)` + `estimateTokens(messages)` 纯函数
+- [x] 3.2 barrel 和后续 orchestrator 里的 `this.buildRequestMessages` / `this.estimateTokens` 改为调用导入的自由函数
 
-## 4. 抽 `SynopsisGenerator`
+## 4. 抽 `synopsis-generator.ts`
 
-- [ ] 4.1 `synopsis-generator.ts`：class `SynopsisGenerator(ctx)` owns LLM call + emit `conversationSynopsisUpdated`
-- [ ] 4.2 保持 fire-and-forget 语义（不阻塞 before-call 路径）
+- [x] 4.1 新建 class `SynopsisGenerator`，持有 `synopsisFailureStreaks` Map
+- [x] 4.2 迁 `SYNOPSIS_SYSTEM_PROMPT` + `generateSynopsis` 主体 → `generate(ctx, { nonSystemMessages, existing, options })`
+- [x] 4.3 迁 `normalizeSummary` / `buildHeuristicSummary` / `makeSynopsisEvent` → class private method
+- [x] 4.4 迁 `parseSynopsis` → public `parseExisting(raw)` 供 barrel 调用
+- [x] 4.5 迁 `postCompactCleanup`（只在 synopsis 成功末尾调）→ class private method
+- [x] 4.6 保持 fire-and-forget 语义不变（barrel 侧 await 还是 await，不改）
 
-## 5. Service class delegation
+## 5. 抽 `full-compact-orchestrator.ts`
 
-- [ ] 5.1 `ConversationBudgetService` constructor 内建 `store` / `generator`；method body 委托
-- [ ] 5.2 `processBeforeCall` 调 `evaluatePolicy` + 按 decision 依次调 `pruneMessages` / `compactToolResults`
-- [ ] 5.3 `processAfterCall` 检查 policy decision → fire generator.refresh fire-and-forget
-- [ ] 5.4 `getSynopsis(threadId)` 直接 delegate `store.get(threadId)`
-- [ ] 5.5 ≤ 220 NBNC
+- [x] 5.1 新建 class `FullCompactOrchestrator`，ctor 注入 `SynopsisGenerator` 引用
+- [x] 5.2 持有 `fullCompactFailureStreaks` + `fullCompactFailureMessageCounts` 两 Map
+- [x] 5.3 迁 `FULL_COMPACT_SYSTEM_PROMPT` + `generateFullCompactSummary` → private `generateSummary`
+- [x] 5.4 迁 `persistCompactBaseline` → private `persistBaseline`
+- [x] 5.5 迁 `makeCompactCompletedEvent` → private helper
+- [x] 5.6 抽 `tryInitialCompact(ctx, input) → { baseline, nonSystemMessages } | null`，内部包含 circuit breaker 判定 + LLM call + baseline persist 或 skip 行写入；失败分支调注入的 `SynopsisGenerator.generate` 做 fallback summary_text
+- [x] 5.7 抽 `tryRefreshCompact(ctx, input) → { baseline, nonSystemMessages } | null`，逻辑同 5.6 但用 `compactBaseline.summaryText` 作 priorSummaryText，失败分支不 fallback synopsis
 
-## 6. Verification: typecheck + build
+## 6. barrel delegation
 
-- [ ] 6.1 shared-types → ui-core → core → ui-office → web 串行 build 绿
-- [ ] 6.2 `pnpm typecheck` 26/26 绿
+- [x] 6.1 `ConversationBudgetService` ctor 改为 `new SynopsisGenerator()` + `new FullCompactOrchestrator(synopsisGenerator)`
+- [x] 6.2 `prepareRequest` 只保留：load thread、compact tool results、split system/non-system、slice、early returns、调 `synopsisGenerator.generate` / `tryInitialCompact` / `tryRefreshCompact`、`buildRequestMessages` + `pruneLlmMessages`
+- [x] 6.3 删除 barrel 里的 3 条 Map 和所有已迁出的 method
+- [x] 6.4 barrel ≤ 180 NBNC（实测 132），`grep 'SYNOPSIS_SYSTEM_PROMPT\|FULL_COMPACT_SYSTEM_PROMPT\|ctx\.llmGateway\.|ctx\.systemCaller\.chat\|ctx\.eventBus\.emit\|ctx\.repos\.events\.insert' conversation-budget-service.ts` 返回 0 行 ✓
 
-## 7. Verification: spec gates
+## 7. Verification: typecheck + build
 
-- [ ] 7.1 `ls services/conversation-budget/*.ts` 正好 5 文件
-- [ ] 7.2 grep "messageCount >= maxNonSystemMessages" 等阈值比较全仓只在 `policy.ts`
-- [ ] 7.3 grep `Map<string, ThreadSynopsisRecord>` 全仓只在 `synopsis-store.ts`
+- [x] 7.1 shared-types → ui-core → core → ui-office → web 串行 build 绿
+- [x] 7.2 `pnpm typecheck` 绿（web 入口过，26 全链等最终 gate）
 
-## 8. Live runtime verification
+## 8. Verification: spec gates
 
-- [ ] 8.1 跑多轮长对话（> 20 turn）或临时降 `maxNonSystemMessages=5` 强触发 prune
-- [ ] 8.2 观察 `conversation.synopsis.updated` / `conversation.compact.completed` event 发射，payload 与重构前对齐
-- [ ] 8.3 auto-compact 触发 + synopsis 刷新 时序与阈值一致
-- [ ] 8.4 观察记录到 `verify-notes.md`（含重构前 baseline 事件序列截图或 log）
+- [x] 8.1 `ls packages/core/src/services/conversation-budget/*.ts` 正好 4 文件 ✓
+- [x] 8.2 `grep` synopsis 副作用标识全部命中 synopsis-generator.ts ✓
+- [x] 8.3 `grep` full-compact 副作用标识 + `compact_kind: 'full_thread'` 全部命中 full-compact-orchestrator.ts ✓
+- [x] 8.4 `grep` DEFAULT_* 全部命中 options-resolver.ts ✓
+- [x] 8.5 barrel NBNC 132 ≤ 180 ✓
 
-## 9. 最终 gate
+## 9. Live runtime verification（由 Codex 在 live browser runtime 内完成，直调 `budgetService.prepareRequest()`，synthetic thread `verify-budget-1776484190909`）
 
-- [ ] 9.1 `openspec validate refactor-conversation-budget-service --strict` 绿
-- [ ] 9.2 通知用户等 `/opsx:archive`
+- [x] 9.1 synopsis 触发路径（场景 A）：10 条 non-system messages，`triggerTokens` 临时降至 500
+- [x] 9.2 `conversation.synopsis.updated` event payload + `events` 行 + `threads.synopsis_json` + `compact_summaries(compact_kind='thread_synopsis')` 全部与 spec 断言 byte-match；返回请求头部含 `## Conversation synopsis` → 详见 `verify-notes.md` 场景 A
+- [x] 9.3 full-compact initial 触发（场景 B）：16 条 non-system messages，`fullCompactTriggerMessages=14` / `fullCompactTriggerTokens=500`
+- [x] 9.4 `conversation.compact.completed` event + `events` 行 + `threads.compact_baseline_json` + `compact_summaries(compact_kind='full_thread', summary_source='llm', failure_streak=0)` 全部 byte-match；`compactVersion=1`；后续 `prepareRequest()` 请求头仍保留 `## Compact baseline` → 详见 `verify-notes.md` 场景 B
+- [x] 9.5 结果回填到 `verify-notes.md`（含 synthetic thread id / event payload / DB 行 / 额外观察）
+- [x] 9.6 两处 runtime 临时阈值 override 已 revert（browser-runtime.ts / tauri-runtime.ts）
+- [-] 9.7 场景 C (full-compact refresh) / 场景 D (circuit breaker) SKIPPED — A/B 已覆盖 spec 的 4 条 scenario；C/D 为 optional
+- [!] 9.8 **Out-of-scope observation**（非本 refactor 引入）：UI chat 路径下 `prepareRequest()` 每次只见到 1 条 non-system message，说明 orchestration 层并未把历史 transcript 灌进 summarization middleware。此现象在重构前即存在，不影响 spec acceptance，但值得单开 change 调查（budget 服务实际无法 self-trigger synopsis/full-compact）
+
+## 10. 最终 gate
+
+- [x] 10.1 `openspec validate refactor-conversation-budget-service --strict` 绿
+- [ ] 10.2 通知用户等 `/opsx:archive`

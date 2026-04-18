@@ -1,61 +1,87 @@
 ## ADDED Requirements
 
-### Requirement: ConversationBudgetService delegates to single-responsibility modules
+### Requirement: ConversationBudgetService barrel is thin
 
-`packages/core/src/services/conversation-budget-service.ts` SHALL contain no more than 220 non-blank, non-comment lines. The `ConversationBudgetService` class SHALL retain its public API (`processBeforeCall`, `processAfterCall`, `getSynopsis`, constructor signature) but SHALL delegate implementation to modules in `packages/core/src/services/conversation-budget/`. Class method bodies SHALL NOT contain inline prune / compact algorithms, policy threshold evaluation, synopsis generation LLM calls, or synopsis store Map manipulation.
+`packages/core/src/services/conversation-budget-service.ts` SHALL contain no more than 180 non-blank, non-comment lines. The `ConversationBudgetService` class SHALL retain its public API (`prepareRequest(ctx, request)` as the only public async method, constructor signature `(defaults?: ConversationBudgetServiceOptions)`) and SHALL continue to export `ConversationBudgetServiceOptions` and `ThreadSynopsisRecord` from the same path. The barrel SHALL NOT contain inline LLM call invocations, inline `ctx.repos.*` writes, inline `ctx.eventBus.emit` calls, inline `SYNOPSIS_SYSTEM_PROMPT` / `FULL_COMPACT_SYSTEM_PROMPT` string literals, inline heuristic summary construction, or inline full-compact skip-row construction.
 
-#### Scenario: File size gate
+#### Scenario: Barrel file size gate
 - **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/core/src/services/conversation-budget-service.ts` is run after refactor
-- **THEN** the non-blank, non-comment line count is at most 220
+- **THEN** the non-blank, non-comment line count is at most 180
 
-#### Scenario: Public API unchanged
-- **WHEN** comparing `grep '^  \(public \)*async\? \(processBeforeCall\|processAfterCall\|getSynopsis\)' packages/core/src/services/conversation-budget-service.ts` pre-change vs post-change
-- **THEN** every public method signature is byte-identical
+#### Scenario: Public API surface unchanged
+- **WHEN** inspecting `ConversationBudgetService` class declarations in the barrel
+- **THEN** the only public async method is `prepareRequest` and its signature is `async prepareRequest(ctx: RuntimeContext, request: LlmRequest): Promise<LlmRequest>`, and the constructor signature is `constructor(defaults?: ConversationBudgetServiceOptions)` (with default `= {}`)
+
+#### Scenario: External exports preserved
+- **WHEN** grepping for `export (interface|class|type) (ConversationBudgetService|ConversationBudgetServiceOptions|ThreadSynopsisRecord)` in `conversation-budget-service.ts`
+- **THEN** all three exports are present
+
+#### Scenario: No inline LLM / repo / event side effects in barrel
+- **WHEN** grepping the barrel for `ctx\.llmGateway\.|ctx\.systemCaller\.chat|ctx\.repos\.(events|compactSummaries)\.(insert|create)|ctx\.eventBus\.emit|SYNOPSIS_SYSTEM_PROMPT|FULL_COMPACT_SYSTEM_PROMPT`
+- **THEN** there are no matches
 
 ### Requirement: Internal modules are one-responsibility-per-file
 
-The 5 internal modules SHALL live in `packages/core/src/services/conversation-budget/`:
+The 4 internal modules SHALL live in `packages/core/src/services/conversation-budget/`:
 
-- `synopsis-store.ts` — per-thread `ThreadSynopsisRecord` Map container (get / upsert / clear), no external dependencies
-- `prune-policy.ts` — pure function `pruneMessages(input): PruneResult` wrapping `pruneLlmMessages`
-- `tool-result-compactor.ts` — pure function `compactToolResults(input): CompactResult` wrapping `compactToolResultMessages`
-- `synopsis-generator.ts` — class `SynopsisGenerator` owning the LLM call that produces summary + emits `conversationSynopsisUpdated` event
-- `policy.ts` — pure function `evaluatePolicy(input): PolicyDecision` returning `{ shouldPrune, shouldCompact, shouldRefreshSynopsis }`
+- `options-resolver.ts` — pure function `resolveOptions(ctx, defaults) → ResolvedConversationBudgetOptions` plus all `DEFAULT_*` constants and the `ResolvedConversationBudgetOptions` interface
+- `message-utils.ts` — pure functions `buildRequestMessages(...)` and `estimateTokens(messages)`
+- `synopsis-generator.ts` — class `SynopsisGenerator` owning synopsis failure streak Map, `SYNOPSIS_SYSTEM_PROMPT`, synopsis LLM call, heuristic fallback, circuit breaker, synopsis DB writes, `conversation.synopsis.updated` EventBus emit, post-synopsis cleanup (`ctx.repos.nodeSummaries.trimByThread` + stale interaction clearing), and a public `parseExisting(raw)` helper
+- `full-compact-orchestrator.ts` — class `FullCompactOrchestrator` owning full-compact failure streak Maps (streak + lastFailureMessageCount), `FULL_COMPACT_SYSTEM_PROMPT`, `tryInitialCompact`, `tryRefreshCompact`, baseline persistence, `conversation.compact.completed` EventBus emit, full-compact skip-row DB writes
 
-No internal module SHALL import the service barrel or another internal module's implementation (utility imports like shared types are allowed).
-
-#### Scenario: One file per internal module
+#### Scenario: Exactly 4 internal module files exist
 - **WHEN** listing `packages/core/src/services/conversation-budget/*.ts`
-- **THEN** exactly these 5 files exist
+- **THEN** exactly these 4 files exist: `options-resolver.ts`, `message-utils.ts`, `synopsis-generator.ts`, `full-compact-orchestrator.ts`
 
-#### Scenario: Policy evaluation is isolated
-- **WHEN** grepping `packages/core/src/services/**/*.ts` for threshold comparisons like `messageCount >= maxNonSystemMessages` or `synopsisTriggerMessages`
-- **THEN** all matches are inside `conversation-budget/policy.ts`
+#### Scenario: Options resolution is isolated
+- **WHEN** grepping `packages/core/src/services/**/*.ts` for `DEFAULT_TAIL_NON_SYSTEM_MESSAGES`, `DEFAULT_SYNOPSIS_TRIGGER_MESSAGES`, `DEFAULT_FULL_COMPACT_TRIGGER_TOKENS`, or the `ResolvedConversationBudgetOptions` interface declaration
+- **THEN** all declarations are inside `conversation-budget/options-resolver.ts`
 
-#### Scenario: Synopsis store is single-owner
-- **WHEN** grepping `packages/core/src/services/**/*.ts` for `Map<string, ThreadSynopsisRecord>` declarations
-- **THEN** exactly one match exists, inside `conversation-budget/synopsis-store.ts`
+#### Scenario: Synopsis side effects are single-owner
+- **WHEN** grepping `packages/core/src/services/**/*.ts` for `SYNOPSIS_SYSTEM_PROMPT`, `conversationSynopsisUpdated(`, or the string literal `'conversation.synopsis.updated'`
+- **THEN** every match is inside `conversation-budget/synopsis-generator.ts`
+
+#### Scenario: Full-compact side effects are single-owner
+- **WHEN** grepping `packages/core/src/services/**/*.ts` for `FULL_COMPACT_SYSTEM_PROMPT`, `conversationCompactCompleted(`, the string literal `'conversation.compact.completed'`, or `compact_kind: 'full_thread'` / `compact_kind: 'full_thread_skip'`
+- **THEN** every match is inside `conversation-budget/full-compact-orchestrator.ts`
+
+#### Scenario: Failure-streak state is owned by correct module
+- **WHEN** grepping `packages/core/src/services/**/*.ts` for the identifier `synopsisFailureStreaks`
+- **THEN** matches exist only in `conversation-budget/synopsis-generator.ts`
+- **WHEN** grepping for the identifiers `fullCompactFailureStreaks` and `fullCompactFailureMessageCounts`
+- **THEN** matches exist only in `conversation-budget/full-compact-orchestrator.ts`
 
 ### Requirement: Observable budget behavior is unchanged after refactor
 
-For identical LlmRequest / LlmResponse input and identical config, the service SHALL produce byte-identical: pruned message sequence, compacted tool-result content, synopsis refresh trigger timing, emitted event payloads, and `getSynopsis` return values.
+For identical `LlmRequest` input, identical `ctx.runtimePolicy.summarization`, and identical thread state (synopsis_json / compact_baseline_json), the service SHALL produce byte-identical:
 
-#### Scenario: Prune kicks in at same threshold
-- **WHEN** `processBeforeCall` is called with a request whose message count exceeds `maxNonSystemMessages`
-- **THEN** the returned request's messages reflect the same pruned subset and the same `prunedMessageCount` synopsis field as pre-refactor
+1. Returned `request.messages` sequence (including pruned slice, synopsis system message placement, compact baseline system message placement)
+2. `ctx.repos.threads.updateSynopsis` / `updateCompactBaseline` call arguments and order
+3. `ctx.repos.compactSummaries.create` row fields (compact_id prefix, compact_kind, summary_source, messages_compacted, failure_streak)
+4. `ctx.repos.events.insert` payload shape for `conversation.synopsis.updated` and `conversation.compact.completed`
+5. `ctx.eventBus.emit` event object and emit order
+6. Failure-streak increment / reset semantics (per threadId) across synopsis and full-compact paths
 
-#### Scenario: Auto-compact refresh triggers same event
-- **WHEN** the auto-compact threshold is crossed during `processAfterCall`
-- **THEN** a `conversationCompactCompleted` event is emitted with the same payload shape (thread id / version / summary / prunedMessageCount / totalMessageCount) as pre-refactor
+#### Scenario: Synopsis path emits same event payload
+- **WHEN** the synopsis threshold is crossed during `prepareRequest` with a mock LLM that returns a deterministic summary
+- **THEN** a `conversation.synopsis.updated` event is emitted with the same `{ summary, version, prunedMessageCount, totalMessageCount }` payload shape as pre-refactor and the `events.insert` row has `event_type: 'conversation.synopsis.updated'` with matching payload_json
 
-#### Scenario: Synopsis returns identical record
-- **WHEN** `getSynopsis(threadId)` is called after a synopsis has been stored
-- **THEN** the returned `ThreadSynopsisRecord` fields (version / summary / prunedMessageCount / totalMessageCount / updatedAt) are byte-identical to pre-refactor
+#### Scenario: Full-compact path emits same event payload
+- **WHEN** the full-compact threshold is crossed during `prepareRequest` with a mock LLM that returns a deterministic summary
+- **THEN** a `conversation.compact.completed` event is emitted with the same `{ compactId, compactVersion, compactedNonSystemMessageCount, keptTailNonSystemMessageCount, preCompactMessageCount, preCompactTokenCount }` payload shape as pre-refactor and the `events.insert` row has `event_type: 'conversation.compact.completed'`
+
+#### Scenario: Failure-streak recovery is byte-identical
+- **WHEN** the synopsis LLM call fails N < `synopsisFailureThreshold` times in a row then succeeds
+- **THEN** the failure streak Map entry for that threadId is cleared after the successful call, and the next call with same threshold conditions behaves as if no failures had occurred
 
 ### Requirement: ConversationBudgetServiceOptions contract is unchanged
 
-`ConversationBudgetServiceOptions` interface SHALL retain every pre-refactor field with the same type and default value. The interface SHALL continue to be exported from `conversation-budget-service.ts`.
+`ConversationBudgetServiceOptions` interface SHALL retain every pre-refactor field with the same type and default value. The interface SHALL continue to be exported from `conversation-budget-service.ts` (the barrel), not from an internal module.
 
 #### Scenario: Options interface export parity
-- **WHEN** comparing the exported `ConversationBudgetServiceOptions` fields pre-change vs post-change
-- **THEN** every field name, type, and default is byte-identical
+- **WHEN** comparing the exported `ConversationBudgetServiceOptions` field names and types between pre-change and post-change `conversation-budget-service.ts`
+- **THEN** every field name and type is byte-identical
+
+#### Scenario: ThreadSynopsisRecord export path unchanged
+- **WHEN** grepping `packages/core/src/services/execution-trace-service.ts` for `from './conversation-budget-service.js'`
+- **THEN** the import resolves (barrel still exports `ThreadSynopsisRecord`)
