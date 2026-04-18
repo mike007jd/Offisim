@@ -66,4 +66,4 @@
 ## 10. 最终 gate
 
 - [x] 10.1 `openspec validate refactor-conversation-budget-service --strict` 绿
-- [ ] 10.2 通知用户等 `/opsx:archive`
+- [x] 10.2 通知用户等 `/opsx:archive`
