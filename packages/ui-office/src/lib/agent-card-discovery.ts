@@ -53,7 +53,11 @@ export async function discoverAgentCard(
       throw err;
     }
     const msg = err instanceof Error ? err.message : String(err);
-    if (/cors|blocked|origin/i.test(msg) || err instanceof TypeError) {
+    // Browsers surface DNS failure, connection refused, and CORS blocks as the
+    // same opaque `TypeError: Failed to fetch` — JS cannot reliably tell them
+    // apart. Only classify as `cors` when the error message explicitly names
+    // CORS / origin; otherwise treat as `network` (unreachable endpoint).
+    if (/\b(cors|origin)\b/i.test(msg)) {
       throw new AgentCardDiscoveryError(
         'cors',
         'Remote server did not allow the browser to read the agent card. Ask the owner to add Access-Control-Allow-Origin for this origin.',
@@ -143,7 +147,7 @@ export function defaultRoleForBrand(brand: ExternalBrandVariant): RoleSlug | nul
 export function describeDiscoveryError(err: AgentCardDiscoveryError): string {
   switch (err.class) {
     case 'network':
-      return `We could not reach the agent card URL. ${err.message}`;
+      return `We could not reach the agent card URL. ${err.message} (check the endpoint is running and reachable; a missing Access-Control-Allow-Origin on the remote server can look the same from the browser.)`;
     case 'cors':
       return 'The remote server blocked the browser from reading the agent card. It needs to return Access-Control-Allow-Origin for this origin.';
     case 'invalid-json':

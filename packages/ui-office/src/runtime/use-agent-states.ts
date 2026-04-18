@@ -9,7 +9,7 @@ import type {
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
 } from '@offisim/shared-types';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from './offisim-runtime-context';
 
@@ -90,6 +90,13 @@ export function useAgentStates(): Map<string, AgentState> {
     buildAgentStateMap(activeCompanyId, bootstrapState?.reposSnapshot?.employees ?? []),
   );
 
+  // Keep latest repos in a ref so the long-lived event subscriptions below
+  // don't need to re-bind on every repo swap.
+  const reposRef = useRef(repos);
+  useEffect(() => {
+    reposRef.current = repos;
+  }, [repos]);
+
   useEffect(() => {
     const bootstrapEmployees = bootstrapState?.reposSnapshot?.employees ?? [];
     setAgents((prev) => buildAgentStateMap(activeCompanyId, bootstrapEmployees, prev));
@@ -128,9 +135,10 @@ export function useAgentStates(): Map<string, AgentState> {
       },
     );
 
-    // Employee created — add new entry with idle state. is_external / brand_key
-    // aren't in EmployeeCreatedPayload, so new rows default to internal; the
-    // findByCompany refresh (or employee.updated event) corrects external rows.
+    // Employee created — add new entry with idle state. EmployeeCreatedPayload
+    // does not carry is_external / brand_key, so we seed internal defaults and
+    // then hydrate from the repo row so external employees render with their
+    // brand avatar immediately (not after a later roster refresh).
     const unsubCreated = eventBus.on(
       'employee.created',
       (event: RuntimeEvent<EmployeeCreatedPayload>) => {
@@ -146,6 +154,33 @@ export function useAgentStates(): Map<string, AgentState> {
             brandKey: null,
           });
           return next;
+        });
+        const repos = reposRef.current;
+        if (!repos) return;
+        void repos.employees.findById(employeeId).then((row) => {
+          if (!row) return;
+          const nextIsExternal = row.is_external === 1;
+          const nextBrandKey = row.brand_key ?? null;
+          const nextWorkstationId = row.workstation_id ?? null;
+          setAgents((prev) => {
+            const existing = prev.get(employeeId);
+            if (!existing) return prev;
+            if (
+              existing.isExternal === nextIsExternal &&
+              existing.brandKey === nextBrandKey &&
+              existing.workstationId === nextWorkstationId
+            ) {
+              return prev;
+            }
+            const next = new Map(prev);
+            next.set(employeeId, {
+              ...existing,
+              isExternal: nextIsExternal,
+              brandKey: nextBrandKey,
+              workstationId: nextWorkstationId,
+            });
+            return next;
+          });
         });
       },
     );

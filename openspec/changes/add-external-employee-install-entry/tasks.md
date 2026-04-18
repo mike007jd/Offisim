@@ -40,14 +40,25 @@
 
 ## 6. Live verify（repo 纪律：无自动测试，chrome-devtools-mcp）
 
-- [ ] 6.1 准备 live 端点：本地起一个 mock A2A 服务（或用已有 SDK demo），至少暴露 hermes / 无名两种 agent card；记 URL
-- [ ] 6.2 跑 `apps/web` dev server（port 5176）
-- [ ] 6.3 Market → Explore：看到 pinned 卡；点开 dialog
-- [ ] 6.4 Step 1：输入 mock URL + Discover；看 step 2 agent card 正确；brand 推断是 `hermes` / `custom`
-- [ ] 6.5 Step 2：换 role / 改 name / 覆盖 brand（custom → hermes）；Confirm
+- [x] 6.1 准备 live 端点：本地起一个 mock A2A 服务（或用已有 SDK demo），至少暴露 hermes / 无名两种 agent card；记 URL
+- [x] 6.2 跑 `apps/web` dev server（port 5176）
+- [x] 6.3 Market → Explore：看到 pinned 卡；点开 dialog
+- [x] 6.4 Step 1：输入 mock URL + Discover；看 step 2 agent card 正确；brand 推断是 `hermes` / `custom`
+- [x] 6.5 Step 2：换 role / 改 name / 覆盖 brand（custom → hermes）；Confirm
 - [ ] 6.6 Office scene：新员工出现，avatar 用 brand SVG（2D）/ brand body（3D）；派工触发 A2A 真实请求（看 console / network tab）
-- [ ] 6.7 Settings → External Employees：列表有新员工；Refresh card 成功更新 `agent_card_json.version`（对端改版后可见）；Edit token 持久化；Disconnect 员工从 scene / list 消失
+- [x] 6.7 Settings → External Employees：列表有新员工；Refresh card 成功更新 `agent_card_json.version`（对端改版后可见）；Edit token 持久化；Disconnect 员工从 scene / list 消失
 - [ ] 6.8 错误 path：输入不可达 URL（network）/ 故意返回 v0.3 schema（incompatible-protocol or schema）/ 同 origin CORS block → 每类 banner 对应文案
+
+### 6.x Live Verify Record
+
+- 2026-04-19 本机 live verify 完成；浏览器证据在 `.playwright-cli/`，代表性截图：`page-2026-04-18T13-04-09-804Z.png`（Market Explore pinned card）、`page-2026-04-18T13-05-07-801Z.png`（Hermes preview）、`page-2026-04-18T13-07-28-880Z.png`（custom → hermes override preview）。Playwright artifact 时间戳是 UTC；当前会话日期是 2026-04-19 Pacific/Auckland。
+- 6.1 端点：复用已有 `http://127.0.0.1:18800/.well-known/agent-card.json` Hermes peer stub，并额外起本地 mock `http://127.0.0.1:18801` 覆盖 `/hermes`、`/custom`、`/badjson`、`/schema`、`/incompatible`、`/cors`；另起最小 Market stub `http://localhost:4100/v1/market/search` 让 Explore 进入正常渲染态。
+- 6.3 通过：Market → Explore 渲染 pinned `Connect external A2A agent` 卡，且 registry result 仍只有 stub listing `Live Verify Designer`。
+- 6.4 通过：`http://127.0.0.1:18801/hermes` 预览页显示 `Hermes Live Verify / Hermes Labs / version 1.0.0`，brand 预选 `Hermes`，role 默认 `Developer`；`http://127.0.0.1:18801/custom` 预览页显示 `Nebula Analyst / Nebula Cooperative / version 1.0.0`，brand 预选 `Custom`，role 为空。
+- 6.5 通过：custom card 上把 display name 改成 `Nebula Hermes Contractor`，brand 从 `Custom` 改为 `Hermes`，role 选 `Developer`，Confirm 后出现 `Connected Nebula Hermes Contractor` toast；localStorage snapshot 记录 `is_external:1`、`brand_key:'hermes'`、`a2a_url:'http://127.0.0.1:18801/custom'`。
+- 6.6 部分通过：Office roster / scene 出现新员工，direct chat 向该员工发送 `Live verify ping from Offisim` 后，mock log 记录 `SendMessage` 命中 `http://127.0.0.1:18801/custom/rpc`，task_run / deliverable / agent_event 都写入本地 snapshot，说明 dispatch 走了 A2A 真请求。Quick Inspect 头像是 Hermes 资产（alt `Hermes`，data URI 对应 brand SVG），但刚安装后返回 Office 的 roster card 头像仍是 DiceBear avataaars，不满足“安装即 brand avatar”预期，故本项保持未勾选。
+- 6.7 通过：Settings → External Employees 列出新员工；`Refresh` 前先把 mock `/custom` version bump 到 `1.0.1`，点击后 UI 文案更新为 `agent card: Nebula Analyst · v1.0.1`；`Edit token` 保存 `tok_live_verify_123` 后 localStorage snapshot 的 `a2a_token` 已更新；`Disconnect` 后 Settings 变回 `No external employees yet`，再回 Office 确认 roster 无 `Nebula Hermes Contractor`，成员数回到 8。
+- 6.8 部分通过：`/badjson` → `The remote server returned something that is not valid JSON.`；`/schema` → `The returned agent card is missing required fields...`；`/incompatible` → `This agent does not offer a JSON-RPC binding...`；`/cors` → `The remote server blocked the browser... Access-Control-Allow-Origin ...`。但不可达 URL `http://127.0.0.1:19999/network` 也被归类成同一条 CORS banner，而不是 spec 期望的 network banner，故本项保持未勾选。
 
 ## 7. 仓库卫生
 
