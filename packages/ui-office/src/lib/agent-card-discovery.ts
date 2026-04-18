@@ -54,10 +54,29 @@ export async function discoverAgentCard(
     }
     const msg = err instanceof Error ? err.message : String(err);
     // Browsers surface DNS failure, connection refused, and CORS blocks as the
-    // same opaque `TypeError: Failed to fetch` — JS cannot reliably tell them
-    // apart. Only classify as `cors` when the error message explicitly names
-    // CORS / origin; otherwise treat as `network` (unreachable endpoint).
+    // same opaque `TypeError: Failed to fetch` — JS cannot read the cause
+    // directly. Probe reachability with mode:'no-cors' (no headers to avoid
+    // preflight). An opaque response means the endpoint is reachable and the
+    // original failure was CORS; another throw means the endpoint really is
+    // unreachable.
     if (/\b(cors|origin)\b/i.test(msg)) {
+      throw new AgentCardDiscoveryError(
+        'cors',
+        'Remote server did not allow the browser to read the agent card. Ask the owner to add Access-Control-Allow-Origin for this origin.',
+        { cause: err },
+      );
+    }
+    let reachable = false;
+    try {
+      await fetch(cardUrl, { method: 'GET', mode: 'no-cors', signal: opts.signal });
+      reachable = true;
+    } catch (probeErr) {
+      if ((probeErr as { name?: string })?.name === 'AbortError') {
+        throw probeErr;
+      }
+      reachable = false;
+    }
+    if (reachable) {
       throw new AgentCardDiscoveryError(
         'cors',
         'Remote server did not allow the browser to read the agent card. Ask the owner to add Access-Control-Allow-Origin for this origin.',
@@ -147,7 +166,7 @@ export function defaultRoleForBrand(brand: ExternalBrandVariant): RoleSlug | nul
 export function describeDiscoveryError(err: AgentCardDiscoveryError): string {
   switch (err.class) {
     case 'network':
-      return `We could not reach the agent card URL. ${err.message} (check the endpoint is running and reachable; a missing Access-Control-Allow-Origin on the remote server can look the same from the browser.)`;
+      return `We could not reach the agent card URL. ${err.message}`;
     case 'cors':
       return 'The remote server blocked the browser from reading the agent card. It needs to return Access-Control-Allow-Origin for this origin.';
     case 'invalid-json':
