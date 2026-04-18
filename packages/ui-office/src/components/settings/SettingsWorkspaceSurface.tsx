@@ -4,6 +4,7 @@ import { type ReactNode, useMemo } from 'react';
 import type { ProviderConfig } from '../../lib/provider-config';
 import { useTheme } from '../../theme';
 import { McpConfigPanel } from './McpConfigPanel';
+import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
 import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 import { assembleSettingsControllerApi } from './controller/assembleSettingsControllerApi';
@@ -13,7 +14,7 @@ import { useSettingsRuntimePolicy } from './controller/useSettingsRuntimePolicy'
 import { useSettingsSaveOrchestrator } from './controller/useSettingsSaveOrchestrator';
 import { MetricCard, SurfaceCard } from './settings-primitives';
 
-export type SettingsTab = 'provider' | 'runtime' | 'mcp';
+export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
 
 interface SettingsWorkspaceControllerOptions {
   isActive: boolean;
@@ -147,6 +148,12 @@ export function SettingsWorkspaceSurface({
               >
                 MCP servers
               </TabsTrigger>
+              <TabsTrigger
+                value="external"
+                className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-100"
+              >
+                External employees
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -162,6 +169,10 @@ export function SettingsWorkspaceSurface({
             <SurfaceCard title="MCP servers" icon={<Cpu className="h-5 w-5" />}>
               <McpConfigPanel />
             </SurfaceCard>
+          </TabsContent>
+
+          <TabsContent value="external" className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <SettingsExternalTab />
           </TabsContent>
         </Tabs>
       </div>

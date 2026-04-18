@@ -1,11 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bot, Cpu, Plug } from 'lucide-react';
+import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import type { SettingsTab } from './SettingsWorkspaceSurface';
 
 const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
   { key: 'provider', label: 'Provider', icon: Bot },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
+  { key: 'external', label: 'External Employees', icon: Users },
 ];
 
 interface SettingsTabNavProps {

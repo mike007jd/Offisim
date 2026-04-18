@@ -47,7 +47,7 @@ export type ActivityLogSessionState = {
 };
 
 export type SettingsSessionState = {
-  activeTab: 'provider' | 'runtime' | 'mcp';
+  activeTab: 'provider' | 'runtime' | 'mcp' | 'external';
 };
 
 export type WorkspaceSessionState = {

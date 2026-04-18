@@ -1,4 +1,5 @@
 import { McpConfigPanel } from './McpConfigPanel';
+import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
 import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 import type { SettingsTab } from './SettingsWorkspaceSurface';
@@ -11,6 +12,7 @@ interface SettingsContentAreaProps {
 
 export function SettingsContentArea({ activeTab, controller }: SettingsContentAreaProps) {
   const { handleSave, hasUnsavedChanges, isSaveDisabled, isSaving, saveError } = controller;
+  const showSaveBar = activeTab !== 'external';
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -18,23 +20,26 @@ export function SettingsContentArea({ activeTab, controller }: SettingsContentAr
         {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
         {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
         {activeTab === 'mcp' && <McpConfigPanel />}
+        {activeTab === 'external' && <SettingsExternalTab />}
       </div>
 
-      <div className="sticky bottom-0 border-t border-white/10 bg-slate-950/80 backdrop-blur-sm px-8 py-4">
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={isSaveDisabled || !hasUnsavedChanges}
-          className={`w-full h-11 rounded-lg text-sm font-medium transition-colors ${
-            hasUnsavedChanges
-              ? 'bg-cyan-500 hover:bg-cyan-400 text-white'
-              : 'opacity-50 cursor-not-allowed bg-white/10 text-slate-500'
-          }`}
-        >
-          {isSaving ? 'Saving…' : 'Save settings'}
-        </button>
-        {saveError && <p className="mt-2 text-sm text-red-400">{saveError}</p>}
-      </div>
+      {showSaveBar && (
+        <div className="sticky bottom-0 border-t border-white/10 bg-slate-950/80 backdrop-blur-sm px-8 py-4">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={isSaveDisabled || !hasUnsavedChanges}
+            className={`w-full h-11 rounded-lg text-sm font-medium transition-colors ${
+              hasUnsavedChanges
+                ? 'bg-cyan-500 hover:bg-cyan-400 text-white'
+                : 'opacity-50 cursor-not-allowed bg-white/10 text-slate-500'
+            }`}
+          >
+            {isSaving ? 'Saving…' : 'Save settings'}
+          </button>
+          {saveError && <p className="mt-2 text-sm text-red-400">{saveError}</p>}
+        </div>
+      )}
     </div>
   );
 }
