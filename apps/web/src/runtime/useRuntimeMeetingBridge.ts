@@ -14,15 +14,14 @@ function getMeetingId(event: RuntimeEvent): string | null {
 }
 
 export function useRuntimeMeetingBridge(opts: {
-  eventBusRef: MutableRefObject<InMemoryEventBus>;
+  eventBus: InMemoryEventBus;
   runtimeRef: MutableRefObject<RuntimeBundle | null>;
   setIsRunning: (running: boolean) => void;
   setError: (message: string | null) => void;
 }): void {
-  const { eventBusRef, runtimeRef, setIsRunning, setError } = opts;
+  const { eventBus, runtimeRef, setIsRunning, setError } = opts;
 
   useEffect(() => {
-    const eventBus = eventBusRef.current;
 
     async function runPausedMeetingAction(
       meetingId: string,
@@ -106,5 +105,5 @@ export function useRuntimeMeetingBridge(opts: {
       unsubResume();
       unsubEnd();
     };
-  }, [eventBusRef, runtimeRef, setError, setIsRunning]);
+  }, [eventBus, runtimeRef, setError, setIsRunning]);
 }
