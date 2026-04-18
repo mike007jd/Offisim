@@ -170,6 +170,20 @@ apps/
 
 **规则：AI 开工前先 `git log --oneline -10` 核对最近 commit。openspec / CLAUDE.md 与 git 冲突时，永远信 git；发现冲突即刻更新上层文档，不要沉默地跳过。**
 
+## OpenSpec Archive Gate (T1.4 — 2026-04-19 起强制)
+
+每次 `/opsx:archive` 之前，Claude **必须**跑以下三查，任一项不过禁止 archive：
+
+1. **Spec 一致性**：change 的 `specs/<capability>/spec.md` 是否仍表达真实落地 scope？落地和 spec 的用词 / 字段 / 流程有偏差时，先更新 spec，再 archive。
+2. **Tasks 一致性**：`tasks.md` 所声称 `[x] 已完成` 的项是否真的落地？live verify 是否真跑了？有 "部分通过" 不许悄悄勾，必须保留未勾 + 补 verify record 节说明。
+3. **文档 / 注释一致性**：相关 CLAUDE.md / README / `openspec/specs/` / 代码内 JSDoc 是否还在输出过期 claim？若发现过期，同一 change 内补上。
+
+**此外**：若 change 碰到 `openspec/protocols-ledger.md` 列出的任何协议 / SDK / 标准（A2A / MCP / Tauri / LangGraph / Better Auth / SKILL.md / agentskills.io），**必须同步更新台账相应行**（`Repo claim` + `一致？` + `下一步`）。
+
+**原因**：A2A 2026-04-14→18 翻盘事件证明 spec / tasks / code / docs 与上游协议的同步纪律若不常规化，几个月内就会累积出"产品已经前进、底层口径停旧版"的冒烟风险。Archive gate 是制度化防线。
+
+**为什么写这里不写 openspec skill**：Claude 开工前读 CLAUDE.md 是硬规则（Truth-source priority #2），openspec skill 只在触发时读。
+
 ## License and Key Model
 
 Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
