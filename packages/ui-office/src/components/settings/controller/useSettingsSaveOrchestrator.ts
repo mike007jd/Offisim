@@ -69,7 +69,7 @@ export function useSettingsSaveOrchestrator({
     return () => window.clearTimeout(timer);
   }, [isReinitializing]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: load runs once when isActive flips; provider/runtimePolicy apply helpers only call stable React setters, so stale closures do not leak state.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: load runs once when isActive flips. provider/runtimePolicy apply helpers only call stable React setters, and queueCapture is a useCallback([], []) from dirty tracking — all have stable identities across renders, so stale closures do not leak state.
   useEffect(() => {
     if (!isActive) return;
 
