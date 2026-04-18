@@ -302,11 +302,24 @@ export function EmployeeEditorDialog({
                 </p>
               </div>
 
-              {/* Avatar appearance — persisted to persona_json via formData.appearance */}
-              <AvatarCustomizer
-                config={formData.appearance}
-                onChange={(cfg) => updateField('appearance', cfg)}
-              />
+              {formData.isExternal ? (
+                <div
+                  data-testid="external-avatar-disabled"
+                  className="flex flex-col gap-1 p-3 rounded-xl border border-white/10 bg-white/5"
+                >
+                  <p className="text-[10px] font-medium text-slate-300 uppercase tracking-wider">
+                    Appearance
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    This employee uses its brand's built-in avatar and cannot be customized.
+                  </p>
+                </div>
+              ) : (
+                <AvatarCustomizer
+                  config={formData.appearance}
+                  onChange={(cfg) => updateField('appearance', cfg)}
+                />
+              )}
             </div>
           </TabsContent>
 

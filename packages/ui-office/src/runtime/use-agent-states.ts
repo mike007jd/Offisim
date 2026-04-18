@@ -36,6 +36,8 @@ export interface AgentState {
   currentTask?: AgentTaskInfo | null;
   /** Sub-task progress list for parallel task tracking. */
   subTasks?: SubTaskInfo[];
+  isExternal: boolean;
+  brandKey: string | null;
 }
 
 type WorkstationEventPayload =
@@ -50,6 +52,8 @@ function buildAgentStateMap(
     name: string;
     role_slug: string;
     workstation_id: string | null;
+    is_external?: number;
+    brand_key?: string | null;
   }>,
   prev?: Map<string, AgentState>,
 ): Map<string, AgentState> {
@@ -67,6 +71,8 @@ function buildAgentStateMap(
       workstationId: row.workstation_id ?? previous?.workstationId ?? null,
       currentTask: previous?.currentTask ?? null,
       subTasks: previous?.subTasks,
+      isExternal: row.is_external === 1,
+      brandKey: row.brand_key ?? null,
     });
   }
   return next;
@@ -122,7 +128,9 @@ export function useAgentStates(): Map<string, AgentState> {
       },
     );
 
-    // Employee created — add new entry with idle state
+    // Employee created — add new entry with idle state. is_external / brand_key
+    // aren't in EmployeeCreatedPayload, so new rows default to internal; the
+    // findByCompany refresh (or employee.updated event) corrects external rows.
     const unsubCreated = eventBus.on(
       'employee.created',
       (event: RuntimeEvent<EmployeeCreatedPayload>) => {
@@ -134,6 +142,8 @@ export function useAgentStates(): Map<string, AgentState> {
             role: roleSlug ?? 'developer',
             state: 'idle',
             workstationId: null,
+            isExternal: false,
+            brandKey: null,
           });
           return next;
         });

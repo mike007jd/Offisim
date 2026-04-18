@@ -1,12 +1,11 @@
 import { Badge } from '@offisim/ui-core';
 import { Wrench } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { resolveAvatarSeed } from '../../lib/avatar-seed';
+import { useEffect, useRef, useState } from 'react';
 import { truncate } from '../../lib/format-time';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
 import type { AgentState } from '../../runtime/use-agent-states';
-import { DicebearAvatar } from '../shared/DicebearAvatar';
+import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 
 // Inject @keyframes once at module level (not per card instance)
 if (typeof document !== 'undefined' && !document.getElementById('agent-card-keyframes')) {
@@ -51,8 +50,6 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
     }
   }, [agent.state]);
 
-  const avatarSeed = useMemo(() => resolveAvatarSeed(agent), [agent]);
-
   const task = agent.currentTask;
   const hasTask = task && task.totalSteps > 0;
   const isComplete = agent.state === 'success';
@@ -86,7 +83,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         {/* Avatar with status dot */}
         <div className="relative flex-shrink-0">
           <div className="w-11 h-11 rounded-full bg-slate-900 overflow-hidden border border-white/10">
-            <DicebearAvatar seed={avatarSeed} size={44} className="w-full h-full object-cover" />
+            <EmployeeAvatar agent={agent} size={44} className="w-full h-full object-cover" />
           </div>
           <div
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#02040a] transition-colors duration-300 ${dotColor}`}

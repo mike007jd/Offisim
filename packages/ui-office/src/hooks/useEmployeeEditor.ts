@@ -71,6 +71,9 @@ export interface EmployeeFormData {
   riskPreference: RiskPreference;
   decisionStyle: DecisionStyle;
   appearance: AvatarAppearance;
+  /** Read-only. External employees render brand avatars and the editor locks the customizer. */
+  isExternal: boolean;
+  brandKey: string | null;
 }
 
 const DEFAULT_FORM: EmployeeFormData = {
@@ -91,6 +94,8 @@ const DEFAULT_FORM: EmployeeFormData = {
   riskPreference: 'balanced',
   decisionStyle: 'collaborative',
   appearance: DEFAULT_APPEARANCE,
+  isExternal: false,
+  brandKey: null,
 };
 
 export function parsePersonaJson(
@@ -202,6 +207,8 @@ function rowToFormData(row: EmployeeRow): EmployeeFormData {
     workstation_id: row.workstation_id,
     ...persona,
     ...config,
+    isExternal: row.is_external === 1,
+    brandKey: row.brand_key,
   };
 }
 

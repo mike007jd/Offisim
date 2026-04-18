@@ -13,9 +13,9 @@ import {
 import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
-import { useAgentStates } from '../../runtime/use-agent-states';
+import { type AgentState, useAgentStates } from '../../runtime/use-agent-states';
 import { useCompany } from '../company/CompanyContext.js';
-import { getAvatarImage } from './office-2d-avatar-cache';
+import { getAvatarImage, getBrandAvatarImage } from './office-2d-avatar-cache';
 import { EMPLOYEE_RADIUS, worldToCanvas, zoneToCanvasRect } from './office-2d-canvas-geometry';
 import {
   type EmployeeRenderData,
@@ -127,7 +127,10 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
   }, [needsRedrawRef]);
 
   const loadAvatar = useCallback(
-    (seed: string, cId: string) => getAvatarImage(seed, cId, triggerRedraw),
+    (agent: Pick<AgentState, 'isExternal' | 'brandKey'>, seed: string, cId: string) =>
+      agent.isExternal
+        ? getBrandAvatarImage(agent.brandKey, cId, triggerRedraw)
+        : getAvatarImage(seed, cId, triggerRedraw),
     [triggerRedraw],
   );
 
@@ -202,20 +205,14 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
 
   const employeeRenderData: ReadonlyArray<EmployeeRenderData> = useMemo(() => {
     const result: EmployeeRenderData[] = [];
-    const push = (entry: {
-      empId: string;
-      x: number;
-      y: number;
-      agent: { name: string; state: string };
-      seed: string;
-    }) => {
+    const push = (entry: { empId: string; x: number; y: number; agent: AgentState; seed: string }) => {
       const { agent } = entry;
       result.push({
         employeeId: entry.empId,
         x: entry.x,
         y: entry.y,
         name: agent.name,
-        avatarImage: loadAvatar(entry.seed, companyId),
+        avatarImage: loadAvatar(agent, entry.seed, companyId),
         statusColor: getStatusColor(agent.state),
         state: agent.state,
         stateLabel: STATE_LABELS[agent.state] ?? null,
@@ -224,6 +221,8 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
         isWorking:
           agent.state === 'executing' || agent.state === 'thinking' || agent.state === 'searching',
         isActive: agent.state !== 'idle',
+        isExternal: agent.isExternal,
+        brandKey: agent.brandKey,
       });
     };
 

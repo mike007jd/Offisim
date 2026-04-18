@@ -99,6 +99,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   const shown = contributors.slice(0, 3);
   const overflow = contributors.slice(3);
   const overflowLabel = overflow.map((c) => c.employeeName).join(', ');
+  // TODO(phase-2b-#2-followup): contributor metadata lacks isExternal/brandKey — external contributors render DiceBear until the shape grows those fields.
   return (
     <div className="flex items-center -space-x-1.5">
       {shown.map((emp) => (

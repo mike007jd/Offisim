@@ -93,6 +93,8 @@ export interface EmployeeRenderData {
   isSuccess: boolean;
   isWorking: boolean;
   isActive: boolean;
+  isExternal: boolean;
+  brandKey: string | null;
 }
 
 export interface CeremonyRenderData {

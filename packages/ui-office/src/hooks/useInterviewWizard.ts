@@ -64,6 +64,8 @@ export const DEFAULT_WIZARD_FORM: EmployeeFormData = {
   riskPreference: 'balanced',
   decisionStyle: 'collaborative',
   appearance: DEFAULT_APPEARANCE,
+  isExternal: false,
+  brandKey: null,
 };
 
 export const initialWizardState: WizardState = {

@@ -1,8 +1,10 @@
 /**
- * Company-aware LRU caches for the 2D office view. Replaces the previous
- * unbounded Map(s) so long sessions / frequent company switches don't grow
- * unboundedly. Keys are `${companyId}:${seed}` to avoid cross-company mix.
+ * Company-aware LRU image caches. Keys discriminate internal (DiceBear,
+ * seed-based) vs external (brand-based) avatars so the same seed collision
+ * between an internal and external employee never cross-contaminates the
+ * decoded image.
  */
+import { lookupExternalBrand } from '../../lib/brand-registry';
 import { createOffisimAvatar } from '../../lib/avatar-seed';
 
 const MAX_CACHE_SIZE = 100;
@@ -32,14 +34,30 @@ class LRUCache<V> {
   }
 }
 
-const keyOf = (seed: string, companyId: string) => `${companyId}:${seed}`;
+const dicebearKey = (seed: string, companyId: string) => `${companyId}:dicebear:${seed}`;
+const brandCacheKey = (brandKey: string, companyId: string) => `${companyId}:brand:${brandKey}`;
 
 const uriCache = new LRUCache<string>();
 const imageCache = new LRUCache<HTMLImageElement>();
 
+function loadCachedImage(
+  cacheKey: string,
+  src: () => string,
+  onReady?: () => void,
+): HTMLImageElement | null {
+  const existing = imageCache.get(cacheKey);
+  if (existing) return existing.complete ? existing : null;
+  const img = new Image();
+  img.src = src();
+  imageCache.set(cacheKey, img);
+  if (img.complete) return img;
+  if (onReady) img.onload = onReady;
+  return null;
+}
+
 /** Get a DiceBear avataaars data URI, using the LRU cache. */
 export function getAvatarUri(seed: string, companyId: string): string {
-  const key = keyOf(seed, companyId);
+  const key = dicebearKey(seed, companyId);
   const cached = uriCache.get(key);
   if (cached) return cached;
   const uri = createOffisimAvatar(seed, 64);
@@ -48,26 +66,30 @@ export function getAvatarUri(seed: string, companyId: string): string {
 }
 
 /**
- * Get a ready-to-draw `HTMLImageElement` for the given (seed, companyId).
- * Returns `null` while the image is still decoding; `onReady` fires once the
- * backing data URI finishes loading so callers can request a redraw.
- * Sharing one LRU for both URI and decoded `Image` prevents the cache
- * duplication the pre-refactor draw code had.
+ * Get a ready-to-draw `HTMLImageElement` for (seed, companyId). Returns
+ * `null` while the image is decoding; `onReady` fires once the URI decodes
+ * so callers can request a redraw.
  */
 export function getAvatarImage(
   seed: string,
   companyId: string,
   onReady?: () => void,
 ): HTMLImageElement | null {
-  const key = keyOf(seed, companyId);
-  const existing = imageCache.get(key);
-  if (existing) return existing.complete ? existing : null;
-  const img = new Image();
-  img.src = getAvatarUri(seed, companyId);
-  imageCache.set(key, img);
-  if (img.complete) return img;
-  if (onReady) img.onload = onReady;
-  return null;
+  return loadCachedImage(dicebearKey(seed, companyId), () => getAvatarUri(seed, companyId), onReady);
+}
+
+/**
+ * External employees' counterpart of {@link getAvatarImage}. Internal
+ * employees must continue to go through `getAvatarImage` — this path has no
+ * seed-based fallback.
+ */
+export function getBrandAvatarImage(
+  brandKey: string | null,
+  companyId: string,
+  onReady?: () => void,
+): HTMLImageElement | null {
+  const entry = lookupExternalBrand(brandKey);
+  return loadCachedImage(brandCacheKey(entry.brandKey, companyId), () => entry.asset2dUri, onReady);
 }
 
 /** Reset all caches — useful for testing or on company switch. */
