@@ -54,4 +54,4 @@
 - [x] 7.1 不新建自动测试 / smoke 文件；live verify 脚步写进 `openspec/changes/add-external-employee-install-entry/tasks.md`（本文件）
 - [x] 7.2 Biome format + lint:fix
 - [x] 7.3 Typecheck 全绿（shared-types → ui-core → core → ui-office → web 顺序）
-- [ ] 7.4 Commit style 跟随 repo：`feat(ui-office): external-employee install entry + agent-card discovery`
+- [x] 7.4 Commit style 跟随 repo：`feat(ui-office): external-employee install entry + agent-card discovery`（apply `2f5d012b`）
