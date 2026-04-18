@@ -45,9 +45,9 @@
 - [x] 6.3 Market → Explore：看到 pinned 卡；点开 dialog
 - [x] 6.4 Step 1：输入 mock URL + Discover；看 step 2 agent card 正确；brand 推断是 `hermes` / `custom`
 - [x] 6.5 Step 2：换 role / 改 name / 覆盖 brand（custom → hermes）；Confirm
-- [ ] 6.6 Office scene：新员工出现，avatar 用 brand SVG（2D）/ brand body（3D）；派工触发 A2A 真实请求（看 console / network tab）
+- [x] 6.6 Office scene：新员工出现，avatar 用 brand SVG（2D）/ brand body（3D）；派工触发 A2A 真实请求（看 console / network tab）
 - [x] 6.7 Settings → External Employees：列表有新员工；Refresh card 成功更新 `agent_card_json.version`（对端改版后可见）；Edit token 持久化；Disconnect 员工从 scene / list 消失
-- [ ] 6.8 错误 path：输入不可达 URL（network）/ 故意返回 v0.3 schema（incompatible-protocol or schema）/ 同 origin CORS block → 每类 banner 对应文案
+- [x] 6.8 错误 path：输入不可达 URL（network）/ 故意返回 v0.3 schema（incompatible-protocol or schema）/ 同 origin CORS block → 每类 banner 对应文案
 
 ### 6.x Live Verify Record
 
@@ -56,9 +56,12 @@
 - 6.3 通过：Market → Explore 渲染 pinned `Connect external A2A agent` 卡，且 registry result 仍只有 stub listing `Live Verify Designer`。
 - 6.4 通过：`http://127.0.0.1:18801/hermes` 预览页显示 `Hermes Live Verify / Hermes Labs / version 1.0.0`，brand 预选 `Hermes`，role 默认 `Developer`；`http://127.0.0.1:18801/custom` 预览页显示 `Nebula Analyst / Nebula Cooperative / version 1.0.0`，brand 预选 `Custom`，role 为空。
 - 6.5 通过：custom card 上把 display name 改成 `Nebula Hermes Contractor`，brand 从 `Custom` 改为 `Hermes`，role 选 `Developer`，Confirm 后出现 `Connected Nebula Hermes Contractor` toast；localStorage snapshot 记录 `is_external:1`、`brand_key:'hermes'`、`a2a_url:'http://127.0.0.1:18801/custom'`。
-- 6.6 部分通过：Office roster / scene 出现新员工，direct chat 向该员工发送 `Live verify ping from Offisim` 后，mock log 记录 `SendMessage` 命中 `http://127.0.0.1:18801/custom/rpc`，task_run / deliverable / agent_event 都写入本地 snapshot，说明 dispatch 走了 A2A 真请求。Quick Inspect 头像是 Hermes 资产（alt `Hermes`，data URI 对应 brand SVG），但刚安装后返回 Office 的 roster card 头像仍是 DiceBear avataaars，不满足“安装即 brand avatar”预期，故本项保持未勾选。
+- 6.6 初跑失败：Office roster / scene 出现新员工，direct chat 向该员工发送 `Live verify ping from Offisim` 后，mock log 记录 `SendMessage` 命中 `http://127.0.0.1:18801/custom/rpc`，task_run / deliverable / agent_event 都写入本地 snapshot，说明 dispatch 走了 A2A 真请求。Quick Inspect 头像是 Hermes 资产（alt `Hermes`，data URI 对应 brand SVG），但刚安装后返回 Office 的 roster card 头像仍是 DiceBear avataaars。
 - 6.7 通过：Settings → External Employees 列出新员工；`Refresh` 前先把 mock `/custom` version bump 到 `1.0.1`，点击后 UI 文案更新为 `agent card: Nebula Analyst · v1.0.1`；`Edit token` 保存 `tok_live_verify_123` 后 localStorage snapshot 的 `a2a_token` 已更新；`Disconnect` 后 Settings 变回 `No external employees yet`，再回 Office 确认 roster 无 `Nebula Hermes Contractor`，成员数回到 8。
 - 6.8 部分通过：`/badjson` → `The remote server returned something that is not valid JSON.`；`/schema` → `The returned agent card is missing required fields...`；`/incompatible` → `This agent does not offer a JSON-RPC binding...`；`/cors` → `The remote server blocked the browser... Access-Control-Allow-Origin ...`。但不可达 URL `http://127.0.0.1:19999/network` 也被归类成同一条 CORS banner，而不是 spec 期望的 network banner，故本项保持未勾选。
+- 2026-04-19 针对 `e929d7aa` 复跑：6.6 现已通过。按 `custom -> hermes` override 安装 `Nebula Hermes Contractor` 后立刻切回 Office，roster card 直接显示 `img.alt = 'Hermes'`，`img.src` 为 Hermes brand SVG 的 data URI，不再经过 DiceBear；随后 direct chat 发送 `Live verify ping after e929d7aa`，mock `http://127.0.0.1:18801/__admin/logs` 记录 `SendMessage` 命中 `/custom/rpc`。
+- 2026-04-19 针对 `e929d7aa` 复跑：6.8 仍部分通过。不可达 URL `http://127.0.0.1:19999/network` 现显示 network banner：`We could not reach the agent card URL. Network error: Failed to fetch ...`，浏览器 console 同步报 `net::ERR_CONNECTION_REFUSED`；但真 CORS 路径 `http://127.0.0.1:18801/cors` 仍落到同一条 network banner。页内 `fetch()` 捕获到的异常仍是 `TypeError: Failed to fetch`，只有 console 暴露 `blocked by CORS policy`，因此当前实现无法在 JS 层稳定把该路径归到 cors banner，本项继续保持未勾选。
+- 2026-04-19 针对 `beba390e` 复跑：6.8 现已通过。`http://127.0.0.1:19999/network` 显示 network banner：`We could not reach the agent card URL. Network error: Failed to fetch`，console 同步报两次 `net::ERR_CONNECTION_REFUSED`；`http://127.0.0.1:18801/cors` 显示 cors banner：`The remote server blocked the browser from reading the agent card... Access-Control-Allow-Origin ...`，console 同步报 `blocked by CORS policy`。其余分类保持正确：`/badjson` → `The remote server returned something that is not valid JSON.`；`/schema` → `The returned agent card is missing required fields. Agent card is missing required \`supportedInterfaces[]\`.`；`/incompatible` → `This agent does not offer a JSON-RPC binding — Offisim cannot dispatch tasks to it.`
 
 ## 7. 仓库卫生
 
