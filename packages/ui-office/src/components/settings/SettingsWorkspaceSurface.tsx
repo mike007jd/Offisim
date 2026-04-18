@@ -49,7 +49,7 @@ export function useSettingsWorkspaceController({
     provider,
     runtimePolicy,
     snapshotJson,
-    queueCapture: dirty.queueCapture,
+    markLoaded: dirty.markLoaded,
     resetLoadedSnapshot: dirty.resetLoadedSnapshot,
   });
   return assembleSettingsControllerApi({

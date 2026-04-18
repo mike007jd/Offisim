@@ -26,7 +26,7 @@ interface SaveOrchestratorOptions {
   provider: ReturnType<typeof useSettingsProviderState>;
   runtimePolicy: ReturnType<typeof useSettingsRuntimePolicy>;
   snapshotJson: string;
-  queueCapture: () => void;
+  markLoaded: () => void;
   resetLoadedSnapshot: (snapshot: string) => void;
 }
 
@@ -39,7 +39,7 @@ export function useSettingsSaveOrchestrator({
   provider,
   runtimePolicy,
   snapshotJson,
-  queueCapture,
+  markLoaded,
   resetLoadedSnapshot,
 }: SaveOrchestratorOptions) {
   const [isSaving, setIsSaving] = useState(false);
@@ -69,7 +69,7 @@ export function useSettingsSaveOrchestrator({
     return () => window.clearTimeout(timer);
   }, [isReinitializing]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: load runs once when isActive flips. provider/runtimePolicy apply helpers only call stable React setters, and queueCapture is a useCallback([], []) from dirty tracking — all have stable identities across renders, so stale closures do not leak state.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: load runs once when isActive flips. provider/runtimePolicy apply helpers only call stable React setters, and markLoaded is a useCallback([], []) from the dirty-tracking hook wrapping a stable setState — all have stable identities across renders, so stale closures do not leak state.
   useEffect(() => {
     if (!isActive) return;
 
@@ -116,7 +116,7 @@ export function useSettingsSaveOrchestrator({
         provider.setHasStoredSecret(false);
       }
 
-      queueCapture();
+      markLoaded();
     }
 
     void loadState();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface DirtyTrackingOptions {
   isActive: boolean;
@@ -11,18 +11,17 @@ export function useSettingsDirtyTracking({
   snapshotJson,
   onDismiss,
 }: DirtyTrackingOptions) {
-  const loadedSnapshotRef = useRef('');
-  const pendingSnapshotCaptureRef = useRef(false);
+  const loadedSnapshotRef = useRef<string | null>(null);
+  const [captureVersion, setCaptureVersion] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: capture is driven by the captureVersion counter, which the orchestrator bumps via markLoaded() in its load-tail — same React batch as applyFromSaved. Keying on [captureVersion] (not [snapshotJson]) guarantees the effect reads the post-commit LOADED snapshot from closure; adding snapshotJson would re-introduce the StrictMode double-invoke race this change fixes.
   useEffect(() => {
-    if (pendingSnapshotCaptureRef.current) {
-      loadedSnapshotRef.current = snapshotJson;
-      pendingSnapshotCaptureRef.current = false;
-    }
-  }, [snapshotJson]);
+    if (captureVersion === 0) return;
+    loadedSnapshotRef.current = snapshotJson;
+  }, [captureVersion]);
 
   const hasUnsavedChanges =
-    isActive && loadedSnapshotRef.current !== '' && snapshotJson !== loadedSnapshotRef.current;
+    isActive && loadedSnapshotRef.current !== null && snapshotJson !== loadedSnapshotRef.current;
 
   const requestDismiss = useCallback(() => {
     if (
@@ -35,9 +34,7 @@ export function useSettingsDirtyTracking({
     onDismiss();
   }, [hasUnsavedChanges, onDismiss]);
 
-  const queueCapture = useCallback(() => {
-    pendingSnapshotCaptureRef.current = true;
-  }, []);
+  const markLoaded = useCallback(() => setCaptureVersion((v) => v + 1), []);
 
   const resetLoadedSnapshot = useCallback((snapshot: string) => {
     loadedSnapshotRef.current = snapshot;
@@ -46,7 +43,7 @@ export function useSettingsDirtyTracking({
   return {
     hasUnsavedChanges,
     requestDismiss,
-    queueCapture,
+    markLoaded,
     resetLoadedSnapshot,
   };
 }
