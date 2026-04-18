@@ -232,6 +232,13 @@ export interface NewEmployee {
   readonly source_package_id: string | null;
   readonly persona_json?: string;
   readonly config_json?: string;
+  /** When true, dispatch routes to A2A transport instead of LLM adapter. */
+  readonly is_external?: boolean;
+  readonly a2a_url?: string | null;
+  readonly a2a_token?: string | null;
+  readonly a2a_agent_id?: string | null;
+  readonly brand_key?: string | null;
+  readonly agent_card_json?: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,4 @@
 import type { InteractionMode } from '@offisim/shared-types';
-import type { ExternalDepartmentDefinition } from '../a2a/external-departments.js';
 import type { ManagerDirective, OffisimGraphState } from '../graph/state.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -33,7 +32,6 @@ export interface PmPreflightReady {
   planRevisionNote: string | null;
   reviewedPlan: LlmPlan | null;
   validEmployees: EmployeeRow[];
-  validDepartments: ExternalDepartmentDefinition[];
   allEnabled: EmployeeRow[];
 }
 

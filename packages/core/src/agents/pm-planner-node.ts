@@ -2,7 +2,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { OffisimGraphState } from '../graph/state.js';
 import { runPmPreflight } from './pm-planner/preflight.js';
 import { buildLlmPlanFallback, parsePmPlan } from './pm-planner/plan-parser.js';
-import { persistDepartmentPlan, persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
+import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
 import { awaitPlanReview } from './pm-planner/plan-review-gate.js';
 import { PM_SYSTEM_PROMPT, generatePmLlmContent } from './pm-planner/prompt-assembly.js';
 import {
@@ -30,10 +30,6 @@ export async function pmPlannerNode(
 ): Promise<Partial<OffisimGraphState>> {
   const prep = await runPmPreflight(state, config);
   if (prep.kind === 'short-circuit') return prep.result;
-
-  if (prep.validDepartments.length > 0) {
-    return persistDepartmentPlan(prep);
-  }
 
   let plan: LlmPlan | null = prep.reviewedPlan;
   let sopTemplateId: string | undefined;

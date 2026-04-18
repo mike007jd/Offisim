@@ -125,25 +125,22 @@ export async function stepDispatcherNode(
             'planned',
             'queued',
             threadId,
-            task.assigneeKind === 'employee' ? task.employeeId : undefined,
-            task.assigneeKind,
+            task.employeeId,
+            'employee',
             task.assigneeName,
           ),
         );
         eventBus.emit(
           taskAssignmentChanged(companyId, taskRunId, task.employeeId, 'assigned', threadId, {
-            employeeId: task.assigneeKind === 'employee' ? task.employeeId : undefined,
-            assigneeKind: task.assigneeKind,
+            employeeId: task.employeeId,
+            assigneeKind: 'employee',
             assigneeName: task.assigneeName,
           }),
         );
       }
 
       // Emit dispatched event for scene choreography
-      const emp =
-        task.assigneeKind === 'employee'
-          ? await repos.employees.findById(task.employeeId).catch(() => null)
-          : null;
+      const emp = await repos.employees.findById(task.employeeId).catch(() => null);
       const assigneeName = task.assigneeName ?? emp?.name ?? task.employeeId;
       eventBus.emit(
         taskAssignmentDispatched(
@@ -155,8 +152,8 @@ export async function stepDispatcherNode(
           totalSteps,
           threadId,
           {
-            employeeId: task.assigneeKind === 'employee' ? task.employeeId : undefined,
-            assigneeKind: task.assigneeKind,
+            employeeId: task.employeeId,
+            assigneeKind: 'employee',
           },
         ),
       );
@@ -170,7 +167,7 @@ export async function stepDispatcherNode(
       pendingAssignments.push({
         taskType: task.taskType,
         employeeId: task.employeeId,
-        assigneeKind: task.assigneeKind,
+        assigneeKind: 'employee',
         assigneeName,
         inputJson: {
           description,
@@ -184,7 +181,7 @@ export async function stepDispatcherNode(
         companyId,
         stepIndex: stepIdx,
         taskRunId: taskRunId ?? null,
-        employeeId: task.assigneeKind === 'employee' ? task.employeeId : undefined,
+        employeeId: task.employeeId,
         description,
       });
     }
@@ -200,7 +197,6 @@ export async function stepDispatcherNode(
   // Auto-assign dispatched employees to the project (if this execution has a projectId).
   if (state.projectId && repos.projectAssignments) {
     for (const assignment of pendingAssignments) {
-      if (assignment.assigneeKind === 'department') continue;
       const isAssigned = await repos.projectAssignments.isAssigned(
         state.projectId,
         assignment.employeeId,
@@ -231,11 +227,6 @@ export async function stepDispatcherNode(
       readyStepIndices: readySteps.map((s) => s.stepIndex),
       assignmentCount: pendingAssignments.length,
     },
-  });
-
-  pendingAssignments.sort((left, right) => {
-    if (left.assigneeKind === right.assigneeKind) return 0;
-    return left.assigneeKind === 'department' ? -1 : 1;
   });
 
   return {

@@ -58,7 +58,6 @@ export function TaskItem({
         </span>
         <span className="shrink-0 text-koi">
           {task.assigneeName ?? task.employeeName ?? task.employeeId ?? 'Unassigned'}
-          {task.assigneeKind === 'department' ? ' (external)' : ''}
         </span>
         <span className="truncate text-shell">{task.description || task.taskType}</span>
         {taskCost > 0 && (

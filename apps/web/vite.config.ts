@@ -263,6 +263,16 @@ export default defineConfig(({ command, mode }) => {
     optimizeDeps: {
       include: ['@offisim/core', '@offisim/core/browser', '@offisim/shared-types'],
       exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
+      // Force re-bundle on every dev-server restart in serve mode. Workspace
+      // deps (`@offisim/core`) are published as `dist/*` files; pnpm does not
+      // bump package.json when the dist content changes, so Vite's default
+      // pre-bundle cache keyed on dep-metadata stays stale even after a
+      // fresh `pnpm --filter @offisim/core build`. This manifested as live
+      // verify seeing fresh `employee-node` dist (direct import, not
+      // pre-bundled) alongside stale `memory-repositories` dist (reached via
+      // `@offisim/core/browser`, pre-bundled). `force: true` keeps the dev
+      // workflow idempotent vs the canonical core rebuild cycle.
+      force: command === 'serve',
     },
     build: {
       // The remaining large lazy chunks are intentional:

@@ -7,6 +7,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { runEmployeeA2A } from './employee-a2a-executor.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import { finalizeEmployeeFailure } from './employee-error-finalize.js';
 import { executeHandoff } from './employee-handoff.js';
@@ -31,6 +32,19 @@ export async function employeeNode(
     return preflightOutcome.stateUpdate;
   }
   const { remaining, employee, taskRunId, resolved, taskDescription } = preflightOutcome.preflight;
+
+  logger.info('dispatch branch', {
+    employeeId: employee.employee_id,
+    name: employee.name,
+    is_external: employee.is_external,
+    a2a_url: employee.a2a_url,
+    route: employee.is_external === 1 ? 'a2a' : 'llm',
+  });
+
+  if (employee.is_external === 1) {
+    return runEmployeeA2A(state, runtimeCtx, preflightOutcome.preflight);
+  }
+
   const streamEmployeeReplies = true;
 
   const { companyId, threadId } = runtimeCtx;

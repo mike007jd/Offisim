@@ -13,9 +13,6 @@ export function subscribeDeliverableMappers(
   return eventBus.on('deliverable.created', (event: RuntimeEvent<DeliverableCreatedPayload>) => {
     const payload = event.payload;
     const empCount = payload.contributingEmployees.length;
-    const externalCount = payload.contributingEmployees.filter(
-      (employee) => employee.sourceKind === 'department',
-    ).length;
     const artifact = resolveDeliverableArtifact(payload);
     const title = truncate(getDeliverableDisplayTitle(payload.title, artifact), 50);
     sink.push({
@@ -24,7 +21,7 @@ export function subscribeDeliverableMappers(
       tone: 'success',
       label:
         empCount > 0
-          ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'}${externalCount > 0 ? `, ${externalCount} external` : ''})`
+          ? `Deliverable ready: "${title}" (${empCount} contributor${empCount === 1 ? '' : 's'})`
           : `Deliverable ready: "${title}"`,
       timestamp: event.timestamp,
     });

@@ -1,4 +1,4 @@
-import type { EventBus } from '@offisim/core/browser';
+import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
 import type { Zone } from '@offisim/shared-types';
 import type { SceneIntentBus } from '../runtime/scene-intents';
@@ -31,6 +31,10 @@ export interface OffisimDebugBridge {
   eventBus: EventBus;
   sceneIntentBus?: SceneIntentBus;
   installService: InstallService | null;
+  /** Live RuntimeRepositories — exposed in DEV for console-driven live verify. */
+  repos?: RuntimeRepositories | null;
+  /** Active company id — paired with `repos` for scoping. */
+  companyId?: string;
   sceneActions?: {
     moveEmployeeToMeeting?: (employeeId: string) => boolean;
     dispatchEmployeeToWorkspace?: (employeeId: string) => boolean;

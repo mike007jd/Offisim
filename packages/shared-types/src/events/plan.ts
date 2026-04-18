@@ -15,7 +15,7 @@ export interface PlanCreatedPayload {
       readonly employeeId?: string;
       readonly assigneeId: string;
       readonly assigneeName?: string;
-      readonly assigneeKind?: 'employee' | 'department';
+      readonly assigneeKind?: 'employee';
     }>;
   }>;
 }

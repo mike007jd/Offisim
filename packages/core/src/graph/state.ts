@@ -2,7 +2,7 @@ import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 import type { RoleSlug } from '@offisim/shared-types';
 
-export type AssignmentTargetKind = 'employee' | 'department';
+export type AssignmentTargetKind = 'employee';
 
 export interface PendingAssignment {
   taskType: string;
@@ -44,7 +44,6 @@ export interface TaskPlan {
 export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
-  recommendedDepartments?: string[];
   constraints?: string;
   sopTemplateId?: string; // explicit SOP selection — bypasses substring matching
 }

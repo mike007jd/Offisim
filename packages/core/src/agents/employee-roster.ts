@@ -38,7 +38,9 @@ export function buildEnrichedEmployeeList(employees: EmployeeRow[]): string {
                 : ''
             }`
           : '';
-      return `- ${employee.employee_id}: ${employee.name} (${employee.role_slug})${expertise}${skill}`;
+      const externalTag =
+        employee.is_external === 1 ? ` [external:${employee.brand_key ?? 'custom'}]` : '';
+      return `- ${employee.employee_id}: ${employee.name} (${employee.role_slug})${externalTag}${expertise}${skill}`;
     })
     .join('\n');
 }

@@ -1,5 +1,9 @@
-## ADDED Requirements
+# employee-node-boundaries Specification
 
+## Purpose
+
+`packages/core/src/agents/employee-node.ts` 的职责边界规范——它是 employee runtime 的 orchestration barrel（≤200 NBNC），控制流走 preflight → prompt → tool-kit → turn-runner → tool-loop（handoff early return）→ completion / error-finalize。skill prompt formatters / tool definition builders / turn-runner 闭包体 / tool-call dispatcher / completion side-effect emission 序列 / error finalization 分散到 7 个 sibling `employee-*.ts` 模块，barrel 只做 import + re-export + 调度。此 spec 在每次 employee runtime 变更时做契约边界检查，防止 barrel 膨胀回旧 monolith 形态。
+## Requirements
 ### Requirement: employee-node.ts is a thin orchestration barrel
 
 `packages/core/src/agents/employee-node.ts` SHALL contain no more than 200 non-blank, non-comment lines. It SHALL only: (a) import from single-responsibility `employee-*.ts` sibling modules, (b) re-export the public symbols `employeeNode` and `extractUsedCitations`, (c) declare the `employeeNode` function body which acts as the control-flow orchestrator — preflight → prompt → tool-kit → turn-runner → tool-loop (with handoff early return) → completion / error-finalize. Inline helper functions, skill prompt-section formatters, tool definition builders, `runEmployeeTurn` closure body, tool-call result dispatcher bodies, and completion side-effect emission sequences SHALL NOT live in this file.
@@ -151,3 +155,26 @@ For identical input (same `OffisimGraphState`, same RuntimeContext, same provide
 #### Scenario: Citation extraction unchanged
 - **WHEN** `extractUsedCitations(responseText, citationMap)` is called with the same inputs pre-refactor and post-refactor
 - **THEN** the returned array of `CitationRef` is equal (same indices, same order preserved from `citationMap`)
+
+### Requirement: employee-node routes by is_external flag, delegating external branch to sibling module
+
+After this change, `packages/core/src/agents/employee-node.ts` SHALL branch on `employee.is_external` immediately after preflight load of the employee record: when `is_external === true`, the node SHALL delegate the remainder of dispatch to a single-responsibility sibling module `packages/core/src/agents/employee-a2a-executor.ts` (or equivalently-scoped module) that owns the A2A transport call, output extraction, event emission, and deliverable creation. When `is_external === false`, the node SHALL proceed down the pre-existing LLM adapter pipeline (prompt-assembly → turn-runner → tool-loop) unchanged.
+
+The branch body SHALL NOT be inlined in `employee-node.ts`. The barrel SHALL remain within its `employee-node-boundaries` 200 NBNC limit.
+
+#### Scenario: Barrel size gate holds after external branch added
+- **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/core/src/agents/employee-node.ts` is run after this change
+- **THEN** the non-blank, non-comment line count is at most 200
+
+#### Scenario: External branch body is not inlined
+- **WHEN** grepping `packages/core/src/agents/employee-node.ts` for `A2AClient` / `sendAndWait` / `extractDepartmentOutput` / A2A task polling logic
+- **THEN** zero matches exist on the call/logic (only possibly a type-only import forwarded to the sibling module)
+
+#### Scenario: External branch module exists and is invoked
+- **WHEN** `packages/core/src/agents/employee-a2a-executor.ts` exists and `employee-node.ts` imports it
+- **THEN** the imported function is called from `employee-node.ts` inside the `is_external === true` branch
+
+#### Scenario: Internal path byte-identical events
+- **WHEN** running `employee-node` against an internal employee assignment before vs after this change
+- **THEN** the emitted event sequence (`graph.node.entered` / `employee.state.changed` / `task.state.changed` / `task.subtask.progress` / LLM calls / deliverable creation) is identical in order and payload shape
+

@@ -19,7 +19,7 @@ export interface TaskInfo {
   taskRunId: string;
   employeeId: string | null;
   employeeName: string | null;
-  assigneeKind?: 'employee' | 'department';
+  assigneeKind?: 'employee';
   assigneeName?: string | null;
   taskType: string;
   description: string;

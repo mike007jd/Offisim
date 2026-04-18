@@ -1,34 +1,34 @@
 /**
- * A2ARequestHandler — HTTP request handler for the A2A Protocol v0.3.0 (server side).
+ * A2ARequestHandler — HTTP request handler for the A2A Protocol v1.0 (server side).
  *
  * Lets external A2A-compatible agents send tasks TO Offisim employees.
  *
- * This handler is transport-agnostic: it processes a normalized request object
- * and returns a normalized response object. It can be mounted on:
- *   - Tauri's Rust-side HTTP server
- *   - A standalone Node.js HTTP server (development)
- *   - Any framework's middleware layer
+ * Transport-agnostic: processes a normalized request object and returns a
+ * normalized response object. Can be mounted on Tauri's Rust-side HTTP server,
+ * a standalone Node server (dev), or any framework's middleware layer.
+ *
+ * Spec: https://a2a-protocol.org/latest/specification
  *
  * Usage:
  *   const handler = new A2ARequestHandler(
  *     { token: 'secret', agentCard: { ... } },
- *     async (message, agentId) => {
- *       // route to an Offisim employee and return the response
- *       return 'Task completed successfully';
- *     },
+ *     async (message, agentId) => 'Task completed successfully',
  *   );
- *   const res = await handler.handle({ method: 'POST', path: '/a2a/jsonrpc', ... });
+ *   const res = await handler.handle({ method: 'POST', path: '/rpc', ... });
  */
 
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
-import type { A2AAgentCard, A2AJsonRpcRequest, A2APart, A2ATask } from './a2a-types.js';
+import type {
+  A2AAgentCard,
+  A2AJsonRpcRequest,
+  A2AMessage,
+  A2APart,
+  A2ASendMessageResult,
+  A2ATask,
+} from './a2a-types.js';
 
 const logger = new Logger('a2a-server');
-
-// ---------------------------------------------------------------------------
-// Normalized HTTP interface (transport-agnostic)
-// ---------------------------------------------------------------------------
 
 export interface A2AHttpRequest {
   method: string;
@@ -43,29 +43,21 @@ export interface A2AHttpResponse {
   body: string;
 }
 
-// ---------------------------------------------------------------------------
-// Handler configuration
-// ---------------------------------------------------------------------------
-
 export interface A2AServerConfig {
-  /** Bearer token that incoming requests must provide. */
+  /** Bearer token that incoming RPC requests must provide. */
   token: string;
-  /** This Offisim instance's agent card. */
+  /** This Offisim instance's v1.0 agent card (served at /.well-known/agent-card.json). */
   agentCard: A2AAgentCard;
 }
 
 /**
  * Callback invoked when an external agent sends a task to Offisim.
  *
- * @param message - The extracted text content from the incoming message parts.
- * @param agentId - Optional target agent/employee ID specified by the caller.
+ * @param message - Extracted text content from the incoming message parts.
+ * @param agentId - Optional target agent / employee ID specified by the caller.
  * @returns The response text to send back.
  */
 export type A2ATaskHandler = (message: string, agentId?: string) => Promise<string>;
-
-// ---------------------------------------------------------------------------
-// Request handler
-// ---------------------------------------------------------------------------
 
 const JSON_HEADERS: Record<string, string> = { 'Content-Type': 'application/json' };
 
@@ -75,9 +67,8 @@ export class A2ARequestHandler {
     private readonly onTaskReceived: A2ATaskHandler,
   ) {}
 
-  /** Handle an incoming HTTP request and return the response. */
   async handle(req: A2AHttpRequest): Promise<A2AHttpResponse> {
-    // --- Agent Card discovery ---
+    // Agent Card discovery (unauthenticated — public well-known).
     if (req.method === 'GET' && req.path.includes('.well-known/agent-card')) {
       return {
         status: 200,
@@ -86,22 +77,20 @@ export class A2ARequestHandler {
       };
     }
 
-    // --- JSON-RPC endpoint ---
-    if (req.method === 'POST' && req.path.includes('/a2a/jsonrpc')) {
+    // JSON-RPC endpoint. v1.0 spec default path is `/rpc`; we match any POST
+    // whose path resolves to the JSONRPC interface URL (typically ends in /rpc
+    // or /a2a/rpc, configured by the agent card's supportedInterfaces entry).
+    if (req.method === 'POST') {
       return this.handleJsonRpc(req);
     }
 
     return { status: 404, headers: {}, body: 'Not found' };
   }
 
-  // --- Internal: JSON-RPC dispatch -------------------------------------------
-
   private async handleJsonRpc(req: A2AHttpRequest): Promise<A2AHttpResponse> {
-    // Auth check — look up the authorization header case-insensitively without copying all headers
     const authHeader = req.headers.authorization ?? req.headers.Authorization ?? '';
     if (authHeader !== `Bearer ${this.config.token}`) {
       logger.warn('Unauthorized A2A request');
-      // Return HTTP 200 with JSON-RPC error to stay compliant with JSON-RPC 2.0 spec
       return {
         status: 200,
         headers: JSON_HEADERS,
@@ -113,8 +102,7 @@ export class A2ARequestHandler {
       };
     }
 
-    // Body size guard — reject payloads larger than 1 MB to avoid memory abuse
-    const MAX_BODY_BYTES = 1_048_576; // 1 MB
+    const MAX_BODY_BYTES = 1_048_576;
     if (req.body && req.body.length > MAX_BODY_BYTES) {
       return {
         status: 200,
@@ -127,7 +115,6 @@ export class A2ARequestHandler {
       };
     }
 
-    // Parse JSON-RPC body
     let rpc: A2AJsonRpcRequest;
     try {
       rpc = JSON.parse(req.body || '{}') as A2AJsonRpcRequest;
@@ -143,25 +130,32 @@ export class A2ARequestHandler {
     }
 
     switch (rpc.method) {
-      case 'message/send':
-        return this.handleMessageSend(rpc);
-      case 'tasks/get':
-        return this.handleTasksGet(rpc);
+      case 'SendMessage':
+        return this.handleSendMessage(rpc);
+      case 'GetTask':
+        return this.handleGetTask(rpc);
+      case 'CancelTask':
+        return this.handleCancelTask(rpc);
+      case 'GetExtendedAgentCard':
+        return {
+          status: 200,
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: this.config.agentCard }),
+        };
       default:
         return this.jsonRpcError(rpc.id, -32601, `Unknown method: ${rpc.method}`);
     }
   }
 
-  private async handleMessageSend(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
-    const params = rpc.params as Record<string, unknown>;
-    const message = params.message as { parts?: A2APart[]; agentId?: string } | undefined;
-    const parts = message?.parts ?? [];
-    const agentId = message?.agentId as string | undefined;
+  private async handleSendMessage(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
+    const params = rpc.params as { message?: A2AMessage };
+    const msg = params.message;
+    const parts: A2APart[] = msg?.parts ?? [];
+    const agentId = msg?.agentId;
 
-    // Extract text from all text parts
     const text = parts
-      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
       .map((p) => p.text)
+      .filter((t): t is string => typeof t === 'string' && t.length > 0)
       .join('\n');
 
     if (!text) {
@@ -169,51 +163,60 @@ export class A2ARequestHandler {
     }
 
     const taskId = generateId('a2a-task');
-    logger.info('Received A2A task', { taskId, agentId, textLength: text.length });
+    logger.info('SendMessage received', { taskId, agentId, textLength: text.length });
 
     try {
       const response = await this.onTaskReceived(text, agentId);
       const task: A2ATask = {
         id: taskId,
-        status: { state: 'completed' },
-        artifacts: [{ parts: [{ type: 'text', text: response }] }],
+        status: { state: 'TASK_STATE_COMPLETED' },
+        artifacts: [
+          {
+            artifactId: generateId('a2a-artifact'),
+            parts: [{ text: response, mediaType: 'text/plain' }],
+          },
+        ],
       };
-
+      const result: A2ASendMessageResult = { task };
       return {
         status: 200,
         headers: JSON_HEADERS,
-        body: JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: task }),
+        body: JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }),
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       logger.error('A2A task execution failed', err, { taskId });
-
       const failedTask: A2ATask = {
         id: taskId,
         status: {
-          state: 'failed',
+          state: 'TASK_STATE_FAILED',
           message: {
+            messageId: generateId('a2a-msg'),
             role: 'agent',
-            parts: [{ type: 'text', text: errorMessage }],
+            parts: [{ text: errorMessage }],
           },
         },
       };
-
+      const result: A2ASendMessageResult = { task: failedTask };
       return {
         status: 200,
         headers: JSON_HEADERS,
-        body: JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: failedTask }),
+        body: JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }),
       };
     }
   }
 
-  private handleTasksGet(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
-    // Current implementation is synchronous (blocking mode only).
-    // tasks/get for async task tracking will be implemented when we add
-    // non-blocking server-side execution with persistent task storage.
+  private handleGetTask(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
     const taskId = (rpc.params as Record<string, unknown>).id as string;
     return Promise.resolve(
       this.jsonRpcError(rpc.id, -32001, `Task polling not yet implemented (task: ${taskId})`),
+    );
+  }
+
+  private handleCancelTask(rpc: A2AJsonRpcRequest): Promise<A2AHttpResponse> {
+    const taskId = (rpc.params as Record<string, unknown>).id as string;
+    return Promise.resolve(
+      this.jsonRpcError(rpc.id, -32001, `Task cancellation not yet implemented (task: ${taskId})`),
     );
   }
 

@@ -1,7 +1,6 @@
 import type {
   EmployeeVersionService,
   EventBus,
-  ExternalDepartmentDefinition,
   McpServerConfig,
   MemoryRepositoriesSnapshot,
   RuntimeRepositories,
@@ -67,8 +66,6 @@ export interface OffisimRuntimeValue {
   employeeVersionService: EmployeeVersionService | null;
   /** Tool execution telemetry service — null when runtime not ready. */
   toolTelemetryService: ToolTelemetryService | null;
-  /** External A2A-backed departments visible to the current company. */
-  externalDepartments?: readonly ExternalDepartmentDefinition[];
   /** Connect an MCP server. Returns tool count on success; throws on failure. */
   connectMcpServer: (config: McpServerConfig) => Promise<number>;
   /** Disconnect an MCP server by name. */

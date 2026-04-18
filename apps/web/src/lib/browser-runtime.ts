@@ -67,7 +67,6 @@ import {
   openDeliverableContentDb,
   putDeliverableContent,
 } from './deliverable-content-idb';
-import { loadExternalDepartments } from './external-departments';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import type { VaultActivation } from './vault-activation';
 import type { BrowserVaultController } from './vault-browser-activation';
@@ -154,7 +153,6 @@ export type RuntimeBundle = {
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
-  externalDepartments?: ReturnType<typeof loadExternalDepartments>;
   vaultActivation?: VaultActivation;
   desktopVaultRoot?: string | null;
   browserVault?: BrowserVaultController;
@@ -176,7 +174,6 @@ export async function createBrowserRuntime(
   assertBrowserProviderAllowed(config.provider);
 
   const threadId = `thread-${companyId}`;
-  const externalDepartments = loadExternalDepartments();
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
@@ -310,7 +307,6 @@ export async function createBrowserRuntime(
     companyId,
     threadId,
     runtimePolicy,
-    externalDepartments,
     memoryService,
     interactionBox,
     hookRegistry,
@@ -353,7 +349,6 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     packService,
-    externalDepartments,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,
@@ -380,7 +375,6 @@ export async function createBrowserRuntimeReposOnly(
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
   const threadId = `thread-${companyId}`;
-  const externalDepartments = loadExternalDepartments();
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
@@ -422,8 +416,7 @@ export async function createBrowserRuntimeReposOnly(
       },
       companyId,
       threadId,
-      externalDepartments,
-      interactionBox,
+        interactionBox,
       hookRegistry,
       scratchpad,
       interactionService,
@@ -436,7 +429,6 @@ export async function createBrowserRuntimeReposOnly(
     sessionCostTracker: undefined,
     toolTelemetryService: undefined,
     interactionService,
-    externalDepartments,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,

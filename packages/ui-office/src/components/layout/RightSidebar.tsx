@@ -3,7 +3,6 @@ import { MessageSquare, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityRail } from '../chat/ActivityRail';
@@ -32,7 +31,6 @@ export function RightSidebar({
   activeThreadId,
 }: RightSidebarProps) {
   const agents = useAgentStates();
-  const { externalDepartments = [] } = useOffisimRuntime();
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
@@ -142,31 +140,6 @@ export function RightSidebar({
               forceMount
               className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar data-[state=inactive]:hidden"
             >
-              {externalDepartments.length > 0 && (
-                <div className="border-b border-white/5 px-3 pb-3 pt-3">
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                    External Departments
-                  </p>
-                  <div className="space-y-2">
-                    {externalDepartments.map((department) => (
-                      <div
-                        key={department.id}
-                        className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-medium text-pearl">{department.name}</p>
-                          <span className="text-[10px] text-slate-400">
-                            {department.status === 'ready' ? 'Ready' : 'Not configured'}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-                          {department.summary}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
               <TaskDashboard agents={agents} />
             </TabsContent>
             <TabsContent

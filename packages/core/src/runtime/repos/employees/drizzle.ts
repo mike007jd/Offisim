@@ -32,8 +32,20 @@ export function createEmployeesDrizzleRepos(db: Db): EmployeesDrizzleRepos {
       const ts = now();
       db.insert(schema.employees)
         .values({
-          ...emp,
           employee_id,
+          company_id: emp.company_id,
+          source_asset_id: emp.source_asset_id,
+          source_package_id: emp.source_package_id,
+          name: emp.name,
+          role_slug: emp.role_slug,
+          persona_json: emp.persona_json ?? null,
+          config_json: emp.config_json ?? null,
+          is_external: emp.is_external ? 1 : 0,
+          a2a_url: emp.a2a_url ?? null,
+          a2a_token: emp.a2a_token ?? null,
+          a2a_agent_id: emp.a2a_agent_id ?? null,
+          brand_key: emp.brand_key ?? null,
+          agent_card_json: emp.agent_card_json ?? null,
           created_at: ts,
           updated_at: ts,
         })

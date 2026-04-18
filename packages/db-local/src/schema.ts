@@ -117,10 +117,19 @@ export const employees = sqliteTable(
     persona_json: text('persona_json'),
     config_json: text('config_json'),
     enabled: integer('enabled').notNull().default(1),
+    is_external: integer('is_external').notNull().default(0),
+    a2a_url: text('a2a_url'),
+    a2a_token: text('a2a_token'),
+    a2a_agent_id: text('a2a_agent_id'),
+    brand_key: text('brand_key'),
+    agent_card_json: text('agent_card_json'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
-  (table) => [index('idx_employees_company').on(table.company_id)],
+  (table) => [
+    index('idx_employees_company').on(table.company_id),
+    index('idx_employees_is_external').on(table.is_external),
+  ],
 );
 
 // ---------------------------------------------------------------------------

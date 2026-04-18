@@ -22,7 +22,7 @@ export interface EmployeesTauriRepos {
 export function createEmployeesTauriRepos(db: TauriDrizzleDb): EmployeesTauriRepos {
   const employees: EmployeeRepository = {
     async create(emp: NewEmployee) {
-      const employee_id = crypto.randomUUID();
+      const employee_id = emp.employee_id ?? crypto.randomUUID();
       const ts = now();
       const row = {
         employee_id,
@@ -35,6 +35,12 @@ export function createEmployeesTauriRepos(db: TauriDrizzleDb): EmployeesTauriRep
         persona_json: emp.persona_json ?? null,
         config_json: emp.config_json ?? null,
         enabled: 1,
+        is_external: emp.is_external ? 1 : 0,
+        a2a_url: emp.a2a_url ?? null,
+        a2a_token: emp.a2a_token ?? null,
+        a2a_agent_id: emp.a2a_agent_id ?? null,
+        brand_key: emp.brand_key ?? null,
+        agent_card_json: emp.agent_card_json ?? null,
         created_at: ts,
         updated_at: ts,
       };

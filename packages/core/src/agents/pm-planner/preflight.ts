@@ -26,7 +26,6 @@ export async function runPmPreflight(
     approvedToExecute && planReviewDecision?.reviewedPayload
       ? (planReviewDecision.reviewedPayload as LlmPlan)
       : null;
-  const recommendedDepartmentIds = directive?.recommendedDepartments ?? [];
 
   const emptyPlan: Partial<OffisimGraphState> = {
     taskPlan: null,
@@ -35,10 +34,7 @@ export async function runPmPreflight(
     currentStepOutputs: [],
   };
 
-  if (
-    !directive ||
-    (directive.recommendedEmployees.length === 0 && recommendedDepartmentIds.length === 0)
-  ) {
+  if (!directive || directive.recommendedEmployees.length === 0) {
     return { kind: 'short-circuit', result: emptyPlan };
   }
 
@@ -48,11 +44,8 @@ export async function runPmPreflight(
   const validEmployees = employeeDetails.filter(
     (e): e is NonNullable<typeof e> => e !== null && e.enabled === 1,
   );
-  const validDepartments = (runtimeCtx.externalDepartments ?? []).filter((department) =>
-    recommendedDepartmentIds.includes(department.id),
-  );
 
-  if (validEmployees.length === 0 && validDepartments.length === 0) {
+  if (validEmployees.length === 0) {
     return { kind: 'short-circuit', result: emptyPlan };
   }
 
@@ -69,7 +62,6 @@ export async function runPmPreflight(
     planRevisionNote,
     reviewedPlan,
     validEmployees,
-    validDepartments: [...validDepartments],
     allEnabled,
   };
 }

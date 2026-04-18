@@ -11,7 +11,7 @@ export interface DeliverableCreatedPayload {
   readonly contributingEmployees: ReadonlyArray<{
     readonly employeeId: string;
     readonly employeeName: string;
-    readonly sourceKind?: 'employee' | 'department';
+    readonly sourceKind?: 'employee';
     readonly roleSlug: RoleSlug;
   }>;
   readonly createdAt: number;

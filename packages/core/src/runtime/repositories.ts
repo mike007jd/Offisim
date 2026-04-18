@@ -56,6 +56,12 @@ export interface EmployeeRow {
   persona_json: string | null;
   config_json: string | null;
   enabled: number;
+  is_external: number;
+  a2a_url: string | null;
+  a2a_token: string | null;
+  a2a_agent_id: string | null;
+  brand_key: string | null;
+  agent_card_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,7 +219,18 @@ export interface TaskRunRepository {
 export type EmployeeUpdate = Partial<
   Pick<
     EmployeeRow,
-    'name' | 'role_slug' | 'persona_json' | 'config_json' | 'enabled' | 'workstation_id'
+    | 'name'
+    | 'role_slug'
+    | 'persona_json'
+    | 'config_json'
+    | 'enabled'
+    | 'workstation_id'
+    | 'is_external'
+    | 'a2a_url'
+    | 'a2a_token'
+    | 'a2a_agent_id'
+    | 'brand_key'
+    | 'agent_card_json'
   >
 >;
 
@@ -857,7 +874,7 @@ export function coerceDeliverableKind(raw: string | null): DeliverableKind | nul
 export interface DeliverableContributor {
   employeeId: string;
   employeeName: string;
-  sourceKind?: 'employee' | 'department';
+  sourceKind?: 'employee';
   roleSlug: RoleSlug;
 }
 

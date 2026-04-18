@@ -299,25 +299,17 @@ export { Scratchpad } from './runtime/scratchpad.js';
 
 // --- A2A Protocol (HTTP JSON-RPC — cross-agent communication) ---
 export { A2AClient } from './a2a/index.js';
-export {
-  defineExternalDepartments,
-  formatExternalDepartmentCatalog,
-  matchExternalDepartments,
-} from './a2a/index.js';
 export type {
   A2APeer,
   A2ATask,
   A2AAgentCard,
+  A2AAgentInterface,
+  A2AAgentCapabilities,
   A2AConfig,
   A2APart,
-  A2ATextPart,
+  A2ASendMessageResult,
   A2ATaskState,
   A2ASkill,
-  ExternalDepartmentDefinition,
-  ExternalDepartmentSeed,
-  ExternalDepartmentStatus,
-  ExternalDepartmentAvailability,
-  ExternalDepartmentAuthState,
 } from './a2a/index.js';
 
 // --- Vault (Obsidian-style employee markdown mirror) ---

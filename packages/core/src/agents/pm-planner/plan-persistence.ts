@@ -4,6 +4,10 @@ import { appendAgentEvent } from '../../utils/append-agent-event.js';
 import { generateId } from '../../utils/generate-id.js';
 import type { LlmPlan, PmPreflightReady } from '../pm-planner-types.js';
 
+// Plan-persistence no longer owns a "department-only" variant; external employees
+// go through the shared employee dispatch pipeline (employee-a2a-executor) and
+// are persisted as regular plan tasks keyed by employeeId.
+
 /**
  * Persist the LLM / SOP plan as a TaskPlan: write scratchpad, create taskRuns,
  * build PlanStep[] / PlanTask[], emit planCreated, append pm decision event.
@@ -120,110 +124,3 @@ export async function persistLlmPlanAsTaskPlan(
   };
 }
 
-/**
- * Persist a department-only plan: one step that dispatches work to each external
- * department as a taskRun (employee_id: null), emits planCreated, records pm event.
- */
-export async function persistDepartmentPlan(
-  prep: PmPreflightReady,
-): Promise<Partial<OffisimGraphState>> {
-  const { runtimeCtx, state, validDepartments, directive } = prep;
-  const { repos, eventBus, companyId, threadId } = runtimeCtx;
-  const planId = generateId('plan');
-  const description =
-    validDepartments.length === 1
-      ? `Outsource to ${validDepartments[0]?.name ?? 'external department'}`
-      : `Outsource to ${validDepartments.length} external departments`;
-  const planTasks: PlanTask[] = [];
-
-  for (const department of validDepartments) {
-    const taskRunId = generateId('tr');
-    const taskDescription = `${directive.intent}\n\nDelegate this work to ${department.name}. Use its external capabilities: ${department.capabilities.join(', ')}.`;
-    await repos.taskRuns.create({
-      task_run_id: taskRunId,
-      thread_id: threadId,
-      employee_id: null,
-      parent_task_run_id: null,
-      task_type: 'general',
-      status: 'planned',
-      input_json: JSON.stringify({
-        description: taskDescription,
-        assigneeKind: 'department',
-        assigneeId: department.id,
-      }),
-      output_json: null,
-      started_at: new Date().toISOString(),
-    });
-    planTasks.push({
-      taskType: 'general',
-      employeeId: department.id,
-      assigneeKind: 'department',
-      assigneeName: department.name,
-      description: taskDescription,
-      dependsOnStepOutput: false,
-      requiredSkills: [...department.capabilities],
-      taskRunId,
-    });
-  }
-
-  const taskPlan: TaskPlan = {
-    planId,
-    threadId,
-    companyId,
-    steps: [
-      {
-        stepIndex: 0,
-        description,
-        tasks: planTasks,
-        phase: 'external delivery',
-      },
-    ],
-    summary:
-      validDepartments.length === 1
-        ? `Delegate work to ${validDepartments[0]?.name ?? 'external department'}`
-        : `Delegate work to external departments`,
-  };
-
-  eventBus.emit(
-    planCreated(
-      companyId,
-      planId,
-      threadId,
-      taskPlan.summary,
-      taskPlan.steps.map((step) => ({
-        stepIndex: step.stepIndex,
-        description: step.description,
-        taskCount: step.tasks.length,
-        tasks: step.tasks.map((task) => ({
-          taskRunId: task.taskRunId ?? '',
-          taskType: task.taskType,
-          description: task.description,
-          employeeId: undefined,
-          assigneeId: task.employeeId,
-          assigneeName: task.assigneeName,
-          assigneeKind: task.assigneeKind,
-        })),
-      })),
-    ),
-  );
-
-  await appendAgentEvent(runtimeCtx, {
-    projectId: state.projectId,
-    threadId: state.threadId,
-    agentName: 'pm',
-    eventType: 'decision',
-    payload: {
-      planId,
-      stepCount: taskPlan.steps.length,
-      summary: taskPlan.summary,
-      targetKind: 'department',
-    },
-  });
-
-  return {
-    taskPlan,
-    currentStepIndex: 0,
-    stepResults: [],
-    currentStepOutputs: [],
-  };
-}

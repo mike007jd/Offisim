@@ -7,7 +7,7 @@ export interface TaskStatePayload {
   readonly employeeId?: string;
   readonly assigneeId?: string;
   readonly assigneeName?: string;
-  readonly assigneeKind?: 'employee' | 'department';
+  readonly assigneeKind?: 'employee';
 }
 
 export interface TaskAssignmentPayload {
@@ -15,7 +15,7 @@ export interface TaskAssignmentPayload {
   readonly employeeId?: string;
   readonly assigneeId: string;
   readonly assigneeName?: string;
-  readonly assigneeKind?: 'employee' | 'department';
+  readonly assigneeKind?: 'employee';
   readonly action: 'assigned' | 'unassigned';
 }
 
@@ -24,7 +24,7 @@ export interface TaskAssignmentDispatchedPayload {
   readonly employeeName: string;
   readonly assigneeId: string;
   readonly assigneeName: string;
-  readonly assigneeKind?: 'employee' | 'department';
+  readonly assigneeKind?: 'employee';
   readonly stepLabel: string;
   readonly stepIndex: number;
   readonly totalSteps: number;
@@ -34,7 +34,7 @@ export interface TaskSubtaskProgressPayload {
   readonly employeeId?: string;
   readonly assigneeId: string;
   readonly assigneeName?: string;
-  readonly assigneeKind?: 'employee' | 'department';
+  readonly assigneeKind?: 'employee';
   readonly stepIndex: number;
   readonly label: string;
   readonly status: 'queued' | 'running' | 'done' | 'failed';

@@ -40,6 +40,12 @@ export class MemoryEmployeeRepository implements EmployeeRepository {
       persona_json: emp.persona_json ?? null,
       config_json: emp.config_json ?? null,
       enabled: 1,
+      is_external: emp.is_external ? 1 : 0,
+      a2a_url: emp.a2a_url ?? null,
+      a2a_token: emp.a2a_token ?? null,
+      a2a_agent_id: emp.a2a_agent_id ?? null,
+      brand_key: emp.brand_key ?? null,
+      agent_card_json: emp.agent_card_json ?? null,
       created_at: ts,
       updated_at: ts,
     };
@@ -61,10 +67,7 @@ export class MemoryEmployeeRepository implements EmployeeRepository {
     );
   }
 
-  async update(
-    employeeId: string,
-    patch: Partial<Pick<EmployeeRow, 'workstation_id' | 'persona_json' | 'config_json' | 'enabled'>>,
-  ): Promise<void> {
+  async update(employeeId: string, patch: Partial<EmployeeRow>): Promise<void> {
     const row = this.rows.get(employeeId);
     if (row) {
       this.rows.set(employeeId, { ...row, ...patch, updated_at: now() });

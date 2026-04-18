@@ -182,6 +182,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/029_deliverables.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 30,
+            description: "employees external a2a",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/030_employees_external_a2a.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

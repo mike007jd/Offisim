@@ -115,6 +115,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         eventBus,
         sceneIntentBus,
         installService: runtime?.installService ?? null,
+        repos: runtime?.repos ?? null,
+        companyId,
         getSceneState:
           existingGetSceneState ??
           (() => {
@@ -143,7 +145,6 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       repos: runtime?.repos ?? null,
       employeeVersionService,
       toolTelemetryService: runtime?.toolTelemetryService ?? null,
-      externalDepartments: runtime?.externalDepartments ?? [],
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,

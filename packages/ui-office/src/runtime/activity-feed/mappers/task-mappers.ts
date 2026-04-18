@@ -14,10 +14,7 @@ export function subscribeTaskMappers(
         id: `dispatch-${event.timestamp}-${payload.assigneeId}-${payload.stepIndex}`,
         kind: 'dispatch',
         tone: 'info',
-        label:
-          payload.assigneeKind === 'department'
-            ? `Delegated to ${payload.assigneeName}: ${truncate(payload.stepLabel, 34)}`
-            : `${payload.assigneeName} took step ${payload.stepIndex + 1}: ${truncate(payload.stepLabel, 34)}`,
+        label: `${payload.assigneeName} took step ${payload.stepIndex + 1}: ${truncate(payload.stepLabel, 34)}`,
         timestamp: event.timestamp,
         employeeId: payload.employeeId,
       });

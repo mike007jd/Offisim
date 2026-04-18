@@ -57,15 +57,9 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
         employees.length > 0
           ? employees.map((emp, i) => ({
               step_id: `step_${i + 1}`,
-              label:
-                emp.sourceKind === 'department'
-                  ? `${emp.employeeName} external contribution`
-                  : `${emp.employeeName} contribution`,
+              label: `${emp.employeeName} contribution`,
               role_slug: emp.roleSlug,
-              instruction:
-                emp.sourceKind === 'department'
-                  ? `Replicate the outsourced work handled by ${emp.employeeName} to produce "${item.title}".`
-                  : `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
+              instruction: `Replicate the work performed by ${emp.employeeName} to produce "${item.title}".`,
               dependencies: i === 0 ? [] : [`step_${i}`],
               output_key: `output_step_${i + 1}`,
             }))

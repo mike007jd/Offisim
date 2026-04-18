@@ -98,16 +98,14 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   if (contributors.length === 0) return null;
   const shown = contributors.slice(0, 3);
   const overflow = contributors.slice(3);
-  const overflowLabel = overflow
-    .map((c) => `${c.employeeName}${c.sourceKind === 'department' ? ' (external)' : ''}`)
-    .join(', ');
+  const overflowLabel = overflow.map((c) => c.employeeName).join(', ');
   return (
     <div className="flex items-center -space-x-1.5">
       {shown.map((emp) => (
         <span
           key={emp.employeeId}
           className="inline-block rounded-full ring-1 ring-slate-900"
-          title={`${emp.employeeName}${emp.sourceKind === 'department' ? ' (external)' : ''}`}
+          title={emp.employeeName}
         >
           <DicebearAvatar seed={emp.employeeName} size={size} />
         </span>

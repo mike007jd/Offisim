@@ -1,13 +1,17 @@
 /**
- * A2AClient — HTTP JSON-RPC client for the A2A Protocol v0.3.0.
+ * A2AClient — HTTP JSON-RPC client for the A2A Protocol v1.0.
  *
- * Sends tasks to external A2A-compatible agents.
- * Supports both blocking (wait for response) and non-blocking (poll) modes.
+ * Flow:
+ *   1. Discover peer via GET {peer.url}/.well-known/agent-card.json
+ *   2. Resolve the JSONRPC endpoint from agentCard.supportedInterfaces[].url
+ *   3. Invoke SendMessage / GetTask / CancelTask / SubscribeToTask / ListTasks
+ *
+ * Spec: https://a2a-protocol.org/latest/specification
  *
  * Usage:
- *   const client = new A2AClient({ name: 'Remote Agent', url: 'http://...', token: '...' });
+ *   const client = new A2AClient({ name: 'Remote Agent', url: 'http://peer', token: '...' });
  *   const card = await client.getAgentCard();
- *   const task = await client.sendBlocking('Summarize this document');
+ *   const task = await client.sendAndWait('Summarize this document');
  */
 
 import { Logger } from '../services/logger.js';
@@ -15,86 +19,95 @@ import { generateId } from '../utils/generate-id.js';
 import type {
   A2AAgentCard,
   A2AJsonRpcResponse,
+  A2AMessage,
   A2APeer,
+  A2ASendMessageResult,
   A2ATask,
   A2ATaskState,
 } from './a2a-types.js';
 
 const logger = new Logger('a2a-client');
 
-/** Terminal task states — no further polling needed. */
-const TERMINAL_STATES: ReadonlySet<A2ATaskState> = new Set(['completed', 'failed', 'canceled']);
+const TERMINAL_STATES: ReadonlySet<A2ATaskState> = new Set([
+  'TASK_STATE_COMPLETED',
+  'TASK_STATE_FAILED',
+  'TASK_STATE_CANCELED',
+  'TASK_STATE_REJECTED',
+]);
 
 export class A2AClient {
   private readonly peer: A2APeer;
-  private readonly endpoint: string;
   private readonly cardUrl: string;
+  private cachedCard: A2AAgentCard | null = null;
+  private cachedEndpoint: string | null = null;
 
   constructor(peer: A2APeer) {
     this.peer = peer;
     const base = peer.url.replace(/\/$/, '');
-    this.endpoint = `${base}/a2a/jsonrpc`;
     this.cardUrl = `${base}/.well-known/agent-card.json`;
   }
 
   // --- Public API -----------------------------------------------------------
 
-  /** Discover peer's capabilities via its Agent Card. */
-  async getAgentCard(): Promise<A2AAgentCard> {
+  /** Discover peer's capabilities via its v1.0 Agent Card. */
+  async getAgentCard(force = false): Promise<A2AAgentCard> {
+    if (this.cachedCard && !force) return this.cachedCard;
     logger.info('Fetching agent card', { url: this.cardUrl });
-    const res = await fetch(this.cardUrl, {
-      headers: this.authHeaders(),
-    });
+    const res = await fetch(this.cardUrl, { headers: this.authHeaders() });
     if (!res.ok) {
       throw new Error(`Agent card fetch failed: ${res.status} ${res.statusText}`);
     }
-    return (await res.json()) as A2AAgentCard;
-  }
-
-  /** Send a message and wait for the response (blocking mode). */
-  async sendBlocking(message: string, agentId?: string): Promise<A2ATask> {
-    return this.sendMessage(message, true, agentId);
-  }
-
-  /** Send a message without waiting for completion (non-blocking mode). */
-  async sendNonBlocking(message: string, agentId?: string): Promise<A2ATask> {
-    return this.sendMessage(message, false, agentId);
-  }
-
-  /** Shared implementation for blocking and non-blocking message send. */
-  private async sendMessage(
-    message: string,
-    blocking: boolean,
-    agentId?: string,
-  ): Promise<A2ATask> {
-    const targetAgent = agentId ?? this.peer.agentId;
-    logger.info('Sending message', { peer: this.peer.name, blocking, agentId: targetAgent });
-    return this.rpc('message/send', {
-      message: {
-        role: 'user',
-        parts: [{ type: 'text', text: message }],
-        ...(targetAgent ? { agentId: targetAgent } : {}),
-      },
-      configuration: { blocking },
-    });
-  }
-
-  /** Poll for the status of a previously submitted task. */
-  async getTask(taskId: string): Promise<A2ATask> {
-    return this.rpc('tasks/get', { id: taskId });
+    const card = (await res.json()) as A2AAgentCard;
+    this.cachedCard = card;
+    this.cachedEndpoint = null;
+    return card;
   }
 
   /**
-   * Send a message and poll until the task reaches a terminal state.
+   * Send a single message. Returns a one-of { task, message } result per v1.0
+   * SendMessage semantics. Most agents return a task; some return a direct
+   * message reply for trivial prompts.
+   */
+  async sendMessage(
+    message: string,
+    opts?: { agentId?: string; contextId?: string; taskId?: string },
+  ): Promise<A2ASendMessageResult> {
+    const targetAgent = opts?.agentId ?? this.peer.agentId;
+    const envelope: A2AMessage = {
+      messageId: generateId('a2a-msg'),
+      role: 'user',
+      parts: [{ text: message }],
+      ...(opts?.contextId ? { contextId: opts.contextId } : {}),
+      ...(opts?.taskId ? { taskId: opts.taskId } : {}),
+      ...(targetAgent ? { agentId: targetAgent } : {}),
+    };
+    logger.info('SendMessage', { peer: this.peer.name, agentId: targetAgent });
+    return this.rpc<A2ASendMessageResult>('SendMessage', { message: envelope });
+  }
+
+  /** Poll for the status of a previously submitted task. */
+  async getTask(taskId: string, historyLength?: number): Promise<A2ATask> {
+    const params: Record<string, unknown> = { id: taskId };
+    if (historyLength !== undefined) params.historyLength = historyLength;
+    return this.rpc<A2ATask>('GetTask', params);
+  }
+
+  /** Cancel an in-flight task. */
+  async cancelTask(taskId: string): Promise<A2ATask> {
+    return this.rpc<A2ATask>('CancelTask', { id: taskId });
+  }
+
+  /**
+   * Send a message and poll GetTask until the task reaches a terminal state.
    *
-   * Unlike `sendBlocking` (which relies on the remote server holding the
-   * connection open), this method submits non-blocking and actively polls,
-   * making it more resilient to servers that don't support blocking mode.
+   * If SendMessage returns a message-only reply (no task), the reply is wrapped
+   * in a synthetic completed task so callers can handle both shapes uniformly.
    */
   async sendAndWait(
     message: string,
     opts?: {
       agentId?: string;
+      contextId?: string;
       /** Maximum time to wait in ms (default: 120 000). */
       timeoutMs?: number;
       /** Polling interval in ms (default: 2 000). */
@@ -104,64 +117,87 @@ export class A2AClient {
     const timeout = opts?.timeoutMs ?? 120_000;
     const pollInterval = opts?.pollMs ?? 2_000;
 
-    const task = await this.sendNonBlocking(message, opts?.agentId);
+    const result = await this.sendMessage(message, {
+      ...(opts?.agentId ? { agentId: opts.agentId } : {}),
+      ...(opts?.contextId ? { contextId: opts.contextId } : {}),
+    });
 
-    // If the server already returned a terminal state, we're done.
-    if (TERMINAL_STATES.has(task.status.state)) {
-      return task;
+    if (result.task) {
+      if (TERMINAL_STATES.has(result.task.status.state)) return result.task;
+      return this.pollUntilTerminal(result.task, timeout, pollInterval);
     }
+    if (result.message) {
+      return {
+        id: generateId('a2a-task'),
+        status: {
+          state: 'TASK_STATE_COMPLETED',
+          message: result.message,
+        },
+      };
+    }
+    throw new Error('A2A SendMessage returned neither task nor message');
+  }
 
-    const deadline = Date.now() + timeout;
-
+  private async pollUntilTerminal(
+    initial: A2ATask,
+    timeoutMs: number,
+    pollMs: number,
+  ): Promise<A2ATask> {
+    const deadline = Date.now() + timeoutMs;
+    let last = initial;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, pollInterval));
-      const updated = await this.getTask(task.id);
-
-      if (TERMINAL_STATES.has(updated.status.state)) {
-        return updated;
-      }
-
-      logger.debug('Task still in progress', { taskId: task.id, state: updated.status.state });
+      await new Promise((r) => setTimeout(r, pollMs));
+      last = await this.getTask(initial.id);
+      if (TERMINAL_STATES.has(last.status.state)) return last;
+      logger.debug('Task still in progress', { taskId: initial.id, state: last.status.state });
     }
-
     throw new Error(
-      `A2A task ${task.id} timed out after ${timeout}ms (last state: ${task.status.state})`,
+      `A2A task ${initial.id} timed out after ${timeoutMs}ms (last state: ${last.status.state})`,
     );
   }
 
-  // --- Internal: JSON-RPC transport ------------------------------------------
+  // --- Internal: endpoint resolution + JSON-RPC transport --------------------
 
-  private async rpc(method: string, params: Record<string, unknown>): Promise<A2ATask> {
+  private async resolveEndpoint(): Promise<string> {
+    if (this.cachedEndpoint) return this.cachedEndpoint;
+    const card = await this.getAgentCard();
+    const jsonRpc = card.supportedInterfaces?.find((iface) => iface.protocolBinding === 'JSONRPC');
+    const chosen = jsonRpc ?? card.supportedInterfaces?.[0];
+    if (!chosen) {
+      throw new Error(
+        `A2A peer ${this.peer.name} agent card has no supportedInterfaces — cannot resolve RPC endpoint`,
+      );
+    }
+    if (chosen.protocolBinding !== 'JSONRPC') {
+      throw new Error(
+        `A2A peer ${this.peer.name} only exposes ${chosen.protocolBinding}; this client requires JSONRPC`,
+      );
+    }
+    this.cachedEndpoint = chosen.url;
+    return chosen.url;
+  }
+
+  private async rpc<R>(method: string, params: Record<string, unknown>): Promise<R> {
+    const endpoint = await this.resolveEndpoint();
     const requestId = generateId('a2a-req');
-
-    const res = await fetch(this.endpoint, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...this.authHeaders(),
       },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: requestId,
-        method,
-        params,
-      }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: requestId, method, params }),
     });
-
     if (!res.ok) {
-      throw new Error(`A2A RPC failed: ${res.status} ${res.statusText}`);
+      throw new Error(`A2A RPC ${method} failed: ${res.status} ${res.statusText}`);
     }
-
-    const body = (await res.json()) as A2AJsonRpcResponse;
-
+    const body = (await res.json()) as A2AJsonRpcResponse<R>;
     if (body.error) {
       throw new Error(`A2A error ${body.error.code}: ${body.error.message}`);
     }
-
-    if (!body.result) {
-      throw new Error('A2A response missing result');
+    if (body.result === undefined) {
+      throw new Error(`A2A response missing result for ${method}`);
     }
-
     return body.result;
   }
 
