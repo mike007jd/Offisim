@@ -69,3 +69,49 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
 export function surfaceInputProps(className = '') {
   return `h-11 rounded-2xl border-white/10 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-400/40 ${className}`;
 }
+
+export function formatCompatibilityLabel(value?: string) {
+  switch (value) {
+    case 'anthropic':
+      return 'Anthropic-compatible';
+    case 'openai':
+      return 'OpenAI';
+    case 'openai-compat':
+      return 'OpenAI-compatible';
+    case 'native':
+      return 'Native transport';
+    default:
+      return 'Custom surface';
+  }
+}
+
+export function formatSurfaceLabel(value?: string) {
+  switch (value) {
+    case 'coding-plan':
+      return 'Coding plan';
+    case 'general':
+      return 'General API';
+    default:
+      return 'Runtime surface';
+  }
+}
+
+export function capabilitySummary(
+  capabilities:
+    | {
+        streaming?: boolean;
+        thinking?: boolean;
+        toolCalls?: boolean;
+        toolStreaming?: boolean;
+        codingPlan?: boolean;
+      }
+    | undefined,
+) {
+  const labels: string[] = [];
+  if (capabilities?.streaming) labels.push('streaming');
+  if (capabilities?.thinking) labels.push('thinking');
+  if (capabilities?.toolCalls) labels.push('tools');
+  if (capabilities?.toolStreaming) labels.push('tool stream');
+  if (capabilities?.codingPlan) labels.push('coding plan');
+  return labels.length > 0 ? labels.join(' • ') : 'manual configuration';
+}
