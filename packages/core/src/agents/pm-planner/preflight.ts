@@ -1,0 +1,75 @@
+import type { RunnableConfig } from '@langchain/core/runnables';
+import { graphNodeEntered } from '../../events/event-factories.js';
+import type { OffisimGraphState } from '../../graph/state.js';
+import { getRuntime } from '../../utils/get-runtime.js';
+import type { LlmPlan, PmPreflightOutcome } from '../pm-planner-types.js';
+
+export async function runPmPreflight(
+  state: OffisimGraphState,
+  config: RunnableConfig,
+): Promise<PmPreflightOutcome> {
+  const runtimeCtx = getRuntime(config, 'pm_planner');
+
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner'));
+
+  const { repos, companyId, threadId } = runtimeCtx;
+  const directive = state.managerDirective;
+  const interactionService = runtimeCtx.interactionService;
+  const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
+  const planReviewDecision = interactionService?.consumePlanReviewDecision(threadId) ?? null;
+  const approvedToExecute = planReviewDecision?.selectedOptionId === 'start_execution';
+  const planRevisionNote =
+    planReviewDecision?.selectedOptionId === 'revise_plan'
+      ? planReviewDecision.freeformResponse?.trim() || 'Revise the plan before execution.'
+      : null;
+  const reviewedPlan =
+    approvedToExecute && planReviewDecision?.reviewedPayload
+      ? (planReviewDecision.reviewedPayload as LlmPlan)
+      : null;
+  const recommendedDepartmentIds = directive?.recommendedDepartments ?? [];
+
+  const emptyPlan: Partial<OffisimGraphState> = {
+    taskPlan: null,
+    currentStepIndex: 0,
+    stepResults: [],
+    currentStepOutputs: [],
+  };
+
+  if (
+    !directive ||
+    (directive.recommendedEmployees.length === 0 && recommendedDepartmentIds.length === 0)
+  ) {
+    return { kind: 'short-circuit', result: emptyPlan };
+  }
+
+  const employeeDetails = await Promise.all(
+    directive.recommendedEmployees.map((id) => repos.employees.findById(id)),
+  );
+  const validEmployees = employeeDetails.filter(
+    (e): e is NonNullable<typeof e> => e !== null && e.enabled === 1,
+  );
+  const validDepartments = (runtimeCtx.externalDepartments ?? []).filter((department) =>
+    recommendedDepartmentIds.includes(department.id),
+  );
+
+  if (validEmployees.length === 0 && validDepartments.length === 0) {
+    return { kind: 'short-circuit', result: emptyPlan };
+  }
+
+  const allEmployees = await repos.employees.findByCompany(companyId);
+  const allEnabled = allEmployees.filter((e) => e.enabled === 1);
+
+  return {
+    kind: 'ready',
+    runtimeCtx,
+    state,
+    directive,
+    interactionMode,
+    approvedToExecute,
+    planRevisionNote,
+    reviewedPlan,
+    validEmployees,
+    validDepartments: [...validDepartments],
+    allEnabled,
+  };
+}
