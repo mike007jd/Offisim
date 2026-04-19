@@ -167,6 +167,9 @@ export interface WorkspaceRouterProps {
   activeWorkspace: WorkspaceKey;
   sessionState: WorkspaceSessionState;
   updateWorkspaceState: UpdateWorkspaceStateFn;
+  marketPageProps?: {
+    onStartInstall?: (listingId: string, version: string) => void;
+  };
   settingsPageProps?: {
     onBack: () => void;
     onSave: (config: ProviderConfig) => void;

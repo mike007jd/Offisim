@@ -83,6 +83,7 @@ export function WorkspaceRouter({
   activeWorkspace,
   sessionState,
   updateWorkspaceState,
+  marketPageProps,
   settingsPageProps,
   children,
 }: WorkspaceRouterProps) {
@@ -140,6 +141,7 @@ export function WorkspaceRouter({
           <MarketWorkspacePage
             sessionState={sessionState.market}
             onSessionStateChange={handleMarketChange}
+            onStartInstall={marketPageProps?.onStartInstall}
           />
         )}
 

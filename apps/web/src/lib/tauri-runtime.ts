@@ -1,8 +1,10 @@
 import {
   DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
+  SkillLoader,
   bindingStateChanged,
   installStateChanged,
+  onVaultReadyForSkills,
 } from '@offisim/core/browser';
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
@@ -227,6 +229,8 @@ export async function createTauriRuntime(
     threadId,
   });
 
+  const skillLoader = SkillLoader.forRepos(repos);
+
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
@@ -246,6 +250,7 @@ export async function createTauriRuntime(
     toolTelemetryService,
     fileHistoryService,
     interactionService,
+    ...(skillLoader ? { skillLoader } : {}),
   });
 
   // Git auto-commit service (desktop only — uses Tauri git_exec bridge)
@@ -301,6 +306,9 @@ export async function createTauriRuntime(
   });
 
   const vaultActivation = await tryActivateTauriVault({ eventBus, repos, companyId });
+  if (vaultActivation) {
+    void onVaultReadyForSkills(skillLoader, repos, vaultActivation.fs);
+  }
 
   return {
     eventBus,
@@ -314,6 +322,7 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    skillLoader,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
     dispose: () => {

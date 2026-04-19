@@ -5,7 +5,7 @@
  * and editing without requiring an API key. Data persists to SQLite so it
  * survives reinitRuntime() calls.
  */
-import { DeliverablePersistenceService } from '@offisim/core/browser';
+import { DeliverablePersistenceService, SkillLoader } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
@@ -31,6 +31,10 @@ export async function createTauriRuntimeReposOnly(
   const vaultActivation = companyId
     ? await tryActivateTauriVault({ eventBus, repos, companyId })
     : null;
+  const skillLoader = SkillLoader.forRepos(repos);
+  if (vaultActivation && skillLoader) {
+    skillLoader.setFs(vaultActivation.fs);
+  }
 
   return {
     eventBus,
@@ -40,6 +44,7 @@ export async function createTauriRuntimeReposOnly(
     installService: null,
     mcpToolExecutor: null,
     repos,
+    skillLoader,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
     dispose: () => {

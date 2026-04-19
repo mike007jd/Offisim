@@ -188,6 +188,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/030_employees_external_a2a.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 31,
+            description: "skills two-tier schema",
+            sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/031_skills.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

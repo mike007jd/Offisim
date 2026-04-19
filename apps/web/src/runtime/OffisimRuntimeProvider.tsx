@@ -145,6 +145,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       repos: runtime?.repos ?? null,
       employeeVersionService,
       toolTelemetryService: runtime?.toolTelemetryService ?? null,
+      skillLoader: runtime?.skillLoader ?? null,
       connectMcpServer,
       disconnectMcpServer,
       connectedMcpServers,

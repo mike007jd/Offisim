@@ -16,3 +16,22 @@ export interface VaultFileSystem {
   mkdir(relPath: string): Promise<void>;
   exists(relPath: string): Promise<boolean>;
 }
+
+/**
+ * Placeholder `VaultFileSystem` for use before a real vault is activated.
+ * Tier-1 consumers (DB-only listings) work without touching the fs; tier-2/3
+ * consumers will reject cleanly with `reason`.
+ */
+export function createStubVaultFs(reason = 'Vault not activated yet'): VaultFileSystem {
+  const notReady = () => Promise.reject(new Error(reason));
+  return {
+    root: '',
+    readFile: notReady,
+    writeFile: () => notReady(),
+    listDir: () => notReady(),
+    stat: async () => null,
+    remove: () => notReady(),
+    mkdir: () => notReady(),
+    exists: async () => false,
+  };
+}

@@ -5,7 +5,8 @@
  * so scene views can add them to the display.
  */
 
-import { employeeInstalled } from '@offisim/core/browser';
+import { employeeInstalled, parseSkillMd, skillSlug } from '@offisim/core/browser';
+import type { SkillLoader } from '@offisim/core/browser';
 import type {
   BindingConfirmation,
   InstallImportOptions,
@@ -16,6 +17,7 @@ import { computeUpgradeDiff, readPackageFile } from '@offisim/install-core';
 import { RegistryApiError } from '@offisim/registry-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { SKILL_MD_CONTENT_KEY } from '../lib/export-to-manifest.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 import { useRegistryClient } from './useRegistryClient.js';
 
@@ -100,10 +102,43 @@ function clearPendingInstallIntent(): void {
   }
 }
 
+/**
+ * Materialize a `kind: 'skill'` listing into the active company after the
+ * install-core materializer has created its `installed_assets` bookkeeping
+ * row. Reads the SKILL.md content from `manifest.custom.skill_md_content`
+ * (set by `buildSkillPackage`) and delegates to `SkillLoader` for vault
+ * write + row insert. Idempotent on `listingId`; slug collisions throw.
+ */
+async function materializeSkillFromPlan(
+  plan: InstallPlan,
+  opts: { companyId: string; listingId: string | null; loader: SkillLoader },
+): Promise<void> {
+  const custom = plan.manifest.custom as Record<string, unknown> | undefined;
+  const content = custom?.[SKILL_MD_CONTENT_KEY];
+  if (typeof content !== 'string' || !content) {
+    throw new Error(`Skill package is missing manifest.custom.${SKILL_MD_CONTENT_KEY}`);
+  }
+  const listingId = opts.listingId ?? plan.manifest.package.id;
+  const parsed = parseSkillMd(content);
+  const skillId = globalThis.crypto.randomUUID();
+  const slug = skillSlug(parsed.name, skillId);
+  await opts.loader.installCompanyScopeSkill({
+    companyId: opts.companyId,
+    listingId,
+    name: parsed.name,
+    slug,
+    description: parsed.description,
+    version: parsed.version ?? plan.manifest.package.version,
+    skillMd: content,
+    skillId,
+  });
+}
+
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
-  const { installService, eventBus } = useOffisimRuntime();
+  const { installService, eventBus, skillLoader } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const registryClient = useRegistryClient();
+  const sourceRefRef = useRef<string | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
@@ -119,8 +154,11 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const txnIdRef = useRef<string | null>(null);
 
   // Guard against setter calls after unmount / cancel
-  const mountedRef = useRef(true);
+  const mountedRef = useRef(false);
   useEffect(() => {
+    // React StrictMode replays mount effects in development. Reset the flag on
+    // each mount so async guards do not get stuck false after the first replay.
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
@@ -400,6 +438,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             },
           };
 
+          sourceRefRef.current = listingId;
           const bytes = await readPackageFile(file);
           if (!mountedRef.current) return;
           await beginPackageImport(bytes, options);
@@ -438,6 +477,21 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     startRegistryInstall(pending.listingId, pending.version);
   }, [installService, startRegistryInstall]);
 
+  const postMaterializeForSkill = useCallback(
+    async (activePlan: InstallPlan) => {
+      if (activePlan.manifest.package.kind !== 'skill') return;
+      if (!skillLoader || !activeCompanyId) {
+        throw new Error('Skill runtime is not ready — mount the vault and retry.');
+      }
+      await materializeSkillFromPlan(activePlan, {
+        companyId: activeCompanyId,
+        listingId: sourceRefRef.current,
+        loader: skillLoader,
+      });
+    },
+    [activeCompanyId, skillLoader],
+  );
+
   const confirmInstall = useCallback(() => {
     if (!plan) return;
 
@@ -462,6 +516,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         const result = await installService.confirmBindings(currentTxnId, []);
         if (!mountedRef.current) return;
         emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
+        await postMaterializeForSkill(currentPlan);
         setStep('done');
       } catch (err) {
         if (!mountedRef.current) return;
@@ -469,7 +524,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [plan, installService, emitInstalledEmployees]);
+  }, [plan, installService, emitInstalledEmployees, postMaterializeForSkill]);
 
   const submitBindings = useCallback(() => {
     if (!installService || !txnIdRef.current || !plan) {
@@ -495,6 +550,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         const result = await installService.confirmBindings(currentTxnId, confirmations);
         if (!mountedRef.current) return;
         emitInstalledEmployees(result.employeeIds, currentPlan, currentTxnId);
+        await postMaterializeForSkill(currentPlan);
         setStep('done');
       } catch (err) {
         if (!mountedRef.current) return;
@@ -502,7 +558,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [installService, plan, bindingValues, emitInstalledEmployees]);
+  }, [installService, plan, bindingValues, emitInstalledEmployees, postMaterializeForSkill]);
 
   const setBindingValue = useCallback((key: string, value: string) => {
     setBindingValues((prev) => {
@@ -527,6 +583,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
     txnIdRef.current = null;
     currentManifestRef.current = null;
+    sourceRefRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
@@ -538,6 +595,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const close = useCallback(() => {
     txnIdRef.current = null;
     currentManifestRef.current = null;
+    sourceRefRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);

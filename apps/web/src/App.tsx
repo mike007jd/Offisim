@@ -293,6 +293,7 @@ export function App({ onCompanySwitch }: AppProps) {
             onSaveConfig={lifecycle.handleSaveConfig}
             onOpenActivityLog={() => setActiveWorkspace('activity-log')}
             onFocusEmployee={onFocusEmployeeFromNotifications}
+            onStartMarketInstall={installFlow.startRegistryInstall}
             addToast={addToast}
           />
         )}

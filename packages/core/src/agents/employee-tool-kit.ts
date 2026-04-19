@@ -2,26 +2,8 @@ import type { OffisimGraphState } from '../graph/state.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { buildMemoryTools } from './employee-memory-tools.js';
-import { MAX_HANDOFF_COUNT, SKILL_TOOL_NAME } from './employee-node-constants.js';
+import { MAX_HANDOFF_COUNT } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
-
-export function buildSkillActivationTool(): ToolDef {
-  return {
-    name: SKILL_TOOL_NAME,
-    description:
-      'Load the full instructions for the installed skill package when the catalog preview is not enough.',
-    parameters: {
-      type: 'object',
-      properties: {
-        reason: {
-          type: 'string',
-          description: 'Why the full skill instructions are needed for the current task.',
-        },
-      },
-      required: ['reason'],
-    },
-  };
-}
 
 export interface ToolKit {
   readonly virtualTools: ToolDef[];
@@ -35,25 +17,24 @@ export interface ToolKit {
  *
  * Layers (in order):
  *   1. Memory virtual tools — when memoryService is present
- *   2. Skill activation virtual tool — when runtimeSkill exists, toolSearch enabled, and instructions present
- *   3. handoff_to virtual tool — gated on (NOT direct_chat) AND (handoffCount < MAX) AND (colleagues exist)
- *   4. Workstation-scoped MCP tools (or full toolExecutor.listAvailable fallback for system agents)
+ *   2. handoff_to virtual tool — gated on (NOT direct_chat) AND (handoffCount < MAX) AND (colleagues exist)
+ *   3. Workstation-scoped MCP tools (or full toolExecutor.listAvailable fallback for system agents)
+ *
+ * Skills are surfaced via the "Available skills" system-prompt block
+ * (progressive disclosure tier 1) — no activation tool is registered here.
  */
 export async function assembleToolKit(
   preflight: PreflightResult,
   runtimeCtx: RuntimeContext,
   state: OffisimGraphState,
 ): Promise<ToolKit> {
-  const { employee, isDirectChatTask, runtimeSkill, toolSearchEnabled } = preflight;
+  const { employee, isDirectChatTask } = preflight;
   const { repos, toolExecutor, workstationToolResolver, memoryService, companyId } = runtimeCtx;
 
   const virtualTools: ToolDef[] = [];
 
   if (memoryService) {
     virtualTools.push(...buildMemoryTools());
-  }
-  if (runtimeSkill && toolSearchEnabled && runtimeSkill.instructions) {
-    virtualTools.push(buildSkillActivationTool());
   }
 
   if (!isDirectChatTask && state.handoffCount < MAX_HANDOFF_COUNT) {

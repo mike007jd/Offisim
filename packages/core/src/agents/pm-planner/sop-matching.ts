@@ -1,9 +1,8 @@
-import { parseEmployeeConfig, type SopDefinition, type SopStep } from '@offisim/shared-types';
+import type { SopDefinition, SopStep } from '@offisim/shared-types';
 import type { LlmPlan, LlmPlanStep } from '../pm-planner-types.js';
 import type { EmployeeRow, SopTemplateRow } from '../../runtime/repositories.js';
 import type { RuntimeContext } from '../../runtime/runtime-context.js';
 import { SopService } from '../../services/sop-service.js';
-import { readRuntimeSkill } from '../employee-roster.js';
 
 /**
  * Match an SOP template by name against the user intent text.
@@ -31,26 +30,9 @@ export function matchSopTemplate(
 export function findEmployeeForRole(
   employees: EmployeeRow[],
   roleSlug: string,
-  preferSkill?: string,
 ): EmployeeRow | null {
   const enabled = employees.filter((e) => e.enabled === 1);
   const exactMatches = enabled.filter((e) => e.role_slug === roleSlug);
-  const normalizedSkill = preferSkill?.trim().toLowerCase();
-
-  if (normalizedSkill) {
-    const skillMatch = exactMatches.find((employee) => {
-      const config = parseEmployeeConfig(employee.config_json);
-      const skill = readRuntimeSkill(config);
-      if (!skill) return false;
-      const haystack = [skill.skillName, skill.summary]
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(normalizedSkill);
-    });
-    if (skillMatch) return skillMatch;
-  }
-
   const exact = exactMatches[0];
   if (exact) return exact;
   return enabled[0] ?? null;

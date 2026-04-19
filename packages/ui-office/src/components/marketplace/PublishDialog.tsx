@@ -1,4 +1,6 @@
 import type { EmployeeRow } from '@offisim/core/browser';
+import { serializeSkillMd } from '@offisim/core/browser';
+import type { SkillMetadata } from '@offisim/shared-types';
 import {
   Button,
   Dialog,
@@ -18,9 +20,15 @@ import { CloudUpload, Download, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublish } from '../../hooks/usePublish.js';
 import { loadRegistryAuthToken, saveRegistryAuthToken } from '../../hooks/useRegistryClient.js';
-import { type PublishMeta, buildEmployeePackage } from '../../lib/export-to-manifest.js';
+import {
+  type PublishMeta,
+  buildEmployeePackage,
+  buildSkillPackage,
+} from '../../lib/export-to-manifest.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
+
+type PublishKind = 'employee' | 'skill';
 
 interface PublishDialogProps {
   readonly open: boolean;
@@ -60,11 +68,13 @@ function downloadBytes(fileName: string, bytes: Uint8Array): void {
 }
 
 export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
-  const { repos } = useOffisimRuntime();
+  const { repos, skillLoader } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [authToken, setAuthToken] = useState<string>(loadRegistryAuthToken() ?? '');
+  const [kind, setKind] = useState<PublishKind>('employee');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
+  const [skills, setSkills] = useState<SkillMetadata[]>([]);
   const [form, setForm] = useState<PublishFormState>(DEFAULT_FORM);
   const [status, setStatus] = useState<string | null>(null);
   const [isPackaging, setIsPackaging] = useState(false);
@@ -75,6 +85,10 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.employee_id === selectedSourceId) ?? null,
     [employees, selectedSourceId],
+  );
+  const selectedSkill = useMemo(
+    () => skills.find((skill) => skill.id === selectedSourceId) ?? null,
+    [skills, selectedSourceId],
   );
 
   useEffect(() => {
@@ -92,6 +106,28 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
       const employeeRows = await activeRepos.employees.findByCompany(companyId);
       if (cancelled) return;
       setEmployees(employeeRows);
+
+      const skillRepo = activeRepos.skills;
+      if (!skillRepo) {
+        setSkills([]);
+        return;
+      }
+      try {
+        const all = await skillRepo.listByCompany(companyId);
+        if (cancelled) return;
+        setSkills(
+          all.map((row) => ({
+            id: row.skill_id,
+            slug: row.slug,
+            name: row.name,
+            description: row.description,
+            scope: row.scope,
+            version: row.version,
+          })),
+        );
+      } catch {
+        if (!cancelled) setSkills([]);
+      }
     }
 
     void loadSources();
@@ -100,21 +136,41 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     };
   }, [activeCompanyId, open, repos]);
 
+  // Reset source selection + form defaults whenever kind flips so the
+  // employee-shape defaults don't leak into a skill publish.
   useEffect(() => {
     if (!open) return;
-    if (!employees[0] || selectedSourceId) return;
+    setSelectedSourceId('');
+  }, [kind, open]);
 
-    const employee = employees[0];
-    setSelectedSourceId(employee.employee_id);
-    setForm((prev) => ({
-      ...prev,
-      title: employee.name,
-      summary: `Employee package for ${employee.name}.`,
-      description: `Reusable employee configuration for ${employee.name}.`,
-      tags: employee.role_slug,
-      riskClass: 'data_asset',
-    }));
-  }, [employees, open, selectedSourceId]);
+  useEffect(() => {
+    if (!open) return;
+    if (selectedSourceId) return;
+
+    if (kind === 'employee' && employees[0]) {
+      const employee = employees[0];
+      setSelectedSourceId(employee.employee_id);
+      setForm((prev) => ({
+        ...prev,
+        title: employee.name,
+        summary: `Employee package for ${employee.name}.`,
+        description: `Reusable employee configuration for ${employee.name}.`,
+        tags: employee.role_slug,
+        riskClass: 'data_asset',
+      }));
+    } else if (kind === 'skill' && skills[0]) {
+      const skill = skills[0];
+      setSelectedSourceId(skill.id);
+      setForm((prev) => ({
+        ...prev,
+        title: skill.name,
+        summary: skill.description.slice(0, 160),
+        description: skill.description,
+        tags: 'skill',
+        riskClass: 'data_asset',
+      }));
+    }
+  }, [employees, kind, open, selectedSourceId, skills]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers — reset status when any form field changes
   useEffect(() => {
@@ -156,11 +212,27 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   );
 
   const buildBundle = useCallback(async () => {
+    if (kind === 'skill') {
+      if (!selectedSkill) {
+        throw new Error('Select a skill before publishing.');
+      }
+      if (!skillLoader) {
+        throw new Error('Skill runtime is not ready — wait for vault activation and retry.');
+      }
+      const body = await skillLoader.loadSkillBody(selectedSkill.id);
+      const skillMd = serializeSkillMd({
+        name: selectedSkill.slug,
+        description: selectedSkill.description,
+        version: selectedSkill.version,
+        body,
+      });
+      return buildSkillPackage({ skill: selectedSkill, skillMd }, publishMeta);
+    }
     if (!selectedEmployee) {
       throw new Error('Select an employee before publishing.');
     }
     return buildEmployeePackage(selectedEmployee, publishMeta);
-  }, [publishMeta, selectedEmployee]);
+  }, [kind, publishMeta, selectedEmployee, selectedSkill, skillLoader]);
 
   const handleDownload = useCallback(async () => {
     setIsPackaging(true);
@@ -205,23 +277,31 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     }
   }, [buildBundle, publishMeta.artifactUrl, submitDraft]);
 
-  const sourceOptions = useMemo(
-    () =>
-      employees.map((employee) => ({
-        value: employee.employee_id,
-        label: `${employee.name} (${employee.role_slug})`,
-      })),
-    [employees],
-  );
+  const sourceOptions = useMemo(() => {
+    if (kind === 'skill') {
+      return skills.map((skill) => ({
+        value: skill.id,
+        label: `${skill.name} — ${skill.scope === 'employee' ? 'personal' : 'global'}`,
+      }));
+    }
+    return employees.map((employee) => ({
+      value: employee.employee_id,
+      label: `${employee.name} (${employee.role_slug})`,
+    }));
+  }, [employees, kind, skills]);
+
+  const sourceLabel = kind === 'skill' ? 'Skill' : 'Employee';
+  const sourcePlaceholder = kind === 'skill' ? 'Select a skill' : 'Select an employee';
+  const hasMultipleKinds = employees.length > 0 && skills.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto border-white/10 bg-slate-950/95">
         <DialogHeader>
-          <DialogTitle>Publish Employee To Market</DialogTitle>
+          <DialogTitle>Publish To Market</DialogTitle>
           <DialogDescription>
-            Build a package from an employee in your current company, download the archive, and
-            submit a registry draft that points at an external artifact URL.
+            Build a package from an employee or a skill, download the archive, and submit a registry
+            draft that points at an external artifact URL.
           </DialogDescription>
         </DialogHeader>
 
@@ -255,16 +335,35 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              {hasMultipleKinds && (
+                <div className="mb-4">
+                  <label htmlFor="publish-kind" className="text-xs font-medium text-slate-300">
+                    Kind
+                  </label>
+                  <Select
+                    value={kind}
+                    onValueChange={(value) => setKind(value as PublishKind)}
+                  >
+                    <SelectTrigger id="publish-kind" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">Employee</SelectItem>
+                      <SelectItem value="skill">Skill</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <label
                   htmlFor="publish-source-asset"
                   className="text-xs font-medium text-slate-300"
                 >
-                  Employee
+                  {sourceLabel}
                 </label>
                 <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
                   <SelectTrigger id="publish-source-asset" className="mt-2">
-                    <SelectValue placeholder="Select an employee" />
+                    <SelectValue placeholder={sourcePlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
                     {sourceOptions.map((option) => (

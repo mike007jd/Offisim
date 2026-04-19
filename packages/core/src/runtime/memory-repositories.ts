@@ -11,6 +11,7 @@ import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/m
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
 import { createProjectsMemoryRepos } from './repos/projects/memory.js';
+import { createSkillsMemoryRepos } from './repos/skills/memory.js';
 import { createWorkspaceMemoryRepos } from './repos/workspace/memory.js';
 import type { RuntimeRepositories } from './repositories.js';
 
@@ -19,6 +20,7 @@ export {
   MemoryRecoveryKnowledgeRepository,
 } from './repos/agent-events/memory.js';
 export { MemoryDeliverableRepository } from './repos/deliverables/memory.js';
+export { MemorySkillRepository } from './repos/skills/memory.js';
 export {
   MemoryActiveInteractionRepository,
   MemoryHandoffRepository,
@@ -89,6 +91,7 @@ export function createMemoryRepositories(
   const projectsFamily = createProjectsMemoryRepos(snapshot);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
+  const skillsFamily = createSkillsMemoryRepos();
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -112,6 +115,7 @@ export function createMemoryRepositories(
     ...projectsFamily,
     ...agentEventsFamily,
     ...deliverablesFamily,
+    ...skillsFamily,
     seed,
     snapshot(): MemoryRepositoriesSnapshot {
       return {

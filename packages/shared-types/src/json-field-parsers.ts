@@ -22,27 +22,6 @@ export interface EmployeePersona {
   decisionStyle?: DecisionStyle;
 }
 
-export interface RuntimeSkillCapability {
-  kind?: string;
-  key?: string;
-  label?: string;
-}
-
-export interface RuntimeSkillConfig {
-  skillName: string;
-  summary: string;
-  enabled?: boolean;
-  instructionMode?: string;
-  instructionExcerpt?: string;
-  instructions?: string;
-  capabilityIndex?: {
-    summary?: string;
-    requiredCapabilities?: string[];
-    capabilities?: RuntimeSkillCapability[];
-  };
-  allowedTools?: string[];
-}
-
 export type EmployeeToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask';
 
 export interface EmployeeToolPermissionOverride {
@@ -59,7 +38,6 @@ export interface EmployeeConfig {
   modelPreference?: string;
   temperature?: number;
   maxTokens?: number;
-  runtimeSkill?: RuntimeSkillConfig;
   toolPermissionPolicy?: EmployeeToolPermissionPolicy;
 }
 
@@ -136,59 +114,6 @@ function pickToolApprovalMode(value: unknown): EmployeeToolApprovalMode | undefi
     : undefined;
 }
 
-function pickRuntimeSkill(value: unknown): RuntimeSkillConfig | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const raw = value as Record<string, unknown>;
-  const skillName = pickString(raw.skillName);
-  const summary = pickString(raw.summary);
-  if (skillName === undefined || summary === undefined) return undefined;
-
-  const result: RuntimeSkillConfig = { skillName, summary };
-  const enabled = typeof raw.enabled === 'boolean' ? raw.enabled : undefined;
-  if (enabled !== undefined) result.enabled = enabled;
-  const instructionMode = pickString(raw.instructionMode);
-  if (instructionMode !== undefined) result.instructionMode = instructionMode;
-  const instructionExcerpt = pickString(raw.instructionExcerpt);
-  if (instructionExcerpt !== undefined) result.instructionExcerpt = instructionExcerpt;
-  const instructions = pickString(raw.instructions);
-  if (instructions !== undefined) result.instructions = instructions;
-
-  if (raw.capabilityIndex && typeof raw.capabilityIndex === 'object') {
-    const ci = raw.capabilityIndex as Record<string, unknown>;
-    const capabilityIndex: RuntimeSkillConfig['capabilityIndex'] = {};
-    const ciSummary = pickString(ci.summary);
-    if (ciSummary !== undefined) capabilityIndex.summary = ciSummary;
-    if (Array.isArray(ci.requiredCapabilities)) {
-      capabilityIndex.requiredCapabilities = ci.requiredCapabilities.filter(
-        (cap): cap is string => typeof cap === 'string',
-      );
-    }
-    if (Array.isArray(ci.capabilities)) {
-      capabilityIndex.capabilities = ci.capabilities.flatMap((cap) => {
-        if (!cap || typeof cap !== 'object') return [];
-        const c = cap as Record<string, unknown>;
-        const entry: RuntimeSkillCapability = {};
-        const kind = pickString(c.kind);
-        if (kind !== undefined) entry.kind = kind;
-        const key = pickString(c.key);
-        if (key !== undefined) entry.key = key;
-        const label = pickString(c.label);
-        if (label !== undefined) entry.label = label;
-        return [entry];
-      });
-    }
-    result.capabilityIndex = capabilityIndex;
-  }
-
-  if (Array.isArray(raw.allowedTools)) {
-    result.allowedTools = raw.allowedTools.filter(
-      (tool): tool is string => typeof tool === 'string',
-    );
-  }
-
-  return result;
-}
-
 function pickToolPermissionPolicy(value: unknown): EmployeeToolPermissionPolicy | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const raw = value as { defaultMode?: unknown; overrides?: unknown };
@@ -250,8 +175,6 @@ export function parseEmployeeConfig(raw: string | null): EmployeeConfig {
   if (temperature !== undefined) config.temperature = temperature;
   const maxTokens = pickNumber(obj.maxTokens);
   if (maxTokens !== undefined) config.maxTokens = maxTokens;
-  const runtimeSkill = pickRuntimeSkill(obj.runtimeSkill);
-  if (runtimeSkill !== undefined) config.runtimeSkill = runtimeSkill;
   const toolPermissionPolicy = pickToolPermissionPolicy(obj.toolPermissionPolicy);
   if (toolPermissionPolicy !== undefined) config.toolPermissionPolicy = toolPermissionPolicy;
   return config;

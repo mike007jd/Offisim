@@ -4,6 +4,7 @@ import type {
   McpServerConfig,
   MemoryRepositoriesSnapshot,
   RuntimeRepositories,
+  SkillLoader,
   ToolTelemetryService,
 } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
@@ -66,6 +67,8 @@ export interface OffisimRuntimeValue {
   employeeVersionService: EmployeeVersionService | null;
   /** Tool execution telemetry service — null when runtime not ready. */
   toolTelemetryService: ToolTelemetryService | null;
+  /** Progressive-disclosure skill loader — null when runtime not ready or vault not activated. */
+  skillLoader: SkillLoader | null;
   /** Connect an MCP server. Returns tool count on success; throws on failure. */
   connectMcpServer: (config: McpServerConfig) => Promise<number>;
   /** Disconnect an MCP server by name. */

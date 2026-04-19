@@ -5,7 +5,7 @@ import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import { generateId } from '../utils/generate-id.js';
 import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
-import { MAX_CONTEXT_MESSAGES, SKILL_TOOL_NAME } from './employee-node-constants.js';
+import { MAX_CONTEXT_MESSAGES } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
 
 const logger = new Logger('employee-tool-round');
@@ -40,7 +40,6 @@ export interface ToolRoundContext {
  *      effects are the orchestrator barrel's responsibility (`executeHandoff`).
  *   2. Otherwise execute all tool calls in parallel via `Promise.allSettled`:
  *      - Memory virtual tools → `handleMemoryTool`
- *      - Skill activation tool (when `runtimeSkill` present) → return skill payload
  *      - MCP tools → `toolExecutor.execute`, with `WORKSTATION_ACCESS_DENIED` short-circuit
  *        when `workstationToolResolver` is set and the tool is not in `allowedMcpToolNames`
  *   3. Failed tools surface as `Tool execution failed: <message>` string content (no crash).
@@ -50,7 +49,7 @@ export interface ToolRoundContext {
 export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutcome> {
   const { llmResponse, conversationHistory, preflight, runtimeCtx, state, allowedMcpToolNames } =
     ctx;
-  const { employee, taskRunId, runtimeSkill } = preflight;
+  const { employee, taskRunId } = preflight;
   const { toolExecutor, workstationToolResolver, memoryService, companyId, threadId } = runtimeCtx;
 
   const handoffCall = llmResponse.toolCalls.find((tc) => tc.name === 'handoff_to');
@@ -73,19 +72,6 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
           runtimeCtx,
         );
         return { callId: toolCall.id, name: toolCall.name, result };
-      }
-      if (runtimeSkill && toolCall.name === SKILL_TOOL_NAME) {
-        return {
-          callId: toolCall.id,
-          name: toolCall.name,
-          result: {
-            skillName: runtimeSkill.skillName,
-            summary: runtimeSkill.summary,
-            instructions: runtimeSkill.instructions ?? '',
-            allowedTools: runtimeSkill.allowedTools ?? [],
-            capabilities: runtimeSkill.capabilityIndex?.requiredCapabilities ?? [],
-          },
-        };
       }
 
       // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries).

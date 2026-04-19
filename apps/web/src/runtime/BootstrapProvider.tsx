@@ -129,6 +129,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       repos: runtime?.repos ?? null,
       employeeVersionService: null,
       toolTelemetryService: null,
+      skillLoader: null,
       connectMcpServer: async () => 0,
       disconnectMcpServer: async () => {},
       connectedMcpServers: new Set(),

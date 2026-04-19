@@ -11,9 +11,11 @@ import {
   AgentContextPackService,
   DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
+  SkillLoader,
   bindingStateChanged,
   createMemoryRepositories,
   installStateChanged,
+  onVaultReadyForSkills,
 } from '@offisim/core/browser';
 import type {
   EventBus,
@@ -139,6 +141,7 @@ export type RuntimeBundle = {
   eventBus: InMemoryEventBus;
   graph: ReturnType<typeof buildOffisimGraph>;
   runtimeCtx: ReturnType<typeof createRuntimeContext>;
+  skillLoader: SkillLoader | null;
   /**
    * Long-lived OrchestrationService instance — null in repos-only mode.
    * Stored here so threadLocks survive across sendMessage() calls and
@@ -179,7 +182,12 @@ export async function createBrowserRuntime(
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
-  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
+  const skillLoader = SkillLoader.forRepos(repos);
+  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId, {
+    onActivate: (activation) => {
+      void onVaultReadyForSkills(skillLoader, repos, activation.fs);
+    },
+  });
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
@@ -316,6 +324,7 @@ export async function createBrowserRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    ...(skillLoader ? { skillLoader } : {}),
   });
 
   const installService = new InstallService({
@@ -349,6 +358,7 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     packService,
+    skillLoader,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,
@@ -380,7 +390,12 @@ export async function createBrowserRuntimeReposOnly(
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
-  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId);
+  const liteSkillLoader = SkillLoader.forRepos(repos);
+  const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId, {
+    onActivate: (activation) => {
+      void onVaultReadyForSkills(liteSkillLoader, repos, activation.fs);
+    },
+  });
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
@@ -416,10 +431,11 @@ export async function createBrowserRuntimeReposOnly(
       },
       companyId,
       threadId,
-        interactionBox,
+      interactionBox,
       hookRegistry,
       scratchpad,
       interactionService,
+      ...(liteSkillLoader ? { skillLoader: liteSkillLoader } : {}),
     }),
     orch: null,
     installService: null,
@@ -429,6 +445,7 @@ export async function createBrowserRuntimeReposOnly(
     sessionCostTracker: undefined,
     toolTelemetryService: undefined,
     interactionService,
+    skillLoader: liteSkillLoader,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,

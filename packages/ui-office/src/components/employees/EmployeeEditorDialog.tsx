@@ -566,12 +566,7 @@ export function EmployeeEditorDialog({
               {isEditMode && employeeId && (
                 <div>
                   <p className="text-sm text-slate-400 mb-2 block">Skills</p>
-                  <SkillBindingList
-                    sourcePackageId={sourcePackageId ?? null}
-                    runtimeSkill={formData.runtimeSkill}
-                    enabled={formData.skillEnabled}
-                    onEnabledChange={(enabled) => updateField('skillEnabled', enabled)}
-                  />
+                  <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
                 </div>
               )}
 

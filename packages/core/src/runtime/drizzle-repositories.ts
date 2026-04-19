@@ -11,6 +11,7 @@ import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
 import { createPermissionsDrizzleRepos } from './repos/permissions/drizzle.js';
 import { createProjectsDrizzleRepos } from './repos/projects/drizzle.js';
+import { createSkillsDrizzleRepos } from './repos/skills/drizzle.js';
 import { createWorkspaceDrizzleRepos } from './repos/workspace/drizzle.js';
 import type { RuntimeRepositories } from './repositories.js';
 
@@ -45,6 +46,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     ...createProjectsDrizzleRepos(db),
     ...createAgentEventsDrizzleRepos(db),
     ...createDeliverablesDrizzleRepos(db),
+    ...createSkillsDrizzleRepos(db),
     transact: makeTransact(db),
   };
 }

@@ -8,9 +8,10 @@ import {
 import type { RoleSlug } from '@offisim/shared-types';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import type { SkillMetadata } from '@offisim/shared-types';
 
 export interface AvatarAppearance {
   skinColor: number;
@@ -20,27 +21,6 @@ export interface AvatarAppearance {
   clothingAccent: number;
   bodyType: string;
   gender: 'neutral' | 'masculine' | 'feminine';
-}
-
-export interface RuntimeSkillCapability {
-  kind?: string;
-  key?: string;
-  label?: string;
-}
-
-export interface RuntimeSkillConfig {
-  skillName: string;
-  summary: string;
-  enabled?: boolean;
-  instructionMode?: string;
-  instructionExcerpt?: string;
-  instructions?: string;
-  capabilityIndex?: {
-    summary?: string;
-    requiredCapabilities?: string[];
-    capabilities?: RuntimeSkillCapability[];
-  };
-  allowedTools?: string[];
 }
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -64,8 +44,6 @@ export interface EmployeeFormData {
   modelPreference: string;
   temperature: number;
   maxTokens: number;
-  runtimeSkill: RuntimeSkillConfig | null;
-  skillEnabled: boolean;
   toolPermissionPolicy: ToolPermissionPolicy | null;
   communicationFrequency: CommunicationFrequency;
   riskPreference: RiskPreference;
@@ -87,8 +65,6 @@ const DEFAULT_FORM: EmployeeFormData = {
   modelPreference: '',
   temperature: 0.7,
   maxTokens: 4096,
-  runtimeSkill: null,
-  skillEnabled: false,
   toolPermissionPolicy: null,
   communicationFrequency: 'medium',
   riskPreference: 'balanced',
@@ -126,21 +102,13 @@ export function parseConfigJson(
   raw: string | null,
 ): Pick<
   EmployeeFormData,
-  | 'modelPreference'
-  | 'temperature'
-  | 'maxTokens'
-  | 'runtimeSkill'
-  | 'skillEnabled'
-  | 'toolPermissionPolicy'
+  'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy'
 > {
   const config = parseEmployeeConfig(raw);
-  const runtimeSkill = config.runtimeSkill ?? null;
   return {
     modelPreference: config.modelPreference ?? '',
     temperature: config.temperature ?? 0.7,
     maxTokens: config.maxTokens ?? 4096,
-    runtimeSkill,
-    skillEnabled: runtimeSkill !== null && runtimeSkill.enabled !== false,
     toolPermissionPolicy: (config.toolPermissionPolicy ?? null) as ToolPermissionPolicy | null,
   };
 }
@@ -171,26 +139,13 @@ export function buildPersonaJson(
 export function buildConfigJson(
   formData: Pick<
     EmployeeFormData,
-    | 'modelPreference'
-    | 'temperature'
-    | 'maxTokens'
-    | 'runtimeSkill'
-    | 'skillEnabled'
-    | 'toolPermissionPolicy'
+    'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy'
   >,
 ): string {
   return JSON.stringify({
     modelPreference: formData.modelPreference,
     temperature: formData.temperature,
     maxTokens: formData.maxTokens,
-    ...(formData.runtimeSkill
-      ? {
-          runtimeSkill: {
-            ...formData.runtimeSkill,
-            enabled: formData.skillEnabled,
-          },
-        }
-      : {}),
     ...(formData.toolPermissionPolicy
       ? { toolPermissionPolicy: formData.toolPermissionPolicy }
       : {}),
@@ -307,7 +262,6 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
       const configJson = buildConfigJson(formData);
 
       if (employeeId) {
-        // Update existing employee
         const patch: EmployeeUpdate = {
           name: formData.name,
           role_slug: formData.role_slug,
@@ -319,7 +273,6 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
         await repos.employees.update(employeeId, patch);
         eventBus.emit(employeeUpdated(companyId, employeeId, formData.name, formData.role_slug));
 
-        // Emit workstation change if it differs from original
         const originalWorkstationId = originalData.workstation_id;
         if (formData.workstation_id !== originalWorkstationId) {
           eventBus.emit(
@@ -331,10 +284,8 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
             ),
           );
         }
-        // Snapshot current state as a new version
         await versionService?.createVersion(employeeId, 'update');
       } else {
-        // Create new employee
         const result = await repos.employees.create({
           company_id: companyId,
           name: formData.name,
@@ -347,7 +298,6 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
         eventBus.emit(
           employeeCreated(companyId, result.employee_id, formData.name, formData.role_slug),
         );
-        // Snapshot initial state as version 1
         await versionService?.createVersion(result.employee_id, 'create');
       }
 
@@ -435,4 +385,54 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
     sourceAssetId,
     sourcePackageId,
   };
+}
+
+/**
+ * Subscribe to the skills tied to a given employee. Returns the merged list
+ * (company scope + employee scope, employee overriding company on slug).
+ *
+ * Refreshes on `skill.*` eventBus notifications so installs / deletes
+ * propagate without manual invalidation.
+ */
+export function useSkillsForEmployee(
+  companyId: string | null,
+  employeeId: string | null,
+): SkillMetadata[] {
+  const runtime = useOffisimRuntime();
+  const [skills, setSkills] = useState<SkillMetadata[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!companyId || !employeeId) {
+        if (!cancelled) setSkills([]);
+        return;
+      }
+      const loader = runtime?.skillLoader;
+      if (!loader) {
+        if (!cancelled) setSkills([]);
+        return;
+      }
+      try {
+        const list = await loader.listSkillsForEmployee(companyId, employeeId);
+        if (!cancelled) setSkills(list);
+      } catch {
+        if (!cancelled) setSkills([]);
+      }
+    };
+    void load();
+    const bus = runtime?.eventBus;
+    if (!bus) return () => {
+      cancelled = true;
+    };
+    const unsubscribe = bus.on('skill.', () => {
+      void load();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [companyId, employeeId, runtime?.skillLoader, runtime?.eventBus]);
+
+  return skills;
 }

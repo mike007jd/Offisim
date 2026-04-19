@@ -21,6 +21,8 @@ export interface VaultHydrateOutcome {
 
 export interface VaultActivation {
   service: VaultSyncService;
+  /** The live filesystem backing this activation (desktop fs / web FSAccess). */
+  fs: VaultFileSystem;
   /** Re-scan the on-disk vault for newer md files and sync to DB. */
   hydrate(): Promise<VaultHydrateOutcome>;
   dispose(): void;
@@ -37,6 +39,7 @@ export function activateVaultSync(opts: VaultActivationOptions): VaultActivation
 
   return {
     service,
+    fs: opts.fs,
     async hydrate() {
       const outcome = await service.hydrateCompany(opts.companyId);
       return {

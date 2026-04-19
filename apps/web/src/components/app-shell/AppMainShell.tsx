@@ -69,6 +69,7 @@ export interface AppMainShellProps {
   onSaveConfig: (config: ProviderConfig) => void;
   onOpenActivityLog: () => void;
   onFocusEmployee: (id: string) => void;
+  onStartMarketInstall: (listingId: string, version: string) => void;
   addToast: (message: string, variant?: ToastVariant) => void;
 }
 
@@ -106,6 +107,7 @@ export function AppMainShell(props: AppMainShellProps) {
     onSaveConfig,
     onOpenActivityLog,
     onFocusEmployee,
+    onStartMarketInstall,
     addToast,
   } = props;
 
@@ -190,6 +192,7 @@ export function AppMainShell(props: AppMainShellProps) {
             activeWorkspace={activeWorkspace}
             sessionState={workspaceSessionState}
             updateWorkspaceState={updateWorkspaceState}
+            marketPageProps={{ onStartInstall: onStartMarketInstall }}
             settingsPageProps={{
               onBack: handleBackToOffice,
               onSave: onSaveConfig,

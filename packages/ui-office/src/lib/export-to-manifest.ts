@@ -1,5 +1,6 @@
 import type { PackageManifest, RiskClass } from '@offisim/asset-schema';
 import type { EmployeeRow } from '@offisim/core/browser';
+import type { SkillMetadata } from '@offisim/shared-types';
 import { zipSync } from 'fflate';
 
 export interface PublishMeta {
@@ -141,6 +142,65 @@ function buildEmployeeFiles(employee: EmployeeRow, slug: string, meta: PublishMe
       workstation_id: employee.workstation_id,
     }),
     'README.md': encodeText(buildReadme(meta)),
+  };
+}
+
+/**
+ * Key under `manifest.custom` that carries the serialized SKILL.md body for
+ * `kind: 'skill'` packages. Install-side code reads this instead of unpacking
+ * the zip — keep in sync with `useInstallFlow` consumers.
+ */
+export const SKILL_MD_CONTENT_KEY = 'skill_md_content';
+
+export interface SkillPackageSource {
+  readonly skill: SkillMetadata;
+  /** Full SKILL.md text (frontmatter + body), produced by `serializeSkillMd`. */
+  readonly skillMd: string;
+}
+
+/**
+ * Build a marketplace package for a skill listing. SKILL.md content travels
+ * in `manifest.custom.skill_md_content` so install-side code can read it from
+ * the manifest without extracting the zip entries (mirrors how employee
+ * persona flows through `manifest.package.summary`).
+ */
+export async function buildSkillPackage(
+  source: SkillPackageSource,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const { skill, skillMd } = source;
+  const slug = slugify(skill.slug || skill.name);
+  const files: ExportedFiles = {
+    [`assets/skills/${slug}/SKILL.md`]: encodeText(skillMd),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'skill',
+    `offisim.skill.${slug}`,
+    meta,
+    [
+      {
+        asset_id: slug,
+        kind: 'skill',
+        path: `assets/skills/${slug}/SKILL.md`,
+        default_enabled: true,
+      },
+    ],
+    {
+      marketplace_export_kind: 'skill',
+      skill_slug: slug,
+      [SKILL_MD_CONTENT_KEY]: skillMd,
+    },
+    integrityFiles,
+  );
+  return {
+    fileName: `${slug}-${manifest.package.version}.offisimpkg`,
+    manifest,
+    archiveBytes: zipSync({
+      ...files,
+      'manifest.json': encodeJson(manifest),
+    }),
   };
 }
 

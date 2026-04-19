@@ -244,12 +244,20 @@ export type {
   EmployeeAppearance,
   EmployeePersona,
   EmployeeConfig,
-  RuntimeSkillCapability,
-  RuntimeSkillConfig,
   EmployeeToolApprovalMode,
   EmployeeToolPermissionOverride,
   EmployeeToolPermissionPolicy,
 } from './json-field-parsers.js';
+
+export type {
+  SkillScope,
+  SkillSourceKind,
+  SkillMetadata,
+  SkillRow,
+  SkillMdParseErrorKind,
+  SkillAssetErrorKind,
+} from './skill.js';
+export { SkillMdParseError, SkillAssetError } from './skill.js';
 export {
   parseEmployeePersona,
   parseEmployeeConfig,

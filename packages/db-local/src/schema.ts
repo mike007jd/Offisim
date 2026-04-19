@@ -880,6 +880,47 @@ export const deliverables = sqliteTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// 025 — Settings (generic key-value; bootstrap migration markers)
+// ---------------------------------------------------------------------------
+
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_at: integer('updated_at').notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// 025 — Skills (two-tier schema: company-global + employee-specific)
+// ---------------------------------------------------------------------------
+
+export const skills = sqliteTable(
+  'skills',
+  {
+    skill_id: text('skill_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id').references(() => employees.employee_id, {
+      onDelete: 'cascade',
+    }),
+    scope: text('scope').notNull(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    description: text('description').notNull(),
+    version: text('version').notNull().default('0.1.0'),
+    source_kind: text('source_kind').notNull(),
+    source_ref: text('source_ref'),
+    vault_path: text('vault_path').notNull(),
+    created_at: integer('created_at').notNull(),
+    updated_at: integer('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_skills_company_scope').on(table.company_id, table.scope),
+    index('idx_skills_employee').on(table.employee_id),
+  ],
+);
+
 export const zones = sqliteTable(
   'zones',
   {

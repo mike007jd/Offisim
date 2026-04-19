@@ -15,6 +15,7 @@ import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
 import { createPermissionsTauriRepos } from './tauri-repos/permissions';
 import { createProjectsTauriRepos } from './tauri-repos/projects';
+import { createSkillsTauriRepos } from './tauri-repos/skills';
 import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
 
 /**
@@ -42,5 +43,6 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     ...createProjectsTauriRepos(db),
     ...createAgentEventsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
+    ...createSkillsTauriRepos(db),
   };
 }

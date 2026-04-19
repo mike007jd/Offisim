@@ -1,5 +1,12 @@
 import type { NewEmployee } from '@offisim/install-core';
-import type { InteractionKind, InteractionMode, RoleSlug } from '@offisim/shared-types';
+import type {
+  InteractionKind,
+  InteractionMode,
+  RoleSlug,
+  SkillRow,
+  SkillScope,
+  SkillSourceKind,
+} from '@offisim/shared-types';
 import type {
   NewProject,
   NewProjectAssignment,
@@ -920,6 +927,46 @@ export interface DeliverableRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Settings (generic key-value for one-shot bootstrap markers)
+// ---------------------------------------------------------------------------
+
+export interface SettingsRepository {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Skills (two-tier: company-global + employee-specific)
+// ---------------------------------------------------------------------------
+
+export type { SkillRow, SkillScope, SkillSourceKind };
+
+export type NewSkill = SkillRow;
+
+export type SkillUpdate = Partial<
+  Pick<
+    SkillRow,
+    'name' | 'description' | 'version' | 'source_kind' | 'source_ref' | 'vault_path' | 'updated_at'
+  >
+>;
+
+export interface SkillRepository {
+  insert(row: NewSkill): Promise<void>;
+  update(skillId: string, patch: SkillUpdate): Promise<void>;
+  delete(skillId: string): Promise<void>;
+  findById(skillId: string): Promise<SkillRow | null>;
+  /** Every skill in the company, irrespective of scope — caller partitions by `row.scope` / `row.employee_id`. */
+  listByCompany(companyId: string): Promise<SkillRow[]>;
+  listByCompanyScope(companyId: string): Promise<SkillRow[]>;
+  listByEmployee(companyId: string, employeeId: string): Promise<SkillRow[]>;
+  findBySlug(
+    companyId: string,
+    employeeId: string | null,
+    slug: string,
+  ): Promise<SkillRow | null>;
+}
+
+// ---------------------------------------------------------------------------
 // Recovery knowledge (persistent learning)
 // ---------------------------------------------------------------------------
 
@@ -992,6 +1039,10 @@ export interface RuntimeRepositories {
   recoveryKnowledge?: RecoveryKnowledgeRepository;
   /** Deliverable artifact history — optional for backward compatibility. */
   deliverables?: DeliverableRepository;
+  /** Two-tier skills (company-global + employee-specific) — optional for backward compatibility. */
+  skills?: SkillRepository;
+  /** Generic key-value settings (bootstrap markers) — optional for backward compatibility. */
+  settings?: SettingsRepository;
   /**
    * Wraps a synchronous callback in a DB transaction.
    * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.

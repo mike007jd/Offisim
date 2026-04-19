@@ -26,13 +26,30 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
 - `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
-- Marketplace 安装**实际只有 employee 物化路径** (`if (asset.kind === 'employee')` 唯一分支)。Skill 不是独立实体, 是 `buildInstalledEmployeeConfig()` 嵌入到 `config_json.capabilityIndex` 的能力包。sop / company_template / office_layout / prefab 全部未完成
+- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope 已落地，publish/install 分支仍在补；sop / company_template / office_layout / prefab 未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 - `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
 
 ## Repository 三后端同步
 
 `packages/core/src/runtime/drizzle-repositories.ts` / `memory-repositories.ts` + `apps/web/src/lib/tauri-repos.ts` 现为 barrel（各 <200 行 NBNC）, 按 family 拆到 `runtime/repos/<family>/{drizzle,memory}.ts` + `tauri-repos/<family>.ts`。repo 接口变更必须跨 3 个 backend 同步对应 family 文件, 契约约束见 `openspec/specs/repository-backend-boundaries/spec.md`。自动 parity test 已删除, 靠人工 + spec 核对。
+
+## Skills (SKILL.md open standard, vault-authoritative)
+
+`packages/core/src/skills/` — 两层 schema（company-global + employee-specific）skill 体系，和 `memory` 方向相反：**SKILL.md 在 vault 是源真相，`skills` DB 表只做索引**（listing 零磁盘 IO）。
+
+- SKILL.md 字段（严格标准）：frontmatter `name`（kebab-case）+ `description` 必填；可选 `allowedTools` / `license` / `version`；禁 `offisim.*` 私有命名空间。Body 自由 markdown。Parser / serializer 在 `skill-md.ts`。
+- 磁盘布局（`VaultFileSystem` 一致 desktop / web）：
+  - 全局：`companies/{cid}/skills/{slug}/SKILL.md`（+ 可选 `scripts/` `references/` `assets/`）
+  - 员工专属：`companies/{cid}/employees/{employeeSlug}/skills/{slug}/SKILL.md`
+- `SkillLoader` 三层 progressive disclosure：
+  - Tier 1 `listSkillsForEmployee(companyId, employeeId)` — DB-only 合并（employee 覆盖 company，slug dedupe），零磁盘 IO
+  - Tier 2 `loadSkillBody(skillId)` — 读 SKILL.md 返回 body（frontmatter 剥离）
+  - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
+- `slug`：`skillSlug(name, id)` 和 `employeeSlug` 同策略（kebab-case，纯非 ASCII fallback `skill-{id前8字符}`）
+- DB 表 `skills`（migration 025 / desktop v31）：`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
+- 旧 `runtimeSkill` 迁移：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表也是 025 加的）
+- 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
 
 ## Employee Vault (Obsidian-style, Phase 1)
 

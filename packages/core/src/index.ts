@@ -389,5 +389,20 @@ export type {
 } from './tools/builtin/index.js';
 export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
 
+// --- Skills (two-tier: company-global + employee-specific) ---
+export { SkillLoader } from './skills/skill-loader.js';
+export type { SkillLoaderDeps } from './skills/skill-loader.js';
+export { parseSkillMd, serializeSkillMd } from './skills/skill-md.js';
+export type { ParsedSkillMd, SerializeInput } from './skills/skill-md.js';
+export { skillSlug } from './skills/skill-slug.js';
+export { resolveSkillPath } from './skills/skill-path.js';
+export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';
+export { migrateRuntimeSkills, onVaultReadyForSkills } from './skills/skills-bootstrap.js';
+export type {
+  SkillRepository,
+  SkillUpdate,
+  NewSkill,
+} from './runtime/repositories.js';
+
 // --- Errors ---
 export { OffisimError, LlmError, GraphError, DataError, toErrorMessage } from './errors.js';

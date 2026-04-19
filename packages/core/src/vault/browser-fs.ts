@@ -144,37 +144,59 @@ export async function clearStoredBrowserVaultDirectoryHandle(
   await store.clear();
 }
 
+type NavigatorWithStorage = Navigator & {
+  storage?: { getDirectory?: () => Promise<FileSystemDirectoryHandle> };
+};
+
+function opfsSupported(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return typeof (navigator as NavigatorWithStorage).storage?.getDirectory === 'function';
+}
+
+function directoryPickerSupported(): boolean {
+  if (typeof window === 'undefined') return false;
+  return typeof (window as WindowWithDirectoryPicker).showDirectoryPicker === 'function';
+}
+
 export function browserFsAccessSupported(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  const browserWindow = window as WindowWithDirectoryPicker;
-  return (
-    typeof browserWindow.showDirectoryPicker === 'function' && idbSupported()
-  );
+  if (typeof window === 'undefined') return false;
+  if (!idbSupported()) return false;
+  return directoryPickerSupported() || opfsSupported();
 }
 
 export async function pickBrowserVaultDirectory(): Promise<FileSystemDirectoryHandle> {
-  if (!browserFsAccessSupported()) {
-    throw new Error('Your browser does not support live vault mounting.');
+  if (!directoryPickerSupported()) {
+    throw new Error(
+      'Your browser does not support the directory picker. Use `navigator.storage.getDirectory()` for an OPFS-backed vault instead.',
+    );
   }
   return (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: 'readwrite' });
 }
 
+/**
+ * Permission state for a vault handle. User-picker handles (FSAccess) expose
+ * `queryPermission` / `requestPermission` and may return `'prompt'` /
+ * `'denied'`. OPFS handles (from `navigator.storage.getDirectory()`) do NOT
+ * expose these methods — OPFS is implicitly granted by the browser, so we
+ * treat missing methods as `'granted'`. Without this fallback OPFS mounts
+ * would stall in `needs-permission` forever.
+ */
 export async function queryBrowserVaultPermission(
   handle: FileSystemDirectoryHandle,
 ): Promise<BrowserVaultPermissionState> {
   if (!browserFsAccessSupported()) return 'unsupported';
-  return ((handle as BrowserDirectoryHandle).queryPermission?.({ mode: 'readwrite' }) ??
-    Promise.resolve<'prompt'>('prompt')) as Promise<BrowserVaultPermissionState>;
+  const query = (handle as BrowserDirectoryHandle).queryPermission;
+  if (!query) return 'granted';
+  return query.call(handle, { mode: 'readwrite' });
 }
 
 export async function requestBrowserVaultPermission(
   handle: FileSystemDirectoryHandle,
 ): Promise<BrowserVaultPermissionState> {
   if (!browserFsAccessSupported()) return 'unsupported';
-  return ((handle as BrowserDirectoryHandle).requestPermission?.({ mode: 'readwrite' }) ??
-    Promise.resolve<'prompt'>('prompt')) as Promise<BrowserVaultPermissionState>;
+  const request = (handle as BrowserDirectoryHandle).requestPermission;
+  if (!request) return 'granted';
+  return request.call(handle, { mode: 'readwrite' });
 }
 
 export class BrowserFsAccessFileSystem implements VaultFileSystem {

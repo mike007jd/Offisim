@@ -1,4 +1,4 @@
-import type { ResolvedModel, RuntimeMemoryPolicy, RuntimeSkillConfig } from '@offisim/shared-types';
+import type { ResolvedModel, RuntimeMemoryPolicy } from '@offisim/shared-types';
 import { GraphError } from '../errors.js';
 import {
   employeeStateChanged,
@@ -9,8 +9,6 @@ import {
 import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { parseRuntimeSkillConfig, taskHasSkillMismatch } from './employee-prompt-assembly.js';
 
 export interface PreflightResult {
   readonly assignment: PendingAssignment;
@@ -25,7 +23,6 @@ export interface PreflightResult {
   readonly resolved: ResolvedModel;
   readonly taskDescription: string;
   readonly requiredSkills: string[];
-  readonly runtimeSkill: RuntimeSkillConfig | null;
   readonly memoryPolicy: RuntimeMemoryPolicy | undefined;
   readonly toolSearchEnabled: boolean;
 }
@@ -40,7 +37,7 @@ export type PreflightOutcome =
  *  2. Pop the first pending assignment (early return if none)
  *  3. Load employee + company (early return if employee deleted mid-run)
  *  4. Emit `employee.state.changed(idle→executing)` + `task.state.changed(queued→running)` + `task.subtask.progress(running)`
- *  5. Resolve model, derive task metadata, parse runtime skill, emit `skill_mismatch` if needed
+ *  5. Resolve model, derive task metadata
  */
 export async function runPreflight(
   state: OffisimGraphState,
@@ -136,24 +133,8 @@ export async function runPreflight(
         (skill): skill is string => typeof skill === 'string' && skill.trim().length > 0,
       )
     : [];
-  const runtimeSkill = parseRuntimeSkillConfig(employee.config_json);
   const memoryPolicy = runtimeCtx.runtimePolicy?.memory;
   const toolSearchEnabled = runtimeCtx.runtimePolicy?.toolSearch.enabled ?? true;
-
-  if (taskHasSkillMismatch(requiredSkills, runtimeSkill)) {
-    await appendAgentEvent(runtimeCtx, {
-      projectId: state.projectId,
-      threadId: state.threadId,
-      agentName: employee.employee_id,
-      eventType: 'skill_mismatch',
-      payload: {
-        taskRunId,
-        employeeId: employee.employee_id,
-        employeeSkill: runtimeSkill?.skillName ?? null,
-        requiredSkills,
-      },
-    });
-  }
 
   return {
     kind: 'continue',
@@ -170,7 +151,6 @@ export async function runPreflight(
       resolved,
       taskDescription,
       requiredSkills,
-      runtimeSkill,
       memoryPolicy,
       toolSearchEnabled,
     },

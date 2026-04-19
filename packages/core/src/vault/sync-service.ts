@@ -374,10 +374,14 @@ function isMissingFileError(err: unknown): boolean {
   if (!(err instanceof Error)) {
     return false;
   }
+  if (err.name === 'NotFoundError') {
+    return true;
+  }
   const message = err.message.toLowerCase();
   return (
     message.includes('no such file') ||
     message.includes('not found') ||
+    message.includes('could not be found') ||
     message.includes('cannot find') ||
     message.includes('enoent') ||
     message.includes('os error 2')

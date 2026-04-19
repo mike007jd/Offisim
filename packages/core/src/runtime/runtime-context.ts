@@ -2,6 +2,7 @@ import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-ty
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
+import type { SkillLoader } from '../skills/skill-loader.js';
 import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
@@ -64,6 +65,8 @@ export interface RuntimeContext {
   readonly hookRegistry: HookRegistry;
   /** Shared in-memory scratchpad for cross-node planning notes. */
   readonly scratchpad: Scratchpad;
+  /** Progressive-disclosure skill loader; optional until skill foundation is wired. */
+  readonly skillLoader?: SkillLoader;
 }
 
 export interface DisposableRuntime {
@@ -110,6 +113,7 @@ export function createRuntimeContext(deps: {
   interactionService?: InteractionService;
   hookRegistry?: HookRegistry;
   scratchpad?: Scratchpad;
+  skillLoader?: SkillLoader;
 }): RuntimeContext {
   const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, ...rest } = deps;
   return Object.freeze({

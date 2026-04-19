@@ -24,6 +24,8 @@ export interface BrowserVaultControllerDependencies {
   eventBus: EventBus;
   repos: RuntimeRepositories;
   companyId: string;
+  /** Fired every time a mount succeeds, with the fresh activation. */
+  onActivate?: (activation: VaultActivation) => void;
   support: {
     isSupported: () => boolean;
     loadStoredHandle: () => Promise<FileSystemDirectoryHandle | null>;
@@ -181,6 +183,11 @@ export async function createBrowserVaultController(
       await nextActivation.hydrate();
       activation = nextActivation;
       status = mountedStatus(fs, handle);
+      try {
+        deps.onActivate?.(nextActivation);
+      } catch (err) {
+        console.warn('[vault] onActivate callback threw', err);
+      }
       return status;
     } catch (err) {
       resetActivation();
@@ -283,6 +290,10 @@ export async function createDefaultBrowserVaultController(
   eventBus: EventBus,
   repos: RuntimeRepositories,
   companyId: string,
+  opts?: { onActivate?: (activation: VaultActivation) => void },
 ): Promise<BrowserVaultController> {
-  return createBrowserVaultController(createDefaultDependencies(eventBus, repos, companyId));
+  const base = createDefaultDependencies(eventBus, repos, companyId);
+  return createBrowserVaultController(
+    opts?.onActivate ? { ...base, onActivate: opts.onActivate } : base,
+  );
 }
