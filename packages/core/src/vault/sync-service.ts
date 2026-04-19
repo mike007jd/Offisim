@@ -371,19 +371,38 @@ function isMissingFileError(err: unknown): boolean {
   if (errorCode === 'ENOENT') {
     return true;
   }
-  if (!(err instanceof Error)) {
-    return false;
-  }
-  if (err.name === 'NotFoundError') {
+  const errorName =
+    err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : undefined;
+  if (errorName === 'NotFoundError') {
     return true;
   }
-  const message = err.message.toLowerCase();
+  const rawMessage = getErrorMessage(err);
+  if (!rawMessage) {
+    return false;
+  }
+  const message = rawMessage.toLowerCase();
   return (
     message.includes('no such file') ||
+    message.includes('no such file or directory') ||
     message.includes('not found') ||
     message.includes('could not be found') ||
     message.includes('cannot find') ||
     message.includes('enoent') ||
-    message.includes('os error 2')
+    message.includes('os error 2') ||
+    message.includes('failed to open file')
   );
+}
+
+function getErrorMessage(err: unknown): string | null {
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    return typeof message === 'string' ? message : null;
+  }
+  return null;
 }

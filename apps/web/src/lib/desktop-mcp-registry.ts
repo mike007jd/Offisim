@@ -21,5 +21,16 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
 
 export async function listDesktopMcpServers(): Promise<DesktopMcpServerRecord[]> {
   if (!isTauri()) return [];
-  return invokeDesktop<DesktopMcpServerRecord[]>('plugin:mcp_bridge|mcp_list_registered_servers');
+  try {
+    return await invokeDesktop<DesktopMcpServerRecord[]>(
+      'plugin:mcp_bridge|mcp_list_registered_servers',
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('not allowed by ACL')) {
+      console.warn('[Offisim] Desktop MCP registry unavailable in this build; skipping auto-connect.');
+      return [];
+    }
+    throw err;
+  }
 }

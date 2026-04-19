@@ -153,6 +153,24 @@ function opfsSupported(): boolean {
   return typeof (navigator as NavigatorWithStorage).storage?.getDirectory === 'function';
 }
 
+export function isOpfsSupported(): boolean {
+  return opfsSupported();
+}
+
+/**
+ * Acquire an OPFS (Origin Private File System) root directory handle. Used as
+ * an auto-mount fallback so skill installs / vault writes work out of the box
+ * on browsers that support OPFS, without forcing the user through a directory
+ * picker first. OPFS handles are scoped to the origin and are persisted
+ * implicitly by the browser — there is no stored handle to rehydrate.
+ */
+export async function acquireOpfsRootHandle(): Promise<FileSystemDirectoryHandle> {
+  if (!opfsSupported()) {
+    throw new Error('OPFS is not available in this browser.');
+  }
+  return (navigator as NavigatorWithStorage).storage!.getDirectory!();
+}
+
 function directoryPickerSupported(): boolean {
   if (typeof window === 'undefined') return false;
   return typeof (window as WindowWithDirectoryPicker).showDirectoryPicker === 'function';

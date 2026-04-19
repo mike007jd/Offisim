@@ -7,6 +7,11 @@ import { generateId } from '../utils/generate-id.js';
 import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
 import { MAX_CONTEXT_MESSAGES } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
+import {
+  type SkillInstallToolName,
+  handleSkillInstallTool,
+  isSkillInstallTool,
+} from './skill-install-tools.js';
 
 const logger = new Logger('employee-tool-round');
 
@@ -69,6 +74,15 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
           employee.employee_id,
           companyId,
           threadId,
+          runtimeCtx,
+        );
+        return { callId: toolCall.id, name: toolCall.name, result };
+      }
+
+      if (isSkillInstallTool(toolCall.name)) {
+        const result = await handleSkillInstallTool(
+          toolCall.name as SkillInstallToolName,
+          toolCall.arguments,
           runtimeCtx,
         );
         return { callId: toolCall.id, name: toolCall.name, result };

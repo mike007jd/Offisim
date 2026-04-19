@@ -59,6 +59,8 @@ export function describeInteractionSceneRequest(
       return restored ? 'Plan review restored' : 'Waiting for plan review...';
     case 'agent_question':
       return restored ? 'Clarification restored' : 'Waiting for clarification...';
+    case 'skill_install_confirm':
+      return restored ? 'Skill install wait restored' : 'Waiting for skill install confirm...';
   }
 }
 

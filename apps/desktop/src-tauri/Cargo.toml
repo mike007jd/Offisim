@@ -12,11 +12,17 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# `devtools` feature unlocks `window.open_devtools()` and right-click → Inspect
+# on RELEASE builds too. Without it `open_devtools()` is a silent no-op in
+# release, which blocks live verify from Offisim.app bundles (Computer Use
+# only attaches to `.app`, not to `target/debug/offisim-desktop`). Keep until
+# a dedicated non-devtools release channel is needed for ship.
+tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-cors-fetch = "5"
 tauri-plugin-deep-link = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-single-instance = "2"
 url = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

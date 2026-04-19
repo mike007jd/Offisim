@@ -54,6 +54,8 @@ export function getInteractionKindLabel(kind: InteractionKind | 'handoff'): stri
       return 'Awaiting review';
     case 'agent_question':
       return 'Awaiting clarification';
+    case 'skill_install_confirm':
+      return 'Awaiting skill install confirm';
     case 'handoff':
       return 'Awaiting handoff';
   }

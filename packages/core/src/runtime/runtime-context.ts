@@ -2,7 +2,9 @@ import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-ty
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
+import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
 import type { SkillLoader } from '../skills/skill-loader.js';
+import type { SkillStagingManager } from '../skills/skill-staging.js';
 import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
@@ -67,6 +69,14 @@ export interface RuntimeContext {
   readonly scratchpad: Scratchpad;
   /** Progressive-disclosure skill loader; optional until skill foundation is wired. */
   readonly skillLoader?: SkillLoader;
+  /** Process-scoped staging for in-flight agent-mediated skill installs. */
+  readonly skillStagingManager?: SkillStagingManager;
+  /**
+   * Runtime environment for the four skill-install tools (git / upload /
+   * claude-code / codex). Web leaves `clone` / `localDir` undefined so
+   * desktop-only paths gracefully return `not-supported-in-web`.
+   */
+  readonly skillInstallEnvironment?: SkillInstallEnvironment;
 }
 
 export interface DisposableRuntime {
@@ -114,6 +124,8 @@ export function createRuntimeContext(deps: {
   hookRegistry?: HookRegistry;
   scratchpad?: Scratchpad;
   skillLoader?: SkillLoader;
+  skillStagingManager?: SkillStagingManager;
+  skillInstallEnvironment?: SkillInstallEnvironment;
 }): RuntimeContext {
   const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, ...rest } = deps;
   return Object.freeze({

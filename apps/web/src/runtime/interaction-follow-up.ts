@@ -26,6 +26,10 @@ export function getInteractionFollowUp(
       return response.selectedOptionId !== 'cancel'
         ? { mode: 'resend_with_clarification' }
         : { mode: 'none' };
+    case 'skill_install_confirm':
+      return response.selectedOptionId === 'confirm'
+        ? { mode: 'message', message: 'Skill installed.' }
+        : { mode: 'message', message: 'Skill install cancelled.' };
     default:
       return { mode: 'none' };
   }

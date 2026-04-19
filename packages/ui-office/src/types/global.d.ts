@@ -1,6 +1,6 @@
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
-import type { Zone } from '@offisim/shared-types';
+import type { InteractionRequest, Zone } from '@offisim/shared-types';
 import type { SceneIntentBus } from '../runtime/scene-intents';
 
 interface OffisimDebugEmployeeInfo {
@@ -35,6 +35,15 @@ export interface OffisimDebugBridge {
   repos?: RuntimeRepositories | null;
   /** Active company id — paired with `repos` for scoping. */
   companyId?: string;
+  /** Current pending interaction, if any. */
+  pendingInteraction?: InteractionRequest | null;
+  /** Resolve the current pending interaction by option id. */
+  respondToInteraction?: (
+    selectedOptionId: string,
+    freeformResponse?: string,
+  ) => Promise<string | undefined>;
+  /** Devtools helper for directly triggering install tools against the live runtime. */
+  runSkillInstallTool?: (toolName: string, args?: Record<string, unknown>) => Promise<unknown>;
   sceneActions?: {
     moveEmployeeToMeeting?: (employeeId: string) => boolean;
     dispatchEmployeeToWorkspace?: (employeeId: string) => boolean;

@@ -107,9 +107,16 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     [isRunning, version],
   );
 
+  const shouldExposeDebugBridge =
+    import.meta.env.DEV ||
+    typeof window !== 'undefined'
+      ? typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
+          'undefined'
+      : false;
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; runtimeRef reads current
   const value = useMemo<OffisimRuntimeValue>(() => {
-    if (import.meta.env.DEV) {
+    if (shouldExposeDebugBridge) {
       const existingGetSceneState = window.__OFFISIM_DEBUG__?.getSceneState;
       window.__OFFISIM_DEBUG__ = {
         eventBus,
@@ -117,6 +124,24 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         installService: runtime?.installService ?? null,
         repos: runtime?.repos ?? null,
         companyId,
+        pendingInteraction: pendingInteraction ?? null,
+        respondToInteraction,
+        runSkillInstallTool: async (toolName, args = {}) => {
+          const activeRuntime = runtimeRef.current;
+          const runtimeCtx = activeRuntime?.runtimeCtx;
+          if (!runtimeCtx) {
+            throw new Error('Runtime context unavailable');
+          }
+          const { handleSkillInstallTool } = await import(
+            '@offisim/core/dist/agents/skill-install-tools.js'
+          );
+          const raw = await handleSkillInstallTool(toolName as never, args, runtimeCtx);
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return raw;
+          }
+        },
         getSceneState:
           existingGetSceneState ??
           (() => {
@@ -198,6 +223,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     eventBus,
     sceneIntentBus,
     companyId,
+    shouldExposeDebugBridge,
+    runtimeRef,
   ]);
 
   return (

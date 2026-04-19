@@ -115,6 +115,8 @@ export type {
   PermissionInteractionContext,
   PlanReviewInteractionContext,
   AgentQuestionInteractionContext,
+  SkillInstallSourceKind,
+  SkillInstallConfirmInteractionContext,
   InteractionContext,
   InteractionRequest,
   InteractionResponse,

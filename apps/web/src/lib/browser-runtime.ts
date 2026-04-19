@@ -11,7 +11,9 @@ import {
   AgentContextPackService,
   DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
+  SkillInstallCommitter,
   SkillLoader,
+  SkillStagingManager,
   bindingStateChanged,
   createMemoryRepositories,
   installStateChanged,
@@ -70,6 +72,7 @@ import {
   putDeliverableContent,
 } from './deliverable-content-idb';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
+import { InMemoryUploadRefResolver, createWebSkillInstallEnvironment } from './skill-install-env';
 import type { VaultActivation } from './vault-activation';
 import type { BrowserVaultController } from './vault-browser-activation';
 import { createDefaultBrowserVaultController } from './vault-browser-activation';
@@ -105,9 +108,7 @@ async function ensureCostRates(repos: ReturnType<typeof createMemoryRepositories
   await seedDefaultCostRatesIfEmpty(repos);
 }
 
-function wireDeliverableContentStore(
-  snapshot: MemoryRepositoriesSnapshot | null,
-): {
+function wireDeliverableContentStore(snapshot: MemoryRepositoriesSnapshot | null): {
   dbPromise: Promise<IDBDatabase | null>;
   contentLoader: (id: string) => Promise<string | null>;
 } {
@@ -180,6 +181,16 @@ export async function createBrowserRuntime(
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
+  const existingThread = await repos.threads.findById(threadId);
+  if (!existingThread) {
+    await repos.threads.create({
+      thread_id: threadId,
+      company_id: companyId,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'queued',
+    });
+  }
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
   const skillLoader = SkillLoader.forRepos(repos);
@@ -188,6 +199,20 @@ export async function createBrowserRuntime(
       void onVaultReadyForSkills(skillLoader, repos, activation.fs);
     },
   });
+  const skillStagingManager = new SkillStagingManager();
+  const uploadRefResolver = new InMemoryUploadRefResolver();
+  const skillInstallEnvironment = createWebSkillInstallEnvironment({
+    uploadResolver: uploadRefResolver,
+  });
+  const skillInstallCommitter = skillLoader
+    ? new SkillInstallCommitter({
+        companyId,
+        threadId,
+        skillLoader,
+        staging: skillStagingManager,
+        eventBus,
+      })
+    : null;
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
@@ -245,6 +270,7 @@ export async function createBrowserRuntime(
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
     hookRegistry,
+    ...(skillInstallCommitter ? { skillInstallConfirmHandler: skillInstallCommitter } : {}),
   });
   await interactionService.restore();
 
@@ -325,6 +351,8 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     ...(skillLoader ? { skillLoader } : {}),
+    skillStagingManager,
+    skillInstallEnvironment,
   });
 
   const installService = new InstallService({

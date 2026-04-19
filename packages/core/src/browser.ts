@@ -372,14 +372,69 @@ export type {
 export { employeeSlug } from './vault/slug.js';
 
 // --- Skills (two-tier schema: company-global + employee-specific) ---
-export { SkillLoader } from './skills/skill-loader.js';
-export type { SkillLoaderDeps } from './skills/skill-loader.js';
+export { SkillLoader, SkillInstallError, encodeSkillSourceRef } from './skills/skill-loader.js';
+export type {
+  SkillLoaderDeps,
+  InstallSkillArgs,
+  InstallSkillResult,
+  SkillInstallAsset,
+  SkillInstallSource,
+  SkillInstallSourceGit,
+  SkillInstallSourceUpload,
+  SkillInstallSourceClaudeCode,
+  SkillInstallSourceCodex,
+  SkillInstallSourceMarketplace,
+} from './skills/skill-loader.js';
 export { parseSkillMd, serializeSkillMd } from './skills/skill-md.js';
 export type { ParsedSkillMd, SerializeInput } from './skills/skill-md.js';
 export { skillSlug } from './skills/skill-slug.js';
 export { resolveSkillPath } from './skills/skill-path.js';
 export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';
 export { migrateRuntimeSkills, onVaultReadyForSkills } from './skills/skills-bootstrap.js';
+export { scanSkillDir } from './skills/skill-scanner.js';
+export { resolveUploadSource } from './skills/skill-source-resolvers/upload.js';
+export { resolveGitSource } from './skills/skill-source-resolvers/git.js';
+export { resolveClaudeCodeSync } from './skills/skill-source-resolvers/claude-code.js';
+export { resolveCodexSync } from './skills/skill-source-resolvers/codex.js';
+export { isResolverError } from './skills/skill-source-resolvers/types.js';
+export type {
+  ScannedSkill,
+  SkillResolverError,
+  SkillResolverErrorKind,
+  VirtualFile,
+  VirtualTree,
+} from './skills/skill-source-resolvers/types.js';
+export type {
+  GitCloneAdapter,
+  GitHttpFetch,
+  GitLocalFsAdapter,
+} from './skills/skill-source-resolvers/git.js';
+export type {
+  LocalDirAdapter,
+  SyncCandidate,
+  SyncResolverDeps,
+  SyncResolverResult,
+} from './skills/skill-source-resolvers/claude-code.js';
+export { SkillStagingManager } from './skills/skill-staging.js';
+export type { StagedSkill, SkillStagingManagerOpts } from './skills/skill-staging.js';
+export type {
+  SkillInstallEnvironment,
+  UploadRefResolver,
+} from './skills/skill-install-environment.js';
+export { SkillInstallCommitter } from './skills/skill-install-committer.js';
+export type { SkillInstallCommitterDeps } from './skills/skill-install-committer.js';
+export {
+  SKILL_INSTALL_TOOL_NAMES,
+  SKILL_INSTALL_TOOL_DEFS,
+  buildSkillInstallTools,
+  handleSkillInstallTool,
+  isSkillInstallTool,
+} from './agents/skill-install-tools.js';
+export type { SkillInstallToolName } from './agents/skill-install-tools.js';
+export type {
+  SkillInstallConfirmHandler,
+  SkillInstallConfirmOutcome,
+} from './services/interaction-service.js';
 export type {
   SkillRepository,
   SettingsRepository,

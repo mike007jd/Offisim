@@ -125,6 +125,8 @@ export function interactionRequestedLabel(kind: InteractionKind): string {
       return 'Plan review needed';
     case 'agent_question':
       return 'Interrupt & steer';
+    case 'skill_install_confirm':
+      return 'Skill install preview';
     default:
       return 'Input needed';
   }
@@ -142,6 +144,8 @@ export function interactionResolvedLabel(
       return `Plan review: ${action}`;
     case 'agent_question':
       return `Clarification received: ${action}`;
+    case 'skill_install_confirm':
+      return selectedOptionId === 'confirm' ? 'Skill install confirmed' : 'Skill install cancelled';
     default:
       return `Decision received: ${action}`;
   }
@@ -155,6 +159,8 @@ export function interactionRestoredLabel(kind: InteractionKind): string {
       return 'Plan review restored';
     case 'agent_question':
       return 'Interrupt & steer restored';
+    case 'skill_install_confirm':
+      return 'Skill install preview restored';
     default:
       return 'Pending input restored';
   }

@@ -140,6 +140,7 @@ export default defineConfig(({ command, mode }) => {
             'api.z.ai',
             'api.openai.com',
             'api.anthropic.com',
+            'api.github.com',
             'localhost',
             '127.0.0.1',
           ]);

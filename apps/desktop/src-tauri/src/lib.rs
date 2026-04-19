@@ -194,12 +194,34 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../../../Docs/03_migrations/offisim_migrations_local_v0.1/031_skills.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 32,
+            description: "graph threads synopsis",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/032_graph_threads_synopsis.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Single-instance MUST be registered first — the handler short-circuits
+        // subsequent launches before any DB/plugin init runs. Without it a
+        // second `cargo tauri dev` / binary launch hits the SQLite write lock
+        // held by the running instance (tauri-plugin-sql opens offisim.db in
+        // the shared appDataDir) and the second window hangs with a black
+        // webview. The callback focuses the existing window instead.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .invoke_handler(tauri::generate_handler![
             runtime_secrets::runtime_secret_status,
             runtime_secrets::runtime_secret_set,
@@ -218,6 +240,23 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(mcp_bridge::init())
         .setup(|app| {
+            // Open devtools on launch. Gated only by the OFFISIM_DESKTOP_DEVTOOLS
+            // env var at startup so live verify from release .app bundles can
+            // flip it on (Computer Use only attaches to .app bundles, not to
+            // `target/debug/offisim-desktop` bare binaries). Debug builds keep
+            // the previous always-on behaviour.
+            {
+                use tauri::Manager;
+                let force_devtools = std::env::var("OFFISIM_DESKTOP_DEVTOOLS")
+                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                    .unwrap_or(false);
+                if cfg!(debug_assertions) || force_devtools {
+                    if let Some(window) = app.get_webview_window("main") {
+                        window.open_devtools();
+                    }
+                }
+            }
+
             // Register deep link scheme on platforms that need runtime registration
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {

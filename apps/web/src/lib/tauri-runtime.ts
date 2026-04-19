@@ -1,7 +1,9 @@
 import {
   DeliverablePersistenceService,
   MemoryUserPreferenceRepository,
+  SkillInstallCommitter,
   SkillLoader,
+  SkillStagingManager,
   bindingStateChanged,
   installStateChanged,
   onVaultReadyForSkills,
@@ -47,11 +49,18 @@ import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
+import { InMemoryUploadRefResolver, createTauriSkillInstallEnvironment } from './skill-install-env';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
+import {
+  createTauriGitCloneAdapter,
+  createTauriGitLocalFsAdapter,
+  createTauriLocalDirAdapter,
+  prefetchTauriHomeDir,
+} from './tauri-skill-install-adapters';
 import { tryActivateTauriVault } from './vault-tauri-activation';
 
 // ---------------------------------------------------------------------------
@@ -106,6 +115,16 @@ export async function createTauriRuntime(
   const threadId = `thread-${companyId}`;
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  const existingThread = await repos.threads.findById(threadId);
+  if (!existingThread) {
+    await repos.threads.create({
+      thread_id: threadId,
+      company_id: companyId,
+      entry_mode: 'boss_chat',
+      root_task_id: null,
+      status: 'queued',
+    });
+  }
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
@@ -157,6 +176,25 @@ export async function createTauriRuntime(
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();
+  const skillLoader = SkillLoader.forRepos(repos);
+  const skillStagingManager = new SkillStagingManager();
+  const uploadRefResolver = new InMemoryUploadRefResolver();
+  void prefetchTauriHomeDir();
+  const skillInstallEnvironment = createTauriSkillInstallEnvironment({
+    clone: createTauriGitCloneAdapter(),
+    gitFs: createTauriGitLocalFsAdapter(),
+    localDir: createTauriLocalDirAdapter(),
+    uploadResolver: uploadRefResolver,
+  });
+  const skillInstallCommitter = skillLoader
+    ? new SkillInstallCommitter({
+        companyId,
+        threadId,
+        skillLoader,
+        staging: skillStagingManager,
+        eventBus,
+      })
+    : null;
   const interactionService = new InteractionService({
     eventBus,
     companyId,
@@ -167,6 +205,7 @@ export async function createTauriRuntime(
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
     hookRegistry,
+    ...(skillInstallCommitter ? { skillInstallConfirmHandler: skillInstallCommitter } : {}),
   });
   await interactionService.restore();
 
@@ -229,8 +268,6 @@ export async function createTauriRuntime(
     threadId,
   });
 
-  const skillLoader = SkillLoader.forRepos(repos);
-
   const runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
@@ -251,6 +288,8 @@ export async function createTauriRuntime(
     fileHistoryService,
     interactionService,
     ...(skillLoader ? { skillLoader } : {}),
+    skillStagingManager,
+    skillInstallEnvironment,
   });
 
   // Git auto-commit service (desktop only — uses Tauri git_exec bridge)

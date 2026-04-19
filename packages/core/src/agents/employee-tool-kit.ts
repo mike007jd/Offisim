@@ -4,6 +4,7 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { buildMemoryTools } from './employee-memory-tools.js';
 import { MAX_HANDOFF_COUNT } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
+import { buildSkillInstallTools } from './skill-install-tools.js';
 
 export interface ToolKit {
   readonly virtualTools: ToolDef[];
@@ -35,6 +36,14 @@ export async function assembleToolKit(
 
   if (memoryService) {
     virtualTools.push(...buildMemoryTools());
+  }
+
+  // Skill-install tools are exposed to every employee (internal + external / A2A)
+  // regardless of role. The handler returns structured `not-supported-in-web`
+  // errors when the runtime lacks desktop-only adapters, so offering the tools
+  // on web is still useful — the LLM surfaces the restriction conversationally.
+  if (runtimeCtx.skillInstallEnvironment && runtimeCtx.skillStagingManager) {
+    virtualTools.push(...buildSkillInstallTools());
   }
 
   if (!isDirectChatTask && state.handoffCount < MAX_HANDOFF_COUNT) {

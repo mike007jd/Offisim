@@ -46,6 +46,16 @@ export interface InteractionPendingStore {
   pending: InteractionRequest | null;
 }
 
+export type SkillInstallConfirmOutcome =
+  | { kind: 'installed'; skillId: string; wasExisting: boolean }
+  | { kind: 'cancelled' }
+  | { kind: 'staging-expired' }
+  | { kind: 'error'; errorKind: string; message: string };
+
+export interface SkillInstallConfirmHandler {
+  handle(request: InteractionRequest, response: InteractionResponse): Promise<SkillInstallConfirmOutcome>;
+}
+
 export class InteractionService implements ToolPermissionGrantResolver {
   private threadMode: InteractionMode;
   private pending: InteractionRequest | null = null;
@@ -67,6 +77,8 @@ export class InteractionService implements ToolPermissionGrantResolver {
       readonly historyRepo?: InteractionHistoryRepository;
       readonly loadMode?: () => Promise<InteractionMode | null>;
       readonly hookRegistry?: HookRegistry;
+      /** Async handler that commits or discards a skill install based on the user's decision. */
+      readonly skillInstallConfirmHandler?: SkillInstallConfirmHandler;
     },
   ) {
     this.threadMode = deps.defaultMode ?? 'boss_proxy';
@@ -166,6 +178,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.persistHistory(pending, response, 'resolved');
     this.applyGrants(pending, response);
     this.applyPlanReviewDecision(pending, response);
+    await this.applySkillInstallConfirm(pending, response);
     await this.deps.hookRegistry?.emit('interaction.resolved', {
       interactionId: pending.interactionId,
       threadId: pending.threadId,
@@ -177,6 +190,23 @@ export class InteractionService implements ToolPermissionGrantResolver {
       interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
     );
     return pending;
+  }
+
+  private async applySkillInstallConfirm(
+    request: InteractionRequest,
+    response: InteractionResponse,
+  ): Promise<void> {
+    if (request.kind !== 'skill_install_confirm' || request.context?.type !== 'skill_install_confirm') {
+      return;
+    }
+    const handler = this.deps.skillInstallConfirmHandler;
+    if (!handler) return;
+    try {
+      await handler.handle(request, response);
+    } catch {
+      // Errors flow back to the chat via whatever the handler emits; the
+      // interaction itself is considered resolved even on install failure.
+    }
   }
 
   consumeMatchingGrant(request: ToolPermissionGrantRequest): ToolPermissionGrantMatch | null {

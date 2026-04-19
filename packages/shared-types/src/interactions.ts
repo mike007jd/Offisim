@@ -1,6 +1,10 @@
 export type InteractionMode = 'boss_proxy' | 'human_in_loop';
 
-export type InteractionKind = 'permission_request' | 'plan_review' | 'agent_question';
+export type InteractionKind =
+  | 'permission_request'
+  | 'plan_review'
+  | 'agent_question'
+  | 'skill_install_confirm';
 
 export type InteractionSeverity = 'normal' | 'high';
 
@@ -39,10 +43,28 @@ export interface AgentQuestionInteractionContext {
   readonly questionKey?: string | null;
 }
 
+export type SkillInstallSourceKind = 'git' | 'upload' | 'claude-code' | 'codex';
+
+export interface SkillInstallConfirmInteractionContext {
+  readonly type: 'skill_install_confirm';
+  readonly stagingRef: string;
+  readonly skillName: string;
+  readonly skillDescription: string;
+  readonly allowedTools: readonly string[];
+  readonly sourceKind: SkillInstallSourceKind;
+  readonly sourceRef: string;
+  readonly resolvedScope: 'company' | 'employee';
+  readonly resolvedEmployeeId: string | null;
+  readonly resolvedEmployeeName?: string | null;
+  readonly assetPaths: readonly string[];
+  readonly skillMdBody?: string;
+}
+
 export type InteractionContext =
   | PermissionInteractionContext
   | PlanReviewInteractionContext
-  | AgentQuestionInteractionContext;
+  | AgentQuestionInteractionContext
+  | SkillInstallConfirmInteractionContext;
 
 export interface InteractionRequest {
   readonly interactionId: string;

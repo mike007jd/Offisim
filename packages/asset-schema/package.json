@@ -11,14 +11,14 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "generate": "node scripts/generate-validator.mjs",
+    "build": "node scripts/generate-validator.mjs && tsc --project tsconfig.json && node scripts/copy-generated.mjs",
+    "typecheck": "node scripts/generate-validator.mjs && tsc --noEmit",
+    "clean": "rm -rf dist src/schema/manifest-validator.generated.js src/schema/manifest-validator.generated.d.ts"
   },
-  "dependencies": {
-    "ajv": "^8.17.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "ajv": "^8.17.0",
     "typescript": "^5.7.0"
   },
   "license": "MIT"

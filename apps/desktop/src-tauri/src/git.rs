@@ -3,7 +3,7 @@ use tokio::process::Command;
 
 /// Allowed git subcommands (whitelist for safety).
 const ALLOWED_SUBCOMMANDS: &[&str] = &[
-    "status", "add", "commit", "diff", "log", "rev-parse", "init",
+    "status", "add", "commit", "diff", "log", "rev-parse", "init", "clone",
 ];
 
 /// Blocked flags that could cause destructive operations.

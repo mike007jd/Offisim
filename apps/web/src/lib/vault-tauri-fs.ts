@@ -100,8 +100,16 @@ export class TauriVaultFileSystem implements VaultFileSystem {
 }
 
 function isNotFound(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const msg = err.message.toLowerCase();
+  const rawMessage =
+    typeof err === 'string'
+      ? err
+      : err instanceof Error
+        ? err.message
+        : err && typeof err === 'object' && 'message' in err
+          ? (err as { message?: unknown }).message
+          : null;
+  if (typeof rawMessage !== 'string') return false;
+  const msg = rawMessage.toLowerCase();
   return (
     msg.includes('no such file') ||
     msg.includes('no such file or directory') ||

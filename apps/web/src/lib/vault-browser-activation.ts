@@ -1,7 +1,9 @@
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import {
   BrowserFsAccessFileSystem,
+  acquireOpfsRootHandle,
   clearStoredBrowserVaultDirectoryHandle,
+  isOpfsSupported,
   loadStoredBrowserVaultDirectoryHandle,
   persistBrowserVaultDirectoryHandle,
   pickBrowserVaultDirectory,
@@ -222,6 +224,20 @@ export async function createBrowserVaultController(
         currentHandle = null;
         await deps.support.clearStoredHandle();
         status = disconnectedStatus('unmounted');
+      }
+    } else if (isOpfsSupported()) {
+      // No user-picked directory: auto-mount OPFS so agent-driven writes
+      // (skill install, vault sync) work out of the box. The user can later
+      // pick a real directory via `mount(...)` and we'll swap handles — OPFS
+      // contents don't migrate, but that's an explicit trade-off the user
+      // makes when they ask for durable-local storage.
+      try {
+        const opfsRoot = await acquireOpfsRootHandle();
+        await activateHandle(opfsRoot);
+      } catch (err) {
+        // OPFS failure is non-fatal; we stay in 'unmounted' and the user can
+        // still pick a directory manually from Settings.
+        console.warn('[vault] OPFS auto-mount failed', err);
       }
     }
   }

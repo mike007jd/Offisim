@@ -199,11 +199,10 @@ importers:
         version: 6.4.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
 
   packages/asset-schema:
-    dependencies:
+    devDependencies:
       ajv:
         specifier: ^8.17.0
         version: 8.18.0
-    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -237,6 +236,9 @@ importers:
       '@offisim/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.2
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1

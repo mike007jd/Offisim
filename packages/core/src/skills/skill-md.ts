@@ -1,8 +1,14 @@
 import { SkillMdParseError } from '@offisim/shared-types';
 import yaml from 'js-yaml';
-import { parseDocument, VaultParseError } from '../vault/codec.js';
+import { VaultParseError, parseDocument } from '../vault/codec.js';
 
-const ALLOWED_FRONTMATTER_KEYS = new Set(['name', 'description', 'allowedTools', 'license', 'version']);
+const ALLOWED_FRONTMATTER_KEYS = new Set([
+  'name',
+  'description',
+  'allowedTools',
+  'license',
+  'version',
+]);
 
 export interface ParsedSkillMd {
   name: string;
@@ -63,7 +69,9 @@ export function parseSkillMd(raw: string): ParsedSkillMd {
     body = parsed.body;
   } catch (err) {
     if (err instanceof VaultParseError) {
-      const kind = err.message.startsWith('Missing') ? 'missing-frontmatter' : 'invalid-frontmatter-yaml';
+      const kind = err.message.startsWith('Missing')
+        ? 'missing-frontmatter'
+        : 'invalid-frontmatter-yaml';
       throw new SkillMdParseError(kind, err.message);
     }
     throw err;
@@ -80,7 +88,11 @@ export function parseSkillMd(raw: string): ParsedSkillMd {
   }
 
   if (!('name' in frontmatter)) {
-    throw new SkillMdParseError('missing-required-field', 'SKILL.md frontmatter missing `name`', 'name');
+    throw new SkillMdParseError(
+      'missing-required-field',
+      'SKILL.md frontmatter missing `name`',
+      'name',
+    );
   }
   if (!('description' in frontmatter)) {
     throw new SkillMdParseError(
@@ -96,8 +108,10 @@ export function parseSkillMd(raw: string): ParsedSkillMd {
     frontmatter.allowedTools !== undefined
       ? assertStringArray(frontmatter.allowedTools, 'allowedTools')
       : undefined;
-  const license = frontmatter.license !== undefined ? assertString(frontmatter.license, 'license') : undefined;
-  const version = frontmatter.version !== undefined ? assertString(frontmatter.version, 'version') : undefined;
+  const license =
+    frontmatter.license !== undefined ? assertString(frontmatter.license, 'license') : undefined;
+  const version =
+    frontmatter.version !== undefined ? assertString(frontmatter.version, 'version') : undefined;
 
   const unknownFields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(frontmatter)) {

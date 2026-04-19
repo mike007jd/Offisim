@@ -162,8 +162,7 @@ export async function migrateRuntimeSkills(deps: MigrateRuntimeSkillsDeps): Prom
   if (marker === 'true') return;
 
   const now = deps.now ?? (() => Date.now());
-  const newId =
-    deps.newId ?? (() => `sk_${now()}_${Math.random().toString(36).slice(2, 10)}`);
+  const newId = deps.newId ?? (() => `sk_${now()}_${Math.random().toString(36).slice(2, 10)}`);
 
   const companies = await deps.companies.findAll();
   for (const company of companies) {

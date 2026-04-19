@@ -1,0 +1,485 @@
+import type { InteractionRequest } from '@offisim/shared-types';
+import type { ToolDef } from '../llm/gateway.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
+import type { SkillInstallSource } from '../skills/skill-loader.js';
+import { parseSkillMd } from '../skills/skill-md.js';
+import { resolveClaudeCodeSync } from '../skills/skill-source-resolvers/claude-code.js';
+import { resolveCodexSync } from '../skills/skill-source-resolvers/codex.js';
+import { resolveGitSource } from '../skills/skill-source-resolvers/git.js';
+import {
+  type ScannedSkill,
+  type VirtualTree,
+  isResolverError,
+} from '../skills/skill-source-resolvers/types.js';
+import { resolveUploadSource } from '../skills/skill-source-resolvers/upload.js';
+import { generateId } from '../utils/generate-id.js';
+
+export const SKILL_INSTALL_TOOL_NAMES = [
+  'install_skill_from_git',
+  'install_skill_from_upload',
+  'sync_from_claude_code',
+  'sync_from_codex',
+] as const;
+export type SkillInstallToolName = (typeof SKILL_INSTALL_TOOL_NAMES)[number];
+
+const SCOPE_PARAM = {
+  type: 'string',
+  enum: ['company', 'employee'],
+  description:
+    'Install scope. Default "company" = shared across the whole company. ' +
+    '"employee" = only the specified employee. Infer from the user\'s request.',
+} as const;
+
+const TARGET_EMPLOYEE_PARAM = {
+  type: 'string',
+  description:
+    'Employee ID to scope the install to (REQUIRED when scope="employee"; FORBIDDEN when scope="company").',
+} as const;
+
+export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
+  {
+    name: 'install_skill_from_git',
+    description:
+      [
+        'Install a SKILL.md skill from a git repository. Always routes through a user confirmation preview — the tool itself never writes to disk.',
+        'COMMON CASE — user says "install <NAME> from github.com/<owner>/<repo>":',
+        '  • Pass `url = https://github.com/<owner>/<repo>` and `subpath = <NAME>`.',
+        '  • Do NOT put <NAME> into `ref`. `ref` is only for a git branch / tag / commit SHA (e.g. "main", "v1.2", "abc123").',
+        '  • Example: user says "装 do-research from github.com/anthropics/skills"',
+        '    → call `{ url: "https://github.com/anthropics/skills", subpath: "do-research" }`. NOT `{ url, ref: "do-research" }`.',
+        'If you call without `subpath` and the repo has multiple SKILL.md files, the tool returns',
+        '`{ kind: "skill-scanner-ambiguous", candidates: [{path: "<dir>/"}, …] }`. On that error you MUST retry the same tool',
+        'with `subpath` set to one of the candidate directory names (strip the trailing "/") — do NOT put the candidate name into `ref`.',
+      ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description:
+            'Git URL (HTTPS or SSH on desktop; github.com HTTPS only on web). Example: https://github.com/anthropics/skills',
+        },
+        subpath: {
+          type: 'string',
+          description:
+            'Directory inside the repository that contains SKILL.md. Use this for multi-skill monorepos. Example: if the skill lives at github.com/anthropics/skills/tree/main/do-research, set subpath to "do-research". MUST be a directory name relative to the repo root — never a git branch / tag / commit. Do not include leading or trailing slashes.',
+        },
+        ref: {
+          type: 'string',
+          description:
+            'ONLY a git branch, tag, or commit SHA (examples: "main", "v1.2.0", "abc1234def"). NEVER a directory name or skill name. If you are trying to pick a specific skill inside a monorepo, use `subpath` instead. Defaults to the repo default branch when omitted.',
+        },
+        scope: SCOPE_PARAM,
+        targetEmployeeId: TARGET_EMPLOYEE_PARAM,
+      },
+      required: ['url'],
+    },
+  },
+  {
+    name: 'install_skill_from_upload',
+    description:
+      [
+        'Install a SKILL.md skill from a user-uploaded archive (zip / tar.gz) or a standalone SKILL.md. Always routes through a user confirmation preview.',
+        'If the archive contains multiple SKILL.md files under different directories, call without `subpath` first; the tool returns',
+        '`{ kind: "upload-multiple-skills", candidates: [{path: "<dir>/"}, …] }` and you MUST retry with `subpath` set to one of those directory names.',
+      ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        fileRef: {
+          type: 'string',
+          description: 'Opaque handle to the user-attached file (surfaced by the chat UI).',
+        },
+        subpath: {
+          type: 'string',
+          description:
+            'Directory inside the archive that contains SKILL.md. Use this when the archive holds multiple skills. Example: if the archive has "canva/SKILL.md" and "do-research/SKILL.md", pass subpath="do-research" to pick that one.',
+        },
+        scope: SCOPE_PARAM,
+        targetEmployeeId: TARGET_EMPLOYEE_PARAM,
+      },
+      required: ['fileRef'],
+    },
+  },
+  {
+    name: 'sync_from_claude_code',
+    description:
+      'List skills available under the local Claude Code config (~/.claude/skills/ and per-project .claude/skills/). Desktop only.',
+    parameters: {
+      type: 'object',
+      properties: {
+        filter: {
+          type: 'string',
+          description:
+            'Optional natural-language hint used to narrow candidate selection after the scan returns.',
+        },
+      },
+    },
+  },
+  {
+    name: 'sync_from_codex',
+    description:
+      'List skills available under the local Codex config (~/.codex/skills/). Desktop only.',
+    parameters: {
+      type: 'object',
+      properties: {
+        filter: {
+          type: 'string',
+          description:
+            'Optional natural-language hint used to narrow candidate selection after the scan returns.',
+        },
+      },
+    },
+  },
+]);
+
+export function buildSkillInstallTools(): ToolDef[] {
+  return SKILL_INSTALL_TOOL_DEFS as ToolDef[];
+}
+
+export function isSkillInstallTool(name: string): name is SkillInstallToolName {
+  return (SKILL_INSTALL_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+interface CommonArgs {
+  scope?: 'company' | 'employee';
+  targetEmployeeId?: string;
+}
+
+function validateScope(
+  args: CommonArgs,
+):
+  | { ok: true; scope: 'company' | 'employee'; employeeId: string | null }
+  | { ok: false; err: { kind: string; message: string } } {
+  const scope = args.scope ?? 'company';
+  if (scope === 'employee') {
+    if (!args.targetEmployeeId) {
+      return {
+        ok: false,
+        err: {
+          kind: 'missing-target-employee',
+          message: 'scope="employee" requires a targetEmployeeId.',
+        },
+      };
+    }
+    return { ok: true, scope: 'employee', employeeId: args.targetEmployeeId };
+  }
+  if (args.targetEmployeeId) {
+    return {
+      ok: false,
+      err: {
+        kind: 'scope-target-conflict',
+        message: 'scope="company" must not carry a targetEmployeeId.',
+      },
+    };
+  }
+  return { ok: true, scope: 'company', employeeId: null };
+}
+
+async function resolveTargetEmployee(
+  ctx: RuntimeContext,
+  employeeId: string | null,
+): Promise<
+  | { ok: true; name: string | null }
+  | { ok: false; err: { kind: 'target-employee-not-found'; message: string } }
+> {
+  if (!employeeId) return { ok: true, name: null };
+  const row = await ctx.repos.employees.findById(employeeId);
+  if (!row) {
+    return {
+      ok: false,
+      err: {
+        kind: 'target-employee-not-found',
+        message: `Employee ${employeeId} not found.`,
+      },
+    };
+  }
+  if (row.company_id !== ctx.companyId) {
+    return {
+      ok: false,
+      err: {
+        kind: 'target-employee-not-found',
+        message: `Employee ${employeeId} does not belong to company ${ctx.companyId}.`,
+      },
+    };
+  }
+  return { ok: true, name: row.name };
+}
+
+async function stageAndEmit(args: {
+  ctx: RuntimeContext;
+  tree: VirtualTree;
+  scan: ScannedSkill;
+  source: SkillInstallSource;
+  scope: 'company' | 'employee';
+  employeeId: string | null;
+  employeeName: string | null;
+  tmpPath?: string | undefined;
+  cleanup?: (() => Promise<void>) | undefined;
+}): Promise<
+  | { status: 'pending-confirm'; interactionId: string; stagingRef: string }
+  | { kind: string; message: string }
+> {
+  const { ctx, tree, scan } = args;
+  const stagingManager = ctx.skillStagingManager;
+  if (!stagingManager) {
+    return {
+      kind: 'skill-install-not-configured',
+      message: 'Skill install staging is not available on this runtime.',
+    };
+  }
+  const interactionService = ctx.interactionService;
+  if (!interactionService) {
+    return {
+      kind: 'skill-install-not-configured',
+      message: 'Interaction service required for skill install preview.',
+    };
+  }
+
+  const skillMdFile = tree.files.find((f) => f.path === scan.skillMdPath);
+  if (!skillMdFile) {
+    return {
+      kind: 'skill-md-invalid',
+      message: 'Scanner reported SKILL.md path but it is missing from the tree.',
+    };
+  }
+  const skillMdText = new TextDecoder('utf-8').decode(skillMdFile.content);
+  let parsed;
+  try {
+    parsed = parseSkillMd(skillMdText);
+  } catch (err) {
+    return {
+      kind: 'skill-md-invalid',
+      message: `SKILL.md could not be parsed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  const staged = stagingManager.put({
+    tree,
+    scan,
+    name: parsed.name,
+    description: parsed.description,
+    allowedTools: parsed.allowedTools ?? [],
+    skillMdText,
+    source: args.source,
+    companyId: ctx.companyId,
+    scope: args.scope,
+    employeeId: args.employeeId,
+    ...(args.tmpPath !== undefined ? { tmpPath: args.tmpPath } : {}),
+    ...(args.cleanup !== undefined ? { cleanup: args.cleanup } : {}),
+  });
+
+  const sourceRefLabel = describeSource(args.source);
+  const request: InteractionRequest = {
+    interactionId: generateId('ix'),
+    threadId: ctx.threadId,
+    companyId: ctx.companyId,
+    kind: 'skill_install_confirm',
+    severity:
+      parsed.allowedTools && parsed.allowedTools.some(isWideScopePattern) ? 'high' : 'normal',
+    title: `Install skill "${parsed.name}"?`,
+    prompt:
+      `Confirm installation of "${parsed.name}" into ` +
+      (args.scope === 'company'
+        ? 'the whole company.'
+        : `${args.employeeName ?? 'the selected employee'}.`),
+    options: [
+      { id: 'confirm', label: 'Install' },
+      { id: 'cancel', label: 'Cancel' },
+    ],
+    allowFreeformResponse: false,
+    requestedByNode: 'employee-node',
+    context: {
+      type: 'skill_install_confirm',
+      stagingRef: staged.stagingRef,
+      skillName: parsed.name,
+      skillDescription: parsed.description,
+      allowedTools: parsed.allowedTools ?? [],
+      sourceKind: args.source.kind as 'git' | 'upload' | 'claude-code' | 'codex',
+      sourceRef: sourceRefLabel,
+      resolvedScope: args.scope,
+      resolvedEmployeeId: args.employeeId,
+      resolvedEmployeeName: args.employeeName,
+      assetPaths: scan.assetPaths,
+      skillMdBody: parsed.body,
+    },
+    createdAt: Date.now(),
+  };
+  await interactionService.request(request);
+  return {
+    status: 'pending-confirm',
+    interactionId: request.interactionId,
+    stagingRef: staged.stagingRef,
+  };
+}
+
+function isWideScopePattern(pattern: string): boolean {
+  return /^(bash|network|fs|exec)(:|\*)/iu.test(pattern);
+}
+
+function describeSource(source: SkillInstallSource): string {
+  switch (source.kind) {
+    case 'marketplace':
+      return `marketplace:${source.listingId}`;
+    case 'git': {
+      const base = source.ref ? `${source.url}@${source.ref}` : source.url;
+      return source.subpath ? `${base} · ${source.subpath}` : base;
+    }
+    case 'upload':
+      return source.subpath ? `${source.filename} · ${source.subpath}` : source.filename;
+    case 'claude-code':
+      return source.path;
+    case 'codex':
+      return source.path;
+  }
+}
+
+export interface SkillInstallToolResult {
+  /** JSON-ish serializable result. Pending-confirm is the happy path; otherwise structured errors. */
+  value: unknown;
+}
+
+/**
+ * Entry point for the four skill-install tool calls. Always returns a string
+ * (the tool executor contract) — callers unwrap via JSON.parse if they need
+ * structured access. Every error path is a structured JSON so the LLM can
+ * reason about it instead of crashing.
+ */
+export async function handleSkillInstallTool(
+  toolName: SkillInstallToolName,
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+): Promise<string> {
+  const env = ctx.skillInstallEnvironment;
+  if (!env) {
+    return JSON.stringify({
+      kind: 'skill-install-not-configured',
+      message: 'Skill install environment is not available on this runtime.',
+    });
+  }
+
+  const commonCheck = validateScope(rawArgs as CommonArgs);
+  if (!commonCheck.ok) return JSON.stringify(commonCheck.err);
+
+  const target = await resolveTargetEmployee(ctx, commonCheck.employeeId);
+  if (!target.ok) return JSON.stringify(target.err);
+
+  switch (toolName) {
+    case 'install_skill_from_git': {
+      const url = String(rawArgs.url ?? '');
+      if (!url) return JSON.stringify({ kind: 'missing-argument', message: 'url is required.' });
+      const ref = typeof rawArgs.ref === 'string' ? rawArgs.ref : undefined;
+      const subpath = typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
+        ? rawArgs.subpath
+        : undefined;
+      const result = await resolveGitSource(
+        { url, ref, subpath },
+        {
+          runtime: env.runtime,
+          httpFetch: env.httpFetch,
+          ...(env.clone !== undefined ? { clone: env.clone } : {}),
+          ...(env.gitFs !== undefined ? { localFs: env.gitFs } : {}),
+        },
+      );
+      if (isResolverError(result)) return JSON.stringify(result);
+      const staged = await stageAndEmit({
+        ctx,
+        tree: result.tree,
+        scan: result.scan,
+        source: {
+          kind: 'git',
+          url,
+          ...(ref !== undefined ? { ref } : {}),
+          ...(subpath !== undefined ? { subpath } : {}),
+        },
+        scope: commonCheck.scope,
+        employeeId: commonCheck.employeeId,
+        employeeName: target.name,
+        ...(result.tmpPath !== undefined ? { tmpPath: result.tmpPath } : {}),
+        ...(result.tmpPath !== undefined && env.gitFs
+          ? { cleanup: () => env.gitFs!.cleanup(result.tmpPath!) }
+          : {}),
+      });
+      return JSON.stringify(staged);
+    }
+
+    case 'install_skill_from_upload': {
+      const fileRef = String(rawArgs.fileRef ?? '');
+      if (!fileRef)
+        return JSON.stringify({ kind: 'missing-argument', message: 'fileRef is required.' });
+      if (!env.uploadResolver) {
+        return JSON.stringify({
+          kind: 'upload-not-available',
+          message: 'Uploads are not wired on this runtime.',
+        });
+      }
+      const payload = await env.uploadResolver.resolve(fileRef);
+      if (!payload) {
+        return JSON.stringify({
+          kind: 'upload-ref-unknown',
+          message: `Upload ref "${fileRef}" not found.`,
+        });
+      }
+      const subpath = typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
+        ? rawArgs.subpath
+        : undefined;
+      const result = resolveUploadSource({
+        filename: payload.filename,
+        bytes: payload.bytes,
+        ...(subpath !== undefined ? { subpath } : {}),
+      });
+      if (isResolverError(result)) return JSON.stringify(result);
+      const staged = await stageAndEmit({
+        ctx,
+        tree: result.tree,
+        scan: result.scan,
+        source: {
+          kind: 'upload',
+          filename: payload.filename,
+          ...(subpath !== undefined ? { subpath } : {}),
+        },
+        scope: commonCheck.scope,
+        employeeId: commonCheck.employeeId,
+        employeeName: target.name,
+      });
+      return JSON.stringify(staged);
+    }
+
+    case 'sync_from_claude_code': {
+      const result = await resolveClaudeCodeSync({
+        runtime: env.runtime,
+        ...(env.localDir !== undefined ? { localDir: env.localDir } : {}),
+        ...(env.repoRoot !== undefined ? { repoRoot: env.repoRoot } : {}),
+      });
+      if (isResolverError(result)) return JSON.stringify(result);
+      return JSON.stringify({
+        kind: 'sync-candidates',
+        source: 'claude-code',
+        candidates: result.candidates.map((c) => ({
+          slug: c.slug,
+          name: c.name,
+          description: c.description,
+          path: c.path,
+        })),
+      });
+    }
+
+    case 'sync_from_codex': {
+      const result = await resolveCodexSync({
+        runtime: env.runtime,
+        ...(env.localDir !== undefined ? { localDir: env.localDir } : {}),
+      });
+      if (isResolverError(result)) return JSON.stringify(result);
+      return JSON.stringify({
+        kind: 'sync-candidates',
+        source: 'codex',
+        candidates: result.candidates.map((c) => ({
+          slug: c.slug,
+          name: c.name,
+          description: c.description,
+          path: c.path,
+        })),
+      });
+    }
+  }
+}
