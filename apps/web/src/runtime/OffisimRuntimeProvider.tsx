@@ -1,4 +1,4 @@
-import { EmployeeVersionService } from '@offisim/core/browser';
+import { EmployeeVersionService, handleSkillInstallTool } from '@offisim/core/browser';
 import type { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
 import {
   OffisimRuntimeContext,
@@ -126,15 +126,12 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         companyId,
         pendingInteraction: pendingInteraction ?? null,
         respondToInteraction,
-        runSkillInstallTool: async (toolName, args = {}) => {
+        runSkillInstallTool: async (toolName: string, args: Record<string, unknown> = {}) => {
           const activeRuntime = runtimeRef.current;
           const runtimeCtx = activeRuntime?.runtimeCtx;
           if (!runtimeCtx) {
             throw new Error('Runtime context unavailable');
           }
-          const { handleSkillInstallTool } = await import(
-            '@offisim/core/dist/agents/skill-install-tools.js'
-          );
           const raw = await handleSkillInstallTool(toolName as never, args, runtimeCtx);
           try {
             return JSON.parse(raw);

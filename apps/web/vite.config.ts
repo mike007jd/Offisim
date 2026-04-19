@@ -305,7 +305,12 @@ export default defineConfig(({ command, mode }) => {
             if (
               id.includes('/packages/install-core/dist/') ||
               id.includes('/packages/asset-schema/dist/') ||
-              id.includes('/packages/renderer/dist/')
+              id.includes('/packages/renderer/dist/') ||
+              id.includes('/packages/core/dist/skills/') ||
+              id.includes('/packages/core/dist/agents/skill-install-tools') ||
+              id.endsWith('/apps/web/src/lib/skill-install-env.ts') ||
+              id.endsWith('/apps/web/src/lib/tauri-skill-install-adapters.ts') ||
+              id.endsWith('/apps/web/src/lib/github-tarball.ts')
             ) {
               return 'app-install';
             }
