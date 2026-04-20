@@ -1,4 +1,31 @@
-## ADDED Requirements
+# llm-gateway-provider-binding Specification
+
+## Purpose
+TBD - created by archiving change fix-boss-scope-openai-hardcode-leak. Update Purpose after archive.
+## Requirements
+### Requirement: ProviderConfig load rejects unusable half-records
+
+`normalizeProviderConfig(parsed)` in `packages/ui-office/src/lib/provider-config.ts` SHALL return `null` when the parsed record names a non-`subscription` provider but carries neither an `apiKey` string nor a `baseURL` string. Legacy short-format records (e.g. `{"provider":"openai","model":"gpt-4o-mini"}` written by an earlier ProviderConfig schema) and manually-seeded half records from DevTools SHALL fall through to `null`, letting `loadProviderConfig()` cascade to env fallback and ultimately to the `*RuntimeReposOnly` empty-state branch instead of silently synthesizing an OpenAI gateway against `api.openai.com` with an empty credential.
+
+`subscription` (ACP) is the only exempt provider — it spawns `claude` via `node:child_process` and carries no HTTP credential.
+
+#### Scenario: Stale {provider:'openai',model:'gpt-4o-mini'} record rejected
+
+- **WHEN** localStorage holds a legacy record `{"provider":"openai","model":"gpt-4o-mini"}` with no `apiKey` and no `baseURL`
+- **THEN** `loadProviderConfig()` returns `null`, not the half-record
+- **AND** `buildRuntimeBundle(null, ...)` routes to `createTauriRuntimeReposOnly` / `createBrowserRuntimeReposOnly` with no LLM gateway
+- **AND** no outbound HTTP request to `api.openai.com` occurs
+
+#### Scenario: Valid third-party config with baseURL still loads
+
+- **WHEN** localStorage holds `{"provider":"anthropic","vendor":"minimax","baseURL":"https://api.minimax.io/anthropic","model":"MiniMax-M2.7-highspeed",...}` (Tauri-persisted form, `apiKey` stripped by `toPersistedConfig`)
+- **THEN** `normalizeProviderConfig` accepts it because `baseURL` is present
+- **AND** `loadProviderConfig()` returns the normalized config for the runtime to consume
+
+#### Scenario: Subscription provider exempt from apiKey/baseURL check
+
+- **WHEN** a record carries `{"provider":"subscription","model":"default",...}` with neither `apiKey` nor `baseURL`
+- **THEN** `normalizeProviderConfig` returns the record (not null) because `subscription` is exempt
 
 ### Requirement: A runtime has exactly one LlmGateway bound to its ProviderConfig
 
@@ -48,3 +75,4 @@ Changing the ProviderConfig (via Settings UI save / env reload / live verify fil
 - **WHEN** auditing `ModelRegistry` usage across apps/web + ui-office
 - **THEN** EITHER a caller initializes + loads it with a real model list (and wires `ctx.modelRegistry` in runtime factory), OR the field is dropped from `RuntimeContext` and the `ctx.modelRegistry?.getGateway(...)` short-circuit is removed
 - **AND** a half-configured state where the type allows it but no caller uses it SHALL NOT persist (current state is an invitation for future bugs)
+
