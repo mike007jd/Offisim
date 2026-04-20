@@ -134,6 +134,21 @@ Residual non-blocker noise (ignored):
 
 ### 9.4 Desktop · upload (zip with scripts/)
 
+**Status (2026-04-20): Observation, not live-verified this round.** No chat UI affordance
+to attach a file exists yet; only programmatic path is injecting into
+`InMemoryUploadRefResolver` via DevTools. Codex triaged this against web first and the
+web build does not expose the resolver on `__OFFISIM_DEBUG__`; desktop path would require
+a Computer Use-driven fixture with a hand-crafted zip. Skipped to keep archive gate
+tight.
+
+Code evidence the path is wired: `packages/core/src/skills/skill-source-resolvers/upload.ts`
+(fflate decode + SKILL.md scan), `packages/ui-office/src/components/chat/SkillInstallConfirmBubble.tsx`
+(Assets section renders `scripts/` `references/` `assets/` groups),
+`packages/core/src/skills/skill-install-committer.ts` (writes assets through `SkillLoader.installSkill`).
+
+Followup: add a chat-panel "Attach file" affordance (listed in
+`## Deferred followups` #1) before running this as live.
+
 - [ ] Prepare a zip with `SKILL.md` + `scripts/run.sh`
 - [ ] Register via devtools: `runtime.uploadRefResolver.put('up-1', 'skill.zip', bytes)`
 - [ ] Ask the employee: "Install the uploaded skill, ref `up-1`."
@@ -141,6 +156,17 @@ Residual non-blocker noise (ignored):
 - [ ] Confirm → vault has `scripts/run.sh` under the skill dir
 
 ### 9.5 Desktop · sync_from_claude_code
+
+**Status (2026-04-20): Observation, not live-verified this round.** Running this on
+desktop requires a `~/.claude/skills/` fixture tree plus a live Tauri session; the
+boss-layer LLM would also have to reliably route to `sync_from_claude_code`, which 9.6's
+observation shows is not guaranteed today. Pushed to a T2.2+ follow-up that ships
+together with the fixture harness.
+
+Code evidence: `packages/core/src/skills/skill-source-resolvers/claude-code.ts`
+(filesystem scan + 50-candidate cap + `sync-too-many-candidates` error),
+`packages/core/src/agents/skill-install-tools.ts` (`sync_from_claude_code` handler returns
+`{ kind: 'sync-candidates', source: 'claude-code', candidates }`).
 
 - [ ] Ensure `~/.claude/skills/review-code/SKILL.md` exists (write a test fixture if needed)
 - [ ] Ask: "Sync from Claude Code — find review-related skills."
@@ -151,11 +177,34 @@ Residual non-blocker noise (ignored):
 
 ### 9.6 Web · sync_from_claude_code rejected
 
+**Status (2026-04-20): Observation, not live-verified this round.** Codex re-ran the
+prompt in a real browser but boss-layer LLM did not stably route to
+`sync_from_claude_code`; it entered a clarification / delegate path first. Resolver
+contract is still deterministic.
+
+Code evidence: `packages/core/src/skills/skill-source-resolvers/claude-code.ts` short-circuits
+when `runtime !== 'desktop'` and returns `{ kind: 'not-supported-in-web' }` regardless of
+arguments.
+
+Residual risk is LLM routing stability, not resolver behavior. Not a blocker for
+archive; track under broader boss-routing quality work.
+
 - [ ] Ask the same "Sync from Claude Code" prompt on web
 - [ ] Tool returns `{ kind: 'not-supported-in-web' }`
 - [ ] LLM reply should acknowledge the restriction and suggest desktop / upload
 
 ### 9.7 Path traversal rejection (T2.1 deferred 11.8)
+
+**Status (2026-04-20): Observation, not live-verified this round.** Same class as 9.4 —
+needs a hand-crafted zip through the programmatic upload path.
+
+Code evidence: `packages/core/src/skills/skill-loader.ts` `installSkill` tier-3 guard
+rejects `..`, absolute paths, and any prefix outside `scripts/` / `references/` /
+`assets/` before any disk write. Full rollback path (written files deleted, no `skills`
+row inserted) is in `installSkill`'s write-through wrapper.
+
+Followup: ship upload UI + fixture, then collapse 9.4 / 9.7 / 9.8 into a single Desktop
+verification run.
 
 - [ ] Craft a zip with an entry named `scripts/../../../etc/passwd`
 - [ ] Preview should render (scanner does not enforce traversal)
@@ -164,11 +213,31 @@ Residual non-blocker noise (ignored):
 
 ### 9.8 Slug collision (T2.1 deferred 11.7)
 
+**Status (2026-04-20): Observation, not live-verified this round.** Requires two
+different `source_ref` values for the same slug; the programmatic path (git URL A vs
+URL B with matching subpath) works but each step needs a confirm-bubble click, and we
+haven't scripted that flow in live this round.
+
+Code evidence: `packages/core/src/skills/skill-loader.ts` `installSkill` queries
+`skills` by `(companyId, null, slug)` (company scope) or
+`(companyId, employee_id, slug)` (employee scope) before write; mismatched `source_ref`
+throws `SkillInstallError` `slug-collision`. Employee-scope override on same slug is
+explicitly allowed (→ 9.9).
+
 - [ ] Install `do-research` from source A
 - [ ] Install another `do-research` from a different URL
 - [ ] Second preview renders; confirm → `SkillInstallError` `slug-collision`
 
 ### 9.9 Cross-scope override (T2.1 deferred 11.9)
+
+**Status (2026-04-20): Observation, not live-verified this round.** Needs two
+back-to-back installs (company then employee) of the same slug — mechanical rather than
+investigative. Deferred with 9.4 / 9.7 / 9.8.
+
+Code evidence: `packages/core/src/skills/skill-loader.ts` `listSkillsForEmployee` merges
+`skills` rows with employee scope overriding company scope on slug collision (DB
+uses two partial `UNIQUE` indices — `WHERE employee_id IS NULL` vs `IS NOT NULL` — so
+the same slug can live in both buckets simultaneously).
 
 - [ ] Install `email-triage` at company scope
 - [ ] Install `email-triage` at employee scope for Alice
@@ -176,6 +245,17 @@ Residual non-blocker noise (ignored):
 - [ ] Other employees still see the company-scope row
 
 ### 9.10 Desktop migration (T2.1 deferred 11.3)
+
+**Status (2026-04-20): Observation, not live-verified this round.** Seeding a legacy
+`config_json.runtimeSkill` row into a live desktop DB before vault activation requires
+either a fixture DB or manual SQL injection on the Application Support directory.
+
+Code evidence: `packages/core/src/skills/skills-bootstrap.ts` `migrateRuntimeSkills`
+scans every company's employees, synthesizes employee-scope SKILL.md +
+`source_kind='synthesized'` / `source_ref='legacy:runtimeSkill'` rows, strips the old
+field, and writes `settings.skills_migration_v1_done`. Runs inside
+`onVaultReadyForSkills` (shared between web / tauri / tauri-lite runtimes) so trigger is
+real-world first-vault-activation.
 
 - [ ] Seed a Desktop SQLite DB with one employee carrying a legacy
       `config_json.runtimeSkill` and NO `settings.skills_migration_v1_done` marker
@@ -185,11 +265,37 @@ Residual non-blocker noise (ignored):
 
 ### 9.11 Cancel / timeout
 
+**Status (2026-04-20): Observation, not live-verified this round.** Cancel-click path
+is trivially reachable in UI, but the web chat side of `respondToInteraction()` does not
+surface `staging-expired` as a distinct outcome — it returns static
+`"Skill installed." / "Skill install cancelled."` messages regardless of committer
+result. See `apps/web/src/runtime/hooks/useInteractionSync.ts` and
+`apps/web/src/runtime/interaction-follow-up.ts`. So even if the TTL fires, the web UI
+does not yet expose a result face to prove it.
+
+Code evidence (backend): `packages/core/src/skills/skill-install-committer.ts` returns
+`{ status: 'staging-expired' }` when the staging ref is missing or past 30-min TTL;
+`skill-staging.ts` runs a GC interval and clears expired entries.
+
+Followup: extend the web interaction follow-up pipe to carry committer outcome into
+chat reply (tracked as T2.2+ polish).
+
 - [ ] Trigger `install_skill_from_git`, click **Cancel** → `staging` cleared, no row
 - [ ] Trigger another install, wait 30 min or stub `now`, click **Install** → returns
       `staging-expired` outcome, LLM acknowledges
 
 ### 9.12 Wide-scope pattern red badge
+
+**Status (2026-04-20): Observation, not live-verified this round.** Same gap as 9.4 /
+9.7 — no chat upload UI, so crafting a custom SKILL.md with
+`allowedTools: ['bash:*', 'network:read']` on the live web path is not cheap. Could be
+hit via a desktop fixture git repo, but deferred with the other upload-type items.
+
+Code evidence: `packages/ui-office/src/components/chat/SkillInstallConfirmBubble.tsx`
+renders each allowedTools entry; the `isWideScopePattern` helper
+(`packages/core/src/agents/skill-install-tools.ts`) already drives the interaction
+`severity: 'high'` flag — the preview bubble reads that flag and styles wide-scope tokens
+accordingly.
 
 - [ ] Craft a SKILL.md with `allowedTools: ['bash:*', 'network:read']`
 - [ ] Preview bubble: `bash:*` rendered with `data-wide-scope="true"` + red style,
