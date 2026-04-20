@@ -80,12 +80,30 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
       }
 
       if (isSkillInstallTool(toolCall.name)) {
-        const result = await handleSkillInstallTool(
-          toolCall.name as SkillInstallToolName,
-          toolCall.arguments,
-          runtimeCtx,
-        );
-        return { callId: toolCall.id, name: toolCall.name, result };
+        try {
+          const result = await handleSkillInstallTool(
+            toolCall.name as SkillInstallToolName,
+            toolCall.arguments,
+            runtimeCtx,
+            employee.employee_id,
+          );
+          return { callId: toolCall.id, name: toolCall.name, result };
+        } catch (err) {
+          // T2.3 live-verify instrumentation: dump full stack so 9.10 readonly
+          // assignment can be localized. handleSkillInstallTool has its own
+          // top-level catch but we keep this belt-and-braces in case the throw
+          // originates from the awaited Promise itself.
+          try {
+            const stack =
+              err instanceof Error
+                ? `${err.name}: ${err.message}\n${err.stack ?? '(no stack)'}`
+                : String(err);
+            console.error(`[tool-round/${toolCall.name}] ${stack}`);
+          } catch {
+            /* noop */
+          }
+          throw err;
+        }
       }
 
       // PRD 2.3: Verify workstation access using pre-resolved tool set (avoids N+1 queries).

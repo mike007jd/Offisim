@@ -38,11 +38,14 @@ export async function assembleToolKit(
     virtualTools.push(...buildMemoryTools());
   }
 
-  // Skill-install tools are exposed to every employee (internal + external / A2A)
-  // regardless of role. The handler returns structured `not-supported-in-web`
-  // errors when the runtime lacks desktop-only adapters, so offering the tools
-  // on web is still useful — the LLM surfaces the restriction conversationally.
-  if (runtimeCtx.skillInstallEnvironment && runtimeCtx.skillStagingManager) {
+  // Skill-mutation tools are exposed to every employee (internal + external /
+  // A2A) regardless of role. The handlers return structured
+  // `not-supported-in-web` errors when the runtime lacks desktop-only adapters,
+  // so offering the tools on web is still useful — the LLM surfaces the
+  // restriction conversationally. Fork / edit only require the staging manager
+  // and skill loader; the install-family still requires the environment but
+  // the gate below is permissive because the handlers self-check.
+  if (runtimeCtx.skillStagingManager && runtimeCtx.skillLoader) {
     virtualTools.push(...buildSkillInstallTools());
   }
 

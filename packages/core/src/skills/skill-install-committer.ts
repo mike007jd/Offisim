@@ -7,7 +7,7 @@ import type {
 } from '../services/interaction-service.js';
 import { Logger } from '../services/logger.js';
 import type { SkillLoader } from './skill-loader.js';
-import type { SkillStagingManager } from './skill-staging.js';
+import type { SkillStagingManager, StagedSkill, StagedSkillInstall } from './skill-staging.js';
 
 const logger = new Logger('skill-install-committer');
 
@@ -37,7 +37,7 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
     if (context?.type !== 'skill_install_confirm') {
       return { kind: 'cancelled' };
     }
-    const { staging, skillLoader } = this.deps;
+    const { staging } = this.deps;
 
     if (response.selectedOptionId !== 'confirm') {
       await staging.release(context.stagingRef);
@@ -49,44 +49,24 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
       return { kind: 'staging-expired' };
     }
 
-    const assets: { relPath: string; content: Uint8Array | string }[] = [];
-    const rootPrefix = staged.scan.root.length > 0 ? `${staged.scan.root}/` : '';
-    for (const file of staged.tree.files) {
-      if (file.path === staged.scan.skillMdPath) continue;
-      const rel = rootPrefix.length > 0 ? file.path.slice(rootPrefix.length) : file.path;
-      if (staged.scan.assetPaths.includes(rel)) {
-        assets.push({ relPath: rel, content: file.content });
-      }
-    }
-
     try {
-      const { row, wasExisting } = await skillLoader.installSkill({
-        scope: staged.scope,
-        companyId: staged.companyId,
-        ...(staged.employeeId ? { employeeId: staged.employeeId } : {}),
-        name: staged.name,
-        description: staged.description,
-        source: staged.source,
-        files: {
-          skillMd: staged.skillMdText,
-          assets,
-        },
-      });
-      if (staged.cleanup) {
-        try {
-          await staged.cleanup();
-        } catch {
-          /* best-effort */
-        }
+      if (staged.action === 'edit') {
+        return await this.commitEdit(staged);
       }
-      return { kind: 'installed', skillId: row.skill_id, wasExisting };
+      return await this.commitInstallOrFork(staged);
     } catch (err) {
-      logger.warn('installSkill failed after user confirm', {
+      logger.warn('skill mutation failed after user confirm', {
         stagingRef: context.stagingRef,
+        action: staged.action,
         error: err instanceof Error ? err.message : String(err),
       });
       const maybeKind = (err as { kind?: unknown } | null)?.kind;
-      const errorKind = typeof maybeKind === 'string' && maybeKind ? maybeKind : 'install-failed';
+      const errorKind =
+        typeof maybeKind === 'string' && maybeKind
+          ? maybeKind
+          : staged.action === 'edit'
+            ? 'edit-failed'
+            : 'install-failed';
       this.deps.eventBus?.emit(
         errorOccurred(
           this.deps.companyId,
@@ -103,5 +83,57 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
         message: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  private async commitInstallOrFork(
+    staged: StagedSkillInstall,
+  ): Promise<SkillInstallConfirmOutcome> {
+    const { skillLoader } = this.deps;
+    const assets: { relPath: string; content: Uint8Array | string }[] = [];
+    const rootPrefix = staged.scan.root.length > 0 ? `${staged.scan.root}/` : '';
+    for (const file of staged.tree.files) {
+      if (file.path === staged.scan.skillMdPath) continue;
+      const rel = rootPrefix.length > 0 ? file.path.slice(rootPrefix.length) : file.path;
+      if (staged.scan.assetPaths.includes(rel)) {
+        assets.push({ relPath: rel, content: file.content });
+      }
+    }
+    const { row, wasExisting } = await skillLoader.installSkill({
+      scope: staged.scope,
+      companyId: staged.companyId,
+      ...(staged.employeeId ? { employeeId: staged.employeeId } : {}),
+      name: staged.name,
+      description: staged.description,
+      source: staged.source,
+      files: {
+        skillMd: staged.skillMdText,
+        assets,
+      },
+    });
+    if (staged.cleanup) {
+      try {
+        await staged.cleanup();
+      } catch {
+        /* best-effort */
+      }
+    }
+    return { kind: 'installed', skillId: row.skill_id, wasExisting };
+  }
+
+  private async commitEdit(
+    staged: Extract<StagedSkill, { action: 'edit' }>,
+  ): Promise<SkillInstallConfirmOutcome> {
+    const { row } = await this.deps.skillLoader.editSkillBody({
+      skillId: staged.skillId,
+      newBody: staged.newBody,
+    });
+    if (staged.cleanup) {
+      try {
+        await staged.cleanup();
+      } catch {
+        /* best-effort */
+      }
+    }
+    return { kind: 'edited', skillId: row.skill_id };
   }
 }

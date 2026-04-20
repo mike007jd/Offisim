@@ -43,7 +43,22 @@ export interface AgentQuestionInteractionContext {
   readonly questionKey?: string | null;
 }
 
-export type SkillInstallSourceKind = 'git' | 'upload' | 'claude-code' | 'codex';
+export type SkillInstallSourceKind = 'git' | 'upload' | 'claude-code' | 'codex' | 'fork';
+
+/** Three-way discriminator: install / fork / edit. Absent value = legacy install. */
+export type SkillMutationAction = 'install' | 'fork' | 'edit';
+
+export interface SkillInstallConfirmParent {
+  readonly skillId: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly version: string;
+}
+
+export interface SkillInstallConfirmBodyDiff {
+  readonly oldPreview: string;
+  readonly newPreview: string;
+}
 
 export interface SkillInstallConfirmInteractionContext {
   readonly type: 'skill_install_confirm';
@@ -58,6 +73,20 @@ export interface SkillInstallConfirmInteractionContext {
   readonly resolvedEmployeeName?: string | null;
   readonly assetPaths: readonly string[];
   readonly skillMdBody?: string;
+  /**
+   * install | fork | edit discriminator. Optional for backwards-compat with
+   * T2.2 callers that only produced install requests; consumers SHALL treat
+   * an absent value as `'install'`.
+   */
+  readonly action?: SkillMutationAction;
+  /** Required iff `action === 'fork'`. Carries parent skill metadata. */
+  readonly parent?: SkillInstallConfirmParent;
+  /**
+   * Required iff `action === 'edit'`. Each preview is ≤ 160 UTF-16 code units
+   * with `…` appended when the source exceeded 160 — the full body lives in
+   * staging and never rides on the wire.
+   */
+  readonly bodyDiff?: SkillInstallConfirmBodyDiff;
 }
 
 export type InteractionContext =

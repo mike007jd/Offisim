@@ -1,8 +1,27 @@
 import type { SkillInstallSource } from './skill-loader.js';
 import type { ScannedSkill, VirtualTree } from './skill-source-resolvers/types.js';
 
-export interface StagedSkill {
+export interface StagedSkillBase {
   stagingRef: string;
+  /** Epoch-ms when this entry was created. */
+  createdAt: number;
+  /** Epoch-ms after which the entry is evicted. */
+  expiresAt: number;
+  /** Desktop-only: git tmp clone path the caller should cleanup. */
+  tmpPath?: string | undefined;
+  /** Optional cleanup hook (e.g. rm tmp dir); invoked on expiry or explicit release. */
+  cleanup?: (() => Promise<void>) | undefined;
+  /** Company + scope the mutation will land in (LLM-resolved). */
+  companyId: string;
+}
+
+export interface StagedSkillInstall extends StagedSkillBase {
+  /**
+   * `'install'` for the four T2.2 import tools; `'fork'` for a company-scope
+   * skill being copied into an employee bucket. Both share the install-tree
+   * shape because fork is a byte-identical copy from the parent.
+   */
+  action: 'install' | 'fork';
   /** Virtual tree captured from a resolver; asset bytes live here. */
   tree: VirtualTree;
   /** Scanner output locating SKILL.md + asset paths relative to `tree`. */
@@ -14,19 +33,21 @@ export interface StagedSkill {
   /** Full SKILL.md text (frontmatter + body) — preview bubble renders this. */
   skillMdText: string;
   source: SkillInstallSource;
-  /** Epoch-ms when this entry was created. */
-  createdAt: number;
-  /** Epoch-ms after which the entry is evicted. */
-  expiresAt: number;
-  /** Desktop-only: git tmp clone path the caller should cleanup. */
-  tmpPath?: string | undefined;
-  /** Optional cleanup hook (e.g. rm tmp dir); invoked on expiry or explicit release. */
-  cleanup?: (() => Promise<void>) | undefined;
-  /** Company + scope the install will land in (LLM-resolved). */
-  companyId: string;
   scope: 'company' | 'employee';
   employeeId: string | null;
 }
+
+export interface StagedSkillEdit extends StagedSkillBase {
+  action: 'edit';
+  /** `skills.skill_id` of the row whose SKILL.md body is being rewritten. */
+  skillId: string;
+  /** New SKILL.md body (frontmatter preserved — never included here). */
+  newBody: string;
+  /** Resolved employee owner (always scope='employee'). */
+  employeeId: string;
+}
+
+export type StagedSkill = StagedSkillInstall | StagedSkillEdit;
 
 export interface SkillStagingManagerOpts {
   ttlMs?: number;
@@ -73,15 +94,21 @@ export class SkillStagingManager {
     }
   }
 
-  put(entry: Omit<StagedSkill, 'stagingRef' | 'createdAt' | 'expiresAt'>): StagedSkill {
+  /**
+   * Distributive over the `StagedSkill` union — each variant's non-base fields
+   * are preserved when the caller narrows via `entry.action`.
+   */
+  put<T extends StagedSkill>(
+    entry: T extends unknown ? Omit<T, 'stagingRef' | 'createdAt' | 'expiresAt'> : never,
+  ): T {
     const stagingRef = this.idFactory();
     const createdAt = this.now();
-    const staged: StagedSkill = {
+    const staged = {
       ...entry,
       stagingRef,
       createdAt,
       expiresAt: createdAt + this.ttlMs,
-    };
+    } as unknown as T;
     this.store.set(stagingRef, staged);
     return staged;
   }

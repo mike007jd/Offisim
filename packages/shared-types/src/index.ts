@@ -116,6 +116,9 @@ export type {
   PlanReviewInteractionContext,
   AgentQuestionInteractionContext,
   SkillInstallSourceKind,
+  SkillMutationAction,
+  SkillInstallConfirmParent,
+  SkillInstallConfirmBodyDiff,
   SkillInstallConfirmInteractionContext,
   InteractionContext,
   InteractionRequest,
@@ -258,8 +261,9 @@ export type {
   SkillRow,
   SkillMdParseErrorKind,
   SkillAssetErrorKind,
+  SkillEditErrorKind,
 } from './skill.js';
-export { SkillMdParseError, SkillAssetError } from './skill.js';
+export { SkillMdParseError, SkillAssetError, SkillEditError } from './skill.js';
 export {
   parseEmployeePersona,
   parseEmployeeConfig,

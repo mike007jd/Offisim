@@ -50,6 +50,11 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - DB 表 `skills`（migration 025 / desktop v31）：`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
 - 旧 `runtimeSkill` 迁移：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表也是 025 加的）
 - 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
+- **Fork + edit API（T2.3）**：
+  - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`
+  - `readSkillDirectory(skillId)` 批量读 SKILL.md + `scripts/`/`references/`/`assets/` 全树（深度遍历），fork 用来 snapshot parent
+  - `editSkillBody({ skillId, newBody })` 独立入口：不走 installSkill，不改 slug / scope / source_kind / source_ref / vault_path，只重写 body + bump `version` 小位（`bumpPatch` module-level helper，非 semver 输入返 `null` → 抛 `SkillEditError` kind `version-bump-failed`）。Loader 层不做 ownership 校验（generic write API，后续 T2.5 / T2.6 复用）
+  - **Fork provenance DB-only**：SKILL.md frontmatter 不扩 `offisim.*`，保 Anthropic 开放标准 portability。parent slug / version 只进 `skills` row（`source_kind` + `source_ref`）
 
 ## Employee Vault (Obsidian-style, Phase 1)
 

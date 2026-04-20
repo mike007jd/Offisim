@@ -48,6 +48,7 @@ export interface InteractionPendingStore {
 
 export type SkillInstallConfirmOutcome =
   | { kind: 'installed'; skillId: string; wasExisting: boolean }
+  | { kind: 'edited'; skillId: string }
   | { kind: 'cancelled' }
   | { kind: 'staging-expired' }
   | { kind: 'error'; errorKind: string; message: string };

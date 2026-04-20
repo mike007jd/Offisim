@@ -1,6 +1,7 @@
 import type {
   InteractionRequest,
   SkillInstallConfirmInteractionContext,
+  SkillMutationAction,
 } from '@offisim/shared-types';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 import { useMemo, useState } from 'react';
@@ -50,6 +51,46 @@ function describeSource(
       return `Claude Code · ${ref}`;
     case 'codex':
       return `Codex · ${ref}`;
+    case 'fork':
+      return `Fork · ${ref}`;
+  }
+}
+
+function resolveEmployeeLabel(context: SkillInstallConfirmInteractionContext): string {
+  return (
+    context.resolvedEmployeeName ?? context.resolvedEmployeeId ?? 'the selected employee'
+  );
+}
+
+function headerTitle(
+  action: SkillMutationAction,
+  skillName: string,
+  context: SkillInstallConfirmInteractionContext,
+): string {
+  switch (action) {
+    case 'fork':
+      return `Fork skill · ${context.parent?.name ?? skillName}`;
+    case 'edit':
+      return `Edit skill · ${skillName}`;
+    case 'install':
+      return `Install skill · ${skillName}`;
+  }
+}
+
+function confirmStateLabel(
+  action: SkillMutationAction,
+  hasWideScopeTool: boolean,
+): { label: string; variant: 'secondary' | 'error' } {
+  if (action === 'install' && hasWideScopeTool) {
+    return { label: 'Review permissions', variant: 'error' };
+  }
+  switch (action) {
+    case 'fork':
+      return { label: 'Confirm fork', variant: 'secondary' };
+    case 'edit':
+      return { label: 'Confirm edit', variant: 'secondary' };
+    case 'install':
+      return { label: 'Confirm install', variant: 'secondary' };
   }
 }
 
@@ -64,6 +105,8 @@ export function SkillInstallConfirmBubble({
   const partitioned = useMemo(() => partitionAssets(context.assetPaths), [context.assetPaths]);
   const body = context.skillMdBody ?? '';
   const hasWideScopeTool = context.allowedTools.some(isWideScope);
+  const action: SkillMutationAction = context.action ?? 'install';
+  const badge = confirmStateLabel(action, hasWideScopeTool);
 
   async function handle(optionId: string) {
     setPendingOption(optionId);
@@ -77,76 +120,119 @@ export function SkillInstallConfirmBubble({
   const scopeLabel =
     context.resolvedScope === 'company'
       ? 'Company (all employees)'
-      : `Employee: ${context.resolvedEmployeeName ?? context.resolvedEmployeeId ?? 'selected employee'}`;
+      : `Employee: ${resolveEmployeeLabel(context)}`;
 
   return (
     <Card className="border-white/10 bg-black/30 backdrop-blur-md">
       <CardHeader className="gap-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm text-white">Install skill · {context.skillName}</CardTitle>
-          <Badge variant={hasWideScopeTool ? 'error' : 'secondary'}>
-            {hasWideScopeTool ? 'Review permissions' : 'Confirm install'}
-          </Badge>
+          <CardTitle className="text-sm text-white">
+            {headerTitle(action, context.skillName, context)}
+          </CardTitle>
+          <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
         {employeeName && <span className="text-xs text-slate-400">From: {employeeName}</span>}
-        <p className="whitespace-pre-wrap text-xs text-slate-300">{context.skillDescription}</p>
+        {action !== 'edit' && (
+          <p className="whitespace-pre-wrap text-xs text-slate-300">{context.skillDescription}</p>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <section className="space-y-1.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Permissions
-          </div>
-          {context.allowedTools.length === 0 ? (
-            <p className="text-xs text-slate-500">No tools declared.</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {context.allowedTools.map((tool) => (
-                <span
-                  key={tool}
-                  className={
-                    isWideScope(tool)
-                      ? 'rounded-md border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200'
-                      : 'rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200'
-                  }
-                  data-wide-scope={isWideScope(tool) ? 'true' : 'false'}
-                >
-                  {tool}
-                </span>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-1.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Source
-          </div>
-          <p className="break-all text-xs text-slate-200">
-            {describeSource(context.sourceKind, context.sourceRef)}
-          </p>
-        </section>
-
-        <section className="space-y-1.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Scope
-          </div>
-          <p className="text-xs text-slate-200">{scopeLabel}</p>
-        </section>
-
-        {(partitioned.scripts.length > 0 ||
-          partitioned.references.length > 0 ||
-          partitioned.assets.length > 0) && (
+        {action === 'fork' && context.parent && (
           <section className="space-y-1.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Assets
+              Fork
             </div>
-            <AssetGroup label="scripts/" paths={partitioned.scripts} />
-            <AssetGroup label="references/" paths={partitioned.references} />
-            <AssetGroup label="assets/" paths={partitioned.assets} />
+            <p className="text-xs text-slate-200">
+              {`"${context.parent.name}@${context.parent.version}" → ${resolveEmployeeLabel(context)}`}
+            </p>
+            <p className="text-[11px] text-slate-500">Parent: {context.parent.slug}</p>
           </section>
         )}
 
-        {body.length > 0 && (
+        {action === 'edit' && context.bodyDiff && (
+          <section className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Body diff
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div>
+                <div className="text-[11px] text-slate-400">Old</div>
+                <div className="mt-1 rounded-md border border-white/10 bg-black/30 p-2 text-[11px] text-slate-300 whitespace-pre-wrap break-words">
+                  {context.bodyDiff.oldPreview || <span className="text-slate-500">(empty)</span>}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">New</div>
+                <div className="mt-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] text-emerald-100 whitespace-pre-wrap break-words">
+                  {context.bodyDiff.newPreview || <span className="text-slate-500">(empty)</span>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {action === 'install' && (
+          <section className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Permissions
+            </div>
+            {context.allowedTools.length === 0 ? (
+              <p className="text-xs text-slate-500">No tools declared.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {context.allowedTools.map((tool) => (
+                  <span
+                    key={tool}
+                    className={
+                      isWideScope(tool)
+                        ? 'rounded-md border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200'
+                        : 'rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200'
+                    }
+                    data-wide-scope={isWideScope(tool) ? 'true' : 'false'}
+                  >
+                    {tool}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {action === 'install' && (
+          <section className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Source
+            </div>
+            <p className="break-all text-xs text-slate-200">
+              {describeSource(context.sourceKind, context.sourceRef)}
+            </p>
+          </section>
+        )}
+
+        {action !== 'edit' && (
+          <section className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Scope
+            </div>
+            <p className="text-xs text-slate-200">{scopeLabel}</p>
+          </section>
+        )}
+
+        {action === 'install' &&
+          (partitioned.scripts.length > 0 ||
+            partitioned.references.length > 0 ||
+            partitioned.assets.length > 0) && (
+            <section className="space-y-1.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Assets
+              </div>
+              <AssetGroup label="scripts/" paths={partitioned.scripts} />
+              <AssetGroup label="references/" paths={partitioned.references} />
+              <AssetGroup label="assets/" paths={partitioned.assets} />
+            </section>
+          )}
+
+        {action === 'install' && body.length > 0 && (
           <section className="space-y-1.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               SKILL.md preview

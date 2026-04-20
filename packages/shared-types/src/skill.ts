@@ -63,3 +63,17 @@ export class SkillAssetError extends Error {
     this.relPath = relPath;
   }
 }
+
+export type SkillEditErrorKind = 'skill-not-found' | 'skill-md-invalid' | 'version-bump-failed';
+
+export class SkillEditError extends Error {
+  readonly kind: SkillEditErrorKind;
+  readonly skillId: string | undefined;
+
+  constructor(kind: SkillEditErrorKind, message: string, skillId?: string) {
+    super(message);
+    this.name = 'SkillEditError';
+    this.kind = kind;
+    this.skillId = skillId;
+  }
+}

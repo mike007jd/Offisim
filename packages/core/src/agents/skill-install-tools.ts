@@ -1,4 +1,9 @@
-import type { InteractionRequest } from '@offisim/shared-types';
+import type {
+  InteractionRequest,
+  SkillInstallConfirmBodyDiff,
+  SkillInstallConfirmParent,
+  SkillInstallSourceKind,
+} from '@offisim/shared-types';
 import type { ToolDef } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { SkillInstallSource } from '../skills/skill-loader.js';
@@ -19,6 +24,8 @@ export const SKILL_INSTALL_TOOL_NAMES = [
   'install_skill_from_upload',
   'sync_from_claude_code',
   'sync_from_codex',
+  'fork_skill',
+  'edit_skill_body',
 ] as const;
 export type SkillInstallToolName = (typeof SKILL_INSTALL_TOOL_NAMES)[number];
 
@@ -129,6 +136,59 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
             'Optional natural-language hint used to narrow candidate selection after the scan returns.',
         },
       },
+    },
+  },
+  {
+    name: 'fork_skill',
+    description:
+      [
+        'Copy a COMPANY-scope skill into the calling employee\'s own employee-scope bucket.',
+        'Use when the user says "fork <skill> for me" / "make my own version of <skill>". After fork the employee can call `edit_skill_body` to customize the body.',
+        '`skillId` MUST reference an existing company-scope skill (look it up via the skills catalog in the system prompt).',
+        '`targetEmployeeId` is optional — when omitted the fork targets the calling employee. A non-empty value MUST equal the calling employee id; cross-employee forks are rejected with `cross-employee-forbidden`.',
+        'Always routes through a user confirmation preview — the tool itself never writes to disk.',
+      ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        skillId: {
+          type: 'string',
+          description:
+            'Skill id (sk_*) of the company-scope parent skill to fork. Use the id shown in the "Available skills" block in the system prompt.',
+        },
+        targetEmployeeId: {
+          type: 'string',
+          description:
+            'OPTIONAL. Leave blank to fork to yourself (the normal case). If provided, MUST be your own employee id — forks to other employees are refused.',
+        },
+      },
+      required: ['skillId'],
+    },
+  },
+  {
+    name: 'edit_skill_body',
+    description:
+      [
+        'Rewrite the BODY of one of YOUR OWN employee-scope skills. Frontmatter (name / description / allowedTools / license / version) is preserved automatically — do not put `---` frontmatter blocks in `newBody`.',
+        'Use when the user says "simplify my <skill>", "tighten <skill>", "add a rule to my <skill>", etc.',
+        '`skillId` MUST reference an EMPLOYEE-scope skill you own; editing company-scope or other employees\' skills is rejected (`company-scope-forbidden` / `not-skill-owner`).',
+        '`newBody` MUST be the full replacement body (≥ 10 bytes, ≤ 64 KiB, no frontmatter prefix). Always routes through a user confirmation preview with a side-by-side diff.',
+      ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        skillId: {
+          type: 'string',
+          description:
+            'Skill id (sk_*) of your own employee-scope skill to rewrite. Use the id from the system-prompt "Available skills" block.',
+        },
+        newBody: {
+          type: 'string',
+          description:
+            'Full replacement SKILL.md body (markdown). Do NOT include a `---` frontmatter block — frontmatter is preserved byte-identically from the existing file.',
+        },
+      },
+      required: ['skillId', 'newBody'],
     },
   },
 ]);
@@ -247,6 +307,20 @@ async function resolveTargetEmployee(
   };
 }
 
+function logForkEditError(scope: string, err: unknown): void {
+  // Structured stack dump for T2.3 live-verify. Logs are best-effort — if
+  // `console.error` itself errors (should never happen in webview), swallow.
+  try {
+    const stack =
+      err instanceof Error
+        ? `${err.name}: ${err.message}\n${err.stack ?? '(no stack)'}`
+        : String(err);
+    console.error(`[skill-${scope}] ${stack}`);
+  } catch {
+    /* noop */
+  }
+}
+
 async function stageAndEmit(args: {
   ctx: RuntimeContext;
   tree: VirtualTree;
@@ -257,6 +331,9 @@ async function stageAndEmit(args: {
   employeeName: string | null;
   tmpPath?: string | undefined;
   cleanup?: (() => Promise<void>) | undefined;
+  /** `'fork'` when copying a company-scope parent into an employee bucket; defaults to `'install'`. */
+  action?: 'install' | 'fork';
+  parent?: SkillInstallConfirmParent;
 }): Promise<
   | { status: 'pending-confirm'; interactionId: string; stagingRef: string }
   | { kind: string; message: string }
@@ -284,33 +361,58 @@ async function stageAndEmit(args: {
       message: 'Scanner reported SKILL.md path but it is missing from the tree.',
     };
   }
-  const skillMdText = new TextDecoder('utf-8').decode(skillMdFile.content);
+  let skillMdText: string;
+  try {
+    skillMdText = new TextDecoder('utf-8').decode(skillMdFile.content);
+  } catch (err) {
+    logForkEditError('stageAndEmit/decode-skillmd', err);
+    throw err;
+  }
   let parsed;
   try {
     parsed = parseSkillMd(skillMdText);
   } catch (err) {
+    logForkEditError('stageAndEmit/parseSkillMd', err);
     return {
       kind: 'skill-md-invalid',
       message: `SKILL.md could not be parsed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 
-  const staged = stagingManager.put({
-    tree,
-    scan,
-    name: parsed.name,
-    description: parsed.description,
-    allowedTools: parsed.allowedTools ?? [],
-    skillMdText,
-    source: args.source,
-    companyId: ctx.companyId,
-    scope: args.scope,
-    employeeId: args.employeeId,
-    ...(args.tmpPath !== undefined ? { tmpPath: args.tmpPath } : {}),
-    ...(args.cleanup !== undefined ? { cleanup: args.cleanup } : {}),
-  });
+  const stagedAction: 'install' | 'fork' = args.action ?? (args.source.kind === 'fork' ? 'fork' : 'install');
+  let staged;
+  try {
+    staged = stagingManager.put({
+      action: stagedAction,
+      tree,
+      scan,
+      name: parsed.name,
+      description: parsed.description,
+      allowedTools: parsed.allowedTools ?? [],
+      skillMdText,
+      source: args.source,
+      companyId: ctx.companyId,
+      scope: args.scope,
+      employeeId: args.employeeId,
+      ...(args.tmpPath !== undefined ? { tmpPath: args.tmpPath } : {}),
+      ...(args.cleanup !== undefined ? { cleanup: args.cleanup } : {}),
+    });
+  } catch (err) {
+    logForkEditError('stageAndEmit/stagingManager.put', err);
+    throw err;
+  }
 
   const sourceRefLabel = describeSource(args.source);
+  const isForkAction = stagedAction === 'fork';
+  const targetLabel = args.employeeName ?? 'the selected employee';
+  const title = isForkAction
+    ? `Fork skill "${parsed.name}"?`
+    : `Install skill "${parsed.name}"?`;
+  const prompt = isForkAction
+    ? `Confirm fork of "${args.parent?.name ?? parsed.name}@${args.parent?.version ?? ''} into ${targetLabel}.`
+    : `Confirm installation of "${parsed.name}" into ` +
+      (args.scope === 'company' ? 'the whole company.' : `${targetLabel}.`);
+  const confirmLabel = isForkAction ? 'Fork' : 'Install';
   const request: InteractionRequest = {
     interactionId: generateId('ix'),
     threadId: ctx.threadId,
@@ -318,14 +420,10 @@ async function stageAndEmit(args: {
     kind: 'skill_install_confirm',
     severity:
       parsed.allowedTools && parsed.allowedTools.some(isWideScopePattern) ? 'high' : 'normal',
-    title: `Install skill "${parsed.name}"?`,
-    prompt:
-      `Confirm installation of "${parsed.name}" into ` +
-      (args.scope === 'company'
-        ? 'the whole company.'
-        : `${args.employeeName ?? 'the selected employee'}.`),
+    title,
+    prompt,
     options: [
-      { id: 'confirm', label: 'Install' },
+      { id: 'confirm', label: confirmLabel },
       { id: 'cancel', label: 'Cancel' },
     ],
     allowFreeformResponse: false,
@@ -336,17 +434,124 @@ async function stageAndEmit(args: {
       skillName: parsed.name,
       skillDescription: parsed.description,
       allowedTools: parsed.allowedTools ?? [],
-      sourceKind: args.source.kind as 'git' | 'upload' | 'claude-code' | 'codex',
+      sourceKind: args.source.kind as SkillInstallSourceKind,
       sourceRef: sourceRefLabel,
       resolvedScope: args.scope,
       resolvedEmployeeId: args.employeeId,
       resolvedEmployeeName: args.employeeName,
       assetPaths: scan.assetPaths,
       skillMdBody: parsed.body,
+      action: stagedAction,
+      ...(args.parent !== undefined ? { parent: args.parent } : {}),
     },
     createdAt: Date.now(),
   };
-  await interactionService.request(request);
+  try {
+    await interactionService.request(request);
+  } catch (err) {
+    logForkEditError('stageAndEmit/interactionService.request', err);
+    throw err;
+  }
+  return {
+    status: 'pending-confirm',
+    interactionId: request.interactionId,
+    stagingRef: staged.stagingRef,
+  };
+}
+
+/**
+ * Stage an edit mutation and emit a `skill_install_confirm` interaction with
+ * `action='edit'`. Unlike install/fork, edit has no tree + no scan; staging
+ * holds just the newBody string. The UI renders a truncated-preview diff
+ * sourced from the caller-supplied `bodyDiff`.
+ */
+async function stageEditAndEmit(args: {
+  ctx: RuntimeContext;
+  skillId: string;
+  employeeId: string;
+  newBody: string;
+  skillName: string;
+  skillDescription: string;
+  allowedTools: readonly string[];
+  bodyDiff: SkillInstallConfirmBodyDiff;
+  /** source_ref of the row — used for UI display only. */
+  sourceRefLabel: string;
+  employeeName: string | null;
+}): Promise<
+  | { status: 'pending-confirm'; interactionId: string; stagingRef: string }
+  | { kind: string; message: string }
+> {
+  const { ctx } = args;
+  const stagingManager = ctx.skillStagingManager;
+  if (!stagingManager) {
+    return {
+      kind: 'skill-install-not-configured',
+      message: 'Skill install staging is not available on this runtime.',
+    };
+  }
+  const interactionService = ctx.interactionService;
+  if (!interactionService) {
+    return {
+      kind: 'skill-install-not-configured',
+      message: 'Interaction service required for skill install preview.',
+    };
+  }
+
+  let staged;
+  try {
+    staged = stagingManager.put({
+      action: 'edit',
+      skillId: args.skillId,
+      newBody: args.newBody,
+      employeeId: args.employeeId,
+      companyId: ctx.companyId,
+    });
+  } catch (err) {
+    logForkEditError('stageEditAndEmit/stagingManager.put', err);
+    throw err;
+  }
+
+  const targetLabel = args.employeeName ?? 'you';
+  const request: InteractionRequest = {
+    interactionId: generateId('ix'),
+    threadId: ctx.threadId,
+    companyId: ctx.companyId,
+    kind: 'skill_install_confirm',
+    severity: 'normal',
+    title: `Edit skill "${args.skillName}"?`,
+    prompt: `Confirm body rewrite for ${targetLabel}'s "${args.skillName}".`,
+    options: [
+      { id: 'confirm', label: 'Save' },
+      { id: 'cancel', label: 'Cancel' },
+    ],
+    allowFreeformResponse: false,
+    requestedByNode: 'employee-node',
+    context: {
+      type: 'skill_install_confirm',
+      stagingRef: staged.stagingRef,
+      skillName: args.skillName,
+      skillDescription: args.skillDescription,
+      allowedTools: args.allowedTools,
+      // Existing skill — the row has its own source; fork/install rail keeps
+      // the union coherent. `edit` doesn't ship a skillMdBody (body lives in
+      // staging) so the UI defers to `bodyDiff`.
+      sourceKind: 'fork' as SkillInstallSourceKind,
+      sourceRef: args.sourceRefLabel,
+      resolvedScope: 'employee',
+      resolvedEmployeeId: args.employeeId,
+      resolvedEmployeeName: args.employeeName,
+      assetPaths: [],
+      action: 'edit',
+      bodyDiff: args.bodyDiff,
+    },
+    createdAt: Date.now(),
+  };
+  try {
+    await interactionService.request(request);
+  } catch (err) {
+    logForkEditError('stageEditAndEmit/interactionService.request', err);
+    throw err;
+  }
   return {
     status: 'pending-confirm',
     interactionId: request.interactionId,
@@ -372,6 +577,8 @@ function describeSource(source: SkillInstallSource): string {
       return source.path;
     case 'codex':
       return source.path;
+    case 'fork':
+      return `company-skill:${source.parentSkillId}@${source.parentVersion}`;
   }
 }
 
@@ -381,16 +588,50 @@ export interface SkillInstallToolResult {
 }
 
 /**
- * Entry point for the four skill-install tool calls. Always returns a string
- * (the tool executor contract) — callers unwrap via JSON.parse if they need
- * structured access. Every error path is a structured JSON so the LLM can
- * reason about it instead of crashing.
+ * Entry point for all skill-mutation tool calls (install-family + T2.3 fork +
+ * edit). Always returns a string (the tool executor contract) — callers unwrap
+ * via JSON.parse if they need structured access. Every error path is a
+ * structured JSON so the LLM can reason about it instead of crashing.
+ *
+ * `callerEmployeeId` identifies the employee whose turn issued the tool call;
+ * fork / edit handlers use it for self-ownership and cross-employee guards.
+ * Install-family tools ignore it and continue to rely on `targetEmployeeId` /
+ * `scope` arguments.
  */
 export async function handleSkillInstallTool(
   toolName: SkillInstallToolName,
   rawArgs: Record<string, unknown>,
   ctx: RuntimeContext,
+  callerEmployeeId: string,
 ): Promise<string> {
+  try {
+    return await handleSkillInstallToolInner(toolName, rawArgs, ctx, callerEmployeeId);
+  } catch (err) {
+    // Top-level catch so a T2.3 bug doesn't crash the tool-round promise. Stack
+    // is dumped to DevTools for live-verify diagnosis; LLM receives a
+    // structured error so it can retry or surface conversationally.
+    logForkEditError(`handleSkillInstallTool/${toolName}`, err);
+    return JSON.stringify({
+      kind: 'skill-install-crashed',
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function handleSkillInstallToolInner(
+  toolName: SkillInstallToolName,
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+  callerEmployeeId: string,
+): Promise<string> {
+  // Fork / edit have their own dispatch — no install environment required.
+  if (toolName === 'fork_skill') {
+    return handleForkSkill(rawArgs, ctx, callerEmployeeId);
+  }
+  if (toolName === 'edit_skill_body') {
+    return handleEditSkillBody(rawArgs, ctx, callerEmployeeId);
+  }
+
   const env = ctx.skillInstallEnvironment;
   if (!env) {
     return JSON.stringify({
@@ -524,4 +765,257 @@ export async function handleSkillInstallTool(
       });
     }
   }
+}
+
+const MAX_EDIT_BODY_BYTES = 64 * 1024;
+const MIN_EDIT_BODY_BYTES = 10;
+const BODY_PREVIEW_LIMIT = 160;
+
+/**
+ * Truncate to at most `limit` UTF-16 code units with a trailing ellipsis when
+ * clamped. Matches the preview contract the UI expects (160 code units).
+ */
+function trimPreview(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit - 1)}…`;
+}
+
+function encodedByteLength(text: string): number {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(text).length;
+  }
+  return text.length;
+}
+
+async function handleForkSkill(
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+  callerEmployeeId: string,
+): Promise<string> {
+  const skillLoader = ctx.skillLoader;
+  const skillsRepo = ctx.repos.skills;
+  if (!skillLoader || !skillsRepo) {
+    return JSON.stringify({
+      kind: 'skill-install-not-configured',
+      message: 'Skill runtime not available.',
+    });
+  }
+
+  const skillId = typeof rawArgs.skillId === 'string' ? rawArgs.skillId.trim() : '';
+  if (!skillId) {
+    return JSON.stringify({ kind: 'missing-argument', message: 'skillId is required.' });
+  }
+
+  const targetEmployeeIdRaw =
+    typeof rawArgs.targetEmployeeId === 'string' ? rawArgs.targetEmployeeId.trim() : '';
+  if (targetEmployeeIdRaw && targetEmployeeIdRaw !== callerEmployeeId) {
+    return JSON.stringify({
+      kind: 'cross-employee-forbidden',
+      message: 'fork_skill: cannot fork a skill to a different employee.',
+    });
+  }
+
+  let parentRow;
+  try {
+    parentRow = await skillsRepo.findById(skillId);
+  } catch (err) {
+    logForkEditError('handleForkSkill/skillsRepo.findById', err);
+    throw err;
+  }
+  if (!parentRow) {
+    return JSON.stringify({ kind: 'skill-not-found', skillId });
+  }
+  if (parentRow.company_id !== ctx.companyId) {
+    return JSON.stringify({
+      kind: 'skill-not-found',
+      skillId,
+      message: 'Skill belongs to a different company.',
+    });
+  }
+  if (parentRow.scope !== 'company') {
+    return JSON.stringify({
+      kind: 'fork-parent-not-company',
+      message: 'Only company-scope skills can be forked.',
+      skillId,
+    });
+  }
+
+  let bundle;
+  try {
+    bundle = await skillLoader.readSkillDirectory(skillId);
+  } catch (err) {
+    logForkEditError('handleForkSkill/readSkillDirectory', err);
+    return JSON.stringify({
+      kind: 'skill-md-invalid',
+      message: `Failed to read parent skill: ${err instanceof Error ? err.message : String(err)}`,
+      skillId,
+    });
+  }
+
+  let tree: VirtualTree;
+  let scan: ScannedSkill;
+  try {
+    const skillMdBytes = new TextEncoder().encode(bundle.skillMd);
+    tree = {
+      files: [
+        { path: 'SKILL.md', content: skillMdBytes },
+        ...bundle.assets.map((asset) => ({
+          path: asset.relPath,
+          content: new TextEncoder().encode(asset.content),
+        })),
+      ],
+    };
+    scan = {
+      root: '',
+      skillMdPath: 'SKILL.md',
+      assetPaths: bundle.assets.map((a) => a.relPath),
+    };
+  } catch (err) {
+    logForkEditError('handleForkSkill/tree-construct', err);
+    throw err;
+  }
+
+  let targetEmployeeRow;
+  try {
+    targetEmployeeRow = await ctx.repos.employees.findById(callerEmployeeId);
+  } catch (err) {
+    logForkEditError('handleForkSkill/employees.findById', err);
+    throw err;
+  }
+
+  const staged = await stageAndEmit({
+    ctx,
+    tree,
+    scan,
+    source: {
+      kind: 'fork',
+      parentSkillId: parentRow.skill_id,
+      parentVersion: parentRow.version,
+    },
+    scope: 'employee',
+    employeeId: callerEmployeeId,
+    employeeName: targetEmployeeRow?.name ?? null,
+    action: 'fork',
+    parent: {
+      skillId: parentRow.skill_id,
+      slug: parentRow.slug,
+      name: parentRow.name,
+      version: parentRow.version,
+    },
+  });
+  return JSON.stringify(staged);
+}
+
+async function handleEditSkillBody(
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+  callerEmployeeId: string,
+): Promise<string> {
+  const skillLoader = ctx.skillLoader;
+  const skillsRepo = ctx.repos.skills;
+  if (!skillLoader || !skillsRepo) {
+    return JSON.stringify({
+      kind: 'skill-install-not-configured',
+      message: 'Skill runtime not available.',
+    });
+  }
+
+  const skillId = typeof rawArgs.skillId === 'string' ? rawArgs.skillId.trim() : '';
+  if (!skillId) {
+    return JSON.stringify({ kind: 'missing-argument', message: 'skillId is required.' });
+  }
+  const newBody = typeof rawArgs.newBody === 'string' ? rawArgs.newBody : '';
+
+  const byteLen = encodedByteLength(newBody);
+  if (byteLen < MIN_EDIT_BODY_BYTES) {
+    return JSON.stringify({
+      kind: 'invalid-new-body',
+      reason: 'empty',
+      message: `newBody must be at least ${MIN_EDIT_BODY_BYTES} bytes.`,
+    });
+  }
+  if (byteLen > MAX_EDIT_BODY_BYTES) {
+    return JSON.stringify({
+      kind: 'invalid-new-body',
+      reason: 'too-large',
+      message: `newBody must be ≤ ${MAX_EDIT_BODY_BYTES} bytes.`,
+    });
+  }
+  if (newBody.startsWith('---\n') || newBody.startsWith('---\r\n')) {
+    return JSON.stringify({
+      kind: 'invalid-new-body',
+      reason: 'frontmatter-in-body',
+      message: 'newBody must not begin with a `---` frontmatter block; frontmatter is preserved automatically.',
+    });
+  }
+
+  let row;
+  try {
+    row = await skillsRepo.findById(skillId);
+  } catch (err) {
+    logForkEditError('handleEditSkillBody/skillsRepo.findById', err);
+    throw err;
+  }
+  if (!row) {
+    return JSON.stringify({ kind: 'skill-not-found', skillId });
+  }
+  if (row.company_id !== ctx.companyId) {
+    return JSON.stringify({
+      kind: 'skill-not-found',
+      skillId,
+      message: 'Skill belongs to a different company.',
+    });
+  }
+  if (row.scope === 'company') {
+    return JSON.stringify({
+      kind: 'company-scope-forbidden',
+      message: 'edit_skill_body: cannot edit company-scope skills.',
+      skillId,
+    });
+  }
+  if (row.employee_id !== callerEmployeeId) {
+    return JSON.stringify({
+      kind: 'not-skill-owner',
+      message: 'edit_skill_body: only the owning employee can edit this skill.',
+      skillId,
+    });
+  }
+
+  let oldBody = '';
+  try {
+    oldBody = await skillLoader.loadSkillBody(skillId);
+  } catch (err) {
+    logForkEditError('handleEditSkillBody/loadSkillBody', err);
+    return JSON.stringify({
+      kind: 'skill-md-invalid',
+      message: `Failed to read existing body: ${err instanceof Error ? err.message : String(err)}`,
+      skillId,
+    });
+  }
+
+  let employeeRow;
+  try {
+    employeeRow = await ctx.repos.employees.findById(callerEmployeeId);
+  } catch (err) {
+    logForkEditError('handleEditSkillBody/employees.findById', err);
+    throw err;
+  }
+
+  return JSON.stringify(
+    await stageEditAndEmit({
+      ctx,
+      skillId,
+      employeeId: callerEmployeeId,
+      newBody,
+      skillName: row.name,
+      skillDescription: row.description,
+      allowedTools: [],
+      bodyDiff: {
+        oldPreview: trimPreview(oldBody, BODY_PREVIEW_LIMIT),
+        newPreview: trimPreview(newBody, BODY_PREVIEW_LIMIT),
+      },
+      sourceRefLabel: row.source_ref ?? '',
+      employeeName: employeeRow?.name ?? null,
+    }),
+  );
 }

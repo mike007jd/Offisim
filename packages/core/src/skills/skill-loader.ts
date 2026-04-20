@@ -1,4 +1,10 @@
-import { SkillAssetError, type SkillMetadata, type SkillRow } from '@offisim/shared-types';
+import {
+  SkillAssetError,
+  SkillEditError,
+  type SkillMetadata,
+  type SkillRow,
+  type SkillSourceKind,
+} from '@offisim/shared-types';
 import type {
   EmployeeRepository,
   RuntimeRepositories,
@@ -6,7 +12,7 @@ import type {
 } from '../runtime/repositories.js';
 import { type VaultFileSystem, createStubVaultFs } from '../vault/fs.js';
 import { employeeSlug } from '../vault/slug.js';
-import { parseSkillMd } from './skill-md.js';
+import { parseSkillMd, serializeSkillMd } from './skill-md.js';
 import { resolveSkillPath } from './skill-path.js';
 import { skillSlug } from './skill-slug.js';
 
@@ -60,12 +66,18 @@ export interface SkillInstallSourceCodex {
   kind: 'codex';
   path: string;
 }
+export interface SkillInstallSourceFork {
+  kind: 'fork';
+  parentSkillId: string;
+  parentVersion: string;
+}
 export type SkillInstallSource =
   | SkillInstallSourceMarketplace
   | SkillInstallSourceGit
   | SkillInstallSourceUpload
   | SkillInstallSourceClaudeCode
-  | SkillInstallSourceCodex;
+  | SkillInstallSourceCodex
+  | SkillInstallSourceFork;
 
 export interface SkillInstallAsset {
   relPath: string;
@@ -123,7 +135,13 @@ export function encodeSkillSourceRef(source: SkillInstallSource): string {
       return `claude-code:${source.path}`;
     case 'codex':
       return `codex:${source.path}`;
+    case 'fork':
+      return `company-skill:${source.parentSkillId}@${source.parentVersion}`;
   }
+}
+
+function sourceKindForInsert(source: SkillInstallSource): SkillSourceKind {
+  return source.kind === 'fork' ? 'forked' : 'installed';
 }
 
 function validateAssetPath(relPath: string): void {
@@ -231,6 +249,32 @@ export class SkillLoader {
   }
 
   /**
+   * Bulk-read a skill directory. Used by `fork_skill` to snapshot the parent
+   * so the staged copy can land byte-identically in the employee bucket.
+   * Returns SKILL.md text + every file under `scripts/` / `references/` /
+   * `assets/` (recursive) as UTF-8 strings. Missing subtrees are skipped.
+   */
+  async readSkillDirectory(
+    skillId: string,
+  ): Promise<{ row: SkillRow; skillMd: string; assets: Array<{ relPath: string; content: string }> }> {
+    const row = await this.skills.findById(skillId);
+    if (!row) {
+      throw new SkillAssetError('not-found', `Skill ${skillId} not found`, 'SKILL.md');
+    }
+    const skillMd = await this.fs.readFile(row.vault_path);
+    const skillDir = row.vault_path.replace(/\/SKILL\.md$/u, '');
+    const assets: Array<{ relPath: string; content: string }> = [];
+    for (const subtree of ASSET_SUBTREE_PREFIXES) {
+      // Strip trailing `/` for listDir.
+      const subRel = subtree.replace(/\/$/u, '');
+      const subAbs = `${skillDir}/${subRel}`;
+      if (!(await this.fs.exists(subAbs))) continue;
+      await walkVaultSubtree(this.fs, subAbs, subRel, assets);
+    }
+    return { row, skillMd, assets };
+  }
+
+  /**
    * Resolve the filesystem-safe employee slug for employee-scope skill paths.
    * Used by callers that need to write a new employee-scope skill and don't
    * already have the slug cached.
@@ -268,6 +312,12 @@ export class SkillLoader {
       throw new SkillInstallError(
         'scope-target-conflict',
         'installSkill: scope="company" forbids employeeId',
+      );
+    }
+    if (args.scope === 'company' && args.source.kind === 'fork') {
+      throw new SkillInstallError(
+        'scope-target-conflict',
+        'installSkill: source.kind="fork" requires scope="employee"',
       );
     }
 
@@ -342,7 +392,7 @@ export class SkillLoader {
         name: args.name,
         description: args.description,
         version: args.version ?? '0.1.0',
-        source_kind: 'installed',
+        source_kind: sourceKindForInsert(args.source),
         source_ref: sourceRef,
         vault_path: paths.skillMdPath,
         created_at: ts,
@@ -360,6 +410,74 @@ export class SkillLoader {
       }
       throw err;
     }
+  }
+
+  /**
+   * Rewrite an existing skill's SKILL.md body without touching identity fields
+   * (slug / scope / source_kind / source_ref / vault_path). Frontmatter is
+   * preserved byte-equivalently via `serializeSkillMd`; only the body + DB
+   * `version` (patch bump) + `updated_at` change.
+   *
+   * Scope / ownership guards are the caller's responsibility — this loader is
+   * a generic write API future mutation paths (T2.5 peer-transfer,
+   * T2.6 self-improve) will reuse.
+   */
+  async editSkillBody(args: {
+    skillId: string;
+    newBody: string;
+    now?: () => number;
+  }): Promise<{ row: SkillRow }> {
+    const now = args.now ?? (() => Date.now());
+    const row = await this.skills.findById(args.skillId);
+    if (!row) {
+      throw new SkillEditError(
+        'skill-not-found',
+        `editSkillBody: skill ${args.skillId} not found`,
+        args.skillId,
+      );
+    }
+
+    let parsed;
+    try {
+      const raw = await this.fs.readFile(row.vault_path);
+      parsed = parseSkillMd(raw);
+    } catch (err) {
+      throw new SkillEditError(
+        'skill-md-invalid',
+        `editSkillBody: SKILL.md at ${row.vault_path} could not be parsed: ${err instanceof Error ? err.message : String(err)}`,
+        args.skillId,
+      );
+    }
+
+    const nextVersion = bumpPatch(row.version);
+    if (nextVersion === null) {
+      throw new SkillEditError(
+        'version-bump-failed',
+        `editSkillBody: version "${row.version}" is not semver-patch-bumpable`,
+        args.skillId,
+      );
+    }
+
+    const serialized = serializeSkillMd({
+      name: parsed.name,
+      description: parsed.description,
+      ...(parsed.allowedTools !== undefined ? { allowedTools: parsed.allowedTools } : {}),
+      ...(parsed.license !== undefined ? { license: parsed.license } : {}),
+      // Preserve the row's version so the frontmatter doesn't drift out of
+      // sync with the DB; the patch bump below is authoritative.
+      version: nextVersion,
+      body: args.newBody,
+    });
+    await this.fs.writeFile(row.vault_path, serialized);
+
+    const ts = String(now());
+    await this.skills.update(row.skill_id, {
+      version: nextVersion,
+      updated_at: ts,
+    });
+    return {
+      row: { ...row, version: nextVersion, updated_at: ts },
+    };
   }
 
   /**
@@ -401,4 +519,49 @@ function decodeUint8(bytes: Uint8Array): string {
   let out = '';
   for (const b of bytes) out += String.fromCharCode(b);
   return out;
+}
+
+async function walkVaultSubtree(
+  fs: VaultFileSystem,
+  dirAbs: string,
+  relPrefix: string,
+  out: Array<{ relPath: string; content: string }>,
+): Promise<void> {
+  const entries = await fs.listDir(dirAbs);
+  for (const entry of entries) {
+    const childAbs = `${dirAbs}/${entry}`;
+    const childRel = `${relPrefix}/${entry}`;
+    // listDir returns names only (no stat). Try read as file first; if it
+    // fails (likely a directory), recurse.
+    try {
+      const text = await fs.readFile(childAbs);
+      out.push({ relPath: childRel, content: text });
+    } catch {
+      // Assume directory — recurse. If `listDir` fails too, swallow since the
+      // caller is best-effort (missing subtree is fine).
+      try {
+        await walkVaultSubtree(fs, childAbs, childRel, out);
+      } catch {
+        /* non-fatal: unreadable node */
+      }
+    }
+  }
+}
+
+/**
+ * Semver-safe patch bump. Accepts `major.minor.patch` where each segment is a
+ * non-negative integer; rejects prerelease suffixes (`1.0.0-beta`), build
+ * metadata (`1.0.0+sha`), non-numeric segments, or anything else. Returns
+ * `null` on reject so `editSkillBody` can surface a structured error.
+ */
+export function bumpPatch(version: string): string | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(version);
+  if (!match) return null;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  if (!Number.isSafeInteger(major) || !Number.isSafeInteger(minor) || !Number.isSafeInteger(patch)) {
+    return null;
+  }
+  return `${major}.${minor}.${patch + 1}`;
 }
