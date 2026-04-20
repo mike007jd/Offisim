@@ -22,15 +22,17 @@
 
 ## 3. 真 fix（apply step 2，基于 log 定位）
 
-> 视 log 结果展开；以下为候选动作，按真相选一或多
+> Bifurcation 已定位 = 候选 A。Live log + DevTools 取证结论：
+> `localStorage.offisim-provider-config = {"provider":"openai","model":"gpt-4o-mini"}`
+> 两字段短 config 是早期 ProviderConfig schema 残留（当前 `handleSave` 一定写 7-10 字段，无路径会再产生这种短记录）。`normalizeProviderConfig` 接受无 apiKey/baseURL 的半 config → 桌面 runtime 拿空 apiKey 打 `api.openai.com` → 401。
 
-- [ ] 3.1 定位 bifurcation：从 log 看 `api.openai.com` 出现时是哪个 log site 先报 `OpenAiAdapter-ctor` with baseURL=`(OpenAI SDK default)`
-- [ ] 3.2 [候选 A] 如果是 `createTauriRuntime` 已经建了 OpenAI gateway → 说明 ProviderConfig 加载的是 OpenAI 不是 MiniMax → 修 `loadProviderConfig` 路径（env fallback 未在 production build 注入；localStorage 有历史 OpenAI config 优先；需要 env 覆盖或清理 stale config）
-- [ ] 3.3 [候选 B] 如果是 boss-node 或其它 node 独立 `createGateway` → 删除，改用 `ctx.llmGateway`
-- [ ] 3.4 [候选 C] 如果是 `RecordedSystemLlmCaller` 构造处独立 `createGateway` → 同候选 B
-- [ ] 3.5 [候选 D] 如果 `resolved.provider/model` 本身就是 OpenAI 但 `ctx.llmGateway` 是 MiniMax → `recordedLlmStream` 里 `ctx.modelRegistry?.getGateway(meta.model)` 实际命中某 stale registry（证伪静态 trace）→ 清掉 `modelRegistry` 半死路径
-- [ ] 3.6 [候选 E] 员工 `persona.modelProfile` 硬编码 OpenAI → employee-preflight 走 employeeProfile 路径建 per-call gateway → 修成 fall back `ctx.llmGateway` 或让 `persona.modelProfile` 被 ProviderConfig override
-- [ ] 3.7 真 fix commit，message 包含实际定位点
+- [x] 3.1 定位 bifurcation：从 log 看 `api.openai.com` 出现时是哪个 log site 先报 `OpenAiAdapter-ctor` with baseURL=`(OpenAI SDK default)`
+- [x] 3.2 [候选 A] 如果是 `createTauriRuntime` 已经建了 OpenAI gateway → 说明 ProviderConfig 加载的是 OpenAI 不是 MiniMax → 修 `loadProviderConfig` 路径（env fallback 未在 production build 注入；localStorage 有历史 OpenAI config 优先；需要 env 覆盖或清理 stale config）
+- [~] 3.3 [候选 B] 如果是 boss-node 或其它 node 独立 `createGateway` → 不适用（log 证实所有 gateway 选择都来自 `ctx.llmGateway`，`viaRegistry: false`）
+- [~] 3.4 [候选 C] 如果是 `RecordedSystemLlmCaller` 构造处独立 `createGateway` → 不适用（同 3.3）
+- [~] 3.5 [候选 D] 如果 `resolved.provider/model` 本身就是 OpenAI 但 `ctx.llmGateway` 是 MiniMax → 不适用（实际 `resolved.provider='openai'` 就是 `ctx.llmGateway` 的底色，因为 ProviderConfig 本身就是 OpenAI）
+- [~] 3.6 [候选 E] 员工 `persona.modelProfile` 硬编码 OpenAI → 不适用（log 证实 boss / employee / summarization 全用同一个 OpenAI gateway，不是 per-employee profile 建的）
+- [x] 3.7 真 fix commit — `normalizeProviderConfig` 新增 require-apiKey-OR-baseURL 守卫，拒绝半 config。`subscription` 豁免（ACP 不需要 HTTP 凭证）。stale 记录命中 null → load 走 env fallback → 也 null → runtime 走现有 `*RuntimeReposOnly` empty-state 路径（`useRuntimeInit.ts:67-78` 无 config 分支），不再建 gateway 硬打 OpenAI。
 
 ## 4. Clean-up (apply step 3)
 
@@ -48,6 +50,12 @@
 - [ ] 5.4 CLAUDE.md 核查：`packages/core/CLAUDE.md` / `apps/web/src/lib/tauri-runtime.ts` 头部注释是否需要加 "LLM gateway 单一性契约" 一行 —— archive 前决定
 
 ## 6. Live verify（真 fix 落完用户复测）
+
+> **前置**：开发机 stale localStorage 需清一次（正常用户装新机不需要这步，只是当前开发机刚好命中）。DevTools Console：
+> ```js
+> localStorage.removeItem('offisim-provider-config');
+> ```
+> 或在 Tauri WebKit localstorage.sqlite3 路径下直接删行。清完 Settings UI 重配一条 provider 再测。
 
 - [ ] 6.1 Tauri rebuild 后跑 team chat（同 2.2 场景）→ DevTools Network 无 `api.openai.com` 请求
 - [ ] 6.2 Direct chat 仍然正常（无回归）

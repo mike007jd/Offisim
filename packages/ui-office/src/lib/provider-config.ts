@@ -395,6 +395,19 @@ function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
     return null;
   }
 
+  // Reject unusable half-configs. A valid provider must carry either an apiKey
+  // (web mode, or pre-Tauri-strip fresh save) or a baseURL (third-party compat
+  // endpoint — credential goes through Keychain via setRuntimeSecret on Tauri).
+  // `subscription` is exempt — ACP spawns `claude` via child_process, no HTTP
+  // credential. Without this guard a stale `{provider:'openai',model:'...'}`
+  // record from an older ProviderConfig schema falls through to OpenAI SDK
+  // default (`api.openai.com`) with an empty key and produces a misleading 401.
+  const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0;
+  const hasBaseURL = typeof parsed.baseURL === 'string' && parsed.baseURL.trim().length > 0;
+  if (provider !== 'subscription' && !hasApiKey && !hasBaseURL) {
+    return null;
+  }
+
   const normalized: ProviderConfig = {
     provider,
     model,
