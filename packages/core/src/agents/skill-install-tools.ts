@@ -33,7 +33,7 @@ const SCOPE_PARAM = {
 const TARGET_EMPLOYEE_PARAM = {
   type: 'string',
   description:
-    'Employee ID to scope the install to (REQUIRED when scope="employee"; FORBIDDEN when scope="company").',
+    'Employee identifier to scope the install to (REQUIRED when scope="employee"; FORBIDDEN when scope="company"). Prefer the exact employee_id from the "Available coworkers" list. If you do not have the id, you may pass the exact employee name as a fallback; the tool will do a case-insensitive match. If the name matches multiple employees the tool returns `{ kind: "target-employee-ambiguous", candidates: [...] }` — retry with the specific employee_id.',
 } as const;
 
 export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
@@ -149,7 +149,7 @@ interface CommonArgs {
 function validateScope(
   args: CommonArgs,
 ):
-  | { ok: true; scope: 'company' | 'employee'; employeeId: string | null }
+  | { ok: true; scope: 'company' | 'employee'; identifier: string | null }
   | { ok: false; err: { kind: string; message: string } } {
   const scope = args.scope ?? 'company';
   if (scope === 'employee') {
@@ -162,7 +162,7 @@ function validateScope(
         },
       };
     }
-    return { ok: true, scope: 'employee', employeeId: args.targetEmployeeId };
+    return { ok: true, scope: 'employee', identifier: args.targetEmployeeId };
   }
   if (args.targetEmployeeId) {
     return {
@@ -173,37 +173,78 @@ function validateScope(
       },
     };
   }
-  return { ok: true, scope: 'company', employeeId: null };
+  return { ok: true, scope: 'company', identifier: null };
 }
 
 async function resolveTargetEmployee(
   ctx: RuntimeContext,
-  employeeId: string | null,
+  identifier: string | null,
 ): Promise<
-  | { ok: true; name: string | null }
-  | { ok: false; err: { kind: 'target-employee-not-found'; message: string } }
+  | { ok: true; id: string | null; name: string | null }
+  | {
+      ok: false;
+      err:
+        | { kind: 'target-employee-not-found'; message: string }
+        | {
+            kind: 'target-employee-ambiguous';
+            message: string;
+            candidates: Array<{ employeeId: string; name: string; role: string }>;
+          };
+    }
 > {
-  if (!employeeId) return { ok: true, name: null };
-  const row = await ctx.repos.employees.findById(employeeId);
-  if (!row) {
+  if (!identifier) return { ok: true, id: null, name: null };
+
+  const byId = await ctx.repos.employees.findById(identifier);
+  if (byId) {
+    if (byId.company_id !== ctx.companyId) {
+      return {
+        ok: false,
+        err: {
+          kind: 'target-employee-not-found',
+          message: `Employee ${identifier} does not belong to company ${ctx.companyId}.`,
+        },
+      };
+    }
+    return { ok: true, id: byId.employee_id, name: byId.name };
+  }
+
+  const normalized = identifier.trim().toLowerCase();
+  if (normalized.length === 0) {
     return {
       ok: false,
       err: {
         kind: 'target-employee-not-found',
-        message: `Employee ${employeeId} not found.`,
+        message: `Employee identifier "${identifier}" is empty.`,
       },
     };
   }
-  if (row.company_id !== ctx.companyId) {
+  const all = await ctx.repos.employees.findByCompany(ctx.companyId);
+  const matches = all.filter((row) => row.name.trim().toLowerCase() === normalized);
+  if (matches.length === 1) {
+    const only = matches[0]!;
+    return { ok: true, id: only.employee_id, name: only.name };
+  }
+  if (matches.length > 1) {
     return {
       ok: false,
       err: {
-        kind: 'target-employee-not-found',
-        message: `Employee ${employeeId} does not belong to company ${ctx.companyId}.`,
+        kind: 'target-employee-ambiguous',
+        message: `"${identifier}" matches ${matches.length} employees; retry with the specific employee_id.`,
+        candidates: matches.map((row) => ({
+          employeeId: row.employee_id,
+          name: row.name,
+          role: row.role_slug,
+        })),
       },
     };
   }
-  return { ok: true, name: row.name };
+  return {
+    ok: false,
+    err: {
+      kind: 'target-employee-not-found',
+      message: `No employee in company ${ctx.companyId} matches "${identifier}" (tried id lookup then case-insensitive name match).`,
+    },
+  };
 }
 
 async function stageAndEmit(args: {
@@ -361,8 +402,9 @@ export async function handleSkillInstallTool(
   const commonCheck = validateScope(rawArgs as CommonArgs);
   if (!commonCheck.ok) return JSON.stringify(commonCheck.err);
 
-  const target = await resolveTargetEmployee(ctx, commonCheck.employeeId);
+  const target = await resolveTargetEmployee(ctx, commonCheck.identifier);
   if (!target.ok) return JSON.stringify(target.err);
+  const resolvedEmployeeId = target.id;
 
   switch (toolName) {
     case 'install_skill_from_git': {
@@ -393,7 +435,7 @@ export async function handleSkillInstallTool(
           ...(subpath !== undefined ? { subpath } : {}),
         },
         scope: commonCheck.scope,
-        employeeId: commonCheck.employeeId,
+        employeeId: resolvedEmployeeId,
         employeeName: target.name,
         ...(result.tmpPath !== undefined ? { tmpPath: result.tmpPath } : {}),
         ...(result.tmpPath !== undefined && env.gitFs
@@ -439,7 +481,7 @@ export async function handleSkillInstallTool(
           ...(subpath !== undefined ? { subpath } : {}),
         },
         scope: commonCheck.scope,
-        employeeId: commonCheck.employeeId,
+        employeeId: resolvedEmployeeId,
         employeeName: target.name,
       });
       return JSON.stringify(staged);

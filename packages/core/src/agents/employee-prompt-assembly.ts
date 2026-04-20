@@ -6,6 +6,7 @@ import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { formatMemoriesSection } from './employee-memory-tools.js';
 import type { PreflightResult } from './employee-preflight.js';
+import { buildEnrichedEmployeeList } from './employee-roster.js';
 
 const DESCRIPTION_TRUNCATION_LIMIT = 200;
 
@@ -58,6 +59,18 @@ export async function assemblePrompt(
     } catch {
       // Skill listing failures are non-critical — prompt assembly must not throw.
     }
+  }
+
+  try {
+    const roster = await repos.employees.findByCompany(companyId);
+    const coworkers = roster.filter((row) => row.employee_id !== employee.employee_id);
+    if (coworkers.length > 0) {
+      systemPrompt += `\n\n## Available coworkers\n\nWhen a tool requires an employee_id (e.g. installing a skill to a specific person), look it up from this list. Prefer the employee_id over the name.\n\n${buildEnrichedEmployeeList(
+        coworkers,
+      )}`;
+    }
+  } catch {
+    // Roster assembly failure is non-critical.
   }
 
   if (memoryService && taskDescription && (memoryPolicy?.injectionEnabled ?? true)) {
