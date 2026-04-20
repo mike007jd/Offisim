@@ -56,6 +56,41 @@ if (!/^[a-z_]+$/i.test(TASKS)) {
 }
 
 /**
+ * Process-level async write lock for `TauriCheckpointSaver` writes. The Tauri
+ * `@tauri-apps/plugin-sql` bridge transports each `db.execute` call through
+ * sqlx `SqlitePool` which does NOT pin a connection across successive calls;
+ * that historically split `BEGIN IMMEDIATE` / INSERT / COMMIT across pool
+ * connections and produced `database is locked` + `cannot rollback - no
+ * transaction is active` races under concurrent writer pressure. Combined
+ * with atomic single-execute SQL in `put` / `putWrites` / `deleteThread`, this
+ * mutex guarantees at most one checkpoint writer is in flight at a time.
+ * Read ops (`getTuple` / `list`) intentionally do not enter the mutex — WAL
+ * preserves concurrent readers.
+ *
+ * A failed write does not poison the chain: `.catch(() => {})` before the
+ * next `.then` swallows the prior error so later writes still execute.
+ */
+let checkpointWriteChain: Promise<unknown> = Promise.resolve();
+function runWithCheckpointWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+  const next = checkpointWriteChain.catch(() => {}).then(fn);
+  checkpointWriteChain = next.catch(() => {});
+  return next;
+}
+
+/** Log a write-path error with stack to DevTools, best-effort (never throws). */
+function logCheckpointError(method: string, err: unknown): void {
+  try {
+    const stack =
+      err instanceof Error
+        ? `${err.name}: ${err.message}\n${err.stack ?? '(no stack)'}`
+        : String(err);
+    console.error(`[tauri-checkpoint/${method}] ${stack}`);
+  } catch {
+    /* noop */
+  }
+}
+
+/**
  * LangGraph checkpoint saver backed by tauri-plugin-sql (SQLite).
  *
  * Replicates the SqliteSaver logic but uses async tauri-plugin-sql
@@ -256,7 +291,6 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     checkpoint: Checkpoint,
     metadata: CheckpointMetadata,
   ): Promise<RunnableConfig> {
-    const db = await getTauriDb();
     if (!config.configurable) throw new Error('Empty configuration supplied.');
 
     const thread_id = config.configurable.thread_id;
@@ -268,6 +302,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     }
 
     const preparedCheckpoint = copyCheckpoint(checkpoint);
+    // Serde runs outside the write lock — it's pure CPU / no DB interaction.
     const [[type1, rawCheckpoint], [type2, rawMetadata]] = await Promise.all([
       this.serde.dumpsTyped(preparedCheckpoint),
       this.serde.dumpsTyped(metadata),
@@ -282,20 +317,28 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
     const serializedCheckpoint = ensureString(rawCheckpoint);
     const serializedMetadata = ensureString(rawMetadata);
 
-    await db.execute(
-      `INSERT OR REPLACE INTO checkpoints
-       (thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, type, checkpoint, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        thread_id,
-        checkpoint_ns,
-        checkpoint.id,
-        parent_checkpoint_id,
-        type1,
-        serializedCheckpoint,
-        serializedMetadata,
-      ],
-    );
+    await runWithCheckpointWriteLock(async () => {
+      const db = await getTauriDb();
+      try {
+        await db.execute(
+          `INSERT OR REPLACE INTO checkpoints
+           (thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, type, checkpoint, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            thread_id,
+            checkpoint_ns,
+            checkpoint.id,
+            parent_checkpoint_id,
+            type1,
+            serializedCheckpoint,
+            serializedMetadata,
+          ],
+        );
+      } catch (err) {
+        logCheckpointError('put', err);
+        throw err;
+      }
+    });
 
     return {
       configurable: {
@@ -307,15 +350,17 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
   }
 
   async putWrites(config: RunnableConfig, writes: PendingWrite[], taskId: string): Promise<void> {
-    const db = await getTauriDb();
     if (!config.configurable?.thread_id || !config.configurable?.checkpoint_id) {
       throw new Error('Missing thread_id or checkpoint_id in config.configurable.');
     }
+
+    if (writes.length === 0) return;
 
     const thread_id = config.configurable.thread_id;
     const checkpoint_ns = config.configurable.checkpoint_ns ?? '';
     const checkpoint_id = config.configurable.checkpoint_id;
 
+    // Serialize outside the write lock — pure CPU / no DB interaction.
     const serialized = await Promise.all(
       writes.map(async (write, idx) => {
         const [type, rawValue] = await this.serde.dumpsTyped(write[1]);
@@ -332,41 +377,55 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       }),
     );
 
-    await db.execute('BEGIN IMMEDIATE');
-    try {
-      for (const row of serialized) {
-        await db.execute(
-          `INSERT OR REPLACE INTO writes
-           (thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          row,
-        );
+    // Build a single `INSERT OR REPLACE ... VALUES (...), (...), ...` SQL so
+    // the whole batch lands atomically inside one pool connection. This
+    // replaces the historical `BEGIN IMMEDIATE` / per-row INSERT / `COMMIT`
+    // split-call pattern, which was susceptible to sqlx pool returning a
+    // different connection per `db.execute` and leaving BEGIN orphaned.
+    const VALUES_PER_ROW = 8;
+    const valuesClauses: string[] = [];
+    const flatParams: unknown[] = [];
+    for (let row = 0; row < serialized.length; row++) {
+      const base = row * VALUES_PER_ROW;
+      const placeholders: string[] = [];
+      for (let col = 1; col <= VALUES_PER_ROW; col++) {
+        placeholders.push(`$${base + col}`);
       }
-      await db.execute('COMMIT');
-    } catch (e) {
-      try {
-        await db.execute('ROLLBACK');
-      } catch (rollbackErr) {
-        console.error('ROLLBACK failed after putWrites error:', rollbackErr);
-      }
-      throw e;
+      valuesClauses.push(`(${placeholders.join(', ')})`);
+      const rowParams = serialized[row];
+      if (rowParams) flatParams.push(...rowParams);
     }
+    const sql =
+      `INSERT OR REPLACE INTO writes ` +
+      `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value) ` +
+      `VALUES ${valuesClauses.join(', ')}`;
+
+    await runWithCheckpointWriteLock(async () => {
+      const db = await getTauriDb();
+      try {
+        await db.execute(sql, flatParams);
+      } catch (err) {
+        logCheckpointError('putWrites', err);
+        throw err;
+      }
+    });
   }
 
   async deleteThread(threadId: string): Promise<void> {
-    const db = await getTauriDb();
-    await db.execute('BEGIN IMMEDIATE');
-    try {
-      await db.execute('DELETE FROM checkpoints WHERE thread_id = $1', [threadId]);
-      await db.execute('DELETE FROM writes WHERE thread_id = $1', [threadId]);
-      await db.execute('COMMIT');
-    } catch (e) {
+    // Two sequential DELETEs without an explicit transaction. Orphan `writes`
+    // rows (if the second DELETE fails) are invisible to read paths because
+    // `getTuple` JOINs `checkpoints` as the anchor — removing the checkpoint
+    // row hides any residual writes. Accept tiny table bloat over the
+    // BEGIN/COMMIT split-connection race this previously produced.
+    await runWithCheckpointWriteLock(async () => {
+      const db = await getTauriDb();
       try {
-        await db.execute('ROLLBACK');
-      } catch (rollbackErr) {
-        console.error('ROLLBACK failed after deleteThread error:', rollbackErr);
+        await db.execute('DELETE FROM checkpoints WHERE thread_id = $1', [threadId]);
+        await db.execute('DELETE FROM writes WHERE thread_id = $1', [threadId]);
+      } catch (err) {
+        logCheckpointError('deleteThread', err);
+        throw err;
       }
-      throw e;
-    }
+    });
   }
 }
