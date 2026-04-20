@@ -40,23 +40,56 @@ document is the rubric to execute against before `/opsx:archive`.
 2026-04-19. Real skills live under `skills/<name>/` (e.g. `skills/frontend-design`, `skills/pdf`).
 Re-run against a known-good path:
 
-- [ ] "Install `skills/frontend-design` from `github.com/anthropics/skills`" → LLM issues
+**Status (2026-04-20): PASS** — Codex re-run via headed Chrome + Playwright (Safari dev server
+had intermittent blank-reset issue). Prompt `装一下 github.com/anthropics/skills 里的
+skills/frontend-design` triggered correct confirm bubble (Source git + subpath, Scope
+`Company (all employees)`) and `Skill installed.` upon confirm.
+
+- [x] "Install `skills/frontend-design` from `github.com/anthropics/skills`" → LLM issues
       `install_skill_from_git({ url, subpath: 'skills/frontend-design' })`
-- [ ] Bubble renders with `frontend-design` name / description / allowedTools / source preview
-- [ ] Click **Install** → `skills` row `scope='company'`, `source_kind='installed'`,
+- [x] Bubble renders with `frontend-design` name / description / allowedTools / source preview
+- [x] Click **Install** → `skills` row `scope='company'`, `source_kind='installed'`,
       `source_ref='git:https://github.com/anthropics/skills#skills/frontend-design'`
-- [ ] Vault (OPFS or user-picked) has
+- [x] Vault (OPFS or user-picked) has
       `companies/{id}/skills/frontend-design/SKILL.md`
 - [ ] Natural-language "Install frontend-design from anthropics/skills" without explicit
       subpath → resolver returns `skill-scanner-ambiguous` with candidate list and directive
       message; LLM retries with `subpath=skills/frontend-design` (not manual user selection)
+      — not re-run this round; path is exercised by directive-error code and schema hardening
+      (see 2026-04-19 Run 2 notes above).
 
 ### 9.2 Web · employee scope
 
-- [ ] Follow 9.1 but phrase as "Install it just for Alice."
-- [ ] LLM should fill `{ scope: 'employee', targetEmployeeId: <alice-id> }`
-- [ ] Bubble shows `Scope: Employee: Alice`
-- [ ] Confirm → `skills` row `scope='employee'`, `employee_id=<alice-id>`
+**Status (2026-04-20): PASS (main path)** — first Codex run failed because employee prompt
+never injected the coworker roster; LLM guessed `maya-lin` / `maya` / `lin` as id and fell
+back to company scope (or blew through tool-loop max 5 rounds). Fixed by commit
+`8fccdf82` (two-pronged):
+
+- **A** `employee-prompt-assembly.ts` now injects `## Available coworkers` section using
+  the existing `buildEnrichedEmployeeList` helper (excludes self). LLM can read
+  `employee_id: name (role)` table and pick the correct UUID directly.
+- **B** `skill-install-tools.ts` accepts `targetEmployeeId` as either a UUID or a
+  case-insensitive exact name. Handler tries `findById` first, then `findByCompany` +
+  name filter. Ambiguous name returns `target-employee-ambiguous` + `candidates` for
+  LLM retry with specific id.
+
+Codex re-verify 2026-04-20 prompt `装一下 github.com/anthropics/skills 里的
+skills/frontend-design，装到 Maya Lin 那儿`:
+
+- [x] Confirm bubble appears with Source git + subpath, Scope `Employee: Maya Lin`
+- [x] Confirm → `Skill installed.` (`skills` row `scope='employee'`,
+      `employee_id=<maya-lin-uuid>`)
+- [x] LLM picked correct id from injected coworker roster (A is sufficient for single-name
+      case)
+
+**B branch (ambiguous) observation**: Codex added a second `Maya Lin` to the company and
+re-ran `装到 Maya Lin 那儿` / `装到 Maya 那儿`. Neither hit the `target-employee-ambiguous`
+branch — LLM reads both UUIDs in the coworker roster and picks one directly (returning a
+valid id to the handler, which goes through `findById`). This is the expected consequence
+of A winning: once the id table is injected, B's name-fallback is only reachable when the
+LLM for some reason does not use an id (prompt truncation at 50+ employees, stale history
+message carrying a name string, or agent-to-agent message passing name instead of id).
+Unit-level logic is in place; no live-runtime evidence for this round.
 
 ### 9.3 Desktop Tauri · git install
 
