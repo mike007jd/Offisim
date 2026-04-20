@@ -36,11 +36,11 @@
 
 ## 4. Clean-up (apply step 3)
 
-- [ ] 4.1 移除所有 `[provider-trace/*]` `console.debug` 调用
-- [ ] 4.2 保留 fp helper 若其它地方有用，否则一并删
-- [ ] 4.3 如果 3.5 走了（证实 modelRegistry 半死），同步删掉 `ctx.modelRegistry` 字段 + `recordedLlmStream` 的 `?? ctx.llmGateway` 降级（保持代码自洽）
-- [ ] 4.4 串行 build 绿
-- [ ] 4.5 commit cleanup，message 指向真 fix commit 的 SHA
+- [x] 4.1 移除所有 `[provider-trace/*]` `console.debug` 调用
+- [x] 4.2 保留 fp helper 若其它地方有用，否则一并删 — 全删（7 处 fp/fpShort 均无其它 caller）
+- [~] 4.3 如果 3.5 走了（证实 modelRegistry 半死），同步删掉 `ctx.modelRegistry` 字段 + `recordedLlmStream` 的 `?? ctx.llmGateway` 降级 — 不适用（3.5 未走，modelRegistry 在本 change scope 外）
+- [x] 4.4 串行 build 绿
+- [x] 4.5 commit cleanup，message 指向真 fix commit 的 SHA (`096ecc4b`)
 
 ## 5. 协议台账 + archive gate
 

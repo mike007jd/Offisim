@@ -5,14 +5,6 @@ import { OpenAiAdapter } from './openai-adapter.js';
 import type { RetryConfig } from './retry.js';
 import type { SubscriptionAdapterOptions } from './subscription-adapter.js';
 
-// [provider-trace] module-local apiKey fingerprint for boss-scope 401 diagnostic.
-// Remove together with all `[provider-trace/*]` console.debug sites in clean-up step.
-function fpShort(key: string | undefined): string {
-  if (!key) return '(none)';
-  if (key.length < 8) return '(too-short)';
-  return `${key.slice(0, 4)}…${key.slice(-4)}`;
-}
-
 export interface GatewayConfig {
   provider: LlmProvider;
   apiKey: string;
@@ -43,12 +35,6 @@ export function shouldRejectSubscriptionInRenderer(
  * use `provider: 'openai-compat'` with their respective `baseURL`.
  */
 export function createGateway(config: GatewayConfig): LlmGateway {
-  console.debug('[provider-trace/createGateway]', {
-    provider: config.provider,
-    baseURL: config.baseURL ?? '(undefined)',
-    hasApiKey: !!config.apiKey,
-    apiKeyFp: fpShort(config.apiKey),
-  });
   switch (config.provider) {
     case 'anthropic':
       return new AnthropicAdapter(config.apiKey, {

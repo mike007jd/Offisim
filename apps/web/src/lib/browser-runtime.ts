@@ -138,14 +138,6 @@ function wireDeliverableContentStore(snapshot: MemoryRepositoriesSnapshot | null
 
 const IS_DEV = import.meta.env.DEV;
 
-// [provider-trace] module-local apiKey fingerprint for boss-scope 401 diagnostic.
-// Remove together with all `[provider-trace/*]` console.debug sites in clean-up step.
-function fp(key: string | undefined): string {
-  if (!key) return '(none)';
-  if (key.length < 8) return '(too-short)';
-  return `${key.slice(0, 4)}…${key.slice(-4)}`;
-}
-
 export type RuntimeBundle = {
   eventBus: InMemoryEventBus;
   graph: ReturnType<typeof buildOffisimGraph>;
@@ -241,12 +233,6 @@ export async function createBrowserRuntime(
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
     subscription: buildSubscriptionGatewayConfig(config),
-  });
-  console.debug('[provider-trace/browser-runtime-gateway]', {
-    provider: config.provider,
-    baseURL: (proxyBaseURL ?? config.baseURL) ?? '(undefined)',
-    model: config.model,
-    apiKeyFp: fp(config.apiKey),
   });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
