@@ -63,6 +63,14 @@ import {
 } from './tauri-skill-install-adapters';
 import { tryActivateTauriVault } from './vault-tauri-activation';
 
+// [provider-trace] module-local apiKey fingerprint for boss-scope 401 diagnostic.
+// Remove together with all `[provider-trace/*]` console.debug sites in clean-up step.
+function fp(key: string | undefined): string {
+  if (!key) return '(none)';
+  if (key.length < 8) return '(too-short)';
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
 // ---------------------------------------------------------------------------
@@ -137,6 +145,12 @@ export async function createTauriRuntime(
     defaultHeaders: config.defaultHeaders,
     dangerouslyAllowBrowser: true,
     subscription: buildSubscriptionGatewayConfig(config),
+  });
+  console.debug('[provider-trace/tauri-runtime-gateway]', {
+    provider: config.provider,
+    baseURL: config.baseURL ?? '(undefined)',
+    model: config.model,
+    apiKeyFp: fp(config.apiKey),
   });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(

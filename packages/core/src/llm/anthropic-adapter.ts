@@ -115,6 +115,14 @@ function createCorsCleanFetch(): typeof globalThis.fetch {
   };
 }
 
+// [provider-trace] module-local apiKey fingerprint for boss-scope 401 diagnostic.
+// Remove together with all `[provider-trace/*]` console.debug sites in clean-up step.
+function fpShort(key: string | undefined): string {
+  if (!key) return '(none)';
+  if (key.length < 8) return '(too-short)';
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
 function isThirdPartyAnthropicEndpoint(baseURL: string | undefined): boolean {
   if (!baseURL) return false;
   try {
@@ -155,6 +163,11 @@ export class AnthropicAdapter implements LlmGateway {
       ...(isThirdParty ? { fetch: createCorsCleanFetch() } : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+    console.debug('[provider-trace/AnthropicAdapter-ctor]', {
+      providerLabel: isThirdParty ? 'anthropic-compat' : 'anthropic',
+      baseURL: options?.baseURL ?? '(Anthropic SDK default = api.anthropic.com)',
+      apiKeyFp: fpShort(apiKey),
+    });
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {

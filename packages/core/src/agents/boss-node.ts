@@ -147,6 +147,10 @@ export async function bossNode(
   const interactionService = runtimeCtx.interactionService;
   const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
   const resolved = modelResolver.resolve(null, 'boss');
+  console.debug('[provider-trace/boss-node-resolved]', {
+    resolvedProvider: resolved.provider,
+    resolvedModel: resolved.model,
+  });
 
   // Build messages for LLM — use last N human messages for multi-turn context
   const recentHumanMessages = state.messages.filter((m) => m._getType() === 'human').slice(-3);

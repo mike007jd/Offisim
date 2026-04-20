@@ -32,6 +32,14 @@ type CompatDelta = {
   tool_calls?: OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta.ToolCall[];
 };
 
+// [provider-trace] module-local apiKey fingerprint for boss-scope 401 diagnostic.
+// Remove together with all `[provider-trace/*]` console.debug sites in clean-up step.
+function fpShort(key: string | undefined): string {
+  if (!key) return '(none)';
+  if (key.length < 8) return '(too-short)';
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
 /** Convert our ToolDef to OpenAI's tool format */
 function mapToolDefs(
   tools?: readonly ToolDef[],
@@ -117,6 +125,11 @@ export class OpenAiAdapter implements LlmGateway {
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
     this.isCompat = !!options?.baseURL;
     this.providerLabel = this.isCompat ? 'openai-compat' : 'openai';
+    console.debug('[provider-trace/OpenAiAdapter-ctor]', {
+      providerLabel: this.providerLabel,
+      baseURL: options?.baseURL ?? '(OpenAI SDK default = api.openai.com)',
+      apiKeyFp: fpShort(apiKey),
+    });
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {

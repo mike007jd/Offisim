@@ -77,6 +77,13 @@ export async function recordedLlmCall(
 
     // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
     const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
+    console.debug('[provider-trace/recordedLlmCall]', {
+      nodeName: meta.nodeName,
+      metaModel: meta.model,
+      metaProvider: meta.provider,
+      gatewayClass: gateway.constructor.name,
+      viaRegistry: !!ctx.modelRegistry?.getGateway(meta.model),
+    });
     let response = await gateway.chat(effectiveRequest);
     const latencyMs = Date.now() - startedAt;
 
@@ -193,6 +200,13 @@ export async function recordedLlmStream(
 
     // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
     const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
+    console.debug('[provider-trace/recordedLlmStream]', {
+      nodeName: meta.nodeName,
+      metaModel: meta.model,
+      metaProvider: meta.provider,
+      gatewayClass: gateway.constructor.name,
+      viaRegistry: !!ctx.modelRegistry?.getGateway(meta.model),
+    });
     const stream = gateway.chatStream(effectiveRequest);
     const result = await teeStream(stream, onChunk);
     const latencyMs = Date.now() - startedAt;
