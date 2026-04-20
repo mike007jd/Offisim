@@ -202,6 +202,14 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 33,
+            description: "middleware summary tables",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/033_middleware_summary_tables.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
