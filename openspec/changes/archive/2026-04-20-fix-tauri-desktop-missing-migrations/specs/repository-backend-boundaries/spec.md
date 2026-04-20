@@ -28,9 +28,11 @@ Desktop Tauri runtime SHALL have `node_summaries` and `compact_summaries` tables
 
 #### Scenario: Migration v33 creates both tables on existing DB
 
-- **WHEN** a user with desktop DB at `user_version=32` upgrades to a build containing migration v33
-- **THEN** Tauri plugin-sql SHALL apply v33 on app start, creating both `node_summaries` and `compact_summaries`
+- **WHEN** a user with an existing desktop DB that was created before v33 upgrades to a build containing migration v33
+- **THEN** Tauri plugin-sql (wrapping sqlx `migrate!()`) SHALL apply v33 on app start, creating both `node_summaries` and `compact_summaries`
 - **AND** `SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('node_summaries','compact_summaries')` SHALL return 2
+
+**Note on migration tracking** — `tauri-plugin-sql` is backed by sqlx `SqlitePool::migrate()` which maintains its own `_sqlx_migrations` table and does NOT write SQLite's `PRAGMA user_version`. Validating `user_version=33` against a real user DB is the wrong oracle and SHALL NOT be used as the archive-gate check; the authoritative signals are (a) `_sqlx_migrations` table contains a row for version 33, or (b) the target tables + indexes exist with the shape specified in the next scenario. The latter is what live-verify reports should capture.
 
 #### Scenario: Tables match drizzle shape exactly
 
