@@ -341,11 +341,13 @@ export class AnthropicAdapter implements LlmGateway {
 
   private mapError(error: unknown): LlmError {
     if (error instanceof Anthropic.APIError) {
-      return new LlmError(error.message, 'anthropic', error.status);
+      return new LlmError(error.message, 'anthropic', error.status, { cause: error });
     }
     return new LlmError(
       error instanceof Error ? error.message : 'Unknown Anthropic error',
       'anthropic',
+      undefined,
+      { cause: error },
     );
   }
 }

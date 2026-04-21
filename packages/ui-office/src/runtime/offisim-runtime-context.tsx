@@ -22,6 +22,13 @@ export interface OffisimRuntimeBootstrapState {
   eventHistory: RuntimeEvent[];
 }
 
+export interface FailedRunErrorState {
+  message: string;
+  targetEmployeeId?: string;
+  threadId?: string;
+  conversationKey: string;
+}
+
 export type VaultDirectoryMode =
   | 'unsupported'
   | 'unmounted'
@@ -44,12 +51,14 @@ export interface OffisimRuntimeValue {
   /** For re-render optimization prefer `useOffisimRuntimeStatus().isRunning` (dedicated volatile context). */
   isRunning: boolean;
   error: string | null;
+  failedRunError: FailedRunErrorState | null;
   sendMessage: (
     text: string,
     options?: {
       targetEmployeeId?: string;
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      conversationKey?: string;
     },
   ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;

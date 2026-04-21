@@ -1,3 +1,4 @@
+import type { SkillInstallConfirmOutcome } from '@offisim/core/browser';
 import type { InteractionRequest } from '@offisim/shared-types';
 
 export type InteractionFollowUp =
@@ -6,9 +7,40 @@ export type InteractionFollowUp =
   | { mode: 'resend_with_clarification' }
   | { mode: 'message'; message: string };
 
+const SKILL_INSTALL_CANCELLED_MESSAGE = 'Skill install cancelled.';
+
+function getSkillInstallConfirmFollowUp(
+  selectedOptionId: string,
+  skillInstallOutcome?: SkillInstallConfirmOutcome,
+): InteractionFollowUp {
+  if (selectedOptionId !== 'confirm') {
+    return { mode: 'message', message: SKILL_INSTALL_CANCELLED_MESSAGE };
+  }
+  switch (skillInstallOutcome?.kind) {
+    case 'edited':
+      return { mode: 'message', message: 'Skill updated.' };
+    case 'staging-expired':
+      return {
+        mode: 'message',
+        message: 'That skill preview expired. Ask again to generate a fresh preview.',
+      };
+    case 'error':
+      return {
+        mode: 'message',
+        message: `Skill change failed: ${skillInstallOutcome.message}`,
+      };
+    case 'cancelled':
+      return { mode: 'message', message: SKILL_INSTALL_CANCELLED_MESSAGE };
+    case 'installed':
+    default:
+      return { mode: 'message', message: 'Skill installed.' };
+  }
+}
+
 export function getInteractionFollowUp(
   request: InteractionRequest,
   response: { selectedOptionId: string },
+  skillInstallOutcome?: SkillInstallConfirmOutcome,
 ): InteractionFollowUp {
   switch (request.kind) {
     case 'permission_request':
@@ -27,9 +59,7 @@ export function getInteractionFollowUp(
         ? { mode: 'resend_with_clarification' }
         : { mode: 'none' };
     case 'skill_install_confirm':
-      return response.selectedOptionId === 'confirm'
-        ? { mode: 'message', message: 'Skill installed.' }
-        : { mode: 'message', message: 'Skill install cancelled.' };
+      return getSkillInstallConfirmFollowUp(response.selectedOptionId, skillInstallOutcome);
     default:
       return { mode: 'none' };
   }

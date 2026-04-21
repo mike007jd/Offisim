@@ -303,11 +303,13 @@ export class OpenAiAdapter implements LlmGateway {
 
   private mapError(error: unknown): LlmError {
     if (error instanceof OpenAI.APIError) {
-      return new LlmError(error.message, this.providerLabel, error.status);
+      return new LlmError(error.message, this.providerLabel, error.status, { cause: error });
     }
     return new LlmError(
       error instanceof Error ? error.message : `Unknown ${this.providerLabel} error`,
       this.providerLabel,
+      undefined,
+      { cause: error },
     );
   }
 }

@@ -54,6 +54,7 @@ export function useInteractionSync({
       targetEmployeeId?: string;
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      conversationKey?: string;
     },
   ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;
@@ -124,14 +125,18 @@ export function useInteractionSync({
       const pending = interactionService?.getPending() ?? pendingInteractionRef.current;
       if (!pending || !interactionService) return undefined;
 
-      await interactionService.resolve({
+      const resolved = await interactionService.resolve({
         interactionId: pending.interactionId,
         selectedOptionId,
         freeformResponse,
         respondedAt: Date.now(),
       });
 
-      const followUp = getInteractionFollowUp(pending, { selectedOptionId });
+      const followUp = getInteractionFollowUp(
+        pending,
+        { selectedOptionId },
+        resolved?.skillInstallOutcome,
+      );
 
       if (followUp.mode === 'message') {
         return followUp.message;
@@ -151,6 +156,7 @@ export function useInteractionSync({
           targetEmployeeId: last.targetEmployeeId,
           threadId: last.threadId,
           entryMode: last.entryMode,
+          conversationKey: last.conversationKey,
         });
       }
       return undefined;

@@ -41,6 +41,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     lastFailedMessageRef,
     isInitializing,
     error,
+    failedRunState,
     setError,
     clearError,
     version,
@@ -109,10 +110,9 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
 
   const shouldExposeDebugBridge =
     import.meta.env.DEV ||
-    typeof window !== 'undefined'
-      ? typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
-          'undefined'
-      : false;
+    (typeof window !== 'undefined' &&
+      typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
+        'undefined');
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; runtimeRef reads current
   const value = useMemo<OffisimRuntimeValue>(() => {
@@ -159,6 +159,14 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
         return isRunningRef.current;
       },
       error,
+      failedRunError: failedRunState
+        ? {
+            message: failedRunState.message,
+            targetEmployeeId: failedRunState.targetEmployeeId,
+            threadId: failedRunState.threadId,
+            conversationKey: failedRunState.conversationKey,
+          }
+        : null,
       sendMessage,
       retryLastMessage,
       clearError,
@@ -198,6 +206,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
   }, [
     isInitializing,
     error,
+    failedRunState,
     sendMessage,
     retryLastMessage,
     clearError,

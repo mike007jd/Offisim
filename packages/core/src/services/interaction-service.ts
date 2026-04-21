@@ -57,6 +57,11 @@ export interface SkillInstallConfirmHandler {
   handle(request: InteractionRequest, response: InteractionResponse): Promise<SkillInstallConfirmOutcome>;
 }
 
+export interface InteractionResolveResult {
+  readonly request: InteractionRequest;
+  readonly skillInstallOutcome?: SkillInstallConfirmOutcome;
+}
+
 export class InteractionService implements ToolPermissionGrantResolver {
   private threadMode: InteractionMode;
   private pending: InteractionRequest | null = null;
@@ -169,7 +174,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     return request;
   }
 
-  async resolve(response: InteractionResponse): Promise<InteractionRequest | null> {
+  async resolve(response: InteractionResponse): Promise<InteractionResolveResult | null> {
     const pending = this.pending;
     if (!pending || pending.interactionId !== response.interactionId) return null;
 
@@ -179,7 +184,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.persistHistory(pending, response, 'resolved');
     this.applyGrants(pending, response);
     this.applyPlanReviewDecision(pending, response);
-    await this.applySkillInstallConfirm(pending, response);
+    const skillInstallOutcome = await this.applySkillInstallConfirm(pending, response);
     await this.deps.hookRegistry?.emit('interaction.resolved', {
       interactionId: pending.interactionId,
       threadId: pending.threadId,
@@ -190,23 +195,31 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.deps.eventBus.emit(
       interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
     );
-    return pending;
+    return {
+      request: pending,
+      ...(skillInstallOutcome ? { skillInstallOutcome } : {}),
+    };
   }
 
   private async applySkillInstallConfirm(
     request: InteractionRequest,
     response: InteractionResponse,
-  ): Promise<void> {
+  ): Promise<SkillInstallConfirmOutcome | null> {
     if (request.kind !== 'skill_install_confirm' || request.context?.type !== 'skill_install_confirm') {
-      return;
+      return null;
     }
     const handler = this.deps.skillInstallConfirmHandler;
-    if (!handler) return;
+    if (!handler) return null;
     try {
-      await handler.handle(request, response);
+      return await handler.handle(request, response);
     } catch {
       // Errors flow back to the chat via whatever the handler emits; the
       // interaction itself is considered resolved even on install failure.
+      return {
+        kind: 'error',
+        errorKind: 'skill-install-confirm-failed',
+        message: 'Skill confirmation failed before the change could be applied.',
+      };
     }
   }
 

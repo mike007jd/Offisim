@@ -118,6 +118,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       isReady: runtime?.repos != null,
       isRunning: false,
       error,
+      failedRunError: null,
       sendMessage: async () => undefined,
       retryLastMessage: async () => undefined,
       clearError: () => setError(null),

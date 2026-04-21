@@ -36,7 +36,11 @@ import {
 } from '../../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
 import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
-import type { LastFailedMessage } from '../last-failed-message';
+import {
+  type FailedRunState,
+  getFailedConversationKey,
+  type LastFailedMessage,
+} from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
 
@@ -91,6 +95,7 @@ export interface UseRuntimeInitResult {
   eventBus: InMemoryEventBus;
   isInitializing: boolean;
   error: string | null;
+  failedRunState: FailedRunState | null;
   setError: Dispatch<SetStateAction<string | null>>;
   clearError: () => void;
   version: number;
@@ -108,6 +113,7 @@ export interface UseRuntimeInitResult {
       targetEmployeeId?: string;
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      conversationKey?: string;
     },
   ) => Promise<string | undefined>;
   retryLastMessage: () => Promise<string | undefined>;
@@ -134,6 +140,7 @@ export function useRuntimeInit({
   const isRunningRef = useRef(false);
   isRunningRef.current = isRunning;
   const [error, setError] = useState<string | null>(null);
+  const [failedRunState, setFailedRunState] = useState<FailedRunState | null>(null);
   const [version, setVersion] = useState(0);
   const [isInitializing, setIsInitializing] = useState(false);
   const [connectedMcpServers, setConnectedMcpServers] = useState<ReadonlySet<string>>(new Set());
@@ -208,7 +215,21 @@ export function useRuntimeInit({
     setVersion((v) => v + 1);
   }, []);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearFailedRunError = useCallback(() => {
+    setError(null);
+    setFailedRunState(null);
+  }, []);
+
+  const setRetryableFailedRun = useCallback(
+    (failedMessage: LastFailedMessage, message: string) => {
+      setFailedRunState({
+        ...failedMessage,
+        message,
+      });
+      setError(message);
+    },
+    [],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; runtimeRef reads current
   const sendMessage = useCallback(
@@ -218,6 +239,7 @@ export function useRuntimeInit({
         targetEmployeeId?: string;
         threadId?: string;
         entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+        conversationKey?: string;
       },
     ): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
@@ -230,7 +252,7 @@ export function useRuntimeInit({
       }
 
       setIsRunning(true);
-      setError(null);
+      clearFailedRunError();
       lastFailedMessageRef.current = null;
 
       try {
@@ -266,29 +288,35 @@ export function useRuntimeInit({
         }
         return undefined;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        lastFailedMessageRef.current = {
+        const message = err instanceof Error ? err.message : String(err);
+        const nextFailedMessage: LastFailedMessage = {
           text,
           targetEmployeeId: options?.targetEmployeeId,
           threadId: options?.threadId,
           entryMode: options?.entryMode,
+          conversationKey:
+            options?.conversationKey ??
+            getFailedConversationKey({
+              threadId: options?.threadId,
+              targetEmployeeId: options?.targetEmployeeId,
+            }),
         };
-        if (isInteractionRequiredError(msg) && runtime?.interactionService?.getPending()) {
-          setError(null);
+        lastFailedMessageRef.current = nextFailedMessage;
+        if (isInteractionRequiredError(message) && runtime?.interactionService?.getPending()) {
+          clearFailedRunError();
           return undefined;
         }
         terminateRunWithError();
-        setError(
-          isNoCredentialError(err)
-            ? 'No provider credential stored on this device. Open Settings → Provider to enter your API key.'
-            : msg,
-        );
+        const displayMessage = isNoCredentialError(err)
+          ? 'No provider credential stored on this device. Open Settings → Provider to enter your API key.'
+          : message;
+        setRetryableFailedRun(nextFailedMessage, displayMessage);
         return undefined;
       } finally {
         setIsRunning(false);
       }
     },
-    [version, initRuntime, companyId],
+    [version, initRuntime, companyId, clearFailedRunError, setRetryableFailedRun],
   );
 
   const retryLastMessage = useCallback(async (): Promise<string | undefined> => {
@@ -298,6 +326,7 @@ export function useRuntimeInit({
       targetEmployeeId: last.targetEmployeeId,
       threadId: last.threadId,
       entryMode: last.entryMode,
+      conversationKey: last.conversationKey,
     });
   }, [sendMessage]);
 
@@ -429,8 +458,9 @@ export function useRuntimeInit({
     eventBus,
     isInitializing,
     error,
+    failedRunState,
     setError,
-    clearError,
+    clearError: clearFailedRunError,
     version,
     reinit,
     isRunning,

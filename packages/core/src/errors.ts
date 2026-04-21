@@ -8,8 +8,9 @@ export class OffisimError extends Error {
     message: string,
     public readonly code: string,
     public readonly recoverable: boolean,
+    options?: { cause?: unknown },
   ) {
-    super(message);
+    super(message, options);
     this.name = 'OffisimError';
   }
 }
@@ -22,9 +23,10 @@ export class LlmError extends OffisimError {
     message: string,
     public readonly provider: string,
     public readonly statusCode?: number,
+    options?: { cause?: unknown },
   ) {
     const recoverable = statusCode !== undefined && RETRYABLE_STATUS.has(statusCode);
-    super(message, 'LLM_ERROR', recoverable);
+    super(message, 'LLM_ERROR', recoverable, options);
     this.name = 'LlmError';
   }
 }
