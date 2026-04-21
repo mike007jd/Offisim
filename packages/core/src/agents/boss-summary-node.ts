@@ -39,6 +39,32 @@ function stripLegacySpeakerPrefix(content: string): string {
   return content.replace(/^\[([^\]]*[a-zA-Z][^\]]*)\]:?\s?/, '');
 }
 
+function getLatestAiText(state: OffisimGraphState): string | null {
+  for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+    const message = state.messages[index];
+    if (!message || message._getType() !== 'ai' || typeof message.content !== 'string') {
+      continue;
+    }
+    return message.content;
+  }
+  return null;
+}
+
+function emitDirectChatCompletedIfNeeded(
+  state: OffisimGraphState,
+  runtimeCtx: NonNullable<ReturnType<typeof getRuntime>>,
+): void {
+  if (state.entryMode !== 'direct_chat' || !state.targetEmployeeId) return;
+  runtimeCtx.eventBus.emit(
+    directChatCompleted(
+      runtimeCtx.companyId,
+      state.targetEmployeeId,
+      state.currentStepOutputs[0]?.employeeName ?? 'Unknown',
+      state.threadId,
+    ),
+  );
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -58,6 +84,14 @@ export async function bossSummaryNode(
     runtimeCtx.eventBus.emit(
       graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss_summary'),
     );
+  }
+
+  const latestAiText = getLatestAiText(state);
+  // error_handler already marked the thread failed and produced the user-facing
+  // retryable message for this run. Do not overwrite that failure with a bogus
+  // "Task processing complete." completion record.
+  if (latestAiText?.startsWith('[Error Handler]')) {
+    return { completed: true };
   }
 
   // Emit planCompleted if there was a task plan
@@ -102,14 +136,6 @@ export async function bossSummaryNode(
         })
         .catch(() => {}); // fire-and-forget — must not block summary
     }
-  }
-
-  // Emit directChatCompleted if this was a direct chat flow
-  if (runtimeCtx && state.entryMode === 'direct_chat' && state.targetEmployeeId) {
-    const empName = state.currentStepOutputs[0]?.employeeName ?? 'Unknown';
-    runtimeCtx.eventBus.emit(
-      directChatCompleted(runtimeCtx.companyId, state.targetEmployeeId, empName, state.threadId),
-    );
   }
 
   // If there's already a direct reply from boss, just mark completed
@@ -187,6 +213,7 @@ export async function bossSummaryNode(
     if (runtimeCtx) {
       await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
     }
+    if (runtimeCtx) emitDirectChatCompletedIfNeeded(state, runtimeCtx);
     if (runtimeCtx) {
       await appendAgentEvent(runtimeCtx, {
         projectId: state.projectId,
@@ -228,6 +255,7 @@ export async function bossSummaryNode(
   const finalContent = streamResult.fullContent + actionItemsSuffix;
   emitDeliverable(finalContent);
   await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+  emitDirectChatCompletedIfNeeded(state, runtimeCtx);
 
   await appendAgentEvent(runtimeCtx, {
     projectId: state.projectId,

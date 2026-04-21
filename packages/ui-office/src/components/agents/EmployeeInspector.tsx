@@ -181,7 +181,17 @@ export function EmployeeInspector({
   useEffect(() => {
     if (!employeeId) return;
     function handlePointerDown(e: PointerEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (panelRef.current?.contains(target)) {
+        return;
+      }
+      // Starting or continuing a direct chat should not clear the selected employee
+      // before the chat surface receives the click.
+      if (target instanceof Element && target.closest('[data-chat-panel-root]')) {
+        return;
+      }
+      if (panelRef.current) {
         onClose();
       }
     }

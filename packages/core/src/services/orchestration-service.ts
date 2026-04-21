@@ -30,6 +30,23 @@ import type {
 /** Max queued execute() calls per thread before rejecting. */
 const MAX_QUEUE_DEPTH = 3;
 
+function normalizeRetryableErrorMessage(message: string): string {
+  return message.replace(/^\[Error Handler\]\s*/, '').trim();
+}
+
+function extractErrorHandlerMessage(messages: BaseMessage[] | undefined): string | null {
+  if (!Array.isArray(messages)) return null;
+  const latestRetryableMessage = [...messages].reverse().find(
+    (message) =>
+      message?._getType() === 'ai' &&
+      typeof message.content === 'string' &&
+      message.content.startsWith('[Error Handler]'),
+  );
+  return latestRetryableMessage && typeof latestRetryableMessage.content === 'string'
+    ? latestRetryableMessage.content
+    : null;
+}
+
 export interface SerializedExecutionState {
   threadId: string;
   companyId: string;
@@ -357,6 +374,7 @@ export class OrchestrationService {
 
     let finalState: Partial<OffisimGraphState> = { ...state };
     let lastNodeName: string | undefined;
+    let errorHandlerMessage: string | null = null;
 
     const stream = await this.graph.stream(state as Record<string, unknown>, {
       ...config,
@@ -384,6 +402,9 @@ export class OrchestrationService {
           lastNodeName = nodeName;
           const previousState = finalState as Partial<OffisimGraphState>;
           const delta = nodeOutput as Partial<OffisimGraphState>;
+          if (nodeName === 'error_handler') {
+            errorHandlerMessage = extractErrorHandlerMessage(delta.messages) ?? errorHandlerMessage;
+          }
           const nextState = delta.messages
             ? {
                 ...previousState,
@@ -438,6 +459,10 @@ export class OrchestrationService {
     unsubscribeNodeEntered();
 
     await this.workspaceStalenessService?.saveThreadBaseline(threadId, this.runtimeCtx.companyId);
+
+    if (errorHandlerMessage) {
+      throw new Error(normalizeRetryableErrorMessage(errorHandlerMessage));
+    }
 
     return finalState as OffisimGraphState;
   }

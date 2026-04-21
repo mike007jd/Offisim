@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@offisim/shared-types';
+import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -71,6 +71,26 @@ function genMsgId(): string {
     : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function getScopedConversationKey(
+  threadId: string | null | undefined,
+  targetEmployeeId: string | null,
+): string {
+  return getConversationKey({
+    threadId: threadId ?? null,
+    targetEmployeeId,
+  });
+}
+
+function resolveInteractionTargetEmployeeId(
+  request: InteractionRequest | null | undefined,
+): string | null {
+  if (!request) return null;
+  if (request.kind === 'skill_install_confirm' && request.context?.type === 'skill_install_confirm') {
+    return request.context.resolvedEmployeeId ?? null;
+  }
+  return request.employeeId ?? null;
+}
+
 /**
  * Collaboration chat surface — rendered inside the Right Rail.
  *
@@ -97,9 +117,18 @@ export function ChatPanel({
   showMeetingPanel = true,
   showActivityRail = false,
 }: ChatPanelProps) {
-  const { sendMessage, retryLastMessage, isRunning, isReady, error, clearError, abortExecution } =
-    useOffisimRuntime();
-  const { pendingInteraction, respondToInteraction } = useOffisimRuntime();
+  const {
+    sendMessage,
+    retryLastMessage,
+    isRunning,
+    isReady,
+    error,
+    failedRunError,
+    clearError,
+    abortExecution,
+    pendingInteraction,
+    respondToInteraction,
+  } = useOffisimRuntime();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
   const { meetingState } = useMeeting();
@@ -114,18 +143,17 @@ export function ChatPanel({
   const isNearBottomRef = useRef(true);
   const SCROLL_THRESHOLD = 80;
 
-  // Track which target the last error occurred on
-  const errorTargetRef = useRef<string | null>(null);
   const interactionTargetRef = useRef<string | null>(null);
 
   // Current target key
+  const activeThreadId = activeProject?.thread_id ?? null;
   const targetKey = selectedEmployeeId ?? null;
-  const conversationKey = getConversationKey({
-    threadId: activeProject?.thread_id ?? null,
-    targetEmployeeId: targetKey,
-  });
-  const interactionEmployeeName = pendingInteraction?.employeeId
-    ? (agents.get(pendingInteraction.employeeId)?.name ?? null)
+  const conversationKey = getScopedConversationKey(activeThreadId, targetKey);
+  const failedConversationKey = failedRunError?.conversationKey ?? null;
+  const failedTargetEmployeeId = failedRunError?.targetEmployeeId ?? null;
+  const interactionEmployeeId = resolveInteractionTargetEmployeeId(pendingInteraction);
+  const interactionEmployeeName = interactionEmployeeId
+    ? (agents.get(interactionEmployeeId)?.name ?? null)
     : null;
   const {
     content: streamContent,
@@ -133,6 +161,7 @@ export function ChatPanel({
     isStreaming,
     nodeName: streamNodeName,
   } = useStreamingContentForConversation(conversationKey);
+  const bannerMessage = failedRunError?.message ?? error;
 
   // Current messages for the active target
   const messages = useChatSessionStore(
@@ -178,19 +207,22 @@ export function ChatPanel({
   // Clear error when switching targets
   const prevTargetRef = useRef(targetKey);
   useEffect(() => {
-    if (prevTargetRef.current !== targetKey && error) {
+    if (prevTargetRef.current !== targetKey && error && !failedRunError) {
       clearError();
     }
     prevTargetRef.current = targetKey;
-  }, [targetKey, error, clearError]);
+  }, [targetKey, error, failedRunError, clearError]);
 
   useEffect(() => {
     if (pendingInteraction) {
-      interactionTargetRef.current = errorTargetRef.current ?? targetKey;
+      interactionTargetRef.current =
+        resolveInteractionTargetEmployeeId(pendingInteraction) ??
+        failedTargetEmployeeId ??
+        targetKey;
       return;
     }
     interactionTargetRef.current = null;
-  }, [pendingInteraction, targetKey]);
+  }, [pendingInteraction, failedTargetEmployeeId, targetKey]);
 
   const getScrollViewport = useCallback((): HTMLDivElement | null => {
     const viewport = scrollRef.current?.parentElement;
@@ -221,13 +253,7 @@ export function ChatPanel({
   }, [messages, streamContent, streamReasoning, getScrollViewport]);
 
   function addMessage(targetEmployeeId: string | null, msg: ChatMessage) {
-    appendMessage(
-      getConversationKey({
-        threadId: activeProject?.thread_id ?? null,
-        targetEmployeeId,
-      }),
-      msg,
-    );
+    appendMessage(getScopedConversationKey(activeThreadId, targetEmployeeId), msg);
   }
 
   async function handleInteractionRespond(
@@ -236,19 +262,15 @@ export function ChatPanel({
   ): Promise<void> {
     const pending = pendingInteraction;
     if (!pending || !respondToInteraction) return;
-    const interactionTarget = interactionTargetRef.current ?? targetKey;
+    const interactionTarget =
+      resolveInteractionTargetEmployeeId(pending) ?? interactionTargetRef.current ?? targetKey;
 
     const trimmedResponse = freeformResponse?.trim();
     if (pending.kind === 'agent_question' && selectedOptionId !== 'cancel' && trimmedResponse) {
       addMessage(interactionTarget, { id: genMsgId(), role: 'user', content: trimmedResponse });
     }
 
-    startRun(
-      getConversationKey({
-        threadId: activeProject?.thread_id ?? null,
-        targetEmployeeId: interactionTarget,
-      }),
-    );
+    startRun(getScopedConversationKey(activeThreadId, interactionTarget));
     const response = await respondToInteraction(selectedOptionId, trimmedResponse);
     finalizeActiveRun(response);
   }
@@ -257,8 +279,6 @@ export function ChatPanel({
     text: string,
     options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
   ) {
-    errorTargetRef.current = targetKey;
-
     // Notify parent of user message (only for team chat, not direct employee chat)
     if (!selectedEmployeeId) {
       onUserMessage?.(text);
@@ -277,50 +297,44 @@ export function ChatPanel({
     const targetHint =
       mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
     const resolvedTargetEmployeeId = selectedEmployeeId ?? targetHint ?? null;
+    const runConversationTarget = selectedEmployeeId ? resolvedTargetEmployeeId : targetKey;
+    const runConversationKey = getScopedConversationKey(activeThreadId, runConversationTarget);
 
-    addMessage(targetKey, { id: genMsgId(), role: 'user', content: text });
-    startRun(conversationKey);
+    addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
+    startRun(runConversationKey);
 
     const response = await sendMessage(text, {
       entryMode: options?.entryMode,
       targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
-      threadId: activeProject?.thread_id ?? undefined,
+      threadId: activeThreadId ?? undefined,
+      conversationKey: runConversationKey,
     });
     finalizeActiveRun(response);
   }
 
   async function handleRetry() {
-    const retryTarget = errorTargetRef.current;
-    startRun(
-      getConversationKey({
-        threadId: activeProject?.thread_id ?? null,
-        targetEmployeeId: retryTarget,
-      }),
-    );
+    if (!failedConversationKey) return;
+    startRun(failedConversationKey);
     const response = await retryLastMessage();
     finalizeActiveRun(response);
   }
 
   function handleSwapPerson(employeeId: string) {
-    const allMessages = getMessages(
-      getConversationKey({
-        threadId: activeProject?.thread_id ?? null,
-        targetEmployeeId: errorTargetRef.current,
-      }),
-    );
+    const sourceConversationKey = failedConversationKey ?? conversationKey;
+    const allMessages = getMessages(sourceConversationKey);
     const lastUserMsg = [...allMessages].reverse().find((m) => m.role === 'user');
     if (!lastUserMsg) return;
 
     clearError();
 
     addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
-    startRun(
-      getConversationKey({
-        threadId: activeProject?.thread_id ?? null,
-        targetEmployeeId: employeeId,
-      }),
-    );
-    sendMessage(lastUserMsg.content, { targetEmployeeId: employeeId }).then((response) => {
+    const nextConversationKey = getScopedConversationKey(activeThreadId, employeeId);
+    startRun(nextConversationKey);
+    sendMessage(lastUserMsg.content, {
+      targetEmployeeId: employeeId,
+      threadId: activeThreadId ?? undefined,
+      conversationKey: nextConversationKey,
+    }).then((response) => {
       finalizeActiveRun(response);
     });
   }
@@ -393,7 +407,7 @@ export function ChatPanel({
   ) : null;
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+    <div data-chat-panel-root className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {!isReady && (
         <div className="mx-3 mt-3 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
           <div className="flex items-center justify-between gap-3">
@@ -444,11 +458,11 @@ export function ChatPanel({
       )}
 
       {/* Error banner */}
-      {error && (
+      {bannerMessage && (
         <ErrorBanner
-          message={error}
+          message={bannerMessage}
           onDismiss={clearError}
-          onRetry={handleRetry}
+          onRetry={failedRunError ? handleRetry : undefined}
           employees={agents}
           onSwapPerson={handleSwapPerson}
           onSwapModel={handleSwapModel}
