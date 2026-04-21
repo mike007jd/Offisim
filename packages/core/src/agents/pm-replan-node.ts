@@ -188,7 +188,7 @@ export async function pmReplanNode(
         employee_id: t.employeeId,
         parent_task_run_id: null,
         task_type: t.taskType,
-        status: 'planned',
+        status: 'queued',
         input_json: JSON.stringify({ description: t.description }),
         output_json: null,
         started_at: new Date().toISOString(),

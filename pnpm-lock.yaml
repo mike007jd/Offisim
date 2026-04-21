@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@langchain/langgraph@1.2.1':
+    hash: f40ca4388a4cffd7890e120c406638496a7f6fb6da3f3d2003297c9401069ba9
+    path: patches/@langchain__langgraph@1.2.1.patch
+
 importers:
 
   .:
@@ -220,7 +225,7 @@ importers:
         version: 1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6))
       '@langchain/langgraph':
         specifier: ^1.2.1
-        version: 1.2.1(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
+        version: 1.2.1(patch_hash=f40ca4388a4cffd7890e120c406638496a7f6fb6da3f3d2003297c9401069ba9)(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
       '@langchain/langgraph-checkpoint-sqlite':
         specifier: ^1.0.1
         version: 1.0.1(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6))))
@@ -5218,7 +5223,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@langchain/langgraph@1.2.1(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
+  '@langchain/langgraph@1.2.1(patch_hash=f40ca4388a4cffd7890e120c406638496a7f6fb6da3f3d2003297c9401069ba9)(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       '@langchain/core': 1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6))
       '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.31(openai@6.27.0(ws@8.20.0)(zod@4.3.6)))

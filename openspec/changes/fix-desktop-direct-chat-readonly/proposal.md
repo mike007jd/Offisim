@@ -33,6 +33,16 @@
 
 若根因确定为独立 UI hook 内局部 bug（非跨层契约），可能不需要触任何 canonical spec，仅记录 verify records 后 archive。此时 specs delta 为空（合规）。
 
+## Secondary fix (discovered during apply)
+
+修 readonly 后顺序复现，direct chat 下一步 hit `CHECK constraint failed: status IN ('queued', 'running', 'waiting_human', 'blocked', 'completed', 'failed', 'cancelled')` on `task_runs` insert。调用点有 3 处硬编码非法初值：
+
+- `employee-direct-setup-node.ts` 写 `'pending'`
+- `pm-planner/plan-persistence.ts` 写 `'planned'`
+- `pm-replan-node.ts` 写 `'planned'`
+
+三处统一纠正为 `'queued'`（schema 白名单首值，与既有 orchestration 对齐）。这是独立于 readonly 的 schema drift，但若不一并修，readonly 修完 direct chat 仍 runtime dead，scope 之外的 1 字改动在一个 change 里收口成本低于拆分。
+
 ## Impact
 
 - **Code**：单路径修复（预计 1-3 个文件），无新依赖

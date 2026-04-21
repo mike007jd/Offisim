@@ -1,0 +1,36 @@
+diff --git a/dist/pregel/retry.cjs b/dist/pregel/retry.cjs
+index 96b0bf87d4a5c7b528635eb3e72ac977bf863246..ab1ba5c377a22213174fe4e10cadff937b7bd628 100644
+--- a/dist/pregel/retry.cjs
++++ b/dist/pregel/retry.cjs
+@@ -49,7 +49,12 @@ async function _runWithRetry(pregelTask, retryPolicy, configurable, signal) {
+ 			break;
+ 		} catch (e) {
+ 			error = e;
+-			error.pregelTaskId = pregelTask.id;
++			try {
++				error.pregelTaskId = pregelTask.id;
++			} catch {
++				// Some runtimes surface frozen/non-extensible Error objects.
++				// Losing this debug tag is better than masking the real failure.
++			}
+ 			if (require_errors.isParentCommand(error)) {
+ 				const ns = config?.configurable?.checkpoint_ns;
+ 				const cmd = error.command;
+diff --git a/dist/pregel/retry.js b/dist/pregel/retry.js
+index cc7555e92cbd31c979c36400915be81534aeae30..1c28166a4f74edd84d417293fb249dbbd12c5109 100644
+--- a/dist/pregel/retry.js
++++ b/dist/pregel/retry.js
+@@ -49,7 +49,12 @@ async function _runWithRetry(pregelTask, retryPolicy, configurable, signal) {
+ 			break;
+ 		} catch (e) {
+ 			error = e;
+-			error.pregelTaskId = pregelTask.id;
++			try {
++				error.pregelTaskId = pregelTask.id;
++			} catch {
++				// Some runtimes surface frozen/non-extensible Error objects.
++				// Losing this debug tag is better than masking the real failure.
++			}
+ 			if (isParentCommand(error)) {
+ 				const ns = config?.configurable?.checkpoint_ns;
+ 				const cmd = error.command;

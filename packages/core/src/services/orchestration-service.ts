@@ -432,9 +432,7 @@ export class OrchestrationService {
       const contextMsg = lastNodeName
         ? `Graph execution failed in node "${lastNodeName}": ${original.message}`
         : `Graph execution failed: ${original.message}`;
-      const wrapped = new Error(contextMsg);
-      wrapped.cause = original;
-      throw wrapped;
+      throw new Error(contextMsg, { cause: original });
     }
 
     unsubscribeNodeEntered();

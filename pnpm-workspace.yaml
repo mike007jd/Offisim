@@ -1,5 +1,9 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - apps/*
+  - packages/*
+
 onlyBuiltDependencies:
   - better-sqlite3
+
+patchedDependencies:
+  '@langchain/langgraph@1.2.1': patches/@langchain__langgraph@1.2.1.patch

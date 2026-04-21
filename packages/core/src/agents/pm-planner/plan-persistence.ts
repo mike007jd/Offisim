@@ -40,7 +40,7 @@ export async function persistLlmPlanAsTaskPlan(
         employee_id: llmTask.employeeId,
         parent_task_run_id: null,
         task_type: llmTask.taskType,
-        status: 'planned',
+        status: 'queued',
         input_json: JSON.stringify({ description: llmTask.description }),
         output_json: null,
         started_at: new Date().toISOString(),
@@ -123,4 +123,3 @@ export async function persistLlmPlanAsTaskPlan(
     currentStepOutputs: [],
   };
 }
-

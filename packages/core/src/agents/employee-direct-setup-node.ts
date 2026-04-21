@@ -62,7 +62,7 @@ export async function employeeDirectSetupNode(
     employee_id: employee.employee_id,
     parent_task_run_id: null,
     task_type: 'direct_chat',
-    status: 'pending',
+    status: 'queued',
     input_json: JSON.stringify({ description: taskDescription }),
     output_json: null,
     started_at: new Date().toISOString(),
