@@ -49,6 +49,7 @@ import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
+import { type AuthScheme, createTauriLlmFetch } from './tauri-llm-fetch';
 import { InMemoryUploadRefResolver, createTauriSkillInstallEnvironment } from './skill-install-env';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -62,6 +63,32 @@ import {
   prefetchTauriHomeDir,
 } from './tauri-skill-install-adapters';
 import { tryActivateTauriVault } from './vault-tauri-activation';
+
+// ---------------------------------------------------------------------------
+// Credential-isolated transport: every Tauri LLM gateway gets a Rust-backed
+// fetch. The auth scheme is decided once per gateway construction from the
+// provider kind + baseURL; it does not change per-request within a gateway's
+// lifetime (see openspec/specs/desktop-llm-credential-isolation/spec.md).
+// ---------------------------------------------------------------------------
+
+function authSchemeFor(provider: ProviderConfig['provider'], baseURL?: string): AuthScheme {
+  if (provider === 'anthropic') {
+    // Official api.anthropic.com uses the legacy `x-api-key` header. Every
+    // third-party Anthropic-compatible endpoint (MiniMax et al.) expects a
+    // standard Bearer token instead, matching what the adapter's old
+    // buildBrowserCompatHeaders shim emitted.
+    if (!baseURL) return 'x-api-key';
+    try {
+      const host = new URL(baseURL).host;
+      return host.endsWith('api.anthropic.com') ? 'x-api-key' : 'bearer';
+    } catch {
+      return 'bearer';
+    }
+  }
+  // OpenAI and every OpenAI-compatible endpoint (Kimi / OpenRouter / Gemini
+  // compat / Zai / MiniMax openai-compat / LM Studio / etc.) use Bearer.
+  return 'bearer';
+}
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -132,11 +159,20 @@ export async function createTauriRuntime(
 
   const gateway = createGateway({
     provider: config.provider,
-    apiKey: '',
+    // Tauri runtime never sees the provider credential — it lives only in
+    // Keychain and is injected by the Rust-side `llm_fetch` transport. The
+    // SDK clients still demand a non-empty string, so we pass a sentinel.
+    apiKey: 'ignored',
     baseURL: config.baseURL,
     defaultHeaders: config.defaultHeaders,
     dangerouslyAllowBrowser: true,
     subscription: buildSubscriptionGatewayConfig(config),
+    // Subscription (ACP) spawns `claude` via node:child_process — no HTTP,
+    // no credential — so no fetch injection needed; every other branch goes
+    // through the Rust transport.
+    ...(config.provider === 'subscription'
+      ? {}
+      : { fetch: createTauriLlmFetch(authSchemeFor(config.provider, config.baseURL)) }),
   });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(

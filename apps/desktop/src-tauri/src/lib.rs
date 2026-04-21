@@ -1,5 +1,6 @@
 mod deep_link;
 mod git;
+mod llm_transport;
 mod local_paths;
 mod mcp_bridge;
 mod runtime_secrets;
@@ -234,6 +235,8 @@ pub fn run() {
             runtime_secrets::runtime_secret_status,
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
+            llm_transport::llm_fetch,
+            llm_transport::llm_fetch_abort,
             git::git_exec,
             local_paths::open_local_path,
             local_paths::save_deliverable_to_local,
@@ -248,6 +251,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(mcp_bridge::init())
         .setup(|app| {
+            // Resolve the plaintext secret-file location once so non-command
+            // callers (llm_transport) can read without an AppHandle.
+            runtime_secrets::init_storage(app.handle())
+                .map_err(|e| format!("runtime_secrets init: {e}"))?;
+
             // Open devtools on launch. Gated only by the OFFISIM_DESKTOP_DEVTOOLS
             // env var at startup so live verify from release .app bundles can
             // flip it on (Computer Use only attaches to .app bundles, not to

@@ -16,6 +16,14 @@ export interface GatewayConfig {
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
+  /**
+   * Custom fetch implementation for credential-isolated transports. When set,
+   * Anthropic/OpenAI SDK clients are constructed with `{ fetch }` so every
+   * outbound request routes through it. Tauri desktop uses this to tunnel
+   * traffic through the Rust-side `llm_fetch` command; web mode leaves it
+   * undefined and the SDK's default transport applies.
+   */
+  fetch?: typeof fetch;
   /** Subscription-mode (ACP) options — command path, args, env */
   subscription?: SubscriptionAdapterOptions;
 }
@@ -42,11 +50,13 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         defaultHeaders: config.defaultHeaders,
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
+        fetch: config.fetch,
       });
     case 'openai':
       return new OpenAiAdapter(config.apiKey, {
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
+        fetch: config.fetch,
       });
     case 'openai-compat':
       if (!config.baseURL) {
@@ -57,6 +67,7 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         defaultHeaders: config.defaultHeaders,
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
+        fetch: config.fetch,
       });
     case 'subscription': {
       if (

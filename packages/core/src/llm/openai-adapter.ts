@@ -20,6 +20,13 @@ export interface OpenAiAdapterOptions {
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
+  /**
+   * Custom fetch implementation. When set, the OpenAI SDK client is
+   * constructed with this transport — Tauri desktop uses this to tunnel
+   * outbound traffic through the Rust-side `llm_fetch` command so the
+   * credential never enters the webview.
+   */
+  fetch?: typeof fetch;
 }
 
 type CompatAssistantMessage = OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
@@ -113,6 +120,7 @@ export class OpenAiAdapter implements LlmGateway {
       baseURL: options?.baseURL,
       defaultHeaders: options?.defaultHeaders,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
+      ...(typeof options?.fetch === 'function' ? { fetch: options.fetch } : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
     this.isCompat = !!options?.baseURL;

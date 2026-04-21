@@ -19,6 +19,13 @@ export interface AnthropicAdapterOptions {
   retryConfig?: RetryConfig;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
+  /**
+   * Custom fetch implementation. When set, the SDK is constructed with this
+   * transport and the legacy `createCorsCleanFetch` / third-party Bearer
+   * compat header shim is skipped — the injected fetch is expected to handle
+   * auth + telemetry-header stripping itself (Tauri's Rust transport does).
+   */
+  fetch?: typeof fetch;
 }
 
 /** Convert our ToolDef to Anthropic's tool format */
@@ -134,8 +141,15 @@ export class AnthropicAdapter implements LlmGateway {
   private retryConfig: RetryConfig;
 
   constructor(apiKey: string, options?: AnthropicAdapterOptions) {
+    const hasInjectedFetch = typeof options?.fetch === 'function';
     const isThirdParty = isThirdPartyAnthropicEndpoint(options?.baseURL);
-    const browserCompatHeaders = isThirdParty ? buildBrowserCompatHeaders(apiKey) : undefined;
+    // When a Tauri-side (or other) transport has been injected it rewrites
+    // Authorization from Keychain, so the browser-CORS compat shim is not
+    // only unnecessary but counter-productive (TS sends `Bearer ignored`
+    // which the Rust side strips; we also want `x-api-key` / the Stainless
+    // telemetry headers to reach the native endpoint untouched).
+    const browserCompatHeaders =
+      !hasInjectedFetch && isThirdParty ? buildBrowserCompatHeaders(apiKey) : undefined;
     const mergedHeaders =
       browserCompatHeaders || options?.defaultHeaders
         ? { ...browserCompatHeaders, ...options?.defaultHeaders }
@@ -149,10 +163,12 @@ export class AnthropicAdapter implements LlmGateway {
       // exported type is `Record<string, string>`.
       defaultHeaders: mergedHeaders as Record<string, string> | undefined,
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
-      // Strip x-stainless-* telemetry headers at fetch time for third-party
-      // compat endpoints. Denylist approach — future SDK telemetry headers
-      // are auto-removed without maintaining an explicit null list.
-      ...(isThirdParty ? { fetch: createCorsCleanFetch() } : {}),
+      // Transport precedence: injected fetch > third-party CORS shim > SDK default.
+      ...(hasInjectedFetch
+        ? { fetch: options!.fetch }
+        : isThirdParty
+          ? { fetch: createCorsCleanFetch() }
+          : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
   }
