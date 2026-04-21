@@ -19,9 +19,14 @@ export function formatAvailableSkillsSection(skills: SkillMetadata[]): string {
   if (skills.length === 0) return '';
   const lines = ['', '## Available skills', ''];
   for (const skill of skills) {
-    const name = sanitizeForPrompt(skill.name, 120);
-    const desc = sanitizeForPrompt(truncateDescription(skill.description), 240);
-    lines.push(`- **${name}** — ${desc}`);
+    const { id, description, name, scope, slug, version } = skill;
+    const safeName = sanitizeForPrompt(name, 120);
+    const safeDescription = sanitizeForPrompt(truncateDescription(description), 240);
+    const safeSkillId = sanitizeForPrompt(id, 80);
+    const safeSlug = sanitizeForPrompt(slug, 120);
+    lines.push(
+      `- **${safeName}** (id: \`${safeSkillId}\`, scope: \`${scope}\`, version: \`${version}\`, slug: \`${safeSlug}\`) — ${safeDescription}`,
+    );
   }
   return `\n${lines.join('\n')}`;
 }

@@ -1,12 +1,4 @@
-import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@offisim/ui-core';
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
 import { Bot, ShieldCheck } from 'lucide-react';
 import { isTauri } from '../../lib/env';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
@@ -26,15 +18,11 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     apiKey,
     baseURL,
     handlePresetChange,
-    handleSave,
     hasStoredSecret,
-    isSaveDisabled,
-    isSaving,
     isSubscription,
     isThinkingProvider,
     model,
     preset,
-    saveError,
     selectedCapabilities,
     selectedCompatibility,
     selectedPreset,
@@ -168,19 +156,6 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               Thinking model — keep max tokens at 1024+ to avoid clipped replies.
             </div>
           ) : null}
-
-          {saveError ? <p className="mt-4 text-sm text-red-400">{saveError}</p> : null}
-
-          <div className="mt-5 flex justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => void handleSave()}
-              disabled={isSaveDisabled}
-              className="h-11 rounded-2xl border-emerald-400/40 bg-emerald-500/15 px-5 text-emerald-50 hover:border-emerald-300 hover:bg-emerald-500/25"
-            >
-              {isSaving ? 'Saving…' : 'Save provider workspace'}
-            </Button>
-          </div>
         </SurfaceCard>
       </div>
     </div>
