@@ -61,6 +61,9 @@ pub enum TransportEvent {
     },
     Done,
     Error {
+        /// Machine-readable category the TS side maps to user-visible copy:
+        /// `no-credential` | `network` | `stream` | `channel` | `request`.
+        code: String,
         message: String,
     },
 }
@@ -128,23 +131,41 @@ pub async fn llm_fetch(
             // surface a spurious rejection.
             Ok(())
         }
-        Err(FetchError::Io(msg)) => {
+        Err(err) => {
+            let (code, message) = err.into_code_message();
             let _ = on_event.send(TransportEvent::Error {
-                message: msg.clone(),
+                code: code.to_string(),
+                message: message.clone(),
             });
-            Err(msg)
+            // Bubble the message up through the command return so the TS
+            // `.catch` also sees something if the channel was closed first.
+            Err(format!("{code}: {message}"))
         }
     }
 }
 
 enum FetchError {
     Aborted,
-    Io(String),
+    NoCredential,
+    Network(String),
+    Stream(String),
+    Channel(String),
+    Request(String),
 }
 
-impl From<String> for FetchError {
-    fn from(s: String) -> Self {
-        FetchError::Io(s)
+impl FetchError {
+    fn into_code_message(self) -> (&'static str, String) {
+        match self {
+            FetchError::Aborted => ("aborted", "Request aborted".into()),
+            FetchError::NoCredential => (
+                "no-credential",
+                "No provider credential stored on this device.".into(),
+            ),
+            FetchError::Network(msg) => ("network", msg),
+            FetchError::Stream(msg) => ("stream", msg),
+            FetchError::Channel(msg) => ("channel", msg),
+            FetchError::Request(msg) => ("request", msg),
+        }
     }
 }
 
@@ -184,10 +205,10 @@ async fn do_fetch(
 
     let client = reqwest::Client::builder()
         .build()
-        .map_err(|e| format!("reqwest build: {e}"))?;
+        .map_err(|e| FetchError::Request(format!("reqwest build: {e}")))?;
 
     let method_parsed = Method::from_bytes(method.as_bytes())
-        .map_err(|e| format!("invalid method {method}: {e}"))?;
+        .map_err(|e| FetchError::Request(format!("invalid method {method}: {e}")))?;
 
     let mut req_builder = client.request(method_parsed, url);
     for (name, value) in headers {
@@ -199,7 +220,7 @@ async fn do_fetch(
 
     let response = tokio::select! {
         _ = token.cancelled() => return Err(FetchError::Aborted),
-        res = req_builder.send() => res.map_err(|e| format!("request send: {e}"))?,
+        res = req_builder.send() => res.map_err(|e| FetchError::Network(format!("request send: {e}")))?,
     };
 
     let status = response.status().as_u16();
@@ -217,7 +238,7 @@ async fn do_fetch(
             status,
             headers: headers_out,
         })
-        .map_err(|e| format!("channel send headers: {e}"))?;
+        .map_err(|e| FetchError::Channel(format!("send headers: {e}")))?;
 
     let mut stream = response.bytes_stream();
     loop {
@@ -229,9 +250,9 @@ async fn do_fetch(
                     Some(Ok(chunk)) => {
                         on_event
                             .send(TransportEvent::Chunk { bytes: chunk.to_vec() })
-                            .map_err(|e| format!("channel send chunk: {e}"))?;
+                            .map_err(|e| FetchError::Channel(format!("send chunk: {e}")))?;
                     }
-                    Some(Err(e)) => return Err(FetchError::Io(format!("stream read: {e}"))),
+                    Some(Err(e)) => return Err(FetchError::Stream(format!("stream read: {e}"))),
                 }
             }
         }
@@ -239,14 +260,14 @@ async fn do_fetch(
 
     on_event
         .send(TransportEvent::Done)
-        .map_err(|e| format!("channel send done: {e}"))?;
+        .map_err(|e| FetchError::Channel(format!("send done: {e}")))?;
     Ok(())
 }
 
-fn read_secret() -> Result<String, String> {
-    match runtime_secrets::read_secret_raw()? {
+fn read_secret() -> Result<String, FetchError> {
+    match runtime_secrets::read_secret_raw().map_err(FetchError::Request)? {
         Some(secret) => Ok(secret),
-        None => Err("no-credential".into()),
+        None => Err(FetchError::NoCredential),
     }
 }
 

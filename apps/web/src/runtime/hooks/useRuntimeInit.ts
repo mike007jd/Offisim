@@ -35,6 +35,7 @@ import {
   type BrowserRuntimeBootstrapState,
 } from '../../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
+import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
 import type { LastFailedMessage } from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
@@ -277,7 +278,11 @@ export function useRuntimeInit({
           return undefined;
         }
         terminateRunWithError();
-        setError(msg);
+        setError(
+          isNoCredentialError(err)
+            ? 'No provider credential stored on this device. Open Settings → Provider to enter your API key.'
+            : msg,
+        );
         return undefined;
       } finally {
         setIsRunning(false);

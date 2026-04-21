@@ -33,17 +33,25 @@ export function useSettingsProviderState() {
   const [hasStoredSecret, setHasStoredSecret] = useState(false);
 
   function handlePresetChange(value: string) {
+    const prevVendor = getProviderPreset(preset)?.vendor;
+    const nextPreset = getProviderPreset(value);
     setPreset(value);
-    const providerPreset = getProviderPreset(value);
-    if (providerPreset) {
-      setBaseURL(providerPreset.defaults.baseURL ?? '');
-      setModel(providerPreset.defaults.model ?? '');
+    if (nextPreset) {
+      setBaseURL(nextPreset.defaults.baseURL ?? '');
+      setModel(nextPreset.defaults.model ?? '');
       setDefaultHeaders(
-        providerPreset.defaults.defaultHeaders
-          ? JSON.stringify(providerPreset.defaults.defaultHeaders)
+        nextPreset.defaults.defaultHeaders
+          ? JSON.stringify(nextPreset.defaults.defaultHeaders)
           : '',
       );
-      setAcpCommand(providerPreset.defaults.acpCommand ?? 'claude');
+      setAcpCommand(nextPreset.defaults.acpCommand ?? 'claude');
+    }
+    // Stored secret is bound to the previous vendor's credentials. Switching
+    // vendors requires a fresh key; otherwise Save would reuse the stale
+    // secret under a new baseURL and every request would 401 at the provider.
+    if (prevVendor && nextPreset?.vendor && prevVendor !== nextPreset.vendor) {
+      setApiKey('');
+      setHasStoredSecret(false);
     }
   }
 

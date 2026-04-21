@@ -84,24 +84,24 @@
 
 ### 8.1 Task 1 — 缺 secret 时的错误翻译（fix 5.10）
 
-- [ ] 8.1.1 Rust 侧 `llm_transport::read_secret` 在 `runtime_secret.txt` 不存在 / 读失败时返回 distinct error variant（e.g. `TransportError::NoCredential`），而不是和网络错误同通道混成 generic error
-- [ ] 8.1.2 `TransportEvent::Error` 带 `code: String` 字段（`no-credential` / `network` / `http-status` / `abort`），序列化经 Channel 回 TS
-- [ ] 8.1.3 `tauri-llm-fetch.ts` 收到 `code === 'no-credential'` 时 reject 一个可被上层识别的 error（定义 `class NoCredentialError extends Error` 或用 `error.code` 约定），**不落成 generic `Connection error.`**
-- [ ] 8.1.4 chat error surface / 底部 status bar 展示 `No credential. Open Settings → Provider to re-enter your API key.`（文案由 UI 定稿）
-- [ ] 8.1.5 Settings 页 `hasStoredSecret` 状态重新 probe：打开 Settings 或切 provider 时 invoke `runtime_secret_status` 重查，别只在 load/save 后更新
-- [ ] 8.1.6 Live verify：手删 `runtime_secret.txt` → 发 chat → UI 显示 `No credential`；回到 Settings → 状态立刻显示未存储；重新 Save key → chat 恢复
+- [x] 8.1.1 Rust `llm_transport::read_secret` 返 distinct `FetchError::NoCredential` variant；`FetchError` 同时拆出 `Network` / `Stream` / `Channel` / `Request` 分支，不再走通用 `Io(String)`
+- [x] 8.1.2 `TransportEvent::Error` 加 `code: String` 字段（`no-credential` / `network` / `stream` / `channel` / `request` / `aborted`），Serialize 经 Channel 回 TS；`llm_fetch` command return 的 `Err` 也带 `"{code}: {message}"` 前缀（防 Channel 关闭时 TS `.catch` 吞掉）
+- [x] 8.1.3 `tauri-llm-fetch.ts` 定义 `TauriLlmFetchError` class 带 `code` 字段；Channel error event 走这条路径；`isNoCredentialError(err)` helper walk `cause` chain + message-pattern fallback，覆盖被 SDK (`@anthropic-ai/sdk` / `openai`) wrap 进 `APIConnectionError` 的场景
+- [x] 8.1.4 `useRuntimeInit.ts` `setError` 走 `isNoCredentialError(err)` 翻成 `"No provider credential stored on this device. Open Settings → Provider to enter your API key."`；非 no-credential 保留原 message
+- [x] 8.1.5 `hasStoredSecret` re-probe：Settings loadState 时已走 `getRuntimeSecretStatus()`（既有行为，非本 task 新增）；切 preset 时通过 Task 2 的 vendor-diff 分支清空（比 probe 更精准 —— probe 只看 file 存在性，不区分 vendor），`handlePresetChange` 变 vendor 即 `setHasStoredSecret(false)`
+- [ ] 8.1.6 Live verify：手删 `runtime_secret.txt` → 发 chat → UI 显示 friendly no-credential 文案；回到 Settings 打开 → 状态变"not stored"；重 Save key → chat 恢复 — pending live run
 
-### 8.2 Task 2 — OpenRouter / OpenAI-compat 认证头注入（fix 5.9）
+### 8.2 Task 2 — OpenRouter 401 `Missing Authentication header`（fix 5.9）
 
-- [ ] 8.2.1 根因诊断先行：抓 `openai-adapter.ts` ctor + `gateway-factory.ts` → `tauri-runtime.ts::authSchemeFor(provider, baseURL)` 路径，确认 OpenRouter 走的 scheme 是否正确（预期 `bearer`），以及 `llm_transport::llm_fetch` 在 `AuthScheme::Bearer` 分支是否真的 `headers.insert("authorization", format!("Bearer {}", secret))`
-- [ ] 8.2.2 常见坑点排查：(a) OpenRouter `baseURL` 是否命中 `authSchemeFor` 的 Anthropic 分支（误判为 `x-api-key`）；(b) TS 侧 SDK 自己在 request init 时**又**塞了 `Authorization: Bearer ignored` header，被 Rust 的 header map 覆盖顺序吞掉；(c) `openai` SDK 在 `apiKey: 'ignored'` 时是否短路 fetch（不太可能但要确认）
-- [ ] 8.2.3 修复：保证 OpenRouter baseURL (`https://openrouter.ai/api/v1`) + `AuthScheme::Bearer` path 下，Rust 端 header 最终落成 `Authorization: Bearer <real-key>`
-- [ ] 8.2.4 顺手核查：MiniMax 通 + OpenRouter 通之后，Anthropic 官方（x-api-key）、OpenAI 官方（bearer）、anthropic-compat vendor（bearer）三条路径都要 smoke 过一次
-- [ ] 8.2.5 Live verify：切 OpenRouter + 任一免费模型 → 发 `hi` → 真收到模型回复；切回 MiniMax 不回归
+- [x] 8.2.1 根因诊断：`authSchemeFor('openai-compat', 'https://openrouter.ai/api/v1')` 返 `bearer` 正确；`gateway-factory.ts::case 'openai-compat'` 透传 baseURL + fetch 正确；Rust `AuthScheme::Bearer` 分支注入 `Authorization: Bearer <secret>` 正确；`headers.retain` 剥 SDK 占位 `Bearer ignored` 正确
+- [x] 8.2.2 真正根因在 `useSettingsProviderState.ts::handlePresetChange`：切 preset 时只改 baseURL / model / headers / acpCommand，**不清 `apiKey` input，不清 `hasStoredSecret`**；`useSettingsSaveOrchestrator.handleSave` 因 `hasStoredSecret=true` 跳过 `setRuntimeSecret` 调用，`runtime_secret.txt` 仍是上一个 vendor（MiniMax）的 key；Rust 把 MiniMax key 注入 Authorization 打到 OpenRouter，OpenRouter 解析失败返 `Missing Authentication header`（format 不合法在 OpenRouter 规范里视同无头）
+- [x] 8.2.3 修复 in `useSettingsProviderState.ts::handlePresetChange`：比较 `prevVendor` vs `nextPreset.vendor`，vendor 变了就 `setApiKey('')` + `setHasStoredSecret(false)`；既有 save gate `!hasStoredSecret && !apiKey.trim()` 会强制用户在切 vendor 后补新 key，否则 Save 报错
+- [ ] 8.2.4 Live verify 组合：(a) MiniMax 已 stored → 切 OpenRouter preset → apiKey input 被清 + 显示 Not stored → 不输 key 按 Save → 报 "API Key is required." → 输 key → Save → 发 `hi` 能回 (b) 回切 MiniMax preset → 同上 re-enter → MiniMax 不回归 — pending live run (OpenRouter + MiniMax key 都要真可用)
+- [x] 8.2.5 顺手检查：`case 'openai'`（非 compat）在 `gateway-factory.ts` line 55-60 确实丢了 baseURL 和 defaultHeaders。目前无 `provider: 'openai'` + baseURL 的用法，但类型允许 —— 留作 low-risk 潜在 bug，不阻塞本 change；若未来 preset 加 `openai` + 自定义 proxy baseURL 再补
 
 ### 8.3 Build + archive gate 复查
 
-- [ ] 8.3.1 `cargo check` + `cargo clippy -- -D warnings`
-- [ ] 8.3.2 `pnpm --filter @offisim/core build` + `pnpm --filter @offisim/ui-office build` + `pnpm --filter @offisim/desktop build`
-- [ ] 8.3.3 Spec 同步：如果 `desktop-llm-credential-isolation` 的错误处理 requirement 需细化（no-credential 独立 error code），在 archive 前 spec 同改
-- [ ] 8.3.4 Archive gate 三查（spec 一致 / tasks 一致 / 文档注释一致）+ 协议台账 Tauri 行 re-check
+- [x] 8.3.1 `cargo check` + `cargo clippy -- -D warnings` 全绿 (2026-04-21)
+- [x] 8.3.2 `pnpm --filter @offisim/{shared-types,core,ui-office,web,desktop} build` 全绿；release bundle `/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` 重新产出
+- [x] 8.3.3 Spec 未动：canonical `desktop-llm-credential-isolation` 描述 credential isolation invariant（secret 不越界 / authScheme pass-through / AbortSignal 传 Rust cancel），error code 细分属实现细节，不需 spec requirement；canonical 未改，无需迁移
+- [ ] 8.3.4 Archive gate 三查 + 协议台账 re-check — live verify 跑完补

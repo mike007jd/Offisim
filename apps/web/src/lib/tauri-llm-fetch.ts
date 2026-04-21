@@ -22,7 +22,43 @@ type TransportEvent =
   | { kind: 'headers'; status: number; headers: Array<[string, string]> }
   | { kind: 'chunk'; bytes: number[] }
   | { kind: 'done' }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; code: string; message: string };
+
+/**
+ * Error thrown by the Tauri LLM transport. The `code` mirrors the Rust
+ * `TransportEvent::Error.code` and lets upstream layers translate
+ * transport-level failures into user-visible copy without parsing strings.
+ */
+export class TauriLlmFetchError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'TauriLlmFetchError';
+    this.code = code;
+  }
+}
+
+/**
+ * True when the error (or any of its wrapped causes) originated as the Rust
+ * `no-credential` variant. SDKs like `@anthropic-ai/sdk` and `openai` wrap
+ * fetch errors inside APIConnectionError-style classes, so we walk the
+ * `cause` chain before falling back to message-pattern matching (the Rust
+ * command also surfaces the code as a `"no-credential: ..."` string prefix
+ * in case the Channel error raced against IPC rejection).
+ */
+export function isNoCredentialError(err: unknown): boolean {
+  let current: unknown = err;
+  for (let i = 0; i < 5 && current; i += 1) {
+    if (current instanceof TauriLlmFetchError && current.code === 'no-credential') return true;
+    if (typeof current === 'object' && current !== null) {
+      const code = (current as { code?: unknown }).code;
+      if (code === 'no-credential') return true;
+    }
+    current = (current as { cause?: unknown })?.cause;
+  }
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return /\bno-credential\b/.test(msg);
+}
 
 let requestCounter = 0;
 function nextRequestId(): string {
@@ -147,7 +183,10 @@ export function createTauriLlmFetch(
           break;
         }
         case 'error': {
-          const err = new Error(event.message || 'llm_fetch failed');
+          const err = new TauriLlmFetchError(
+            event.code || 'unknown',
+            event.message || 'llm_fetch failed',
+          );
           rejectResponse(err);
           finish(err);
           break;
