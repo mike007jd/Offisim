@@ -2,7 +2,7 @@
 
 - [x] 1.1 Boot web runtime (`cd apps/web && pnpm dev`) and open `http://localhost:5176` in Chrome DevTools MCP
 - [x] 1.2 Confirm default company loads with N employees (record N) and capture initial footer `{active}/{total}` and 3D overlay `{activeCount}` values (expect both 0/N and 0 respectively) — **N=8, both at 0/8 and 0**
-- [x] 1.3 Kick off a real multi-employee task via chat (e.g., "create 3 files: readme, todo, design"); at each observed ceremony phase transition (gathering / analyzing / planning / dispatching / working / reporting), screenshot both the footer and 3D overlay — **screenshots /tmp/audit-phase1-baseline.png + /tmp/audit-phase1-executing.png**
+- [x] 1.3 Kick off a real multi-employee task via chat (e.g., "create 3 files: readme, todo, design"); at each observed ceremony phase transition (gathering / analyzing / planning / dispatching / working / reporting), compare the footer and 3D overlay counts in the same live session and record the observations
 - [x] 1.4 Record the actual divergence pattern — **In this audit both counters agreed at every observed phase (0/8↔0 baseline, 0/8↔0 ANALYZING, 1/8↔1 EXECUTING, 0/8↔0 REPORTING, 0/8↔0 second-run boot, 1/8↔1 second EXECUTING). Both hooks happen to coincide in steady state because they share the same seed + event source. Run-start divergence window did not materialize because previous run cleared back to idle before next run kicked off.**
 - [x] 1.5 If the audit reveals that `EmployeeState` itself fails to reflect scene visuals — **No contract violation observed; Sophie/Zara show `📋 1/1` while state=idle but that is "dispatched, not yet entered executing", not "animating while idle". `assigned` set per Decision 1 will catch this case post-fix. No escalation needed.**
 
@@ -48,6 +48,6 @@
 ## 7. Final pass
 
 - [x] 7.1 `openspec validate fix-active-count-truth` — `Change 'fix-active-count-truth' is valid`
-- [x] 7.2 `verification.md` written — Phase 1 audit, Phase 4 build chain, Phase 5 post-fix invariants, Phase 6 label decision, screenshots referenced
+- [x] 7.2 `verification.md` written — Phase 1 audit, Phase 4 build chain, Phase 5 post-fix invariants, Phase 6 label decision, with transient local screenshots intentionally omitted from archive
 - [x] 7.3 Commit (single squash request from user — see below)
 - [x] 7.4 Ready for `/opsx:archive`

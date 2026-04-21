@@ -19,12 +19,6 @@
 - [x] 3.1 Run `pnpm --filter @offisim/ui-office build` and `pnpm --filter @offisim/web build`
   Re-run after the final core simplification pass: both builds completed successfully. `pnpm --filter @offisim/core build` also passed because the final fix lives in `packages/core`.
 - [x] 3.2 Web live verify: fail a Maya direct-chat run, switch to Alex, retry, and confirm Alex's visible rail does not receive Maya's retry output
-  Passed with a real `Retry` click. Trigger: save bad MiniMax key, send Maya direct chat, then restore the good key through Settings (causing runtime reinit), switch to Alex, and click the visible `Retry` button. Evidence:
-  `output/playwright/web-live/retry-rail-after-reinit.png`
-  `output/playwright/web-live/retry-rail-alex-before-retry.png`
-  `output/playwright/web-live/retry-rail-alex-chat-root-final.png`
-  Alex's chat root showed only `Task in progress — waiting for current round to finish.` while the retry POST count increased from `3 -> 4`, proving the real retry path ran without committing Maya's result into Alex's rail.
+  Passed with a real `Retry` click. Trigger: save bad MiniMax key, send Maya direct chat, then restore the good key through Settings (causing runtime reinit), switch to Alex, and click the visible `Retry` button. Alex's chat root showed only `Task in progress — waiting for current round to finish.` while the retry POST count increased from `3 -> 4`, proving the real retry path ran without committing Maya's result into Alex's rail.
 - [x] 3.3 Web live verify: after the same retry, switch back to Maya and confirm Maya's rail receives the streaming/committed retry result
-  Passed. After the same retry, switching back to Maya showed the retry result on Maya's rail, including employee/boss bubbles and a deliverable card. Evidence:
-  `output/playwright/web-live/retry-rail-maya-after-retry.png`
-  `output/playwright/web-live/retry-rail-maya-chat-root-final.png`
+  Passed. After the same retry, switching back to Maya showed the retry result on Maya's rail, including employee/boss bubbles and a deliverable card.

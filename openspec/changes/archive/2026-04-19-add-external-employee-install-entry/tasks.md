@@ -51,7 +51,7 @@
 
 ### 6.x Live Verify Record
 
-- 2026-04-19 本机 live verify 完成；浏览器证据在 `.playwright-cli/`，代表性截图：`page-2026-04-18T13-04-09-804Z.png`（Market Explore pinned card）、`page-2026-04-18T13-05-07-801Z.png`（Hermes preview）、`page-2026-04-18T13-07-28-880Z.png`（custom → hermes override preview）。Playwright artifact 时间戳是 UTC；当前会话日期是 2026-04-19 Pacific/Auckland。
+- 2026-04-19 本机 live verify 完成；当次浏览器交互记录已在本地验证后清理，归档只保留观察结论。Playwright artifact 时间戳当时为 UTC；当前会话日期是 2026-04-19 Pacific/Auckland。
 - 6.1 端点：复用已有 `http://127.0.0.1:18800/.well-known/agent-card.json` Hermes peer stub，并额外起本地 mock `http://127.0.0.1:18801` 覆盖 `/hermes`、`/custom`、`/badjson`、`/schema`、`/incompatible`、`/cors`；另起最小 Market stub `http://localhost:4100/v1/market/search` 让 Explore 进入正常渲染态。
 - 6.3 通过：Market → Explore 渲染 pinned `Connect external A2A agent` 卡，且 registry result 仍只有 stub listing `Live Verify Designer`。
 - 6.4 通过：`http://127.0.0.1:18801/hermes` 预览页显示 `Hermes Live Verify / Hermes Labs / version 1.0.0`，brand 预选 `Hermes`，role 默认 `Developer`；`http://127.0.0.1:18801/custom` 预览页显示 `Nebula Analyst / Nebula Cooperative / version 1.0.0`，brand 预选 `Custom`，role 为空。

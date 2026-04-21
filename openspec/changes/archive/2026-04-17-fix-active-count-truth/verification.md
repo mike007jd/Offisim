@@ -33,7 +33,7 @@ runs (3-file dispatch, then haiku):
   executing", which Decision 1's `assigned` set will pick up post-fix.
 - **No scope escalation needed.**
 
-Screenshots: `/tmp/audit-phase1-baseline.png`, `/tmp/audit-phase1-executing.png`.
+Transient local screenshots were captured during the audit and intentionally not retained in the archive.
 
 ## Phase 4 — typecheck / build
 
@@ -67,7 +67,7 @@ Reloaded page after fix landed; HMR picked up the new shared hook.
 - 5.5 (paused / blocked) not triggered organically. Spec says "if possible".
 - 5.7 (company switch) N/A — single default company in this session.
 
-Screenshot: `/tmp/audit-phase5-3d-postfix.png`.
+Transient local screenshots were captured during the audit and intentionally not retained in the archive.
 
 ## Phase 6 — label decision
 
