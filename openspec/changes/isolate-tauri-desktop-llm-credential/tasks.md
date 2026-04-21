@@ -52,7 +52,7 @@
 - [x] 5.1 `pnpm --filter @offisim/desktop build` launch 成功（webview 上起来，MiniMax provider 保持）
 - [x] 5.2 Settings 里 MiniMax preset + 贴 key + Save（`setRuntimeSecret` 写 `runtime_secret.txt`，chmod 600）
 - [x] 5.3 Team chat `hi` → Boss 真回（MiniMax 返 `Hey! 👋 Nice to see you. What can I help you with today?`，evidence 见 7.1）
-- [!] 5.4 Direct chat `@<某员工> hi` → 员工回复 — FAIL 2026-04-21：`Attempted to assign to readonly property.`。与 transport scope 无关（老 bug）。out-of-scope, tracked in separate change `fix-desktop-direct-chat-readonly`（propose 中）
+- [x] 5.4 Direct chat `@<某员工> hi` → 员工回复 — readonly crash fixed by separate change `fix-desktop-direct-chat-readonly` (commit `dd47abdd`, archived `2026-04-21-fix-desktop-direct-chat-readonly`)。Direct chat 现 reach transport；员工层自然语言 reply 被外部 provider `Connection error` 阻断，属 provider-level blocker，不再是本 change / readonly scope。
 - [ ] 5.5 DevTools Network：webview Network 看不到 `api.minimax.io` outbound（Rust 端发），Tauri IPC 层有 `llm_fetch` invoke。抓 IPC payload 检查：payload body **不含** secret 原文
 - [!] 5.6 AbortSignal 测 — 无 UI stop 入口。out-of-scope, tracked in separate change `add-chat-streaming-stop-control`（propose 中）
 - [ ] 5.7 tool_call 场景：boss 决策 `use_sop` / `direct_delegate` → tool_calls 正确 parse 并执行
@@ -70,7 +70,7 @@
 ## 7. Verify records（archive 时填）
 
 - [x] 7.1 5.3 team chat streaming 真出来 — 2026-04-21，release bundle + plaintext secret file，MiniMax 返 `Hey! 👋 Nice to see you. What can I help you with today?`，一次通。doubled-bubble 问题另开 followup change 处理，不影响 transport scope。
-- [!] 7.2 5.4 direct chat — 2026-04-21 FAIL：`Attempted to assign to readonly property.`。out-of-scope。
+- [x] 7.2 5.4 direct chat — readonly fixed by `fix-desktop-direct-chat-readonly` (commit `dd47abdd`, archived 2026-04-21)；剩余 provider `Connection error` 不属 readonly / transport scope。
 - [ ] 7.3 5.5 IPC payload 不含 secret — ⟨date / evidence⟩
 - [!] 7.4 5.6 abort — 2026-04-21 无 UI stop 入口，无法观测。out-of-scope。
 - [x] 7.5 5.8 reasoning — 2026-04-21 PASS：MiniMax REASONING region 实时生长 + 正文落地。
