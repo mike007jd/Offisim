@@ -3,9 +3,7 @@
 ## Purpose
 
 Chat rail 的 streaming UX 契约：让 LLM 响应在 `llm.stream.chunk` 事件陆续到来时真正逐段填充进同一个气泡，placeholder 只占住 `node entered` 到 `first chunk` 之间的空窗，partial / completed / interrupted / failed 四态视觉清晰，team chat 与 direct chat 行为一致，不与 scene / footer 矛盾。
-
 ## Requirements
-
 ### Requirement: Real content streams into the visible bubble
 Whenever `llm.stream.chunk` events carry non-empty `content` for a node in `VISIBLE_STREAMING_NODES`, the chat `StreamingBubble` SHALL render the accumulated content within 200 ms of each chunk arrival. A placeholder string SHALL NOT remain visible once any real content has accumulated.
 
@@ -70,7 +68,7 @@ If a stream fails or is aborted mid-response, the already-streamed partial conte
 - **THEN** the bubble retains its current text and marks the run as interrupted; the cursor pulse stops
 
 ### Requirement: Team and direct chat behave consistently
-Streaming behavior (placeholder discipline, label visibility, partial/completed distinction) SHALL be identical between team chat and direct-employee chat modes. Additionally, the direct-chat entry path SHALL reach the LLM transport layer without mutating any frozen or readonly runtime object — the conversation snapshot, agent state, store state, and any provider-config SSOT SHALL only be updated through their declared mutation channels (store actions, reducers, clone-and-replace). This invariant SHALL hold under the stricter JavaScriptCore semantics used by Tauri's macOS webview, where `Object.freeze`-ed targets throw `TypeError` on assignment instead of silently no-op-ing as they do under Chromium dev.
+Streaming behavior (placeholder discipline, label visibility, partial/completed distinction) SHALL be identical between team chat and direct-employee chat modes. Additionally, the direct-chat entry path SHALL reach the LLM transport layer without mutating any frozen or readonly runtime object — the conversation snapshot, agent state, store state, and any provider-config SSOT SHALL only be updated through their declared mutation channels (store actions, reducers, clone-and-replace). This invariant SHALL hold under the stricter JavaScriptCore semantics used by Tauri's macOS webview, where `Object.freeze`-ed targets throw `TypeError` on assignment instead of silently no-op-ing as they do under Chromium dev. For web direct chat specifically, the employee identity resolved at send time SHALL remain stable across the entire run lifecycle: user message append, streaming bubble label, pending interaction preview, follow-up routing, and retry SHALL all refer to the same target employee. When a web chat run fails with a retryable error, the visible retry affordance SHALL remain available across runtime reinit within the same page session until the user dismisses it, sends a replacement message, or successfully retries the failed run. Retrying such a failed direct-chat run SHALL keep the visible streaming bubble and the committed assistant output on the original failed run's conversation rail, even if the user changes the currently selected employee before invoking retry.
 
 #### Scenario: Same streaming discipline in direct chat
 - **WHEN** the user enters direct chat with a specific employee and sends a message
@@ -79,6 +77,31 @@ Streaming behavior (placeholder discipline, label visibility, partial/completed 
 #### Scenario: Direct chat reaches transport on Tauri release bundle
 - **WHEN** the user opens a Tauri release bundle (macOS webview / JavaScriptCore), opens direct chat with any employee, and sends a message
 - **THEN** no `TypeError: Attempted to assign to readonly property.` is thrown in the pre-transport path; the request reaches `llm_fetch` and the streaming bubble begins accumulating content as in team chat
+
+#### Scenario: Direct-chat preview target matches the employee selected at send time
+- **WHEN** the user sends a web direct-chat message while Maya is selected and that run emits a `skill_install_confirm` interaction
+- **THEN** the preview bubble SHALL identify Maya as the target employee
+- **AND** it SHALL NOT switch to Alex or any previously selected employee unless the user starts a brand-new run targeting that employee
+
+#### Scenario: Retry reuses the failed run target
+- **WHEN** a web direct-chat run targeting Maya fails, the user switches the UI selection to Alex, and then invokes retry
+- **THEN** the retried run SHALL still target Maya
+- **AND** the streaming bubble label, preview bubble, and follow-up message SHALL stay on Maya's conversation rail
+
+#### Scenario: Retry affordance survives runtime reinit
+- **WHEN** a web chat run fails with a retryable error, the user changes provider settings in a way that causes `reinitRuntime()`, and the page session remains open
+- **THEN** the chat rail SHALL continue to show a visible retry affordance for that failed run after the reinit completes
+- **AND** invoking retry SHALL use the same failed-run metadata that existed before the reinit
+
+#### Scenario: Retry affordance clears only when explicitly superseded
+- **WHEN** a retryable failed run exists and the user either dismisses the error, sends a brand-new message, or completes a successful retry
+- **THEN** the old retry affordance SHALL be removed
+- **AND** runtime reinit by itself SHALL NOT count as dismissal or supersession
+
+#### Scenario: Retry result does not jump to the currently selected employee rail
+- **WHEN** a direct-chat run for Maya fails, the user switches the visible chat rail to Alex, and then retries the failed Maya run
+- **THEN** Alex's rail SHALL NOT receive Maya's streaming bubble or committed assistant result from that retry
+- **AND** Maya's rail SHALL receive the retry output instead
 
 ### Requirement: Chat streaming UX aligns with scene/footer runtime state
 Semantic consistency (not frame-lockstep) SHALL hold between streaming bubble state, 3D/2D scene executing state, and footer cost/latency counters during a run.
@@ -145,3 +168,4 @@ The set of node names that drive the streaming-bubble lifecycle SHALL include at
 #### Scenario: Chat displays Boss/Manager bubbles during their LLM calls
 - **WHEN** a run enters the Boss node and then the Manager node (delegate path)
 - **THEN** a `StreamingBubble` with speaker label `Boss` is visible during the Boss LLM call, followed by a bubble with speaker label `Manager` during the Manager LLM call — neither is omitted nor collapsed into a single placeholder
+

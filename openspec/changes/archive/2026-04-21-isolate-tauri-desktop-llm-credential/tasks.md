@@ -53,12 +53,12 @@
 - [x] 5.2 Settings 里 MiniMax preset + 贴 key + Save（`setRuntimeSecret` 写 `runtime_secret.txt`，chmod 600）
 - [x] 5.3 Team chat `hi` → Boss 真回（MiniMax 返 `Hey! 👋 Nice to see you. What can I help you with today?`，evidence 见 7.1）
 - [x] 5.4 Direct chat `@<某员工> hi` → 员工回复 — readonly crash fixed by separate change `fix-desktop-direct-chat-readonly` (commit `dd47abdd`, archived `2026-04-21-fix-desktop-direct-chat-readonly`)。Direct chat 现 reach transport；员工层自然语言 reply 被外部 provider `Connection error` 阻断，属 provider-level blocker，不再是本 change / readonly scope。
-- [ ] 5.5 DevTools Network：webview Network 看不到 `api.minimax.io` outbound（Rust 端发），Tauri IPC 层有 `llm_fetch` invoke。抓 IPC payload 检查：payload body **不含** secret 原文
+- [x] 5.5 DevTools Network：webview Network 看不到 `api.minimax.io` outbound（Rust 端发），Tauri IPC 层有 `llm_fetch` invoke。2026-04-21 live verify 通过临时 env-gated Rust trace (`OFFISIM_TRACE_LLM_IPC=1`) 直接抓到 Rust 收到的 `LlmFetchRequest`：字段仅有 `requestId/url/method/auth/body/headers`，`auth` 只传 `{ scheme: "bearer", headerName: null }`，无 `apiKey` / `secret` / `token` 字段；`body` 为模型请求 JSON，未出现 provider secret 原文。TS 侧带来的 `authorization` 仅是 SDK 占位 header 名，真实 secret 仍在 Rust 注入
 - [!] 5.6 AbortSignal 测 — 无 UI stop 入口。out-of-scope, tracked in separate change `add-chat-streaming-stop-control`（propose 中）
-- [ ] 5.7 tool_call 场景：boss 决策 `use_sop` / `direct_delegate` → tool_calls 正确 parse 并执行
-- [ ] 5.8 reasoning 场景：MiniMax `thinking_delta` stream → UI reasoning region 实时生长（2026-04-21 verify PASS via MiniMax — REASONING region 实时生长 + 正文落地）
-- [!] 5.9 切 provider：Settings 换成 OpenRouter preset + Save + 发 `hi` — FAIL 2026-04-21：`401 Missing Authentication header`。说明 OpenRouter 路径 Authorization header 未被 transport 注入。由 Section 8 Task 2 修
-- [!] 5.10 clear secret 测：Settings 里 Clear → file 被删 → 再发请求 — FAIL 2026-04-21：走 `rm runtime_secret.txt` 后再发消息，前端显示 `Connection error.`（generic）。缺 secret 未被翻译成 `No credential`。额外：Settings `Stored securely on this device` 状态未 invalidate。由 Section 8 Task 1 修
+- [x] 5.7 tool_call 场景：boss 决策 `use_sop` / `direct_delegate` → tool_calls 正确 parse 并执行。2026-04-21 desktop live verify 走 `direct_delegate`：team chat 发 `Ask Alex to remember this exact code phrase for later recall: T57-PROBE-20260421-ALPHA. Reply only with STORED after saving it.`；`agent_events` 记录 boss `{"action":"direct_delegate"}`（07:15:05Z），随后 employee task `tr-dc-1776755705306` completed with `{"content":"STORED"}`（07:15:15Z）；UI 同时出现 `AUTO MEMORY UPDATED`。更关键的是 direct-chat path 不会跑 `reflectAndRemember`（`employee-completion.ts` 对 `isDirectChatTask` skip reflection），但 `memory_entries` 新增 `content='T57-PROBE-20260421-ALPHA'`、`owner_id=<Alex>`、`created_at=2026-04-21T07:15:13.265Z`，说明这条 memory 只能来自 employee `remember` virtual tool，足证 tool-call parse + execute 已通
+- [x] 5.8 reasoning 场景：MiniMax `thinking_delta` stream → UI reasoning region 实时生长（2026-04-21 verify PASS via MiniMax — REASONING region 实时生长 + 正文落地）
+- [!] 5.9 切 provider：Settings 换成 OpenRouter preset + Save + 发 `hi` — 2026-04-21 re-verify：`401 Missing Authentication header` 已消失；真实 OpenRouter key 写入 `runtime_secret.txt` 后，请求可达 provider，UI 报 `429 Provider returned error`。说明 Authorization 注入链已通，剩余阻断为外部 provider quota/rate-limit，非本 change 的 transport/auth bug
+- [x] 5.10 clear secret 测：2026-04-21 re-verify PASS：手删 `runtime_secret.txt` 后 team chat 再发消息，UI 显示 friendly 文案 `No provider credential stored on this device. Open Settings → Provider to enter your API key.`；回到 Settings 打开，状态也回到 not-stored 占位
 
 ## 6. 协议台账 + archive gate
 
@@ -71,12 +71,12 @@
 
 - [x] 7.1 5.3 team chat streaming 真出来 — 2026-04-21，release bundle + plaintext secret file，MiniMax 返 `Hey! 👋 Nice to see you. What can I help you with today?`，一次通。doubled-bubble 问题另开 followup change 处理，不影响 transport scope。
 - [x] 7.2 5.4 direct chat — readonly fixed by `fix-desktop-direct-chat-readonly` (commit `dd47abdd`, archived 2026-04-21)；剩余 provider `Connection error` 不属 readonly / transport scope。
-- [ ] 7.3 5.5 IPC payload 不含 secret — ⟨date / evidence⟩
+- [x] 7.3 5.5 IPC payload 不含 secret — 2026-04-21，release bundle 以 `OFFISIM_TRACE_LLM_IPC=1` 从终端启动并发 team chat `hi`；Rust stdout 打出 sanitized `LlmFetchRequest`：`url=https://openrouter.ai/api/v1/chat/completions`，`auth.scheme=bearer`，`tsHeaderNames=["accept","authorization","content-type",...]`，无 `apiKey` / `secret` / `token` 字段；`body` 仅含 prompt/messages JSON。说明 IPC 只传 auth discriminator 与请求体，不传 secret 原文
 - [!] 7.4 5.6 abort — 2026-04-21 无 UI stop 入口，无法观测。out-of-scope。
 - [x] 7.5 5.8 reasoning — 2026-04-21 PASS：MiniMax REASONING region 实时生长 + 正文落地。
-- [!] 7.6 5.9 provider 切换 — 2026-04-21 FAIL：切 OpenRouter + `google/gemma-3-4b-it:free` + Save + 发 `hi` → `401 Missing Authentication header`。Section 8 Task 2 修。
-- [!] 7.7 5.10 clear secret — 2026-04-21 FAIL：手删 `runtime_secret.txt` 后再发请求 → UI 显示 `Connection error.`（generic），缺 secret 未翻译成 `No credential`；Settings 仍显示 `Stored securely on this device`。Section 8 Task 1 修。
-- [ ] 7.8 5.5 / 5.7 / 5.9 / 5.10 all PASS after Section 8 fixes — ⟨date / evidence⟩
+- [!] 7.6 5.9 provider 切换 — 2026-04-21 re-verify：OpenRouter real key 写入 `runtime_secret.txt` 后，team chat 不再报 `401 Missing Authentication header`，而是 provider-side `429 Provider returned error`；证据表明 auth header 注入已成功，剩余是外部 provider blocker
+- [x] 7.7 5.10 clear secret — 2026-04-21 re-verify PASS：手删 `runtime_secret.txt` 后 team chat 再发请求，UI 显示 `No provider credential stored on this device. Open Settings → Provider to enter your API key.`；Settings 重新打开为 not-stored 状态
+- [!] 7.8 5.5 / 5.7 / 5.9 / 5.10 all PASS after Section 8 fixes — 2026-04-21 re-check：`5.5` / `5.7` / `5.10` 已 PASS；`5.9` 仅到 provider-side `429`，因此仍不能诚实写 all PASS
 
 ## 8. Fix live verify fails（Section 5 拉闸项）
 
@@ -89,14 +89,14 @@
 - [x] 8.1.3 `tauri-llm-fetch.ts` 定义 `TauriLlmFetchError` class 带 `code` 字段；Channel error event 走这条路径；`isNoCredentialError(err)` helper walk `cause` chain + message-pattern fallback，覆盖被 SDK (`@anthropic-ai/sdk` / `openai`) wrap 进 `APIConnectionError` 的场景
 - [x] 8.1.4 `useRuntimeInit.ts` `setError` 走 `isNoCredentialError(err)` 翻成 `"No provider credential stored on this device. Open Settings → Provider to enter your API key."`；非 no-credential 保留原 message
 - [x] 8.1.5 `hasStoredSecret` re-probe：Settings loadState 时已走 `getRuntimeSecretStatus()`（既有行为，非本 task 新增）；切 preset 时通过 Task 2 的 vendor-diff 分支清空（比 probe 更精准 —— probe 只看 file 存在性，不区分 vendor），`handlePresetChange` 变 vendor 即 `setHasStoredSecret(false)`
-- [ ] 8.1.6 Live verify：手删 `runtime_secret.txt` → 发 chat → UI 显示 friendly no-credential 文案；回到 Settings 打开 → 状态变"not stored"；重 Save key → chat 恢复 — pending live run
+- [x] 8.1.6 Live verify：2026-04-21 PASS：手删 `runtime_secret.txt` → team chat 发消息 → UI 显示 friendly no-credential 文案；回到 Settings 打开 → 状态变 not-stored。随后重写 OpenRouter key 到 `runtime_secret.txt` 并 Retry，同一 provider 路径恢复为真实 provider-side `429 Provider returned error`（说明 auth 注入恢复，外部 provider 仍限流）
 
 ### 8.2 Task 2 — OpenRouter 401 `Missing Authentication header`（fix 5.9）
 
 - [x] 8.2.1 根因诊断：`authSchemeFor('openai-compat', 'https://openrouter.ai/api/v1')` 返 `bearer` 正确；`gateway-factory.ts::case 'openai-compat'` 透传 baseURL + fetch 正确；Rust `AuthScheme::Bearer` 分支注入 `Authorization: Bearer <secret>` 正确；`headers.retain` 剥 SDK 占位 `Bearer ignored` 正确
 - [x] 8.2.2 真正根因在 `useSettingsProviderState.ts::handlePresetChange`：切 preset 时只改 baseURL / model / headers / acpCommand，**不清 `apiKey` input，不清 `hasStoredSecret`**；`useSettingsSaveOrchestrator.handleSave` 因 `hasStoredSecret=true` 跳过 `setRuntimeSecret` 调用，`runtime_secret.txt` 仍是上一个 vendor（MiniMax）的 key；Rust 把 MiniMax key 注入 Authorization 打到 OpenRouter，OpenRouter 解析失败返 `Missing Authentication header`（format 不合法在 OpenRouter 规范里视同无头）
 - [x] 8.2.3 修复 in `useSettingsProviderState.ts::handlePresetChange`：比较 `prevVendor` vs `nextPreset.vendor`，vendor 变了就 `setApiKey('')` + `setHasStoredSecret(false)`；既有 save gate `!hasStoredSecret && !apiKey.trim()` 会强制用户在切 vendor 后补新 key，否则 Save 报错
-- [ ] 8.2.4 Live verify 组合：(a) MiniMax 已 stored → 切 OpenRouter preset → apiKey input 被清 + 显示 Not stored → 不输 key 按 Save → 报 "API Key is required." → 输 key → Save → 发 `hi` 能回 (b) 回切 MiniMax preset → 同上 re-enter → MiniMax 不回归 — pending live run (OpenRouter + MiniMax key 都要真可用)
+- [!] 8.2.4 Live verify 组合：(a) MiniMax 已 stored → 切 OpenRouter preset → apiKey input 被清 + 显示 Not stored；2026-04-21 live re-verify 进一步确认 Save gate 在无 key 时直接 disabled（`assembleSettingsControllerApi.isSaveDisabled`），未观察到可点击后再报 `"API Key is required."` 的独立 UI 分支；输 OpenRouter key 后，请求路径不再 401，已到 provider 但被 `429 Provider returned error` 阻断 (b) 回切 MiniMax preset → 同上 re-enter → MiniMax 不回归 — 目前仍缺完整“正常回复”闭环，不能勾
 - [x] 8.2.5 顺手检查：`case 'openai'`（非 compat）在 `gateway-factory.ts` line 55-60 确实丢了 baseURL 和 defaultHeaders。目前无 `provider: 'openai'` + baseURL 的用法，但类型允许 —— 留作 low-risk 潜在 bug，不阻塞本 change；若未来 preset 加 `openai` + 自定义 proxy baseURL 再补
 
 ### 8.3 Build + archive gate 复查
@@ -104,4 +104,4 @@
 - [x] 8.3.1 `cargo check` + `cargo clippy -- -D warnings` 全绿 (2026-04-21)
 - [x] 8.3.2 `pnpm --filter @offisim/{shared-types,core,ui-office,web,desktop} build` 全绿；release bundle `/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` 重新产出
 - [x] 8.3.3 Spec 未动：canonical `desktop-llm-credential-isolation` 描述 credential isolation invariant（secret 不越界 / authScheme pass-through / AbortSignal 传 Rust cancel），error code 细分属实现细节，不需 spec requirement；canonical 未改，无需迁移
-- [ ] 8.3.4 Archive gate 三查 + 协议台账 re-check — live verify 跑完补
+- [!] 8.3.4 Archive gate 三查 + 协议台账 re-check — 2026-04-21 re-check 完成：`openspec/protocols-ledger.md` 无需更新（Tauri 2 行 claim 仍与当前实现一致）；spec / code / tasks 口径已重新对齐。`5.7` 已补 live evidence，当前剩余未闭环只剩 `5.9/7.6/8.2.4` 的 provider-side `429` 外部阻断；若坚持 archive，需按“transport/auth bug fixed, provider quota still blocking full OpenRouter happy-path”口径收口
