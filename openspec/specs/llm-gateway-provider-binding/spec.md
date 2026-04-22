@@ -5,9 +5,7 @@ TBD - created by archiving change fix-boss-scope-openai-hardcode-leak. Update Pu
 ## Requirements
 ### Requirement: ProviderConfig load rejects unusable half-records
 
-`normalizeProviderConfig(parsed)` in `packages/ui-office/src/lib/provider-config.ts` SHALL return `null` when the parsed record names a non-`subscription` provider but carries neither an `apiKey` string nor a `baseURL` string. Legacy short-format records (e.g. `{"provider":"openai","model":"gpt-4o-mini"}` written by an earlier ProviderConfig schema) and manually-seeded half records from DevTools SHALL fall through to `null`, letting `loadProviderConfig()` cascade to env fallback and ultimately to the `*RuntimeReposOnly` empty-state branch instead of silently synthesizing an OpenAI gateway against `api.openai.com` with an empty credential.
-
-`subscription` (ACP) is the only exempt provider — it spawns `claude` via `node:child_process` and carries no HTTP credential.
+`normalizeProviderConfig(parsed)` in `packages/ui-office/src/lib/provider-config.ts` SHALL return `null` when the parsed record carries neither an `apiKey` string nor a `baseURL` string. Legacy short-format records (e.g. `{"provider":"openai","model":"gpt-4o-mini"}` written by an earlier ProviderConfig schema) and manually-seeded half records from DevTools SHALL fall through to `null`, letting `loadProviderConfig()` cascade to env fallback and ultimately to the `*RuntimeReposOnly` empty-state branch instead of silently synthesizing an OpenAI gateway against `api.openai.com` with an empty credential.
 
 #### Scenario: Stale {provider:'openai',model:'gpt-4o-mini'} record rejected
 
@@ -22,20 +20,21 @@ TBD - created by archiving change fix-boss-scope-openai-hardcode-leak. Update Pu
 - **THEN** `normalizeProviderConfig` accepts it because `baseURL` is present
 - **AND** `loadProviderConfig()` returns the normalized config for the runtime to consume
 
-#### Scenario: Subscription provider exempt from apiKey/baseURL check
+#### Scenario: Stale retired ACP record is rejected
 
-- **WHEN** a record carries `{"provider":"subscription","model":"default",...}` with neither `apiKey` nor `baseURL`
-- **THEN** `normalizeProviderConfig` returns the record (not null) because `subscription` is exempt
+- **WHEN** localStorage still carries a retired record `{"provider":"subscription","model":"default",...}` with neither `apiKey` nor `baseURL`
+- **THEN** `normalizeProviderConfig()` returns `null`
+- **AND** `loadProviderConfig()` falls back to env-backed config or `null`
 
-### Requirement: A runtime has exactly one LlmGateway bound to its ProviderConfig
+### Requirement: A runtime has exactly one LlmGateway bound to its active execution lane
 
-Each `RuntimeContext` SHALL hold a single `LlmGateway` instance as `ctx.llmGateway`, constructed once during runtime init from the active `ProviderConfig` via `createGateway(...)`. All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `pm-planner-node`, `employee-node` (direct + team chat paths), `RecordedSystemLlmCaller`, middleware (`summarization`, `node-context`, `user-preference`, etc.) — SHALL reach the gateway through `ctx.llmGateway` or helpers that fall back to it (`recordedLlmStream` / `recordedLlmCall`'s `ctx.modelRegistry?.getGateway(...) ?? ctx.llmGateway` pattern). Per-scope gateway rebuilding is forbidden.
+Each `RuntimeContext` SHALL hold a single `LlmGateway` instance as `ctx.llmGateway`, constructed once during runtime init from the active `ProviderConfig` and `executionLane`. Browser runtimes MAY construct this through `createGateway(...)`; trusted runtimes MAY bind an equivalent Offisim-owned execution adapter (for example the Tauri `TauriClaudeAgentSdkGateway` for `claude-agent-sdk`). All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `pm-planner-node`, `employee-node` (direct + team chat paths), `RecordedSystemLlmCaller`, middleware (`summarization`, `node-context`, `user-preference`, etc.) — SHALL reach the gateway through `ctx.llmGateway` or helpers that fall back to it (`recordedLlmStream` / `recordedLlmCall`'s `ctx.modelRegistry?.getGateway(...) ?? ctx.llmGateway` pattern). Per-scope gateway rebuilding is forbidden.
 
-#### Scenario: Only one createGateway call per runtime init
+#### Scenario: Only one runtime-level execution adapter binding per init
 
 - **WHEN** auditing `createTauriRuntime` / `createBrowserRuntime` call sites plus all node + service files in `packages/core/src/agents/` and `packages/core/src/services/`
-- **THEN** exactly one `createGateway(...)` invocation per runtime-bundle-init SHALL exist (in the runtime factory)
-- **AND** no node / service / middleware file SHALL import `createGateway` or directly instantiate `new OpenAiAdapter(...)` / `new AnthropicAdapter(...)` / `new SubscriptionAdapter(...)`
+- **THEN** exactly one runtime-level adapter binding SHALL exist per runtime-bundle init
+- **AND** no node / service / middleware file SHALL import `createGateway` or directly instantiate `new OpenAiAdapter(...)` / `new AnthropicAdapter(...)` / `new ClaudeAgentSdkAdapter(...)`
 
 #### Scenario: Boss, manager, employee all hit the same gateway
 

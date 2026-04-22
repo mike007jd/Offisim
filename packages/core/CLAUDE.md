@@ -11,10 +11,9 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
-- 外部 agent 接入统一走 A2A (`packages/core/src/a2a/`)。核心员工 runtime 仍是 `anthropic-adapter` / `openai-adapter` / `subscription-adapter (ACP)`
-- `subscription` provider 依赖 `node:child_process`, 桌面端专用; `gateway-factory.ts` 用 `require()` 动态加载避免进 browser bundle
+- 外部 agent 接入统一走 A2A (`packages/core/src/a2a/`)。核心员工 runtime 当前 execution lanes 是 `gateway`（`anthropic-adapter` / `openai-adapter`）和 `claude-agent-sdk`（`ClaudeAgentSdkAdapter`）
 - `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
-- **Tauri 模式 adapter HTTP transport 走 Rust-side `llm_fetch` command**（credential 不越 Rust→JS 边界）；`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` 是唯一注入口。injected fetch 存在时 anthropic adapter 跳过 `buildBrowserCompatHeaders` + `createCorsCleanFetch`（Rust 端已统一改写 Authorization 头）。web 模式不注入 fetch，仍走原 SDK 默认 transport + `createCorsCleanFetch`
+- **Tauri 模式 credential-isolated bridge 分两条**：`gateway` lane 走 Rust-side `llm_fetch` command；`claude-agent-sdk` lane 走 Rust-side `claude_agent_execute` trusted-host bridge（local Node sidecar + provider secret env 注入，credential 不越 Rust→JS 边界）。`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` 仍是 HTTP lane 唯一注入口。web 模式不注入 fetch，仍走原 SDK 默认 transport + `createCorsCleanFetch`
 
 ## Data Model & Zones
 

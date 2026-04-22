@@ -3,17 +3,18 @@ use tokio::process::Command;
 
 /// Allowed git subcommands (whitelist for safety).
 const ALLOWED_SUBCOMMANDS: &[&str] = &[
-    "status", "add", "commit", "diff", "log", "rev-parse", "init", "clone",
+    "status",
+    "add",
+    "commit",
+    "diff",
+    "log",
+    "rev-parse",
+    "init",
+    "clone",
 ];
 
 /// Blocked flags that could cause destructive operations.
-const BLOCKED_FLAGS: &[&str] = &[
-    "--no-verify",
-    "--force",
-    "-f",
-    "--hard",
-    "--amend",
-];
+const BLOCKED_FLAGS: &[&str] = &["--no-verify", "--force", "-f", "--hard", "--amend"];
 
 #[derive(Debug, Serialize)]
 pub struct GitResult {

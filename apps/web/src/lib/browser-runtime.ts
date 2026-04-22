@@ -53,13 +53,12 @@ import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type { InteractionMode } from '@offisim/shared-types';
 import {
-  buildSubscriptionGatewayConfig,
+  DEFAULT_EXECUTION_LANE,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
-import { assertBrowserProviderAllowed } from './browser-provider-guard';
 import {
   createBrowserRuntimePersistence,
   createDeliverableContentBridge,
@@ -175,7 +174,11 @@ export async function createBrowserRuntime(
   companyId: string,
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
-  assertBrowserProviderAllowed(config.provider);
+  if (config.executionLane !== DEFAULT_EXECUTION_LANE) {
+    throw new Error(
+      `Execution lane "${config.executionLane}" is not available in browser-limited runtime. Switch back to "gateway" or move to a trusted backend host.`,
+    );
+  }
 
   const threadId = `thread-${companyId}`;
   const snapshot = loadBrowserRuntimeSnapshot();
@@ -232,7 +235,6 @@ export async function createBrowserRuntime(
     baseURL: proxyBaseURL ?? config.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
-    subscription: buildSubscriptionGatewayConfig(config),
   });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(

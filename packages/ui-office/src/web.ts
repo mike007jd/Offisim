@@ -50,12 +50,18 @@ export {
   type DeliverableHookRow,
 } from './lib/deliverable-artifacts.js';
 export {
-  buildSubscriptionGatewayConfig,
+  DEFAULT_EXECUTION_LANE,
   getInstallEnvironmentForExecutionMode,
+  isExecutionLaneAllowed,
   loadProviderConfig,
   type ProviderConfig,
+  resolveAvailableExecutionLanes,
   resolveEffectiveRuntimePolicy,
 } from './lib/provider-config.js';
+export {
+  getProviderPreset,
+  getSupportedExecutionLanesForPreset,
+} from './components/settings/provider-presets.js';
 export { loadStoredBrowserMcpServers } from './lib/desktop-mcp-registry.js';
 export { NotificationProvider } from './runtime/notification-provider.js';
 export {

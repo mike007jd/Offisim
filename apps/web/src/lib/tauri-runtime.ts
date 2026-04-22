@@ -12,6 +12,7 @@ import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/c
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
+import type { LlmGateway } from '@offisim/core/dist/llm/gateway.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
@@ -41,7 +42,6 @@ import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type { InteractionMode } from '@offisim/shared-types';
 import {
-  buildSubscriptionGatewayConfig,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
@@ -49,11 +49,12 @@ import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
-import { type AuthScheme, createTauriLlmFetch } from './tauri-llm-fetch';
 import { InMemoryUploadRefResolver, createTauriSkillInstallEnvironment } from './skill-install-env';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
+import { TauriClaudeAgentSdkGateway } from './tauri-claude-agent-sdk';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
+import { type AuthScheme, createTauriLlmFetch } from './tauri-llm-fetch';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import {
@@ -88,6 +89,38 @@ function authSchemeFor(provider: ProviderConfig['provider'], baseURL?: string): 
   // OpenAI and every OpenAI-compatible endpoint (Kimi / OpenRouter / Gemini
   // compat / Zai / MiniMax openai-compat / LM Studio / etc.) use Bearer.
   return 'bearer';
+}
+
+function createTauriExecutionAdapter(config: ProviderConfig): LlmGateway {
+  switch (config.executionLane) {
+    case 'gateway':
+      return createGateway({
+        provider: config.provider,
+        // Tauri runtime never sees the provider credential — it lives only in
+        // Rust storage and is injected by the Rust-side bridge. The HTTP SDK
+        // clients still demand a non-empty string, so we pass a sentinel.
+        apiKey: 'ignored',
+        baseURL: config.baseURL,
+        defaultHeaders: config.defaultHeaders,
+        dangerouslyAllowBrowser: true,
+        fetch: createTauriLlmFetch(authSchemeFor(config.provider, config.baseURL)),
+      });
+    case 'claude-agent-sdk':
+      if (config.provider !== 'anthropic') {
+        throw new Error(
+          `Execution lane "claude-agent-sdk" currently requires provider "anthropic"; received "${config.provider}".`,
+        );
+      }
+      return new TauriClaudeAgentSdkGateway({
+        baseURL: config.baseURL,
+      });
+    case 'openai-agents-sdk':
+      throw new Error(
+        'Execution lane "openai-agents-sdk" is not implemented yet. Use "gateway" for now.',
+      );
+    default:
+      throw new Error(`Unknown execution lane: ${config.executionLane as string}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,23 +190,7 @@ export async function createTauriRuntime(
     repo: repos.deliverables,
   });
 
-  const gateway = createGateway({
-    provider: config.provider,
-    // Tauri runtime never sees the provider credential — it lives only in
-    // Keychain and is injected by the Rust-side `llm_fetch` transport. The
-    // SDK clients still demand a non-empty string, so we pass a sentinel.
-    apiKey: 'ignored',
-    baseURL: config.baseURL,
-    defaultHeaders: config.defaultHeaders,
-    dangerouslyAllowBrowser: true,
-    subscription: buildSubscriptionGatewayConfig(config),
-    // Subscription (ACP) spawns `claude` via node:child_process — no HTTP,
-    // no credential — so no fetch injection needed; every other branch goes
-    // through the Rust transport.
-    ...(config.provider === 'subscription'
-      ? {}
-      : { fetch: createTauriLlmFetch(authSchemeFor(config.provider, config.baseURL)) }),
-  });
+  const gateway = createTauriExecutionAdapter(config);
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
     config.runtimePolicy,

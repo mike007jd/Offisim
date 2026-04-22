@@ -1,4 +1,5 @@
-import type { LlmProvider } from '@offisim/shared-types';
+import type { LlmExecutionLane, LlmProvider } from '@offisim/shared-types';
+import { DEFAULT_EXECUTION_LANE } from '../../lib/provider-config';
 import type {
   ProviderCapabilities,
   ProviderCompatibility,
@@ -14,6 +15,7 @@ export interface ProviderPreset {
   region: ProviderRegion;
   compatibility: ProviderCompatibility;
   surface: ProviderSurface;
+  supportedExecutionLanes: readonly LlmExecutionLane[];
   defaults: Partial<ProviderConfig>;
   capabilities: ProviderCapabilities;
   recommendedModels?: string[];
@@ -40,6 +42,7 @@ function createPreset(
     surface: ProviderSurface;
     defaults: Partial<ProviderConfig> & { provider: LlmProvider };
     capabilities: ProviderCapabilities;
+    supportedExecutionLanes?: readonly LlmExecutionLane[];
     recommendedModels?: string[];
   },
 ): ProviderPreset {
@@ -48,38 +51,25 @@ function createPreset(
     ...metadata,
     defaults: {
       ...metadata.defaults,
+      executionLane: metadata.defaults.executionLane ?? DEFAULT_EXECUTION_LANE,
       vendor: metadata.vendor,
       region: metadata.region,
       compatibility: metadata.compatibility,
       surface: metadata.surface,
       capabilities: metadata.capabilities,
     },
+    supportedExecutionLanes: metadata.supportedExecutionLanes ?? [DEFAULT_EXECUTION_LANE],
     hasThinking: metadata.capabilities.thinking,
   };
 }
 
 export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
-  subscription: createPreset('Subscription', {
-    vendor: 'offisim',
-    region: 'local',
-    compatibility: 'native',
-    surface: 'desktop-subscription',
-    defaults: {
-      provider: 'subscription',
-      model: 'default',
-      apiKey: '',
-      acpCommand: 'claude',
-      acpArgs: ['acp'],
-    },
-    capabilities: createCapabilities({
-      toolCalls: true,
-    }),
-  }),
   'minimax-intl-anthropic-coding': createPreset('MiniMax Global', {
     vendor: 'minimax',
     region: 'intl',
     compatibility: 'anthropic-compatible',
     surface: 'coding-plan',
+    supportedExecutionLanes: ['gateway', 'claude-agent-sdk'],
     defaults: {
       provider: 'anthropic',
       baseURL: 'https://api.minimax.io/anthropic',
@@ -163,6 +153,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
     region: 'shared',
     compatibility: 'anthropic-compatible',
     surface: 'coding-plan',
+    supportedExecutionLanes: ['gateway', 'claude-agent-sdk'],
     defaults: {
       provider: 'anthropic',
       baseURL: 'https://api.z.ai/api/anthropic',
@@ -312,6 +303,12 @@ export function getProviderPreset(key: string): ProviderPreset | undefined {
   return PROVIDER_PRESETS[key];
 }
 
+export function getSupportedExecutionLanesForPreset(
+  preset: ProviderPreset | undefined,
+): readonly LlmExecutionLane[] {
+  return preset?.supportedExecutionLanes ?? [DEFAULT_EXECUTION_LANE];
+}
+
 export function findProviderPresetKeyByConfig(
   config: Partial<ProviderConfig> | null,
 ): string | null {
@@ -334,23 +331,17 @@ export function findProviderPresetKeyByConfig(
 
 /**
  * Returns the presets available in the current environment.
- *
- * `subscription` requires Node.js (`claude acp` via `node:child_process`) and is only
- * available in the desktop build — browser callers see it filtered out.
  */
-export function getAvailableProviderPresets(options: {
+export function getAvailableProviderPresets(_options: {
   tauri: boolean;
 }): Record<string, ProviderPreset> {
-  if (options.tauri) return PROVIDER_PRESETS;
-  return Object.fromEntries(
-    Object.entries(PROVIDER_PRESETS).filter(([key]) => key !== 'subscription'),
-  );
+  return PROVIDER_PRESETS;
 }
 
-export function getDefaultProviderPresetKey(options: {
+export function getDefaultProviderPresetKey(_options: {
   tauri: boolean;
 }): string {
-  return options.tauri ? 'subscription' : DEFAULT_PRESET_KEY;
+  return DEFAULT_PRESET_KEY;
 }
 
 export type { LlmProvider };

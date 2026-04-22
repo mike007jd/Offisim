@@ -1,7 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
 import { Cpu } from 'lucide-react';
-import { type ReactNode, useMemo } from 'react';
-import type { ProviderConfig } from '../../lib/provider-config';
+import { type ReactNode, useEffect, useMemo } from 'react';
+import {
+  DEFAULT_EXECUTION_LANE,
+  type ProviderConfig,
+  resolveAvailableExecutionLanes,
+} from '../../lib/provider-config';
 import { useTheme } from '../../theme';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsExternalTab } from './SettingsExternalTab';
@@ -9,9 +13,10 @@ import { SettingsProviderTab } from './SettingsProviderTab';
 import { SettingsRuntimeTab } from './SettingsRuntimeTab';
 import { assembleSettingsControllerApi } from './controller/assembleSettingsControllerApi';
 import { useSettingsDirtyTracking } from './controller/useSettingsDirtyTracking';
-import { useSettingsProviderState } from './controller/useSettingsProviderState';
+import { IS_DESKTOP, useSettingsProviderState } from './controller/useSettingsProviderState';
 import { useSettingsRuntimePolicy } from './controller/useSettingsRuntimePolicy';
 import { useSettingsSaveOrchestrator } from './controller/useSettingsSaveOrchestrator';
+import { getProviderPreset, getSupportedExecutionLanesForPreset } from './provider-presets';
 import { MetricCard, SurfaceCard } from './settings-primitives';
 
 export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
@@ -36,6 +41,22 @@ export function useSettingsWorkspaceController({
   const { density, setDensity } = useTheme();
   const provider = useSettingsProviderState();
   const runtimePolicy = useSettingsRuntimePolicy();
+  const selectedPreset = getProviderPreset(provider.preset);
+  const availableExecutionLanes = useMemo(
+    () =>
+      resolveAvailableExecutionLanes(
+        getSupportedExecutionLanesForPreset(selectedPreset),
+        runtimePolicy.executionMode,
+        { tauri: IS_DESKTOP },
+      ),
+    [selectedPreset, runtimePolicy.executionMode],
+  );
+
+  useEffect(() => {
+    if (availableExecutionLanes.includes(provider.executionLane)) return;
+    provider.setExecutionLane(availableExecutionLanes[0] ?? DEFAULT_EXECUTION_LANE);
+  }, [availableExecutionLanes, provider.executionLane, provider.setExecutionLane]);
+
   const snapshotJson = useMemo(
     () => JSON.stringify({ ...provider.snapshot, ...runtimePolicy.snapshot, density }),
     [provider.snapshot, runtimePolicy.snapshot, density],

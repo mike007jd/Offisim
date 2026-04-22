@@ -1,12 +1,10 @@
 /**
  * Supported LLM provider transports.
  *
- * `subscription` is a Node-only adapter (runs `claude acp` via `node:child_process`)
- * and is therefore gated to the desktop/Tauri environment by a runtime check in
- * `gateway-factory.ts` (`shouldRejectSubscriptionInRenderer`). All other providers
- * are BYO-key adapters and are equally valid in browser and desktop.
+ * All current providers are BYO-key HTTP adapters and are valid in both browser
+ * and desktop runtimes.
  */
-export type LlmProvider = 'subscription' | 'openai' | 'anthropic' | 'openai-compat';
+export type LlmProvider = 'openai' | 'anthropic' | 'openai-compat';
 
 /** Abstract model profile — maps to a concrete provider+model */
 export interface ModelProfile {
@@ -19,6 +17,9 @@ export interface ModelProfile {
 
 /** Runtime execution mode advertised by the local policy surface. */
 export type RuntimeExecutionMode = 'auto' | 'desktop-trusted' | 'browser-limited';
+
+/** Concrete LLM execution path bound to a provider config. */
+export type LlmExecutionLane = 'gateway' | 'claude-agent-sdk' | 'openai-agents-sdk';
 
 /** Company-level model policy stored in companies.default_model_policy_json */
 export interface ModelPolicyConfig {

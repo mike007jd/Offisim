@@ -15,7 +15,7 @@
 
 ---
 
-## 2026-04-19 台账
+## 2026-04-22 台账
 
 | # | 协议 / 依赖 | Repo claim | 外部口径 | 一致？ | 下一步 |
 |---|---|---|---|---|---|
@@ -26,6 +26,8 @@
 | 5 | **LangGraph / checkpoint** | `@langchain/langgraph ^1.2.1` + `langgraph-checkpoint-sqlite ^1.0.1` + `langgraph-checkpoint ^1.0.0`；**web 侧自维护 fork** `apps/web/src/lib/tauri-checkpoint.ts`（手抄 upstream `SqliteSaver` 用 Tauri async SQL）；**2026-04-20 write-path hotfix `fix-tauri-checkpoint-serial-writer`**：`putWrites` 合并 multi-VALUES 单 execute（消除 BEGIN/INSERT/COMMIT 散 execute 撞 sqlx pool split-conn 的 race）+ 进程级 async mutex 串行化 `put` / `putWrites` / `deleteThread` + 写路径 `[tauri-checkpoint/<method>]` stack logging | LangGraph JS 主 API 当前形态 | ⚠️ | **T1.3** 显式标注 fork 差异 + 建立定期对比 upstream 机制；风险是未来 upstream 加 filter / migration 时本地悄悄落后。本次 hotfix 未解这条根问题，只解 T2.3 暴露的 desktop `database is locked` + `cannot rollback - no transaction is active` race |
 | 6 | **SKILL.md 开放标准** | **已接**（T2.1 `add-skills-foundation-two-tier-schema` + T2.2 `add-agent-mediated-skill-install` 2026-04-19 + T2.3 `add-skills-fork-and-edit` 2026-04-20）：`packages/core/src/skills/skill-md.ts` parser + serializer 只认 Anthropic 标准字段（`name` + `description` 必填，可选 `allowedTools` / `license` / `version`），禁 `offisim.*` 私有命名空间；`SkillLoader` 3-tier API + 统一 `installSkill` 入口 + `forkSkill` 复用 installSkill / `editSkillBody` 独立入口；两层 schema `skills` 表；vault 磁盘布局 `companies/{cid}/[employees/{slug}/]skills/{slug}/SKILL.md`；**agent-mutation 路径 T2.2+T2.3 落地**：6 员工工具（`install_skill_from_git` / `install_skill_from_upload` / `sync_from_claude_code` / `sync_from_codex` / `fork_skill` / `edit_skill_body`）+ `SkillInstallConfirmBubble` preview（action=install/fork/edit 三分支）+ `SkillInstallCommitter` 两阶段安全；**fork provenance 只落 DB**（`source_kind='forked'` + `source_ref='company-skill:<parentId>@<parentVersion>'`），SKILL.md frontmatter 不扩 `offisim.*`，保 Anthropic 开放标准 portability | Anthropic SKILL.md spec（2025-12 开放标准 / `anthropics/skills` 120k stars / Hermes / Claude Code / Cursor / Codex / Copilot / Windsurf / Gemini 等 19 agent 互通 / 350k+ packages） | ✅ | 观察上游是否加 `version` 等官方字段；目前 `allowedTools` 作 Anthropic 允许的扩展字段 |
 | 7 | **agentskills.io registry** | **未接** | agentskills.io 是 Anthropic 主推的 skill 公共 registry，Hermes / Claude / 等都对接 | ❌ | **T2.2** 作 import 源之一（同步 Claude 的 skills，本地 / URL 均可）；不把自家 skill 推过去（Market 只自家生态） |
+| 8 | **Anthropic Claude Agent SDK** | `@anthropic-ai/claude-agent-sdk 0.2.117`；Offisim 通过自有 `ClaudeAgentSdkAdapter` / trusted-host bridge 把 SDK 限定在 leaf execution adapter，顶层仍由 LangGraph / OrchestrationService 持有；2026-04-22 backend harness + Tauri trusted host 已跑通 MiniMax Intl 与 Z.AI 的 Anthropic-compatible lane，browser 仍只暴露 `gateway` | Anthropic 当前主推 `@anthropic-ai/claude-agent-sdk`；TypeScript SDK 自带 Claude Code native binary，可通过 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` 走 LLM gateway；第三方产品需用 API key / cloud auth，不应复用 claude.ai 登录/订阅配额 | ⚠️ | 先补 Anthropic native evidence，再逐家验证 Kimi / Qwen / Z.AI / MiniMax，证据写入 `openspec/provider-lane-matrix.md`；随后决定桌面分发是否要内置 Node sidecar 依赖 |
+| 9 | **OpenAI Agents SDK** | `@openai/agents 0.8.5` + `OpenAiAgentsSdkAdapter` + harness-level execution boundary 已落；browser / Tauri runtime 仍未对产品面开放，`openai-agents-sdk` 目前主要是 backend harness / adapter boundary 能力，trusted runtime 仍会显式报 `not implemented yet` | OpenAI 当前主 SDK 为 `@openai/agents`，支持默认 OpenAI provider、内建 model/provider 扩展点，以及非 OpenAI provider / adapter 路径；不同 provider 功能差异需单独验证 | ⚠️ | 进入任务 3.x：先补 OpenAI native smoke / load / edge evidence，再决定 third-party compat 走内建 provider 还是 adapter，并在验证前保持 product host 不暴露 |
 
 ---
 
@@ -33,11 +35,11 @@
 
 | # | 协议 / 依赖 | 说明 |
 |---|---|---|
-| 8 | Anthropic Claude API (Messages) | 我们用非官方 CORS-friendly 路径（Bearer 替 x-api-key / strip telemetry / `messages.create({stream:true})` 替 `.stream()`），持续观察官方 breaking 变更 |
-| 9 | MiniMax OpenAI-compatible endpoint | web dev fallback 默认；观察 MiniMax SDK 主口径是否改 |
-| 10 | DiceBear `avataaars` | 2D 头像来源；跨大版本升级时 outfit color 映射会漂 |
-| 11 | Three.js / R3F | 3D scene；版本漂 2D 降级 fallback 还在 |
-| 12 | SheetJS CDN tarball | doc-engine xlsx 走 `https://cdn.sheetjs.com/..tgz` install-time 拉（SheetJS 许可），CDN 下线即坏 |
+| 10 | Anthropic Claude API (Messages) | 我们用非官方 CORS-friendly 路径（Bearer 替 x-api-key / strip telemetry / `messages.create({stream:true})` 替 `.stream()`），持续观察官方 breaking 变更 |
+| 11 | MiniMax OpenAI-compatible endpoint | web dev fallback 默认；观察 MiniMax SDK 主口径是否改 |
+| 12 | DiceBear `avataaars` | 2D 头像来源；跨大版本升级时 outfit color 映射会漂 |
+| 13 | Three.js / R3F | 3D scene；版本漂 2D 降级 fallback 还在 |
+| 14 | SheetJS CDN tarball | doc-engine xlsx 走 `https://cdn.sheetjs.com/..tgz` install-time 拉（SheetJS 许可），CDN 下线即坏 |
 
 ---
 

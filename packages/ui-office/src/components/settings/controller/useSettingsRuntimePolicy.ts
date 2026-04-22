@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import { createDefaultRuntimePolicy } from '../../../lib/provider-config';
 import type { ProviderPreset } from '../provider-presets';
 
-const DEFAULT_POLICY = createDefaultRuntimePolicy('subscription', '');
+const DEFAULT_POLICY = createDefaultRuntimePolicy('anthropic', '');
 
 function parsePositiveInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -109,7 +109,6 @@ export function useSettingsRuntimePolicy() {
 
   function buildRuntimePolicy(
     providerPreset: ProviderPreset | undefined,
-    isSubscription: boolean,
     model: string,
   ): RuntimePolicyConfig {
     return {
@@ -118,7 +117,7 @@ export function useSettingsRuntimePolicy() {
         default: {
           ...runtimeModelDefault,
           provider: providerPreset?.defaults.provider ?? 'openai-compat',
-          model: isSubscription ? 'default' : model,
+          model,
           profileName: runtimeModelDefault.profileName || 'runtime-default',
         },
         ...(runtimeModelOverrides ? { overrides: runtimeModelOverrides } : {}),

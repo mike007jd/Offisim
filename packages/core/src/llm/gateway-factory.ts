@@ -3,7 +3,6 @@ import { AnthropicAdapter } from './anthropic-adapter.js';
 import type { LlmGateway } from './gateway.js';
 import { OpenAiAdapter } from './openai-adapter.js';
 import type { RetryConfig } from './retry.js';
-import type { SubscriptionAdapterOptions } from './subscription-adapter.js';
 
 export interface GatewayConfig {
   provider: LlmProvider;
@@ -24,15 +23,6 @@ export interface GatewayConfig {
    * undefined and the SDK's default transport applies.
    */
   fetch?: typeof fetch;
-  /** Subscription-mode (ACP) options — command path, args, env */
-  subscription?: SubscriptionAdapterOptions;
-}
-
-export function shouldRejectSubscriptionInRenderer(
-  hasWindow: boolean,
-  dangerouslyAllowBrowser?: boolean,
-): boolean {
-  return hasWindow && !dangerouslyAllowBrowser;
 }
 
 /**
@@ -54,6 +44,7 @@ export function createGateway(config: GatewayConfig): LlmGateway {
       });
     case 'openai':
       return new OpenAiAdapter(config.apiKey, {
+        baseURL: config.baseURL,
         retryConfig: config.retryConfig,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
         fetch: config.fetch,
@@ -69,31 +60,6 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
         fetch: config.fetch,
       });
-    case 'subscription': {
-      if (
-        shouldRejectSubscriptionInRenderer(
-          typeof globalThis.window !== 'undefined',
-          config.dangerouslyAllowBrowser,
-        )
-      ) {
-        throw new Error(
-          'Provider "subscription" requires Node.js (child_process) and cannot run in the browser. ' +
-            'Use assertBrowserProviderAllowed() to guard before calling createGateway().',
-        );
-      }
-      // Dynamic require — keeps node:child_process out of browser bundles.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      type SubscriptionModule = typeof import('./subscription-adapter.js');
-      let subscriptionModule: SubscriptionModule;
-      try {
-        subscriptionModule = require('./subscription-adapter.js');
-      } catch {
-        // In direct TypeScript execution, the .ts path exists before build output.
-        subscriptionModule = require('./subscription-adapter.ts') as SubscriptionModule;
-      }
-      const { SubscriptionAdapter } = subscriptionModule;
-      return new SubscriptionAdapter(config.subscription);
-    }
     default:
       throw new Error(`Unknown provider: ${config.provider as string}`);
   }

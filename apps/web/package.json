@@ -11,6 +11,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.40",
+    "@langchain/langgraph-checkpoint": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@offisim/asset-schema": "workspace:*",
     "@offisim/core": "workspace:*",
     "@offisim/db-local": "workspace:*",
@@ -19,9 +22,6 @@
     "@offisim/shared-types": "workspace:*",
     "@offisim/ui-core": "workspace:*",
     "@offisim/ui-office": "workspace:*",
-    "@langchain/core": "^1.1.31",
-    "@langchain/langgraph-checkpoint": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.27.1",
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/plugin-fs": "^2.4.5",
     "@tauri-apps/plugin-sql": "^2.3.2",

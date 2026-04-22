@@ -133,6 +133,7 @@ export type {
 } from './install.js';
 
 export type {
+  LlmExecutionLane,
   LlmProvider,
   ModelProfile,
   ModelPolicyConfig,

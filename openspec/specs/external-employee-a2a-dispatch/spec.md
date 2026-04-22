@@ -30,7 +30,7 @@ When the same `employee-node` dequeues a `PendingAssignment` whose target is an 
 #### Scenario: External employee dispatch hits A2AClient
 - **WHEN** `employee-node` runs with an assignment for an external employee
 - **THEN** `A2AClient.sendAndWait(assignment.inputJson.description, { agentId: a2a_agent_id })` is invoked against the employee's `a2a_url`
-- **AND** no LLM adapter (`AnthropicAdapter` / `OpenAIAdapter` / `SubscriptionAdapter`) is called for this assignment
+- **AND** no internal LLM execution adapter (`AnthropicAdapter` / `OpenAiAdapter` / `ClaudeAgentSdkAdapter` / `OpenAiAgentsSdkAdapter`) is called for this assignment
 
 #### Scenario: Internal employee dispatch unchanged
 - **WHEN** `employee-node` runs with an assignment for an internal employee after this change
@@ -151,4 +151,3 @@ The reference peer stub in `/tmp/offisim-a2a-peer.py` (skill-local, not checked 
 #### Scenario: Peer returns CORS headers on actual responses
 - **WHEN** the web SPA browser sends `GET /.well-known/agent-card.json` or `POST /a2a/<path> { method: 'SendMessage', ... }` with `Origin: http://localhost:5176`
 - **THEN** every response (200 success, JSON-RPC error, 4xx/5xx) carries `Access-Control-Allow-Origin` matching the request origin
-

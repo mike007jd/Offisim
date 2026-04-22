@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  clearRuntimeSecret,
-  getRuntimeSecretStatus,
-  setRuntimeSecret,
-} from '../../../lib/desktop-provider-secrets';
+import { getRuntimeSecretStatus, setRuntimeSecret } from '../../../lib/desktop-provider-secrets';
 import { isTauri } from '../../../lib/env';
 import {
   type ProviderConfig,
@@ -78,18 +74,13 @@ export function useSettingsSaveOrchestrator({
     async function loadState() {
       const saved = loadProviderConfig();
       if (saved) {
-        const { usedSubscriptionFallback } = provider.applyFromSaved(saved);
+        provider.applyFromSaved(saved);
         const normalizedPolicy = normalizeRuntimePolicy(
           saved.runtimePolicy,
           saved.provider,
           saved.model,
         );
         runtimePolicy.applyFromSaved(normalizedPolicy);
-        if (usedSubscriptionFallback) {
-          setSaveError(
-            'Subscription runtime is only available in the desktop app. A browser-safe preset was loaded instead.',
-          );
-        }
       } else {
         const defaultPreset = getProviderPreset(DEFAULT_PRESET_KEY);
         provider.applyDefaults(DEFAULT_PRESET_KEY);
@@ -133,7 +124,6 @@ export function useSettingsSaveOrchestrator({
     try {
       setIsSaving(true);
       const providerPreset = PROVIDER_PRESETS[provider.preset];
-      const isSubscription = provider.preset === 'subscription';
       const effectiveBaseURL = provider.baseURL || providerPreset?.defaults.baseURL;
 
       let parsedHeaders: Record<string, string> | undefined;
@@ -147,29 +137,23 @@ export function useSettingsSaveOrchestrator({
       }
 
       if (isTauri()) {
-        if (isSubscription) {
-          await clearRuntimeSecret();
-          provider.setHasStoredSecret(false);
-        } else if (provider.apiKey.trim()) {
+        if (provider.apiKey.trim()) {
           await setRuntimeSecret(provider.apiKey.trim());
           provider.setHasStoredSecret(true);
         } else if (!provider.hasStoredSecret) {
           setSaveError('API Key is required.');
           return;
         }
-      } else if (!isSubscription && !provider.apiKey.trim()) {
+      } else if (!provider.apiKey.trim()) {
         setSaveError('API Key is required.');
         return;
       }
 
-      const runtimePolicyConfig = runtimePolicy.buildRuntimePolicy(
-        providerPreset,
-        isSubscription,
-        provider.model,
-      );
+      const runtimePolicyConfig = runtimePolicy.buildRuntimePolicy(providerPreset, provider.model);
 
       const config: ProviderConfig = {
         provider: providerPreset?.defaults.provider ?? 'openai-compat',
+        executionLane: provider.executionLane,
         ...(providerPreset
           ? {
               providerVariantId: provider.preset,
@@ -180,20 +164,14 @@ export function useSettingsSaveOrchestrator({
               capabilities: providerPreset.capabilities,
             }
           : {}),
-        apiKey: isSubscription ? '' : provider.apiKey.trim() || undefined,
-        model: isSubscription ? 'default' : provider.model,
-        ...(effectiveBaseURL && !isSubscription ? { baseURL: effectiveBaseURL } : {}),
+        apiKey: provider.apiKey.trim() || undefined,
+        model: provider.model,
+        ...(effectiveBaseURL ? { baseURL: effectiveBaseURL } : {}),
         ...(parsedHeaders
           ? { defaultHeaders: parsedHeaders }
           : providerPreset?.defaults.defaultHeaders
             ? { defaultHeaders: providerPreset.defaults.defaultHeaders }
             : {}),
-        ...(isSubscription
-          ? {
-              acpCommand: provider.acpCommand || 'claude',
-              acpArgs: ['acp'],
-            }
-          : {}),
         runtimePolicy: runtimePolicyConfig,
       };
 

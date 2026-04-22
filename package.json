@@ -8,7 +8,10 @@
   "scripts": {
     "build": "turbo run build",
     "build:claude-agent-host": "node scripts/build-claude-agent-host.mjs",
+    "build:runtime-deps": "node scripts/build-runtime-deps.mjs",
     "dev:all": "node scripts/dev-all.mjs",
+    "harness:load": "node scripts/harness-load.mjs",
+    "harness:smoke": "node scripts/harness-smoke.mjs",
     "typecheck": "turbo run typecheck",
     "provider:refresh": "node scripts/provider-source-registry/refresh.mjs",
     "provider:test": "node --test scripts/provider-source-registry/test/provider-source-registry.test.mjs",

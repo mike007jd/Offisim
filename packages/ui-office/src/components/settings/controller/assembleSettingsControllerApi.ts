@@ -1,3 +1,4 @@
+import { resolveAvailableExecutionLanes } from '../../../lib/provider-config';
 import type { Density } from '../../../theme';
 import { PROVIDER_PRESETS } from '../provider-presets';
 import {
@@ -6,6 +7,7 @@ import {
   formatSurfaceLabel,
 } from '../settings-primitives';
 import type { useSettingsDirtyTracking } from './useSettingsDirtyTracking';
+import { IS_DESKTOP } from './useSettingsProviderState';
 import type { useSettingsProviderState } from './useSettingsProviderState';
 import type { useSettingsRuntimePolicy } from './useSettingsRuntimePolicy';
 import type { useSettingsSaveOrchestrator } from './useSettingsSaveOrchestrator';
@@ -29,8 +31,13 @@ export function assembleSettingsControllerApi({
   dirty,
   onToast,
 }: AssembleApiInput) {
-  const isSubscription = provider.preset === 'subscription';
   const selectedPreset = PROVIDER_PRESETS[provider.preset];
+  const verifiedExecutionLanes = selectedPreset?.supportedExecutionLanes ?? ['gateway'];
+  const supportedExecutionLanes = resolveAvailableExecutionLanes(
+    verifiedExecutionLanes,
+    runtimePolicy.executionMode,
+    { tauri: IS_DESKTOP },
+  );
   const isThinkingProvider = selectedPreset?.hasThinking === true;
   const showBaseURL =
     provider.preset === 'custom' ||
@@ -39,14 +46,14 @@ export function assembleSettingsControllerApi({
     save.isSaving ||
     save.isReinitializing ||
     !provider.model ||
-    (!isSubscription && !provider.apiKey && !provider.hasStoredSecret);
+    (!provider.apiKey && !provider.hasStoredSecret);
 
   return {
-    acpCommand: provider.acpCommand,
     apiKey: provider.apiKey,
     baseURL: provider.baseURL,
     defaultHeaders: provider.defaultHeaders,
     density,
+    executionLane: provider.executionLane,
     executionMode: runtimePolicy.executionMode,
     gitAutoCommit: runtimePolicy.gitAutoCommit,
     handlePresetChange: provider.handlePresetChange,
@@ -55,7 +62,6 @@ export function assembleSettingsControllerApi({
     hasUnsavedChanges: dirty.hasUnsavedChanges,
     isSaveDisabled,
     isSaving: save.isSaving || save.isReinitializing,
-    isSubscription,
     isThinkingProvider,
     memoryConfidenceThreshold: runtimePolicy.memoryConfidenceThreshold,
     memoryEnabled: runtimePolicy.memoryEnabled,
@@ -69,14 +75,15 @@ export function assembleSettingsControllerApi({
     saveError: save.saveError,
     selectedCapabilities: capabilitySummary(selectedPreset?.capabilities),
     selectedCompatibility: formatCompatibilityLabel(selectedPreset?.compatibility),
+    verifiedExecutionLanes,
     selectedPreset,
     selectedRegion: selectedPreset?.region?.toUpperCase() ?? 'GLOBAL',
     selectedSurface: formatSurfaceLabel(selectedPreset?.surface),
     selectedVendor: selectedPreset?.vendor ?? 'custom',
-    setAcpCommand: provider.setAcpCommand,
     setApiKey: provider.setApiKey,
     setBaseURL: provider.setBaseURL,
     setDensity,
+    setExecutionLane: provider.setExecutionLane,
     setExecutionMode: runtimePolicy.setExecutionMode,
     setGitAutoCommit: runtimePolicy.setGitAutoCommit,
     setMemoryConfidenceThreshold: runtimePolicy.setMemoryConfidenceThreshold,
@@ -90,6 +97,7 @@ export function assembleSettingsControllerApi({
     setSummarizationTriggerTokens: runtimePolicy.setSummarizationTriggerTokens,
     setToolSearchEnabled: runtimePolicy.setToolSearchEnabled,
     showBaseURL,
+    supportedExecutionLanes,
     summarizationEnabled: runtimePolicy.summarizationEnabled,
     summarizationKeepRecentMessages: runtimePolicy.summarizationKeepRecentMessages,
     summarizationTriggerTokens: runtimePolicy.summarizationTriggerTokens,

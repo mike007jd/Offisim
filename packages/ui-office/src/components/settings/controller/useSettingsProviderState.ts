@@ -1,3 +1,4 @@
+import type { LlmExecutionLane } from '@offisim/shared-types';
 import { useMemo, useState } from 'react';
 import { isTauri } from '../../../lib/env';
 import type { ProviderConfig } from '../../../lib/provider-config';
@@ -5,6 +6,7 @@ import {
   findProviderPresetKeyByConfig,
   getDefaultProviderPresetKey,
   getProviderPreset,
+  getSupportedExecutionLanesForPreset,
 } from '../provider-presets';
 
 const IS_DESKTOP = isTauri();
@@ -12,24 +14,20 @@ const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ tauri: IS_DESKTOP });
 
 export interface ProviderStateSnapshot {
   preset: string;
+  executionLane: LlmExecutionLane;
   apiKey: string;
   baseURL: string;
   model: string;
   defaultHeaders: string;
-  acpCommand: string;
-}
-
-export interface ApplyFromSavedResult {
-  usedSubscriptionFallback: boolean;
 }
 
 export function useSettingsProviderState() {
   const [preset, setPreset] = useState<string>(DEFAULT_PRESET_KEY);
+  const [executionLane, setExecutionLane] = useState<LlmExecutionLane>('gateway');
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [model, setModel] = useState('');
   const [defaultHeaders, setDefaultHeaders] = useState('');
-  const [acpCommand, setAcpCommand] = useState('claude');
   const [hasStoredSecret, setHasStoredSecret] = useState(false);
 
   function handlePresetChange(value: string) {
@@ -39,12 +37,12 @@ export function useSettingsProviderState() {
     if (nextPreset) {
       setBaseURL(nextPreset.defaults.baseURL ?? '');
       setModel(nextPreset.defaults.model ?? '');
+      setExecutionLane(getSupportedExecutionLanesForPreset(nextPreset)[0] ?? 'gateway');
       setDefaultHeaders(
         nextPreset.defaults.defaultHeaders
           ? JSON.stringify(nextPreset.defaults.defaultHeaders)
           : '',
       );
-      setAcpCommand(nextPreset.defaults.acpCommand ?? 'claude');
     }
     // Stored secret is bound to the previous vendor's credentials. Switching
     // vendors requires a fresh key; otherwise Save would reuse the stale
@@ -55,23 +53,18 @@ export function useSettingsProviderState() {
     }
   }
 
-  function applyFromSaved(saved: ProviderConfig): ApplyFromSavedResult {
+  function applyFromSaved(saved: ProviderConfig): void {
     setApiKey(saved.apiKey ?? '');
     setBaseURL(saved.baseURL ?? '');
     setModel(saved.model ?? '');
+    setExecutionLane(saved.executionLane);
     setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
-    setAcpCommand(saved.acpCommand ?? 'claude');
     const matchKey = findProviderPresetKeyByConfig(saved);
     if (matchKey) {
-      if (!IS_DESKTOP && matchKey === 'subscription') {
-        setPreset(DEFAULT_PRESET_KEY);
-        return { usedSubscriptionFallback: true };
-      }
       setPreset(matchKey);
-      return { usedSubscriptionFallback: false };
+      return;
     }
     setPreset(DEFAULT_PRESET_KEY);
-    return { usedSubscriptionFallback: false };
   }
 
   function applyDefaults(presetKey: string = DEFAULT_PRESET_KEY): void {
@@ -79,33 +72,33 @@ export function useSettingsProviderState() {
     setPreset(presetKey);
     setBaseURL(targetPreset?.defaults.baseURL ?? '');
     setModel(targetPreset?.defaults.model ?? '');
+    setExecutionLane(getSupportedExecutionLanesForPreset(targetPreset)[0] ?? 'gateway');
     setDefaultHeaders(
       targetPreset?.defaults.defaultHeaders
         ? JSON.stringify(targetPreset.defaults.defaultHeaders)
         : '',
     );
-    setAcpCommand(targetPreset?.defaults.acpCommand ?? 'claude');
   }
 
   const snapshot = useMemo<ProviderStateSnapshot>(
-    () => ({ preset, apiKey, baseURL, model, defaultHeaders, acpCommand }),
-    [preset, apiKey, baseURL, model, defaultHeaders, acpCommand],
+    () => ({ preset, executionLane, apiKey, baseURL, model, defaultHeaders }),
+    [preset, executionLane, apiKey, baseURL, model, defaultHeaders],
   );
 
   return {
     preset,
+    executionLane,
     apiKey,
     baseURL,
     model,
     defaultHeaders,
-    acpCommand,
     hasStoredSecret,
     setPreset,
+    setExecutionLane,
     setApiKey,
     setBaseURL,
     setModel,
     setDefaultHeaders,
-    setAcpCommand,
     setHasStoredSecret,
     handlePresetChange,
     applyFromSaved,
